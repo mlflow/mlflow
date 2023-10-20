@@ -1,0 +1,279 @@
+.. _llm-eval:
+
+====================================
+MLflow LLM Evaluate
+====================================
+
+With the emerging of ChatGPT, LLMs have shown its power of text generation in various fields, such as 
+question answering, translating and text summarization. Evaluating LLMs' performance is slightly different 
+from traditional ML models, as very often there is no single ground truth to compare against. 
+MLflow provides an API :py:func:`mlflow.evaluate()` to help evaluate your LLMs.
+
+``mlflow.evaluate()`` consists of 3 main components:
+
+1. **Metrics**: the metrics to compute, LLM evaluate will use LLM metrics. 
+2. **A model to evaluate**: it can be an MLflow ``pyfunc`` model, a URI pointing to one registered 
+   MLflow model, or any python callable that represents your model, e.g, a HuggingFace text summarization pipeline. 
+3. **Evaluation data**: the data your model is evaluated at, it can be a pandas Dataframe, a python list, a 
+   numpy array or an :py:func:`mlflow.data.dataset.Dataset` instance.
+
+
+Quickstart
+==========
+
+Below is a simple example that gives an quick overview of how MLflow LLM evaluation works. The example builds
+a simple question-answering model by wrapping "openai/gpt-3.5-turbo" with custom prompt. You can paste it to
+your IPython or local editor and execute it, and install missing dependencies as prompted.
+
+.. code-block:: python
+
+    import mlflow
+    import openai
+    import os
+    import pandas as pd
+    from getpass import getpass
+
+    # Set up openai auth.
+    OPENAI_API_KEY = getpass()
+    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+    openai.api_key = OPENAI_API_KEY
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform for managing the end-to-end machine learning (ML) "
+                "lifecycle. It was developed by Databricks, a company that specializes in big data and "
+                "machine learning solutions. MLflow is designed to address the challenges that data "
+                "scientists and machine learning engineers face when developing, training, and deploying "
+                "machine learning models.",
+                "Apache Spark is an open-source, distributed computing system designed for big data "
+                "processing and analytics. It was developed in response to limitations of the Hadoop "
+                "MapReduce computing model, offering improvements in speed and ease of use. Spark "
+                "provides libraries for various tasks such as data ingestion, processing, and analysis "
+                "through its components like Spark SQL for structured data, Spark Streaming for "
+                "real-time data processing, and MLlib for machine learning tasks",
+            ],
+        }
+    )
+
+    with mlflow.start_run() as run:
+        system_prompt = "Answer the following question in two sentences"
+        # Wrap "gpt-3.5-turbo" as an MLflow model.
+        logged_model = mlflow.openai.log_model(
+            model="gpt-3.5-turbo",
+            task=openai.ChatCompletion,
+            artifact_path="model",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "{question}"},
+            ],
+        )
+
+        # Use predefined question-answering metrics to evaluate our model. 
+        results = mlflow.evaluate(
+            logged_model.model_uri,
+            eval_data,
+            targets="ground_truth",
+            model_type="question-answering",
+        )
+        print(f"See evaluation results below: \n{results.metrics}")
+
+        # Evaluation result for each data record is available in `results.tables`.
+        eval_table = results.tables["eval_results_table"]
+        print(f"See evaluation table below: \n{eval_table}")
+
+
+LLM Evaluation Metrics
+=======================
+
+There are two types of LLM evaluation metrics in MLflow:
+
+1. Metrics relying on SaaS model (e.g., OpenAI) with prompt engineering, e.g., :py:func:`mlflow.metrics.relevance`, as called 
+   LLM-as-judge metrics. These  metrics are created via :py:func:`make_genai_metric` method. For each data record, these metrics 
+   under the hood sends one prompt consisting of the following information to the SaaS model, and extract the score from model response:
+
+   * Metrics definition.
+   * Metrics grading criteria.
+   * Reference examples.
+   * Input data/context.
+   * Model output.
+   * [optional] Ground truth.
+
+    More details of how these fields are set can be found in the section "Create your Custom LLM-evaluation Metrics".
+
+2. Function-based per-row metrics. These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe),
+   based on certain functions, like Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`). 
+   These metrics are similar to traditional metrics.
+
+
+Select Metrics to Evaluate
+--------------------------
+
+There are two ways to select metrics to evaluate your LLMs:
+
+1. Use ``model_type`` argument in ``mlflow.evaluate``, every predefined model type comes with a 
+   set of metrics. This is suitable if your model falls in our predefined categories, e.g., 
+   ``question-answering``. You can find the full list of model types, and the associated evaluate 
+   metrics [here](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate). A sample code is as below:
+
+    .. code-block:: python
+
+        results = mlflow.evaluate(
+            model,
+            eval_data,
+            targets="ground_truth",
+            model_type="question-answering",
+        )
+
+2. Use ``extra_metrics`` argument in ``mlflow.evaluate``, you can add your required metrics to the list, 
+   and also include your custom metrics (will be covered in the next section). Notice that if both 
+   ``model_type`` and ``extra_metrics`` are set, ``extra_metrics`` together with predefined metrics are computed. 
+   In order to just use your handpicked metrics, please remove ``model_type``. A sample code is as below:
+
+    .. code-block:: python
+
+        results = mlflow.evaluate(
+            model,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latenc())],
+        )
+
+Create your Custom LLM-evaluation Metrics
+---------------------------------------------
+
+Create LLM-as-judge Evaluation Metrics (Cateogory 1)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can also create your own Saas LLM evaluation metrics with MLflow API :py:func:`mlflow.metrics.make_genai_metric`, which 
+needs the following information:
+
+* ``name``: the name of your custom metric.
+* ``definition``: describe what's the metric doing. 
+* ``grading_prompt``: describe the scoring critieria. 
+* ``examples``: a few input/output examples with score, they are used as a reference for LLM judge.
+* ``model``: the identifier of LLM judge. 
+* ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-3.5-turbo-16k"``.
+* ``aggregations``: aggregation strategy for the metrics.
+* ``greater_is_better``: indicates if a higher score means your model is better.
+
+Under the hood, ``definition``, ``grading_prompt``, ``examples`` together with evaluation data and model output will be 
+composed into a long prompt and sent to LLM. If you are familiar with the concept of prompt engineering, 
+SaaS LLM evaluation metric is basically trying to compose a "right" prompt containing instructions, data and model 
+output so that LLM, e.g., GPT4 can output the information we want. 
+
+Now let's create a custom GenAI metrics called "professionalism", which measures how professional our model output is. 
+
+Let's first create a few examples with scores, these will be the reference samples LLM judge uses. To create such examples, 
+we will use :py:func:`mlflow.metrics.EvaluationExample` class, which has 4 fields:
+
+* input: input text.
+* output: output text.
+* score: the score for output in the context of input. 
+* justification: why do we give the `score` for the data. 
+
+.. code-block:: python
+
+    professionalism_example_score_2 = mlflow.metrics.EvaluationExample(
+        input="What is MLflow?",
+        output=(
+            "MLflow is like your friendly neighborhood toolkit for managing your machine learning projects. It helps "
+            "you track experiments, package your code and models, and collaborate with your team, making the whole ML "
+            "workflow smoother. It's like your Swiss Army knife for machine learning!"
+        ),
+        score=2,
+        justification=(
+            "The response is written in a casual tone. It uses contractions, filler words such as 'like', and "
+            "exclamation points, which make it sound less professional. "
+        ),
+    )
+    professionalism_example_score_4 = mlflow.metrics.EvaluationExample(
+        input="What is MLflow?",
+        output=(
+            "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was "
+            "developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is "
+            "designed to address the challenges that data scientists and machine learning engineers face when "
+            "developing, training, and deploying machine learning models.",
+        ),
+        score=4,
+        justification=(
+            "The response is written in a formal language and a neutral tone. "
+        ),
+    )
+
+Now let's define the ``professionalism`` metric, you will see how each field is set up.
+
+.. code-block:: python
+
+    professionalism = mlflow.metrics.make_genai_metric(
+        name="professionalism",
+        definition=(
+            "Professionalism refers to the use of a formal, respectful, and appropriate style of communication that is "
+            "tailored to the context and audience. It often involves avoiding overly casual language, slang, or "
+            "colloquialisms, and instead using clear, concise, and respectful language."
+        ),
+        grading_prompt=(
+            "Professionalism: If the answer is written using a professional tone, below are the details for different scores: "
+            "- Score 0: Language is extremely casual, informal, and may include slang or colloquialisms. Not suitable for "
+            "professional contexts."
+            "- Score 1: Language is casual but generally respectful and avoids strong informality or slang. Acceptable in "
+            "some informal professional settings."
+            "- Score 2: Language is overall formal but still have casual words/phrases. Borderline for professional contexts."
+            "- Score 3: Language is balanced and avoids extreme informality or formality. Suitable for most professional contexts. "
+            "- Score 4: Language is noticeably formal, respectful, and avoids casual elements. Appropriate for formal "
+            "business or academic settings. "
+        ),
+        examples=[professionalism_example_score_2, professionalism_example_score_4],
+        model="openai:/gpt-3.5-turbo-16k",
+        parameters={"temperature": 0.0},
+        aggregations=["mean", "variance"],
+        greater_is_better=True,
+    )
+
+Best Practice
+~~~~~~~~~~~~~~
+
+Under the hood of evaluting with LLM as the judge is prompt engineering, and how to find the best prompt is still under research. 
+Here are some tips for setting required fields of custom SaaS LLM evaluation metrics:
+
+* TODO(sunish): please share your learnings here.
+* TODO(prithvi): please share your learnings here.
+* TODO(ann): please share your learnings here.
+
+
+Create Local LLM Evaluation Metrics (Cateogory 2)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This is very similar to creating a custom traditional metrics, with the exception of returning a `EvaluationResult` instance.
+Basically you need to:
+
+1. Implement a ``eval_fn`` to define your scoring logic, it must take in 3 args ``predictions``, ``targets`` and ``metrics``.
+   ``eval_fn`` must return a :py:func:`mlflow.metrics.MetricValue` instance.
+2. Pass ``eval_fn`` and other arguments to ``mlflow.metricsmake_metric`` API to create the metric. 
+
+The following code creates a dummy per-row metric called ``"over_10_chars"``: if the model output is greater than 10, 
+the score is 1 otherwise 0.
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, metrics):
+        scores = []
+        for i in range(len(predictions)):
+            if len(predictions[i]) > 10:
+                scores.append(1)
+            else:
+                scores.append(0)
+        return MetricValue(
+            scores=scores,
+            aggregate_results=standard_aggregations(scores),
+        )
+
+    # Create an EvaluationMetric object for the python code metric
+    passing_code_metric = make_metric(
+        eval_fn=eval_fn, greater_is_better=False, name="over_10_chars"
+    )
+
