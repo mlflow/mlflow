@@ -5,7 +5,7 @@ from mlflow import pyfunc
 from datasets import load_dataset
 from transformers import ViTImageProcessor,ViTForImageClassification
 def vision_model_save():
-    Model_name="facebook/deit-base-patch16-224"
+    model_name="facebook/deit-base-patch16-224"
     path= "facebook_deit_base_patch16_224"
     print(os.path.exists(path))
     if not (os.path.exists(path)):
