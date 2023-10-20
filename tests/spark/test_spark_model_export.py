@@ -131,9 +131,9 @@ def iris_pandas_df():
 def iris_df(spark_context):
     pdf = iris_pandas_df()
     feature_names = list(pdf.drop("label", axis=1).columns)
-    spark_session = pyspark.sql.SparkSession(spark_context)
-    iris_spark_df = spark_session.createDataFrame(pdf)
-    return feature_names, pdf, iris_spark_df
+    with pyspark.sql.SparkSession(spark_context) as spark:
+        iris_spark_df = spark.createDataFrame(pdf)
+        yield feature_names, pdf, iris_spark_df
 
 
 @pytest.fixture(scope="module")
