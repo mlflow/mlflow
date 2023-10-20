@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from collections import namedtuple
+from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 
@@ -70,15 +71,24 @@ SparkModelWithData = namedtuple(
 )
 
 
+@contextmanager
 def _get_spark_session_with_retry(max_tries=3):
     conf = pyspark.SparkConf()
+    spark = None
     for num_tries in range(max_tries):
         try:
-            return get_spark_session(conf)
+            spark = get_spark_session(conf)
+            break
         except Exception:
             if num_tries >= max_tries - 1:
                 raise
             _logger.exception(f"Attempt {num_tries} to create a SparkSession failed, retrying...")
+
+    if spark:
+        try:
+            yield spark
+        finally:
+            spark.stop()
 
 
 # Specify `autouse=True` to ensure that a context is created
@@ -103,9 +113,8 @@ spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 """
             f.write(conf)
-    spark = _get_spark_session_with_retry()
-    yield spark.sparkContext
-    spark.stop()
+    with _get_spark_session_with_retry() as spark:
+        yield spark.sparkContext
 
 
 def iris_pandas_df():
