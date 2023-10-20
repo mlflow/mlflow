@@ -103,7 +103,7 @@ There are two types of LLM evaluation metrics in MLflow:
    * Model output.
    * [optional] Ground truth.
 
-    More details of how these fields are set can be found in the section "Create your Custom LLM-evaluation Metrics".
+   More details of how these fields are set can be found in the section "Create your Custom LLM-evaluation Metrics".
 
 2. Function-based per-row metrics. These metrics calculate a score for each data record (row in terms of Pandas/Spark dataframe),
    based on certain functions, like Rouge (:py:func:`mlflow.metrics.rougeL`) or Flesch Kincaid (:py:func:`mlflow.metrics.flesch_kincaid_grade_level`). 
@@ -140,7 +140,7 @@ There are two ways to select metrics to evaluate your LLMs:
             model,
             eval_data,
             targets="ground_truth",
-            extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latenc())],
+            extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latency()],
         )
 
 Create your Custom LLM-evaluation Metrics
@@ -245,7 +245,7 @@ Here are some tips for setting required fields of custom SaaS LLM evaluation met
 * TODO(ann): please share your learnings here.
 
 
-Create Local LLM Evaluation Metrics (Cateogory 2)
+Create Per-row LLM Evluation Metrics (Cateogory 2)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This is very similar to creating a custom traditional metrics, with the exception of returning a `EvaluationResult` instance.
@@ -272,7 +272,7 @@ the score is 1 otherwise 0.
             aggregate_results=standard_aggregations(scores),
         )
 
-    # Create an EvaluationMetric object for the python code metric
+    # Create an EvaluationMetric object.
     passing_code_metric = make_metric(
         eval_fn=eval_fn, greater_is_better=False, name="over_10_chars"
     )
