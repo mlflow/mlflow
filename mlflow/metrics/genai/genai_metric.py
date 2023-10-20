@@ -272,7 +272,7 @@ def make_genai_metric(
                 error_types = {"invalid_request_error", "authentication_error"}
                 if isinstance(e, MlflowException):
                     if e.message.startswith(open_ai_error_header):
-                        resp = e.message[len(open_ai_error_header):]
+                        resp = e.message[len(open_ai_error_header) :]
                         if json.loads(resp)["error"]["type"] in error_types:
                             raise Exception(f"Malformed OpenAI request: error {resp}")
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
