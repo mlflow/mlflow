@@ -10,7 +10,12 @@ from mlflow.metrics.base import EvaluationExample, MetricValue
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    UNAUTHENTICATED,
+)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 
@@ -268,13 +273,9 @@ def make_genai_metric(
                 )
                 return _extract_score_and_justification(raw_result)
             except Exception as e:
-                open_ai_error_header = "Error response from OpenAI as follows:\n "
-                error_types = {"invalid_request_error", "authentication_error"}
                 if isinstance(e, MlflowException):
-                    if e.message.startswith(open_ai_error_header):
-                        resp = e.message[len(open_ai_error_header) :]
-                        if json.loads(resp)["error"]["type"] in error_types:
-                            raise Exception(f"Malformed OpenAI request: error {resp}")
+                    if e.error_code in {BAD_REQUEST, UNAUTHENTICATED}:
+                        raise MlflowException(e)
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
                 return None, None
 
