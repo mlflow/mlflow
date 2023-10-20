@@ -1838,7 +1838,7 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
             return self._parse_feature_extraction_output(raw_output)
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
-            output = self._parse_list_of_multiple_dicts(raw_output, output_key)
+            return self._parse_list_or_list_of_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             return self._flatten_zero_shot_text_classifier_output_to_df(raw_output)
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
@@ -2311,15 +2311,21 @@ class _TransformersWrapper:
             return ",".join([coll[target] for coll in output_data])
 
     @staticmethod
-    def _parse_list_of_multiple_dicts(output_data, target_dict_key):
+    def _parse_list_or_list_of_list_of_multiple_dicts(output_data, target_dict_key):
         """
         Returns the first value of the `target_dict_key` that matches in the first dictionary in a
-        list of dictionaries.
+        list or list of dictionaries.
         """
         if isinstance(output_data[0], list):
-            return [collection[0][target_dict_key] for collection in output_data]
+            result = []
+            for collection in output_data:
+                if isinstance(collection[0], dict):
+                    result.append([collection[0][target_dict_key].strip()])
+                else:
+                    result.append([sub_collection[0][target_dict_key].strip() for sub_collection in collection])
+            return np.array(result)
         else:
-            return [output_data[0][target_dict_key]]
+            return np.array([[output_data[0][target_dict_key].strip()]])
 
     def _parse_list_output_for_multiple_candidate_pipelines(self, output_data):
         # NB: This will not continue to parse nested lists. Pipelines do not output complex
