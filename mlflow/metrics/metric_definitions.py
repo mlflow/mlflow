@@ -40,14 +40,15 @@ def _validate_text_tuple_data(data, metric_name, column_name):
 
     for row, tup in enumerate(data):
         if not isinstance(tup, tuple):
-            for val in tup:
-                if not isinstance(val, str):
-                    _logger.warning(
-                        f"Cannot calculate {metric_name} for non-tuple[str] inputs."
-                        f"Row {row} of column {column_name} has a non-string value of:"
-                        f"{val}. skipping metric logging."
-                    )
             return False
+        for val in tup:
+            if not isinstance(val, str):
+                _logger.warning(
+                    f"Cannot calculate {metric_name} for non-tuple[str] inputs."
+                    f"Row {row} of column {column_name} has a non-string value of:"
+                    f"{val}. skipping metric logging."
+                )
+                return False
 
     return True
 
