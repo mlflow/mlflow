@@ -2192,9 +2192,11 @@ def test_missing_args_raises_exception():
     metric_1 = make_metric(name="metric_1", eval_fn=dummy_fn1, greater_is_better=True)
     metric_2 = make_metric(name="metric_2", eval_fn=dummy_fn2, greater_is_better=True)
 
-    error_message = "Error: Metric calculation failed for the following metrics:\nMetric 'metric_1'"
-    " requires the columns ['param_1', 'param_2']\n\nMetric 'metric_2' requires the columns "
-    "['param_3', 'builtin_metrics']\n"
+    error_message = (
+        r"Error: Metric calculation failed for the following metrics:\n"
+        r"Metric 'metric_1' requires the columns \['param_1', 'param_2'\]\n"
+        r"Metric 'metric_2' requires the columns \['param_3', 'builtin_metrics'\]\n"
+    )
 
     with pytest.raises(
         MlflowException,
