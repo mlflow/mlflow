@@ -2724,17 +2724,14 @@ class _TransformersWrapper:
             # a bytes input of a single element.
             
 
-            if isinstance(data, list) and all(isinstance(element, dict) for element in data):
-                img=[] 
-                for i in range(len(data)):
-                    encoded_image = list(data[i].values())[0]
-                    if isinstance(encoded_image, str):
-                            self._validate_image_input_uri_or_file(encoded_image)
-     
-                    img.append(decode_image(encoded_image))        
-                    #return decode_image(encoded_image)
-                           
-                return img            
+if isinstance(data, list) and all(isinstance(element, dict) for element in data):
+    images = []
+    for item in data:
+        encoded_image = next(iter(item.values()))
+        if isinstance(encoded_image, str):
+            self._validate_image_input_uri_or_file(encoded_image)
+        images.append(decode_image(encoded_image))
+    return images
                 
             elif isinstance(data, str):
                 self._validate_image_input_uri_or_file(data)
