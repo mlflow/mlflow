@@ -1544,7 +1544,7 @@ def test_copy_model_version(store):
     assert copied_mv.creation_timestamp == 456779000
     assert copied_mv.last_updated_timestamp == 456779000
     assert copied_mv.description == "test description"
-    assert copied_mv.source == "models:/{}/{}".format(src_mv.name, src_mv.version)
+    assert copied_mv.source == f"models:/{src_mv.name}/{src_mv.version}"
     assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
     assert copied_mv.run_link == "dummylink"
     assert copied_mv.run_id == src_mv.run_id
@@ -1554,7 +1554,7 @@ def test_copy_model_version(store):
 
     # Copy a model version copy
     double_copy_mv = store.copy_model_version(copied_mv, "test_for_copy_MV3")
-    assert double_copy_mv.source == "models:/{}/{}".format(copied_mv.name, copied_mv.version)
+    assert double_copy_mv.source == f"models:/{copied_mv.name}/{copied_mv.version}"
     assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
 
 
