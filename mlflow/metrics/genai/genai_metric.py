@@ -15,6 +15,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     UNAUTHENTICATED,
+    ErrorCode,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
@@ -274,7 +275,10 @@ def make_genai_metric(
                 return _extract_score_and_justification(raw_result)
             except Exception as e:
                 if isinstance(e, MlflowException):
-                    if e.error_code in {BAD_REQUEST, UNAUTHENTICATED}:
+                    if e.error_code in [
+                        ErrorCode.Name(BAD_REQUEST),
+                        ErrorCode.Name(UNAUTHENTICATED),
+                    ]:
                         raise MlflowException(e)
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
                 return None, None
