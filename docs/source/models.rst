@@ -3649,6 +3649,36 @@ Evaluating with Custom Metrics
 
 If the default set of metrics is insufficient, you can supply ``custom_metrics`` and ``custom_artifacts``
 to :py:func:`mlflow.evaluate()` to produce custom metrics and artifacts for the model(s) that you're evaluating.
+
+To define a custom metric, you should define a ``eval_fn`` function that takes ? as inputs and ? as outputs.
+You should use ``make_metric()`` to wrap this ``eval_fn`` function into a Metric.
+
+When using the custom metric, you should specify a model with output column(s) x, or a function with output y,
+or a static dataset with predictions columns z. The output column(s) x, y, or z will be passed to the ``eval_fn``.
+
+.. code-block:: python
+
+    # def my_metric(?):
+
+When your model has multiple outputs, the model must return a pandas DataFrame with multiple columns. You must
+specify one column among the model output columns as the predictions column using the ``predictions`` parameter,
+and other output columns of the model will be accessible from the ``eval_fn`` via col_mapping. For example, if 
+your model has two outputs ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions
+column, and ``retrieved_context`` column will be accessible from the ``eval_fn``:
+
+.. code-block:: python
+
+    def eval_fn(data, predictions, col_mapping):
+        retrieved_context = col_mapping["retrieved_context"]
+        # ...
+
+When you want to pass additional parameters to the custom metric function, you can use the ``evaluator_config``
+parameter.
+
+.. code-block:: python
+
+    # def eval_fn()...
+
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
 uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
@@ -3664,7 +3694,10 @@ Evaluating with a Function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
 logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
-it. The following example uses :py:func:`mlflow.evaluate()` to evaluate a function:
+it. The requirement to the function's input and output is the same as the requirement to a model's input and
+output.
+
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a function:
 
 
 .. literalinclude:: ../../examples/evaluation/evaluate_with_function.py
@@ -3681,6 +3714,7 @@ top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
 
 .. code-block:: python
 
+    # Assume that the model output is saved to the pandas_df["model_output"] column
     mlflow.evaluate(data=pandas_df, predictions="model_output", ...)
 
 If you are using an MLflow PandasDataset, you must specify the column name that contains the model output using
@@ -3689,8 +3723,14 @@ the ``predictions`` parameter in :py:func:`mlflow.data.from_pandas()`, and speci
 
 .. code-block:: python
 
+    # Assume that the model output is saved to the pandas_df["model_output"] column
     dataset = mlflow.data.from_pandas(pandas_df, predictions="model_output")
     mlflow.evaluate(data=pandas_df, predictions=None, ...)
+
+When your model has multiple outputs, you must specify one column among the model output columns as the predictions
+column, and other output columns of the model will be treated as "input" columns. For example, if your model
+has two outputs ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions column, and
+``retrieved_context`` column will be treated as an "input" column when calculating the metrics.
 
 The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dataset:
 
