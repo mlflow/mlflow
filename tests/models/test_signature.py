@@ -14,10 +14,8 @@ from mlflow.types import DataType
 from mlflow.types.schema import (
     Array,
     ColSpec,
-    Object,
     ParamSchema,
     ParamSpec,
-    Property,
     Schema,
     TensorSpec,
 )
@@ -150,22 +148,12 @@ def test_infer_signature_on_list_of_dictionaries():
             }
         ],
     )
-    assert signature.inputs == Schema(
-        [ColSpec(Array(Object([Property("query", DataType.string)])))]
-    )
+    assert signature.inputs == Schema([ColSpec(DataType.string, name="query")])
     assert signature.outputs == Schema(
         [
-            ColSpec(
-                Array(
-                    Object(
-                        [
-                            Property("output", DataType.string),
-                            Property("candidate_ids", Array(DataType.string)),
-                            Property("candidate_sources", Array(DataType.string)),
-                        ]
-                    )
-                )
-            ),
+            ColSpec(DataType.string, name="output"),
+            ColSpec(Array(DataType.string), name="candidate_ids"),
+            ColSpec(Array(DataType.string), name="candidate_sources"),
         ]
     )
 

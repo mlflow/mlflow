@@ -779,44 +779,32 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         if np.isscalar(pf_input):
             pf_input = pd.DataFrame([pf_input])
         elif isinstance(pf_input, dict):
-            # For Object schema, we can validate it directly
-            if isinstance(input_schema.inputs[0].type, Object):
-                if len(input_schema.inputs) != 1:
-                    raise MlflowException(
-                        f"Expecting {len(input_schema.inputs)} inputs for schema {input_schema}, "
-                        f"received only one dictionary input {pf_input}."
-                    )
-                return _enforce_object(pf_input, input_schema.inputs[0].type)
-            # For old schema, we convert dicts to pandas DataFrame
+            # keys are column names
+            if any(
+                isinstance(col_spec.type, (Array, Object)) for col_spec in input_schema.inputs
+            ) or all(
+                _is_scalar(value)
+                or (isinstance(value, list) and all(isinstance(item, str) for item in value))
+                for value in pf_input.values()
+            ):
+                pf_input = pd.DataFrame([pf_input])
             else:
                 try:
-                    if (
-                        # This check is specifically to handle the serving structural cast for
-                        # certain inputs for the transformers implementation. Due to the fact that
-                        # specific Pipeline types in transformers support passing input data
-                        # of the form Dict[str, str] in which the value is a scalar string, model
-                        # serving will cast this entry as a numpy array with shape () and size 1.
-                        # This is seen as a scalar input when attempting to create a Pandas
-                        # DataFrame from such a numpy structure and requires the array to be
-                        # encapsulated in a list in order to prevent a ValueError exception for
-                        # requiring an index if passing in all scalar values thrown by Pandas.
-                        all(
-                            isinstance(value, np.ndarray)
-                            and value.dtype.type == np.str_
-                            and value.size == 1
-                            and value.shape == ()
-                            for value in pf_input.values()
-                        )
-                        or
-                        # Dict[str, Union[str, List[str]]]
-                        all(
-                            _is_scalar(value)
-                            or (
-                                isinstance(value, list)
-                                and all(isinstance(elem, str) for elem in value)
-                            )
-                            for value in pf_input.values()
-                        )
+                    # This check is specifically to handle the serving structural cast for
+                    # certain inputs for the transformers implementation. Due to the fact that
+                    # specific Pipeline types in transformers support passing input data
+                    # of the form Dict[str, str] in which the value is a scalar string, model
+                    # serving will cast this entry as a numpy array with shape () and size 1.
+                    # This is seen as a scalar input when attempting to create a Pandas
+                    # DataFrame from such a numpy structure and requires the array to be
+                    # encapsulated in a list in order to prevent a ValueError exception for
+                    # requiring an index if passing in all scalar values thrown by Pandas.
+                    if all(
+                        isinstance(value, np.ndarray)
+                        and value.dtype.type == np.str_
+                        and value.size == 1
+                        and value.shape == ()
+                        for value in pf_input.values()
                     ):
                         pf_input = pd.DataFrame([pf_input])
                     elif any(
@@ -847,20 +835,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                         " input. There was an error casting the input data to a DataFrame:"
                         f" {e}"
                     )
-        elif isinstance(pf_input, list):
-            # For Array schema, we can validate it directly
-            if isinstance(input_schema.inputs[0].type, Array):
-                if len(input_schema.inputs) != 1:
-                    raise MlflowException(
-                        f"Expecting {len(input_schema.inputs)} inputs for schema {input_schema}, "
-                        f"received only one list input {pf_input}."
-                    )
-                return _enforce_array(pf_input, input_schema.inputs[0].type)
-            # For old schema, we convert lists to pandas DataFrame
-            else:
-                pf_input = pd.DataFrame(pf_input)
-
-        elif isinstance(pf_input, (np.ndarray, pd.Series)):
+        elif isinstance(pf_input, (list, np.ndarray, pd.Series)):
             pf_input = pd.DataFrame(pf_input)
 
         if not isinstance(pf_input, pd.DataFrame):

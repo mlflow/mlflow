@@ -1,5 +1,6 @@
 import logging
 import warnings
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -116,7 +117,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
         return Object(properties=properties)
     if isinstance(data, list):
         # We accept None in list to provide backward compatibility
-        data = [x for x in data if x is not None]
+        data = [x for x in data if not _is_none(x)]
         if len(data) == 0:
             raise MlflowException.invalid_parameter_value(
                 "Expected non-empty list of values to infer colspec type"
@@ -180,7 +181,38 @@ def _infer_schema(data: Any) -> Schema:
     """
     from scipy.sparse import csc_matrix, csr_matrix
 
-    if isinstance(data, dict):
+    # List[Dict[str, Union[DataType, List, Dict]]]
+    # e.g.
+    # [{'output': 'some sentence', 'ids': ['id1', 'id2'], 'dict': {'key': 'value'}},
+    #  {'output': 'some sentence', 'ids': ['id1', 'id2'], 'dict':
+    # {'key': 'value', 'key2': 'value2'}}]
+    # The corresponding pandas DataFrame representation should be `pd.DataFrame(data)`
+    #           output         ids                                dict
+    # 0  some sentence  [id1, id2]                    {'key': 'value'}
+    # 1  some sentence  [id1, id2]  {'key': 'value', 'key2': 'value2'}
+    # inferred schema -->
+    # Schema([ColSpec(type=DataType.string, name='output'),
+    #        ColSpec(type=Array(dtype=DataType.string), name='ids'),
+    #        ColSpec(type=Object([Property(name='key', dtype=DataType.string),
+    #                             Property(name='key2', dtype=DataType.string, required=False)]
+    #               ), name='dict')])
+    if isinstance(data, list) and all(isinstance(value, dict) for value in data):
+        col_data_mapping = defaultdict(list)
+        for item in data:
+            for k, v in item.items():
+                col_data_mapping[k].append(v)
+        requiredness = {}
+        for col in col_data_mapping:
+            requiredness[col] = False if any(col not in item for item in data) else True
+
+        schema = Schema(
+            [
+                ColSpec(_infer_colspec_type(value).dtype, name=name, required=requiredness[name])
+                for name, value in col_data_mapping.items()
+            ]
+        )
+
+    elif isinstance(data, dict):
         # dictionary of (name -> numpy.ndarray)
         if all(isinstance(values, np.ndarray) for values in data.values()):
             schema = Schema(
@@ -197,15 +229,39 @@ def _infer_schema(data: Any) -> Schema:
         else:
             if any(not isinstance(key, str) for key in data):
                 raise MlflowException("The dictionary keys are not all strings.")
-            schema = Schema([ColSpec(_infer_colspec_type(data))])
+            schema = Schema(
+                [
+                    ColSpec(
+                        _infer_colspec_type(value),
+                        name=name,
+                        required=_infer_column_requiredness(value),
+                    )
+                    for name, value in data.items()
+                ]
+            )
     # pandas.Series
     elif isinstance(data, pd.Series):
         name = getattr(data, "name", None)
-        schema = Schema([ColSpec(type=_infer_pandas_column(data), name=name)])
+        schema = Schema(
+            [
+                ColSpec(
+                    type=_infer_pandas_column(data),
+                    name=name,
+                    required=_infer_column_requiredness(data),
+                )
+            ]
+        )
     # pandas.DataFrame
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
-            [ColSpec(type=_infer_pandas_column(data[col]), name=col) for col in data.columns]
+            [
+                ColSpec(
+                    type=_infer_pandas_column(data[col]),
+                    name=col,
+                    required=_infer_column_requiredness(data[col]),
+                )
+                for col in data.columns
+            ]
         )
     # numpy.ndarray
     elif isinstance(data, np.ndarray):
@@ -221,19 +277,29 @@ def _infer_schema(data: Any) -> Schema:
     elif _is_spark_df(data):
         schema = Schema(
             [
-                ColSpec(type=_infer_spark_type(field.dataType), name=field.name)
+                ColSpec(
+                    type=_infer_spark_type(field.dataType),
+                    name=field.name,
+                    required=not field.nullable,
+                )
                 for field in data.schema.fields
             ]
         )
+    elif isinstance(data, list):
+        # Assume list as a single column
+        # List[DataType]
+        # e.g. ['some sentence', 'some sentence'] -> Schema([ColSpec(type=DataType.string)])
+        # The corresponding pandas DataFrame representation should be pd.DataFrame(data)
+        schema = Schema(
+            [ColSpec(_infer_colspec_type(data).dtype, required=_infer_column_requiredness(data))]
+        )
     else:
         # DataType
-        # e.g. "some sentence"
-        # List[DataType]
-        # e.g. ['some sentence', 'some sentence']
-        # List[Dict[str, Union[DataType, List, Dict]]]
-        # e.g. [{'output': 'some sentence', 'ids': ['id1', 'id2'], 'dict': {'key': 'value'}}]
+        # e.g. "some sentence" -> Schema([ColSpec(type=DataType.string)])
         try:
-            schema = Schema([ColSpec(_infer_colspec_type(data))])
+            schema = Schema(
+                [ColSpec(_infer_colspec_type(data), required=_infer_column_requiredness(data))]
+            )
         except MlflowException as e:
             raise MlflowException.invalid_parameter_value(
                 "Failed to infer schema. Expected one of the following types:\n"
@@ -310,25 +376,23 @@ def _infer_numpy_dtype(dtype) -> DataType:
     raise MlflowException(f"Unsupported numpy data type '{dtype}', kind '{dtype.kind}'")
 
 
+def _is_none(x):
+    if isinstance(x, float):
+        return np.isnan(x)
+    return x is None
+
+
+def _infer_column_requiredness(col) -> bool:
+    if hasattr(col, "__iter__"):
+        return not any(_is_none(x) for x in col)
+    return col is not None
+
+
 def _infer_pandas_column(col: pd.Series) -> DataType:
     if not isinstance(col, pd.Series):
         raise TypeError(f"Expected pandas.Series, got '{type(col)}'.")
     if len(col.values.shape) > 1:
         raise MlflowException(f"Expected 1d array, got array with shape {col.shape}")
-
-    class IsInstanceOrNone:
-        def __init__(self, *args):
-            self.classes = args
-            self.seen_instances = 0
-
-        def __call__(self, x):
-            if x is None:
-                return True
-            elif any(isinstance(x, c) for c in self.classes):
-                self.seen_instances += 1
-                return True
-            else:
-                return False
 
     if col.dtype.kind == "O":
         col = col.infer_objects()

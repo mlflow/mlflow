@@ -1022,63 +1022,74 @@ def test_schema_enforcement_for_list_inputs_back_compatibility_check():
 def test_schema_enforcement_for_list_inputs():
     # Test Dict[str, scalar or List[str]]
     test_signature = {
-        "inputs": '[{"type": "object", "properties": '
-        '{"prompt": {"type": "string", "required": true}, '
-        '"stop": {"type": "array", "items": {"type": "string"}, "required": true}}, '
-        '"required": true}]',
+        "inputs": '[{"type": "string", "name": "prompt", "required": true}, '
+        '{"type": "array", "items": {"type": "string"}, '
+        '"name": "stop", "required": true}]',
         "outputs": '[{"type": "string", "required": true}]',
     }
     signature = ModelSignature.from_dict(test_signature)
     data = {"prompt": "this is the prompt", "stop": ["a", "b"]}
     output = "this is the output"
     assert signature == infer_signature(data, output)
-    assert _enforce_schema(data, signature.inputs) == data
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
 
     # Test Dict[str, List[str]]
     test_signature = {
-        "inputs": '[{"type": "object", "properties": '
-        '{"a": {"type": "array", "items": {"type": "string"}, "required": true}, '
-        '"b": {"type": "array", "items": {"type": "string"}, "required": true}}, '
-        '"required": true}]',
+        "inputs": '[{"type": "array", "items": {"type": "string"}, '
+        '"name": "a", "required": true}, '
+        '{"type": "array", "items": {"type": "string"}, '
+        '"name": "b", "required": true}]',
         "outputs": '[{"type": "string", "required": true}]',
     }
     signature = ModelSignature.from_dict(test_signature)
     data = {"a": ["Hi there!"], "b": ["Hello there", "Bye!"]}
-    assert _enforce_schema(data, signature.inputs) == data
+    assert signature == infer_signature(data, output)
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
 
     # Test Dict[str, List[binary]] with bytes
     test_signature = {
-        "inputs": '[{"type": "object", "properties": '
-        '{"audio": {"type": "array", "items": {"type": "binary"}, "required": true}}, '
-        '"required": true}]',
+        "inputs": '[{"type": "array", "items": {"type": "binary"}, '
+        '"name": "audio", "required": true}]',
         "outputs": '[{"type": "string", "required": true}]',
     }
     signature = ModelSignature.from_dict(test_signature)
     data = {"audio": [b"Hi I am a bytes string"]}
-    assert _enforce_schema(data, signature.inputs) == data
+    assert signature == infer_signature(data, output)
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
 
     # Test Dict[str, List[binary]] with base64 encoded
     test_signature = {
-        "inputs": '[{"type": "object", "properties": '
-        '{"audio": {"type": "array", "items": {"type": "binary"}, "required": true}}, '
-        '"required": true}]',
+        "inputs": '[{"type": "array", "items": {"type": "binary"}, '
+        '"name": "audio", "required": true}]',
         "outputs": '[{"type": "string", "required": true}]',
     }
     signature = ModelSignature.from_dict(test_signature)
     data = {"audio": [base64.b64encode(b"Hi I am a bytes string")]}
-    assert _enforce_schema(data, signature.inputs) == data
+    assert signature == infer_signature(data, output)
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
 
     # Test Dict[str, List[Any]]
     test_signature = {
-        "inputs": '[{"type": "object", "properties": '
-        '{"a": {"type": "array", "items": {"type": "long"}, "required": true}, '
-        '"b": {"type": "array", "items": {"type": "string"}, "required": true}}, '
-        '"required": true}]',
+        "inputs": '[{"type": "array", "items": {"type": "long"}, '
+        '"name": "a", "required": true}, '
+        '{"type": "array", "items": {"type": "string"}, '
+        '"name": "b", "required": true}]',
         "outputs": '[{"type": "string", "required": true}]',
     }
     signature = ModelSignature.from_dict(test_signature)
     data = {"a": [4, 5, 6], "b": ["a", "b", "c"]}
-    assert _enforce_schema(data, signature.inputs) == data
+    assert signature == infer_signature(data, output)
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
 
     # Test Dict[str, np.ndarray]
     test_signature = {
@@ -1090,8 +1101,10 @@ def test_schema_enforcement_for_list_inputs():
     }
     signature = ModelSignature.from_dict(test_signature)
     data = {"a": np.array([1, 2, 3]), "b": np.array(["a", "b", "c"])}
-    assert _enforce_schema(data, signature.inputs) == data
+    pd_check = _enforce_schema(data, signature.inputs)
+    assert pd_check == data
 
+    # Test Dict[str, np.ndarray] where array.size == 1
     test_signature = {
         "inputs": '[{"name": "a", "type": "tensor", "tensor-spec": '
         '{"dtype": "int64", "shape": [-1]}}, '
@@ -1101,7 +1114,8 @@ def test_schema_enforcement_for_list_inputs():
     }
     signature = ModelSignature.from_dict(test_signature)
     data = {"a": np.array([12]), "b": np.array(["a"])}
-    assert _enforce_schema(data, signature.inputs) == data
+    pd_check = _enforce_schema(data, signature.inputs)
+    assert pd_check == data
 
 
 def test_enforce_params_schema_with_success():
@@ -1595,7 +1609,6 @@ def test_enforce_schema_in_python_model_predict(sample_params_basic, param_schem
     ] == np.datetime64("2023-06-26 00:00:00")
 
 
-@pytest.mark.skip("Skipping until model-serving change is merged")
 def test_enforce_schema_in_python_model_serving(sample_params_basic):
     signature = infer_signature(["input1"], params=sample_params_basic)
     with mlflow.start_run():
@@ -1896,7 +1909,6 @@ def test_enforce_schema_with_arrays_in_python_model_predict(sample_params_with_a
         loaded_model.predict(["a", "b"], params={"double_array": [1.0, "2.0"]})
 
 
-@pytest.mark.skip("Skipping until model-serving change is merged")
 def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_arrays):
     params = sample_params_with_arrays
     signature = infer_signature(["input1"], params=params)
@@ -1971,7 +1983,6 @@ def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_a
     )
 
 
-@pytest.mark.skip("Skipping until model-serving change is merged")
 def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schema_basic):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
@@ -1989,8 +2000,8 @@ def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schem
         )
 
     # Test _infer_signature_from_input_example
-    assert model_info.signature.inputs == Schema([ColSpec(Array(DataType.string))])
-    assert model_info.signature.outputs == Schema([ColSpec(Array(DataType.string))])
+    assert model_info.signature.inputs == Schema([ColSpec(DataType.string)])
+    assert model_info.signature.outputs == Schema([ColSpec(DataType.string)])
     assert model_info.signature.params == param_schema_basic
 
     # Test predict
@@ -2012,29 +2023,23 @@ def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schem
 @pytest.mark.parametrize(
     ("data", "schema"),
     [
-        ({"query": "sentence"}, Schema([ColSpec(Object([Property("query", DataType.string)]))])),
+        ({"query": "sentence"}, Schema([ColSpec(DataType.string, name="query")])),
         (
             {"query": ["sentence_1", "sentence_2"]},
-            Schema([ColSpec(Object([Property("query", Array(DataType.string))]))]),
+            Schema([ColSpec(Array(DataType.string), name="query")]),
         ),
         (
             {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
             Schema(
                 [
-                    ColSpec(
-                        Object(
-                            [
-                                Property("query", Array(DataType.string)),
-                                Property("table", DataType.string),
-                            ]
-                        )
-                    )
+                    ColSpec(Array(DataType.string), name="query"),
+                    ColSpec(DataType.string, name="table"),
                 ]
             ),
         ),
         (
             [{"query": "sentence"}, {"query": "sentence"}],
-            Schema([ColSpec(Array(Object([Property("query", DataType.string)])))]),
+            Schema([ColSpec(DataType.string, name="query")]),
         ),
         (
             [
@@ -2043,16 +2048,8 @@ def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schem
             ],
             Schema(
                 [
-                    ColSpec(
-                        Array(
-                            Object(
-                                [
-                                    Property("query", Array(DataType.string)),
-                                    Property("table", DataType.string, required=False),
-                                ]
-                            )
-                        )
-                    )
+                    ColSpec(Array(DataType.string), name="query"),
+                    ColSpec(DataType.string, name="table", required=False),
                 ]
             ),
         ),
@@ -2073,10 +2070,11 @@ def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
             signature=signature,
         )
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert loaded_model.predict(data) == data
+    prediction = loaded_model.predict(data)
+    df = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
+    pd.testing.assert_frame_equal(prediction, df)
 
     # Test pandas DataFrame input
-    df = pd.DataFrame({"inputs": [data]})
     prediction = loaded_model.predict(df)
     pd.testing.assert_frame_equal(prediction, df)
 

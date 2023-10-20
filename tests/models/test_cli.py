@@ -807,7 +807,6 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
     _test_model(env_root1_path, model2_path, "1.0.2")
 
 
-@pytest.mark.skip("Skipping until model-serving change is merged")
 @pytest.mark.parametrize(
     ("input_schema", "output_schema", "params_schema"),
     [(True, False, False), (False, True, False), (False, False, True)],

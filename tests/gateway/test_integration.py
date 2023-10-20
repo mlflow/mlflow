@@ -789,7 +789,6 @@ def test_gateway_query_mlflow_embeddings_model(serve_embeddings_model, gateway):
     assert metadata_response["route_type"] == route.route_type
 
 
-@pytest.mark.skip("Skipping until model-serving change is merged")
 def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-oss")
