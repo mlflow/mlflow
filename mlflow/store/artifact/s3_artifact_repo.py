@@ -33,6 +33,7 @@ def _cached_get_s3_client(
     access_key_id=None,
     secret_access_key=None,
     session_token=None,
+    region_name=None,
 ):  # pylint: disable=unused-argument
     """Returns a boto3 client, caching to avoid extra boto3 verify calls.
 
@@ -67,6 +68,7 @@ def _cached_get_s3_client(
         aws_access_key_id=access_key_id,
         aws_secret_access_key=secret_access_key,
         aws_session_token=session_token,
+        region_name=region_name,
     )
 
 
@@ -75,6 +77,7 @@ def _get_s3_client(
     access_key_id=None,
     secret_access_key=None,
     session_token=None,
+    region_name=None,
     s3_endpoint_url=None,
 ):
     if not s3_endpoint_url:
@@ -102,6 +105,7 @@ def _get_s3_client(
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
         session_token=session_token,
+        region_name=region_name,
     )
 
 
@@ -116,13 +120,11 @@ class S3ArtifactRepository(ArtifactRepository):
         self._secret_access_key = secret_access_key
         self._session_token = session_token
 
-    def _get_s3_client(self, addressing_style="path", s3_endpoint_url=None):
+    def _get_s3_client(self):
         return _get_s3_client(
-            addressing_style=addressing_style,
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,
-            s3_endpoint_url=s3_endpoint_url,
         )
 
     def parse_s3_compliant_uri(self, uri):

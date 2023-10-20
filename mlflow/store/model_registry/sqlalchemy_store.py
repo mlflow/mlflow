@@ -34,7 +34,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelTag,
 )
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _validate_model_alias_name,
@@ -1098,3 +1098,10 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException(
                     f"Registered model alias {alias} not found.", INVALID_PARAMETER_VALUE
                 )
+
+    def _await_model_version_creation(self, mv, await_creation_for):
+        """
+        Does not wait for the model version to become READY as a successful creation will
+        immediately place the model version in a READY state.
+        """
+        pass

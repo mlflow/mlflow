@@ -21,27 +21,35 @@ def reset_cached_get_s3_client():
 
 
 def test_parse_r2_uri(r2_artifact_root):
-    artifact_uri = posixpath.join(r2_artifact_root, "some/path")
-    repo = get_artifact_repository(artifact_uri)
-    parsed_bucket, parsed_path = repo.parse_s3_compliant_uri(artifact_uri)
-    assert parsed_bucket == "mock-r2-bucket"
-    assert parsed_path == "some/path"
+    with mock.patch("boto3.client") as _:
+        artifact_uri = posixpath.join(r2_artifact_root, "some/path")
+        repo = get_artifact_repository(artifact_uri)
+        parsed_bucket, parsed_path = repo.parse_s3_compliant_uri(artifact_uri)
+        assert parsed_bucket == "mock-r2-bucket"
+        assert parsed_path == "some/path"
 
 
 def test_s3_client_config_set_correctly(r2_artifact_root):
-    artifact_uri = posixpath.join(r2_artifact_root, "some/path")
-    repo = get_artifact_repository(artifact_uri)
+    with mock.patch(
+        "mlflow.store.artifact.optimized_s3_artifact_repo."
+        "OptimizedS3ArtifactRepository._get_region_name"
+    ) as mock_method:
+        mock_method.return_value = None
 
-    s3_client = repo._get_s3_client()
-    assert s3_client.meta.config.s3.get("addressing_style") == "virtual"
+        artifact_uri = posixpath.join(r2_artifact_root, "some/path")
+        repo = get_artifact_repository(artifact_uri)
+
+        s3_client = repo._get_s3_client()
+        assert s3_client.meta.config.s3.get("addressing_style") == "virtual"
 
 
 def test_convert_r2_uri_to_s3_endpoint_url(r2_artifact_root):
-    artifact_uri = posixpath.join(r2_artifact_root, "some/path")
-    repo = get_artifact_repository(artifact_uri)
+    with mock.patch("boto3.client") as _:
+        artifact_uri = posixpath.join(r2_artifact_root, "some/path")
+        repo = get_artifact_repository(artifact_uri)
 
-    s3_endpoint_url = repo.convert_r2_uri_to_s3_endpoint_url(r2_artifact_root)
-    assert s3_endpoint_url == "https://account.r2.cloudflarestorage.com"
+        s3_endpoint_url = repo.convert_r2_uri_to_s3_endpoint_url(r2_artifact_root)
+        assert s3_endpoint_url == "https://account.r2.cloudflarestorage.com"
 
 
 def test_s3_endpoint_url_is_used_to_get_s3_client(r2_artifact_root):
@@ -57,4 +65,5 @@ def test_s3_endpoint_url_is_used_to_get_s3_client(r2_artifact_root):
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
+            region_name=ANY,
         )

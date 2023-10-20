@@ -15,6 +15,7 @@ line-length = 100
 target-version = "py38"
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
+  "B006",
   "E",
   "F",
   "C4",
@@ -37,6 +38,7 @@ select = [
   "PT026",
   "PT027",
   "RUF010",
+  "RUF013",
   "S307",
   "UP004",
   "UP008",
@@ -48,8 +50,16 @@ select = [
   "UP032",
   "UP034",
   "SIM101",
+  "SIM103",
+  "SIM114",
+  "SIM115",
+  "SIM108",
+  "SIM210",
+  "SIM910",
   "T20",
   "TID252",
+  "TID251",
+  "W",
 ]
 force-exclude = true
 ignore = [
@@ -86,3 +96,6 @@ ban-relative-imports = "all"
 
 [tool.ruff.isort]
 forced-separate = ["tests"]
+
+[tool.ruff.flake8-tidy-imports.banned-api]
+"pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."

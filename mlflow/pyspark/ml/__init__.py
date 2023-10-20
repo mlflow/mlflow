@@ -43,7 +43,7 @@ from mlflow.utils.rest_utils import (
     augmented_raise_for_status,
     http_request,
 )
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     MAX_ENTITY_KEY_LENGTH,
     MAX_PARAM_VAL_LENGTH,
@@ -353,10 +353,7 @@ def _get_instance_param_map_recursively(instance, level, uid_to_indexed_name_map
     is_pipeline = isinstance(instance, Pipeline)
     is_parameter_search_estimator = _is_parameter_search_estimator(instance)
 
-    if level == 0:
-        logged_param_name_prefix = ""
-    else:
-        logged_param_name_prefix = uid_to_indexed_name_map[instance.uid] + "."
+    logged_param_name_prefix = "" if level == 0 else uid_to_indexed_name_map[instance.uid] + "."
 
     for param_name, param_value in param_map.items():
         logged_param_name = logged_param_name_prefix + param_name

@@ -52,7 +52,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     _validate_model_alias_name,
     _validate_model_version,
@@ -904,3 +904,10 @@ class FileStore(AbstractStore):
                 return _read_helper(root, file_name, attempts_remaining - 1)
 
         return _read_helper(root, file_name, attempts_remaining=retries)
+
+    def _await_model_version_creation(self, mv, await_creation_for):
+        """
+        Does not wait for the model version to become READY as a successful creation will
+        immediately place the model version in a READY state.
+        """
+        pass

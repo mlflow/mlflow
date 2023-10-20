@@ -10,6 +10,9 @@ on:
       - opened
       - edited
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
@@ -18,6 +21,9 @@ jobs:
   labeling:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # harupy/auto-labeling
+      issues: write # harupy/auto-labeling
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3

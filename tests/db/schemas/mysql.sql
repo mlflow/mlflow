@@ -124,7 +124,7 @@ CREATE TABLE model_version_tags (
 
 CREATE TABLE params (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(500) NOT NULL,
+	value VARCHAR(8000) NOT NULL,
 	run_uuid VARCHAR(32) NOT NULL,
 	PRIMARY KEY (key, run_uuid),
 	CONSTRAINT params_ibfk_1 FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)

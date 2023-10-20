@@ -4,10 +4,14 @@ on:
   pull_request:
     paths:
       - mlflow/protos/**
+      - mlflow/java/client/src/main/java/com/databricks/api/proto/**
   push:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}

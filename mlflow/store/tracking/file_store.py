@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 import os
@@ -46,7 +45,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils import _insecure_md5, get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
     append_to,
     exists,
@@ -76,7 +75,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
 from mlflow.utils.search_utils import SearchExperimentsUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import (
     append_to_uri_path,
     resolve_uri_if_local,
@@ -1128,13 +1127,13 @@ class FileStore(AbstractStore):
 
     @staticmethod
     def _get_dataset_id(dataset_name: str, dataset_digest: str) -> str:
-        md5 = hashlib.md5(dataset_name.encode("utf-8"))
+        md5 = _insecure_md5(dataset_name.encode("utf-8"))
         md5.update(dataset_digest.encode("utf-8"))
         return md5.hexdigest()
 
     @staticmethod
     def _get_input_id(dataset_id: str, run_id: str) -> str:
-        md5 = hashlib.md5(dataset_id.encode("utf-8"))
+        md5 = _insecure_md5(dataset_id.encode("utf-8"))
         md5.update(run_id.encode("utf-8"))
         return md5.hexdigest()
 

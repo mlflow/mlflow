@@ -130,9 +130,7 @@ class WheeledModel:
         )
 
         # Keep a copy of the original requirement.txt
-        shutil.copyfile(
-            pip_requirements_path, os.path.join(local_model_path, _ORIGINAL_REQ_FILE_NAME)
-        )
+        shutil.copy2(pip_requirements_path, os.path.join(local_model_path, _ORIGINAL_REQ_FILE_NAME))
 
         # Update requirements.txt with wheels
         pip_deps = self._overwrite_pip_requirements_with_wheels(

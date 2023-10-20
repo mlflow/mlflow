@@ -172,7 +172,7 @@ public class ScoringServer {
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
       response.setStatus(HttpServletResponse.SC_OK);
-      response.getWriter().print("2.6.1-SNAPSHOT");
+      response.getWriter().print("2.7.2-SNAPSHOT");
       response.getWriter().close();
     }
   }

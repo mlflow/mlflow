@@ -6,7 +6,7 @@ pytest
 pytest-cov
 pytest-timeout
 pytest-localserver==0.5.0
-moto!=2.0.7
+moto!=2.0.7,<=4.2.4
 azure-storage-blob>=12.0.0
 azure-storage-file-datalake>=12.9.1
 azure-identity>=1.6.1
@@ -34,6 +34,8 @@ evaluate
 nltk
 rouge_score
 textstat
+tiktoken
 # Required by progress bar tests
 ipywidgets
 tqdm
+databricks-sdk

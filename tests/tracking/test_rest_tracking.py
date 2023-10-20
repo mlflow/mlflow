@@ -50,7 +50,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
@@ -892,13 +892,16 @@ def test_artifacts(mlflow_client, tmp_path):
     all_artifacts = download_artifacts(
         run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open(f"{all_artifacts}/my.file").read() == "Hello, World!"
-    assert open(f"{all_artifacts}/dir/my.file").read() == "Hello, World!"
+    with open(f"{all_artifacts}/my.file") as f:
+        assert f.read() == "Hello, World!"
+    with open(f"{all_artifacts}/dir/my.file") as f:
+        assert f.read() == "Hello, World!"
 
     dir_artifacts = download_artifacts(
         run_id=run_id, artifact_path="dir", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open(f"{dir_artifacts}/my.file").read() == "Hello, World!"
+    with open(f"{dir_artifacts}/my.file") as f:
+        assert f.read() == "Hello, World!"
 
 
 def test_search_pagination(mlflow_client):
