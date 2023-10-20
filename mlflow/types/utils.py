@@ -117,7 +117,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
         return Object(properties=properties)
     if isinstance(data, list):
         # We accept None in list to provide backward compatibility
-        data = [x for x in data if not _is_none(x)]
+        data = [x for x in data if not _is_none_or_nan(x)]
         if len(data) == 0:
             raise MlflowException.invalid_parameter_value(
                 "Expected non-empty list of values to infer colspec type"
@@ -234,7 +234,7 @@ def _infer_schema(data: Any) -> Schema:
                     ColSpec(
                         _infer_colspec_type(value),
                         name=name,
-                        required=_infer_column_requiredness(value),
+                        required=_infer_required(value),
                     )
                     for name, value in data.items()
                 ]
@@ -247,7 +247,7 @@ def _infer_schema(data: Any) -> Schema:
                 ColSpec(
                     type=_infer_pandas_column(data),
                     name=name,
-                    required=_infer_column_requiredness(data),
+                    required=_infer_required(data),
                 )
             ]
         )
@@ -258,7 +258,7 @@ def _infer_schema(data: Any) -> Schema:
                 ColSpec(
                     type=_infer_pandas_column(data[col]),
                     name=col,
-                    required=_infer_column_requiredness(data[col]),
+                    required=_infer_required(data[col]),
                 )
                 for col in data.columns
             ]
@@ -290,16 +290,12 @@ def _infer_schema(data: Any) -> Schema:
         # List[DataType]
         # e.g. ['some sentence', 'some sentence'] -> Schema([ColSpec(type=DataType.string)])
         # The corresponding pandas DataFrame representation should be pd.DataFrame(data)
-        schema = Schema(
-            [ColSpec(_infer_colspec_type(data).dtype, required=_infer_column_requiredness(data))]
-        )
+        schema = Schema([ColSpec(_infer_colspec_type(data).dtype, required=_infer_required(data))])
     else:
         # DataType
         # e.g. "some sentence" -> Schema([ColSpec(type=DataType.string)])
         try:
-            schema = Schema(
-                [ColSpec(_infer_colspec_type(data), required=_infer_column_requiredness(data))]
-            )
+            schema = Schema([ColSpec(_infer_colspec_type(data), required=_infer_required(data))])
         except MlflowException as e:
             raise MlflowException.invalid_parameter_value(
                 "Failed to infer schema. Expected one of the following types:\n"
@@ -376,15 +372,15 @@ def _infer_numpy_dtype(dtype) -> DataType:
     raise MlflowException(f"Unsupported numpy data type '{dtype}', kind '{dtype.kind}'")
 
 
-def _is_none(x):
+def _is_none_or_nan(x):
     if isinstance(x, float):
         return np.isnan(x)
     return x is None
 
 
-def _infer_column_requiredness(col) -> bool:
+def _infer_required(col) -> bool:
     if hasattr(col, "__iter__"):
-        return not any(_is_none(x) for x in col)
+        return not any(_is_none_or_nan(x) for x in col)
     return col is not None
 
 
