@@ -1309,7 +1309,6 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "DocumentQuestionAnsweringPipeline",
         "ImageToTextPipeline",
         "VisualQuestionAnsweringPipeline",
-        #"ImageClassificationPipeline",
         "ImageSegmentationPipeline",
         "DepthEstimationPipeline",
         "ObjectDetectionPipeline",
@@ -1319,11 +1318,7 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "ZeroShotAudioClassificationPipeline",
     ]
 
-    impermissible_attrs = {""}
-
-    for attr in impermissible_attrs:
-        if getattr(pipeline, attr, None) is not None:
-            return False
+    
     for model_type in exclusion_model_types:
         if hasattr(transformers, model_type):
             if isinstance(pipeline.model, getattr(transformers, model_type)):
