@@ -2,6 +2,7 @@ import inspect
 import re
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -286,17 +287,19 @@ def test_make_genai_metric_incorrect_response():
         "score_model_on_payload",
         return_value=incorrectly_formatted_openai_response,
     ):
-        with pytest.raises(
-            MlflowException,
-            match="Failed to score all payloads for metric 'correctness'. "
-            "Refer to logs for errors.",
-        ):
-            custom_metric.eval_fn(
-                pd.Series([mlflow_prediction]),
-                {},
-                pd.Series(["What is MLflow?"]),
-                pd.Series([mlflow_ground_truth]),
-            )
+        metric_value = custom_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series(["What is MLflow?"]),
+            pd.Series([mlflow_ground_truth]),
+        )
+
+    assert metric_value.scores == [None]
+    assert metric_value.justifications == [None]
+
+    assert np.isnan(metric_value.aggregate_results["mean"])
+    assert np.isnan(metric_value.aggregate_results["variance"])
+    assert metric_value.aggregate_results["p90"] is None
 
 
 def test_malformed_input_raises_exception():
