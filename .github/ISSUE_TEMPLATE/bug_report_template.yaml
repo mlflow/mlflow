@@ -21,9 +21,9 @@ body:
     attributes:
       label: Where did you encounter this bug?
       options:
+        - Local machine
         - Databricks
         - Azure Machine Learning
-        - Local machine
         - Other
     validations:
       required: true
