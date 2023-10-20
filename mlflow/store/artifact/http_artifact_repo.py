@@ -1,3 +1,4 @@
+import logging
 import math
 import os
 import posixpath
@@ -21,6 +22,8 @@ from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+
+_logger = logging.getLogger(__name__)
 
 
 class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
@@ -177,6 +180,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 )
 
             self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
-        except Exception:
+        except Exception as e:
             self.abort_multipart_upload(local_file, create.upload_id, artifact_path)
+            _logger.warning(f"Failed to upload file {local_file} using multipart upload: {e}")
             raise
