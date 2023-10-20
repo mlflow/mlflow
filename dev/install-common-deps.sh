@@ -52,7 +52,6 @@ if [[ "$SKINNY" == "true" ]]; then
 else
   pip install .[extras] --upgrade
 fi
-export MLFLOW_HOME=$(pwd)
 
 req_files=""
 # Install Python test dependencies only if we're running Python tests
