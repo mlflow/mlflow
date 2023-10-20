@@ -14,7 +14,10 @@ from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.pyfunc import MAIN
 from mlflow.utils._spark_utils import _prepare_subprocess_environ_for_creating_local_spark_session
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.requirements_utils import DATABRICKS_MODULES_TO_PACKAGES
+from mlflow.utils.requirements_utils import (
+    DATABRICKS_MODULES_TO_PACKAGES,
+    MLFLOW_MODULES_TO_PACKAGES,
+)
 
 
 def _get_top_level_module(full_module_name):
@@ -79,6 +82,12 @@ class _CaptureImportedModules:
                     self.imported_modules.add(databricks_module)
                     return
 
+        # special casing for mlflow extras since they may not be required by default
+        if top_level_module == "mlflow":
+            if second_level_module in MLFLOW_MODULES_TO_PACKAGES:
+                self.imported_modules.add(second_level_module)
+                return
+
         self.imported_modules.add(top_level_module)
 
     def __enter__(self):
@@ -112,6 +121,7 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file):
         mlflow_model = Model.load(model_path)
         pyfunc_conf = mlflow_model.flavors.get(mlflow.pyfunc.FLAVOR_NAME)
         input_example = mlflow_model.load_input_example(model_path)
+        params = mlflow_model.load_input_example_params(model_path)
         loader_module = importlib.import_module(pyfunc_conf[MAIN])
         original = loader_module._load_pyfunc
 
@@ -120,7 +130,7 @@ def store_imported_modules(cap_cm, model_path, flavor, output_file):
             with cap_cm:
                 model = original(*args, **kwargs)
                 if input_example is not None:
-                    model.predict(input_example)
+                    model.predict(input_example, params=params)
                 return model
 
         loader_module._load_pyfunc = _load_pyfunc_patch

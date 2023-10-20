@@ -4,7 +4,7 @@ import pathlib
 import shutil
 import tempfile
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_RUN_CONTEXT
@@ -54,10 +54,10 @@ class TrackingConfig:
     def __init__(
         self,
         tracking_uri: str,
-        experiment_name: str = None,
-        experiment_id: str = None,
-        run_name: str = None,
-        artifact_location: str = None,
+        experiment_name: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        run_name: Optional[str] = None,
+        artifact_location: Optional[str] = None,
     ):
         """
         :param tracking_uri: The MLflow Tracking URI.
@@ -263,7 +263,7 @@ def log_code_snapshot(
     recipe_root: str,
     run_id: str,
     artifact_path: str = "recipe_snapshot",
-    recipe_config: Dict[str, Any] = None,
+    recipe_config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Logs a recipe code snapshot as mlflow artifacts.
@@ -287,7 +287,7 @@ def log_code_snapshot(
             if file_path.exists():
                 tmp_path = tmpdir.joinpath(file_path.relative_to(recipe_root))
                 tmp_path.parent.mkdir(exist_ok=True, parents=True)
-                shutil.copyfile(file_path, tmp_path)
+                shutil.copy2(file_path, tmp_path)
         if recipe_config is not None:
             import yaml
 

@@ -676,7 +676,10 @@ def load_db(persist_dir):
     return SQLDatabase.from_uri(sqlite_uri)
 
 
-@pytest.mark.skip(reason="This fails due to https://github.com/hwchase17/langchain/issues/6889")
+@pytest.mark.skipif(
+    version.parse(langchain.__version__) < version.parse("0.0.297"),
+    reason="Saving SQLDatabaseChain chains requires langchain>=0.0.297",
+)
 def test_log_and_load_sql_database_chain(tmp_path):
     # Create the SQLDatabaseChain
     db_file_path = tmp_path / "my_database.db"
@@ -712,9 +715,13 @@ def test_saving_not_implemented_for_memory():
 
 def test_saving_not_implemented_chain_type():
     chain = FakeChain()
+    if version.parse(langchain.__version__) < version.parse("0.0.309"):
+        error_message = "Saving not supported for this chain type"
+    else:
+        error_message = f"Chain {chain} does not support saving."
     with pytest.raises(
         NotImplementedError,
-        match="Saving not supported for this chain type",
+        match=error_message,
     ):
         with mlflow.start_run():
             mlflow.langchain.log_model(chain, "fake_chain")

@@ -120,7 +120,7 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
 
 
 def _parallelize(data, func, n_jobs=-1):
-    n_jobs = n_jobs if n_jobs > 0 and n_jobs <= _NUM_DEFAULT_CPUS else _NUM_DEFAULT_CPUS
+    n_jobs = n_jobs if 0 < n_jobs <= _NUM_DEFAULT_CPUS else _NUM_DEFAULT_CPUS
     data_split = np.array_split(data, n_jobs)
     pool = Pool(n_jobs)
     data = pd.concat(pool.map(func, data_split))

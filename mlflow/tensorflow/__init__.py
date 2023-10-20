@@ -15,8 +15,7 @@ import re
 import shutil
 import tempfile
 import warnings
-from collections import namedtuple
-from typing import Any, Dict, Optional
+from typing import Any, Dict, NamedTuple, Optional
 
 import numpy as np
 import pandas
@@ -33,6 +32,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signat
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.tensorflow.callback import MLflowCallback  # noqa: F401
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -415,7 +415,7 @@ def save_model(
             with tempfile.NamedTemporaryFile(suffix=".h5") as f:
                 model.save(f.name, **keras_model_kwargs)
                 f.flush()  # force flush the data
-                shutil.copyfile(src=f.name, dst=model_path)
+                shutil.copy2(src=f.name, dst=model_path)
         else:
             model.save(model_path, **keras_model_kwargs)
 
@@ -774,10 +774,7 @@ class _TF2Wrapper:
                 # with the shared name. TensorFlow cannot make eager tensors out of pandas
                 # DataFrames, so we convert the DataFrame to a numpy array here.
                 val = data[df_col_name]
-                if isinstance(val, pandas.DataFrame):
-                    val = val.values
-                else:
-                    val = np.array(val.to_list())
+                val = val.values if isinstance(val, pandas.DataFrame) else np.array(val.to_list())
                 feed_dict[df_col_name] = tensorflow.constant(val)
         else:
             raise TypeError("Only dict and DataFrame input types are supported")
@@ -916,10 +913,12 @@ def _get_tensorboard_callback(lst):
 # :location - string: The filesystem location of the logging directory
 # :is_temp - boolean: `True` if the logging directory was created for temporary use by MLflow,
 #                     `False` otherwise
-_TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
+class _TensorBoardLogDir(NamedTuple):
+    location: str
+    is_temp: bool
 
 
-def _setup_callbacks(lst, metrics_logger):
+def _setup_callbacks(callbacks, metrics_logger):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
@@ -927,16 +926,22 @@ def _setup_callbacks(lst, metrics_logger):
     # pylint: disable=no-name-in-module
     from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
 
-    tb = _get_tensorboard_callback(lst)
+    tb = _get_tensorboard_callback(callbacks)
+    for callback in callbacks:
+        if isinstance(callback, MLflowCallback):
+            raise MlflowException(
+                "MLflow autologging must be turned off if an `MLflowCallback` is explicitly added "
+                "to the callback list. You are creating an `MLflowCallback` while having "
+                "autologging enabled. Please either call `mlflow.tensorflow.autolog(disable=True)` "
+                "to disable autologging or remove `MLflowCallback` from the callback list. "
+            )
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
-
-        out_list = lst + [_TensorBoard(log_dir.location)]
+        callbacks.append(_TensorBoard(log_dir.location))
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
-        out_list = lst
-    out_list += [__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS)]
-    return out_list, log_dir
+    callbacks.append(__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS))
+    return callbacks, log_dir
 
 
 @autologging_integration(FLAVOR_NAME)
@@ -987,6 +992,11 @@ def autolog(
     Refer to the autologging tracking documentation for more
     information on `TensorFlow workflows
     <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
+
+    Note that autologging cannot be used together with explicit MLflow callback, i.e.,
+    `mlflow.tensorflow.MLflowCallback`, because it will cause the same metrics to be logged twice.
+    If you want to include `mlflow.tensorflow.MLflowCallback` in the callback list, please turn off
+    autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
 
     :param every_n_iter: The frequency with which metrics should be logged. For example, a value of
                          100 will log metrics at step 0, 100, 200, etc.
@@ -1169,10 +1179,7 @@ def autolog(
                         batch_size = len(first_batch_inputs[0])
                 elif is_iterator(training_data):
                     peek = next(training_data)
-                    if is_single_input_model:
-                        batch_size = len(peek[0])
-                    else:
-                        batch_size = len(peek[0][0])
+                    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
 
                     def __restore_generator(prev_generator):
                         yield peek

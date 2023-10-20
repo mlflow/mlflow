@@ -892,13 +892,16 @@ def test_artifacts(mlflow_client, tmp_path):
     all_artifacts = download_artifacts(
         run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open(f"{all_artifacts}/my.file").read() == "Hello, World!"
-    assert open(f"{all_artifacts}/dir/my.file").read() == "Hello, World!"
+    with open(f"{all_artifacts}/my.file") as f:
+        assert f.read() == "Hello, World!"
+    with open(f"{all_artifacts}/dir/my.file") as f:
+        assert f.read() == "Hello, World!"
 
     dir_artifacts = download_artifacts(
         run_id=run_id, artifact_path="dir", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open(f"{dir_artifacts}/my.file").read() == "Hello, World!"
+    with open(f"{dir_artifacts}/my.file") as f:
+        assert f.read() == "Hello, World!"
 
 
 def test_search_pagination(mlflow_client):
