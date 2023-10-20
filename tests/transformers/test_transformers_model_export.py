@@ -1610,14 +1610,20 @@ def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, inv
         )
 
 
+
 @pytest.mark.parametrize(
     ("inference_payload", "result"),
     [
-        ("Riding a <mask> on the beach is fun!", ["bike"]),
-        (["If I had <mask>, I would fly to the top of a mountain"], ["wings"]),
+        ("Riding a <mask> on the beach is fun!", np.array([["bike"]])),
+        ("Riding a <mask> on the <mask> is fun!", np.array([["bike"], ["beach"]])),
+        (["If I had <mask>, I would fly to the top of a mountain"], np.array([["wings"]])),
+        (
+            ["I use stacks of <mask> to buy things", "I <mask> the whole bowl of <mask>"],
+            np.array([["cash"], ["ate", "soup"]]),
+        ),
         (
             ["I use stacks of <mask> to buy things", "I <mask> the whole bowl of cherries"],
-            ["cash", "ate"],
+            np.array([["cash"], ["ate"]]),
         ),
     ],
 )
@@ -1631,7 +1637,7 @@ def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, r
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     inference = pyfunc_loaded.predict(inference_payload)
-    assert inference == result
+    assert np.array_equal(inference, result)
 
     if len(inference_payload) > 1 and isinstance(inference_payload, list):
         pd_input = pd.DataFrame([{"inputs": v} for v in inference_payload])
@@ -1641,7 +1647,7 @@ def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, r
         pd_input = pd.DataFrame({"inputs": inference_payload}, index=[0])
 
     pd_inference = pyfunc_loaded.predict(pd_input)
-    assert pd_inference == result
+    assert np.array_equal(pd_inference, result)
 
 
 @pytest.mark.parametrize(
