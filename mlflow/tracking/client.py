@@ -776,7 +776,7 @@ class MlflowClient:
                     All backend stores support keys up to length 250, but some may
                     support larger keys.
         :param value: Parameter value (string, but will be string-ified if not).
-                      All backend stores support values up to length 500, but some
+                      All built-in backend stores support values up to length 6000, but some
                       may support larger values.
         :param synchronous: *Experimental* If True, blocks until the parameter is logged
                             successfully. If False, logs the parameter asynchronously and
@@ -2399,7 +2399,9 @@ class MlflowClient:
         """
         return self._get_registry_client().get_registered_model(name)
 
-    def get_latest_versions(self, name: str, stages: List[str] = None) -> List[ModelVersion]:
+    def get_latest_versions(
+        self, name: str, stages: Optional[List[str]] = None
+    ) -> List[ModelVersion]:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
@@ -3175,7 +3177,12 @@ class MlflowClient:
         return ALL_STAGES
 
     def set_model_version_tag(
-        self, name: str, version: str = None, key: str = None, value: Any = None, stage: str = None
+        self,
+        name: str,
+        version: Optional[str] = None,
+        key: Optional[str] = None,
+        value: Any = None,
+        stage: Optional[str] = None,
     ) -> None:
         """
         Set a tag for the model version.
@@ -3258,7 +3265,11 @@ class MlflowClient:
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
     def delete_model_version_tag(
-        self, name: str, version: str = None, key: str = None, stage: str = None
+        self,
+        name: str,
+        version: Optional[str] = None,
+        key: Optional[str] = None,
+        stage: Optional[str] = None,
     ) -> None:
         """
         Delete a tag associated with the model version.

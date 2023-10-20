@@ -89,7 +89,9 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
+from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -266,6 +268,7 @@ def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
         _tracking_store = _tracking_store_registry.get_store(store_uri, artifact_root)
+        utils.set_tracking_uri(store_uri)
     return _tracking_store
 
 
@@ -280,6 +283,7 @@ def _get_model_registry_store(registry_store_uri=None):
             or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         )
         _model_registry_store = _model_registry_store_registry.get_store(store_uri)
+        registry_utils.set_registry_uri(store_uri)
     return _model_registry_store
 
 
@@ -1135,10 +1139,7 @@ def gateway_proxy_handler():
         # Pretend an empty gateway service is running
         return {"routes": []}
 
-    if request.method == "GET":
-        args = request.args
-    else:
-        args = request.json
+    args = request.args if request.method == "GET" else request.json
 
     gateway_path = args.get("gateway_path")
     if not gateway_path:
@@ -1899,7 +1900,7 @@ def _download_artifact(artifact_path):
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
 
     # Ref: https://stackoverflow.com/a/24613980/6943581
-    file_handle = open(dst, "rb")
+    file_handle = open(dst, "rb")  # noqa: SIM115
 
     def stream_and_remove_file():
         yield from file_handle

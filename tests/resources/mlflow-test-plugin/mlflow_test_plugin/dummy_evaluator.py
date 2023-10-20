@@ -123,7 +123,7 @@ class DummyEvaluator(ModelEvaluator):
         self.run_id = run_id
         self.X = dataset.features_data
         self.y = dataset.labels_data
-        y_pred = model.predict(self.X)
+        y_pred = model.predict(self.X) if model is not None else self.dataset.predictions_data
         eval_result = self._evaluate(y_pred, is_baseline_model=False)
 
         if not baseline_model:

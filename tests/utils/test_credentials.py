@@ -1,9 +1,11 @@
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
-from mlflow.utils.credentials import read_mlflow_creds
+from mlflow.exceptions import MlflowException
+from mlflow.utils.credentials import login, read_mlflow_creds
 
 
 def test_read_mlflow_creds_file(tmp_path, monkeypatch):
@@ -99,3 +101,37 @@ mlflow_tracking_password = password_file
         creds = read_mlflow_creds()
         assert creds.username == "username_env"
         assert creds.password == "password_env"
+
+
+def test_mlflow_login(tmp_path, monkeypatch):
+    with patch(
+        "builtins.input", side_effect=["https://community.cloud.databricks.com/", "dummyusername"]
+    ), patch("getpass.getpass", side_effect=["dummypassword"]):
+        file_name = f"{tmp_path}/.databrickscfg"
+        profile = "TEST"
+        monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)
+        monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", profile)
+
+        class FakeWorkspaceClient:
+            class FakeUser:
+                def me(self):
+                    return ["dummyusername"]
+
+            def __init__(self):
+                self.current_user = FakeWorkspaceClient.FakeUser()
+
+        with patch(
+            "databricks.sdk.WorkspaceClient",
+            side_effect=[
+                MlflowException("Error"),
+                FakeWorkspaceClient(),
+            ],
+        ):
+            login("databricks")
+
+    with open(file_name) as f:
+        lines = f.readlines()
+        assert lines[0] == "[TEST]\n"
+        assert lines[1] == "host = https://community.cloud.databricks.com/\n"
+        assert lines[2] == "username = dummyusername\n"
+        assert lines[3] == "password = dummypassword\n"

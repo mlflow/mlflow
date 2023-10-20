@@ -9,7 +9,7 @@ fastai>=2.4.1
 # Required by mlflow.spacy
 spacy>=3.3.0
 # Required by mlflow.tensorflow
-tensorflow>=2.8.0
+tensorflow-cpu>=2.8.0
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision>=0.12.0
@@ -64,3 +64,5 @@ tenacity
 langchain
 # Required by mlflow.sentence_transformers
 sentence-transformers
+# Required by mlflow.keras_core
+keras-core

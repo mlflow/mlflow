@@ -1,7 +1,7 @@
 import inspect
 import warnings
 from contextlib import suppress
-from typing import Dict
+from typing import Dict, Optional
 
 import entrypoints
 
@@ -15,7 +15,9 @@ class DatasetRegistry:
     def __init__(self):
         self.constructors = {}
 
-    def register_constructor(self, constructor_fn: callable, constructor_name: str = None) -> str:
+    def register_constructor(
+        self, constructor_fn: callable, constructor_name: Optional[str] = None
+    ) -> str:
         """
         Registers a dataset constructor.
 
@@ -87,7 +89,7 @@ class DatasetRegistry:
             )
 
 
-def register_constructor(constructor_fn: callable, constructor_name: str = None) -> str:
+def register_constructor(constructor_fn: callable, constructor_name: Optional[str] = None) -> str:
     """
     Registers a dataset constructor.
 

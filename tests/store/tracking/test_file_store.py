@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import posixpath
@@ -38,6 +37,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
+from mlflow.utils import _insecure_md5
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri, read_yaml, write_yaml
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _EXPERIMENT_ID_FIXED_WIDTH, _GENERATOR_PREDICATES
@@ -1524,14 +1524,14 @@ def test_log_param_enforces_value_immutability(store):
 
 def test_log_param_max_length_value(store):
     param_name = "new param"
-    param_value = "x" * 500
+    param_value = "x" * 6000
     _, exp_data, _ = _create_root(store)
     run_id = exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
     store.log_param(run_id, Param(param_name, param_value))
     run = store.get_run(run_id)
     assert run.data.params[param_name] == param_value
     with pytest.raises(MlflowException, match="exceeded length"):
-        store.log_param(run_id, Param(param_name, "x" * 1000))
+        store.log_param(run_id, Param(param_name, "x" * 6001))
 
 
 def test_weird_metric_names(store):
@@ -1799,9 +1799,9 @@ def test_log_batch(store):
 
 
 def test_log_batch_max_length_value(store):
-    param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
+    param_entities = [Param("long param", "x" * 6000), Param("short param", "xyz")]
     expected_param_entities = [
-        Param("long param", "x" * 500),
+        Param("long param", "x" * 6000),
         Param("short param", "xyz"),
     ]
     run = store.create_run(
@@ -1814,7 +1814,7 @@ def test_log_batch_max_length_value(store):
     store.log_batch(run.info.run_id, (), param_entities, ())
     _verify_logged(store, run.info.run_id, (), expected_param_entities, ())
 
-    param_entities = [Param("long param", "x" * 1000), Param("short param", "xyz")]
+    param_entities = [Param("long param", "x" * 6001), Param("short param", "xyz")]
     with pytest.raises(MlflowException, match="exceeded length"):
         store.log_batch(run.info.run_id, (), param_entities, ())
 
@@ -2493,7 +2493,7 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         inputs_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
         expected_input_storage_ids = []
         for dataset_storage_id in dataset_storage_ids:
-            md5 = hashlib.md5(dataset_storage_id.encode("utf-8"))
+            md5 = _insecure_md5(dataset_storage_id.encode("utf-8"))
             md5.update(run.info.run_id.encode("utf-8"))
             expected_input_storage_ids.append(md5.hexdigest())
         assert set(os.listdir(inputs_dir)) == set(expected_input_storage_ids)

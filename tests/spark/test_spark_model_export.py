@@ -75,12 +75,10 @@ def _get_spark_session_with_retry(max_tries=3):
     for num_tries in range(max_tries):
         try:
             return get_spark_session(conf)
-        except Exception as e:
+        except Exception:
             if num_tries >= max_tries - 1:
                 raise
-            _logger.exception(
-                e, f"Attempt {num_tries} to create a SparkSession failed, retrying..."
-            )
+            _logger.exception(f"Attempt {num_tries} to create a SparkSession failed, retrying...")
 
 
 # Specify `autouse=True` to ensure that a context is created
@@ -375,10 +373,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs_tmpdir):
     old_tracking_uri = mlflow.get_tracking_uri()
-    if use_dfs_tmpdir:
-        dfs_tmpdir = None
-    else:
-        dfs_tmpdir = tmp_path.joinpath("test")
+    dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")
@@ -452,10 +447,7 @@ def test_sparkml_estimator_model_log(
     tmp_path, spark_model_estimator, should_start_run, use_dfs_tmpdir
 ):
     old_tracking_uri = mlflow.get_tracking_uri()
-    if use_dfs_tmpdir:
-        dfs_tmpdir = None
-    else:
-        dfs_tmpdir = tmp_path.joinpath("test")
+    dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")

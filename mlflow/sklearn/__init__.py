@@ -243,7 +243,8 @@ def save_model(
     code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
 
     if signature is None and input_example is not None:
-        signature = _infer_signature_from_input_example(input_example, sk_model)
+        wrapped_model = _SklearnModelWrapper(sk_model)
+        signature = _infer_signature_from_input_example(input_example, wrapped_model)
     elif signature is False:
         signature = None
 

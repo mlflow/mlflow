@@ -21,6 +21,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -162,12 +163,15 @@ class PythonModelContext:
     by the ``artifacts`` parameter of these methods.
     """
 
-    def __init__(self, artifacts):
+    def __init__(self, artifacts, model_config):
         """
         :param artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path``
                           is an absolute filesystem path to a given artifact.
+        :param model_config: The model configuration to make available to the model at
+                                 loading time.
         """
         self._artifacts = artifacts
+        self._model_config = model_config
 
     @property
     def artifacts(self):
@@ -176,6 +180,16 @@ class PythonModelContext:
         absolute filesystem path to the artifact.
         """
         return self._artifacts
+
+    @experimental
+    @property
+    def model_config(self):
+        """
+        A dictionary containing ``<config, value>`` entries, where ``config`` is the name
+        of the model configuration keys and ``value`` is the value of the given configuration.
+        """
+
+        return self._model_config
 
 
 def _save_model_with_class_artifacts_params(
@@ -189,6 +203,7 @@ def _save_model_with_class_artifacts_params(
     mlflow_model=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    model_config=None,
 ):
     """
     :param path: The path to which to save the Python model.
@@ -212,7 +227,12 @@ def _save_model_with_class_artifacts_params(
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
                        path before the model is loaded.
-    :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
+    :param mlflow_model: The model to which to add the ``mlflow.pyfunc`` flavor.
+    :param model_config: The model configuration for the flavor. Model configuration is available
+                         during model loading time.
+
+                            .. Note:: Experimental: This parameter may change or be removed in a
+                                      future release without warning.
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -294,6 +314,7 @@ def _save_model_with_class_artifacts_params(
         code=saved_code_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        model_config=model_config,
         **custom_model_config_kwargs,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -332,7 +353,7 @@ def _save_model_with_class_artifacts_params(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_pyfunc(model_path):
+def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -369,7 +390,7 @@ def _load_pyfunc(model_path):
             model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
         )
 
-    context = PythonModelContext(artifacts=artifacts)
+    context = PythonModelContext(artifacts=artifacts, model_config=model_config)
     python_model.load_context(context=context)
     signature = mlflow.models.Model.load(model_path).signature
     return _PythonModelPyfuncWrapper(

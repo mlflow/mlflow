@@ -1,8 +1,10 @@
 import base64
+import hashlib
 import inspect
 import logging
 import socket
 import subprocess
+import sys
 import uuid
 from contextlib import closing
 from itertools import islice
@@ -271,3 +273,21 @@ def get_results_from_paginated_fn(paginated_fn, max_results_per_page, max_result
         else:
             break
     return all_results
+
+
+def _insecure_md5(string=b""):
+    """
+    Do not use this function for security purposes (e.g., password hashing).
+
+    In Python >= 3.9, `hashlib.md5` fails in FIPS-compliant environments. This function
+    provides a workaround for this issue by using `hashlib.md5` with `usedforsecurity=False`.
+
+    References:
+    - https://github.com/mlflow/mlflow/issues/9905
+    - https://docs.python.org/3/library/hashlib.html
+    """
+    return (
+        hashlib.md5(string, usedforsecurity=False)
+        if sys.version_info >= (3, 9)
+        else hashlib.md5(string)
+    )

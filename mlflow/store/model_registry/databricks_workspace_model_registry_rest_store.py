@@ -28,3 +28,10 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
             "'models:/model_name@alias_name', configure the MLflow client to target Unity Catalog "
             "and try again.",
         )
+
+    def _await_model_version_creation(self, mv, await_creation_for):
+        uc_hint = (
+            " For faster model version creation, use Models in Unity Catalog "
+            "(https://docs.databricks.com/en/machine-learning/manage-model-lifecycle/index.html)."
+        )
+        self._await_model_version_creation_impl(mv, await_creation_for, hint=uc_hint)

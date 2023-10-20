@@ -17,6 +17,7 @@ import logging
 import os
 import shutil
 import types
+from importlib.util import find_spec
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 import cloudpickle
@@ -131,13 +132,9 @@ def _get_map_of_special_chain_class_to_loader_arg():
     if version.parse(langchain.__version__) <= version.parse("0.0.246"):
         class_name_to_loader_arg["langchain.chains.SQLDatabaseChain"] = "database"
     else:
-        try:
-            import langchain.experimental
-
+        if find_spec("langchain_experimental"):
+            # Add this entry only if langchain_experimental is installed
             class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
-        except ImportError:
-            # Users may not have langchain_experimental installed, which is completely normal
-            pass
 
     class_to_loader_arg = {
         _RetrieverChain: "retriever",
@@ -208,11 +205,7 @@ def save_model(
                         ]
                         signature = infer_signature(input_columns, predictions)
 
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -331,7 +324,11 @@ def save_model(
 
 
 def _validate_and_wrap_lc_model(lc_model, loader_fn):
-    import langchain
+    import langchain.agents
+    import langchain.chains
+    import langchain.llms.huggingface_hub
+    import langchain.llms.openai
+    import langchain.schema
 
     if not isinstance(
         lc_model,
@@ -457,11 +454,7 @@ def log_model(
                         ]
                         signature = infer_signature(input_columns, predictions)
 
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to
-                          feed the model. The given example will be converted to a
-                          Pandas DataFrame and then serialized to json using the
-                          Pandas split-oriented format. Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
 
     :param await_registration_for: Number of seconds to wait for the model version
                         to finish being created and is in ``READY`` status.

@@ -15,6 +15,9 @@ on:
     types:
       - closed
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
@@ -27,6 +30,8 @@ jobs:
   validate-labeled:
     if: github.event.pull_request.draft == false && github.event.action != 'closed'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read # validateLabeled looks at PR's labels
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v3
@@ -43,6 +48,8 @@ jobs:
     if: github.event.action == 'closed' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      pull-requests: write # postMerge labels PRs
     steps:
       - uses: actions/checkout@v3
       - name: post-merge

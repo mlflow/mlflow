@@ -7,6 +7,9 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
@@ -99,6 +102,8 @@ jobs:
           python -m venv ~/.venv
           . ~/.venv/bin/activate
           source ./dev/install-common-deps.sh --ml
+          # pyspark 3.5 is incompatible with delta 2.4
+          pip install 'pyspark<3.5'
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
@@ -268,12 +273,12 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark "numpy<1.24.0" torch transformers
+          pip install pyspark torch transformers
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest tests/evaluate
+          dev/pytest.sh tests/evaluate
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -284,18 +289,22 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install tensorflow pyspark
+          pip install tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest --durations=30 tests/pyfunc
+          pytest --durations=30 tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+
+          # test_spark_connect.py fails if it's run with ohter tests, so run it separately.
+          pytest tests/pyfunc/test_spark_connect.py
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -333,12 +342,15 @@ jobs:
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-          pip install pyspark
+          # pyspark 3.5 is incompatible with delta 2.4
+          pip install 'pyspark<3.5'
           pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
           pip install tensorflow
+          # Install torch and transformers to test metrics
+          pip install torch transformers
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |

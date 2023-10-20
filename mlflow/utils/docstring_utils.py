@@ -75,7 +75,7 @@ class ParamDocs(dict):
 
         min_indent = _get_minimum_indentation(docstring)
         for param_name, param_doc in self.items():
-            param_doc = textwrap.indent(param_doc, min_indent + " " * 4)
+            param_doc = textwrap.indent(param_doc, min_indent + " " * 8)
             if not param_doc.startswith("\n"):
                 param_doc = "\n" + param_doc
             docstring = _replace_placeholder(docstring, param_name, param_doc)
@@ -191,7 +191,7 @@ class that describes the model's inputs and outputs. If not specified but an
 based on the supplied input example and model. To disable automatic signature
 inference when providing an input example, set ``signature`` to ``False``.
 To manually infer a model signature, call
-:py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets 
+:py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
 with valid model inputs, such as a training dataset with the target column
 omitted, and valid model outputs, like model predictions made on the training
 dataset, for example:
@@ -209,8 +209,11 @@ one or several instances of valid model input. The input example is used
 as a hint of what data to feed the model. It will be converted to a Pandas
 DataFrame and then serialized to json using the Pandas split-oriented
 format, or a numpy array where the example will be serialized to json
-by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
-``None``, the input example is used to infer a model signature.
+by converting it to a list. If input example is a tuple, then the first element
+must be a valid model input, and the second element must be a valid params
+dictionary that could be used for model inference. Bytes are base64-encoded.
+When the ``signature`` parameter is ``None``, the input example is used to
+infer a model signature.
 """,
     }
 )
