@@ -1654,8 +1654,6 @@ class DefaultEvaluator(ModelEvaluator):
                 eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
                 if self.dataset.has_targets:
                     eval_df["target"] = self.y
-                    # at this level, it's already been unpacked
-                    print("IM HEREEE", self.y)
 
                 self._evaluate_metrics(eval_df)
                 if not is_baseline_model:
@@ -1706,7 +1704,6 @@ class DefaultEvaluator(ModelEvaluator):
         self.feature_names = dataset.feature_names
 
         self.custom_artifacts = custom_artifacts
-        print("IM HERE NOW", dataset.labels_data)
         self.y = dataset.labels_data
         self.predictions = predictions
         self.col_mapping = self.evaluator_config.get("col_mapping", {})

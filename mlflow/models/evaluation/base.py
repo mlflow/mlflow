@@ -478,8 +478,6 @@ class EvaluationDataset:
         self._predictions_name = None
         self._has_predictions = False
 
-        print("BREEEEH", data)
-
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
@@ -576,7 +574,6 @@ class EvaluationDataset:
                 data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
             if has_targets:
-                print("IM HERE RIGHT NOW", data[targets])
                 self._labels_data = data[targets].to_numpy()
                 self._targets_name = targets
 
@@ -1859,7 +1856,6 @@ def evaluate(
             dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
             client.log_inputs(run_id, [dataset_input])
         else:
-            print("YESM", data)
             dataset = EvaluationDataset(
                 data,
                 targets=targets,

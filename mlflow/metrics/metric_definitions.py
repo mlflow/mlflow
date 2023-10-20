@@ -38,22 +38,16 @@ def _validate_text_tuple_data(data, metric_name, column_name):
     if data is None or len(data) == 0:
         return False
 
-    print("yessir", data)
-
     for row, tup in enumerate(data):
         if not isinstance(tup, tuple):
-            print("bbbbbba", row, tup)
+            for val in tup:
+                if not isinstance(val, str):
+                    _logger.warning(
+                        f"Cannot calculate {metric_name} for non-tuple[str] inputs."
+                        f"Row {row} of column {column_name} has a non-string value of:"
+                        f"{val}. skipping metric logging."
+                    )
             return False
-
-        for val in tup:
-            if not isinstance(val, str):
-                print("bbbbbb", val)
-                _logger.warning(
-                    f"Cannot calculate {metric_name} for non-tuple[str] inputs."
-                    f"Row {row} of column {column_name} has a non-string value of:\n"
-                    f"{val}\nSkipping metric logging."
-                )
-                return False
 
     return True
 
@@ -390,14 +384,9 @@ def _precision_at_k_eval_fn(predictions, targets, k, metrics, sample_weight=None
     if (
         not _validate_text_tuple_data(predictions, "precision_at_k", "predictions")
         or not _validate_text_tuple_data(targets, "precision_at_k", "targets")
-        # or not isinstance(k, int)
-        # or k <= 0
+        or not isinstance(k, int)
+        and k > 0
     ):
-        # print("breh")
-        # print("predictions aasdfasdf", predictions)
-        # print("targets", targets)
-        # print("k", type(k), k)
-        # print("k> 0", k > 0)
         return
 
     scores = []
