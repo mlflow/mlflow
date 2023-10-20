@@ -1538,17 +1538,31 @@ class DefaultEvaluator(ModelEvaluator):
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if not isinstance(metric_prefix, str):
             metric_prefix = ""
-        if self.dataset.has_targets:
-            data = self.dataset.features_data.assign(
-                **{
-                    self.dataset.targets_name or "target": self.y,
-                    self.dataset.predictions_name or "outputs": self.y_pred,
-                }
-            )
+        if isinstance(self.dataset.features_data, pd.DataFrame):
+            # Handle DataFrame case
+            if self.dataset.has_targets:
+                data = self.dataset.features_data.assign(
+                    **{
+                        self.dataset.targets_name or "target": self.y,
+                        self.dataset.predictions_name or "outputs": self.y_pred,
+                    }
+                )
+            else:
+                data = self.dataset.features_data.assign(outputs=self.y_pred)
         else:
-            data = self.dataset.features_data.assign(outputs=self.y_pred)
+            # Handle NumPy array case, converting it to a DataFrame
+            data = pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
+            if self.dataset.has_targets:
+                data = data.assign(
+                    **{
+                        self.dataset.targets_name or "target": self.y,
+                        self.dataset.predictions_name or "outputs": self.y_pred,
+                    }
+                )
+            else:
+                data = data.assign(outputs=self.y_pred)
 
-        # include other_output_columns in the eval table
+        # Include other_output_columns in the eval table
         if self.other_output_columns is not None:
             data = data.assign(**self.other_output_columns)
 
