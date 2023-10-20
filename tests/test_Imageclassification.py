@@ -9,8 +9,8 @@ def vision_model_save():
     path= "facebook_deit_base_patch16_224"
     print(os.path.exists(path))
     if not (os.path.exists(path)):
-       image_processor = ViTImageProcessor.from_pretrained(Model_name)
-       model = ViTForImageClassification.from_pretrained(Model_name)
+       image_processor = ViTImageProcessor.from_pretrained(model_name)
+       model = ViTForImageClassification.from_pretrained(model_name)
        components={"model": model,"image_processor":image_processor}
        mlflow.transformers.save_model(
                 transformers_model=components,
