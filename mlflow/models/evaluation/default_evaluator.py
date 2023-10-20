@@ -1455,10 +1455,9 @@ class DefaultEvaluator(ModelEvaluator):
             Below are the existing column names for the input/output data:
             Input Columns: {input_columns}
             Output Columns: {output_columns}
-            To resolve this issue, you may want to map the missing column to an
-            existing column using the following configuration:
-            evaluator_config={{'col_mapping': {{<missing column name>:
-            <existing column name}}}}"""
+            To resolve this issue, you may want to map the missing column to an existing column
+            using the following configuration:
+            evaluator_config={{'col_mapping': {{<missing column name>: <existing column name}}}}"""
             stripped_message = "\n".join(l.lstrip() for l in full_message.strip().splitlines())
             raise MlflowException(stripped_message)
 
