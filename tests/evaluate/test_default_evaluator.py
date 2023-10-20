@@ -2876,7 +2876,7 @@ def test_evaluate_no_model_type_with_custom_metric():
         from mlflow.metrics import make_metric
         from mlflow.metrics.metric_definitions import standard_aggregations
 
-        def word_count_eval(predictions, targets, metrics):
+        def word_count_eval(predictions, targets=None, metrics=None):
             scores = []
             for prediction in predictions:
                 scores.append(len(prediction.split(" ")))
