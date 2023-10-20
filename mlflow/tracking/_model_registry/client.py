@@ -276,7 +276,7 @@ class ModelRegistryClient:
 
         .. warning:
 
-            The searched model versions may not have aliases populated for performance reasons.
+            The model version search results may not have aliases populated for performance reasons.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or

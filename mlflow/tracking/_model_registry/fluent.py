@@ -236,7 +236,7 @@ def search_model_versions(
 
     .. warning:
 
-        The searched model versions may not have aliases populated for performance reasons.
+        The model version search results may not have aliases populated for performance reasons.
 
     :param filter_string: Filter query string
         (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
