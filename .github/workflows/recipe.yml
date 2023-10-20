@@ -81,5 +81,5 @@ jobs:
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
-          # Run recipes tests
+          export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
