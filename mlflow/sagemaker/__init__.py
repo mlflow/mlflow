@@ -1924,7 +1924,7 @@ def _does_model_exist(model_name, sage_client):
         if "Could not find model" in error.response["Error"]["Message"]:
             return False
     else:
-        return True if response else False
+        return bool(response)
 
 
 class SageMakerDeploymentClient(BaseDeploymentClient):
@@ -2396,8 +2396,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          Defaults to ``None``.
 
                        - ``variant_name``: A string specifying the desired name when creating a
-                                           production variant.  Defaults to ``None``.                                           
-                       - ``async_inference_config``: A dictionary specifying the async config 
+                                           production variant.  Defaults to ``None``.
+                       - ``async_inference_config``: A dictionary specifying the async config
                                                      configuration. Defaults to ``None``.
                        - ``env``: A dictionary specifying environment variables as key-value pairs
                          to be set for the deployed model. Defaults to ``None``.

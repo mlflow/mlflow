@@ -774,10 +774,7 @@ class _TF2Wrapper:
                 # with the shared name. TensorFlow cannot make eager tensors out of pandas
                 # DataFrames, so we convert the DataFrame to a numpy array here.
                 val = data[df_col_name]
-                if isinstance(val, pandas.DataFrame):
-                    val = val.values
-                else:
-                    val = np.array(val.to_list())
+                val = val.values if isinstance(val, pandas.DataFrame) else np.array(val.to_list())
                 feed_dict[df_col_name] = tensorflow.constant(val)
         else:
             raise TypeError("Only dict and DataFrame input types are supported")
@@ -1182,10 +1179,7 @@ def autolog(
                         batch_size = len(first_batch_inputs[0])
                 elif is_iterator(training_data):
                     peek = next(training_data)
-                    if is_single_input_model:
-                        batch_size = len(peek[0])
-                    else:
-                        batch_size = len(peek[0][0])
+                    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
 
                     def __restore_generator(prev_generator):
                         yield peek

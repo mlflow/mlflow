@@ -71,7 +71,7 @@ with mlflow.start_run() as run:
         model_type="classifier",
         evaluators=["default"],
         validation_thresholds=thresholds,
-        custom_metrics=[
+        extra_metrics=[
             make_metric(
                 eval_fn=double_positive,
                 greater_is_better=False,

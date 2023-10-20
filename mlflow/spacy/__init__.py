@@ -107,11 +107,7 @@ def save_model(
                       train = df.drop_column("target_label")
                       predictions = ...  # compute model predictions
                       signature = infer_signature(train, predictions)
-        input_example: Input example provides one or several instances of valid
-                       model input. The example can be used as a hint of what data to feed the
-                       model. The given example will be converted to a Pandas DataFrame and then
-                       serialized to json using the Pandas split-oriented format. Bytes are
-                       base64-encoded.
+        input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -245,11 +241,7 @@ def log_model(
                       train = df.drop_column("target_label")
                       predictions = ...  # compute model predictions
                       signature = infer_signature(train, predictions)
-        input_example: Input example provides one or several instances of valid
-                       model input. The example can be used as a hint of what data to feed the
-                       model. The given example will be converted to a Pandas DataFrame and then
-                       serialized to json using the Pandas split-oriented format. Bytes are
-                       base64-encoded.
+        input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.

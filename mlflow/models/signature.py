@@ -338,13 +338,19 @@ def _infer_signature_from_input_example(
         `wrapped_model`.
     """
     try:
-        input_example = _Example(input_example)
-        # Copy the input example so that it is not mutated by predict()
-        input_ex = deepcopy(input_example.inference_data)
-        params = input_example.inference_params
-        input_schema = _infer_schema(input_ex)
+        if _contains_params(input_example):
+            input_example, params = input_example
+        else:
+            params = None
+        if isinstance(input_example, list) and all(isinstance(x, str) for x in input_example):
+            input_schema = _infer_schema(input_example)
+        else:
+            input_example = _Example(input_example)
+            # Copy the input example so that it is not mutated by predict()
+            input_example = deepcopy(input_example.inference_data)
+            input_schema = _infer_schema(input_example)
         params_schema = _infer_param_schema(params) if params else None
-        prediction = wrapped_model.predict(input_ex, params=params)
+        prediction = wrapped_model.predict(input_example, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (

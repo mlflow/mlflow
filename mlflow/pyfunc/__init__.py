@@ -209,6 +209,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 
 import collections
 import functools
+import hashlib
 import importlib
 import inspect
 import logging
@@ -616,8 +617,8 @@ def _warn_dependency_requirement_mismatches(model_path):
 def load_model(
     model_uri: str,
     suppress_warnings: bool = False,
-    dst_path: str = None,
-    model_config: Dict[str, Any] = None,
+    dst_path: Optional[str] = None,
+    model_config: Optional[Dict[str, Any]] = None,
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -720,7 +721,9 @@ class _ServedPyFuncModel(PyFuncModel):
         return self._server_pid
 
 
-def _load_model_or_server(model_uri: str, env_manager: str, model_config: Dict[str, Any] = None):
+def _load_model_or_server(
+    model_uri: str, env_manager: str, model_config: Optional[Dict[str, Any]] = None
+):
     """
     Load a model with env restoration. If a non-local ``env_manager`` is specified, prepare an
     independent Python environment with the training time dependencies of the specified model
@@ -922,10 +925,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
 
 
 def _create_model_downloading_tmp_dir(should_use_nfs):
-    if should_use_nfs:
-        root_tmp_dir = get_or_create_nfs_tmp_dir()
-    else:
-        root_tmp_dir = get_or_create_tmp_dir()
+    root_tmp_dir = get_or_create_nfs_tmp_dir() if should_use_nfs else get_or_create_tmp_dir()
 
     root_model_cache_dir = os.path.join(root_tmp_dir, "models")
     os.makedirs(root_model_cache_dir, exist_ok=True)
@@ -1093,6 +1093,14 @@ def _check_udf_return_type(data_type):
     return False
 
 
+def _is_spark_connect():
+    try:
+        from pyspark.sql.utils import is_remote
+    except ImportError:
+        return False
+    return is_remote()
+
+
 def spark_udf(
     spark,
     model_uri,
@@ -1229,6 +1237,11 @@ def spark_udf(
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
 
+    is_spark_connect = _is_spark_connect()
+    if is_spark_connect and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA):
+        raise MlflowException.invalid_parameter_value(
+            f"Environment manager {env_manager!r} is not supported in Spark connect mode.",
+        )
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
@@ -1242,7 +1255,9 @@ def spark_udf(
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
-    should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
+    should_use_spark_to_broadcast_file = not (
+        is_spark_in_local_mode or should_use_nfs or is_spark_connect
+    )
 
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
@@ -1458,6 +1473,8 @@ Compound types:
         pandas.DataFrame if isinstance(result_type, SparkStructType) else pandas.Series
     )
 
+    tracking_uri = mlflow.get_tracking_uri()
+
     @pandas_udf(result_type)
     def udf(
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
@@ -1477,6 +1494,9 @@ Compound types:
         if mlflow_testing:
             _MLFLOW_TESTING.set(mlflow_testing)
         scoring_server_proc = None
+        # set tracking_uri inside udf so that with spark_connect
+        # we can load the model from correct path
+        mlflow.set_tracking_uri(tracking_uri)
 
         if env_manager != _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
@@ -1559,7 +1579,18 @@ Compound types:
                 return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
-            if should_use_spark_to_broadcast_file:
+            if is_spark_connect:
+                model_path = os.path.join(
+                    tempfile.gettempdir(),
+                    "mlflow",
+                    hashlib.sha1(model_uri.encode()).hexdigest(),
+                )
+                try:
+                    loaded_model = mlflow.pyfunc.load_model(model_path)
+                except Exception:
+                    os.makedirs(model_path, exist_ok=True)
+                    loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
+            elif should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
                 loaded_model = mlflow.pyfunc.load_model(local_model_path)
@@ -1787,12 +1818,7 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example can be a Pandas DataFrame where the given
-                          example will be serialized to json using the Pandas split-oriented
-                          format, or a numpy array where the example will be serialized to json
-                          by converting it to a list. Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -2068,12 +2094,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example can be a Pandas DataFrame where the given
-                          example will be serialized to json using the Pandas split-oriented
-                          format, or a numpy array where the example will be serialized to json
-                          by converting it to a list. Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.

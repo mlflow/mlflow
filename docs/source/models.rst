@@ -84,6 +84,12 @@ SageMaker as long as they support the ``python_function`` flavor:
 
     mlflow deployments create -t sagemaker -m my_model [other options]
 
+.. note::
+    When a model registered in the MLflow Model Registry is downloaded, a YAML file named
+    `registered_model_meta` is added to the model directory on the downloader's side.
+    This file contains the name and version of the model referenced in the MLflow Model Registry,
+    and will be used for deployment and other purposes.
+
 Fields in the MLmodel Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Apart from a **flavors** field listing the model flavors, the MLmodel YAML format can contain
@@ -761,7 +767,8 @@ To include an input example with your model, add it to the appropriate log_model
 model signatures in log_model calls when signatures aren't specified.
 
 Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). See examples below:
+(i.e numpy.ndarrays). We offer support for input_example with params by using tuple to combine model
+inputs and params. See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -812,6 +819,27 @@ The following example demonstrates how you can log a tensor-based input example 
         dtype=np.uint8,
     )
     mlflow.tensorflow.log_model(..., input_example=input_example)
+
+How To Log Model With Example Containing Params
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For models that require additional parameters during inference, you can include an input_example 
+containing params when saving or logging the model. To achieve this, the sample input should be 
+provided as a ``tuple``. The first element of the tuple is the input data example, and the
+second element is a ``dict`` of params. A comprehensive list of valid params is documented in
+:ref:`Model Inference Params <inference-params>` section.
+
+* Python ``tuple``: (input_data, params)
+
+The following example demonstrates how to log a model with an example containing params:
+
+.. code-block:: python
+
+    # input_example could be column-based or tensor-based example as shown above
+    # params must be a valid dictionary of params
+    input_data = "Hello, Dolly!"
+    params = {"temperature": 0.5, "top_k": 1}
+    input_example = (input_data, params)
+    mlflow.transformers.log_model(..., input_example=input_example)
 
 .. _model-api:
 
@@ -2523,7 +2551,7 @@ Model with the ``openai`` flavor as a dictionary of the model's attributes.
 
 Example:
 
-.. literalinclude:: ../../examples/openai/pyfunc.py
+.. literalinclude:: ../../examples/openai/chat_completions.py
     :language: python
 
 
@@ -3616,10 +3644,10 @@ each model:
 For additional examples demonstrating the use of ``mlflow.evaluate()`` with LLMs, check out the
 `MLflow LLMs example repository <https://github.com/mlflow/mlflow/tree/master/examples/llms>`_.
 
-Evaluating with Custom Metrics
+Evaluating with Extra Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the default set of metrics is insufficient, you can supply ``custom_metrics`` and ``custom_artifacts``
+If the default set of metrics is insufficient, you can supply ``extra_metrics`` and ``custom_artifacts``
 to :py:func:`mlflow.evaluate()` to produce custom metrics and artifacts for the model(s) that you're evaluating.
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
@@ -3631,6 +3659,43 @@ uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the 
 
 For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
+
+Evaluating with a Function
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
+logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
+it. The following example uses :py:func:`mlflow.evaluate()` to evaluate a function:
+
+
+.. literalinclude:: ../../examples/evaluation/evaluate_with_function.py
+    :language: python
+
+Evaluating with a Static Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a static dataset without specifying a model.
+This is useful when you save the model output to a column in a Pandas DataFrame or an MLflow PandasDataset, and
+want to evaluate the static dataset without re-running the model.
+
+If you are using a Pandas DataFrame, you must specify the column name that contains the model output using the
+top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
+
+.. code-block:: python
+
+    mlflow.evaluate(data=pandas_df, predictions="model_output", ...)
+
+If you are using an MLflow PandasDataset, you must specify the column name that contains the model output using
+the ``predictions`` parameter in :py:func:`mlflow.data.from_pandas()`, and specify ``None`` for the
+``predictions`` parameter in :py:func:`mlflow.evaluate()`:
+
+.. code-block:: python
+
+    dataset = mlflow.data.from_pandas(pandas_df, predictions="model_output")
+    mlflow.evaluate(data=pandas_df, predictions=None, ...)
+
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dataset:
+
+.. literalinclude:: ../../examples/evaluation/evaluate_with_static_dataset.py
+    :language: python
 
 .. _model-validation:
 

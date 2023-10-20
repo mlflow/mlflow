@@ -176,49 +176,42 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
 @experimental
 def from_huggingface(
     ds,
-    path: str = None,
+    path: Optional[str] = None,
     targets: Optional[str] = None,
     data_dir: Optional[str] = None,
     data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
     revision=None,
-    task=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> HuggingFaceDataset:
-    """
-    Given a Hugging Face ``datasets.Dataset``, constructs an MLflow :py:class:`HuggingFaceDataset`
-    object for use with MLflow Tracking.
+    """Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
 
-    :param ds: A Hugging Face dataset. Must be an instance of ``datasets.Dataset``.
-               Other types, such as ``datasets.DatasetDict``, are not supported.
-    :param path: The path of the Hugging Face dataset used to construct the source. This is used by
-                 the ``datasets.load_dataset()`` function to reload the dataset upon request via
-                 :py:func:`HuggingFaceDataset.source.load()
-                 <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
-                 If no path is specified, a CodeDatasetSource is used, which will source
-                 information from the run context.
-    :param targets: The name of the Hugging Face ``dataset.Dataset`` column containing targets
-                    (labels) for supervised learning.
-    :param data_dir: The `data_dir` of the Hugging Face dataset configuration. This is used by the
-                     ``datasets.load_dataset()`` function to reload the dataset upon request via
-                     :py:func:`HuggingFaceDataset.source.load()
-                     <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
-    :param data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
-                       This is used by the ``datasets.load_dataset()`` function to reload the
-                       dataset upon request via :py:func:`HuggingFaceDataset.source.load()
-                       <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
-    :param revision: Version of the dataset script to load. This is used by the
-                     ``datasets.load_dataset()`` function to reload the dataset upon request via
-                     :py:func:`HuggingFaceDataset.source.load()
-                     <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
-    :param task: The task to prepare the Hugging Face dataset for during training and evaluation.
-                 This is used by the ``datasets.load_dataset()`` function to reload the dataset
-                 upon request via :py:func:`HuggingFaceDataset.source.load()
-                 <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
-    :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
-                 automatically generated.
-    :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
-                   is automatically computed.
+    Args:
+        ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`. Other types, such as
+            `datasets.DatasetDict`, are not supported.
+        path: The path of the Hugging Face dataset used to construct the source. This is the same
+            argument as `path` in `datasets.load_dataset()` function. To be able to reload the
+            dataset via MLflow, `path` must match the path of the dataset on the hub, e.g.,
+            "databricks/databricks-dolly-15k". If no path is specified, a `CodeDatasetSource` is,
+            used which will source information from the run context.
+        targets: The name of the Hugging Face `dataset.Dataset` column containing targets (labels)
+            for supervised learning.
+        data_dir: The `data_dir` of the Hugging Face dataset configuration. This is used by the
+            `datasets.load_dataset()` function to reload the dataset upon request via
+            :py:func:`HuggingFaceDataset.source.load()
+            <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
+        data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
+            This is used by the `datasets.load_dataset()` function to reload the
+            dataset upon request via :py:func:`HuggingFaceDataset.source.load()
+            <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
+        revision: Version of the dataset script to load. This is used by the
+            `datasets.load_dataset()` function to reload the dataset upon request via
+            :py:func:`HuggingFaceDataset.source.load()
+            <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
+        name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is automatically
+            generated.
+        digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
+            automatically computed.
     """
     import datasets
 
@@ -227,13 +220,13 @@ def from_huggingface(
 
     if not isinstance(ds, datasets.Dataset):
         raise MlflowException(
-            f"The specified Hugging Face dataset must be an instance of ``datasets.Dataset``."
+            f"The specified Hugging Face dataset must be an instance of `datasets.Dataset`."
             f" Instead, found an instance of: {type(ds)}",
             INVALID_PARAMETER_VALUE,
         )
 
-    # if arguments for source are passed in directly, use them.
-    # otherwise construct a CodeDatasetSource.
+    # Set the source to a `HuggingFaceDatasetSource` if a path is specified, otherwise set it to a
+    # `CodeDatasetSource`.
     if path is not None:
         source = HuggingFaceDatasetSource(
             path=path,
@@ -242,7 +235,6 @@ def from_huggingface(
             data_files=data_files,
             split=ds.split,
             revision=revision,
-            task=task,
         )
     else:
         context_tags = registry.resolve_tags()

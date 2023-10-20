@@ -1,8 +1,6 @@
 from abc import ABC
 from typing import Tuple
 
-from fastapi import HTTPException
-
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -29,6 +27,8 @@ class BaseProvider(ABC):
 
     @staticmethod
     def check_for_model_field(payload):
+        from fastapi import HTTPException
+
         if "model" in payload:
             raise HTTPException(
                 status_code=422,
