@@ -104,6 +104,7 @@ travis_wait*.log
 lightning_logs
 
 a.py
+a.ipynb
 a.md
 
 # Log file created by pre-commit hook for black
