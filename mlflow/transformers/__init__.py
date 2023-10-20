@@ -2625,7 +2625,7 @@ class _TransformersWrapper:
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
         """
-        Validation of blob references to audio files, if a string is input to the ``predict``
+        Validation of blob references to audio  files/image files, if a string is input to the ``predict``
         method, perform validation of the string contents by checking for a valid uri or
         filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
         for an invalid uri input.
@@ -2643,7 +2643,7 @@ class _TransformersWrapper:
         if not valid_uri:
             raise MlflowException(
                 "An invalid string input was provided. String inputs to "
-                "audio files must be either a file location or a uri.",
+                "audio files/image files must be either a file location or a uri.",
                 error_code=BAD_REQUEST,
             )
     def _convert_image_input(self, data):
@@ -2729,39 +2729,13 @@ if isinstance(data, list) and all(isinstance(element, dict) for element in data)
     for item in data:
         encoded_image = next(iter(item.values()))
         if isinstance(encoded_image, str):
-            self._validate_image_input_uri_or_file(encoded_image)
+            self._validate_str_input_uri_or_file(encoded_image)
         images.append(decode_image(encoded_image))
     return images
                 
             elif isinstance(data, str):
-                self._validate_image_input_uri_or_file(data)
+                self._validate_str_input_uri_or_file(data)
             return data
-    @staticmethod
-    def _validate_image_input_uri_or_file(input_str):
-            """
-            Validation of blob references to image files, if a string is input to the ``predict``
-            method, perform validation of the string contents by checking for a valid uri or
-            filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
-            for an invalid uri input.
-            """
-
-            def is_uri(s):
-                try:
-                    result = urlparse(s)
-                    return all([result.scheme, result.netloc])
-                except ValueError:
-                    return False
-
-            valid_uri = os.path.isfile(input_str) or is_uri(input_str)
-
-            if not valid_uri:
-                raise MlflowException(
-                    "An invalid string input was provided. String inputs to "
-                    "audio files must be either a file location or a uri.",
-                    error_code=BAD_REQUEST,
-                )
-        
-
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
