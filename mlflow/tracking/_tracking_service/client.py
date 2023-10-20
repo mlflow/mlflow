@@ -7,7 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import os
 from collections import OrderedDict
 from itertools import zip_longest
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from mlflow.entities import ExperimentTag, Metric, Param, RunStatus, RunTag, ViewType
 from mlflow.entities.dataset_input import DatasetInput
@@ -17,8 +17,8 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
-from mlflow.utils import chunk_list
-from mlflow.utils.async_logging.run_operations import get_combined_run_operations
+from mlflow.utils import ParamValue, chunk_list
+from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -262,7 +262,9 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None, step=None, synchronous=True):
+    def log_metric(
+        self, run_id, key, value, timestamp=None, step=None, synchronous=True
+    ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
 
@@ -279,12 +281,14 @@ class TrackingServiceClient:
                       may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
-        :param synchronous: [Experimental] Defaults to True.
-                             Indicates if the metric would be logged in synchronous fashion or not.
-                            When it is True this call would be blocking call and offers immediate
-                             consistency of the metric upon returning.
-                            When this value is set to False, metric would be logged in async
-                             fashion and offers eventual consistency.
+        :param synchronous: *Experimental* If True, blocks until the metrics is logged
+                            successfully. If False, logs the metrics asynchronously and
+                            returns a future representing the logging operation.
+
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that represents
+                 future for logging operation.
+
         """
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
@@ -295,7 +299,7 @@ class TrackingServiceClient:
         else:
             return self.store.log_metric_async(run_id, metric)
 
-    def log_param(self, run_id, key, value, synchronous=True):
+    def log_param(self, run_id, key, value, synchronous=True) -> Union[RunOperations, ParamValue]:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
@@ -303,16 +307,13 @@ class TrackingServiceClient:
         :param run_id: ID of the run to log the parameter against.
         :param key: Name of the parameter.
         :param value: Value of the parameter.
-        :param synchronous: [Experimental] Defaults to True.
-                             Indicates if the parameter would be logged in synchronous fashion
-                             or not.
-                            When it is True this call would be blocking call and offers immediate
-                             consistency of the parameter upon returning.
-                            When this value is set to False, parameter would be logged in async
-                             fashion and offers eventual consistency.
+        :param synchronous: *Experimental* If True, blocks until the parameters are logged
+                            successfully. If False, logs the parameters asynchronously and
+                            returns a future representing the logging operation.
 
-        :return: An instance of `RunOperations` that can be used to perform additional operations
-                 on the run.
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+                 represents future for logging operation.
         """
         param = Param(key, str(value))
         try:
@@ -338,7 +339,7 @@ class TrackingServiceClient:
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
 
-    def set_tag(self, run_id, key, value, synchronous=True):
+    def set_tag(self, run_id, key, value, synchronous=True) -> Optional[RunOperations]:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -350,13 +351,13 @@ class TrackingServiceClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
-        :param synchronous: [Experimental] Defaults to True.
-                            Indicates if the tag would be logged in synchronous fashion
-                              or not.
-                            When it is True this call would be blocking call and offers immediate
-                             consistency of the tag upon returning.
-                            When this value is set to False, tag would be logged in async
-                             fashion and offers eventual consistency.
+        :param synchronous: *Experimental* If True, blocks until the tag is logged
+                            successfully. If False, logs the tag asynchronously and
+                            returns a future representing the logging operation.
+
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` object
+                 that represents future for logging operation.
 
         """
         tag = RunTag(key, str(value))
@@ -397,7 +398,9 @@ class TrackingServiceClient:
             run_name=name,
         )
 
-    def log_batch(self, run_id, metrics=(), params=(), tags=(), synchronous=True):
+    def log_batch(
+        self, run_id, metrics=(), params=(), tags=(), synchronous=True
+    ) -> Optional[RunOperations]:
         """
         Log multiple metrics, params, and/or tags.
 
@@ -405,14 +408,15 @@ class TrackingServiceClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
-        :param synchronous: [Experimental] Defaults to True.
-                            When it is True this call would be blocking call and offers immediate
-                             consistency of the metrics/parameters/tags upon returning.
-                            When this value is set to False, metric/params/tags would be logged in
-                              async fashion and offers eventual consistency.
+        :param synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
+                            successfully. If False, logs the metrics/tags/params asynchronously
+                            and returns a future representing the logging operation.
 
         Raises an MlflowException if any errors occur.
-        :return: None
+
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+                 represents future for logging operation.
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return

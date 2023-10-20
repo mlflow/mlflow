@@ -674,6 +674,7 @@ def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOpera
     :return: When synchronous=True, returns None.
              When synchronous=False, returns :py:class:`mlflow.RunOperations` object
              that represents future for logging operation.
+
     .. testcode:: python
         :caption: Example
 
