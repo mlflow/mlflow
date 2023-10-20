@@ -11,6 +11,7 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
+from mlflow.exceptions import UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -34,12 +35,12 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         # Try to perform multipart upload if the file is large.
         # If the server does not support, or if the upload failed, revert to normal upload.
-        if os.path.getsize(
-            local_file
-        ) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get() and self._multipart_log_artifact(
-            local_file, artifact_path
-        ):
-            return
+        if os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
+            try:
+                self._try_multipart_upload(local_file, artifact_path)
+                return
+            except UnsupportedMultipartUploadException:
+                pass
 
         file_name = os.path.basename(local_file)
         mime_type = _guess_mime_type(file_name)
@@ -137,10 +138,11 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         resp = http_request(host_creds, endpoint, "POST", json=params)
         augmented_raise_for_status(resp)
 
-    def _multipart_log_artifact(self, local_file, artifact_path=None) -> bool:
+    def _try_multipart_upload(self, local_file, artifact_path=None):
         """
         Attempts to perform multipart upload to log an artifact.
-        Returns True if the multipart upload is successful.
+        Returns if the multipart upload is successful.
+        Raises UnsupportedMultipartUploadException if multipart upload is unsupported.
         """
         parts = []
         chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
@@ -155,7 +157,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             if isinstance(error_message, str) and error_message.startswith(
                 "Multipart upload is not supported for artifact repository"
             ):
-                return False
+                raise UnsupportedMultipartUploadException(error_message)
             else:
                 raise
 
@@ -178,5 +180,3 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         except Exception:
             self.abort_multipart_upload(local_file, create.upload_id, artifact_path)
             raise
-
-        return True
