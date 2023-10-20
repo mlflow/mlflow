@@ -183,12 +183,14 @@ For more information about Plugins, see
 
 ### Python Style Guide
 ##### Docstrings
-We follow [Google's Python Style Guide](https://google.github.io/styleguide/pyguide.html) for writing 
-docstrings. Make sure your docstrings adhere to this style guide.
+We follow [Google's Python Style Guide](https://google.github.io/styleguide/pyguide.html) 
+for writing docstrings. Make sure your docstrings adhere to this style 
+guide.
 
-Currently, the MLflow team is working to reformat docstrings to 
-adhere to these guidelines. Any contributions regarding style 
-reformatting are much appreciated!
+The process for converting to a standard docstring format style is  
+ongoing. If you see a docstring in the code base that doesn't adhere 
+to this formatting style and you'd like to contribute a fix, feel free 
+to open a PR to correct the docstring formatting.
 
 ###### Code Style
 We use [pylint](https://pypi.org/project/pylint/), 
