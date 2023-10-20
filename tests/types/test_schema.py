@@ -611,7 +611,9 @@ def test_spark_schema_inference(pandas_df_with_all_types):
         spark_schema = StructType(struct_fields)
         sparkdf = spark.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
         schema = _infer_schema(sparkdf)
-        assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
+        assert schema == Schema(
+            [ColSpec(x, x, required=False) for x in pandas_df_with_all_types.columns]
+        )
 
 
 def test_spark_schema_inference_complex(spark):
@@ -620,7 +622,7 @@ def test_spark_schema_inference_complex(spark):
         schema=T.StructType([T.StructField("arr", T.ArrayType(T.StringType()))]),
     )
     schema = _infer_schema(df)
-    assert schema == Schema([ColSpec(Array(DataType.string), "arr")])
+    assert schema == Schema([ColSpec(Array(DataType.string), "arr", required=False)])
 
     df = spark.createDataFrame(
         [({"str": "s", "str_nullable": None},)],
@@ -634,6 +636,7 @@ def test_spark_schema_inference_complex(spark):
                             T.StructField("str_nullable", T.StringType(), nullable=True),
                         ]
                     ),
+                    nullable=False,
                 )
             ]
         ),
@@ -673,6 +676,7 @@ def test_spark_schema_inference_complex(spark):
             ColSpec(
                 Array(Object([Property("str", DataType.string, required=True)])),
                 "obj_arr",
+                required=False,
             )
         ]
     )
@@ -706,7 +710,7 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     )
     schema = _infer_schema(pandas_df_with_all_types)
     expected_spark_schema = StructType(
-        [StructField(t.name, t.to_spark(), True) for t in schema.input_types()]
+        [StructField(t.name, t.to_spark(), False) for t in schema.input_types()]
     )
     actual_spark_schema = schema.as_spark_schema()
     assert expected_spark_schema.jsonValue() == actual_spark_schema.jsonValue()
@@ -718,7 +722,7 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     # test unnamed columns
     schema = Schema([ColSpec(col.type) for col in schema.inputs])
     expected_spark_schema = StructType(
-        [StructField(str(i), t.to_spark(), True) for i, t in enumerate(schema.input_types())]
+        [StructField(str(i), t.to_spark(), False) for i, t in enumerate(schema.input_types())]
     )
     actual_spark_schema = schema.as_spark_schema()
     assert expected_spark_schema.jsonValue() == actual_spark_schema.jsonValue()

@@ -892,7 +892,9 @@ class Schema:
 
         return StructType(
             [
-                StructField(name=col.name or str(i), dataType=col.type.to_spark())
+                StructField(
+                    name=col.name or str(i), dataType=col.type.to_spark(), nullable=not col.required
+                )
                 for i, col in enumerate(self.inputs)
             ]
         )

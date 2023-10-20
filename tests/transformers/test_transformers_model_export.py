@@ -1954,8 +1954,14 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
                 "hypothesis_template": "This example talks about how the dog is {}",
             },
             [
-                # in transformers, we internally convert values for zero_shot_pipeline
-                {"name": "sequences", "type": "string", "required": True},
+                # in transformers, we internally convert values of candidate_labels
+                # to string for zero_shot_pipeline
+                {
+                    "name": "sequences",
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "required": True,
+                },
                 {"name": "candidate_labels", "type": "string", "required": True},
                 {"name": "hypothesis_template", "type": "string", "required": True},
             ],
