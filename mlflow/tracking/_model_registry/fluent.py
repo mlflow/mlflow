@@ -234,6 +234,10 @@ def search_model_versions(
     """
     Search for model versions that satisfy the filter criteria.
 
+    .. warning:
+
+        The searched model versions may not have aliases populated for performance reasons.
+
     :param filter_string: Filter query string
         (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
         defaults to searching for all model versions. The following identifiers, comparators,
