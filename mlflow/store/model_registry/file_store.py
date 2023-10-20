@@ -953,17 +953,18 @@ class FileStore(AbstractStore):
 
         return _read_helper(root, file_name, attempts_remaining=retries)
 
-    def copy_model_version(self, mv, dst_name) -> ModelVersion:
+    def copy_model_version(self, src_mv, dst_name) -> ModelVersion:
         """
         Copy a model version from one registered model to another as a new model version.
 
         :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                        the source model version.
-        :param dst_name: the name of the registered model to copy to.
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                  the cloned model version.
         """
-        return self._copy_model_version_impl(mv, dst_name)
+        return self._copy_model_version_impl(src_mv, dst_name)
 
     def _await_model_version_creation(self, mv, await_creation_for):
         """

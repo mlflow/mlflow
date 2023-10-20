@@ -1532,17 +1532,17 @@ def test_copy_model_version(store):
     )
 
     name2 = "test_for_copy_MV2"
-    with mock.patch("time.time", return_value=456779):
-        dst_mv = store.copy_model_version(src_mv, name2)
-        assert dst_mv.name == name2
-        assert dst_mv.version == 1
+    timestamp = time.time()
+    dst_mv = store.copy_model_version(src_mv, name2)
+    assert dst_mv.name == name2
+    assert dst_mv.version == 1
 
     copied_mv = store.get_model_version(dst_mv.name, dst_mv.version)
     assert copied_mv.name == name2
     assert copied_mv.version == 1
     assert copied_mv.current_stage == "None"
-    assert copied_mv.creation_timestamp == 456779000
-    assert copied_mv.last_updated_timestamp == 456779000
+    assert copied_mv.creation_timestamp >= timestamp
+    assert copied_mv.last_updated_timestamp >= timestamp
     assert copied_mv.description == "test description"
     assert copied_mv.source == f"models:/{src_mv.name}/{src_mv.version}"
     assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source

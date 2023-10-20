@@ -330,7 +330,8 @@ class AbstractStore:
 
         :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                        the source model version.
-        :param dst_name: the name of the registered model to copy to.
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                  the cloned model version.
         """

@@ -2671,12 +2671,14 @@ class MlflowClient:
             await_creation_for=await_creation_for,
         )
 
-    def copy_model_version(self, src_model_uri, dest_name) -> ModelVersion:
+    def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
         """
         Copy a model version from one registered model to another as a new model version.
 
-        :param src_model_uri: the model URI of the model version to copy
-        :param dest_name: the name of the registered model to copy the model version to.
+        :param src_model_uri: the model URI of the model version to copy. This must be a model
+                              registry URI with a `"models:/"` scheme (e.g., `"models:/foo/bar"`).
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                  the copied model version.
         """
@@ -2689,7 +2691,7 @@ class MlflowClient:
         src_name, src_version = get_model_name_and_version(client, src_model_uri)
         src_mv = client.get_model_version(src_name, src_version)
 
-        return client.copy_model_version(src_mv=src_mv, dest_name=dest_name)
+        return client.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
