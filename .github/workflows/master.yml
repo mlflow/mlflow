@@ -114,7 +114,8 @@ jobs:
         run: |
           . ~/.venv/bin/activate
           source dev/setup-ssh.sh
-          ./dev/run-python-tests.sh
+          pytest tests --quiet --requires-ssh --ignore-flavors \
+            --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -228,7 +229,11 @@ jobs:
       - name: Run tests
         run: |
           . ~/.venv/bin/activate
-          ./dev/run-python-flavor-tests.sh;
+          pytest \
+            tests/utils/test_model_utils.py \
+            tests/tracking/fluent/test_fluent_autolog.py \
+            tests/autologging \
+            tests/server/auth
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
@@ -321,7 +326,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          ./dev/run-python-sagemaker-tests.sh;
+          pytest tests/sagemaker
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
