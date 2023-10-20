@@ -2678,7 +2678,7 @@ class MlflowClient:
         :param src_model_uri: the model URI of the model version to copy
         :param dest_name: the name of the registered model to copy the model version to.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
-                 the cloned model version.
+                 the copied model version.
         """
         if urllib.parse.urlparse(src_model_uri).scheme != "models":
             raise MlflowException(
