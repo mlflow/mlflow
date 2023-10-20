@@ -1168,7 +1168,10 @@ class DefaultEvaluator(ModelEvaluator):
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
                     else:
-                        params_not_found.append(param_name)
+                        if param.default == inspect.Parameter.empty:
+                            params_not_found.append(param_name)
+                        else:
+                            eval_fn_args.append(param.default)
                 elif column == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
                 else:
@@ -1194,6 +1197,8 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(self.evaluator_config.get(column))
                     elif param.default == inspect.Parameter.empty:
                         params_not_found.append(param_name)
+                    else:
+                        eval_fn_args.append(param.default)
 
         if len(params_not_found) > 0:
             return extra_metric.name, params_not_found
