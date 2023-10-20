@@ -378,15 +378,18 @@ def _f1_score_eval_fn(
 
 
 def _precision_at_k_eval_fn(predictions, targets, k, metrics, sample_weight=None):
-    if not _validate_text_tuple_data(
-        predictions, "precision_at_k", "predictions"
-    ) or not _validate_text_tuple_data(targets, "precision_at_k", "targets"):
+    if (
+        not _validate_text_tuple_data(predictions, "precision_at_k", "predictions")
+        or not _validate_text_tuple_data(targets, "precision_at_k", "targets")
+        or not isinstance(k, int)
+        and k > 0
+    ):
         return
 
     scores = []
     for i in range(len(predictions)):
         # only include the top k retrieved chunks
-        ground_truth, retrieved = set(targets[i]), predictions[i][: k[i]]
+        ground_truth, retrieved = set(targets[i]), predictions[i][:k]
         relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
         if len(retrieved) > 0:
             scores.append(relevant_doc_count / len(retrieved))
