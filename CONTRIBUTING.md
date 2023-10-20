@@ -182,25 +182,28 @@ For more information about Plugins, see
 <https://mlflow.org/docs/latest/plugins.html>.
 
 ### Python Style Guide
+
 ##### Docstrings
-We follow [Google's Python Style Guide](https://google.github.io/styleguide/pyguide.html) 
-for writing docstrings. Make sure your docstrings adhere to this style 
+
+We follow [Google's Python Style Guide](https://google.github.io/styleguide/pyguide.html)
+for writing docstrings. Make sure your docstrings adhere to this style
 guide.
 
 The process for converting to a standard docstring format style is  
-ongoing. If you see a docstring in the code base that doesn't adhere 
-to this formatting style and you'd like to contribute a fix, feel free 
+ongoing. If you see a docstring in the code base that doesn't adhere
+to this formatting style and you'd like to contribute a fix, feel free
 to open a PR to correct the docstring formatting.
 
 ###### Code Style
-We use [pylint](https://pypi.org/project/pylint/), 
-[black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html), 
+
+We use [pylint](https://pypi.org/project/pylint/),
+[black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html),
 and [ruff](https://github.com/astral-sh/ruff) in our CI via
 pre-commit Git hooks. If your code passes the CI checks, it's
-formatted correctly. 
+formatted correctly.
 
-To validate that your local versions of the above libraries 
-match those in the mlflow CI, refer to [lint-requirements.txt](https://github.com/mlflow/mlflow/blob/master/requirements/lint-requirements.txt). 
+To validate that your local versions of the above libraries
+match those in the mlflow CI, refer to [lint-requirements.txt](https://github.com/mlflow/mlflow/blob/master/requirements/lint-requirements.txt).
 You can compare these versions with your local using pip:
 
 ```bash
