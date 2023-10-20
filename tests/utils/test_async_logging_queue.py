@@ -42,7 +42,7 @@ def test_single_thread_publish_consume_queue():
     run_id = "test_run_id"
     run_data = RunData()
     async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
-
+    async_logging_queue.activate()
     metrics_sent = []
     tags_sent = []
     params_sent = []
@@ -74,10 +74,36 @@ def test_single_thread_publish_consume_queue():
     )
 
 
+def test_queue_activation():
+    run_id = "test_run_id"
+    run_data = RunData()
+    async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+
+    assert not async_logging_queue._is_activated
+
+    metrics = [
+        Metric(
+            key=f"batch metrics async-{val}",
+            value=val,
+            timestamp=val,
+            step=0,
+        )
+        for val in range(METRIC_PER_BATCH)
+    ]
+    with pytest.raises(MlflowException, match="AsyncLoggingQueue is not activated."):
+        async_logging_queue.log_batch_async(run_id=run_id, metrics=metrics, tags=[], params=[])
+
+    async_logging_queue.activate()
+    assert async_logging_queue._is_activated
+
+
 def test_partial_logging_failed():
     run_id = "test_run_id"
     run_data = RunData(throw_exception_on_batch_number=[3, 4])
+
     async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+    async_logging_queue.activate()
+
     metrics_sent = []
     tags_sent = []
     params_sent = []
@@ -120,7 +146,9 @@ def test_partial_logging_failed():
 def test_publish_multithread_consume_single_thread():
     run_id = "test_run_id"
     run_data = RunData(throw_exception_on_batch_number=[])
+
     async_logging_queue = AsyncLoggingQueue(run_data.consume_queue_data)
+    async_logging_queue.activate()
 
     run_operations = []
     t1 = threading.Thread(

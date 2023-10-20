@@ -38,7 +38,7 @@ from mlflow.tracking import _get_store, artifact_utils
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
-from mlflow.utils import get_results_from_paginated_fn
+from mlflow.utils import ParamValue, get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
@@ -571,7 +571,7 @@ def get_parent_run(run_id: str) -> Optional[Run]:
     return MlflowClient().get_parent_run(run_id)
 
 
-def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
+def log_param(key: str, value: Any, synchronous: bool = True) -> Union[RunOperations, ParamValue]:
     """
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
     this method will create a new active run.
@@ -583,20 +583,13 @@ def log_param(key: str, value: Any, synchronous: Optional[bool] = True) -> Any:
     :param value: Parameter value (string, but will be string-ified if not).
                   All backend stores support values up to length 500, but some
                   may support larger values.
-    :param synchronous: [Experimental] Defaults to True.
-                        Indicates if the parameter would be logged in synchronous
-                            fashion or not.
-                        When it is True this call would be blocking call and offers immediate
-                            consistency of the parameter upon returning.
-                        When this value is set to False, parameter would be logged in async
-                            fashion. Backing provider gurantees that metrics are accepted
-                            into system but would persist them with some time delay -
-                            'near-real time'/'eventual' consistency.
+    :param synchronous: *Experimental* If True, blocks until the parameter is logged
+                        successfully. If False, logs the parameter asynchronously and
+                        returns a future representing the logging operation.
 
     :return: When synchronous=True, the parameter value that is logged.
-                When synchronous=False, returns
-                :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
-                This object can be awaited to know if given param is processed or not.
+             When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -636,7 +629,7 @@ def set_experiment_tag(key: str, value: Any) -> None:
     MlflowClient().set_experiment_tag(experiment_id, key, value)
 
 
-def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> RunOperations:
+def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOperations]:
     """
     Set a tag under the current run. If no run is active, this method will create a
     new active run.
@@ -648,19 +641,13 @@ def set_tag(key: str, value: Any, synchronous: Optional[bool] = True) -> RunOper
     :param value: Tag value (string, but will be string-ified if not).
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
-    :param synchronous: [Experimental] Defaults to True.
-                        Indicates if the tag would be logged in synchronous fashion
-                            or not.
-                        When it is True this call would be blocking call and offers immediate
-                            consistency of the tag upon returning.
-                        When this value is set to False, tag would be logged in async
-                            fashion. Backing provider gurantees that tag is accepted
-                            into system but would persist them with some time delay -
-                            'near-real time'/'eventual' consistency.
+    :param synchronous: *Experimental* If True, blocks until the tag is logged
+                        successfully. If False, logs the tag asynchronously and
+                        returns a future representing the logging operation.
 
-    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
-             This object, when not None, can be awaited to know if given metric was processed
-             or not.
+    :return: When synchronous=True, returns None.
+             When synchronous=False, returns :py:class:`mlflow.RunOperations` object
+             that represents future for logging operation.
     .. testcode:: python
         :caption: Example
 
@@ -703,8 +690,8 @@ def delete_tag(key: str) -> None:
 
 
 def log_metric(
-    key: str, value: float, step: Optional[int] = None, synchronous: Optional[bool] = True
-) -> RunOperations:
+    key: str, value: float, step: Optional[int] = None, synchronous: bool = True
+) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
     a new active run.
@@ -719,16 +706,13 @@ def log_metric(
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
-    :param synchronous: [Experimental] Defaults to True.
-                        Indicates if the metric would be logged in synchronous fashion or not.
-                        When it is True this call would be blocking call and offers immediate
-                        consistency of the metric upon returning.
-                        When this value is set to False, metric would be logged in async
-                        fashion with eventual consistency.
+    :param synchronous: *Experimental* If True, blocks until the parameter is logged
+                        successfully. If False, logs the parameter asynchronously and
+                        returns a future representing the logging operation.
 
-    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
-             This object, when not None, can be awaited to know if given metric was processed
-             or not.
+    :return: When synchronous=True, returns None.
+             When synchronous=False, returns RunOperations that represents future for
+             logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -750,8 +734,8 @@ def log_metric(
 
 
 def log_metrics(
-    metrics: Dict[str, float], step: Optional[int] = None, synchronous: Optional[bool] = True
-) -> RunOperations:
+    metrics: Dict[str, float], step: Optional[int] = None, synchronous: bool = True
+) -> Optional[RunOperations]:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
@@ -763,17 +747,13 @@ def log_metrics(
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
-    :param synchronous: [Experimental] Defaults to True.
-                        Indicates if the metrics would be logged
-                        in synchronous fashion or not.
-                        When it is True this call would be blocking call and offers immediate
-                        consistency of the metrics upon returning.
-                        When this value is set to False, metrics would be logged in async fashion.
-                        with eventual consistency.
+    :param synchronous: *Experimental* If True, blocks until the metrics is logged
+                        successfully. If False, logs the metrics asynchronously and
+                        returns a future representing the logging operation.
 
-    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
-             This object, when not None, can be awaited to know if given metric was processed
-             or not.
+    :return: When synchronous=True, returns None.
+             When synchronous=False, returns :py:class:`mlflow.RunOperations` that represents
+             future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -798,24 +778,20 @@ def log_metrics(
     )
 
 
-def log_params(params: Dict[str, Any], synchronous: Optional[bool] = True) -> RunOperations:
+def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[RunOperations]:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
     new active run.
 
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
-    :param synchronous: [Experimental] Defaults to True.
-                        Indicates if the parameters would be logged in synchronous
-                        fashion or not.
-                        When it is True this call would be blocking call and offers immediate
-                        consistency of the parameters upon returning.
-                        When this value is set to False, parameters would be logged in async
-                        fashion with eventual consistency.
+    :param synchronous: *Experimental* If True, blocks until the parameters are logged
+                        successfully. If False, logs the parameters asynchronously and
+                        returns a future representing the logging operation.
 
-    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
-             This object, when not None, can be awaited to know if given metric was processed
-             or not.
+    :return: When synchronous=True, returns None.
+             When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -902,24 +878,20 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
         set_experiment_tag(key, value)
 
 
-def set_tags(tags: Dict[str, Any], synchronous: Optional[bool] = True) -> RunOperations:
+def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOperations]:
     """
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
 
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
-    :param synchronous: [Experimental] Defaults to True.
-                        Indicates if the tags would be logged in synchronous fashion
-                        or not.
-                        When it is True this call would be blocking call and offers immediate
-                        consistency of the tag upon returning.
-                        When this value is set to False, tags would be logged in async
-                        fashion with eventual consistency.
+    :param synchronous: *Experimental* If True, blocks until the tag is logged
+                        successfully. If False, logs the tag asynchronously and
+                        returns a future representing the logging operation.
 
-    :return: :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` object.
-             This object, when not None, can be awaited to know if given metric was processed
-             or not.
+    :return: When synchronous=True, returns None.
+             When synchronous=False, returns :py:class:`mlflow.RunOperations` that represents
+             future for logging operation.
 
     .. testcode:: python
         :caption: Example

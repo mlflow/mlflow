@@ -291,7 +291,7 @@ class TrackingServiceClient:
         metric_value = convert_metric_value_to_float_if_possible(value)
         metric = Metric(key, metric_value, timestamp, step)
         if synchronous:
-            return self.store.log_metric(run_id, metric)
+            self.store.log_metric(run_id, metric)
         else:
             return self.store.log_metric_async(run_id, metric)
 
@@ -317,7 +317,7 @@ class TrackingServiceClient:
         param = Param(key, str(value))
         try:
             if synchronous:
-                return self.store.log_param(run_id, param)
+                self.store.log_param(run_id, param)
             else:
                 return self.store.log_param_async(run_id, param)
         except MlflowException as e:
@@ -361,7 +361,7 @@ class TrackingServiceClient:
         """
         tag = RunTag(key, str(value))
         if synchronous:
-            return self.store.set_tag(run_id, tag)
+            self.store.set_tag(run_id, tag)
         else:
             return self.store.set_tag_async(run_id, tag)
 

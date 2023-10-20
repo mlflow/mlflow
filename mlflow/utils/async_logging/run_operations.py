@@ -49,6 +49,6 @@ def get_combined_run_operations(run_operations_list: [RunOperations]) -> RunOper
     if len(run_operations_list) > 1:
         operation_futures = []
         for run_operations in run_operations_list:
-            if operation_futures:
-                operation_futures.append(run_operations._operation_futures)
+            if run_operations and run_operations._operation_futures:
+                operation_futures.extend(run_operations._operation_futures)
         return RunOperations(operation_futures)

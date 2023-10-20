@@ -385,6 +385,9 @@ class AbstractStore:
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
         :return: None.
         """
+        if not self._async_logging_queue.is_active():
+            self._async_logging_queue.activate()
+
         return self._async_logging_queue.log_batch_async(
             run_id=run_id, metrics=metrics, params=params, tags=tags
         )

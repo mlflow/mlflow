@@ -33,6 +33,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils import ParamValue
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import get_databricks_run_url
@@ -691,7 +692,7 @@ class MlflowClient:
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
         synchronous: bool = True,
-    ) -> RunOperations:
+    ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
 
@@ -708,14 +709,13 @@ class MlflowClient:
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Integer training step (iteration) at which was the metric calculated.
                      Defaults to 0.
-        :param synchronous: [Experimental] Defaults to True with no behavior change.
-                             Indicates if the metric would be logged in synchronous fashion or not.
-                            When it is True this call would be blocking call and offers immediate
-                             consistency of the metric upon returning.
-                            When this value is set to False, metric would be logged in async
-                             fashion. Backing provider gurantees that metrics are accepted
-                             into system but would persist them with some time delay -
-                             'near-real time'/'eventual' consistency.
+        :param synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                            If False, logs the metric asynchronously and returns a future
+                            representing the logging operation.
+
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+                 represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -766,7 +766,7 @@ class MlflowClient:
 
     def log_param(
         self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
-    ) -> Any:
+    ) -> Union[RunOperations, ParamValue]:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
 
@@ -778,17 +778,13 @@ class MlflowClient:
         :param value: Parameter value (string, but will be string-ified if not).
                       All backend stores support values up to length 500, but some
                       may support larger values.
-        :param synchronous: [Experimental] Defaults to True with no behavior change.
-                            Indicates if the parameter would be logged in synchronous
-                              fashion or not.
-                            When it is True this call would be blocking call and offers immediate
-                              consistency of the parameter upon returning.
-                            When this value is set to False, parameter would be logged in async
-                             fashion. Backing provider gurantees that metrics are accepted
-                             into system but would persist them with some time delay -
-                             'near-real time'/'eventual' consistency.
+        :param synchronous: *Experimental* If True, blocks until the parameter is logged
+                            successfully. If False, logs the parameter asynchronously and
+                            returns a future representing the logging operation.
+
         :return: When synchronous=True, the parameter value that is logged.
-                 When synchronous=False, returns RunOperations
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+                 represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -864,7 +860,9 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(self, run_id: str, key: str, value: Any, synchronous: bool = True) -> RunOperations:
+    def set_tag(
+        self, run_id: str, key: str, value: Any, synchronous: bool = True
+    ) -> Optional[RunOperations]:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -876,15 +874,13 @@ class MlflowClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
-        :param synchronous: [Experimental] Defaults to True with no behavior change.
-                            Indicates if the tag would be logged in synchronous fashion
-                              or not.
-                            When it is True this call would be blocking call and offers immediate
-                             consistency of the tag upon returning.
-                            When this value is set to False, tag would be logged in async
-                             fashion. Backing provider gurantees that tag is accepted
-                             into system but would persist them with some time delay -
-                             'near-real time'/'eventual' consistency.
+        :param synchronous: *Experimental* If True, blocks until the tag is logged successfully.
+                            If False, logs the tag asynchronously and returns a future
+                            representing the logging operation.
+
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+                 represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -1018,7 +1014,7 @@ class MlflowClient:
         params: Sequence[Param] = (),
         tags: Sequence[RunTag] = (),
         synchronous: bool = True,
-    ) -> RunOperations:
+    ) -> Optional[RunOperations]:
         """
         Log multiple metrics, params, and/or tags.
 
@@ -1026,19 +1022,15 @@ class MlflowClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
-        :param synchronous: [Experimental] Defaults to True with no behavior change.
-                            Indicates if the metrics/parameters/tags would be logged
-                             in synchronous fashion or not.
-                            When it is True this call would be blocking call and offers immediate
-                              consistency of the metrics/parameters/tags upon returning.
-                            When this value is set to False, metrics/parameters/tags
-                              would be logged in async fashion. Backing provider gurantees that
-                             metrics/parameters/tags are accepted into the system but
-                             would persist them with some time delay -
-                             'near-real time'/'eventual' consistency.
+        :param synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
+                            successfully. If False, logs the metrics/tags/params asynchronously
+                            and returns a future representing the logging operation.
 
         Raises an MlflowException if any errors occur.
-        :return: None
+
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+                 represents future for logging operation.
 
         .. code-block:: python
             :caption: Example

@@ -33,19 +33,10 @@ class AsyncLoggingQueue:
                 representing the run_id, a list of Metric objects,
                 a list of Param objects, and a list of RunTag objects.
         """
-        self._queue = Queue()  # Dict[str, Queue]
+        self._queue = Queue()
         self._logging_func = logging_func
-        self._continue_to_log_data = threading.Event()
-        # Keeping max_workers=1 so that there are no two threads
-        self._BATCH_LOGGING_THREADPOOL = ThreadPoolExecutor(max_workers=1)
-
-        self._BATCH_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=10)
-
-        self._run_data_logging_thread = self._BATCH_LOGGING_THREADPOOL.submit(
-            self._logging_loop
-        )  # concurrent.futures.Future[self._logging_loop]
-
-        atexit.register(self._at_exit_callback)
+        self._lock = threading.RLock()
+        self._is_activated = False
 
     def _at_exit_callback(self) -> None:
         """
@@ -147,6 +138,10 @@ class AsyncLoggingQueue:
                 to check the status of the operation and retrieve any exceptions
             that occurred during the operation.
         """
+        from mlflow import MlflowException
+
+        if not self._is_activated:
+            raise MlflowException("AsyncLoggingQueue is not activated.")
         batch = RunBatch(
             run_id=run_id,
             params=params,
@@ -159,3 +154,35 @@ class AsyncLoggingQueue:
 
         operation_future = self._BATCH_STATUS_CHECK_THREADPOOL.submit(self._wait_for_batch, batch)
         return RunOperations(operation_futures=[operation_future])
+
+    def is_active(self) -> bool:
+        return self._is_activated
+
+    def activate(self) -> None:
+        """
+        Activates the async logging queue
+        1. Initializes queue draining thread.
+        2. Initializes threads for checking the status of logged batch.
+        3. Registering an atexit callback to ensure that any remaining log data
+        is flushed before the program exits.
+
+        If the queue is already activated, this method does nothing.
+        """
+        with self._lock:
+            if self._is_activated:
+                return
+
+            self._continue_to_log_data = threading.Event()
+
+            # Keeping max_workers=1 so that there are no two threads
+            self._BATCH_LOGGING_THREADPOOL = ThreadPoolExecutor(max_workers=1)
+
+            self._BATCH_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=10)
+
+            self._run_data_logging_thread = self._BATCH_LOGGING_THREADPOOL.submit(
+                self._logging_loop
+            )  # concurrent.futures.Future[self._logging_loop]
+
+            atexit.register(self._at_exit_callback)
+
+            self._is_activated = True

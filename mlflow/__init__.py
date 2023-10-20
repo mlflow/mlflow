@@ -161,6 +161,7 @@ from mlflow.tracking.fluent import (
     set_tags,
     start_run,
 )
+from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
 
 __all__ = [
     "ActiveRun",
