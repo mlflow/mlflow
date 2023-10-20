@@ -265,7 +265,10 @@ def rougeLsum() -> EvaluationMetric:
 
 
 precision_at_k = make_metric(
-    eval_fn=_precision_at_k_eval_fn, greater_is_better=True, name="precision_at_k", version="v1"
+    eval_fn=_precision_at_k_eval_fn,
+    greater_is_better=True,
+    name="precision_at_k",
+    version="v1",
 )
 """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.

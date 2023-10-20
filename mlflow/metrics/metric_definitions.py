@@ -33,6 +33,22 @@ def _validate_text_data(data, metric_name, column_name):
     return True
 
 
+def _validate_text_tuple_data(data, metric_name, column_name):
+    """Validates that the data is a list of a tuple of strings and is non-empty"""
+    if data is None or len(data) == 0:
+        return False
+
+    for row, docs in enumerate(data):
+        if not isinstance(docs, tuple) or not all(isinstance(doc, str) for doc in docs):
+            _logger.warning(
+                f"Cannot calculate {metric_name} for non-tuple[str] inputs. "
+                f"Non-tuple[str] found for {column_name} on row {row}. skipping metric logging."
+            )
+            return False
+
+    return True
+
+
 def _token_count_eval_fn(predictions, targets, metrics):
     import tiktoken
 
@@ -359,3 +375,22 @@ def _f1_score_eval_fn(
             sample_weight=sample_weight,
         )
         return MetricValue(aggregate_results={"f1_score": f1})
+
+
+def _precision_at_k_eval_fn(predictions, targets, k, metrics, sample_weight=None):
+    if not _validate_text_tuple_data(
+        predictions, "precision_at_k", "predictions"
+    ) or not _validate_text_tuple_data(targets, "precision_at_k", "targets"):
+        return
+
+    scores = []
+    for i in range(len(predictions)):
+        # only include the top k retrieved chunks
+        ground_truth, retrieved = set(targets[i]), predictions[i][: k[i]]
+        relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
+        if len(retrieved) > 0:
+            scores.append(relevant_doc_count / len(retrieved))
+        else:
+            scores.append(1)
+
+    return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
