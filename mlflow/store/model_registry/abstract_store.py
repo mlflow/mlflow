@@ -344,11 +344,9 @@ class AbstractStore:
             if e.error_code != RESOURCE_ALREADY_EXISTS:
                 raise
 
-        source_uri = f"models:/{src_mv.name}/{src_mv.version}"
-
         return self.create_model_version(
             name=dst_name,
-            source=source_uri,
+            source=f"models:/{src_mv.name}/{src_mv.version}",
             run_id=src_mv.run_id,
             tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
             run_link=src_mv.run_link,
