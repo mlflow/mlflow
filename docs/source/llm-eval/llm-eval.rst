@@ -74,7 +74,7 @@ requires OpenAI API key, if you don't have an OpenAI key, you can set it up [her
             ],
         )
 
-        # Use predefined question-answering metrics to evaluate our model. 
+        # Use predefined question-answering metrics to evaluate our model.
         results = mlflow.evaluate(
             logged_model_info.model_uri,
             eval_data,
@@ -201,9 +201,7 @@ we will use :py:func:`mlflow.metrics.EvaluationExample` class, which has 4 field
             "developing, training, and deploying machine learning models.",
         ),
         score=4,
-        justification=(
-            "The response is written in a formal language and a neutral tone. "
-        ),
+        justification=("The response is written in a formal language and a neutral tone. "),
     )
 
 Now let's define the ``professionalism`` metric, you will see how each field is set up.
@@ -272,6 +270,7 @@ the score is 1 otherwise 0.
             scores=scores,
             aggregate_results=standard_aggregations(scores),
         )
+
 
     # Create an EvaluationMetric object.
     passing_code_metric = make_metric(
@@ -347,19 +346,22 @@ up OpenAI authentication to run the code below.
         }
     )
 
+
     def openai_qa(inputs):
         answers = []
-        system_prompt="Please answer the following question in formal language."
+        system_prompt = "Please answer the following question in formal language."
         for index, row in inputs.iterrows():
             completion = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo", 
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "{row}"},],
+                    {"role": "user", "content": "{row}"},
+                ],
             )
             answers.append(completion.choices[0].message.content)
 
         return answers
+
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
@@ -404,8 +406,8 @@ top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
             "predictions": [
                 "MLflow is an open-source platform that provides handy tools to manage Machine Learning workflow "
                 "lifecycle in a simple way",
-                "Spark is a popular open-source distributed computing system designed for big data processing and analytics."
-            ]
+                "Spark is a popular open-source distributed computing system designed for big data processing and analytics.",
+            ],
         }
     )
 
@@ -436,7 +438,6 @@ To see the score on selected metrics, you can check:
   pass on the code example above and focus on printing out the aggregated results.
   
   .. code-block:: python
-    
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
             data=eval_data,
