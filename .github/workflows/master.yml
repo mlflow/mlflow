@@ -241,6 +241,11 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      matrix:
+        group: [1, 2, 3]
+        include:
+          - splits: 3
     steps:
       - uses: actions/checkout@v3
         with:
@@ -257,7 +262,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest tests/models
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
