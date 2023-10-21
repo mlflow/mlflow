@@ -3010,7 +3010,7 @@ def test_evaluate_with_latency():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"text": ["sentence not", "All women are bad."]})
+        data = pd.DataFrame({"text": ["sentence not", "Hello world."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
