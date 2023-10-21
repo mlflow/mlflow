@@ -71,43 +71,45 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
         pandas_df = concat_train_df.toPandas()
         pandas_test_df = concat_test_df.toPandas()
 
-    # This syntax will create a new DataFrame where elements of the 'features' vector
-    # are each in their own column. This is what we'll train our neural network on.
-    x_test = pd.DataFrame(pandas_test_df.features.values.tolist(), index=pandas_test_df.index)
-    x_train = pd.DataFrame(pandas_df.features.values.tolist(), index=pandas_df.index)
+        # This syntax will create a new DataFrame where elements of the 'features' vector
+        # are each in their own column. This is what we'll train our neural network on.
+        x_test = pd.DataFrame(pandas_test_df.features.values.tolist(), index=pandas_test_df.index)
+        x_train = pd.DataFrame(pandas_df.features.values.tolist(), index=pandas_df.index)
 
-    # Show matrix for example.
-    print("Training matrix:")
-    print(x_train)
+        # Show matrix for example.
+        print("Training matrix:")
+        print(x_train)
 
-    # Create our Keras model with two fully connected hidden layers.
-    model = Sequential()
-    model.add(Dense(30, input_dim=24, activation="relu"))
-    model.add(Dense(hidden_units, activation="relu"))
-    model.add(Dense(1, activation="linear"))
+        # Create our Keras model with two fully connected hidden layers.
+        model = Sequential()
+        model.add(Dense(30, input_dim=24, activation="relu"))
+        model.add(Dense(hidden_units, activation="relu"))
+        model.add(Dense(1, activation="linear"))
 
-    model.compile(loss="mse", optimizer=keras.optimizers.Adam(lr=0.0001))
+        model.compile(loss="mse", optimizer=keras.optimizers.Adam(lr=0.0001))
 
-    early_stopping = EarlyStopping(monitor="val_loss", min_delta=0.0001, patience=2, mode="auto")
+        early_stopping = EarlyStopping(
+            monitor="val_loss", min_delta=0.0001, patience=2, mode="auto"
+        )
 
-    model.fit(
-        x_train,
-        pandas_df["rating"],
-        validation_split=0.2,
-        verbose=2,
-        epochs=3,
-        batch_size=128,
-        shuffle=False,
-        callbacks=[early_stopping],
-    )
+        model.fit(
+            x_train,
+            pandas_df["rating"],
+            validation_split=0.2,
+            verbose=2,
+            epochs=3,
+            batch_size=128,
+            shuffle=False,
+            callbacks=[early_stopping],
+        )
 
-    train_mse = model.evaluate(x_train, pandas_df["rating"], verbose=2)
-    test_mse = model.evaluate(x_test, pandas_test_df["rating"], verbose=2)
-    mlflow.log_metric("test_mse", test_mse)
-    mlflow.log_metric("train_mse", train_mse)
+        train_mse = model.evaluate(x_train, pandas_df["rating"], verbose=2)
+        test_mse = model.evaluate(x_test, pandas_test_df["rating"], verbose=2)
+        mlflow.log_metric("test_mse", test_mse)
+        mlflow.log_metric("train_mse", train_mse)
 
-    print(f"The model had a MSE on the test set of {test_mse}")
-    mlflow.tensorflow.log_model(model, "keras-model")
+        print(f"The model had a MSE on the test set of {test_mse}")
+        mlflow.tensorflow.log_model(model, "keras-model")
 
 
 if __name__ == "__main__":
