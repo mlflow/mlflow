@@ -611,9 +611,7 @@ def test_spark_schema_inference(pandas_df_with_all_types):
         spark_schema = StructType(struct_fields)
         sparkdf = spark.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
         schema = _infer_schema(sparkdf)
-        assert schema == Schema(
-            [ColSpec(x, x, required=False) for x in pandas_df_with_all_types.columns]
-        )
+        assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
 
 
 def test_spark_schema_inference_complex(spark):
@@ -622,7 +620,7 @@ def test_spark_schema_inference_complex(spark):
         schema=T.StructType([T.StructField("arr", T.ArrayType(T.StringType()))]),
     )
     schema = _infer_schema(df)
-    assert schema == Schema([ColSpec(Array(DataType.string), "arr", required=False)])
+    assert schema == Schema([ColSpec(Array(DataType.string), "arr")])
 
     df = spark.createDataFrame(
         [({"str": "s", "str_nullable": None},)],
@@ -636,7 +634,6 @@ def test_spark_schema_inference_complex(spark):
                             T.StructField("str_nullable", T.StringType(), nullable=True),
                         ]
                     ),
-                    nullable=False,
                 )
             ]
         ),
@@ -676,7 +673,6 @@ def test_spark_schema_inference_complex(spark):
             ColSpec(
                 Array(Object([Property("str", DataType.string, required=True)])),
                 "obj_arr",
-                required=False,
             )
         ]
     )

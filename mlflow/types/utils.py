@@ -280,7 +280,9 @@ def _infer_schema(data: Any) -> Schema:
                 ColSpec(
                     type=_infer_spark_type(field.dataType),
                     name=field.name,
-                    required=not field.nullable,
+                    # Avoid setting required field for spark dataframe
+                    # as the default value for spark df nullable is True
+                    # which counterparts to default required=True in ColSpec
                 )
                 for field in data.schema.fields
             ]
