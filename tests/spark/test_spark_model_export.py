@@ -3,7 +3,6 @@ import json
 import logging
 import os
 from collections import namedtuple
-from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 
@@ -71,14 +70,11 @@ SparkModelWithData = namedtuple(
 )
 
 
-@contextmanager
 def _get_spark_session_with_retry(max_tries=3):
     conf = pyspark.SparkConf()
     for attempt in range(max_tries):
         try:
-            with get_spark_session(conf) as s:
-                yield s
-            break
+            return get_spark_session(conf)
         except Exception as e:
             if attempt >= max_tries - 1:
                 raise
@@ -91,8 +87,8 @@ def _get_spark_session_with_retry(max_tries=3):
 # before any tests are executed. This ensures that the Hadoop filesystem
 # does not create its own SparkContext without the MLeap libraries required by
 # other tests.
-@pytest.fixture(scope="module", autouse=True)
-def spark_context():
+@pytest.fixture(scope="module")
+def spark():
     if Version(pyspark.__version__) < Version("3.1"):
         # A workaround for this issue:
         # https://stackoverflow.com/questions/62109276/errorjava-lang-unsupportedoperationexception-for-pyspark-pandas-udf-documenta
@@ -109,8 +105,9 @@ spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 """
             f.write(conf)
+
     with _get_spark_session_with_retry() as spark:
-        yield spark.sparkContext
+        yield spark
 
 
 def iris_pandas_df():
@@ -124,12 +121,11 @@ def iris_pandas_df():
 
 
 @pytest.fixture(scope="module")
-def iris_df(spark_context):
+def iris_df(spark):
     pdf = iris_pandas_df()
     feature_names = list(pdf.drop("label", axis=1).columns)
-    with pyspark.sql.SparkSession(spark_context) as spark:
-        iris_spark_df = spark.createDataFrame(pdf)
-        yield feature_names, pdf, iris_spark_df
+    iris_spark_df = spark.createDataFrame(pdf)
+    return feature_names, pdf, iris_spark_df
 
 
 @pytest.fixture(scope="module")
@@ -175,8 +171,7 @@ def spark_model_transformer(iris_df):
 
 
 @pytest.fixture(scope="module")
-def spark_model_estimator(iris_df, spark_context):
-    # pylint: disable=unused-argument
+def spark_model_estimator(iris_df):
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
     features_df = assembler.transform(iris_spark_df)
@@ -195,6 +190,7 @@ def model_path(tmp_path):
     return os.path.join(tmp_path, "model")
 
 
+@pytest.mark.usefixtures("spark")
 def test_hadoop_filesystem(tmp_path):
     # copy local dir to and back from HadoopFS and make sure the results match
     from mlflow.spark import _HadoopFileSystem as FS
