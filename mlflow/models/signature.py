@@ -343,6 +343,7 @@ def _infer_signature_from_input_example(
             input_example, params = input_example
         else:
             params = None
+        # TODO: update this for new schema
         if isinstance(input_example, list) and all(isinstance(x, str) for x in input_example):
             input_schema = _infer_schema(input_example)
         else:
