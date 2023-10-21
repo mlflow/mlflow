@@ -23,7 +23,8 @@ Quickstart
 
 Below is a simple example that gives an quick overview of how MLflow LLM evaluation works. The example builds
 a simple question-answering model by wrapping "openai/gpt-3.5-turbo" with custom prompt. You can paste it to
-your IPython or local editor and execute it, and install missing dependencies as prompted.
+your IPython or local editor and execute it, and install missing dependencies as prompted. Running the code 
+requires OpenAI API key, if you don't have an OpenAI key, you can set it up [here](https://platform.openai.com/account/api-keys).
 
 .. code-block:: python
 
@@ -63,7 +64,7 @@ your IPython or local editor and execute it, and install missing dependencies as
     with mlflow.start_run() as run:
         system_prompt = "Answer the following question in two sentences"
         # Wrap "gpt-3.5-turbo" as an MLflow model.
-        logged_model = mlflow.openai.log_model(
+        logged_model_info = mlflow.openai.log_model(
             model="gpt-3.5-turbo",
             task=openai.ChatCompletion,
             artifact_path="model",
@@ -75,12 +76,12 @@ your IPython or local editor and execute it, and install missing dependencies as
 
         # Use predefined question-answering metrics to evaluate our model. 
         results = mlflow.evaluate(
-            logged_model.model_uri,
+            logged_model_info.model_uri,
             eval_data,
             targets="ground_truth",
             model_type="question-answering",
         )
-        print(f"See evaluation results below: \n{results.metrics}")
+        print(f"See aggregated evaluation results below: \n{results.metrics}")
 
         # Evaluation result for each data record is available in `results.tables`.
         eval_table = results.tables["eval_results_table"]
@@ -277,3 +278,192 @@ the score is 1 otherwise 0.
         eval_fn=eval_fn, greater_is_better=False, name="over_10_chars"
     )
 
+
+Prepare Your LLM for Evaluating
+=====================================
+
+In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one of the following type:
+
+1. A :py:func:`mlflow.pyfunc.PyFuncModel` instance or a URI pointing to a logged `mlflow.pyfunc.PyFuncModel` model. In
+   general we call that MLflow model.
+2. A python function that takes in string inputs and outputs a single string. 
+3. Set `model=None`, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
+
+Evaluating with an MLflow Model
+---------------------------------
+
+For detailed instruction on how to convert your model into a ``mlflow.pyfunc.PyFuncModel`` instance, please read
+`this doc https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models`_. But in short,
+to evaluate your model as an MLflow model, we recomment following the steps below:
+
+1. Convert your LLM to MLflow model and log it to MLflow server by ``log_model``. Each flavor (``opeanai``, ``pytorch``, ...) 
+   has its own ``log_model`` API, e.g., :py:func:`mlflow.opeanai.log_model()`:
+
+   .. code-block:: python
+
+        with mlflow.start_run():
+            system_prompt = "Answer the following question in two sentences"
+            # Wrap "gpt-3.5-turbo" as an MLflow model.
+            logged_model_info = mlflow.openai.log_model(
+                model="gpt-3.5-turbo",
+                task=openai.ChatCompletion,
+                artifact_path="model",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": "{question}"},
+                ],
+            )
+2. Use the URI of logged model as the model instance in ``mlflow.evaluate()``:
+   
+   .. code-block:: python
+
+        results = mlflow.evaluate(
+            logged_model_info.model_uri,
+            eval_data,
+            targets="ground_truth",
+            model_type="question-answering",
+        )
+
+Evaluating with a Custom Function
+----------------------------------
+
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
+logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
+it. The following example uses :py:func:`mlflow.evaluate()` to evaluate a function. You also need to set
+up OpenAI authentication to run the code below.
+
+.. code-block:: python
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.",
+                "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, offering improvements in speed and ease of use. Spark provides libraries for various tasks such as data ingestion, processing, and analysis through its components like Spark SQL for structured data, Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
+            ],
+        }
+    )
+
+    def openai_qa(inputs):
+        answers = []
+        system_prompt="Please answer the following question in formal language."
+        for index, row in inputs.iterrows():
+            completion = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo", 
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": "{row}"},],
+            )
+            answers.append(completion.choices[0].message.content)
+
+        return answers
+
+    with mlflow.start_run() as run:
+        results = mlflow.evaluate(
+            openai_qa,
+            eval_data,
+            model_type="question-answering",
+        )
+
+Evaluating with a Static Dataset
+----------------------------------
+
+For MLflow >= 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a static dataset without specifying a model.
+This is useful when you save the model output to a column in a Pandas DataFrame or an MLflow PandasDataset, and
+want to evaluate the static dataset without re-running the model.
+
+If you are using a Pandas DataFrame, you must specify the column name that contains the model output using the
+top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
+
+
+.. code-block:: python
+
+    import mlflow
+    import pandas as pd
+
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. "
+                "It was developed by Databricks, a company that specializes in big data and machine learning solutions. "
+                "MLflow is designed to address the challenges that data scientists and machine learning engineers "
+                "face when developing, training, and deploying machine learning models.",
+                "Apache Spark is an open-source, distributed computing system designed for big data processing and "
+                "analytics. It was developed in response to limitations of the Hadoop MapReduce computing model, "
+                "offering improvements in speed and ease of use. Spark provides libraries for various tasks such as "
+                "data ingestion, processing, and analysis through its components like Spark SQL for structured data, "
+                "Spark Streaming for real-time data processing, and MLlib for machine learning tasks",
+            ],
+            "predictions": [
+                "MLflow is an open-source platform that provides handy tools to manage Machine Learning workflow "
+                "lifecycle in a simple way",
+                "Spark is a popular open-source distributed computing system designed for big data processing and analytics."
+            ]
+        }
+    )
+
+    with mlflow.start_run() as run:
+        results = mlflow.evaluate(
+            data=eval_data,
+            targets="ground_truth",
+            predictions="predictions",
+            extra_metrics=[mlflow.metrics.answer_similarity()],
+            evaluators="default",
+        )
+        print(f"See aggregated evaluation results below: \n{results.metrics}")
+
+        eval_table = results.tables["eval_results_table"]
+        print(f"See evaluation table below: \n{eval_table}")
+
+
+View Evaluation Results
+========================
+
+View Evaluation Results via Code
+-----------------------------------
+
+``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instace. 
+To see the score on selected metrics, you can check:
+
+* ``metrics``: stores the aggregated results, like average/variance across the evaluation dataset. Let's take a second
+  pass on the code example above and focus on printing out the aggregated results.
+  
+  .. code-block:: python
+    
+    with mlflow.start_run() as run:
+        results = mlflow.evaluate(
+            data=eval_data,
+            targets="ground_truth",
+            predictions="predictions",
+            extra_metrics=[mlflow.metrics.answer_similarity()],
+            evaluators="default",
+        )
+        print(f"See aggregated evaluation results below: \n{results.metrics}")
+* ``tables``: stores the per-row evaluation results. 
+  TODO(prithvi): The code example always uses "eval_results_table" as the key to fetch eval table, is this a hard requirement?
+
+
+View Evaluation Results via MLflow UI
+--------------------------------------  
+
+Your evaluation result is automatically logged into MLflow server, so you can view your evaluation results directly from the
+MLflow UI. To view the evaluation results on MLflow UI, please follow the steps below:
+
+1. Go to the experiment view of your MLflow experiment.
+2. Select the "Evaluation" tab.
+3. Select the runs you want to check evaluation results.
+4. Select the metrics from the dropdown menu on the right side. 
+
+Please see the screenshot below for clarity:
+
+
+.. figure:: ../_static/images/llm_evaluate_experiment_view.png
+       :scale: 25%
+       :align: center
