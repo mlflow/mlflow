@@ -3184,3 +3184,37 @@ def test_evaluate_custom_metrics_string_values():
             evaluator_config={"eval_config": 3},
         )
         assert results.metrics["cm/eval_config_value_average"] == 3
+
+
+def test_evaluate_with_numpy_array():
+    data = [
+        ["What is MLflow?"],
+    ]
+    ground_truth = [
+        "MLflow is an open-source platform for managing the end-to-end machine learning",
+    ]
+
+    with mlflow.start_run():
+        logged_model = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        results = mlflow.evaluate(
+            logged_model.model_uri,
+            data,
+            targets=ground_truth,
+            extra_metrics=[mlflow.metrics.toxicity()],
+        )
+
+        assert results.metrics.keys() == {
+            "toxicity/v1/mean",
+            "toxicity/v1/variance",
+            "toxicity/v1/p90",
+            "toxicity/v1/ratio",
+        }
+        assert len(results.tables) == 1
+        assert results.tables["eval_results_table"].columns.tolist() == [
+            "feature_1",
+            "target",
+            "outputs",
+            "toxicity/v1/score",
+        ]
