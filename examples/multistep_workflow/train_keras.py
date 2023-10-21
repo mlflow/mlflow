@@ -29,45 +29,47 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     np.random.seed(0)
     tf.set_random_seed(42)  # For reproducibility
 
-    als_model = mlflow.spark.load_model(als_model_uri).stages[0]
     with pyspark.sql.SparkSession.builder.getOrCreate() as spark:
+        als_model = mlflow.spark.load_model(als_model_uri).stages[0]
         ratings_df = spark.read.parquet(ratings_data)
         (training_df, test_df) = ratings_df.randomSplit([0.8, 0.2], seed=42)
         training_df.cache()
         test_df.cache()
 
-    mlflow.log_metric("training_nrows", training_df.count())
-    mlflow.log_metric("test_nrows", test_df.count())
+        mlflow.log_metric("training_nrows", training_df.count())
+        mlflow.log_metric("test_nrows", test_df.count())
 
-    print(f"Training: {training_df.count()}, test: {test_df.count()}")
+        print(f"Training: {training_df.count()}, test: {test_df.count()}")
 
-    user_factors = als_model.userFactors.selectExpr("id as userId", "features as uFeatures")
-    item_factors = als_model.itemFactors.selectExpr("id as movieId", "features as iFeatures")
-    joined_train_df = training_df.join(item_factors, on="movieId").join(user_factors, on="userId")
-    joined_test_df = test_df.join(item_factors, on="movieId").join(user_factors, on="userId")
+        user_factors = als_model.userFactors.selectExpr("id as userId", "features as uFeatures")
+        item_factors = als_model.itemFactors.selectExpr("id as movieId", "features as iFeatures")
+        joined_train_df = training_df.join(item_factors, on="movieId").join(
+            user_factors, on="userId"
+        )
+        joined_test_df = test_df.join(item_factors, on="movieId").join(user_factors, on="userId")
 
-    # We'll combine the movies and ratings vectors into a single vector of length 24.
-    # We will then explode this features vector into a set of columns.
-    def concat_arrays(*args):
-        return list(chain(*args))
+        # We'll combine the movies and ratings vectors into a single vector of length 24.
+        # We will then explode this features vector into a set of columns.
+        def concat_arrays(*args):
+            return list(chain(*args))
 
-    concat_arrays_udf = udf(concat_arrays, ArrayType(FloatType()))
+        concat_arrays_udf = udf(concat_arrays, ArrayType(FloatType()))
 
-    concat_train_df = joined_train_df.select(
-        "userId",
-        "movieId",
-        concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
-        col("rating").cast("float"),
-    )
-    concat_test_df = joined_test_df.select(
-        "userId",
-        "movieId",
-        concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
-        col("rating").cast("float"),
-    )
+        concat_train_df = joined_train_df.select(
+            "userId",
+            "movieId",
+            concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
+            col("rating").cast("float"),
+        )
+        concat_test_df = joined_test_df.select(
+            "userId",
+            "movieId",
+            concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
+            col("rating").cast("float"),
+        )
 
-    pandas_df = concat_train_df.toPandas()
-    pandas_test_df = concat_test_df.toPandas()
+        pandas_df = concat_train_df.toPandas()
+        pandas_test_df = concat_test_df.toPandas()
 
     # This syntax will create a new DataFrame where elements of the 'features' vector
     # are each in their own column. This is what we'll train our neural network on.
