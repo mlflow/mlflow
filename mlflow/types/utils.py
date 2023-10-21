@@ -379,7 +379,7 @@ def _is_none_or_nan(x):
 
 
 def _infer_required(col) -> bool:
-    if hasattr(col, "__iter__"):
+    if isinstance(col, (list, pd.Series)):
         return not any(_is_none_or_nan(x) for x in col)
     return not _is_none_or_nan(col)
 
