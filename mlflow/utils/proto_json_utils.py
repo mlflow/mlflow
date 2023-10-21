@@ -207,7 +207,7 @@ class MlflowFailedTypeConversion(MlflowException):
 def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
 
-    from mlflow.types.schema import DataType
+    from mlflow.types.schema import Array, DataType, Object
 
     actual_cols = set(pdf.columns)
     if schema.has_input_names():
@@ -238,6 +238,11 @@ def cast_df_types_according_to_schema(pdf, schema):
                     # its type by `astype`, skip conversion.
                     # The conversion will be done in `_enforce_schema` while
                     # `PyFuncModel.predict` being called.
+                    pass
+                elif isinstance(col_type_spec, (Array, Object)):
+                    # for array and object colspec types, we expect
+                    # the input to be list or dictionary, so we shouln't
+                    # convert it here
                     pass
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
