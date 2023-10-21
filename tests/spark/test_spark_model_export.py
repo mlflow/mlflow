@@ -74,21 +74,17 @@ SparkModelWithData = namedtuple(
 @contextmanager
 def _get_spark_session_with_retry(max_tries=3):
     conf = pyspark.SparkConf()
-    spark = None
-    for num_tries in range(max_tries):
+    for attempt in range(max_tries):
         try:
-            spark = get_spark_session(conf)
+            with get_spark_session(conf) as s:
+                yield s
             break
-        except Exception:
-            if num_tries >= max_tries - 1:
+        except Exception as e:
+            if attempt >= max_tries - 1:
                 raise
-            _logger.exception(f"Attempt {num_tries} to create a SparkSession failed, retrying...")
-
-    if spark:
-        try:
-            yield spark
-        finally:
-            spark.stop()
+            _logger.exception(
+                f"Attempt {attempt} to create a SparkSession failed ({e!r}), retrying..."
+            )
 
 
 # Specify `autouse=True` to ensure that a context is created
