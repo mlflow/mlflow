@@ -116,6 +116,10 @@ class DataType(Enum):
             types.append(self.to_spark())
         if self.name == "datetime":
             types.extend([np.datetime64, dt.datetime])
+        if self.name == "binary":
+            # This is to support identifying bytearrays as binary data
+            # for pandas DataFrame schema inference
+            types.extend([bytearray])
         return types
 
     @classmethod
@@ -264,6 +268,10 @@ class Property:
                 )
 
         """
+        if not isinstance(prop, Property):
+            raise MlflowException(
+                f"Can't merge property with non-property type: {type(prop).__name__}"
+            )
         if self.name != prop.name:
             raise MlflowException("Can't merge properties with different names")
         required = self.required and prop.required
@@ -402,6 +410,8 @@ class Object:
                 )
 
         """
+        if not isinstance(obj, Object):
+            raise MlflowException(f"Can't merge object with non-object type: {type(obj).__name__}")
         if self == obj:
             return deepcopy(self)
         prop_dict1 = {prop.name: prop for prop in self.properties}
@@ -428,7 +438,8 @@ class Array:
 
     def __init__(
         self,
-        dtype: Union[DataType, Object, str],
+        # TODO: support nested arrays & add tests in follow-up PRs
+        dtype: Union["Array", DataType, Object, str],
     ) -> None:
         try:
             self._dtype = DataType[dtype] if isinstance(dtype, str) else dtype
@@ -437,14 +448,15 @@ class Array:
                 f"Unsupported type '{dtype}', expected instance of DataType, Array, Object or "
                 f"one of {[t.name for t in DataType]}"
             )
-        if not isinstance(self.dtype, (DataType, Object)):
+        if not isinstance(self.dtype, (Array, DataType, Object)):
             raise MlflowException(
-                "Expected mlflow.types.schema.Datatype, mlflow.types.schema.Object "
-                f"or str for the 'dtype' argument, but got {self.dtype.__class__}"
+                "Expected mlflow.types.schema.Array, mlflow.types.schema.Datatype, "
+                "mlflow.types.schema.Object or str for the 'dtype' argument, "
+                f"but got '{self.dtype.__class__}'"
             )
 
     @property
-    def dtype(self) -> Union[DataType, Object]:
+    def dtype(self) -> Union["Array", DataType, Object]:
         """The array data type."""
         return self._dtype
 
@@ -477,12 +489,29 @@ class Array:
             raise MlflowException("Expected items to be a dictionary of Object JSON")
         if not {"type"} <= set(kwargs["items"].keys()):
             raise MlflowException("Missing keys in Array's items JSON. Expected to find key `type`")
-        if kwargs["items"]["type"] != OBJECT_TYPE:
-            return cls(dtype=kwargs["items"]["type"])
-        return cls(dtype=Object.from_json_dict(**kwargs["items"]))
+        if kwargs["items"]["type"] == OBJECT_TYPE:
+            return cls(dtype=Object.from_json_dict(**kwargs["items"]))
+        if kwargs["items"]["type"] == ARRAY_TYPE:
+            return cls(dtype=Array.from_json_dict(**kwargs["items"]))
+        return cls(dtype=kwargs["items"]["type"])
 
     def __repr__(self) -> str:
         return f"Array(type={self.dtype})"
+
+    def _merge(self, arr: "Array") -> "Array":
+        if not isinstance(arr, Array):
+            raise MlflowException(f"Can't merge array with non-array type: {type(arr).__name__}")
+        if self == arr:
+            return deepcopy(self)
+        if isinstance(self.dtype, DataType):
+            if self.dtype == arr.dtype:
+                return Array(dtype=self.dtype)
+            raise MlflowException(
+                f"Array types are incompatible for {self} with dtype={self.dtype} and "
+                f"{arr} with dtype={arr.dtype}"
+            )
+        if isinstance(self.dtype, (Array, Object)):
+            return Array(dtype=self.dtype._merge(arr.dtype))
 
 
 class ColSpec:
@@ -821,15 +850,21 @@ class Schema:
         """Return true iff this schema declares names, false otherwise."""
         return self.inputs and self.inputs[0].name is not None
 
-    def input_types(self) -> List[Union[DataType, np.dtype]]:
+    def input_types(self) -> List[Union[DataType, np.dtype, Array, Object]]:
         """Get types for each column in the schema."""
         return [x.type for x in self.inputs]
 
-    def input_types_dict(self) -> Dict[str, Union[DataType, np.dtype]]:
+    def input_types_dict(self) -> Dict[str, Union[DataType, np.dtype, Array, Object]]:
         """Maps column names to types, iff this schema declares names."""
         if not self.has_input_names():
             raise MlflowException("Cannot get input types as a dict for schema without names.")
         return {x.name: x.type for x in self.inputs}
+
+    def input_dict(self) -> Dict[str, Union[ColSpec, TensorSpec]]:
+        """Maps column names to inputs, iff this schema declares names."""
+        if not self.has_input_names():
+            raise MlflowException("Cannot get input dict for schema without names.")
+        return {x.name: x for x in self.inputs}
 
     def numpy_types(self) -> List[np.dtype]:
         """Convenience shortcut to get the datatypes as numpy types."""
@@ -857,7 +892,9 @@ class Schema:
 
         return StructType(
             [
-                StructField(name=col.name or str(i), dataType=col.type.to_spark())
+                StructField(
+                    name=col.name or str(i), dataType=col.type.to_spark(), nullable=not col.required
+                )
                 for i, col in enumerate(self.inputs)
             ]
         )

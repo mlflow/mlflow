@@ -1712,7 +1712,7 @@ class _TransformersWrapper:
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
-        elif isinstance(data, dict):
+        elif isinstance(data, (dict, str, bytes, np.ndarray)):
             input_data = data
         elif isinstance(data, list):
             if not all(isinstance(entry, (str, dict)) for entry in data):
@@ -1722,8 +1722,6 @@ class _TransformersWrapper:
                     "dictionaries must be strings and values must be either str or List[str].",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            input_data = data
-        elif isinstance(data, (str, bytes, np.ndarray)):
             input_data = data
         else:
             raise MlflowException(
@@ -2619,6 +2617,10 @@ class _TransformersWrapper:
             return decode_audio(encoded_audio)
         elif isinstance(data, str):
             self._validate_str_input_uri_or_file(data)
+        # For new schema, we extract the data field out when converting
+        # pandas DataFrame to dictionary.
+        elif isinstance(data, bytes):
+            return decode_audio(data)
         return data
 
     @staticmethod
