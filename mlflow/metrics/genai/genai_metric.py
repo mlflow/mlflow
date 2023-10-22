@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample, MetricValue
 from mlflow.metrics.genai import model_utils
-from mlflow.metrics.genai.utils import _get_latest_metric_version
+from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -89,7 +89,7 @@ def make_genai_metric(
     grading_prompt: str,
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
-    model: Optional[str] = "openai:/gpt-3.5-turbo-16k",
+    model: Optional[str] = _get_default_model(),
     grading_context_columns: Optional[List[str]] = [],  # noqa: B006
     parameters: Optional[Dict[str, Any]] = None,
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
@@ -107,7 +107,7 @@ def make_genai_metric(
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
     :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
-        "openai:/gpt-3.5-turbo-16k". Your use of a third party LLM service (e.g., OpenAI) for
+        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
     :param grading_context_columns: (Optional) grading_context_columns required to compute
         the metric. These grading_context_columns are used by the LLM as a judge as additional
