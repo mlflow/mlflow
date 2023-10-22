@@ -1349,7 +1349,7 @@ def test_evaluate_extra_metric_backwards_compatible():
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
 
-    new_eval_fn_args = [eval_df, metrics]
+    new_eval_fn_args = [eval_df, None, metrics]
 
     def new_fn(predictions, targets=None, metrics=None):
         return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
@@ -1514,7 +1514,7 @@ def test_evaluate_custom_metric_success():
             },
         )
 
-    eval_fn_args = [eval_df, _get_aggregate_metrics_values(builtin_metrics)]
+    eval_fn_args = [eval_df, None, _get_aggregate_metrics_values(builtin_metrics)]
     res_metric = _evaluate_extra_metric(
         _CustomMetric(example_count_times_1_point_5, "", 0), eval_fn_args
     )
