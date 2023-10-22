@@ -18,6 +18,7 @@ import { COLUMN_SORT_BY_ASC, SORT_DELIMITER_SYMBOL } from '../../../../constants
 import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
 import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
 import { ExperimentViewRunsModeSwitch } from './ExperimentViewRunsModeSwitch';
+import ExperimentFilterParams from './ExperimentFilterParams';
 
 type ExperimentViewRunsControlsProps = {
   viewState: SearchExperimentRunsViewState;
@@ -172,6 +173,10 @@ export const ExperimentViewRunsControls = React.memo(
           />
         )}
 
+        <ExperimentFilterParams
+          updateSearchFacets={updateSearchFacets}
+          searchFacetsState={searchFacetsState}
+        />
         <div>
           <ExperimentViewRunsModeSwitch
             compareRunsMode={compareRunsMode}

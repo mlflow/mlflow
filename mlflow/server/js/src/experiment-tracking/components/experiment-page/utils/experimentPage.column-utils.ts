@@ -222,7 +222,7 @@ export const useRunsColumnDefinitions = ({
   isComparingRuns,
   expandRows,
 }: UseRunsColumnDefinitionsParams) => {
-  const { orderByAsc, orderByKey, selectedColumns } = searchFacetsState;
+  const { orderByAsc, orderByKey, selectedColumns, filterParams } = searchFacetsState;
 
   const cumulativeColumns = useCumulativeColumnKeys({
     metricKeyList,
@@ -518,7 +518,68 @@ export const useRunsColumnDefinitions = ({
       const visible = selectedColumns.includes(canonicalKey);
       columnApi.setColumnVisible(canonicalKey, visible);
     }
-  }, [selectedColumns, columnApi, canonicalSortKeys, isComparingRuns]);
+    const regex = /attributes\.`(.*?)`/;
+    let selectedAttributeColumns = [];
+    selectedColumns.forEach((item) => {
+      if (regex.exec(item) !== null) {
+        selectedAttributeColumns.push(regex.exec(item)[1]);
+      }
+    });
+
+    console.log("selected columns");
+    console.log(selectedColumns);
+    console.log(selectedAttributeColumns);
+    console.log(selectedAttributeColumns.length);
+    // columnApi.moveColumns(filterParams, selectedAttributeColumns.length + 6);
+  
+    const newColumnOrderNames = [
+      'attributes.`Source`',
+      'attributes.`Models`',
+      'attributes.`Dataset`',
+      'params.`l1_ratio`',
+      'params.`p`',
+      'params.`alpha`',
+    ];
+
+    let columnsInNewOrder = [];
+
+    // Based on the new order of names, find the corresponding columns
+    newColumnOrderNames.forEach((columnName) => {
+      const column = columnApi.getAllColumns().find((col) => col.getColDef().headerName === columnName);
+      
+      if (column) {
+          columnsInNewOrder.push(column);
+      } else {
+          console.warn(`Column with name ${columnName} not found.`);
+      }
+  });
+
+  console.log("New Order");
+  console.log(columnsInNewOrder);
+  console.log();
+  columnApi.moveColumns(newColumnOrderNames, 0);
+
+
+  // const allColumns = columnApi.getAllColumns();
+  // // This array will hold the columns in the new order
+  // let columnsInNewOrder = [];
+
+  // const newColumnOrder = [0, 1, 2, 4, 5, 3];
+
+  // // Based on the new order, pick the columns from the 'allColumns' array
+  // newColumnOrder.forEach((columnIndex) => {
+  //     const column = selectedColumns.find((col, index) => index === columnIndex);
+
+  //     if (column) {
+  //         columnsInNewOrder.push(column);
+  //     }
+  // });
+
+  // console.log('New Order');
+  // console.log(columnsInNewOrder);
+  // columnApi.moveColumns(columnsInNewOrder, 0);
+
+  }, [selectedColumns, columnApi, canonicalSortKeys, isComparingRuns, filterParams]);
 
   return columnSet;
 };
@@ -530,5 +591,5 @@ export const EXPERIMENTS_DEFAULT_COLUMN_SETUP = {
   resizable: true,
   filter: true,
   suppressMenu: true,
-  suppressMovable: true,
+  suppressMovable: false,
 };
