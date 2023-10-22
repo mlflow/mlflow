@@ -1168,7 +1168,10 @@ class DefaultEvaluator(ModelEvaluator):
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
                     else:
-                        eval_fn_args.append(None)
+                        if param.default == inspect.Parameter.empty:
+                            params_not_found.append(param_name)
+                        else:
+                            eval_fn_args.append(param.default)
                 elif column == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
                 else:
@@ -1194,6 +1197,8 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(self.evaluator_config.get(column))
                     elif param.default == inspect.Parameter.empty:
                         params_not_found.append(param_name)
+                    else:
+                        eval_fn_args.append(param.default)
 
         if len(params_not_found) > 0:
             return extra_metric.name, params_not_found
@@ -1434,29 +1439,27 @@ class DefaultEvaluator(ModelEvaluator):
                 failed_metrics.append(result)
 
         if len(failed_metrics) > 0:
-            output_column_name = self.predictions
             output_columns = (
                 [] if self.other_output_columns is None else list(self.other_output_columns.columns)
             )
             input_columns = list(self.X.copy_to_avoid_mutation().columns)
 
-            error_messages = []
-            for metric_name, param_names in failed_metrics:
-                error_messages.append(f"Metric '{metric_name}' requires the columns {param_names}")
-            error_message = "\n".join(error_messages)
-            raise MlflowException(
-                "Error: Metric calculation failed for the following metrics:\n"
-                f"{error_message}\n\n"
-                "Below are the existing column names for the input/output data:\n"
-                f"Input Columns: {input_columns}\n"
-                f"Output Columns: {output_columns}\n"
-                "Note that this does not include the output column: "
-                f"'{output_column_name}'\n\n"
-                f"To resolve this issue, you may want to map the missing column to an "
-                "existing column using the following configuration:\n"
-                f"evaluator_config={{'col_mapping': {{'<missing column name>': "
-                "'<existing column name>'}}\n"
-            )
+            error_messages = [
+                f"Metric '{metric_name}' requires the columns {param_names}"
+                for metric_name, param_names in failed_metrics
+            ]
+            joined_error_message = "\n".join(error_messages)
+            full_message = f"""Error: Metric calculation failed for the following metrics:
+            {joined_error_message}
+
+            Below are the existing column names for the input/output data:
+            Input Columns: {input_columns}
+            Output Columns: {output_columns}
+            To resolve this issue, you may want to map the missing column to an existing column
+            using the following configuration:
+            evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
+            stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
+            raise MlflowException(stripped_message)
 
     def _test_first_row(self, eval_df):
         # test calculations on first row of eval_df
