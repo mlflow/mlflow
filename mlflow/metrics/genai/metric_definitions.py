@@ -103,10 +103,10 @@ def answer_correctness(
     :param model: (Optional) The model that will be used to evaluate this metric. Defaults to
         gpt-4. Your use of a third party LLM service (e.g., OpenAI) for evaluation may
         be subject to and governed by the LLM service's terms of use.
-    :param metric_version: (Optional) The version of the strict correctness metric to use.
+    :param metric_version: (Optional) The version of the answer correctness metric to use.
         Defaults to the latest version.
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
-        strict correctness. It is highly recommended to add examples to be used as a reference to
+        answer correctness. It is highly recommended to add examples to be used as a reference to
         evaluate the new results.
     :param judge_request_timeout: (Optional) The timeout in seconds for the judge API request.
         Defaults to 60 seconds.
@@ -114,35 +114,35 @@ def answer_correctness(
     """
     if metric_version is None:
         metric_version = _get_latest_metric_version()
-    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.StrictCorrectnessMetric"
+    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.AnswerCorrectnessMetric"
     try:
-        strict_correctness_class_module = _get_class_from_string(class_name)
+        answer_correctness_class_module = _get_class_from_string(class_name)
     except ModuleNotFoundError:
         raise MlflowException(
-            f"Failed to find strict correctness metric for version {metric_version}."
+            f"Failed to find answer correctness metric for version {metric_version}."
             f"Please check the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:
         raise MlflowException(
-            f"Failed to construct strict correctness metric {metric_version}. Error: {e!r}",
+            f"Failed to construct answer correctness metric {metric_version}. Error: {e!r}",
             error_code=INTERNAL_ERROR,
         ) from None
 
     if examples is None:
-        examples = strict_correctness_class_module.default_examples
+        examples = answer_correctness_class_module.default_examples
     if model is None:
-        model = strict_correctness_class_module.default_model
+        model = answer_correctness_class_module.default_model
 
     return make_genai_metric(
-        name="strict_correctness",
-        definition=strict_correctness_class_module.definition,
-        grading_prompt=strict_correctness_class_module.grading_prompt,
+        name="answer_correctness",
+        definition=answer_correctness_class_module.definition,
+        grading_prompt=answer_correctness_class_module.grading_prompt,
         examples=examples,
         version=metric_version,
         model=model,
-        grading_context_columns=strict_correctness_class_module.grading_context_columns,
-        parameters=strict_correctness_class_module.parameters,
+        grading_context_columns=answer_correctness_class_module.grading_context_columns,
+        parameters=answer_correctness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
         judge_request_timeout=judge_request_timeout,
