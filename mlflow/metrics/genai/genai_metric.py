@@ -178,7 +178,7 @@ def make_genai_metric(
             ),
             examples=[example],
             version="v1",
-            model="openai:/gpt-3.5-turbo-16k",
+            model="openai:/gpt-4",
             grading_context_columns=["ground_truth"],
             parameters={"temperature": 0.0},
             aggregations=["mean", "variance", "p90"],
