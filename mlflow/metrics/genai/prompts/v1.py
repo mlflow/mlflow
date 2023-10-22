@@ -9,7 +9,7 @@ from mlflow.metrics.genai.prompt_template import (
 )
 
 # TODO: Update the default_mode and default_parameters to the correct values post experimentation
-default_model = "openai:/gpt4"
+default_model = "openai:/gpt-4"
 default_parameters = {
     "temperature": 0.0,
     "max_tokens": 200,
