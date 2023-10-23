@@ -273,11 +273,20 @@ precision_at_k = make_metric(
 """
 .. Note:: Experimental: This metric may change or be removed in a future release without warning.
 
-A metric for calculating `accuracy`_ using sklearn.
+A metric for calculating ``precision_at_k`` for the retriever model type.
 
-This metric only computes an aggregate score which ranges from 0 to 1.
+This metric computes a score between 0 and 1 for each row representing the precision of the
+retriever model at the given k value. The score is calculated by dividing the number of relevant
+documents retrieved by the total number of documents retrieved or k, whichever is smaller.
+If no relevant documents are retrieved, the score is 1, indication that no false positives were
+retrieved.
 
-.. _accuracy: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+This metric requires the ``retriever`` model type. The model output should be a pandas dataframe
+with a column containing a tuple of strings on each row. The strings in the tuple represent the
+document IDs. The label column should contain a tuple of strings representing the relevant document
+IDs for each row, provided by the input ``data`` parameter. The ``k`` parameter should be an
+integer representing the number of documents to evaluate for each row, provided by the
+``evaluator_config`` parameter.
 """
 
 

@@ -33,7 +33,6 @@ def _validate_text_data(data, metric_name, column_name):
     return True
 
 
-# because single entry tuples get unpacked, put them back into a tuple if the entry is a string
 def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
     """Validates that the data is a list of a tuple of strings and is non-empty"""
     if data is None or len(data) == 0:
@@ -42,8 +41,9 @@ def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
     for row, tup in enumerate(data):
         if not isinstance(tup, tuple) or not all(isinstance(val, str) for val in tup):
             if isinstance(tup, str):
+                # Single entry tuples get unpacked.
+                # So if the entry is a string, put them back into a tuple.
                 data[row] = (tup,)
-                tup = data[row]
             else:
                 _logger.warning(
                     f"Cannot calculate {metric_name} for non-tuple[str] inputs."
@@ -276,21 +276,6 @@ def _rougeLsum_eval_fn(predictions, targets, metrics):
         )
 
 
-def _precision_at_k_eval_fn(predictions, targets, k, metrics, sample_weight=None):
-    assert targets is not None
-    assert len(targets) != 0
-    import pandas as pd
-
-    if targets is not None and len(targets) != 0:
-        assert isinstance(predictions, pd.Series)
-        assert isinstance(targets, pd.Series)
-        assert isinstance(k, pd.Series)
-        assert (predictions == pd.Series([("doc1", "doc3")] * 3, name="prediction")).all()
-        assert (targets == pd.Series([("doc1", "doc2")] * 3, name="target")).all()
-        assert (k == pd.Series([2, 2, 2], name="k")).all()
-        return MetricValue(scores=[2, 2, 2], aggregate_results=standard_aggregations([2, 2, 2]))
-
-
 def _mae_eval_fn(predictions, targets, metrics, sample_weight=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_absolute_error
@@ -383,12 +368,22 @@ def _f1_score_eval_fn(
         return MetricValue(aggregate_results={"f1_score": f1})
 
 
+def _validate_positive_int_scalar(scalar, metric_name, scalar_name):
+    if isinstance(scalar, int) and scalar > 0:
+        return True
+    _logger.warning(
+        f"Cannot calculate {metric_name} for invalid parameter {scalar_name}."
+        f"{scalar_name} should be a positive integer; found:"
+        f"{scalar}. Skipping metric logging."
+    )
+    return False
+
+
 def _precision_at_k_eval_fn(predictions, targets, k, metrics, sample_weight=None):
     if (
         not _validate_and_fix_text_tuple_data(predictions, "precision_at_k", "predictions")
         or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets")
-        or not isinstance(k, int)
-        and k > 0
+        or not _validate_positive_int_scalar(k, "precision_at_k", "k")
     ):
         return
 
