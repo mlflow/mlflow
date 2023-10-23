@@ -41,7 +41,7 @@ def main():
             download_path=args.download_path,
             http_uri=args.http_uri,
         )
-    except (ConnectionError, ChunkedEncodingError):
+    except Exception:
         with open(args.temp_file, "w") as f:
             json.dump({"retryable": True}, f)
         raise
