@@ -25,6 +25,7 @@ def patch_script_name():
 def patch_git_repo():
     mock_repo = mock.Mock()
     mock_repo.head.commit.hexsha = MOCK_COMMIT_HASH
+    mock_repo.ignored.return_value = []
     with mock.patch("git.Repo", return_value=mock_repo):
         yield mock_repo
 
@@ -45,13 +46,9 @@ def test_git_run_context_tags(patch_script_name, patch_git_repo):
 def test_git_run_context_caching(patch_script_name):
     """Check that the git commit hash is only looked up once."""
 
-    mock_repo = mock.Mock()
-    mock_hexsha = mock.PropertyMock(return_value=MOCK_COMMIT_HASH)
-    type(mock_repo.head.commit).hexsha = mock_hexsha
-
-    with mock.patch("git.Repo", return_value=mock_repo):
+    with mock.patch("git.Repo") as mock_repo:
         context = GitRunContext()
         context.in_context()
         context.tags()
 
-    assert mock_hexsha.call_count == 1
+    mock_repo.assert_called_once()
