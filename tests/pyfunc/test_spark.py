@@ -68,7 +68,7 @@ def score_spark(spark, model_uri, pandas_df, result_type="double"):
 
 def score_model_as_udf(model_uri, pandas_df, result_type="double"):
     if spark := pyspark.sql.SparkSession.getActiveSession():
-        # Reuse an existing SparkSession, don't kill it
+        # Reuse the active SparkSession, don't kill it after use
         return score_spark(spark, model_uri, pandas_df, result_type)
 
     # Create a new SparkSession, kill it after use
