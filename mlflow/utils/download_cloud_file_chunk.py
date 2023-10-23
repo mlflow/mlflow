@@ -7,8 +7,6 @@ import json
 import os
 import sys
 
-from requests.exceptions import ChunkedEncodingError, ConnectionError, HTTPError
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
