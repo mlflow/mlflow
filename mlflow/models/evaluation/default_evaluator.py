@@ -1662,7 +1662,7 @@ class DefaultEvaluator(ModelEvaluator):
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
                 elif self.model_type == _ModelType.RETRIEVER:
-                    self.builtin_metrics = [precision_at_k]
+                    self.builtin_metrics = [precision_at_k(3)]  # using default k=3
 
                 self.y_pred = (
                     self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred

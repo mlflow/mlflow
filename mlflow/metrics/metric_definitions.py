@@ -4,7 +4,9 @@ import os
 
 import numpy as np
 
+from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
@@ -379,22 +381,28 @@ def _validate_positive_int_scalar(scalar, metric_name, scalar_name):
     return False
 
 
-def _precision_at_k_eval_fn(predictions, targets, k, metrics, sample_weight=None):
-    if (
-        not _validate_and_fix_text_tuple_data(predictions, "precision_at_k", "predictions")
-        or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets")
-        or not _validate_positive_int_scalar(k, "precision_at_k", "k")
-    ):
-        return
+def _precision_at_k_eval_fn(k):
+    if not (isinstance(k, int) and k > 0):
+        raise MlflowException(
+            message=f"k must be a positive integer, found: {k}", error_code=INVALID_PARAMETER_VALUE
+        )
 
-    scores = []
-    for i in range(len(predictions)):
-        # only include the top k retrieved chunks
-        ground_truth, retrieved = set(targets[i]), predictions[i][:k]
-        relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
-        if len(retrieved) > 0:
-            scores.append(relevant_doc_count / len(retrieved))
-        else:
-            scores.append(1)
+    def _fn(predictions, targets):
+        if not _validate_and_fix_text_tuple_data(
+            predictions, "precision_at_k", "predictions"
+        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets"):
+            return
 
-    return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+        scores = []
+        for i in range(len(predictions)):
+            # only include the top k retrieved chunks
+            ground_truth, retrieved = set(targets[i]), predictions[i][:k]
+            relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
+            if len(retrieved) > 0:
+                scores.append(relevant_doc_count / len(retrieved))
+            else:
+                scores.append(1)
+
+        return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+
+    return _fn
