@@ -3,7 +3,6 @@ import json
 import os
 import shutil
 import sqlite3
-import tempfile
 from contextlib import contextmanager
 from typing import Any, Dict, List, Mapping, Optional
 
