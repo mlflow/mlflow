@@ -18,7 +18,9 @@ TOTAL_BATCHES = 5
 
 
 class RunData:
-    def __init__(self, throw_exception_on_batch_number=[]) -> None:
+    def __init__(self, throw_exception_on_batch_number=None) -> None:
+        if throw_exception_on_batch_number is None:
+            throw_exception_on_batch_number = []
         self.received_run_id = ""
         self.received_metrics = []
         self.received_tags = []
@@ -174,7 +176,9 @@ def test_publish_multithread_consume_single_thread():
     assert len(run_data.received_params) == 2 * PARAMS_PER_BATCH * TOTAL_BATCHES
 
 
-def _send_metrics_tags_params(run_data_queueing_processor, run_id, run_operations=[]):
+def _send_metrics_tags_params(run_data_queueing_processor, run_id, run_operations=None):
+    if run_operations is None:
+        run_operations = []
     metrics_sent = []
     tags_sent = []
     params_sent = []

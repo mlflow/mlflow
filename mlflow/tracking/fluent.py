@@ -613,8 +613,8 @@ def log_param(key: str, value: Any, synchronous: bool = True) -> Union[RunOperat
                         successfully. If False, logs the parameter asynchronously and
                         returns a future representing the logging operation.
 
-    :return: When synchronous=True, the parameter value that is logged.
-             When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
              represents future for logging operation.
 
     .. testcode:: python
@@ -671,9 +671,9 @@ def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOpera
                         successfully. If False, logs the tag asynchronously and
                         returns a future representing the logging operation.
 
-    :return: When synchronous=True, returns None.
-             When synchronous=False, returns :py:class:`mlflow.RunOperations` object
-             that represents future for logging operation.
+    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -737,8 +737,8 @@ def log_metric(
                         successfully. If False, logs the parameter asynchronously and
                         returns a future representing the logging operation.
 
-    :return: When synchronous=True, returns None.
-             When synchronous=False, returns RunOperations that represents future for
+    :return: When `synchronous=True`, returns None.
+             When `synchronous=False`, returns `RunOperations` that represents future for
              logging operation.
 
     .. testcode:: python
@@ -778,9 +778,9 @@ def log_metrics(
                         successfully. If False, logs the metrics asynchronously and
                         returns a future representing the logging operation.
 
-    :return: When synchronous=True, returns None.
-             When synchronous=False, returns :py:class:`mlflow.RunOperations` that represents
-             future for logging operation.
+    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -816,8 +816,8 @@ def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[Run
                         successfully. If False, logs the parameters asynchronously and
                         returns a future representing the logging operation.
 
-    :return: When synchronous=True, returns None.
-             When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
              represents future for logging operation.
 
     .. testcode:: python
@@ -916,9 +916,9 @@ def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOper
                         successfully. If False, logs the tag asynchronously and
                         returns a future representing the logging operation.
 
-    :return: When synchronous=True, returns None.
-             When synchronous=False, returns :py:class:`mlflow.RunOperations` that represents
-             future for logging operation.
+    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
