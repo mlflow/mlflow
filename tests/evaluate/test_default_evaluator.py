@@ -1349,14 +1349,12 @@ def test_evaluate_extra_metric_backwards_compatible():
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
 
-    new_eval_fn_args = [eval_df, metrics]
+    new_eval_fn_args = [eval_df, None, metrics]
 
-    def new_fn_with_type_hint(eval_df, metrics: Dict[str, MetricValue]):
+    def new_fn(predictions, targets=None, metrics=None):
         return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
 
-    res_metric = _evaluate_extra_metric(
-        _CustomMetric(new_fn_with_type_hint, "new_fn", 0), new_eval_fn_args
-    )
+    res_metric = _evaluate_extra_metric(_CustomMetric(new_fn, "new_fn", 0), new_eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
@@ -1504,10 +1502,10 @@ def test_evaluate_custom_metric_success():
         eval_df["target"], eval_df["prediction"], sample_weights=None
     )
 
-    def example_count_times_1_point_5(eval_df, metrics: Dict[str, MetricValue]):
+    def example_count_times_1_point_5(predictions, targets=None, metrics=None):
         return MetricValue(
-            scores=[score * 1.5 for score in eval_df["prediction"].tolist()],
-            justifications=["justification"] * len(eval_df["prediction"]),
+            scores=[score * 1.5 for score in predictions.tolist()],
+            justifications=["justification"] * len(predictions),
             aggregate_results={
                 "example_count_times_1_point_5": metrics["example_count"].aggregate_results[
                     "example_count"
@@ -1516,7 +1514,7 @@ def test_evaluate_custom_metric_success():
             },
         )
 
-    eval_fn_args = [eval_df, _get_aggregate_metrics_values(builtin_metrics)]
+    eval_fn_args = [eval_df["prediction"], None, _get_aggregate_metrics_values(builtin_metrics)]
     res_metric = _evaluate_extra_metric(
         _CustomMetric(example_count_times_1_point_5, "", 0), eval_fn_args
     )
@@ -1593,7 +1591,7 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
 
 
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
-    def true_count(_eval_df, metrics: Dict[str, MetricValue]):
+    def true_count(predictions, targets=None, metrics=None):
         true_negatives = metrics["true_negatives"].aggregate_results["true_negatives"]
         true_positives = metrics["true_positives"].aggregate_results["true_positives"]
         return MetricValue(aggregate_results={"true_count": true_negatives + true_positives})
@@ -2602,7 +2600,7 @@ def test_evaluate_text_and_text_metrics():
     assert set(results.metrics.keys()) == set(get_text_metrics_keys())
 
 
-def very_toxic(eval_df, metrics: Dict[str, MetricValue]):
+def very_toxic(predictions, targets=None, metrics=None):
     new_scores = [1.0 if score > 0.9 else 0.0 for score in metrics["toxicity/v1"].scores]
     return MetricValue(
         scores=new_scores,
@@ -2611,8 +2609,8 @@ def very_toxic(eval_df, metrics: Dict[str, MetricValue]):
     )
 
 
-def per_row_metric(eval_df, metrics: Dict[str, MetricValue]):
-    return MetricValue(scores=[1] * len(eval_df["prediction"]))
+def per_row_metric(predictions, targets=None, metrics=None):
+    return MetricValue(scores=[1] * len(predictions))
 
 
 def test_evaluate_text_custom_metrics():
