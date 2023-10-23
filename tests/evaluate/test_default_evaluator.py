@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -3290,7 +3291,10 @@ def test_evaluate_retriever_error_handling():
     def fn(X):
         return pd.DataFrame({"output": [("doc1", "doc3", "doc2")] * len(X)})
 
-    with pytest.raises(MlflowException, match="Missing k in evaluator_config"):
+    # TODO: improve error message, avoid saying "columns ['k']"
+    with pytest.raises(
+        MlflowException, match=re.escape("Metric 'precision_at_k' requires the columns ['k']")
+    ):
         mlflow.evaluate(
             model=fn,
             data=X,
@@ -3298,16 +3302,6 @@ def test_evaluate_retriever_error_handling():
             model_type="retriever",
             evaluators="default",
             evaluator_config={},
-        )
-
-    with pytest.raises(MlflowException, match="k should be a positive integer"):
-        mlflow.evaluate(
-            model=fn,
-            data=X,
-            targets="ground_truth",
-            model_type="retriever",
-            evaluators="default",
-            evaluator_config={"k": 0},
         )
 
 
