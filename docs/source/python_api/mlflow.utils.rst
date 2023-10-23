@@ -1,7 +1,10 @@
 mlflow.utils
-==============
+==================
 
-.. automodule:: mlflow.utils
+.. automodule:: mlflow.utils.async_logging
     :members:
     :undoc-members:
-    :show-inheritance:
+
+.. automodule:: mlflow.utils.async_logging.run_operations
+    :members:
+    :undoc-members:
