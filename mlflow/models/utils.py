@@ -911,7 +911,6 @@ def _enforce_array(data: Any, arr: Array, required=True):
             data = [data]
         else:
             raise MlflowException(f"Expected data to be list, got {type(data).__name__}")
-        return data
     if isinstance(arr.dtype, DataType):
         return [_enforce_datatype(x, arr.dtype) for x in data]
     if isinstance(arr.dtype, Object):
