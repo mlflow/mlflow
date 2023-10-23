@@ -3276,3 +3276,30 @@ def test_evaluate_retriever():
         "precision_at_k/v1/variance": 0,
         "precision_at_k/v1/p90": 1,
     }
+
+
+def test_evaluate_retriever_error_handling():
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc2")] * 3})
+
+    def fn(X):
+        return pd.DataFrame({"output": [("doc1", "doc3", "doc2")] * len(X)})
+
+    with pytest.raises(MlflowException, match="Missing k in evaluator_config"):
+        mlflow.evaluate(
+            model=fn,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={},
+        )
+
+    with pytest.raises(MlflowException, match="k should be a positive integer"):
+        mlflow.evaluate(
+            model=fn,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={"k": 0},
+        )
