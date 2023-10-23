@@ -760,7 +760,7 @@ def test_agent_with_unpicklable_tools(tmp_path):
             MlflowException,
             match=(
                 "Error when attempting to pickle the AgentExecutor tools. "
-                + "This model likely does not support serialization."
+                "This model likely does not support serialization."
             ),
         ):
             with mlflow.start_run():
