@@ -10,7 +10,7 @@ import { Table } from 'antd';
 import { LogModelWithSignatureUrl } from '../../common/constants';
 import { gray800 } from '../../common/styles/color';
 import { spacingMedium } from '../../common/styles/spacing';
-import { MODEL_SCHEMA_TENSOR_TYPE } from '../constants';
+import { ColumnSpec, TensorSpec } from '../types/model-schema';
 import { FormattedMessage, injectIntl } from 'react-intl';
 
 const { Column } = Table;
@@ -54,17 +54,19 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
     );
   };
 
-  getSchemaTypeRepr = (schemaTypeSpec: any) => {
+  getSchemaTypeRepr = (schemaTypeSpec: ColumnSpec | TensorSpec) => {
     let { type } = schemaTypeSpec;
-    if (schemaTypeSpec.type === MODEL_SCHEMA_TENSOR_TYPE) {
-      type = `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype}, shape: [${schemaTypeSpec['tensor-spec'].shape}])`;
+    let repr: string = type;
+    if (schemaTypeSpec.type === 'tensor') {
+      repr = `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype}, shape: [${schemaTypeSpec['tensor-spec'].shape}])`;
     }
 
     // If the "optional" property is present and true, wrap the type around an "Optional[]"
     if (schemaTypeSpec.optional) {
-      type = `Optional[${type}]`;
+      repr = `Optional[${repr}]`;
     }
-    return type;
+
+    return repr;
   };
 
   getSchemaRowData = (schemaData: any) => {
