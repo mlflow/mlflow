@@ -3018,6 +3018,10 @@ class MlflowClient:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
+        .. warning:
+
+            The model version search results may not have aliases populated for performance reasons.
+
         :param filter_string: Filter query string
             (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
             defaults to searching for all model versions. The following identifiers, comparators,
