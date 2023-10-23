@@ -6,9 +6,9 @@ from mlflow.metrics.genai.genai_metric import (
     make_genai_metric,
 )
 from mlflow.metrics.genai.metric_definitions import (
+    answer_correctness,
     answer_similarity,
     relevance,
-    answer_correctness,
 )
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
