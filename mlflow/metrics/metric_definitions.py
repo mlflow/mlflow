@@ -4,9 +4,7 @@ import os
 
 import numpy as np
 
-from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
@@ -36,21 +34,21 @@ def _validate_text_data(data, metric_name, column_name):
 
 
 def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
-    """Validates that the data is a list of a tuple of strings and is non-empty"""
+    """Validates that the data is a pandas Series of a tuple of strings and is non-empty"""
     if data is None or len(data) == 0:
         return False
 
-    for row, tup in enumerate(data):
-        if not isinstance(tup, tuple) or not all(isinstance(val, str) for val in tup):
-            if isinstance(tup, str):
+    for index, value in data.items():
+        if not isinstance(value, tuple) or not all(isinstance(val, str) for val in value):
+            if isinstance(value, str):
                 # Single entry tuples get unpacked.
                 # So if the entry is a string, put them back into a tuple.
-                data[row] = (tup,)
+                data[index] = (value,)
             else:
                 _logger.warning(
                     f"Cannot calculate {metric_name} for non-tuple[str] inputs."
-                    f"Row {row} of column {column_name} has a non-tuple[str] value of:"
-                    f"{tup}. Skipping metric logging."
+                    f"Row {index} of column {column_name} has a non-tuple[str] value of:"
+                    f"{value}. Skipping metric logging."
                 )
                 return False
 
@@ -381,28 +379,22 @@ def _validate_positive_int_scalar(scalar, metric_name, scalar_name):
     return False
 
 
-def _precision_at_k_eval_fn(k):
-    if not (isinstance(k, int) and k > 0):
-        raise MlflowException(
-            message=f"k must be a positive integer, found: {k}", error_code=INVALID_PARAMETER_VALUE
-        )
+def _precision_at_k_eval_fn(predictions, targets, k):
+    if (
+        not _validate_and_fix_text_tuple_data(predictions, "precision_at_k", "predictions")
+        or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets")
+        or not _validate_positive_int_scalar(k, "precision_at_k", "k")
+    ):
+        return
 
-    def _fn(predictions, targets):
-        if not _validate_and_fix_text_tuple_data(
-            predictions, "precision_at_k", "predictions"
-        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets"):
-            return
+    scores = []
+    for i in range(len(predictions)):
+        # only include the top k retrieved chunks
+        ground_truth, retrieved = set(targets[i]), predictions[i][:k]
+        relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
+        if len(retrieved) > 0:
+            scores.append(relevant_doc_count / len(retrieved))
+        else:
+            scores.append(1)
 
-        scores = []
-        for i in range(len(predictions)):
-            # only include the top k retrieved chunks
-            ground_truth, retrieved = set(targets[i]), predictions[i][:k]
-            relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
-            if len(retrieved) > 0:
-                scores.append(relevant_doc_count / len(retrieved))
-            else:
-                scores.append(1)
-
-        return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
-
-    return _fn
+    return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))

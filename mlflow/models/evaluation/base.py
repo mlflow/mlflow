@@ -1331,8 +1331,8 @@ def evaluate(
       strings. The output column name of the function should be specified by the ``predictions``
       parameter. The default evaluator logs:
         - **metrics**: ``precision_at_k``: precision at k with the default value of k = 3. To use
-          a different value of k, specify the ``extra_metrics`` parameter to be
-          ``extra_metrics=[mlflow.metrics.precision_at_k(k=new_value)]``.
+          a different value of k, specify the ``evaluator_config`` parameter to include ``"k"``:
+          ``evaluator_config={"k":5}``.
         - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
           of the model in tabular format.
 
@@ -1379,6 +1379,8 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
+        - **k**: The number of top retrieved documents to use when computing the built-in metric
+          precision_at_k. Default value is 3.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.

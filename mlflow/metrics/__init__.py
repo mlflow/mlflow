@@ -264,7 +264,7 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
-def precision_at_k(k) -> EvaluationMetric:
+def precision_at_k() -> EvaluationMetric:
     """
     This function will create a metric for calculating ``precision_at_k`` for the retriever model
     type.
@@ -275,15 +275,16 @@ def precision_at_k(k) -> EvaluationMetric:
     If no relevant documents are retrieved, the score is 1, indication that no false positives were
     retrieved.
 
-    This metric requires the ``retriever`` model type. The model output should be a pandas dataframe
-    with a column containing a tuple of strings on each row. The strings in the tuple represent the
-    document IDs. The label column should contain a tuple of strings representing the relevant
-    document IDs for each row, provided by the input ``data`` parameter. The ``k`` parameter should
-    be an integer representing the number of documents to evaluate for each row, provided by the
-    ``evaluator_config`` parameter.
+    This metric is a default metric for the ``retriever`` model type.
+    The model output should be a pandas dataframe with a column containing a tuple of strings on
+    each row. The strings in the tuple represent the document IDs.
+    The label column should contain a tuple of strings representing the relevant
+    document IDs for each row, provided by the input ``data`` parameter.
+    The ``k`` parameter should be a positive integer representing the number of retrieved documents
+    to evaluate for each row, provided by the ``evaluator_config`` parameter. ``k`` defaults to 3.
     """
     return make_metric(
-        eval_fn=_precision_at_k_eval_fn(k),
+        eval_fn=_precision_at_k_eval_fn,
         greater_is_better=True,
         name="precision_at_k",
         version="v1",
