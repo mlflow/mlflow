@@ -156,7 +156,7 @@ def make_genai_metric(
         )
 
         metric = make_genai_metric(
-            name="answer correctness",
+            name="answer_correctness",
             definition=(
                 "Answer correctness is evaluated on the accuracy of the provided output based on "
                 "the provided targets, which is the ground truth. Scores can be assigned based on "
@@ -166,15 +166,15 @@ def make_genai_metric(
             grading_prompt=(
                 "Answer correctness: Below are the details for different scores:"
                 "- Score 1: The output is completely incorrect. It is completely different from "
-                "or contradicts the provided targets.\n"
+                "or contradicts the provided targets."
                 "- Score 2: The output demonstrates some degree of semantic similarity and "
                 "includes partially correct information. However, the output still has significant "
-                "discrepancies with the provided targets or inaccuracies.\n"
+                "discrepancies with the provided targets or inaccuracies."
                 "- Score 3: The output addresses a couple of aspects of the input accurately, "
                 "aligning with the provided targets. However, there are still omissions or minor "
-                "inaccuracies.\n"
+                "inaccuracies."
                 "- Score 4: The output is mostly correct. It provides mostly accurate information, "
-                "but there may be one or more minor omissions or inaccuracies.\n"
+                "but there may be one or more minor omissions or inaccuracies."
                 "- Score 5: The output is correct. It demonstrates a high degree of accuracy and "
                 "semantic similarity to the targets."
             ),
