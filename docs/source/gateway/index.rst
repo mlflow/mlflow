@@ -740,7 +740,7 @@ Additional Query Parameters
 In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
 
 - ``logit_bias`` (supported by OpenAI, Cohere)
-- ``top_k`` (supported by MosaicML, Anthropic, PaLM)
+- ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere)
 - ``presence_penalty`` (supported by OpenAI, Cohere)
 
