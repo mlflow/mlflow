@@ -156,6 +156,33 @@ export const getAdjustableAttributeColumns = (isComparingExperiments = false) =>
   return result;
 };
 
+function reorderParams(newColumnOrderNames: string[], filterParams: string[]): string[] {
+  // First, we separate the 'params' items and non-'params' items in the original array.
+  const paramsItems: string[] = newColumnOrderNames.filter((name) => name.startsWith('params.'));
+  const nonParamsItems: string[] = newColumnOrderNames.filter(
+    (name) => !name.startsWith('params.'),
+  );
+
+  // Create a map to easily search for 'params' items based on their name, recording their order in the original array.
+  const paramsOrder: Map<string, number> = new Map();
+  paramsItems.forEach(item => {
+    paramsOrder.set(item, filterParams.indexOf(item));
+  });
+
+  // Sort 'params' items based on the order in filterParams. If some items don't exist in filterParams, we keep their original order.
+  paramsItems.sort((a, b) => {
+    return (
+      (paramsOrder.get(a) !== -1 ? paramsOrder.get(a) : Infinity) -
+      (paramsOrder.get(b) !== -1 ? paramsOrder.get(b) : Infinity)
+    );
+  });
+
+  // Now, we can build the final array by combining non-'params' items with the sorted 'params' items.
+  const finalArray: string[] = [...nonParamsItems, ...paramsItems];
+
+  return finalArray;
+}
+
 /**
  * This internal hook passes through the list of all metric/param/tag keys.
  * The lists are memoized internally so if somehow a particular param/metric/tag key is not present
@@ -518,67 +545,10 @@ export const useRunsColumnDefinitions = ({
       const visible = selectedColumns.includes(canonicalKey);
       columnApi.setColumnVisible(canonicalKey, visible);
     }
-    const regex = /attributes\.`(.*?)`/;
-    let selectedAttributeColumns = [];
-    selectedColumns.forEach((item) => {
-      if (regex.exec(item) !== null) {
-        selectedAttributeColumns.push(regex.exec(item)[1]);
-      }
-    });
 
-    console.log("selected columns");
-    console.log(selectedColumns);
-    console.log(selectedAttributeColumns);
-    console.log(selectedAttributeColumns.length);
-    // columnApi.moveColumns(filterParams, selectedAttributeColumns.length + 6);
-  
-    const newColumnOrderNames = [
-      'attributes.`Source`',
-      'attributes.`Models`',
-      'attributes.`Dataset`',
-      'params.`l1_ratio`',
-      'params.`p`',
-      'params.`alpha`',
-    ];
+    const newOrderedColumns: string[] = reorderParams(selectedColumns, filterParams);
 
-    let columnsInNewOrder = [];
-
-    // Based on the new order of names, find the corresponding columns
-    newColumnOrderNames.forEach((columnName) => {
-      const column = columnApi.getAllColumns().find((col) => col.getColDef().headerName === columnName);
-      
-      if (column) {
-          columnsInNewOrder.push(column);
-      } else {
-          console.warn(`Column with name ${columnName} not found.`);
-      }
-  });
-
-  console.log("New Order");
-  console.log(columnsInNewOrder);
-  console.log();
-  columnApi.moveColumns(newColumnOrderNames, 0);
-
-
-  // const allColumns = columnApi.getAllColumns();
-  // // This array will hold the columns in the new order
-  // let columnsInNewOrder = [];
-
-  // const newColumnOrder = [0, 1, 2, 4, 5, 3];
-
-  // // Based on the new order, pick the columns from the 'allColumns' array
-  // newColumnOrder.forEach((columnIndex) => {
-  //     const column = selectedColumns.find((col, index) => index === columnIndex);
-
-  //     if (column) {
-  //         columnsInNewOrder.push(column);
-  //     }
-  // });
-
-  // console.log('New Order');
-  // console.log(columnsInNewOrder);
-  // columnApi.moveColumns(columnsInNewOrder, 0);
-
+    columnApi.moveColumns(newOrderedColumns, 0);
   }, [selectedColumns, columnApi, canonicalSortKeys, isComparingRuns, filterParams]);
 
   return columnSet;

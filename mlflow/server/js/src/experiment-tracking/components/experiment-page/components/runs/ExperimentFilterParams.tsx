@@ -44,6 +44,7 @@ const ExperimentFilterParams = (props: ExperimentFilterParamsProps) => {
       setPlaceholder(FILTER_PARAMS_PLACEHOLDER);
     }
     // Add other conditions for updating the placeholder as needed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchFacetsState]);
 
   const triggerFilter: React.KeyboardEventHandler<HTMLInputElement> = useCallback(
