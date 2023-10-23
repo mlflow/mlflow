@@ -88,6 +88,11 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -114,8 +119,9 @@ jobs:
         run: |
           . ~/.venv/bin/activate
           source dev/setup-ssh.sh
-          pytest tests --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            tests
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -243,9 +249,9 @@ jobs:
     timeout-minutes: 120
     strategy:
       matrix:
-        group: [1, 2, 3]
+        group: [1, 2]
         include:
-          - splits: 3
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -293,6 +299,11 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -309,7 +320,8 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --durations=30 tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+            tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with ohter tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
@@ -337,6 +349,11 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
+    strategy:
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -375,7 +392,9 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes --ignore=tests/evaluate
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            tests
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
