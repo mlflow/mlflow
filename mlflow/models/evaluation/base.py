@@ -1317,11 +1317,24 @@ def evaluate(
         .. _textstat:
             https://pypi.org/project/textstat
 
-    - For retriever models, the default evaluator logs:
+    - For retriever models, it's recommended to use a static dataset represented by a Pandas
+      Dataframe or an MLflow Pandas Dataset containing the input queries, retrieved relevant
+      document IDs, and the ground-truth relevant document IDs for the evaluation. A
+      "document ID" should be a string that identifies a document. For each row, the retrieved
+      relevant document IDs and the ground-truth relevant document IDs should be provided as
+      a tuple of document ID strings. The column name of the retrieved relevant document IDs
+      should be specified by the ``predictions`` parameter, and the column name of the
+      ground-truth relevant document IDs should be specified by the ``targets`` parameter.
+      Alternatively, you can use a function that returns a tuple of document ID strings for
+      the evaluation. The function should take a Pandas DataFrame as input and return a Pandas
+      DataFrame with the same number of rows, where each row contains a tuple of document ID
+      strings. The output column name of the function should be specified by the ``predictions``
+      parameter.
+      The default evaluator logs:
         - **metrics**: ``precision_at_k``: precision at k, where k is specified by the
-            ``evaluator_config`` argument.
-        - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
-          argument is supplied), and per-row metrics of the model in tabular format.
+          ``evaluator_config`` argument.
+        - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
+          of the model in tabular format.
 
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
