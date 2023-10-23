@@ -264,10 +264,9 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
-def precision_at_k() -> EvaluationMetric:
+def precision_at_k(k) -> EvaluationMetric:
     """
-    This function will create a metric for calculating ``precision_at_k`` for the retriever model
-    type.
+    This function will create a metric for calculating ``precision_at_k`` for retriever models.
 
     This metric computes a score between 0 and 1 for each row representing the precision of the
     retriever model at the given k value. The score is calculated by dividing the number of relevant
@@ -275,16 +274,24 @@ def precision_at_k() -> EvaluationMetric:
     If no relevant documents are retrieved, the score is 1, indication that no false positives were
     retrieved.
 
-    This metric is a default metric for the ``retriever`` model type.
     The model output should be a pandas dataframe with a column containing a tuple of strings on
     each row. The strings in the tuple represent the document IDs.
     The label column should contain a tuple of strings representing the relevant
     document IDs for each row, provided by the input ``data`` parameter.
     The ``k`` parameter should be a positive integer representing the number of retrieved documents
-    to evaluate for each row, provided by the ``evaluator_config`` parameter. ``k`` defaults to 3.
+    to evaluate for each row. ``k`` defaults to 3.
+
+    This metric is a default metric for the ``retriever`` model type.
+    When the model type is ``"retriever"``, this metric will be calculated automatically with the
+    default ``k`` value of 3. To use another ``k`` value, use the ``evaluator_config`` parameter
+    in the ``mlflow.evaluate()`` API as follows: ``evaluator_config={"k": <k_value>}``.
+    Alternatively, you can directly specify the ``mlflow.metrics.precision_at_k(<k_value>)`` metric
+    in the ``extra_metrics`` parameter of the ``mlflow.evaluate()`` API without specifying a model
+    type. In this case, the ``k`` value specified in the ``evaluator_config`` parameter will be
+    ignored.
     """
     return make_metric(
-        eval_fn=_precision_at_k_eval_fn,
+        eval_fn=_precision_at_k_eval_fn(k),
         greater_is_better=True,
         name="precision_at_k",
         version="v1",

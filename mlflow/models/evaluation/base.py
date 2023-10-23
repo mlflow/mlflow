@@ -1380,7 +1380,7 @@ def evaluate(
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
         - **k**: The number of top retrieved documents to use when computing the built-in metric
-          precision_at_k. Default value is 3.
+          precision_at_k for model type "retriever". Default value is 3.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.

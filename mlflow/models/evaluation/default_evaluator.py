@@ -9,6 +9,7 @@ import pickle
 import shutil
 import tempfile
 import time
+import traceback
 import warnings
 from collections import namedtuple
 from functools import partial
@@ -1155,6 +1156,8 @@ class DefaultEvaluator(ModelEvaluator):
         params_not_found = []
         # eval_fn has parameters (eval_df, builtin_metrics) for backwards compatibility
         if len(parameters) == 2:
+            param_0_name, param_1_name = parameters.keys()
+        if len(parameters) == 2 and param_0_name != "predictions" and param_1_name != "targets":
             eval_fn_args.append(eval_df_copy)
             eval_fn_args.append(copy.deepcopy(self.metrics))
         # eval_fn can have parameters like (predictions, targets, metrics, random_col)
@@ -1475,20 +1478,26 @@ class DefaultEvaluator(ModelEvaluator):
                     name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
+                stacktrace_str = traceback.format_exc()
                 if isinstance(e, MlflowException):
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e.message}")
+                    exceptions.append(
+                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
+                    )
                 else:
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}")
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
         self._update_metrics()
         for metric in self.extra_metrics:
             try:
                 eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
                 metric.eval_fn(*eval_fn_args)
             except Exception as e:
+                stacktrace_str = traceback.format_exc()
                 if isinstance(e, MlflowException):
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e.message}")
+                    exceptions.append(
+                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
+                    )
                 else:
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}")
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
 
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
@@ -1662,9 +1671,9 @@ class DefaultEvaluator(ModelEvaluator):
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
                 elif self.model_type == _ModelType.RETRIEVER:
-                    self.builtin_metrics = [precision_at_k()]
                     if self.evaluator_config.get("k", None) is None:
                         self.evaluator_config["k"] = 3  # Setting the default k to 3
+                    self.builtin_metrics = [precision_at_k(self.evaluator_config.pop("k"))]
 
                 self.y_pred = (
                     self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred

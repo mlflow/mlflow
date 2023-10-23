@@ -46,9 +46,9 @@ def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
                 data[index] = (value,)
             else:
                 _logger.warning(
-                    f"Cannot calculate {metric_name} for non-tuple[str] inputs."
-                    f"Row {index} of column {column_name} has a non-tuple[str] value of:"
-                    f"{value}. Skipping metric logging."
+                    f"Cannot calculate metric '{metric_name}' for non-tuple[str] inputs. "
+                    f"Row #{index} of column '{column_name}' has a non-tuple[str] value of:"
+                    f"{value}. Skipping metric logging. Data: {data}"
                 )
                 return False
 
@@ -379,22 +379,25 @@ def _validate_positive_int_scalar(scalar, metric_name, scalar_name):
     return False
 
 
-def _precision_at_k_eval_fn(predictions, targets, k):
-    if (
-        not _validate_and_fix_text_tuple_data(predictions, "precision_at_k", "predictions")
-        or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets")
-        or not _validate_positive_int_scalar(k, "precision_at_k", "k")
-    ):
-        return
+def _precision_at_k_eval_fn(k):
+    def _fn(predictions, targets):
+        if (
+            not _validate_and_fix_text_tuple_data(predictions, "precision_at_k", "predictions")
+            or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets")
+            or not _validate_positive_int_scalar(k, "precision_at_k", "k")
+        ):
+            return
 
-    scores = []
-    for i in range(len(predictions)):
-        # only include the top k retrieved chunks
-        ground_truth, retrieved = set(targets[i]), predictions[i][:k]
-        relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
-        if len(retrieved) > 0:
-            scores.append(relevant_doc_count / len(retrieved))
-        else:
-            scores.append(1)
+        scores = []
+        for i in range(len(predictions)):
+            # only include the top k retrieved chunks
+            ground_truth, retrieved = set(targets[i]), predictions[i][:k]
+            relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
+            if len(retrieved) > 0:
+                scores.append(relevant_doc_count / len(retrieved))
+            else:
+                scores.append(1)
 
-    return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+        return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+
+    return _fn
