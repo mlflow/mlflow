@@ -665,7 +665,7 @@ def test_strict_correctness_metric():
             pd.Series([mlflow_ground_truth]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo-16k"
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4"
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
