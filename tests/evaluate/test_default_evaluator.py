@@ -2192,9 +2192,17 @@ def test_missing_args_raises_exception():
     metric_1 = make_metric(name="metric_1", eval_fn=dummy_fn1, greater_is_better=True)
     metric_2 = make_metric(name="metric_2", eval_fn=dummy_fn2, greater_is_better=True)
 
-    error_message = "Error: Metric calculation failed for the following metrics:\nMetric 'metric_1'"
-    " requires the columns ['param_1', 'param_2']\n\nMetric 'metric_2' requires the columns "
-    "['param_3', 'builtin_metrics']\n"
+    error_message = (
+        r"Error: Metric calculation failed for the following metrics:\n"
+        r"Metric 'metric_1' requires the columns \['param_1', 'param_2'\]\n"
+        r"Metric 'metric_2' requires the columns \['param_3', 'builtin_metrics'\]\n\n"
+        r"Below are the existing column names for the input/output data:\n"
+        r"Input Columns: \['question'\]\n"
+        r"Output Columns: \[\]\n"
+        r"To resolve this issue, you may want to map the missing column to an existing column\n"
+        r"using the following configuration:\n"
+        r"evaluator_config=\{'col_mapping': \{<missing column name>: <existing column name>\}\}"
+    )
 
     with pytest.raises(
         MlflowException,
@@ -2876,7 +2884,7 @@ def test_evaluate_no_model_type_with_custom_metric():
         from mlflow.metrics import make_metric
         from mlflow.metrics.metric_definitions import standard_aggregations
 
-        def word_count_eval(predictions, targets, metrics):
+        def word_count_eval(predictions, targets=None, metrics=None):
             scores = []
             for prediction in predictions:
                 scores.append(len(prediction.split(" ")))
@@ -3010,7 +3018,7 @@ def test_evaluate_with_latency():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"text": ["sentence not", "All women are bad."]})
+        data = pd.DataFrame({"text": ["sentence not", "Hello world."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -3159,3 +3167,62 @@ def test_evaluate_with_correctness():
                 "correctness/v1/variance": 0.0,
                 "correctness/v1/p90": 3.0,
             }
+
+
+def test_evaluate_custom_metrics_string_values():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            extra_metrics=[
+                make_metric(
+                    eval_fn=lambda predictions, metrics, eval_config: MetricValue(
+                        aggregate_results={"eval_config_value_average": eval_config}
+                    ),
+                    name="cm",
+                    greater_is_better=True,
+                    long_name="custom_metric",
+                )
+            ],
+            evaluators="default",
+            evaluator_config={"eval_config": 3},
+        )
+        assert results.metrics["cm/eval_config_value_average"] == 3
+
+
+def test_evaluate_with_numpy_array():
+    data = [
+        ["What is MLflow?"],
+    ]
+    ground_truth = [
+        "MLflow is an open-source platform for managing the end-to-end machine learning",
+    ]
+
+    with mlflow.start_run():
+        logged_model = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        results = mlflow.evaluate(
+            logged_model.model_uri,
+            data,
+            targets=ground_truth,
+            extra_metrics=[mlflow.metrics.toxicity()],
+        )
+
+        assert results.metrics.keys() == {
+            "toxicity/v1/mean",
+            "toxicity/v1/variance",
+            "toxicity/v1/p90",
+            "toxicity/v1/ratio",
+        }
+        assert len(results.tables) == 1
+        assert results.tables["eval_results_table"].columns.tolist() == [
+            "feature_1",
+            "target",
+            "outputs",
+            "toxicity/v1/score",
+        ]

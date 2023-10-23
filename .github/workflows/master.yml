@@ -21,6 +21,7 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
@@ -87,6 +88,11 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -113,7 +119,9 @@ jobs:
         run: |
           . ~/.venv/bin/activate
           source dev/setup-ssh.sh
-          ./dev/run-python-tests.sh
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            tests
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -227,7 +235,11 @@ jobs:
       - name: Run tests
         run: |
           . ~/.venv/bin/activate
-          ./dev/run-python-flavor-tests.sh;
+          pytest \
+            tests/utils/test_model_utils.py \
+            tests/tracking/fluent/test_fluent_autolog.py \
+            tests/autologging \
+            tests/server/auth
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
@@ -235,6 +247,11 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -251,8 +268,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          export MLFLOW_HOME=$(pwd)
-          pytest tests/models
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -277,13 +293,17 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          export MLFLOW_HOME=$(pwd)
           dev/pytest.sh tests/evaluate
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -300,8 +320,8 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          export MLFLOW_HOME=$(pwd)
-          pytest --durations=30 tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+            tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with ohter tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
@@ -323,12 +343,17 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          ./dev/run-python-sagemaker-tests.sh;
+          pytest tests/sagemaker
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
+    strategy:
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -367,7 +392,9 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes --ignore=tests/evaluate
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            tests
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap

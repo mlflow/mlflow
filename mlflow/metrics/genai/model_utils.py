@@ -5,7 +5,7 @@ import urllib.parse
 import requests
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, UNAUTHENTICATED
 from mlflow.utils.uri import append_to_uri_path
 
 ROUTE_TYPE = "llm/v1/completions"
@@ -84,6 +84,20 @@ def _call_openai_api(openai_uri, payload, timeout):
         json=openai_provider._add_model_to_payload_if_necessary(payload),
         timeout=timeout,
     ).json()
+
+    if "error" in resp:
+        error_type = resp["error"]["type"]
+        if error_type == "invalid_request_error":
+            raise MlflowException(
+                f"Invalid Request to OpenAI. Error response:\n {resp}", error_code=BAD_REQUEST
+            )
+        elif error_type == "authentication_error":
+            raise MlflowException(
+                f"Authentication Error for OpenAI. Error response:\n {resp}",
+                error_code=UNAUTHENTICATED,
+            )
+        else:
+            raise MlflowException(f"Error response from OpenAI:\n {resp}")
 
     return json.loads(openai_provider._prepare_completion_response_payload(resp).json())
 

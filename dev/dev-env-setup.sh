@@ -21,7 +21,7 @@ This script will:
 
   Example usage:
 
-  From root of MLflow repository on local with a destination virtualenv path of <MLFLOW_HOME>/.venvs/mlflow-dev:
+  From root of MLflow repository on local with a destination virtualenv path of <REPO_ROOT>/.venvs/mlflow-dev:
 
   dev/dev-env-setup.sh -d $(pwd)/.venvs/mlflow-dev
 
@@ -151,8 +151,8 @@ if [ -z "$pyenv_exist" ]; then
   fi
 fi
 
-MLFLOW_HOME=$(pwd)
-rd="$MLFLOW_HOME/requirements"
+REPO_ROOT=$(git rev-parse --show-toplevel)
+rd="$REPO_ROOT/requirements"
 
 # Get the minimum supported version for development purposes
 min_py_version="3.8"

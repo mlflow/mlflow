@@ -2316,8 +2316,16 @@ class _TransformersWrapper:
         Returns the first value of the `target_dict_key` that matches in the first dictionary in a
         list of dictionaries.
         """
+
+        def fetch_target_key_value(data, key):
+            if isinstance(data[0], dict):
+                return data[0][key]
+            return [item[0][key] for item in data]
+
         if isinstance(output_data[0], list):
-            return [collection[0][target_dict_key] for collection in output_data]
+            return [
+                fetch_target_key_value(collection, target_dict_key) for collection in output_data
+            ]
         else:
             return [output_data[0][target_dict_key]]
 
