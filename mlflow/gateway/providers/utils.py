@@ -54,4 +54,19 @@ def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dic
                     key to the new key.
     :return: A new dictionary containing the transformed keys.
     """
-    return {mapping.get(k, k): v for k, v in payload.items()}
+    new_dict = {}
+    for key, value in payload.items():
+        if key in mapping:
+            new_key = mapping[key]
+            new_value = value
+            if "." in new_key:
+                parts = new_key.split(".")
+                current = new_dict
+                for part in parts[:-1]:
+                    current = current.setdefault(part, {})
+                current[parts[-1]] = new_value
+            else:
+                new_dict[new_key] = new_value
+        else:
+            new_dict[key] = value
+    return new_dict

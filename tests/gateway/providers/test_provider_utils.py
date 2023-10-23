@@ -30,6 +30,11 @@ def test_rename_payload_keys():
             {"old_key1": "new_key1", "old_key3": "new_key3"},
             {"new_key1": "value1", "old_key2": "value2"},
         ),
+        (
+            {"old_key1": "value1", "old_key2": "value2", "old_key3": "value3"},
+            {"old_key1": "new_key.key1", "old_key2": "new_key.key2"},
+            {"new_key": {"key1": "value1", "key2": "value2"}, "old_key3": "value3"},
+        ),
     ],
 )
 def test_rename_payload_keys_parametrized(payload, mapping, expected):

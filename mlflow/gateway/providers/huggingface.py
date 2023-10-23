@@ -37,7 +37,10 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
-            "max_tokens": "max_new_tokens",
+            "prompt": "inputs",
+            "temperature": "parameters.temperature",
+            "max_tokens": "parameters.max_new_tokens",
+            "stop": "parameters.stop",
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
@@ -53,16 +56,16 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
                 detail="'candidate_count' must be '1' for the Text Generation Inference provider. "
                 f"Received value: '{candidate_count}'.",
             )
+        # this is done because TGI doesn't support 0 temperature
+        payload["temperature"] = max(payload["temperature"], 1e-3)
         payload = rename_payload_keys(payload, key_mapping)
-        payload["details"] = True
-        prompt = payload.pop("prompt")
 
-        # Create final payload.
-        final_payload = {"inputs": prompt, "parameters": payload}
+        payload["parameters"]["details"] = True
+        payload["parameters"]["decoder_input_details"] = True
 
         resp = await self._request(
             "generate",
-            {"model": self.config.model.name, **final_payload},
+            payload,
         )
 
         # Example Response:
@@ -87,6 +90,8 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         #     'special': False,
         #     'text': 'test'}]]},
         # 'generated_text': 'test'}
+        output_tokens = resp["details"]["generated_tokens"]
+        input_tokens = len(resp["details"]["prefill"])
         return completions.ResponsePayload(
             **{
                 "candidates": [
@@ -101,7 +106,9 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
                 "metadata": {
                     "model": self.config.model.name,
                     "route_type": self.config.route_type,
-                    "output_tokens": resp["details"]["generated_tokens"],
+                    "output_tokens": output_tokens,
+                    "input_tokens": input_tokens,
+                    "total_tokens": output_tokens + input_tokens,
                 },
             }
         )
