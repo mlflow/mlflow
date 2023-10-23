@@ -102,10 +102,9 @@ class FileModelVersion(ModelVersion):
 
     def to_mlflow_entity(self):
         meta = dict(self)
-        return ModelVersion.from_dictionary({
-            **meta,
-            "tags": [ModelVersionTag(k, v) for k, v in meta["tags"].items()]
-        })
+        return ModelVersion.from_dictionary(
+            {**meta, "tags": [ModelVersionTag(k, v) for k, v in meta["tags"].items()]}
+        )
 
 
 class FileStore(AbstractStore):

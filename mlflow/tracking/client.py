@@ -2676,7 +2676,8 @@ class MlflowClient:
         Copy a model version from one registered model to another as a new model version.
 
         :param src_model_uri: the model URI of the model version to copy. This must be a model
-                              registry URI with a `"models:/"` scheme (e.g., `"models:/foo/bar"`).
+                              registry URI with a `"models:/"` scheme (e.g.,
+                              `"models:/iris_model@champion"`).
         :param dst_name: the name of the registered model to copy the model version to. If a
                          registered model with this name does not exist, it will be created.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
