@@ -32,6 +32,7 @@ from mlflow.utils.mlflow_tags import (
 
 @pytest.fixture(autouse=True)
 def reset_registry_uri():
+    yield
     set_registry_uri(None)
 
 

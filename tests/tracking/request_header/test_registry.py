@@ -17,6 +17,7 @@ from mlflow.tracking.request_header.registry import (
 
 @pytest.fixture(autouse=True)
 def reload_registry():
+    yield
     reload(mlflow.tracking.request_header.registry)
 
 
