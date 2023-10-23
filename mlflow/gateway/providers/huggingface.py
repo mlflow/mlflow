@@ -5,7 +5,11 @@ from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import HuggingFaceTextGenerationInferenceConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.providers.utils import (
+    dict_contains_nested_path,
+    rename_payload_keys,
+    send_request,
+)
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 
@@ -43,7 +47,7 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
             "stop": "parameters.stop",
         }
         for k1, k2 in key_mapping.items():
-            if k2 in payload:
+            if dict_contains_nested_path(payload, k2):
                 raise HTTPException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
@@ -53,10 +57,10 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         if candidate_count != 1:
             raise HTTPException(
                 status_code=422,
-                detail="'candidate_count' must be '1' for the Text Generation Inference provider. "
+                detail="'candidate_count' must be '1' for the Text Generation Inference provider."
                 f"Received value: '{candidate_count}'.",
             )
-        # this is done because TGI doesn't support 0 temperature
+        # HF TGI does not support 0 temperature
         payload["temperature"] = max(payload["temperature"], 1e-3)
         payload = rename_payload_keys(payload, key_mapping)
 
@@ -116,5 +120,7 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         raise HTTPException(
             status_code=404,
-            detail="The embedding route is not available for HFTextGenerationInference endpoints",
+            detail=(
+                "The embedding route is not available for the Text Generation Inference provider."
+            ),
         )

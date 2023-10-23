@@ -70,3 +70,44 @@ def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dic
         else:
             new_dict[key] = value
     return new_dict
+
+
+def get_dict_value_by_path(payload: dict, path: str) -> Any:
+    """
+    Get the value associated with a given key in a nested dictionary.
+
+    Args:
+        payload (dict): The nested dictionary containing the data.
+        path (str): The key or path to search for in the dictionary.
+
+    Returns:
+        Any: The value associated with the specified key, or None if the key does not exist.
+
+    Raises:
+        KeyError: If the specified key or path does not exist in any of the nested dictionaries.
+    """
+    keys = path.split(".")
+    value = payload
+    for k in keys:
+        if not isinstance(value, dict):
+            return None
+        value = value[k]
+    return value
+
+
+def dict_contains_nested_path(payload: dict, path: str):
+    """
+    Check whether a nested key exists in a dictionary.
+
+    Args:
+        payload (dict): The dictionary to check.
+        path (str): The key or path to search for in the dictionary.
+
+    Returns:
+        bool: Whether the specified key or path exists in the dictionary.
+    """
+    try:
+        _ = get_dict_value_by_path(payload, path)
+        return True
+    except KeyError:
+        return False

@@ -1,6 +1,8 @@
 import pytest
 
 from mlflow.gateway.providers.utils import (
+    dict_contains_nested_path,
+    get_dict_value_by_path,
     rename_payload_keys,
 )
 
@@ -39,3 +41,31 @@ def test_rename_payload_keys():
 )
 def test_rename_payload_keys_parametrized(payload, mapping, expected):
     assert rename_payload_keys(payload, mapping) == expected
+
+
+@pytest.mark.parametrize(
+    ("payload", "path", "expected"), [({"a": 1, "b": 2}, "a", 1), ({"a": {"b": 1}}, "a.b", 1)]
+)
+def test_get_dict_value_by_path(payload, path, expected):
+    value = get_dict_value_by_path(payload, path)
+    assert value == expected
+
+
+def test_get_dict_value_by_path_fails_with_keyerror():
+    with pytest.raises(KeyError, match=r".*") as e:
+        get_dict_value_by_path({"a": 1}, "b")
+    assert e is not None
+
+
+@pytest.mark.parametrize(
+    ("payload", "path", "expected"),
+    [
+        ({"a": 1, "b": 2}, "a", True),
+        ({"a": {"b": 1}}, "a.b", True),
+        ({"a": 1}, "b", False),
+        ({"a": {"b": 1}}, "a.c", False),
+        ({"a": {"b": 1}}, "x.y", False),
+    ],
+)
+def test_dict_contains_nested_key(payload, path, expected):
+    assert dict_contains_nested_path(payload, path) == expected
