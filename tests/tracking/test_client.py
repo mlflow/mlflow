@@ -30,6 +30,11 @@ from mlflow.utils.mlflow_tags import (
 )
 
 
+@pytest.fixture(autouse=True)
+def reset_registry_uri():
+    set_registry_uri(None)
+
+
 @pytest.fixture
 def mock_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
