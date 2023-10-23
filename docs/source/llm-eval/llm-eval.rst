@@ -133,7 +133,7 @@ There are two ways to select metrics to evaluate your LLMs:
 2. Use ``extra_metrics`` argument in ``mlflow.evaluate``, you can add your required metrics to the list, 
    and also include your custom metrics (will be covered in the next section). Notice that if both 
    ``model_type`` and ``extra_metrics`` are set, ``extra_metrics`` together with predefined metrics are computed. 
-   In order to just use your handpicked metrics, please remove ``model_type``. A sample code is as below:
+   In order to just use your handpicked metrics, please remove ``model_type``, as shown in the example below:
 
     .. code-block:: python
 
