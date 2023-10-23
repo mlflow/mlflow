@@ -341,7 +341,7 @@ Evaluating with an MLflow Model
 ---------------------------------
 
 For detailed instruction on how to convert your model into a ``mlflow.pyfunc.PyFuncModel`` instance, please read
-`this doc https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models`_. But in short,
+`this doc <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models>`_. But in short,
 to evaluate your model as an MLflow model, we recomment following the steps below:
 
 1. Convert your LLM to MLflow model and log it to MLflow server by ``log_model``. Each flavor (``opeanai``, ``pytorch``, ...) 
@@ -487,6 +487,7 @@ To see the score on selected metrics, you can check:
   pass on the code example above and focus on printing out the aggregated results.
   
   .. code-block:: python
+
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
             data=eval_data,
@@ -514,7 +515,7 @@ MLflow UI. To view the evaluation results on MLflow UI, please follow the steps 
 Please see the screenshot below for clarity:
 
 
-.. figure:: ../_static/images/llm_evaluate_experiment_view.png
+.. figure:: ../../_static/images/llm_evaluate_experiment_view.png
     :width: 1024px
     :align: center
     :alt: Demo UI of MLflow evaluate
