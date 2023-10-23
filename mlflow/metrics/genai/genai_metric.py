@@ -58,6 +58,8 @@ def _extract_score_and_justification(output):
     ):
         text = output["candidates"][0]["text"]
 
+    print("Answer = raw output: ", output)
+
     if text:
         # Attempt to parse JSON
         try:

@@ -57,6 +57,7 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
     :return: The flavor configuration as a dictionary.
     """
     try:
+        # check
         resolved_uri = model_uri
         if RunsArtifactRepository.is_runs_uri(model_uri):
             resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
