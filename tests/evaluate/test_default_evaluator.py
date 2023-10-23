@@ -3184,3 +3184,95 @@ def test_evaluate_custom_metrics_string_values():
             evaluator_config={"eval_config": 3},
         )
         assert results.metrics["cm/eval_config_value_average"] == 3
+
+
+def test_evaluate_retriever():
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc2")] * 3})
+
+    def fn(X):
+        return pd.DataFrame({"output": [("doc1", "doc3", "doc2")] * len(X)})
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            model=fn,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={
+                "k": 3,
+            },
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_k/v1/mean": 2 / 3,
+        "precision_at_k/v1/variance": 0,
+        "precision_at_k/v1/p90": 2 / 3,
+    }
+
+    # test with a big k to ensure we use min(k, len(retrieved_chunks))
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            model=fn,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={
+                "k": 6,
+            },
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_k/v1/mean": 2 / 3,
+        "precision_at_k/v1/variance": 0,
+        "precision_at_k/v1/p90": 2 / 3,
+    }
+
+    # test with multiple chunks from same doc
+    def fn2(X):
+        return pd.DataFrame({"output": [("doc1", "doc1", "doc3")] * len(X)})
+
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc3")] * 3})
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            model=fn2,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluator_config={
+                "default": {
+                    "k": 3,
+                }
+            },
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_k/v1/mean": 1,
+        "precision_at_k/v1/variance": 0,
+        "precision_at_k/v1/p90": 1,
+    }
+
+    # test with empty returned chunks
+    def fn3(X):
+        return pd.DataFrame({"output": [()] * len(X)})
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            model=fn3,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluator_config={
+                "default": {
+                    "k": 3,
+                }
+            },
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_k/v1/mean": 1,
+        "precision_at_k/v1/variance": 0,
+        "precision_at_k/v1/p90": 1,
+    }
