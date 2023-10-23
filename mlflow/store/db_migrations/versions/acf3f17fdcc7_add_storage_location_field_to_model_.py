@@ -11,8 +11,8 @@ from mlflow.store.model_registry.dbmodels.models import SqlModelVersion
 
 
 # revision identifiers, used by Alembic.
-revision = 'acf3f17fdcc7'
-down_revision = '2d6e25af4d3e'
+revision = "acf3f17fdcc7"
+down_revision = "2d6e25af4d3e"
 branch_labels = None
 depends_on = None
 
