@@ -12,6 +12,7 @@ from mlflow.gateway.config import Route
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.cohere import CohereProvider
+from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
@@ -197,6 +198,15 @@ def basic_config_dict():
                     "provider": "mlflow-model-serving",
                     "name": "sentence-transformers",
                     "config": {"model_server_url": "http://127.0.0.1:5002"},
+                },
+            },
+            {
+                "name": "completions-huggingface",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "huggingface-text-generation-inference",
+                    "name": "hf-falcon-7b-instruct",
+                    "config": {"hf_server_url": "http://127.0.0.1:5000"},
                 },
             },
         ]
@@ -808,3 +818,32 @@ def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway
     assert not metadata_response["output_tokens"]
     assert metadata_response["model"] == "completion-model"
     assert metadata_response["route_type"] == route.route_type
+
+
+def test_huggingface_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-huggingface")
+    expected_output = {
+        "candidates": [
+            {
+                "text": "mock using MagicMock please",
+                "metadata": {"finish_reason": "length", "seed": "0"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": 5,
+            "output_tokens": 10,
+            "total_tokens": 15,
+            "route_type": "llm/v1/completions",
+            "model": "hf-falcon-7b-instruct",
+        },
+    }
+
+    data = {"prompt": "mock my test", "max_tokens": 50}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(HFTextGenerationInferenceServerProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
