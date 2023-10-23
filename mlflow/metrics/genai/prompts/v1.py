@@ -154,23 +154,28 @@ class AnswerSimilarityMetric:
 
 
 @dataclass
-class RelevanceMetric:
+class FaithfulnessMetric:
     definition = (
-        "Relevance encompasses the appropriateness, significance, and applicability of the output "
-        "with respect to the input and context. Scores should range from 1 to 5 and should reflect "
-        "the extent to which the output directly addresses the question provided in the input, "
-        "given the provided context."
+        "Faithfulness is only evaluated with the provided output and provided context, please "
+        "ignore the provided input entirely when scoring faithfulness. Faithfulness assesses "
+        "how much of the provided output is factually consistent with the provided context. A "
+        "higher score indicates that a higher proportion of claims present in the output can be "
+        "derived from the provided context. Faithfulness does not consider how much extra "
+        "information from the context is not present in the output."
     )
 
     grading_prompt = (
-        "Relevance: Below are the details for different scores:"
-        "- Score 1: the output doesn't mention anything about the question or is completely "
-        "irrelevant to the provided context."
-        "- Score 2: the output provides some relevance to the question and is somehow related to "
-        "the provided context."
-        "- Score 3: the output mostly answers the question and is consistent with the provided "
-        "context."
-        "- Score 5: the output answers the question comprehensively using the provided context."
+        "Faithfulness: Below are the details for different scores:\n"
+        "- Score 1: None of the claims in the output can be inferred from the provided context.\n"
+        "- Score 2: Some of the claims in the output can be inferred from the provided context, "
+        "but the majority of the output is missing from, inconsistent with, or contradictory to "
+        "the provided context.\n"
+        "- Score 3: Half or more of the claims in the output can be inferred from the provided "
+        "context.\n"
+        "- Score 4: Most of the claims in the output can be inferred from the provided context, "
+        "with very little information that is not directly supported by the provided context.\n"
+        "- Score 5: All of the claims in the output are directly supported by the provided "
+        "context, demonstrating high faithfulness to the provided context."
     )
 
     grading_context_columns = ["context"]
@@ -179,15 +184,18 @@ class RelevanceMetric:
 
     example_score_2 = EvaluationExample(
         input="How is MLflow related to Databricks?",
-        output="Databricks is a data engineering and analytics platform designed to help "
-        "organizations process and analyze large amounts of data. Databricks is a company "
-        "specializing in big data and machine learning solutions.",
+        output="Databricks is a company that specializes in big data and machine learning "
+        "solutions. MLflow has nothing to do with Databricks. MLflow is an open-source platform "
+        "for managing the end-to-end machine learning (ML) lifecycle.",
         score=2,
-        justification="The output provides relevant information about Databricks, mentioning it as "
-        "a company specializing in big data and machine learning solutions. However, it doesn't "
-        "directly address how MLflow is related to Databricks, which is the specific question "
-        "asked in the input. Therefore, the output is only somewhat related to the provided "
-        "context.",
+        justification='The output claims that "MLflow has nothing to do with Databricks" which is '
+        'contradictory to the provided context that states "It was developed by Databricks". This '
+        'is a major inconsistency. However, the output correctly identifies that "MLflow is an '
+        'open-source platform for managing the end-to-end machine learning (ML) lifecycle" and '
+        '"Databricks is a company that specializes in big data and machine learning solutions", '
+        "which are both supported by the context. Therefore, some of the claims in the output can "
+        "be inferred from the provided context, but the majority of the output is inconsistent "
+        "with the provided context, leading to a faithfulness score of 2.",
         grading_context={
             "context": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
@@ -197,16 +205,16 @@ class RelevanceMetric:
         },
     )
 
-    example_score_4 = EvaluationExample(
+    example_score_5 = EvaluationExample(
         input="How is MLflow related to Databricks?",
-        output="MLflow is a product created by Databricks to enhance the efficiency of machine "
-        "learning processes.",
-        score=4,
-        justification="The output provides a relevant and accurate statement about the "
-        "relationship between MLflow and Databricks. While it doesn't provide extensive detail, "
-        "it still offers a substantial and meaningful response. To achieve a score of 5, the "
-        "response could be further improved by providing additional context or details about"
-        "how MLflow specifically functions within the Databricks ecosystem.",
+        output="Databricks is a company that specializes in big data and machine learning "
+        "solutions.",
+        score=5,
+        justification='The output states that "Databricks is a company that specializes in big data'
+        ' and machine learning solutions." This claim is directly supported by the context, which '
+        'states "It was developed by Databricks, a company that specializes in big data and '
+        'machine learning solutions." Therefore, the faithfulness score is 5 as all the claims in '
+        'the output are directly supported by the provided context."',
         grading_context={
             "context": "MLflow is an open-source platform for managing the end-to-end "
             "machine learning (ML) lifecycle. It was developed by Databricks, a company "
@@ -217,7 +225,7 @@ class RelevanceMetric:
         },
     )
 
-    default_examples = [example_score_2, example_score_4]
+    default_examples = [example_score_2, example_score_5]
 
 
 @dataclass
