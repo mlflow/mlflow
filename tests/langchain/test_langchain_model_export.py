@@ -741,13 +741,13 @@ def test_unsupported_class():
             mlflow.langchain.log_model(llm, "fake_llm")
 
 
-def test_agent_with_unpicklable_tools():
-    _, tmp_path = tempfile.mkstemp()
-    with open(tmp_path, mode="w") as temp_file:
+def test_agent_with_unpicklable_tools(tmp_path):
+    tmp_file = tmp_path / "temp_file.txt"
+    with open(tmp_file, mode="w") as temp_file:
         # files that aren't opened for reading cannot be pickled
         tools = [
             Tool.from_function(
-                func=lambda: temp_file.write("0"),
+                func=lambda: temp_file,
                 name="Write 0",
                 description="If you need to write 0 to a file",
             )
