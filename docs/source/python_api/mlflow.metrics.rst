@@ -102,7 +102,7 @@ We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <m
 
 .. autofunction:: mlflow.metrics.answer_similarity
 
-.. autofunction:: mlflow.metrics.strict_correctness
+.. autofunction:: mlflow.metrics.answer_correctness
 
 .. autofunction:: mlflow.metrics.relevance
 
@@ -118,4 +118,4 @@ When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetri
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, strict_correctness, relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency

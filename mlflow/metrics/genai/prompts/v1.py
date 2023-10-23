@@ -221,32 +221,45 @@ class RelevanceMetric:
 
 
 @dataclass
-class StrictCorrectnessMetric:
+class AnswerCorrectnessMetric:
     definition = (
-        "When a question demands a specific value, term, or description (e.g., math questions or "
-        "fact-checking), correctness is binary. Strict correctness of the output is assessed on "
-        "whether it aligns exactly with the ground truth. Scores are assigned to be 0 or 1."
+        "Answer correctness is evaluated on the accuracy of the provided output based on the "
+        "provided targets, which is the ground truth. Scores can be assigned based on the degree "
+        "of semantic similarity and factual correctness of the provided output to the provided "
+        "targets, where a higher score indicates higher degree of accuracy."
     )
 
     grading_prompt = (
-        "Strict Correctness: Below are the details for different scores:"
-        "- Score 0: the output is completely incorrect, doesn't mention anything about the "
-        "question or is completely contrary to the ground truth."
-        "- Score 1: the output answers the question correctly as provided in the ground truth."
+        "Answer Correctness: Below are the details for different scores:\n"
+        "- Score 1: the output is completely incorrect. It is completely different from or "
+        "contradicts the provided targets.\n"
+        "- Score 2: the output demonstrates some degree of semantic similarity and includes "
+        "partially correct information. However, the output still has significant discrepancies "
+        "with the provided targets or inaccuracies.\n"
+        "- Score 3: the output addresses a couple of aspects of the input accurately, aligning "
+        "with the provided targets. However, there are still omissions or minor inaccuracies.\n"
+        "- Score 4: the output is mostly correct. It provides mostly accurate information, but "
+        "there may be one or more minor omissions or inaccuracies.\n"
+        "- Score 5: the output is correct. It demonstrates a high degree of accuracy and "
+        "semantic similarity to the targets."
     )
 
     grading_context_columns = ["targets"]
     parameters = default_parameters
     default_model = default_model
 
-    example_score_0 = EvaluationExample(
-        input="Is MLflow open-source?",
-        output="No, MLflow is not open-source.",
-        score=0,
-        justification="The output is incorrect. It states that MLflow is not open-source, which "
-        "contradicts the provided context, where it is explicitly mentioned that MLflow is an "
-        "open-source platform. This directly opposes the ground truth, resulting in a score of 0 "
-        "for strict correctness.",
+    example_score_2 = EvaluationExample(
+        input="How is MLflow related to Databricks?",
+        output="Databricks is a data engineering and analytics platform designed to help "
+        "organizations process and analyze large amounts of data. Databricks is a company "
+        "specializing in big data and machine learning solutions.",
+        score=2,
+        justification="The output provided by the model does demonstrate some degree of semantic "
+        "similarity to the targets, as it correctly identifies Databricks as a company "
+        "specializing in big data and machine learning solutions. However, it fails to address "
+        "the main point of the input question, which is the relationship between MLflow and "
+        "Databricks. The output does not mention MLflow at all, which is a significant discrepancy "
+        "with the provided targets. Therefore, the model's answer_correctness score is 2.",
         grading_context={
             "targets": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
@@ -256,13 +269,17 @@ class StrictCorrectnessMetric:
         },
     )
 
-    example_score_1 = EvaluationExample(
-        input="Is MLflow open-source?",
-        output="MLflow is open-source, which means it's freely available for anyone to use.",
-        score=1,
-        justification="The output correctly states that MLflow is open-source, aligning perfectly "
-        "with the provided context. It accurately reflects the ground truth information, earning "
-        "a score of 1 for strict correctness.",
+    example_score_4 = EvaluationExample(
+        input="How is MLflow related to Databricks?",
+        output="MLflow is a product created by Databricks to enhance the efficiency of machine "
+        "learning processes.",
+        score=4,
+        justification="The output provided by the model is mostly correct. It correctly identifies "
+        "that MLflow is a product created by Databricks. However, it does not mention that MLflow "
+        "is an open-source platform for managing the end-to-end machine learning lifecycle, which "
+        "is a significant part of its function. Therefore, while the output is mostly accurate, "
+        "it has a minor omission, which is why it gets a score of 4 according to the grading "
+        "rubric.",
         grading_context={
             "targets": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
@@ -272,4 +289,4 @@ class StrictCorrectnessMetric:
         },
     )
 
-    default_examples = [example_score_0, example_score_1]
+    default_examples = [example_score_2, example_score_4]
