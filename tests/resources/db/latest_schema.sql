@@ -78,6 +78,7 @@ CREATE TABLE model_versions (
 	user_id VARCHAR(256),
 	current_stage VARCHAR(20),
 	source VARCHAR(500),
+	storage_location VARCHAR(500),
 	run_id VARCHAR(32),
 	status VARCHAR(20),
 	status_message VARCHAR(500),
@@ -166,7 +167,7 @@ CREATE TABLE model_version_tags (
 
 CREATE TABLE params (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(500) NOT NULL,
+	value VARCHAR(8000) NOT NULL,
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
