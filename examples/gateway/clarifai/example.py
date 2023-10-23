@@ -9,10 +9,9 @@ def main():
     response_completions = query(
         route="completions",
         data={
-            "prompt": "Write a tweet on future of AI",
-            "temperature": 0.7,
-            "max_tokens": 30,
-        },
+            "prompt": "<s><INST>What are some economic impacts that can occur due to seasonal changes in different industries?</INST>",
+            "temperature": 0.7
+            },
     )
     print(f"Clarifai response for completions: {response_completions}")
 

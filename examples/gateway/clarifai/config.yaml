@@ -3,11 +3,11 @@ routes:
     route_type: llm/v1/completions
     model:
       provider: clarifai
-      name: GPT-4
+      name: mistral-7B-Instruct
       config:
         CLARIFAI_PAT_KEY: $CLARIFAI_PAT_KEY
-        user_id: openai
-        app_id: chat-completion
+        user_id: mistralai
+        app_id: completion
 
   - name: embeddings
     route_type: llm/v1/embeddings

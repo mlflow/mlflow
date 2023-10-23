@@ -61,41 +61,41 @@ class ClarifaiProvider(BaseProvider):
         # Response example:
         """
         {
-            "status": {
-                "code": 10000,
-                "description": "Ok",
-                "req_id": "6e200a426e3433aacdcbfefc4595c4c1"
+        "status": {
+        "code": 10000,
+        "description": "Ok",
+        "req_id": "73247148986bb591625ff4399704e974"
             },
             "outputs": [
                 {
-                    "id": "a80c80a2f6d74065b4ce53011acc4def",
+                    "id": "cbaba14cbea445b592871817e2a96760",
                     "status": {
                         "code": 10000,
                         "description": "Ok"
                     },
-                    "created_at": "2023-10-20T09:22:11.963192142Z",
+                    "created_at": "2023-10-23T12:35:41.317284518Z",
                     "model": {
-                        "id": "GPT-4",
-                        "name": "GPT-4",
-                        "created_at": "2023-06-08T17:40:07.964967Z",
-                        "modified_at": "2023-10-18T11:35:17.799573Z",
-                        "app_id": "chat-completion",
+                        "id": "mistral-7B-Instruct",
+                        "name": "mistral-7B-Instruct",
+                        "created_at": "2023-09-28T16:31:37.932586Z",
+                        "modified_at": "2023-10-19T20:54:00.972725Z",
+                        "app_id": "completion",
                         "model_version": {
-                            "id": "222980e6d13341a5a3d892e63dda1f9e",
-                            "created_at": "2023-10-12T21:42:45.002828Z",
+                            "id": "c27fe1804b38476ca810dd85bd997a3d",
+                            "created_at": "2023-09-28T22:22:03.664472Z",
                             "status": {
                                 "code": 21100,
                                 "description": "Model is trained and ready"
                             },
-                            "completed_at": "2023-10-12T21:45:06.334961Z",
+                            "completed_at": "2023-09-29T00:27:35.027604Z",
                             "visibility": {
                                 "gettable": 50
                             },
-                            "app_id": "chat-completion",
-                            "user_id": "openai",
+                            "app_id": "completion",
+                            "user_id": "mistralai",
                             "metadata": {}
                         },
-                        "user_id": "openai",
+                        "user_id": "mistralai",
                         "model_type_id": "text-to-text",
                         "visibility": {
                             "gettable": 50
@@ -111,7 +111,7 @@ class ClarifaiProvider(BaseProvider):
                         "id": "4341d6394ba245f1ab9d8a0d7ba75939",
                         "data": {
                             "text": {
-                                "raw": "I love your product very much",
+                                "raw": "<s><INST>I love your product very much</INST>",
                                 "url": "https://samples.clarifai.com/placeholder.gif"
                             }
                         }

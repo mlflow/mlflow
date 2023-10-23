@@ -205,10 +205,10 @@ def basic_config_dict():
                 "route_type": "llm/v1/completions",
                 "model": {
                     "provider": "clarifai",
-                    "name": "GPT-4",
+                    "name": "mistral-7B-Instruct",
                     "config": {"CLARIFAI_PAT_KEY": "$CLARIFAI_PAT_KEY",
-                               "user_id": "openai",
-                               "app_id": "chat-completion"
+                               "user_id": "mistralai",
+                               "app_id": "completion"
                                },
                 },
             },
@@ -849,7 +849,7 @@ def test_clarifai_completions(gateway):
             "input_tokens": None,
             "output_tokens": None,
             "total_tokens": None,
-            "model": "GPT-4",
+            "model": "mistral-7B-Instruct",
             "route_type": "llm/v1/completions",
         },
     }
