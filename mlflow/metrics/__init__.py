@@ -8,7 +8,7 @@ from mlflow.metrics.genai.genai_metric import (
 from mlflow.metrics.genai.metric_definitions import (
     answer_correctness,
     answer_similarity,
-    relevance,
+    faithfulness,
 )
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
@@ -420,7 +420,7 @@ __all__ = [
     "binary_precision",
     "binary_f1_score",
     "answer_similarity",
-    "relevance",
+    "faithfulness",
     "answer_correctness",
     "token_count",
     "latency",
