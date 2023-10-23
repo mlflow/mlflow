@@ -1531,6 +1531,7 @@ def test_copy_model_version(store):
     )
 
     name2 = "test_for_copy_MV2"
+    timestamp = time.time()
     dst_mv = store.copy_model_version(src_mv, name2)
     assert dst_mv.name == name2
     assert dst_mv.version == 1

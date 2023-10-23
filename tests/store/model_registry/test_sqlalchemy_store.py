@@ -1640,6 +1640,7 @@ def test_delete_model_deletes_alias(store):
     ):
         store.get_model_version_by_alias(model_name, "test_alias")
 
+
 def test_copy_model_version(store):
     name1 = "test_for_copy_MV1"
     store.create_registered_model(name1)
