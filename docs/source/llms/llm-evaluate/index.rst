@@ -8,7 +8,7 @@ question answering, translating and text summarization. Evaluating LLMs' perform
 from traditional ML models, as very often there is no single ground truth to compare against. 
 MLflow provides an API :py:func:`mlflow.evaluate()` to help evaluate your LLMs.
 
-``mlflow.evaluate()`` consists of 3 main components:
+MLflow's LLM evaluation functionality consists of 3 main components:
 
 1. **A model to evaluate**: it can be an MLflow ``pyfunc`` model, a URI pointing to one registered 
    MLflow model, or any python callable that represents your model, e.g, a HuggingFace text summarization pipeline. 
@@ -93,7 +93,7 @@ LLM Evaluation Metrics
 There are two types of LLM evaluation metrics in MLflow:
 
 1. Metrics relying on SaaS model (e.g., OpenAI) with prompt engineering, e.g., :py:func:`mlflow.metrics.relevance`. These  
-   metrics are created via :py:func:`make_genai_metric` method. For each data record, these metrics under the hood sends 
+   metrics are created via :py:func:`mlflow.metrics.make_genai_metric` method. For each data record, these metrics under the hood sends 
    one prompt consisting of the following information to the SaaS model, and extract the score from model response:
 
    * Metrics definition.
@@ -329,8 +329,12 @@ Prepare Your LLM for Evaluating
 In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one of the following type:
 
 1. A :py:func:`mlflow.pyfunc.PyFuncModel` instance or a URI pointing to a logged `mlflow.pyfunc.PyFuncModel` model. In
-   general we call that MLflow model.
-2. A python function that takes in string inputs and outputs a single string. 
+   general we call that MLflow model. The 
+2. A python function that takes in string inputs and outputs a single string. Your callable must match the signature of 
+   :py:func:`mlflow.pyfunc.PyFuncModel.predict`, briefly it should:
+  
+   * Has `data` as the first argument, which can be a ``pandas.Dataframe``, ``numpy.ndarray``, python list, dictionary or scipy matrix.
+   * Returns one of ``pandas.DataFrame``, ``pandas.Series``, ``numpy.ndarray`` or list. 
 3. Set `model=None`, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
 
 Evaluating with an MLflow Model
@@ -341,7 +345,7 @@ For detailed instruction on how to convert your model into a ``mlflow.pyfunc.PyF
 to evaluate your model as an MLflow model, we recomment following the steps below:
 
 1. Convert your LLM to MLflow model and log it to MLflow server by ``log_model``. Each flavor (``opeanai``, ``pytorch``, ...) 
-   has its own ``log_model`` API, e.g., :py:func:`mlflow.opeanai.log_model()`:
+   has its own ``log_model`` API, e.g., :py:func:`mlflow.openai.log_model()`:
 
    .. code-block:: python
 
@@ -511,5 +515,6 @@ Please see the screenshot below for clarity:
 
 
 .. figure:: ../_static/images/llm_evaluate_experiment_view.png
-       :scale: 25%
-       :align: center
+    :width: 1024px
+    :align: center
+    :alt: Demo UI of MLflow evaluate
