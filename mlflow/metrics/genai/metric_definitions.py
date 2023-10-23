@@ -207,3 +207,64 @@ def faithfulness(
         greater_is_better=True,
         judge_request_timeout=judge_request_timeout,
     )
+
+
+@experimental
+def answer_relevance(
+    model: Optional[str] = None,
+    metric_version: Optional[str] = _get_latest_metric_version(),
+    examples: Optional[List[EvaluationExample]] = None,
+    judge_request_timeout=60,
+) -> EvaluationMetric:
+    """
+    This function will create a genai metric used to evaluate the answer relevance of an LLM
+    using the model provided. Answer relevance will be assessed based on the appropriateness and
+    applicability of the output with respect to the input.
+
+    An MlflowException will be raised if the specified version for this metric does not exist.
+
+    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to
+        gpt-4. Your use of a third party LLM service (e.g., OpenAI) for evaluation may
+        be subject to and governed by the LLM service's terms of use.
+    :param metric_version: (Optional) The version of the answer relevance metric to use.
+        Defaults to the latest version.
+    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
+        answer relevance. It is highly recommended to add examples to be used as a reference to
+        evaluate the new results.
+    :param judge_request_timeout: (Optional) The timeout in seconds for the judge API request.
+        Defaults to 60 seconds.
+    :return: A metric object
+    """
+    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.AnswerRelevanceMetric"
+    try:
+        answer_relevance_class_module = _get_class_from_string(class_name)
+    except ModuleNotFoundError:
+        raise MlflowException(
+            f"Failed to find answer relevance metric for version {metric_version}."
+            f" Please check the version",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from None
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to construct answer relevance metric {metric_version}. Error: {e!r}",
+            error_code=INTERNAL_ERROR,
+        ) from None
+
+    if examples is None:
+        examples = answer_relevance_class_module.default_examples
+    if model is None:
+        model = answer_relevance_class_module.default_model
+
+    return make_genai_metric(
+        name="answer_relevance",
+        definition=answer_relevance_class_module.definition,
+        grading_prompt=answer_relevance_class_module.grading_prompt,
+        examples=examples,
+        version=metric_version,
+        model=model,
+        grading_context_columns=answer_relevance_class_module.grading_context_columns,
+        parameters=answer_relevance_class_module.parameters,
+        aggregations=["mean", "variance", "p90"],
+        greater_is_better=True,
+        judge_request_timeout=judge_request_timeout,
+    )
