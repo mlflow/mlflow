@@ -43,17 +43,8 @@ def main():
         )
     except Exception:
         with open(args.temp_file, "w") as f:
+            # Retry all download failures at least once
             json.dump({"retryable": True}, f)
-        raise
-    except HTTPError as e:
-        with open(args.temp_file, "w") as f:
-            json.dump(
-                {
-                    "retryable": e.response.status_code in (401, 403, 408),
-                    "status_code": e.response.status_code,
-                },
-                f,
-            )
         raise
 
 
