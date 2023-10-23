@@ -11,5 +11,5 @@ runs:
       env:
         SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
       with:
-        path: ~/.venv
+        path: .venv
         key: ${{ steps.py-cache-key.outputs.key }}

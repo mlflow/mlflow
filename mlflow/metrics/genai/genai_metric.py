@@ -8,9 +8,15 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample, MetricValue
 from mlflow.metrics.genai import model_utils
-from mlflow.metrics.genai.utils import _get_latest_metric_version
+from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    UNAUTHENTICATED,
+    ErrorCode,
+)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
 
@@ -83,7 +89,7 @@ def make_genai_metric(
     grading_prompt: str,
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
-    model: Optional[str] = "openai:/gpt-3.5-turbo-16k",
+    model: Optional[str] = _get_default_model(),
     grading_context_columns: Optional[List[str]] = [],  # noqa: B006
     parameters: Optional[Dict[str, Any]] = None,
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
@@ -101,7 +107,7 @@ def make_genai_metric(
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
     :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
-        "openai:/gpt-3.5-turbo-16k". Your use of a third party LLM service (e.g., OpenAI) for
+        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
     :param grading_context_columns: (Optional) grading_context_columns required to compute
         the metric. These grading_context_columns are used by the LLM as a judge as additional
@@ -172,7 +178,7 @@ def make_genai_metric(
             ),
             examples=[example],
             version="v1",
-            model="openai:/gpt-3.5-turbo-16k",
+            model="openai:/gpt-4",
             grading_context_columns=["ground_truth"],
             parameters={"temperature": 0.0},
             aggregations=["mean", "variance", "p90"],
@@ -213,6 +219,7 @@ def make_genai_metric(
         """
         This is the function that is called when the metric is evaluated.
         """
+
         eval_values = dict(zip(grading_context_columns, args))
 
         outputs = predictions.to_list()
@@ -267,6 +274,12 @@ def make_genai_metric(
                 )
                 return _extract_score_and_justification(raw_result)
             except Exception as e:
+                if isinstance(e, MlflowException):
+                    if e.error_code in [
+                        ErrorCode.Name(BAD_REQUEST),
+                        ErrorCode.Name(UNAUTHENTICATED),
+                    ]:
+                        raise MlflowException(e)
                 _logger.info(f"Failed to score model on payload. Error: {e!r}")
                 return None, None
 

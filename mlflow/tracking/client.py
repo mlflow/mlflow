@@ -10,6 +10,7 @@ import os
 import posixpath
 import sys
 import tempfile
+import urllib
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import yaml
@@ -20,6 +21,9 @@ from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
+from mlflow.store.artifact.utils.models import (
+    get_model_name_and_version,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -2667,6 +2671,29 @@ class MlflowClient:
             await_creation_for=await_creation_for,
         )
 
+    def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_model_uri: the model URI of the model version to copy. This must be a model
+                              registry URI with a `"models:/"` scheme (e.g.,
+                              `"models:/iris_model@champion"`).
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the copied model version.
+        """
+        if urllib.parse.urlparse(src_model_uri).scheme != "models":
+            raise MlflowException(
+                f"Unsupported source model URI: '{src_model_uri}'. The `copy_model_version` API "
+                "only copies models stored in the 'models:/' scheme."
+            )
+        client = self._get_registry_client()
+        src_name, src_version = get_model_name_and_version(client, src_model_uri)
+        src_mv = client.get_model_version(src_name, src_version)
+
+        return client.copy_model_version(src_mv=src_mv, dst_name=dst_name)
+
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
     ) -> ModelVersion:
@@ -3017,6 +3044,10 @@ class MlflowClient:
     ) -> PagedList[ModelVersion]:
         """
         Search for model versions in backend that satisfy the filter criteria.
+
+        .. warning:
+
+            The model version search results may not have aliases populated for performance reasons.
 
         :param filter_string: Filter query string
             (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),

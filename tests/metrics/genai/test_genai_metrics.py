@@ -15,14 +15,14 @@ from mlflow.metrics.genai.genai_metric import (
     make_genai_metric,
 )
 from mlflow.metrics.genai.metric_definitions import (
+    answer_correctness,
     answer_similarity,
-    relevance,
-    strict_correctness,
+    faithfulness,
 )
 from mlflow.metrics.genai.prompts.v1 import (
+    AnswerCorrectnessMetric,
     AnswerSimilarityMetric,
-    RelevanceMetric,
-    StrictCorrectnessMetric,
+    FaithfulnessMetric,
 )
 
 openai_justification1 = (
@@ -588,8 +588,8 @@ def test_correctness_metric():
         )
 
 
-def test_relevance_metric():
-    relevance_metric = relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+def test_faithfulness_metric():
+    faithfulness_metric = faithfulness(model="gateway:/gpt-3.5-turbo", examples=[])
     input = "What is MLflow?"
 
     with mock.patch.object(
@@ -597,7 +597,7 @@ def test_relevance_metric():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = relevance_metric.eval_fn(
+        metric_value = faithfulness_metric.eval_fn(
             pd.Series([mlflow_prediction]),
             {},
             pd.Series([input]),
@@ -610,8 +610,8 @@ def test_relevance_metric():
             "sent to a machine\nlearning model, and you will be given an output that the model "
             "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
-            "relevance based on the input and output.\nA definition of "
-            "relevance and a grading rubric are provided below.\nYou must use the "
+            "faithfulness based on the input and output.\nA definition of "
+            "faithfulness and a grading rubric are provided below.\nYou must use the "
             "grading rubric to determine your score. You must also justify your score."
             "\n\nExamples could be included below for reference. Make sure to use them as "
             "references and to\nunderstand them before completing the task.\n"
@@ -619,14 +619,14 @@ def test_relevance_metric():
             f"\nOutput:\n{mlflow_prediction}\n"
             "\nAdditional information used by the model:\nkey: context\nvalue:\n"
             f"{mlflow_ground_truth}\n"
-            f"\nMetric definition:\n{RelevanceMetric.definition}\n"
-            f"\nGrading rubric:\n{RelevanceMetric.grading_prompt}\n"
+            f"\nMetric definition:\n{FaithfulnessMetric.definition}\n"
+            f"\nGrading rubric:\n{FaithfulnessMetric.grading_prompt}\n"
             "\n\n"
             "\nYou must return the following fields in your response one below the other:\nscore: "
-            "Your numerical score for the model's relevance based on the "
+            "Your numerical score for the model's faithfulness based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
-            "relevance score\n    ",
-            **RelevanceMetric.parameters,
+            "faithfulness score\n    ",
+            **FaithfulnessMetric.parameters,
         }
 
     assert metric_value.scores == [3]
@@ -639,40 +639,40 @@ def test_relevance_metric():
     }
 
     with pytest.raises(
-        MlflowException, match="Failed to find relevance metric for version non-existent-version"
+        MlflowException, match="Failed to find faithfulness metric for version non-existent-version"
     ):
-        relevance_metric = relevance(
+        faithfulness_metric = faithfulness(
             model="gateway:/gpt-3.5-turbo",
             metric_version="non-existent-version",
             examples=[mlflow_example],
         )
 
 
-def test_strict_correctness_metric():
-    strict_correctness_metric = strict_correctness()
+def test_answer_correctness_metric():
+    answer_correctness_metric = answer_correctness()
     input = "What is MLflow?"
-    examples = "\n".join([str(example) for example in StrictCorrectnessMetric.default_examples])
+    examples = "\n".join([str(example) for example in AnswerCorrectnessMetric.default_examples])
 
     with mock.patch.object(
         model_utils,
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = strict_correctness_metric.eval_fn(
+        metric_value = answer_correctness_metric.eval_fn(
             pd.Series([mlflow_prediction]),
             {},
             pd.Series([input]),
             pd.Series([mlflow_ground_truth]),
         )
         assert mock_predict_function.call_count == 1
-        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo-16k"
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-4"
         assert mock_predict_function.call_args[0][1] == {
             "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
             "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
-            "strict_correctness based on the input and output.\nA definition of "
-            "strict_correctness and a grading rubric are provided below.\nYou must use the "
+            "answer_correctness based on the input and output.\nA definition of "
+            "answer_correctness and a grading rubric are provided below.\nYou must use the "
             "grading rubric to determine your score. You must also justify your score."
             "\n\nExamples could be included below for reference. Make sure to use them as "
             "references and to\nunderstand them before completing the task.\n"
@@ -680,15 +680,15 @@ def test_strict_correctness_metric():
             f"\nOutput:\n{mlflow_prediction}\n"
             "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
-            f"\nMetric definition:\n{StrictCorrectnessMetric.definition}\n"
-            f"\nGrading rubric:\n{StrictCorrectnessMetric.grading_prompt}\n"
+            f"\nMetric definition:\n{AnswerCorrectnessMetric.definition}\n"
+            f"\nGrading rubric:\n{AnswerCorrectnessMetric.grading_prompt}\n"
             "\nExamples:\n"
             f"{examples}\n"
             "\nYou must return the following fields in your response one below the other:\nscore: "
-            "Your numerical score for the model's strict_correctness based on the "
+            "Your numerical score for the model's answer_correctness based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
-            "strict_correctness score\n    ",
-            **StrictCorrectnessMetric.parameters,
+            "answer_correctness score\n    ",
+            **AnswerCorrectnessMetric.parameters,
         }
 
     assert metric_value.scores == [3]
@@ -702,9 +702,9 @@ def test_strict_correctness_metric():
 
     with pytest.raises(
         MlflowException,
-        match="Failed to find strict correctness metric for version non-existent-version",
+        match="Failed to find answer correctness metric for version non-existent-version",
     ):
-        strict_correctness_metric = strict_correctness(metric_version="non-existent-version")
+        answer_correctness(metric_version="non-existent-version")
 
 
 def test_make_genai_metric_metric_details():
