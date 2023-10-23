@@ -84,10 +84,9 @@ def answer_correctness(
     examples: Optional[List[EvaluationExample]] = None,
     judge_request_timeout=60,
 ) -> EvaluationMetric:
-    # TODO: update docstring
     """
     This function will create a genai metric used to evaluate the  correctness of an LLM
-    using the model provided. Strict correctness should be used in cases where correctness is
+    using the model provided. Answer correctness should be used in cases where correctness is
     binary, and the source of truth is provided in the ``ground_truth``. Outputs will be
     given either the highest or lowest score depending on if they are consistent with the
     ``ground_truth``. When dealing with inputs that may have multiple correct outputs, varying
