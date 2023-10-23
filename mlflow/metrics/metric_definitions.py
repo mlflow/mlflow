@@ -55,28 +55,6 @@ def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
     return True
 
 
-def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
-    """Validates that the data is a list of a tuple of strings and is non-empty"""
-    if data is None or len(data) == 0:
-        return False
-
-    for row, tup in enumerate(data):
-        if not isinstance(tup, tuple) or not all(isinstance(val, str) for val in tup):
-            if isinstance(tup, str):
-                # Single entry tuples get unpacked.
-                # So if the entry is a string, put them back into a tuple.
-                data[row] = (tup,)
-            else:
-                _logger.warning(
-                    f"Cannot calculate {metric_name} for non-tuple[str] inputs."
-                    f"Row {row} of column {column_name} has a non-tuple[str] value of:"
-                    f"{tup}. Skipping metric logging."
-                )
-                return False
-
-    return True
-
-
 def _token_count_eval_fn(predictions, targets=None, metrics=None):
     import tiktoken
 

@@ -1319,7 +1319,7 @@ def evaluate(
 
     - For retriever models, the default evaluator logs:
         - **metrics**: ``precision_at_k``: precision at k, where k is specified by the
-            ``evaluator_config`` argument. The default value of k is 3.
+            ``evaluator_config`` argument.
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
@@ -1366,7 +1366,7 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
-        - **k**: The number of top predictions to use when computing the built-in metric
+        - **k**: The number of top retrieved documents to use when computing the built-in metric
           precision_at_k.
 
      - Limitations of evaluation dataset:
