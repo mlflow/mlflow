@@ -742,8 +742,8 @@ def test_unsupported_class():
 
 
 def test_agent_with_unpicklable_tools():
-    _, temp_filepath = tempfile.mkstemp()
-    with open(temp_filepath, mode="w") as temp_file:
+    _, tmp_path = tempfile.mkstemp()
+    with open(tmp_path, mode="w") as temp_file:
         # files that aren't opened for reading cannot be pickled
         tools = [
             Tool.from_function(
