@@ -16,6 +16,7 @@ from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.providers.palm import PaLMProvider
+from mlflow.gateway.providers.clarifai import ClarifaiProvider
 from mlflow.utils.request_utils import _cached_get_request_session
 
 from tests.gateway.tools import (
@@ -199,6 +200,30 @@ def basic_config_dict():
                     "config": {"model_server_url": "http://127.0.0.1:5002"},
                 },
             },
+            {
+                "name": "completions-clarifai",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "clarifai",
+                    "name": "GPT-4",
+                    "config": {"CLARIFAI_PAT_KEY": "$CLARIFAI_PAT_KEY",
+                               "user_id": "openai",
+                               "app_id": "chat-completion"
+                               },
+                },
+            },
+            {
+                "name": "embeddings-clarifai",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "clarifai",
+                    "name": "multimodal-clip-embed",
+                    "config": {"CLARIFAI_PAT_KEY": "$CLARIFAI_PAT_KEY",
+                               "user_id": "clarifai",
+                               "app_id": "main"
+                               },
+                },
+            }
         ]
     }
 
@@ -224,6 +249,7 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("AI21LABS_API_KEY", "test_ai21labs_key")
     monkeypatch.setenv("MOSAICML_API_KEY", "test_mosaicml_key")
     monkeypatch.setenv("PALM_API_KEY", "test_palm_key")
+    monkeypatch.setenv("CLARIFAI_PAT_KEY", "test_clarifai_key")
 
 
 @pytest.fixture
@@ -247,7 +273,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 16
+    assert len(routes) == 18
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -808,3 +834,54 @@ def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway
     assert not metadata_response["output_tokens"]
     assert metadata_response["model"] == "completion-model"
     assert metadata_response["route_type"] == route.route_type
+
+def test_clarifai_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-clarifai")
+    expected_output = {
+        "candidates": [
+            {
+                "text": "mock using MagicMock please",
+                "metadata": {"finish_reason": "stop"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "GPT-4",
+            "route_type": "llm/v1/completions",
+        },
+    }
+
+    data = {"prompt": "mock my test", "max_tokens": 50}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(ClarifaiProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+def test_clarifai_embeddings(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("embeddings-clarifai")
+    expected_output = {
+        "embeddings": [[0.1, 0.2, 0.3]],
+        "metadata": {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "model": "multimodal-clip-embed",
+            "route_type": "llm/v1/embeddings",
+        },
+    }
+
+    data = {"text": "mock me and my test"}
+
+    async def mock_embeddings(self, payload):
+        return expected_output
+
+    with patch.object(ClarifaiProvider, "embeddings", mock_embeddings):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output

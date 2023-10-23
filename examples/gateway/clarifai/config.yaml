@@ -1,0 +1,20 @@
+routes:
+  - name: completions
+    route_type: llm/v1/completions
+    model:
+      provider: clarifai
+      name: GPT-4
+      config:
+        CLARIFAI_PAT_KEY: $CLARIFAI_PAT_KEY
+        user_id: openai
+        app_id: chat-completion
+
+  - name: embeddings
+    route_type: llm/v1/embeddings
+    model:
+      provider: clarifai
+      name: multimodal-clip-embed
+      config:
+        CLARIFAI_PAT_KEY: $CLARIFAI_PAT_KEY
+        user_id: clarifai
+        app_id: main

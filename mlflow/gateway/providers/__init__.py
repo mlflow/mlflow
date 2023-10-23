@@ -11,6 +11,7 @@ def get_provider(provider: Provider) -> BaseProvider:
     from mlflow.gateway.providers.mosaicml import MosaicMLProvider
     from mlflow.gateway.providers.openai import OpenAIProvider
     from mlflow.gateway.providers.palm import PaLMProvider
+    from mlflow.gateway.providers.clarifai import ClarifaiProvider
 
     provider_to_class = {
         Provider.OPENAI: OpenAIProvider,
@@ -20,6 +21,7 @@ def get_provider(provider: Provider) -> BaseProvider:
         Provider.MOSAICML: MosaicMLProvider,
         Provider.PALM: PaLMProvider,
         Provider.MLFLOW_MODEL_SERVING: MlflowModelServingProvider,
+        Provider.CLARIFAI: ClarifaiProvider,
     }
     if prov := provider_to_class.get(provider):
         return prov

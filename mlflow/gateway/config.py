@@ -39,6 +39,7 @@ class Provider(str, Enum):
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     MOSAICML = "mosaicml"
     PALM = "palm"
+    CLARIFAI = "clarifai"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
@@ -53,6 +54,15 @@ class RouteType(str, Enum):
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
 
+class ClarifaiConfig(ConfigModel):
+    CLARIFAI_PAT_KEY: str
+    user_id: str
+    app_id: str
+
+    # pylint: disable=no-self-argument
+    @validator("CLARIFAI_PAT_KEY", pre=True)
+    def validate_CLARIFAI_PAT_KEY(cls, value):
+        return _resolve_api_key_from_input(value)
 
 class CohereConfig(ConfigModel):
     cohere_api_key: str
@@ -189,6 +199,7 @@ config_types = {
     Provider.MOSAICML: MosaicMLConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
+    Provider.CLARIFAI: ClarifaiConfig,
 }
 
 
@@ -246,6 +257,7 @@ class Model(ConfigModel):
             MosaicMLConfig,
             MlflowModelServingConfig,
             PaLMConfig,
+            ClarifaiConfig,
         ]
     ] = None
 
