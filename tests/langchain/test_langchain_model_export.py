@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import sqlite3
+import tempfile
 from contextlib import contextmanager
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -12,6 +13,7 @@ import openai
 import pytest
 import transformers
 from langchain import SQLDatabase
+from langchain.agents import AgentType, initialize_agent
 from langchain.chains import (
     APIChain,
     ConversationChain,
@@ -32,6 +34,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
 from langchain.text_splitter import CharacterTextSplitter
+from langchain.tools import Tool
 from langchain.vectorstores import FAISS
 from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
@@ -736,3 +739,29 @@ def test_unsupported_class():
     ):
         with mlflow.start_run():
             mlflow.langchain.log_model(llm, "fake_llm")
+
+
+def test_agent_with_unpicklable_tools():
+    _, temp_filepath = tempfile.mkstemp()
+    with open(temp_filepath, mode="w") as temp_file:
+        # files that aren't opened for reading cannot be pickled
+        tools = [
+            Tool.from_function(
+                func=lambda: temp_file.write("0"),
+                name="Write 0",
+                description="If you need to write 0 to a file",
+            )
+        ]
+        agent = initialize_agent(
+            llm=OpenAI(temperature=0), tools=tools, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION
+        )
+
+        with pytest.raises(
+            MlflowException,
+            match=(
+                "Error when attempting to pickle the AgentExecutor tools. "
+                + "This model likely does not support serialization."
+            ),
+        ):
+            with mlflow.start_run():
+                mlflow.langchain.log_model(agent, "unpicklable_tools")
