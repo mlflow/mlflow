@@ -25,6 +25,7 @@ from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
+    EvaluationMetric,
     MetricValue,
     ari_grade_level,
     exact_match,
@@ -1742,6 +1743,19 @@ class DefaultEvaluator(ModelEvaluator):
 
         if self.extra_metrics is None:
             self.extra_metrics = []
+
+        bad_metrics = []
+        for metric in self.extra_metrics:
+            if not isinstance(metric, EvaluationMetric):
+                bad_metrics.append(metric)
+        if len(bad_metrics) > 0:
+            message = "\n".join([f"- Metric '{m}' has type '{type(m)}'" for m in bad_metrics])
+            raise MlflowException(
+                f"In the 'extra_metrics' parameter, the following metrics have the wrong type:\n"
+                f"{message}\n"
+                f"Please ensure that all extra metrics are instances of "
+                f"mlflow.metrics.EvaluationMetric."
+            )
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)
