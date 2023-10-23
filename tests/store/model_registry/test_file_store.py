@@ -1521,10 +1521,9 @@ def test_copy_model_version(store):
         ModelVersionTag("key", "value"),
         ModelVersionTag("anotherKey", "some other value"),
     ]
-    with mock.patch("time.time", return_value=456778):
-        src_mv = _create_model_version(
-            store, name1, tags=src_tags, run_link="dummylink", description="test description"
-        )
+    src_mv = _create_model_version(
+        store, name1, tags=src_tags, run_link="dummylink", description="test description"
+    )
 
     # Make some changes to the src MV that won't be copied over
     store.transition_model_version_stage(
@@ -1532,7 +1531,6 @@ def test_copy_model_version(store):
     )
 
     name2 = "test_for_copy_MV2"
-    timestamp = time.time()
     dst_mv = store.copy_model_version(src_mv, name2)
     assert dst_mv.name == name2
     assert dst_mv.version == 1

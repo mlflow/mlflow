@@ -17,12 +17,44 @@ CREATE TABLE experiments (
 )
 
 
+CREATE TABLE input_tags (
+	input_uuid VARCHAR(36) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	value VARCHAR(500) NOT NULL,
+	PRIMARY KEY (input_uuid, name)
+)
+
+
+CREATE TABLE inputs (
+	input_uuid VARCHAR(36) NOT NULL,
+	source_type VARCHAR(36) NOT NULL,
+	source_id VARCHAR(36) NOT NULL,
+	destination_type VARCHAR(36) NOT NULL,
+	destination_id VARCHAR(36) NOT NULL,
+	PRIMARY KEY (source_type, source_id, destination_type, destination_id)
+)
+
+
 CREATE TABLE registered_models (
 	name VARCHAR(256) NOT NULL,
 	creation_time BIGINT,
 	last_updated_time BIGINT,
 	description VARCHAR(5000),
 	PRIMARY KEY (name)
+)
+
+
+CREATE TABLE datasets (
+	dataset_uuid VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(500) NOT NULL,
+	digest VARCHAR(36) NOT NULL,
+	dataset_source_type VARCHAR(36) NOT NULL,
+	dataset_source TEXT NOT NULL,
+	dataset_schema TEXT,
+	dataset_profile MEDIUMTEXT,
+	PRIMARY KEY (experiment_id, name, digest),
+	CONSTRAINT datasets_ibfk_1 FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -48,8 +80,18 @@ CREATE TABLE model_versions (
 	status VARCHAR(20),
 	status_message VARCHAR(500),
 	run_link VARCHAR(500),
+	storage_location VARCHAR(500),
 	PRIMARY KEY (name, version),
 	CONSTRAINT model_versions_ibfk_1 FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
+)
+
+
+CREATE TABLE registered_model_aliases (
+	alias VARCHAR(256) NOT NULL,
+	version INTEGER NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	PRIMARY KEY (name, alias),
+	CONSTRAINT registered_model_alias_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -137,13 +179,4 @@ CREATE TABLE tags (
 	run_uuid VARCHAR(32) NOT NULL,
 	PRIMARY KEY (key, run_uuid),
 	CONSTRAINT tags_ibfk_1 FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
-)
-
-
-CREATE TABLE registered_model_aliases (
-	name VARCHAR(256) NOT NULL,
-	alias VARCHAR(256) NOT NULL,
-	version INTEGER NOT NULL,
-	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias),
-	CONSTRAINT registered_model_alias_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE ON DELETE CASCADE
 )

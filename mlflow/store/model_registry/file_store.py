@@ -570,7 +570,8 @@ class FileStore(AbstractStore):
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
-        :param source: Source path where the MLflow model is stored.
+        :param source: Source path or model version URI (in the format
+                       ``models:/<model_name>/<version>``) where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
