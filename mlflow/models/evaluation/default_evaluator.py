@@ -1596,7 +1596,7 @@ class DefaultEvaluator(ModelEvaluator):
         for metric_name, metric_value in self.metrics_values.items():
             if metric_value.aggregate_results:
                 for agg_name, agg_value in metric_value.aggregate_results.items():
-                    if agg_value:
+                    if agg_value is not None:
                         if agg_name == metric_name.split("/")[0]:
                             self.metrics[metric_name] = agg_value
                         else:
