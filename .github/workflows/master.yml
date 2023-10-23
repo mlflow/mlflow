@@ -366,7 +366,7 @@ jobs:
       - name: Install python dependencies
         run: |
           python -m venv .venv
-          source .venv/bin/activate
+          source .venv/Scripts/activate
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
@@ -391,7 +391,7 @@ jobs:
           # it's explicitly disposed.
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
-          source .venv/bin/activate
+          source .venv/Scripts/activate
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
