@@ -21,7 +21,7 @@ def main():
                 (
                     "a",
                     [0],
-                    {"bool": True, "float": 0.0},
+                    {"bool": True},
                     [{"double": 0.1}],
                 )
             ],
@@ -40,7 +40,6 @@ def main():
                         T.StructType(
                             [
                                 T.StructField("bool", T.BooleanType()),
-                                T.StructField("float", T.FloatType()),
                             ]
                         ),
                     ),

@@ -906,11 +906,12 @@ def _enforce_datatype(data: Any, dtype: DataType):
 def _enforce_array(data: Any, arr: Array, required=True):
     if not required and data is None:
         return None
-    if not isinstance(data, list):
+    if not isinstance(data, (list, np.ndarray)):
         if np.isscalar(data):
             data = [data]
         else:
             raise MlflowException(f"Expected data to be list, got {type(data).__name__}")
+        return data
     if isinstance(arr.dtype, DataType):
         return [_enforce_datatype(x, arr.dtype) for x in data]
     if isinstance(arr.dtype, Object):
@@ -947,11 +948,12 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
         raise MlflowException(
             "Invalid properties not defined in the schema found: " f"{invalid_props}"
         )
+    # raise Exception(data, properties)
     for k, v in data.items():
         try:
             data[k] = _enforce_property(v, properties[k])
         except MlflowException as e:
-            raise MlflowException(f"Failed to enforce schema for key `{k}`") from e
+            raise MlflowException(f"Failed to enforce schema for key `{k}`: {e}") from e
     return data
 
 

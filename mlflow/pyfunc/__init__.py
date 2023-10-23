@@ -1352,7 +1352,7 @@ Compound types:
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
         args = list(args)
-        if len(args) == 1 and isinstance(args[0], pandas.Series):
+        if len(args) == 1 and isinstance(args[0], pandas.DataFrame):
             pdf = args[0]
         else:
             if input_schema is None:
