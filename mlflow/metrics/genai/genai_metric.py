@@ -144,7 +144,7 @@ def make_genai_metric(
                 "its purpose, and its developer. It could be more concise for a 5-score.",
             ),
             grading_context={
-                "ground_truth": (
+                "targets": (
                     "MLflow is an open-source platform for managing "
                     "the end-to-end machine learning (ML) lifecycle. It was developed by "
                     "Databricks, a company that specializes in big data and machine learning "
@@ -156,30 +156,32 @@ def make_genai_metric(
         )
 
         metric = make_genai_metric(
-            name="correctness",
+            name="answer correctness",
             definition=(
-                "Correctness refers to how well the generated output matches "
-                "or aligns with the reference or ground truth text that is considered "
-                "accurate and appropriate for the given input. The ground truth serves as "
-                "a benchmark against which the provided output is compared to determine the "
-                "level of accuracy and fidelity."
+                "Answer correctness is evaluated on the accuracy of the provided output based on "
+                "the provided targets, which is the ground truth. Scores can be assigned based on "
+                "the degree of semantic similarity and factual correctness of the provided output "
+                "to the provided targets, where a higher score indicates higher degree of accuracy."
             ),
             grading_prompt=(
-                "Correctness: If the answer correctly answer the question, below "
-                "are the details for different scores: "
-                "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
-                "the question or is completely contrary to the correct answer. "
-                "- Score 1: the answer provides some relevance to the question and answer "
-                "one aspect of the question correctly. "
-                "- Score 2: the answer mostly answer the question but is missing or hallucinating "
-                "on one critical aspect. "
-                "- Score 4: the answer correctly answer the question and not missing any "
-                "major aspect"
+                "Answer correctness: Below are the details for different scores:"
+                "- Score 1: The output is completely incorrect. It is completely different from "
+                "or contradicts the provided targets.\n"
+                "- Score 2: The output demonstrates some degree of semantic similarity and "
+                "includes partially correct information. However, the output still has significant "
+                "discrepancies with the provided targets or inaccuracies.\n"
+                "- Score 3: The output addresses a couple of aspects of the input accurately, "
+                "aligning with the provided targets. However, there are still omissions or minor "
+                "inaccuracies.\n"
+                "- Score 4: The output is mostly correct. It provides mostly accurate information, "
+                "but there may be one or more minor omissions or inaccuracies.\n"
+                "- Score 5: The output is correct. It demonstrates a high degree of accuracy and "
+                "semantic similarity to the targets."
             ),
             examples=[example],
             version="v1",
             model="openai:/gpt-4",
-            grading_context_columns=["ground_truth"],
+            grading_context_columns=["targets"],
             parameters={"temperature": 0.0},
             aggregations=["mean", "variance", "p90"],
             greater_is_better=True,
