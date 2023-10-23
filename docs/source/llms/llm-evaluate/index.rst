@@ -1,6 +1,5 @@
 .. _llm-eval:
 
-====================================
 MLflow LLM Evaluate
 ====================================
 
@@ -11,9 +10,9 @@ MLflow provides an API :py:func:`mlflow.evaluate()` to help evaluate your LLMs.
 
 ``mlflow.evaluate()`` consists of 3 main components:
 
-1. **Metrics**: the metrics to compute, LLM evaluate will use LLM metrics. 
-2. **A model to evaluate**: it can be an MLflow ``pyfunc`` model, a URI pointing to one registered 
+1. **A model to evaluate**: it can be an MLflow ``pyfunc`` model, a URI pointing to one registered 
    MLflow model, or any python callable that represents your model, e.g, a HuggingFace text summarization pipeline. 
+2. **Metrics**: the metrics to compute, LLM evaluate will use LLM metrics. 
 3. **Evaluation data**: the data your model is evaluated at, it can be a pandas Dataframe, a python list, a 
    numpy array or an :py:func:`mlflow.data.dataset.Dataset` instance.
 
@@ -22,7 +21,7 @@ Quickstart
 ==========
 
 Below is a simple example that gives an quick overview of how MLflow LLM evaluation works. The example builds
-a simple question-answering model by wrapping "openai/gpt-3.5-turbo" with custom prompt. You can paste it to
+a simple question-answering model by wrapping "openai/gpt-4" with custom prompt. You can paste it to
 your IPython or local editor and execute it, and install missing dependencies as prompted. Running the code 
 requires OpenAI API key, if you don't have an OpenAI key, you can set it up [here](https://platform.openai.com/account/api-keys).
 
@@ -63,9 +62,9 @@ requires OpenAI API key, if you don't have an OpenAI key, you can set it up [her
 
     with mlflow.start_run() as run:
         system_prompt = "Answer the following question in two sentences"
-        # Wrap "gpt-3.5-turbo" as an MLflow model.
+        # Wrap "gpt-4" as an MLflow model.
         logged_model_info = mlflow.openai.log_model(
-            model="gpt-3.5-turbo",
+            model="gpt-4",
             task=openai.ChatCompletion,
             artifact_path="model",
             messages=[
@@ -93,9 +92,9 @@ LLM Evaluation Metrics
 
 There are two types of LLM evaluation metrics in MLflow:
 
-1. Metrics relying on SaaS model (e.g., OpenAI) with prompt engineering, e.g., :py:func:`mlflow.metrics.relevance`, as called 
-   LLM-as-judge metrics. These  metrics are created via :py:func:`make_genai_metric` method. For each data record, these metrics 
-   under the hood sends one prompt consisting of the following information to the SaaS model, and extract the score from model response:
+1. Metrics relying on SaaS model (e.g., OpenAI) with prompt engineering, e.g., :py:func:`mlflow.metrics.relevance`. These  
+   metrics are created via :py:func:`make_genai_metric` method. For each data record, these metrics under the hood sends 
+   one prompt consisting of the following information to the SaaS model, and extract the score from model response:
 
    * Metrics definition.
    * Metrics grading criteria.
@@ -114,35 +113,81 @@ There are two types of LLM evaluation metrics in MLflow:
 Select Metrics to Evaluate
 --------------------------
 
-There are two ways to select metrics to evaluate your LLMs:
+MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the 
+type of LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. 
 
-1. Use ``model_type`` argument in ``mlflow.evaluate``, every predefined model type comes with a 
-   set of metrics. This is suitable if your model falls in our predefined categories, e.g., 
-   ``question-answering``. You can find the full list of model types, and the associated evaluate 
-   metrics [here](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.evaluate). A sample code is as below:
+The supported metrics for given model types are shown below:
 
-    .. code-block:: python
+* **question-answering**:
 
-        results = mlflow.evaluate(
-            model,
-            eval_data,
-            targets="ground_truth",
-            model_type="question-answering",
-        )
+    * exact-match
+    * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
+    * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
+    * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
+    * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
-2. Use ``extra_metrics`` argument in ``mlflow.evaluate``, you can add your required metrics to the list, 
-   and also include your custom metrics (will be covered in the next section). Notice that if both 
-   ``model_type`` and ``extra_metrics`` are set, ``extra_metrics`` together with predefined metrics are computed. 
-   In order to just use your handpicked metrics, please remove ``model_type``, as shown in the example below:
+* **text-summarization**: 
 
-    .. code-block:: python
+    * `ROUGE <https://huggingface.co/spaces/evaluate-metric/rouge>`_ :sup:`3`
+    * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
+    * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
+    * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
+    * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
-        results = mlflow.evaluate(
-            model,
-            eval_data,
-            targets="ground_truth",
-            extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latency()],
-        )
+* **text models**:
+
+    * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
+    * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
+    * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
+    * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
+
+
+:sup:`1` Requires `evaluate <https://pypi.org/project/evaluate>`_, `pytorch <https://pytorch.org/get-started/locally/>`_, and 
+`transformers <https://huggingface.co/docs/transformers/installation>`_
+
+:sup:`2` Requires `textstat <https://pypi.org/project/textstat>`_
+
+:sup:`3` Requires `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
+`rouge-score <https://pypi.org/project/rouge-score>`_
+
+However, using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics 
+for LLM evaluation in MLFlow. MLflow provides two ways for selecting metrics to evluate your LLM:
+
+1. Specify the ``model_type`` argument in :py:func:`mlflow.evaluate` 
+
+    * Each predefined model type comes with a standard set of metrics that are available for relevant evaluation of a model type. 
+    * The defaults are suitable if your model falls in one of the predefined categories (e.g., ``question-answering``).   
+
+An example of using the predefined metrics for a given ``model_type`` is shown below:
+
+.. code-block:: python
+
+    results = mlflow.evaluate(
+        model,
+        eval_data,
+        targets="ground_truth",
+        model_type="question-answering",
+    )
+
+1. Specify a custom list of metrics by explicitly referencing a metric calculation function.
+
+    * To add additional metrics to the default collection from part 1 above, add the function names to the ``extra_metrics`` argument.
+    * To diable default metric calculation and only calculate explicit metrics, remove the ``model_type`` argument and define the desired metrics. 
+
+An example of disabling the default metrics and explicitly declaring a subset of metrics to calculate is shown below:
+
+.. code-block:: python
+
+    results = mlflow.evaluate(
+        model,
+        eval_data,
+        targets="ground_truth",
+        extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latency()],
+    )
+
+
+The full reference for supported evaluation metrics can be found `here <../python_api/mlflow.html#mlflow.evaluate>`_. 
+
 
 Create your Custom LLM-evaluation Metrics
 ---------------------------------------------
@@ -233,8 +278,8 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
         greater_is_better=True,
     )
 
-Best Practices for Generating Custom Evaluation Metric Prompts
-~~~~~~~~~~~~~~
+Best Practices for Creating Custom Metrics (LLM as the Judge)
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Under the hood of evaluting with LLM as the judge is prompt engineering, and how to find the best prompt is still under research. 
 Here are some tips for setting required fields of custom SaaS LLM evaluation metrics:
