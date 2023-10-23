@@ -248,14 +248,18 @@ class AnswerCorrectnessMetric:
     parameters = default_parameters
     default_model = default_model
 
-    example_score_0 = EvaluationExample(
-        input="Is MLflow open-source?",
-        output="No, MLflow is not open-source.",
-        score=1,
-        justification="The output is incorrect. It states that MLflow is not open-source, which "
-        "contradicts the provided context, where it is explicitly mentioned that MLflow is an "
-        "open-source platform. This directly opposes the ground truth, resulting in a score of 0 "
-        "for strict correctness.",
+    example_score_2 = EvaluationExample(
+        input="How is MLflow related to Databricks?",
+        output="Databricks is a data engineering and analytics platform designed to help "
+        "organizations process and analyze large amounts of data. Databricks is a company "
+        "specializing in big data and machine learning solutions.",
+        score=2,
+        justification="The output provided by the model does demonstrate some degree of semantic "
+        "similarity to the targets, as it correctly identifies Databricks as a company "
+        "specializing in big data and machine learning solutions. However, it fails to address "
+        "the main point of the input question, which is the relationship between MLflow and "
+        "Databricks. The output does not mention MLflow at all, which is a significant discrepancy "
+        "with the provided targets. Therefore, the model's answer_correctness score is 2.",
         grading_context={
             "targets": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
@@ -265,13 +269,17 @@ class AnswerCorrectnessMetric:
         },
     )
 
-    example_score_1 = EvaluationExample(
-        input="Is MLflow open-source?",
-        output="MLflow is open-source, which means it's freely available for anyone to use.",
-        score=1,
-        justification="The output correctly states that MLflow is open-source, aligning perfectly "
-        "with the provided context. It accurately reflects the ground truth information, earning "
-        "a score of 1 for strict correctness.",
+    example_score_4 = EvaluationExample(
+        input="How is MLflow related to Databricks?",
+        output="MLflow is a product created by Databricks to enhance the efficiency of machine "
+        "learning processes.",
+        score=4,
+        justification="The output provided by the model is mostly correct. It correctly identifies "
+        "that MLflow is a product created by Databricks. However, it does not mention that MLflow "
+        "is an open-source platform for managing the end-to-end machine learning lifecycle, which "
+        "is a significant part of its function. Therefore, while the output is mostly accurate, "
+        "it has a minor omission, which is why it gets a score of 4 according to the grading "
+        "rubric.",
         grading_context={
             "targets": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
@@ -281,4 +289,4 @@ class AnswerCorrectnessMetric:
         },
     )
 
-    default_examples = [example_score_0, example_score_1]
+    default_examples = [example_score_2, example_score_4]
