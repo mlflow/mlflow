@@ -115,10 +115,9 @@ Select Metrics to Evaluate
 
 MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the 
 type of LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. 
+The default metrics for given model types are shown below:
 
-The supported metrics for given model types are shown below:
-
-* **question-answering**:
+* **question-answering**: ``model_type="question-answering"``:
 
     * exact-match
     * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
@@ -126,7 +125,7 @@ The supported metrics for given model types are shown below:
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
-* **text-summarization**: 
+* **text-summarization**: ``model_type="text-summarization"``: 
 
     * `ROUGE <https://huggingface.co/spaces/evaluate-metric/rouge>`_ :sup:`3`
     * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
@@ -134,7 +133,7 @@ The supported metrics for given model types are shown below:
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
-* **text models**:
+* **text models**: ``model_type="text"``:
 
     * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
     * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
@@ -142,12 +141,12 @@ The supported metrics for given model types are shown below:
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
 
-:sup:`1` Requires `evaluate <https://pypi.org/project/evaluate>`_, `pytorch <https://pytorch.org/get-started/locally/>`_, and 
+:sup:`1` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `pytorch <https://pytorch.org/get-started/locally/>`_, and 
 `transformers <https://huggingface.co/docs/transformers/installation>`_
 
-:sup:`2` Requires `textstat <https://pypi.org/project/textstat>`_
+:sup:`2` Requires package `textstat <https://pypi.org/project/textstat>`_
 
-:sup:`3` Requires `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
+:sup:`3` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
 `rouge-score <https://pypi.org/project/rouge-score>`_
 
 However, using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics 
@@ -158,32 +157,32 @@ for LLM evaluation in MLFlow. MLflow provides two ways for selecting metrics to 
     * Each predefined model type comes with a standard set of metrics that are available for relevant evaluation of a model type. 
     * The defaults are suitable if your model falls in one of the predefined categories (e.g., ``question-answering``).   
 
-An example of using the predefined metrics for a given ``model_type`` is shown below:
+    An example of using the predefined metrics for a given ``model_type`` is shown below:
 
-.. code-block:: python
+    .. code-block:: python
 
-    results = mlflow.evaluate(
-        model,
-        eval_data,
-        targets="ground_truth",
-        model_type="question-answering",
-    )
+        results = mlflow.evaluate(
+            model,
+            eval_data,
+            targets="ground_truth",
+            model_type="question-answering",
+        )
 
-1. Specify a custom list of metrics by explicitly referencing a metric calculation function.
+2. Specify a custom list of metrics by explicitly referencing a metric calculation function.
 
     * To add additional metrics to the default collection from part 1 above, add the function names to the ``extra_metrics`` argument.
     * To diable default metric calculation and only calculate explicit metrics, remove the ``model_type`` argument and define the desired metrics. 
 
-An example of disabling the default metrics and explicitly declaring a subset of metrics to calculate is shown below:
+    An example of disabling the default metrics and explicitly declaring a subset of metrics to calculate is shown below:
 
-.. code-block:: python
+    .. code-block:: python
 
-    results = mlflow.evaluate(
-        model,
-        eval_data,
-        targets="ground_truth",
-        extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latency()],
-    )
+        results = mlflow.evaluate(
+            model,
+            eval_data,
+            targets="ground_truth",
+            extra_metrics=[mlflow.metrics.toxicity(), mlflow.metrics.latency()],
+        )
 
 
 The full reference for supported evaluation metrics can be found `here <../python_api/mlflow.html#mlflow.evaluate>`_. 
@@ -331,11 +330,11 @@ In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one
 1. A :py:func:`mlflow.pyfunc.PyFuncModel` instance or a URI pointing to a logged `mlflow.pyfunc.PyFuncModel` model. In
    general we call that MLflow model. The 
 2. A python function that takes in string inputs and outputs a single string. Your callable must match the signature of 
-   :py:func:`mlflow.pyfunc.PyFuncModel.predict`, briefly it should:
-  
-   * Has `data` as the first argument, which can be a ``pandas.Dataframe``, ``numpy.ndarray``, python list, dictionary or scipy matrix.
+   :py:func:`mlflow.pyfunc.PyFuncModel.predict` (without `params` argument), briefly it should:
+
+   * Has ``data`` as the only argument, which can be a ``pandas.Dataframe``, ``numpy.ndarray``, python list, dictionary or scipy matrix.
    * Returns one of ``pandas.DataFrame``, ``pandas.Series``, ``numpy.ndarray`` or list. 
-3. Set `model=None`, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
+3. Set ``model=None``, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
 
 Evaluating with an MLflow Model
 ---------------------------------
