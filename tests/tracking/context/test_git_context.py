@@ -25,6 +25,7 @@ def patch_script_name():
 def patch_git_repo():
     mock_repo = mock.Mock()
     mock_repo.head.commit.hexsha = MOCK_COMMIT_HASH
+    mock_repo.ignored.return_value = []
     with mock.patch("git.Repo", return_value=mock_repo):
         yield mock_repo
 
