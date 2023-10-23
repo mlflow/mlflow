@@ -20,11 +20,11 @@ def answer_similarity(
     """
     This function will create a genai metric used to evaluate the answer similarity of an LLM
     using the model provided. Answer similarity will be assessed by the semantic similarity of the
-    output to the ``ground_truth``, which should be specified in the ``target`` column.
+    output to the ``ground_truth``, which should be specified in the ``targets`` column.
 
-    The ``target`` eval_arg must be provided as part of the input dataset or output
-    predictions. This can be mapped to a column of a different name using the a ``col_mapping``
-    in the ``evaluator_config``.
+    The ``targets`` eval_arg must be provided as part of the input dataset or output
+    predictions. This can be mapped to a column of a different name using ``col_mapping``
+    in the ``evaluator_config`` parameter, or using the ``targets`` parameter in mlflow.evaluate().
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
@@ -85,17 +85,13 @@ def answer_correctness(
     judge_request_timeout=60,
 ) -> EvaluationMetric:
     """
-    This function will create a genai metric used to evaluate the  correctness of an LLM
-    using the model provided. Answer correctness should be used in cases where correctness is
-    binary, and the source of truth is provided in the ``ground_truth``. Outputs will be
-    given either the highest or lowest score depending on if they are consistent with the
-    ``ground_truth``. When dealing with inputs that may have multiple correct outputs, varying
-    degrees of correctness, or when considering other factors such as the comprehensiveness of
-    the output, it is more appropriate to use the correctness metric instead.
+    This function will create a genai metric used to evaluate the answer correctness of an LLM
+    using the model provided. Answer correctness will be assessed by the accuracy of the provided
+    output based on the ``ground_truth``, which should be specified in the ``targets`` column.
 
-    The ``ground_truth`` eval_arg must be provided as part of the input dataset or output
-    predictions. This can be mapped to a column of a different name using the a ``col_mapping``
-    in the ``evaluator_config``.
+    The ``targets`` eval_arg must be provided as part of the input dataset or output
+    predictions. This can be mapped to a column of a different name using ``col_mapping``
+    in the ``evaluator_config`` parameter, or using the ``targets`` parameter in mlflow.evaluate().
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
