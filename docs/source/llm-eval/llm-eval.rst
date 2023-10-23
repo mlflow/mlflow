@@ -233,7 +233,7 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
         greater_is_better=True,
     )
 
-Best Practice
+Best Practices for Generating Custom Evaluation Metric Prompts
 ~~~~~~~~~~~~~~
 
 Under the hood of evaluting with LLM as the judge is prompt engineering, and how to find the best prompt is still under research. 
