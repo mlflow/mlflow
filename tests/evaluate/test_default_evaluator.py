@@ -1514,7 +1514,7 @@ def test_evaluate_custom_metric_success():
             },
         )
 
-    eval_fn_args = [eval_df, None, _get_aggregate_metrics_values(builtin_metrics)]
+    eval_fn_args = [eval_df["prediction"], None, _get_aggregate_metrics_values(builtin_metrics)]
     res_metric = _evaluate_extra_metric(
         _CustomMetric(example_count_times_1_point_5, "", 0), eval_fn_args
     )
