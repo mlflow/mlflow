@@ -702,7 +702,7 @@ def test_answer_correctness_metric():
 
     with pytest.raises(
         MlflowException,
-        match="Failed to find strict correctness metric for version non-existent-version",
+        match="Failed to find answer correctness metric for version non-existent-version",
     ):
         answer_correctness(metric_version="non-existent-version")
 
