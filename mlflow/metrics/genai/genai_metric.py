@@ -64,7 +64,7 @@ def _extract_score_and_justification(output):
             data = json.loads(text)
             score = int(data.get("score"))
             justification = data.get("justification")
-        except (json.JSONDecodeError, ValueError) as e:
+        except (json.JSONDecodeError, ValueError):
             # If parsing fails, use regex
             match = re.search(r"score: (\d+),?\s*justification: (.+)", text)
             if match:
@@ -72,7 +72,7 @@ def _extract_score_and_justification(output):
                 justification = match.group(2)
             else:
                 score = None
-                justification = f"Failed to extract score and justification. Error: {e!s}"
+                justification = f"Failed to extract score and justification. Raw output: {output}"
 
         if not isinstance(score, (int, float)) or not isinstance(justification, str):
             return None, justification
