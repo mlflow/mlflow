@@ -1349,14 +1349,12 @@ def test_evaluate_extra_metric_backwards_compatible():
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
 
-    new_eval_fn_args = [eval_df, metrics]
+    new_eval_fn_args = [eval_df, None, metrics]
 
-    def new_fn_with_type_hint(eval_df, metrics: Dict[str, MetricValue]):
+    def new_fn(predictions, targets=None, metrics=None):
         return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
 
-    res_metric = _evaluate_extra_metric(
-        _CustomMetric(new_fn_with_type_hint, "new_fn", 0), new_eval_fn_args
-    )
+    res_metric = _evaluate_extra_metric(_CustomMetric(new_fn, "new_fn", 0), new_eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
@@ -1504,10 +1502,10 @@ def test_evaluate_custom_metric_success():
         eval_df["target"], eval_df["prediction"], sample_weights=None
     )
 
-    def example_count_times_1_point_5(eval_df, metrics: Dict[str, MetricValue]):
+    def example_count_times_1_point_5(predictions, targets=None, metrics=None):
         return MetricValue(
-            scores=[score * 1.5 for score in eval_df["prediction"].tolist()],
-            justifications=["justification"] * len(eval_df["prediction"]),
+            scores=[score * 1.5 for score in predictions.tolist()],
+            justifications=["justification"] * len(predictions),
             aggregate_results={
                 "example_count_times_1_point_5": metrics["example_count"].aggregate_results[
                     "example_count"
@@ -1516,7 +1514,7 @@ def test_evaluate_custom_metric_success():
             },
         )
 
-    eval_fn_args = [eval_df, _get_aggregate_metrics_values(builtin_metrics)]
+    eval_fn_args = [eval_df["prediction"], None, _get_aggregate_metrics_values(builtin_metrics)]
     res_metric = _evaluate_extra_metric(
         _CustomMetric(example_count_times_1_point_5, "", 0), eval_fn_args
     )
@@ -1593,7 +1591,7 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
 
 
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
-    def true_count(_eval_df, metrics: Dict[str, MetricValue]):
+    def true_count(predictions, targets=None, metrics=None):
         true_negatives = metrics["true_negatives"].aggregate_results["true_negatives"]
         true_positives = metrics["true_positives"].aggregate_results["true_positives"]
         return MetricValue(aggregate_results={"true_count": true_negatives + true_positives})
@@ -2192,9 +2190,17 @@ def test_missing_args_raises_exception():
     metric_1 = make_metric(name="metric_1", eval_fn=dummy_fn1, greater_is_better=True)
     metric_2 = make_metric(name="metric_2", eval_fn=dummy_fn2, greater_is_better=True)
 
-    error_message = "Error: Metric calculation failed for the following metrics:\nMetric 'metric_1'"
-    " requires the columns ['param_1', 'param_2']\n\nMetric 'metric_2' requires the columns "
-    "['param_3', 'builtin_metrics']\n"
+    error_message = (
+        r"Error: Metric calculation failed for the following metrics:\n"
+        r"Metric 'metric_1' requires the columns \['param_1', 'param_2'\]\n"
+        r"Metric 'metric_2' requires the columns \['param_3', 'builtin_metrics'\]\n\n"
+        r"Below are the existing column names for the input/output data:\n"
+        r"Input Columns: \['question'\]\n"
+        r"Output Columns: \[\]\n"
+        r"To resolve this issue, you may want to map the missing column to an existing column\n"
+        r"using the following configuration:\n"
+        r"evaluator_config=\{'col_mapping': \{<missing column name>: <existing column name>\}\}"
+    )
 
     with pytest.raises(
         MlflowException,
@@ -2594,7 +2600,7 @@ def test_evaluate_text_and_text_metrics():
     assert set(results.metrics.keys()) == set(get_text_metrics_keys())
 
 
-def very_toxic(eval_df, metrics: Dict[str, MetricValue]):
+def very_toxic(predictions, targets=None, metrics=None):
     new_scores = [1.0 if score > 0.9 else 0.0 for score in metrics["toxicity/v1"].scores]
     return MetricValue(
         scores=new_scores,
@@ -2603,8 +2609,8 @@ def very_toxic(eval_df, metrics: Dict[str, MetricValue]):
     )
 
 
-def per_row_metric(eval_df, metrics: Dict[str, MetricValue]):
-    return MetricValue(scores=[1] * len(eval_df["prediction"]))
+def per_row_metric(predictions, targets=None, metrics=None):
+    return MetricValue(scores=[1] * len(predictions))
 
 
 def test_evaluate_text_custom_metrics():
@@ -2876,7 +2882,7 @@ def test_evaluate_no_model_type_with_custom_metric():
         from mlflow.metrics import make_metric
         from mlflow.metrics.metric_definitions import standard_aggregations
 
-        def word_count_eval(predictions, targets, metrics):
+        def word_count_eval(predictions, targets=None, metrics=None):
             scores = []
             for prediction in predictions:
                 scores.append(len(prediction.split(" ")))
@@ -3005,12 +3011,32 @@ def test_multi_output_model_error_handling():
             )
 
 
+def test_invalid_extra_metrics():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        with pytest.raises(
+            MlflowException,
+            match="Please ensure that all extra metrics are instances of "
+            "mlflow.metrics.EvaluationMetric.",
+        ):
+            mlflow.evaluate(
+                model_info.model_uri,
+                data,
+                model_type="text",
+                evaluators="default",
+                extra_metrics=[mlflow.metrics.latency],
+            )
+
+
 def test_evaluate_with_latency():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame({"text": ["sentence not", "All women are bad."]})
+        data = pd.DataFrame({"text": ["sentence not", "Hello world."]})
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -3159,3 +3185,62 @@ def test_evaluate_with_correctness():
                 "correctness/v1/variance": 0.0,
                 "correctness/v1/p90": 3.0,
             }
+
+
+def test_evaluate_custom_metrics_string_values():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            extra_metrics=[
+                make_metric(
+                    eval_fn=lambda predictions, metrics, eval_config: MetricValue(
+                        aggregate_results={"eval_config_value_average": eval_config}
+                    ),
+                    name="cm",
+                    greater_is_better=True,
+                    long_name="custom_metric",
+                )
+            ],
+            evaluators="default",
+            evaluator_config={"eval_config": 3},
+        )
+        assert results.metrics["cm/eval_config_value_average"] == 3
+
+
+def test_evaluate_with_numpy_array():
+    data = [
+        ["What is MLflow?"],
+    ]
+    ground_truth = [
+        "MLflow is an open-source platform for managing the end-to-end machine learning",
+    ]
+
+    with mlflow.start_run():
+        logged_model = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        results = mlflow.evaluate(
+            logged_model.model_uri,
+            data,
+            targets=ground_truth,
+            extra_metrics=[mlflow.metrics.toxicity()],
+        )
+
+        assert results.metrics.keys() == {
+            "toxicity/v1/mean",
+            "toxicity/v1/variance",
+            "toxicity/v1/p90",
+            "toxicity/v1/ratio",
+        }
+        assert len(results.tables) == 1
+        assert results.tables["eval_results_table"].columns.tolist() == [
+            "feature_1",
+            "target",
+            "outputs",
+            "toxicity/v1/score",
+        ]

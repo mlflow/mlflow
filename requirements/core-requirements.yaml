@@ -17,7 +17,7 @@ docker:
 
 flask:
   pip_release: Flask
-  max_major_version: 2
+  max_major_version: 3
 
 numpy:
   pip_release: numpy
