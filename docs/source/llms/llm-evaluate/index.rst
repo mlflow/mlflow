@@ -25,6 +25,10 @@ a simple question-answering model by wrapping "openai/gpt-4" with custom prompt.
 your IPython or local editor and execute it, and install missing dependencies as prompted. Running the code 
 requires OpenAI API key, if you don't have an OpenAI key, you can set it up [here](https://platform.openai.com/account/api-keys).
 
+.. code-block:: shell
+
+    export OPENAI_API_KEY='your-api-key-here'
+
 .. code-block:: python
 
     import mlflow
@@ -32,11 +36,6 @@ requires OpenAI API key, if you don't have an OpenAI key, you can set it up [her
     import os
     import pandas as pd
     from getpass import getpass
-
-    # Set up openai auth.
-    OPENAI_API_KEY = getpass()
-    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-    openai.api_key = OPENAI_API_KEY
 
     eval_data = pd.DataFrame(
         {
@@ -92,7 +91,7 @@ LLM Evaluation Metrics
 
 There are two types of LLM evaluation metrics in MLflow:
 
-1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.relevance`. These  
+1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.answer_relevance`. These  
    metrics are created via :py:func:`mlflow.metrics.make_genai_metric` method. For each data record, these metrics under the hood sends 
    one prompt consisting of the following information to the SaaS model, and extract the score from model response:
 
@@ -514,7 +513,9 @@ To see the score on selected metrics, you can check:
             extra_metrics=[mlflow.metrics.answer_similarity()],
             evaluators="default",
         )
-        print(f"See per-data evaluation results below: \n{results.tables["eval_results_table"]}")
+        print(
+            f"See per-data evaluation results below: \n{results.tables['eval_results_table']}"
+        )
 
 
 View Evaluation Results via MLflow UI
