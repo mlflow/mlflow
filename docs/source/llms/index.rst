@@ -167,6 +167,7 @@ Look in the tutorials and guides below to learn more about interesting use cases
 
     rag/index
     llm-evaluate/index
+    llm-evaluate/notebooks/index
 
 .. raw:: html
 
