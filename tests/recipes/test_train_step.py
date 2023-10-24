@@ -816,6 +816,10 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
     assert np.array_equal(np.unique(predicted_label), np.array(["a1", "a2", "a3", "b"]))
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="Flaky on windows, sometimes fails with `(sqlite3.OperationalError) database is locked`",
+)
 def test_train_step_with_probability_calibration(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
