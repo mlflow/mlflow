@@ -3305,7 +3305,7 @@ def test_evaluate_retriever():
         "precision_at_k/v1/p90": 1,
     }
 
-    # test with empty returned chunks
+    # test with empty retrieved doc
     def fn3(X):
         return pd.DataFrame({"output": [()] * len(X)})
 
@@ -3326,6 +3326,51 @@ def test_evaluate_retriever():
         "precision_at_k/v1/mean": 1,
         "precision_at_k/v1/variance": 0,
         "precision_at_k/v1/p90": 1,
+    }
+
+    # test with single retrieved doc
+    def fn4(X):
+        return pd.DataFrame({"output": [("doc1")] * len(X)})
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            model=fn4,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluator_config={
+                "default": {
+                    "k": 3,
+                }
+            },
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_k/v1/mean": 1,
+        "precision_at_k/v1/variance": 0,
+        "precision_at_k/v1/p90": 1,
+    }
+
+    # test with single ground truth doc
+    X_1 = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1")] * 3})
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            model=fn,
+            data=X_1,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluator_config={
+                "default": {
+                    "k": 3,
+                }
+            },
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_k/v1/mean": 1 / 3,
+        "precision_at_k/v1/variance": 0,
+        "precision_at_k/v1/p90": 1 / 3,
     }
 
 
