@@ -88,6 +88,8 @@ We provide the following builtin factory functions to create :py:class:`Evaluati
 
 .. autofunction:: mlflow.metrics.rougeLsum
 
+.. autofunction:: mlflow.metrics.precision_at_k
+
 .. autofunction:: mlflow.metrics.toxicity
 
 .. autofunction:: mlflow.metrics.token_count

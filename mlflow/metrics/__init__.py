@@ -264,9 +264,24 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
+@experimental
 def precision_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``precision_at_k`` for retriever models.
+
+    For retriever models, it's recommended to use a static dataset represented by a Pandas
+    Dataframe or an MLflow Pandas Dataset containing the input queries, retrieved relevant
+    document IDs, and the ground-truth relevant document IDs for the evaluation. A
+    "document ID" should be a string that identifies a document. For each row, the retrieved
+    relevant document IDs and the ground-truth relevant document IDs should be provided as
+    a tuple of document ID strings. The column name of the retrieved relevant document IDs
+    should be specified by the ``predictions`` parameter, and the column name of the
+    ground-truth relevant document IDs should be specified by the ``targets`` parameter.
+    Alternatively, you can use a function that returns a tuple of document ID strings for
+    the evaluation. The function should take a Pandas DataFrame as input and return a Pandas
+    DataFrame with the same number of rows, where each row contains a tuple of document ID
+    strings. The output column name of the function should be specified by the ``predictions``
+    parameter.
 
     This metric computes a score between 0 and 1 for each row representing the precision of the
     retriever model at the given k value. The score is calculated by dividing the number of relevant

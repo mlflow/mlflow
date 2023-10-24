@@ -1317,19 +1317,7 @@ def evaluate(
         .. _textstat:
             https://pypi.org/project/textstat
 
-    - For retriever models, it's recommended to use a static dataset represented by a Pandas
-      Dataframe or an MLflow Pandas Dataset containing the input queries, retrieved relevant
-      document IDs, and the ground-truth relevant document IDs for the evaluation. A
-      "document ID" should be a string that identifies a document. For each row, the retrieved
-      relevant document IDs and the ground-truth relevant document IDs should be provided as
-      a tuple of document ID strings. The column name of the retrieved relevant document IDs
-      should be specified by the ``predictions`` parameter, and the column name of the
-      ground-truth relevant document IDs should be specified by the ``targets`` parameter.
-      Alternatively, you can use a function that returns a tuple of document ID strings for
-      the evaluation. The function should take a Pandas DataFrame as input and return a Pandas
-      DataFrame with the same number of rows, where each row contains a tuple of document ID
-      strings. The output column name of the function should be specified by the ``predictions``
-      parameter. The default evaluator logs:
+     - For retriever models, the default evaluator logs:
         - **metrics**: ``precision_at_k``: precision at k with the default value of k = 3. To use
           a different value of k, specify the ``evaluator_config`` parameter to include ``"k"``:
           ``evaluator_config={"k":5}``.
@@ -1380,7 +1368,8 @@ def evaluate(
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
         - **k**: The number of top retrieved documents to use when computing the built-in metric
-          precision_at_k for model type "retriever". Default value is 3.
+          precision_at_k for model type "retriever". Default value is 3. For other model types,
+          this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
