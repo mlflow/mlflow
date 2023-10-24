@@ -7,8 +7,6 @@ import json
 import os
 import sys
 
-from requests.exceptions import ChunkedEncodingError, ConnectionError, HTTPError
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -32,29 +30,13 @@ def main():
     download_chunk = module.download_chunk
 
     args = parse_args()
-
-    try:
-        download_chunk(
-            range_start=args.range_start,
-            range_end=args.range_end,
-            headers=json.loads(args.headers),
-            download_path=args.download_path,
-            http_uri=args.http_uri,
-        )
-    except (ConnectionError, ChunkedEncodingError):
-        with open(args.temp_file, "w") as f:
-            json.dump({"retryable": True}, f)
-        raise
-    except HTTPError as e:
-        with open(args.temp_file, "w") as f:
-            json.dump(
-                {
-                    "retryable": e.response.status_code in (401, 403, 408),
-                    "status_code": e.response.status_code,
-                },
-                f,
-            )
-        raise
+    download_chunk(
+        range_start=args.range_start,
+        range_end=args.range_end,
+        headers=json.loads(args.headers),
+        download_path=args.download_path,
+        http_uri=args.http_uri,
+    )
 
 
 if __name__ == "__main__":
