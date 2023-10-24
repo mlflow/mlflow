@@ -1514,7 +1514,8 @@ def test_pyfunc_model_registry_with_file_store(store):
         assert mv2[0].name == "model2"
 
 
-def test_copy_model_version(store):
+@pytest.mark.parametrize("copy_to_same_model", [False, True])
+def test_copy_model_version(store, copy_to_same_model):
     name1 = "test_for_copy_MV1"
     store.create_registered_model(name1)
     src_tags = [
@@ -1530,15 +1531,16 @@ def test_copy_model_version(store):
         name1, src_mv.version, "Production", archive_existing_versions=False
     )
 
-    name2 = "test_for_copy_MV2"
+    copy_rm_name = name1 if copy_to_same_model else "test_for_copy_MV2"
+    copy_mv_version = 2 if copy_to_same_model else 1
     timestamp = time.time()
-    dst_mv = store.copy_model_version(src_mv, name2)
-    assert dst_mv.name == name2
-    assert dst_mv.version == 1
+    dst_mv = store.copy_model_version(src_mv, copy_rm_name)
+    assert dst_mv.name == copy_rm_name
+    assert dst_mv.version == copy_mv_version
 
     copied_mv = store.get_model_version(dst_mv.name, dst_mv.version)
-    assert copied_mv.name == name2
-    assert copied_mv.version == 1
+    assert copied_mv.name == copy_rm_name
+    assert copied_mv.version == copy_mv_version
     assert copied_mv.current_stage == "None"
     assert copied_mv.creation_timestamp >= timestamp
     assert copied_mv.last_updated_timestamp >= timestamp
