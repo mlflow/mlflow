@@ -219,13 +219,21 @@ class CloudArtifactRepository(ArtifactRepository):
                     _logger.warning(
                         f"Retrying download of chunk {chunk.index} of {remote_file_path}"
                     )
-                    download_chunk(
-                        range_start=chunk.start,
-                        range_end=chunk.end,
-                        headers=new_headers,
-                        download_path=local_path,
-                        http_uri=new_signed_uri,
-                    )
+                    num_retries = 3
+                    for retry in range(num_retries):
+                        try:
+                            download_chunk(
+                                range_start=chunk.start,
+                                range_end=chunk.end,
+                                headers=new_headers,
+                                download_path=local_path,
+                                http_uri=new_signed_uri,
+                            )
+                            return
+                        except Exception:
+                            if retry == num_retries - 1:
+                                raise
+                            pass
 
     def _download_file(self, remote_file_path, local_path):
         # list_artifacts API only returns a list of FileInfos at the specified path
