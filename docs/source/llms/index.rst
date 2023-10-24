@@ -106,11 +106,17 @@ configuration and management of your LLM serving needs, select the provider that
 `LLM Model Evaluation <../model-evaluation/index.html>`_
 --------------------------------------------------------
 
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    llm-evaluate/index
+
 Navigating the vast landscape of Large Language Models (LLMs) can be daunting. Determining the right model, prompt, or service that aligns 
 with a project's needs is no small feat. Traditional machine learning evaluation metrics often fall short when it comes to assessing the 
 nuanced performance of generative models.
 
-Enter the `MLflow LLM Model Evaluation <../model-evaluation/index.html>`_. This feature is designed to simplify the evaluation process, 
+Enter the `MLflow LLM Model Evaluation <llm-evaluate/index.html>`_. This feature is designed to simplify the evaluation process, 
 offering a streamlined approach to compare foundational models, providers, and prompts.
 
 Benefits of MLflow's LLM Model Evaluation
