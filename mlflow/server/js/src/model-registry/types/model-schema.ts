@@ -18,7 +18,7 @@ export type ArrayType = {
 };
 export type ObjectType = {
   type: 'object';
-  properties: {[name: string]: ColumnType & {required?: boolean}};
+  properties: { [name: string]: ColumnType & { required?: boolean } };
 };
 export type ColumnSpec = ColumnType & {
   name: string;

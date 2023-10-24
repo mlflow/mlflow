@@ -61,7 +61,7 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
     if (schemaTypeSpec.type === 'tensor') {
       repr = `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype}, shape: [${schemaTypeSpec['tensor-spec'].shape}])`;
     } else {
-      repr = this.getColumnTypeRepr(schemaTypeSpec)
+      repr = this.getColumnTypeRepr(schemaTypeSpec);
     }
 
     // If the "optional" property is present and true, wrap the type around an "Optional[]"
@@ -70,7 +70,7 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
     if (schemaTypeSpec.optional) {
       repr = `Optional[${repr}]`;
     } else if (schemaTypeSpec.required) {
-      repr = `${repr} (required)`
+      repr = `${repr} (required)`;
     }
 
     return repr;
@@ -79,21 +79,21 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
   getColumnTypeRepr = (columnType: ColumnType): string => {
     const { type } = columnType;
 
-    if (type === "object") {
-      const propertyReprs = Object.keys(columnType.properties).map(propertyName => {
-        const property = columnType.properties[propertyName]
-        const required = property.required ? " (required)" : ""
-        return `"${propertyName}": ${this.getColumnTypeRepr(property)}${required}`
-    })
-      return `{ ${propertyReprs.join(', ')} }`
-    } 
-
-    if (type === "array") {
-      return `Array(${this.getColumnTypeRepr(columnType.items)})`
+    if (type === 'object') {
+      const propertyReprs = Object.keys(columnType.properties).map((propertyName) => {
+        const property = columnType.properties[propertyName];
+        const required = property.required ? ' (required)' : '';
+        return `"${propertyName}": ${this.getColumnTypeRepr(property)}${required}`;
+      });
+      return `{ ${propertyReprs.join(', ')} }`;
     }
-    
-    return type
-  }
+
+    if (type === 'array') {
+      return `Array(${this.getColumnTypeRepr(columnType.items)})`;
+    }
+
+    return type;
+  };
 
   getSchemaRowData = (schemaData: any) => {
     const rowData: any = [];
