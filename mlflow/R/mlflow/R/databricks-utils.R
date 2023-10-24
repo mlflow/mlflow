@@ -77,23 +77,34 @@ get_databricks_config_from_env <- function() {
 get_databricks_config <- function(profile) {
   config <- if (!is.na(profile)) {
     get_databricks_config_for_profile(profile)
-  } else if (exists("spark.databricks.token") && exists("spark.databricks.api.url")) {
-    config_vars <- list(
-      host = get("spark.databricks.api.url", envir = .GlobalEnv),
-      token = get("spark.databricks.token", envir = .GlobalEnv),
-      insecure = Sys.getenv(config_variable_map$insecure, "False")
-    )
-    new_databricks_config(config_source = "db_dynamic", config_vars = config_vars)
   } else {
+    # try to get configs by the following order:
+    # - environment
+    # - 'DEFAULT' profile
+    # - Databricks notebook variables
+
     config <- get_databricks_config_from_env()
     if (databricks_config_is_valid(config)) {
-      config
-    } else {
-      get_databricks_config_for_profile("DEFAULT")
+      return(config)
     }
-  }
-  if (!databricks_config_is_valid(config)) {
-    stop("Could not find valid Databricks configuration.")
+
+    config <- get_databricks_config_for_profile("DEFAULT")
+    if (databricks_config_is_valid(config)) {
+      return(config)
+    }
+
+    if (exists("spark.databricks.token") && exists("spark.databricks.api.url")) {
+      config_vars <- list(
+        host = get("spark.databricks.api.url", envir = .GlobalEnv),
+        token = get("spark.databricks.token", envir = .GlobalEnv),
+        insecure = Sys.getenv(config_variable_map$insecure, "False")
+      )
+      config <- new_databricks_config(config_source = "db_dynamic", config_vars = config_vars)
+    } else {
+      stop("Could not find valid Databricks configuration.")
+    }
+
+    config
   }
   config
 }
