@@ -696,29 +696,41 @@ def parallelized_download_file_using_http_uri(
     def run_download(range_start, range_end):
         with tempfile.TemporaryDirectory() as tmpdir:
             json_file = os.path.join(tmpdir, "http_error.json")
-            subprocess.run(
-                [
-                    sys.executable,
-                    download_cloud_file_chunk.__file__,
-                    "--range-start",
-                    str(range_start),
-                    "--range-end",
-                    str(range_end),
-                    "--headers",
-                    json.dumps(headers or {}),
-                    "--download-path",
-                    download_path,
-                    "--http-uri",
-                    http_uri,
-                    "--temp-file",
-                    json_file,
-                ],
-                text=True,
-                check=True,
-                capture_output=True,
-                timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
-                env=env,
-            )
+            try:
+                subprocess.run(
+                    [
+                        sys.executable,
+                        download_cloud_file_chunk.__file__,
+                        "--range-start",
+                        str(range_start),
+                        "--range-end",
+                        str(range_end),
+                        "--headers",
+                        json.dumps(headers or {}),
+                        "--download-path",
+                        download_path,
+                        "--http-uri",
+                        http_uri,
+                        "--temp-file",
+                        json_file,
+                    ],
+                    text=True,
+                    check=True,
+                    capture_output=True,
+                    timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
+                    env=env,
+                )
+            except subprocess.CalledProcessError as e:
+                raise Exception(
+                    f"""
+--- cmd ---
+{e.args}
+--- stdout ---
+{e.stdout}
+--- stderr ---
+{e.stderr}
+"""
+                )
 
     num_requests = int(math.ceil(file_size / float(chunk_size)))
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
