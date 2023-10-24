@@ -1634,3 +1634,22 @@ def test_schema_inference_on_lists(data, data_type):
         ]
     )
     assert inferred_schema == expected_schema
+
+
+def test_repr_of_objects():
+    obj = Object(
+        properties=[
+            Property(name="a", dtype=DataType.string),
+            Property(name="b", dtype=DataType.double, required=False),
+            Property(name="c", dtype=Array(DataType.long)),
+            Property(name="d", dtype=Object([Property("d1", DataType.string)])),
+        ]
+    )
+    obj_repr = (
+        "{a: string (required), b: double (optional), c: Array(long) "
+        "(required), d: {d1: string (required)} (required)}"
+    )
+    assert repr(obj) == obj_repr
+
+    arr = Array(obj)
+    assert repr(arr) == f"Array({obj_repr})"
