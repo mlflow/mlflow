@@ -119,7 +119,6 @@ The default metrics for given model types are shown below:
 * **question-answering**: ``model_type="question-answering"``:
 
     * exact-match
-    * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
     * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
@@ -127,14 +126,12 @@ The default metrics for given model types are shown below:
 * **text-summarization**: ``model_type="text-summarization"``: 
 
     * `ROUGE <https://huggingface.co/spaces/evaluate-metric/rouge>`_ :sup:`3`
-    * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
     * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
 * **text models**: ``model_type="text"``:
 
-    * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
     * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
