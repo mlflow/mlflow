@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 from unittest import mock
-from unittest.mock import Mock
 
 import pandas as pd
 import pytest
@@ -75,10 +74,8 @@ def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(
 ):
     from sklearn.preprocessing import StandardScaler
 
-    m = Mock()
-    m.transformer_fn = lambda: StandardScaler()  # pylint: disable=unnecessary-lambda
     monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(tmp_recipe_root_path))
-    with mock.patch.dict("sys.modules", {"steps.transform": m}):
+    with mock.patch("steps.transform.transformer_fn", lambda: StandardScaler()):
         transform_step, transform_step_output_dir, _ = set_up_transform_step(
             tmp_recipe_root_path, "transformer_fn"
         )
