@@ -282,7 +282,7 @@ def make_genai_metric(
                         ErrorCode.Name(UNAUTHENTICATED),
                     ]:
                         raise MlflowException(e)
-                return None, f"Failed to score model on payload. Error:: {e!s}"
+                return None, f"Failed to score model on payload. Error: {e!s}"
 
         scores = [None] * len(inputs)
         justifications = [None] * len(inputs)
