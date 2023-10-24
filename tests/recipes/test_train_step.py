@@ -204,7 +204,7 @@ def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
 
 
 @pytest.fixture(autouse=True)
-def tmp_steps_path(tmp_recipe_root_path, monkeypatch):
+def dummy_train_step(tmp_recipe_root_path, monkeypatch):
     # `mock.patch("steps.train.estimator_fn", ...)` would fail without this fixture
     steps = tmp_recipe_root_path / "steps"
     steps.mkdir(exist_ok=True)

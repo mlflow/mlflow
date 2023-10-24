@@ -15,6 +15,20 @@ from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
 from mlflow.utils.file_utils import read_yaml
 
 
+@pytest.fixture(autouse=True)
+def dummy_transform_step(tmp_recipe_root_path, monkeypatch):
+    # `mock.patch("steps.transform.transformer_fn", ...)` would fail without this fixture
+    steps = tmp_recipe_root_path / "steps"
+    steps.mkdir(exist_ok=True)
+    steps.joinpath("transform.py").write_text(
+        """
+def transformer_fn(estimator_params=None):
+    return None
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_recipe_root_path))
+
+
 # Sets up the transform step and returns the constructed TransformStep instance and step output dir
 def set_up_transform_step(recipe_root: Path, transform_user_module):
     split_step_output_dir = recipe_root.joinpath("steps", "split", "outputs")
