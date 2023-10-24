@@ -2038,6 +2038,25 @@ def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schem
             ),
         ),
         (
+            {"query": [{"name": "value", "age": 10}, {"name": "value"}], "table": ["some_table"]},
+            Schema(
+                [
+                    ColSpec(
+                        Array(
+                            Object(
+                                [
+                                    Property("name", DataType.string),
+                                    Property("age", DataType.long, required=False),
+                                ]
+                            )
+                        ),
+                        name="query",
+                    ),
+                    ColSpec(Array(DataType.string), name="table"),
+                ]
+            ),
+        ),
+        (
             [{"query": "sentence"}, {"query": "sentence"}],
             Schema([ColSpec(DataType.string, name="query")]),
         ),
@@ -2080,6 +2099,58 @@ def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
 
 
 @pytest.mark.parametrize(
+    "data",
+    [
+        {"query": "sentence"},
+        {"query": ["sentence_1", "sentence_2"]},
+        {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+        {"query": [{"name": "value"}, {"name": "value"}], "table": ["some_table"]},
+        [{"query": "sentence"}, {"query": "sentence"}],
+        [
+            {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+            {"query": ["sentence_1", "sentence_2"]},
+        ],
+        [
+            {"query": [{"name": "value"}, {"name": "value"}], "table": ["some_table"]},
+            {"query": [{"name": "value", "age": 10}, {"name": "value"}], "table": ["some_table"]},
+        ],
+    ],
+)
+@pytest.mark.parametrize("format_key", ["inputs", "dataframe_split", "dataframe_records"])
+def test_pyfunc_model_scoring_with_objects_and_arrays(data, format_key):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=infer_signature(data),
+        )
+
+    df = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
+
+    if format_key == "inputs":
+        payload = {format_key: data}
+    elif format_key == "dataframe_split":
+        payload = {format_key: df.to_dict(orient="split")}
+    elif format_key == "dataframe_records":
+        payload = {format_key: df.to_dict(orient="records")}
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps(payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    expected_result = df.to_dict(orient="records")
+    np.testing.assert_equal(result, expected_result)
+
+
+@pytest.mark.parametrize(
     ("data", "schema"),
     [
         (
@@ -2116,7 +2187,8 @@ def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
         ),
     ],
 )
-def test_pyfunc_model_schema_enforcement_complex(data, schema):
+@pytest.mark.parametrize("format_key", ["inputs", "dataframe_split", "dataframe_records"])
+def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             return model_input
@@ -2134,3 +2206,21 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema):
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     prediction = loaded_model.predict(df)
     pd.testing.assert_frame_equal(prediction, df)
+
+    if format_key == "inputs":
+        payload = {format_key: data}
+    elif format_key == "dataframe_split":
+        payload = {format_key: df.to_dict(orient="split")}
+    elif format_key == "dataframe_records":
+        payload = {format_key: df.to_dict(orient="records")}
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps(payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    expected_result = df.to_dict(orient="records")
+    np.testing.assert_equal(result, expected_result)

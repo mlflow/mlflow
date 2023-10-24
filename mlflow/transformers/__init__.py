@@ -2644,7 +2644,8 @@ class _TransformersWrapper:
         if not valid_uri:
             raise MlflowException(
                 "An invalid string input was provided. String inputs to "
-                "audio files must be either a file location or a uri.",
+                "audio files must be either a file location or a uri. "
+                f"Received: {input_str[:20]}...",
                 error_code=BAD_REQUEST,
             )
 

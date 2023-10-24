@@ -13,12 +13,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
-from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.types import ColSpec, DataType, Schema, TensorSpec
+from mlflow.types.schema import Array, Object, Property
 from mlflow.utils.proto_json_utils import (
     MlflowFailedTypeConversion,
     _CustomJsonEncoder,
     _stringify_all_experiment_ids,
     cast_df_types_according_to_schema,
+    dataframe_from_parsed_json,
     dataframe_from_raw_json,
     message_to_json,
     parse_dict,
@@ -621,3 +623,66 @@ def test_cast_df_types_according_to_schema_success(dataframe, schema, expected):
 def test_cast_df_types_according_to_schema_error_message(dataframe, schema, error_message):
     with pytest.raises(MlflowFailedTypeConversion, match=error_message):
         cast_df_types_according_to_schema(dataframe, schema)
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        ({"query": "sentence"}, Schema([ColSpec(DataType.string, name="query")])),
+        (
+            {"query": ["sentence_1", "sentence_2"]},
+            Schema([ColSpec(Array(DataType.string), name="query")]),
+        ),
+        (
+            {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+            Schema(
+                [
+                    ColSpec(Array(DataType.string), name="query"),
+                    ColSpec(DataType.string, name="table"),
+                ]
+            ),
+        ),
+        (
+            {"query": [{"name": "value", "age": 10}, {"name": "value"}], "table": ["some_table"]},
+            Schema(
+                [
+                    ColSpec(
+                        Array(
+                            Object(
+                                [
+                                    Property("name", DataType.string),
+                                    Property("age", DataType.long, required=False),
+                                ]
+                            )
+                        ),
+                        name="query",
+                    ),
+                    ColSpec(Array(DataType.string), name="table"),
+                ]
+            ),
+        ),
+        (
+            [{"query": "sentence"}, {"query": "sentence"}],
+            Schema([ColSpec(DataType.string, name="query")]),
+        ),
+        (
+            [
+                {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+                {"query": ["sentence_1", "sentence_2"]},
+            ],
+            Schema(
+                [
+                    ColSpec(Array(DataType.string), name="query"),
+                    ColSpec(DataType.string, name="table", required=False),
+                ]
+            ),
+        ),
+    ],
+)
+def test_parse_tf_serving_input_for_dictionaries_and_lists(data, schema):
+    assert parse_tf_serving_input({"inputs": data}, schema) == data
+    df = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
+    df_split = df.to_dict(orient="split")
+    pd.testing.assert_frame_equal(dataframe_from_parsed_json(df_split, "split", schema), df)
+    df_records = df.to_dict(orient="records")
+    pd.testing.assert_frame_equal(dataframe_from_parsed_json(df_records, "records", schema), df)

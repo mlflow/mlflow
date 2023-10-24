@@ -207,6 +207,7 @@ class MlflowFailedTypeConversion(MlflowException):
 def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
 
+    from mlflow.models.utils import _enforce_array, _enforce_object
     from mlflow.types.schema import Array, DataType, Object
 
     actual_cols = set(pdf.columns)
@@ -239,11 +240,10 @@ def cast_df_types_according_to_schema(pdf, schema):
                     # The conversion will be done in `_enforce_schema` while
                     # `PyFuncModel.predict` being called.
                     pass
-                elif isinstance(col_type_spec, (Array, Object)):
-                    # for array and object colspec types, we expect
-                    # the input to be list or dictionary, so we shouln't
-                    # convert it here
-                    pass
+                elif isinstance(col_type_spec, Array):
+                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_array(x, col_type_spec))
+                elif isinstance(col_type_spec, Object):
+                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_object(x, col_type_spec))
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
@@ -360,6 +360,33 @@ def _get_jsonable_obj(data, pandas_orient="records"):
         return data
 
 
+def convert_data_type(data, spec):
+    """
+    Convert input data to the type specified in the spec.
+
+    :param data: Input data.
+    :param spec: ColSpec or TensorSpec.
+    """
+    import numpy as np
+
+    from mlflow.models.utils import _enforce_array, _enforce_object
+    from mlflow.types.schema import Array, ColSpec, DataType, Object, TensorSpec
+
+    if spec is None:
+        return np.array(data)
+    if isinstance(spec, TensorSpec):
+        return np.array(data, dtype=spec.type)
+    if isinstance(spec, ColSpec):
+        if isinstance(spec.type, DataType):
+            return np.array(data, spec.type.to_numpy())
+        elif isinstance(spec.type, Array):
+            return np.array(_enforce_array(data, spec.type))
+        elif isinstance(spec.type, Object):
+            return _enforce_object(data, spec.type)
+
+    raise MlflowException(f"Failed to convert data type for data `{data}` with spec `{spec}`.")
+
+
 def parse_tf_serving_input(inp_dict, schema=None):
     """
     :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
@@ -370,36 +397,54 @@ def parse_tf_serving_input(inp_dict, schema=None):
     import numpy as np
 
     def cast_schema_type(input_data):
+        types_dict = {}
         if schema is not None:
             if schema.has_input_names():
-                input_names = schema.input_names()
-                if len(input_names) == 1 and isinstance(input_data, list):
-                    # for schemas with a single column, match input with column
-                    input_data = {input_names[0]: input_data}
-                if not isinstance(input_data, dict):
-                    raise MlflowException(
-                        "Failed to parse input data. This model contains a tensor-based model"
-                        " signature with input names, which suggests a dictionary input mapping"
-                        f" input name to tensor, but an input of type {type(input_data)} was found."
-                    )
-                type_dict = dict(zip(schema.input_names(), schema.numpy_types()))
-                for col_name in input_data.keys():
-                    input_data[col_name] = np.array(
-                        input_data[col_name], dtype=type_dict.get(col_name)
-                    )
+                types_dict = schema.input_dict()
+                if (
+                    len(types_dict) == 1
+                    and isinstance(input_data, list)
+                    and not any(isinstance(x, dict) for x in input_data)
+                ):
+                    # for schemas with a single column (not List[Dict]), match input with column
+                    input_data = {list(types_dict.keys())[0]: input_data}
+            # Un-named schema should only contain a single column
+            elif not isinstance(input_data, list):
+                raise MlflowException(
+                    "Failed to parse input data. This model contains an un-named tensor-based"
+                    " model signature which expects a single n-dimensional array as input,"
+                    f" however, an input of type {type(input_data)} was found."
+                )
+        if isinstance(input_data, dict):
+            input_data = {
+                col: convert_data_type(data, types_dict.get(col))
+                for col, data in input_data.items()
+            }
+        elif isinstance(input_data, list):
+            # List of dictionaries of column_name -> value mapping
+            # List[Dict] must correspond to a schema with named columns
+            if all(isinstance(x, dict) for x in input_data):
+                input_data = [
+                    {
+                        col: convert_data_type(value, types_dict.get(col))
+                        for col, value in data.items()
+                    }
+                    for data in input_data
+                ]
+            # List of values
             else:
-                if not isinstance(input_data, list):
-                    raise MlflowException(
-                        "Failed to parse input data. This model contains an un-named tensor-based"
-                        " model signature which expects a single n-dimensional array as input,"
-                        f" however, an input of type {type(input_data)} was found."
-                    )
-                input_data = np.array(input_data, dtype=schema.numpy_types()[0])
+                spec = schema.inputs[0] if schema else None
+                input_data = convert_data_type(input_data, spec)
         else:
-            if isinstance(input_data, dict):
-                input_data = {k: np.array(v) for k, v in input_data.items()}
-            else:
+            if schema is None:
                 input_data = np.array(input_data)
+            else:
+                raise MlflowException(
+                    "Failed to parse input data. This model contains a tensor-based model"
+                    " signature with input names, which suggests a dictionary / a list of "
+                    "dictionaries input mapping input name to tensor or a pure list, but "
+                    f"an input of {input_data} was found."
+                )
         return input_data
 
     # pylint: disable=broad-except
@@ -417,6 +462,13 @@ def parse_tf_serving_input(inp_dict, schema=None):
 
     # Read the JSON
     try:
+        # objects & arrays schema for List[Dict] and Dict[List] are different
+        # so the conversion for `instances` below changes the schema.
+        # e.g.
+        # [{"col1": 1, "col2": 2}, {"col1": 3, "col2": 4}] -> {"col1": [1, 3], "col2": [2, 4]}
+        # Schema([ColSpec(long, "col1"), ColSpec(long, "col2")]) ->
+        # Schema([ColSpec(Array(long), "col1"), ColSpec(Array(long), "col2")])
+        # To avoid this, we shouldn't use `instances` for such data.
         if "instances" in inp_dict:
             items = inp_dict["instances"]
             if len(items) > 0 and isinstance(items[0], dict):
@@ -432,12 +484,13 @@ def parse_tf_serving_input(inp_dict, schema=None):
             # items already in column format, convert values to tensor
             items = inp_dict["inputs"]
             data = cast_schema_type(items)
-    except Exception:
+    except Exception as e:
         raise MlflowException(
             "Failed to parse data as TF serving input. Ensure that the input is"
             " a valid JSON-formatted string that conforms to the request body for"
             " TF serving's Predict API as documented at"
-            " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2"
+            " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2. "
+            f"Error: {e}"
         )
 
     # Sanity check inputted data. This check will only be applied when the row-format `instances`
