@@ -1,8 +1,7 @@
 Hyperparameter tuning with MLflow and child runs - Notebooks
 ============================================================
 
-If you would like to view the notebooks in this guide in their entirety, each notebook and the primary
-sections within them can be navigated to directly below:
+If you would like to view the notebooks in this guide in their entirety, each notebook can be either viewed or downloaded below.
 
 .. toctree::
     :maxdepth: 1
@@ -72,8 +71,8 @@ clicking the respective links to each notebook in this guide:
 .. raw:: html
 
     <a href="hyperparameter-tuning-with-child-runs.ipynb" class="download-btn">Download the main notebook</a><br>
-    <a href="parent-child-runs.ipynb" class="download-btn">Download Parent Child Runs notebook</a><br>
-    <a href="logging-plots-in-mlflow.ipynb" class="download-btn">Download Plot Logging in MLflow notebook</a><br>
+    <a href="parent-child-runs.ipynb" class="download-btn">Download the Parent-Child Runs notebook</a><br>
+    <a href="logging-plots-in-mlflow.ipynb" class="download-btn">Download the Plot Logging in MLflow notebook</a><br>
 
 .. note::
     In order to run the notebooks, please ensure that you either have a local MLflow Tracking Server started or modify the
