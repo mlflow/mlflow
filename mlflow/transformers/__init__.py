@@ -426,6 +426,20 @@ def save_model(
     else:
         built_pipeline = transformers_model
 
+    # Verify that the model has not been loaded to distributed memory
+    # NB: transformers does not correctly save a model whose weights have been loaded
+    # using accelerate iff the model weights have been loaded using a device_map that is
+    # heterogeneous. There is a distinct possibility for a partial write to occur, causing an
+    # invalid state of the model's weights in this scenario. Hence, we raise.
+    if _is_model_distributed_in_memory(built_pipeline.model):
+        raise MlflowException(
+            "The model that is attempting to be saved has been loaded into memory "
+            "with an incompatible configuration. If you are using the accelerate "
+            "library to load your model, please ensure that it is saved only after "
+            "loading with the default device mapping. Do not specify `device_map` "
+            "and please try again."
+        )
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -850,6 +864,22 @@ def load_model(
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
     return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
+
+
+def _is_model_distributed_in_memory(transformers_model):
+    """Check if the model is distributed across multiple devices in memory."""
+
+    # Check if the model attribute exists and if the model is loaded on CPU
+    if not hasattr(transformers_model, "hf_device_map") or transformers_model.device.type == "cpu":
+        return False
+
+    # Check if all components are loaded into the same location
+    unique_device_types = {value.type for value in transformers_model.hf_device_map.values()}
+    if len(unique_device_types) == 1:
+        return False
+
+    # For all other configurations, we cannot be certain that the weights will be saved correctly
+    return True
 
 
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
