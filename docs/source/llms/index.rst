@@ -173,17 +173,17 @@ Look in the tutorials and guides below to learn more about interesting use cases
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="rag/index.html" >
+                <a href="llm-evaluate/index.html" >
                     <div class="header">
-                        Question Generation for RAG
+                        Evaluating LLMs
                     </div>
                 </a>
                 <p>
-                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                    Learn how to evaluate LLMs with MLflow.
                 </p>
             </div>
             <div class="simple-card">
-                <a href="llms/rag/index.html" >
+                <a href="rag/index.html" >
                     <div class="header">
                         Question Generation for RAG
                     </div>

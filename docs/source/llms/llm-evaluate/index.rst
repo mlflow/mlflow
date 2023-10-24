@@ -536,3 +536,8 @@ Please see the screenshot below for clarity:
     :width: 1024px
     :align: center
     :alt: Demo UI of MLflow evaluate
+
+.. toctree::
+    :maxdepth: 1
+    
+    Full Notebooks <notebooks/index>
