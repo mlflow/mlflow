@@ -32,7 +32,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to, get_total_size
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, get_total_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 

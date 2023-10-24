@@ -288,7 +288,8 @@ from mlflow.utils.file_utils import (
     _copy_file_or_tree,
     get_or_create_nfs_tmp_dir,
     get_or_create_tmp_dir,
-    write_to, get_total_size,
+    get_total_size,
+    write_to,
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,

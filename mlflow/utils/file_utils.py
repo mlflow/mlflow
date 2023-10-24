@@ -25,6 +25,7 @@ from urllib.parse import unquote
 from urllib.request import pathname2url
 
 import yaml
+
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 try:
@@ -1011,8 +1012,7 @@ def get_total_size(path: str) -> int:
     """
     if not os.path.isdir(path):
         raise MlflowException(
-            message=f"The given {path} is not a directory.",
-            error_code=INVALID_PARAMETER_VALUE
+            message=f"The given {path} is not a directory.", error_code=INVALID_PARAMETER_VALUE
         )
 
     total_size = 0

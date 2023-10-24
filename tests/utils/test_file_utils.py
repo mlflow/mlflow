@@ -374,7 +374,7 @@ def test_get_total_size(tmp_path):
     os.mkdir(subdir)
     files = {
         "file1.txt": "hello world",  # 11 bytes
-        "file2.txt": "This is mlflow testing."  # 23 bytes
+        "file2.txt": "This is mlflow testing.",  # 23 bytes
     }
     for name, content in files.items():
         with open(os.path.join(root, name), "w") as fp:
