@@ -35,6 +35,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     recipes
     gateway/index
     llms/prompt-engineering
+    llms/llm-evaluate/index
     plugins
     auth/index
     cli
