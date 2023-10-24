@@ -39,7 +39,7 @@ def augmented_raise_for_status(response):
             raise e
 
 
-def download_chunk(range_start, range_end, headers, download_path, http_uri):
+def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
 
     with cloud_storage_http_request(
