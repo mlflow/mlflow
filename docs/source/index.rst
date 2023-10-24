@@ -202,7 +202,6 @@ Deployment
     getting-started/index
     new-features/index
     llms/index
-    llms/rag/index
     model-evaluation/index
     deep-learning/index
     traditional-ml/index
