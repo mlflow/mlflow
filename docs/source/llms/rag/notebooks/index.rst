@@ -13,4 +13,4 @@ the user's question.
     :maxdepth: 1
     :hidden:
 
-    question-generation-retrieval-evaluation.ipynb
+    .ipynb
