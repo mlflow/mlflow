@@ -13,7 +13,7 @@ For a more detailed description of all features, please go to the [documentation
 
 ## Getting Started
 
-> **NOTE** This example is tested on a Linux Machine (Debian 11) with a A100 GPU.
+> **NOTE** This example is tested on a Linux Machine (Debian 11) with a NVIDIA A100 GPU.
 
 To configure the MLflow AI gateway with Huggingface Text Generation Inference, a few additional steps need to be followed. The initial step involves deploying a Huggingface model on the TGI server, which is illustrated in the next section.
 
