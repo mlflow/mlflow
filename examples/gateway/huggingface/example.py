@@ -8,7 +8,7 @@ def main():
     response_completions = query(
         route="completions",
         data={
-            "prompt": ("What is a good recipe for Spaghetti?"),
+            "prompt": ("What is Deep Learning?"),
             "temperature": 0.1,
         },
     )
