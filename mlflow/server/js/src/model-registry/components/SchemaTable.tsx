@@ -10,7 +10,7 @@ import { Table } from 'antd';
 import { LogModelWithSignatureUrl } from '../../common/constants';
 import { gray800 } from '../../common/styles/color';
 import { spacingMedium } from '../../common/styles/spacing';
-import { ColumnSpec, TensorSpec } from '../types/model-schema';
+import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
 import { FormattedMessage, injectIntl } from 'react-intl';
 
 const { Column } = Table;
@@ -54,20 +54,46 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
     );
   };
 
-  getSchemaTypeRepr = (schemaTypeSpec: ColumnSpec | TensorSpec) => {
+  getSchemaTypeRepr = (schemaTypeSpec: ColumnSpec | TensorSpec): string => {
     let { type } = schemaTypeSpec;
+
     let repr: string = type;
     if (schemaTypeSpec.type === 'tensor') {
       repr = `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype}, shape: [${schemaTypeSpec['tensor-spec'].shape}])`;
+    } else {
+      repr = this.getColumnTypeRepr(schemaTypeSpec)
     }
 
     // If the "optional" property is present and true, wrap the type around an "Optional[]"
+    // NOTE: newer model signatures will have "required" instead of "optional", but we currently
+    // have to support both since both exist.
     if (schemaTypeSpec.optional) {
       repr = `Optional[${repr}]`;
+    } else if (schemaTypeSpec.required) {
+      repr = `${repr} (required)`
     }
 
     return repr;
   };
+
+  getColumnTypeRepr = (columnType: ColumnType): string => {
+    const { type } = columnType;
+
+    if (type === "object") {
+      const propertyReprs = Object.keys(columnType.properties).map(propertyName => {
+        const property = columnType.properties[propertyName]
+        const required = property.required ? " (required)" : ""
+        return `"${propertyName}": ${this.getColumnTypeRepr(property)}${required}`
+    })
+      return `{ ${propertyReprs.join(', ')} }`
+    } 
+
+    if (type === "array") {
+      return `Array(${this.getColumnTypeRepr(columnType.items)})`
+    }
+    
+    return type
+  }
 
   getSchemaRowData = (schemaData: any) => {
     const rowData: any = [];

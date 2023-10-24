@@ -18,10 +18,11 @@ export type ArrayType = {
 };
 export type ObjectType = {
   type: 'object';
-  properties: Map<string, ColumnType>;
+  properties: {[name: string]: ColumnType & {required?: boolean}};
 };
 export type ColumnSpec = ColumnType & {
   name: string;
+  required?: boolean;
   optional?: boolean;
 };
 
@@ -31,5 +32,6 @@ export type TensorSpec = {
     dtype: string;
     shape: Array<number>;
   };
+  required?: boolean;
   optional?: boolean;
 };
