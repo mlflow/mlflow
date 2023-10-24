@@ -5,7 +5,7 @@ from time import sleep, time
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_ALREADY_EXISTS
 from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
@@ -341,7 +341,7 @@ class AbstractStore:
         try:
             self.create_registered_model(dst_name)
         except MlflowException as e:
-            if e.error_code != RESOURCE_ALREADY_EXISTS:
+            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 raise
 
         return self.create_model_version(
