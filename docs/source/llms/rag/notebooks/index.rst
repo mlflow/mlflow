@@ -13,4 +13,19 @@ the user's question.
     :maxdepth: 1
     :hidden:
 
-    .ipynb
+    question-generation-retrieval-evaluation.ipynb
+
+Question Generation for RAG Notebook
+------------------------------------
+
+If you would like a copy of this notebook to execute in your environment, download the notebook here:
+
+.. raw:: html
+
+    <a href="question-generation-retrieval-evaluation.ipynb" class="download-btn">Download the notebook</a><br>
+
+To follow along and see the sections of the notebook guide, click below:
+
+.. raw:: html
+
+    <a href="question-generation-retrieval-evaluation.html" class="download-btn">View the Notebook</a><br>

@@ -106,6 +106,16 @@ LLM Guides and Tutorials
                     discover how MLflow provides a holistic solution for managing LLM interactions.
                 </p>
             </div>
+            <div class="simple-card">
+                <a href="llms/rag/index.html" >
+                    <div class="header">
+                        Question Generation for RAG
+                    </div>
+                </a>
+                <p>
+                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                </p>
+            </div>
         </article>
     </section>
 
