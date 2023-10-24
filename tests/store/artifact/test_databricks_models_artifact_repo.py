@@ -1,5 +1,4 @@
 import json
-import re
 from unittest import mock
 from unittest.mock import ANY
 
@@ -314,18 +313,20 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri",
         return_value=error_downloads,
-    ):
-        with pytest.raises(
-            MlflowException,
-            match=re.compile(
-                (
-                    rf"Failed to download artifact {re.escape(remote_file_path)}:"
-                    r".+Internal Server Error"
-                ),
-                re.DOTALL,
-            ),
-        ):
+    ), mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".download_chunk",
+        side_effect=Exception("Retry failed"),
+    ) as mock_download_chunk:
+        with pytest.raises(MlflowException, match="Retry failed"):
             databricks_model_artifact_repo._download_file(remote_file_path, "")
+
+        mock_download_chunk.assert_called_once_with(
+            range_start=2,
+            range_end=3,
+            headers={"header_name": "header_value"},
+            download_path="",
+            http_uri="https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
+        )
 
 
 @pytest.mark.parametrize(
