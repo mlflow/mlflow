@@ -200,7 +200,8 @@ class Property:
         return self.name < other.name
 
     def __repr__(self) -> str:
-        return f"Property(name={self.name}, type={self.dtype}, required={self.required})"
+        required = "required" if self.required else "optional"
+        return f"{self.name}: {self.dtype!r} ({required})"
 
     def to_dict(self):
         d = {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
@@ -342,7 +343,8 @@ class Object:
         return False
 
     def __repr__(self) -> str:
-        return f"Object(properties={self.properties})"
+        joined = ", ".join(map(repr, self.properties))
+        return "{" + joined + "}"
 
     def to_dict(self):
         properties = {
@@ -496,7 +498,7 @@ class Array:
         return cls(dtype=kwargs["items"]["type"])
 
     def __repr__(self) -> str:
-        return f"Array(type={self.dtype})"
+        return f"Array({self.dtype!r})"
 
     def _merge(self, arr: "Array") -> "Array":
         if not isinstance(arr, Array):
@@ -597,14 +599,10 @@ class ColSpec:
         return False
 
     def __repr__(self) -> str:
+        required = "required" if self.required else "optional"
         if self.name is None:
-            return repr(self.type)
-        else:
-            return "{name}: {type}{required}".format(
-                name=repr(self.name),
-                type=repr(self.type),
-                required=" (required)" if self.required else "",
-            )
+            return f"{self.type!r} ({required})"
+        return f"{self.name!r}: {self.type!r} ({required})"
 
     @classmethod
     def from_json_dict(cls, **kwargs):
