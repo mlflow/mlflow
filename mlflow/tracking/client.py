@@ -714,9 +714,9 @@ class MlflowClient:
                             If False, logs the metric asynchronously and returns a future
                             representing the logging operation.
 
-        :return: When synchronous=True, returns None.
-                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
-                 represents future for logging operation.
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -783,9 +783,9 @@ class MlflowClient:
                             successfully. If False, logs the parameter asynchronously and
                             returns a future representing the logging operation.
 
-        :return: When synchronous=True, the parameter value that is logged.
-                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
-                 represents future for logging operation.
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -883,9 +883,9 @@ class MlflowClient:
                             If False, logs the tag asynchronously and returns a future
                             representing the logging operation.
 
-        :return: When synchronous=True, returns None.
-                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
-                 represents future for logging operation.
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -1033,9 +1033,9 @@ class MlflowClient:
 
         Raises an MlflowException if any errors occur.
 
-        :return: When synchronous=True, returns None.
-                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
-                 represents future for logging operation.
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
