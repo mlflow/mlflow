@@ -10,8 +10,9 @@ In each of the sections below, you will find overviews, guides, and step-by-step
 the features of MLflow and how they can be leveraged to solve real-world MLOps problems. 
 
 
-Getting Started with MLflow
----------------------------
+`Getting Started with MLflow <getting-started/index.html>`_
+-----------------------------------------------------------
+
 If this is your first time exploring MLflow, the tutorials and guides here are a great place to start. The emphasis in each of these is 
 getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to 
 enhance your learning in area-specific guides and tutorials. 
@@ -56,8 +57,9 @@ enhance your learning in area-specific guides and tutorials.
         </article>
     </section>
 
-LLMs
-----
+`LLMs <llms/index.html>`_
+-------------------------
+
 Explore the comprehensive LLM-focused native support in MLflow. From **MLflow AI Gateway** to the **Prompt Engineering UI** and native LLM-focused MLflow flavors like 
 **open-ai**, **transformers**, and **sentence-transformers**, the tutorials and guides here will help to get you started in leveraging the 
 benefits of these powerful natural language deep learning models.  
@@ -122,6 +124,7 @@ LLM Guides and Tutorials
 
 Model Evaluation
 ----------------
+
 Dive into MLflow's robust framework for evaluating the performance of your ML models. With the `mlflow.evaluate()` API, you can assess models on 
 your chosen datasets, including special support for Large Language Models (LLMs) encompassing tasks like text summarization and question answering. 
 Additionally, discover the intricacies of prompt engineering with OpenAI, define custom metrics, and set validation thresholds for comprehensive 
@@ -133,6 +136,7 @@ Visual insights are also available through the MLflow UI, showcasing logged outp
 
 Deep Learning
 -------------
+
 See how MLflow can help manage the full lifecycle of your Deep Learning projects. Whether you're using frameworks like **TensorFlow (tensorflow)**, **Keras (keras)**, 
 **PyTorch (pytorch)**, or **MXNet Gluon (gluon)**, MLflow offers first-class support, ensuring seamless integration and deployment. Additionally, 
 libraries like **Fastai (fastai)** and **ONNX (onnx)** are also natively supported. Paired with MLflow's streamlined APIs and comparative UI, 
@@ -140,15 +144,16 @@ you are equipped with everything needed to manage, track, and optimize your deep
 
 
 
-Traditional ML
---------------
+`Traditional ML <traditional-ml/index.html>`_
+---------------------------------------------
+
 Leverage the power of MLflow for all your Traditional Machine Learning needs. Whether you're working with supervised, unsupervised, statistical, or time series data, 
 MLflow streamlines the process by providing an integrated environment that supports a large array of widely-used libraries like **Scikit-learn (sklearn)**, 
 **SparkML (spark)**, **XGBoost (xgboost)**, **LightGBM (lightgbm)**, **CatBoost (catboost)**, **Statsmodels**, **Prophet**, and **Pmdarima**. 
 With MLflow, you not only get APIs tailored for these libraries but also a user-friendly UI to compare various runs, ensuring that your model tuning and 
 evaluation phases are both efficient and insightful.
 
-Traditional ML Guides and Tutorials
+Traditional ML Guides and Tutorials 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. raw:: html
@@ -206,7 +211,6 @@ Deployment
     deep-learning/index
     traditional-ml/index
     deployment/index
-
     tracking
     projects
     models

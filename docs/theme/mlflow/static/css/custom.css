@@ -1256,3 +1256,52 @@ a.download-btn i.fas {
   filter: drop-shadow(0px 0px 10px rgba(0, 0, 0, 0.3));
   transition: filter 0.3s ease; /* Smooth transition for the shadow effect */
 }
+
+/**
+ * Logo cards
+ */
+ 
+ .logo-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  margin-right: 2rem;
+  padding-top: 1rem;
+  padding-bottom: 2rem;
+}
+
+.logo-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  font-size: 1rem;
+  height: 100%;
+  width: 100%;
+  border-radius: 15px;
+  transition: all 500ms;
+  overflow: hidden;
+  padding: .5rem;
+  margin: 1rem;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.logo-card:hover {
+  box-shadow: rgba(2, 8, 20, 0.3) 0px 2.5rem 5rem, rgba(2, 8, 20, 0.24) 0.5px 1.5rem 1.65rem;
+  
+}
+
+.logo-card img {
+  max-width: 150px; 
+  max-height: 80px; 
+}
+
+.logo-link {
+  display: block;
+  text-decoration: none; 
+}
