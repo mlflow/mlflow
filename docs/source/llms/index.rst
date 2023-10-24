@@ -290,3 +290,33 @@ Look in the tutorials and guides below to learn more about interesting use cases
             </div>
         </article>
     </section>
+
+LLM Tutorials
+-------------
+
+Learn how to leverage MLflow to simplify and manage your entire end-to-end LLM lifecycle usage with engaging tutorials that target 
+specific use cases. Each of the tutorials below focus on specific real-world applications. 
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    custom-pyfunc-for-llms/index
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="custom-pyfunc-for-llms/index.html" >
+                    <div class="header">
+                        Using Custom PyFunc with LLMs
+                    </div>
+                </a>
+                <p>
+                    Explore the nuances of packaging and deploying advanced LLMs in MLflow using custom PyFuncs. This guide delves deep 
+                    into managing intricate model behaviors, ensuring seamless and efficient LLM deployments.
+                </p>
+            </div>
+        </article>
+    </section>
