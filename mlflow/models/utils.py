@@ -947,12 +947,11 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
         raise MlflowException(
             "Invalid properties not defined in the schema found: " f"{invalid_props}"
         )
-    # raise Exception(data, properties)
     for k, v in data.items():
         try:
             data[k] = _enforce_property(v, properties[k])
         except MlflowException as e:
-            raise MlflowException(f"Failed to enforce schema for key `{k}`: {e}") from e
+            raise MlflowException(f"Failed to enforce schema for key `{k}`") from e
     return data
 
 
