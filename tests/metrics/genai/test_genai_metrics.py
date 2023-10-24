@@ -298,7 +298,8 @@ def test_make_genai_metric_incorrect_response():
 
     assert metric_value.scores == [None]
     assert metric_value.justifications == [
-        f"Failed to extract score and justification. Raw output: {incorrectly_formatted_openai_response}"
+        f"Failed to extract score and justification. Raw output:"
+        f" {incorrectly_formatted_openai_response}"
     ]
 
     assert np.isnan(metric_value.aggregate_results["mean"])
