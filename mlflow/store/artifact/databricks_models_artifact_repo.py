@@ -162,12 +162,16 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                     dst_run_relative_artifact_path
                 )
                 for chunk in failed_downloads:
+                    _logger.warning(
+                        f"Retrying download of chunk {chunk.index} of "
+                        f"{dst_run_relative_artifact_path}"
+                    )
                     download_chunk(
-                        chunk.start,
-                        chunk.end,
-                        new_headers,
-                        dst_local_file_path,
-                        new_signed_uri,
+                        range_start=chunk.start,
+                        range_end=chunk.end,
+                        headers=new_headers,
+                        download_path=dst_local_file_path,
+                        http_uri=new_signed_uri,
                     )
 
     def _download_file(self, remote_file_path, local_path):
