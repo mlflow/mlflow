@@ -36,9 +36,9 @@
     font-size: 1.5rem;
     font-weight: 600;
     margin: 2rem;
-    margin-top: 4rem;
+    margin-top: 3rem;
     position: relative;
-    height: calc(3rem + 1.2em); 
+    height: calc(5rem + 1.2em); 
     display: flex;
     overflow: hidden; 
 }

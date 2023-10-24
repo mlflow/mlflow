@@ -29,44 +29,45 @@ The officially supported integrations for traditional ML libraries include:
 .. raw:: html
 
     <section>
-        <div class="logo-scroller">
-            <div class="logo-box">
-                <a href="../models.html#scikit-learn-sklearn">
-                    <img src="../_static/images/logos/scikit-learn-logo.svg" alt="scikit learn" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="../models.html#xgboost-xgboost">
-                    <img src="../_static/images/logos/xgboost-logo.svg" alt="XGBoost Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="../models.html#spark-mllib-spark">
-                    <img src="../_static/images/logos/spark-logo.svg" alt="Spark Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="../models.html#lightgbm-lightgbm">
-                    <img src="../_static/images/logos/lightgbm-logo.svg" alt="LightGBM Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="../models.html#catboost-catboost">
-                    <img src="../_static/images/logos/catboost-logo.png" alt="CatBoost Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="../models.html#statsmodels-statsmodels">
-                    <img src="../_static/images/logos/statsmodels-logo.svg" alt="Statsmodels Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="../models.html#prophet-prophet">
-                    <img src="../_static/images/logos/prophet-logo.png" alt="Prophet Logo" class="logo">
-                </a>
-            </div>
+        <div class="logo-grid">
+            <a href="../models.html#scikit-learn-sklearn">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/scikit-learn-logo.svg" alt="scikit learn">
+                </div>
+            </a>
+            <a href="../models.html#xgboost-xgboost">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/xgboost-logo.svg" alt="XGBoost Logo">
+                </div>
+            </a>
+            <a href="../models.html#spark-mllib-spark">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/spark-logo.svg" alt="Spark Logo">
+                </div>
+            </a>
+            <a href="../models.html#lightgbm-lightgbm">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/lightgbm-logo.svg" alt="LightGBM Logo">
+                </div>
+            </a>
+            <a href="../models.html#catboost-catboost">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/catboost-logo.png" alt="CatBoost Logo">
+                </div>
+            </a>
+            <a href="../models.html#statsmodels-statsmodels">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/statsmodels-logo.svg" alt="Statsmodels Logo">
+                </div>
+            </a>
+            <a href="../models.html#prophet-prophet">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/prophet-logo.png" alt="Prophet Logo">
+                </div>
+            </a>
         </div>
     </section>
+
 
 Tutorials and Guides
 --------------------
