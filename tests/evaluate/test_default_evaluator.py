@@ -3011,6 +3011,26 @@ def test_multi_output_model_error_handling():
             )
 
 
+def test_invalid_extra_metrics():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        with pytest.raises(
+            MlflowException,
+            match="Please ensure that all extra metrics are instances of "
+            "mlflow.metrics.EvaluationMetric.",
+        ):
+            mlflow.evaluate(
+                model_info.model_uri,
+                data,
+                model_type="text",
+                evaluators="default",
+                extra_metrics=[mlflow.metrics.latency],
+            )
+
+
 def test_evaluate_with_latency():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
