@@ -1351,18 +1351,10 @@ Compound types:
 
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
-        pdf = None
-
-        for x in args:
-            if type(x) == pandas.DataFrame:
-                if len(args) != 1:
-                    raise Exception(
-                        "If passing a StructType column, there should be only one "
-                        f"input column, but got {len(args)}."
-                    )
-                pdf = x
-        if pdf is None:
-            args = list(args)
+        args = list(args)
+        if len(args) == 1 and isinstance(args[0], pandas.DataFrame):
+            pdf = args[0]
+        else:
             if input_schema is None:
                 names = [str(i) for i in range(len(args))]
             else:
@@ -1377,7 +1369,16 @@ Compound types:
                         " (Since the columns were passed unnamed they are expected to be in"
                         " the order specified by the schema).".format(len(names), names, len(args))
                     )
-            pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
+            pdf = pandas.DataFrame(
+                data={
+                    names[i]: arg if isinstance(arg, pandas.Series)
+                    # pandas_udf receives a StructType column as a pandas DataFrame.
+                    # We need to convert it back to a dict of pandas Series.
+                    else arg.apply(lambda row: row.to_dict(), axis=1)
+                    for i, arg in enumerate(args)
+                },
+                columns=names,
+            )
 
         result = predict_fn(pdf, params)
 
