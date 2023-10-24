@@ -116,6 +116,16 @@ LLM Guides and Tutorials
                     Learn how to evaluate LLMs with MLflow.
                 </p>
             </div>
+            <div class="simple-card">
+                <a href="llms/rag/index.html" >
+                    <div class="header">
+                        Question Generation for RAG
+                    </div>
+                </a>
+                <p>
+                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                </p>
+            </div>
         </article>
     </section>
 
