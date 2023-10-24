@@ -724,10 +724,10 @@ def parallelized_download_file_using_http_uri(
             raise MlflowException(
                 f"""
 ----- stdout -----
-{e.stdout.strip() or 'N/A'}
+{e.stdout.strip()}
 
 ----- stderr -----
-{e.stderr.strip() or 'N/A'}
+{e.stderr.strip()}
 """
             ) from e
 
