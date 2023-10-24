@@ -1749,7 +1749,9 @@ class DefaultEvaluator(ModelEvaluator):
             if not isinstance(metric, EvaluationMetric):
                 bad_metrics.append(metric)
         if len(bad_metrics) > 0:
-            message = "\n".join([f"- Metric '{m}' has type '{type(m)}'" for m in bad_metrics])
+            message = "\n".join(
+                [f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics]
+            )
             raise MlflowException(
                 f"In the 'extra_metrics' parameter, the following metrics have the wrong type:\n"
                 f"{message}\n"
