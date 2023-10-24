@@ -260,6 +260,12 @@ def test_enforce_property():
     prop = Property("a", Array(DataType.string))
     assert _enforce_property(data, prop) == data
 
+    data = np.array(["some_sentence1", "some_sentence2"])
+    assert _enforce_property(data, Property("a", Array(DataType.string))) == [
+        "some_sentence1",
+        "some_sentence2",
+    ]
+
     prop = Property("a", Array(DataType.binary))
     assert _enforce_property(data, prop) == ["some_sentence1", "some_sentence2"]
 
@@ -299,11 +305,6 @@ def test_enforce_property_with_errors():
     ):
         _enforce_property(123, Property("a", DataType.string))
 
-    with pytest.raises(MlflowException, match=r"Expected data to be list, got ndarray"):
-        _enforce_property(
-            np.array(["some_sentence1", "some_sentence2"]), Property("a", Array(DataType.string))
-        )
-
     with pytest.raises(MlflowException, match=r"Missing required properties: {'a'}"):
         _enforce_property(
             {"b": ["some_sentence1", "some_sentence2"]},
@@ -324,6 +325,9 @@ def test_enforce_array():
     data = ["some_sentence1", "some_sentence2"]
     arr = Array(DataType.string)
     assert _enforce_array(data, arr) == data
+
+    data = np.array(["some_sentence1", "some_sentence2"])
+    assert _enforce_array(data, Array(DataType.string)) == ["some_sentence1", "some_sentence2"]
 
     data = [
         {"a": "some_sentence1", "b": "some_sentence2"},
@@ -346,9 +350,6 @@ def test_enforce_array_with_errors():
         MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
     ):
         _enforce_array([123, 456, 789], Array(DataType.string))
-
-    with pytest.raises(MlflowException, match=r"Expected data to be list, got ndarray"):
-        _enforce_array(np.array(["some_sentence1", "some_sentence2"]), Array(DataType.string))
 
     with pytest.raises(MlflowException, match=r"Missing required properties: {'b'}"):
         _enforce_array(
