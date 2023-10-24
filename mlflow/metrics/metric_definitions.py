@@ -138,11 +138,37 @@ def _ari_eval_fn(predictions, targets=None, metrics=None):
     )
 
 
-def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
+def _example_count_eval_fn(predictions, targets, metrics, sample_weights=None):
+    if targets is not None and len(targets) != 0:
+        return MetricValue(aggregate_results={"example_count": len(predictions)})
+
+
+def _sum_on_target_eval_fn(predictions, targets, metrics, sample_weights=None):
+    if targets is not None and len(targets) != 0:
+        sum_on_target = (
+            (np.array(targets) * np.array(sample_weights)).sum()
+            if sample_weights is not None
+            else sum(targets)
+        )
+        return MetricValue(aggregate_results={"sum_on_target": np.sum(sum_on_target)})
+
+
+def _mean_on_target_eval_fn(predictions, targets, metrics, sample_weights=None):
+    if targets is not None and len(targets) != 0:
+        sum_on_target = (
+            (np.array(targets) * np.array(sample_weights)).sum()
+            if sample_weights is not None
+            else sum(targets)
+        )
+        mean_on_target = sum_on_target / len(targets)
+        return MetricValue(aggregate_results={"mean_on_target": np.sum(mean_on_target)})
+
+
+def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import accuracy_score
 
-        acc = accuracy_score(y_true=targets, y_pred=predictions, sample_weight=sample_weight)
+        acc = accuracy_score(y_true=targets, y_pred=predictions, sample_weight=sample_weights)
         return MetricValue(aggregate_results={"exact_match": acc})
 
 
@@ -254,35 +280,35 @@ def _rougeLsum_eval_fn(predictions, targets=None, metrics=None):
         )
 
 
-def _mae_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
+def _mae_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_absolute_error
 
-        mae = mean_absolute_error(targets, predictions, sample_weight=sample_weight)
+        mae = mean_absolute_error(targets, predictions, sample_weight=sample_weights)
         return MetricValue(aggregate_results={"mean_absolute_error": mae})
 
 
-def _mse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
+def _mse_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_squared_error
 
-        mse = mean_squared_error(targets, predictions, sample_weight=sample_weight)
+        mse = mean_squared_error(targets, predictions, sample_weight=sample_weights)
         return MetricValue(aggregate_results={"mean_squared_error": mse})
 
 
-def _rmse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
+def _rmse_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_squared_error
 
-        rmse = mean_squared_error(targets, predictions, squared=False, sample_weight=sample_weight)
+        rmse = mean_squared_error(targets, predictions, squared=False, sample_weight=sample_weights)
         return MetricValue(aggregate_results={"root_mean_squared_error": rmse})
 
 
-def _r2_score_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
+def _r2_score_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import r2_score
 
-        r2 = r2_score(targets, predictions, sample_weight=sample_weight)
+        r2 = r2_score(targets, predictions, sample_weight=sample_weights)
         return MetricValue(aggregate_results={"r2_score": r2})
 
 
@@ -294,11 +320,11 @@ def _max_error_eval_fn(predictions, targets=None, metrics=None):
         return MetricValue(aggregate_results={"max_error": error})
 
 
-def _mape_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
+def _mape_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_absolute_percentage_error
 
-        mape = mean_absolute_percentage_error(targets, predictions, sample_weight=sample_weight)
+        mape = mean_absolute_percentage_error(targets, predictions, sample_weight=sample_weights)
         return MetricValue(aggregate_results={"mean_absolute_percentage_error": mape})
 
 

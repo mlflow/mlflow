@@ -28,12 +28,21 @@ from mlflow.metrics import (
     MetricValue,
     ari_grade_level,
     exact_match,
+    example_count,
     flesch_kincaid_grade_level,
+    mae,
+    mape,
+    max_error,
+    mean_on_target,
+    mse,
     perplexity,
+    r2_score,
+    rmse,
     rouge1,
     rouge2,
     rougeL,
     rougeLsum,
+    sum_on_target,
     token_count,
     toxicity,
 )
@@ -1193,7 +1202,9 @@ class DefaultEvaluator(ModelEvaluator):
 
                     # case where the param is defined as part of the evaluator_config
                     elif column in self.evaluator_config:
-                        eval_fn_args.append(self.evaluator_config.get(column))
+                        col_values = self.evaluator_config.get(column)
+                        eval_fn_args.append(col_values[: len(eval_df)])
+
                     elif param.default == inspect.Parameter.empty:
                         params_not_found.append(param_name)
                     else:
@@ -1388,44 +1399,37 @@ class DefaultEvaluator(ModelEvaluator):
             model_predictions, output_column_name
         )
 
-    def _compute_builtin_metrics(self):
+    def _compute_builtin_classifier_metrics(self):
         """
-        Helper method for computing builtin metrics
+        Helper method for computing builtin classifier metrics
         """
         self._evaluate_sklearn_model_score_if_scorable()
-        if self.model_type == _ModelType.CLASSIFIER:
-            if self.is_binomial:
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values(
-                        _get_binary_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            pos_label=self.pos_label,
-                            sample_weights=self.sample_weights,
-                        )
-                    )
-                )
-                self._compute_roc_and_pr_curve()
-            else:
-                average = self.evaluator_config.get("average", "weighted")
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values(
-                        _get_multiclass_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            average=average,
-                            sample_weights=self.sample_weights,
-                        )
-                    )
-                )
-        elif self.model_type == _ModelType.REGRESSOR:
+        if self.is_binomial:
             self.metrics_values.update(
                 _get_aggregate_metrics_values(
-                    _get_regressor_metrics(self.y, self.y_pred, self.sample_weights)
+                    _get_binary_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        pos_label=self.pos_label,
+                        sample_weights=self.sample_weights,
+                    )
+                )
+            )
+            self._compute_roc_and_pr_curve()
+        else:
+            average = self.evaluator_config.get("average", "weighted")
+            self.metrics_values.update(
+                _get_aggregate_metrics_values(
+                    _get_multiclass_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        average=average,
+                        sample_weights=self.sample_weights,
+                    )
                 )
             )
 
@@ -1627,6 +1631,18 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics_values = {}
             self.builtin_metrics = []
 
+            regression_metrics = [
+                example_count(),
+                sum_on_target(),
+                mean_on_target(),
+                mae(),
+                mse(),
+                rmse(),
+                r2_score(),
+                max_error(),
+                mape(),
+            ]
+
             text_metrics = [
                 token_count(),
                 toxicity(),
@@ -1646,8 +1662,11 @@ class DefaultEvaluator(ModelEvaluator):
                         self.extra_metrics.remove(extra_metric)
                         break
                 self._generate_model_predictions(compute_latency=compute_latency)
-                if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
-                    self._compute_builtin_metrics()
+                if self.model_type == _ModelType.REGRESSOR:
+                    self._evaluate_sklearn_model_score_if_scorable()
+                    self.builtin_metrics = regression_metrics
+                elif self.model_type == _ModelType.CLASSIFIER:
+                    self._compute_builtin_classifier_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
                     self.builtin_metrics = [*text_metrics, exact_match()]
                 elif self.model_type == _ModelType.TEXT_SUMMARIZATION:

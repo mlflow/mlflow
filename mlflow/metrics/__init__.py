@@ -14,11 +14,13 @@ from mlflow.metrics.genai.metric_definitions import (
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
+    _example_count_eval_fn,
     _f1_score_eval_fn,
     _flesch_kincaid_eval_fn,
     _mae_eval_fn,
     _mape_eval_fn,
     _max_error_eval_fn,
+    _mean_on_target_eval_fn,
     _mse_eval_fn,
     _perplexity_eval_fn,
     _precision_eval_fn,
@@ -29,6 +31,7 @@ from mlflow.metrics.metric_definitions import (
     _rouge2_eval_fn,
     _rougeL_eval_fn,
     _rougeLsum_eval_fn,
+    _sum_on_target_eval_fn,
     _token_count_eval_fn,
     _toxicity_eval_fn,
 )
@@ -37,6 +40,43 @@ from mlflow.models import (
     make_metric,
 )
 from mlflow.utils.annotations import experimental
+
+# General Regression Metrics
+
+# Refactor these to be factory functions that return EvaluationMetric objects
+
+
+def example_count() -> EvaluationMetric:
+    """
+    This function will create a metric for counting the number of examples.
+    """
+    return make_metric(
+        eval_fn=_example_count_eval_fn,
+        greater_is_better=True,
+        name="example_count",
+    )
+
+
+def sum_on_target() -> EvaluationMetric:
+    """
+    This function will create a metric for summing the values on the target column.
+    """
+    return make_metric(
+        eval_fn=_sum_on_target_eval_fn,
+        greater_is_better=True,
+        name="sum_on_target",
+    )
+
+
+def mean_on_target() -> EvaluationMetric:
+    """
+    This function will create a metric for averaging the values on the target column.
+    """
+    return make_metric(
+        eval_fn=_mean_on_target_eval_fn,
+        greater_is_better=True,
+        name="mean_on_target",
+    )
 
 
 @experimental
@@ -417,13 +457,16 @@ __all__ = [
     "r2_score",
     "max_error",
     "mape",
-    "binary_recall",
-    "binary_precision",
-    "binary_f1_score",
+    "recall_score",
+    "precision_score",
+    "f1_score",
     "answer_similarity",
     "faithfulness",
     "answer_correctness",
     "answer_relevance",
     "token_count",
     "latency",
+    "example_count",
+    "sum_on_target",
+    "mean_on_target",
 ]
