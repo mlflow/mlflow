@@ -153,3 +153,33 @@ manage, and deploy LLMs, ensuring that they can focus more on deriving value fro
             </div>
         </div>
     </section>
+
+Tutorials and Use Case Guides for LLMs in MLflow
+------------------------------------------------
+
+Interested in learning how to leverage MLflow for your LLM projects? 
+
+Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging LLMs a bit easier!
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    rag/index
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="rag/index.html" >
+                    <div class="header">
+                        Question Generation for RAG
+                    </div>
+                </a>
+                <p>
+                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                </p>
+            </div>
+        </article>
+    </section>
