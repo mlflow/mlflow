@@ -202,6 +202,7 @@ Deployment
     models
     model-registry
     recipes
+    llms/llm-evaluate/index
     plugins
     auth/index
     cli
