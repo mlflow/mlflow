@@ -2852,6 +2852,7 @@ def test_evaluate_no_model_type_with_builtin_metric():
             "toxicity/v1/mean",
             "toxicity/v1/variance",
             "toxicity/v1/p90",
+            "toxicity/v1/ratio",
         }
         assert len(results.tables) == 1
         assert results.tables["eval_results_table"].columns.tolist() == [
