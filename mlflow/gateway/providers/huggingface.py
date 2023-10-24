@@ -6,7 +6,6 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.gateway.config import HuggingFaceTextGenerationInferenceConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import (
-    dict_contains_nested_path,
     rename_payload_keys,
     send_request,
 )
@@ -41,13 +40,10 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
-            "prompt": "inputs",
-            "temperature": "parameters.temperature",
-            "max_tokens": "parameters.max_new_tokens",
-            "stop": "parameters.stop",
+            "max_tokens": "max_new_tokens",
         }
         for k1, k2 in key_mapping.items():
-            if dict_contains_nested_path(payload, k2):
+            if k2 in payload:
                 raise HTTPException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
@@ -60,16 +56,19 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
                 detail="'candidate_count' must be '1' for the Text Generation Inference provider."
                 f"Received value: '{candidate_count}'.",
             )
-        # HF TGI does not support 0 temperature
-        payload["temperature"] = max(payload["temperature"], 1e-3)
-        payload = rename_payload_keys(payload, key_mapping)
+        prompt = payload.pop("prompt")
+        parameters = rename_payload_keys(payload, key_mapping)
 
-        payload["parameters"]["details"] = True
-        payload["parameters"]["decoder_input_details"] = True
+        # HF TGI does not support 0 temperature
+        parameters["temperature"] = max(payload["temperature"], 1e-3)
+        parameters["details"] = True
+        parameters["decoder_input_details"] = True
+
+        final_payload = {"inputs": prompt, "parameters": parameters}
 
         resp = await self._request(
             "generate",
-            payload,
+            final_payload,
         )
 
         # Example Response:
