@@ -32,7 +32,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to, get_total_size
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -317,6 +317,7 @@ def _save_model_with_class_artifacts_params(
         model_config=model_config,
         **custom_model_config_kwargs,
     )
+    mlflow_model.model_size_bytes = get_total_size(str(path))
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

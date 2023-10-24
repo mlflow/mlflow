@@ -598,6 +598,8 @@ class Model:
             ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            # TODO: can we move saving MLModel file here? This way we can set model_size_bytes
+            #  here for all flavors here, instead of having to implement it in each save_model
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)

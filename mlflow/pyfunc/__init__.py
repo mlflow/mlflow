@@ -288,7 +288,7 @@ from mlflow.utils.file_utils import (
     _copy_file_or_tree,
     get_or_create_nfs_tmp_dir,
     get_or_create_tmp_dir,
-    write_to,
+    write_to, get_total_size,
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
@@ -2179,6 +2179,7 @@ def _save_model_with_loader_module_and_data_path(
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
     )
+    mlflow_model.model_size_bytes = get_total_size(str(path))
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
