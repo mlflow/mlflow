@@ -200,8 +200,8 @@ class Property:
         return self.name < other.name
 
     def __repr__(self) -> str:
-        required = " (required)" if self.required else " (optional)"
-        return f"{self.name}: {self.dtype!r}{required}"
+        required = "required" if self.required else "optional"
+        return f"{self.name}: {self.dtype!r} ({required})"
 
     def to_dict(self):
         d = {"type": self.dtype.name} if isinstance(self.dtype, DataType) else self.dtype.to_dict()
@@ -599,10 +599,10 @@ class ColSpec:
         return False
 
     def __repr__(self) -> str:
-        required = " (required)" if self.required else " (optional)"
+        required = "required" if self.required else "optional"
         if self.name is None:
-            return f"{self.type!r}{required}"
-        return f"{self.name!r}: {self.type!r}{required}"
+            return f"{self.type!r} ({required})"
+        return f"{self.name!r}: {self.type!r} ({required})"
 
     @classmethod
     def from_json_dict(cls, **kwargs):
