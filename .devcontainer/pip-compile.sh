@@ -9,7 +9,7 @@ pip-compile --verbose \
    --output-file /tmp/output.txt \
    skinny-requirements.txt \
    core-requirements.txt \
-   doc-requirements.txt \
+   doc-min-requirements.txt \
    test-requirements.txt \
    lint-requirements.txt
 
