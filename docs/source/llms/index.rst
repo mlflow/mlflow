@@ -11,52 +11,8 @@ capabilities into their applications.
 
 **MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind:
 
-.. raw:: html
-
-    <div class="redirect-header">
-        <a href="gateway/index.html">⛩️ MLflow AI Gateway ⛩️</a>
-    </div>
-
-
-Serving as a unified interface, the MLflow AI Gateway simplifies interactions with multiple LLM providers, such as OpenAI, MosaicML, Cohere, and Anthropic. 
-In addition to supporting the most popular SaaS LLM providers, the AI Gateway provides an integration to MLflow model serving, allowing you to serve your 
-own LLM or a fine-tuned foundation model within your own serving infrastructure.
-
-By offering a centralized endpoint, it negates the need for developers to juggle between different provider APIs and buidling complex integrations for each. 
-Moreover, the AI Gateway brings in robustness in credential management. Instead of scattering sensitive API keys across multiple services, giving them to users 
-to manage, or hardcoding them into production deployment services, the gateway centralizes these credentials, reinforcing security and simplifying key management.
-
-.. raw:: html
-
-    <section>
-        <div class="logo-scroller">
-            <div class="logo-box">
-                <a href="gateway/index.html#providers">
-                    <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="gateway/index.html#providers">
-                    <img src="../_static/images/logos/mosaicml-logo.svg" alt="MosaicML Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="gateway/index.html#providers">
-                    <img src="../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="gateway/index.html#providers">
-                    <img src="../_static/images/logos/cohere-logo.png" alt="Cohere Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="gateway/index.html#providers">
-                    <img src="../_static/images/logos/mlflow-logo.svg" alt="Mlflow Logo" class="logo">
-                </a>
-            </div>
-        </div>
-    </section>
+`MLflow AI Gateway <gateway/index.html>`_
+-----------------------------------------
 
 .. toctree::
     :maxdepth: 1
@@ -64,26 +20,117 @@ to manage, or hardcoding them into production deployment services, the gateway c
 
     gateway/index
 
+Serving as a unified interface, the `MLflow AI Gateway <gateway/index.html>`_ simplifies interactions with multiple LLM providers, such as 
+`OpenAI <https://openai.com/>`_, `MosaicML <https://www.mosaicml.com/>`_, `Cohere <https://cohere.com/>`_, `Anthropic <https://www.anthropic.com/>`_, 
+`PaLM 2 <https://ai.google/discover/palm2/>`_, and `AI21 Labs <https://www.ai21.com/>`_. 
+
+In addition to supporting the most popular SaaS LLM providers, the AI Gateway provides an integration to MLflow model serving, allowing you to serve your 
+own LLM or a fine-tuned foundation model within your own serving infrastructure.
+
+.. note:: 
+    The MLflow AI Gateway is in active development and has been marked as **Experimental**. 
+    APIs may change as this new feature is refined and its functionality is expanded based on feedback.
+
+Benefits of the MLflow AI Gateway
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Unified Endpoint**: No more juggling between multiple provider APIs.
+
+- **Simplified Integrations**: One-time setup, no repeated complex integrations.
+
+- **Secure Credential Management**: 
+
+  - Centralized storage prevents scattered API keys.
+  - No hardcoding or user-handled keys.
+
+- **Consistent API Experience**: 
+
+  - Uniform API across all providers.
+  - Easy-to-use REST endpoints and Client API.
+
+- **Seamless Provider Swapping**: 
+
+  - Swap providers without touching your code.
+  - Zero downtime provider, model, or route swapping.
+
+
+Explore the Native Provider integrations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The MLflow AI Gateway supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
+own open source model via an integration with MLflow model serving. To learn more about how to get started using the MLflow AI Gateway to simplify the 
+configuration and management of your LLM serving needs, select the provider that you're interested in below: 
+
 .. raw:: html
 
-    <div class="redirect-header">
-        <a href="prompt-engineering/index.html">Prompt Engineering UI</a>
-    </div>
+    <section>
+        <div class="logo-grid">
+            <a href="gateway/index.html#providers">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo">
+                </div>
+            </a>
+            <a href="gateway/index.html#providers">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/mosaicml-logo.svg" alt="MosaicML Logo">
+                </div>
+            </a>
+            <a href="gateway/index.html#providers">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo">
+                </div>
+            </a>
+            <a href="gateway/index.html#providers">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/cohere-logo.png" alt="Cohere Logo">
+                </div>
+            </a>
+            <a href="gateway/index.html#providers">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/mlflow-logo.svg" alt="Mlflow Logo">
+                </div>
+            </a>
+            <a href="gateway/index.html#providers">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/PaLM-logo.png" alt="PaLM Logo">
+                </div>
+            </a>
+            <a href="gateway/index.html#providers">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/ai21labs-logo.svg" alt="ai21Labs Logo">
+                </div>
+            </a>
+        </div>
+    </section>
 
-.. note::
-    The Prompt Engineering UI is in an **"Experimental"** state. The features, UI, and integrations are subject to change without notice or deprecation warnings.
+`LLM Model Evaluation <../model-evaluation/index.html>`_
+--------------------------------------------------------
 
-Effective utilization of LLMs often hinges on crafting the right prompts. 
-The development of a high-quality prompt is an iterative process of trial and error, where subsequent experimentation is not guaranteed to 
-result in cumulative quality improvements. With the volume and speed of iteration through prompt experimentation, it can quickly become very 
-overwhelming to remember or keep a history of the state of different prompts that were tried.
+Navigating the vast landscape of Large Language Models (LLMs) can be daunting. Determining the right model, prompt, or service that aligns 
+with a project's needs is no small feat. Traditional machine learning evaluation metrics often fall short when it comes to assessing the 
+nuanced performance of generative models.
 
-In order to solve this difficult problem, MLflow has included a new UI-based feature.
+Enter the `MLflow LLM Model Evaluation <../model-evaluation/index.html>`_. This feature is designed to simplify the evaluation process, 
+offering a streamlined approach to compare foundational models, providers, and prompts.
 
-The **Prompt Engineering UI** provides a comprehensive environment to prototype, iterate, and refine these prompts 
-without diving deep into code. By making prompt engineering more accessible, users can quickly experiment and hone in on 
-optimal model configurations for tasks like question answering or document summarization. Furthermore, each model iteration 
-and its configurations are meticulously tracked, ensuring reproducibility and transparency.
+Benefits of MLflow's LLM Model Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Simplified Evaluation**: Navigate the LLM space with ease, ensuring the best fit for your project with standard metrics that can be used to compare generated text.
+
+- **Use-Case Specific Metrics**: Leverage MLflow's :py:func:`mlflow.evaluate` API for a high-level, frictionless evaluation experience.
+
+- **Customizable Metrics**: Beyond the provided metrics, MLflow supports a plugin-style for custom scoring, enhancing the evaluation's flexibility.
+
+- **Comparative Analysis**: Effortlessly compare foundational models, providers, and prompts to make informed decisions.
+
+- **Deep Insights**: Dive into the intricacies of generative models with a comprehensive suite of LLM-relevant metrics.
+
+MLflow's LLM Model Evaluation is designed to bridge the gap between traditional machine learning evaluation and the unique challenges posed by LLMs.
+
+
+`Prompt Engineering UI <prompt-engineering/index.html>`_
+--------------------------------------------------------
 
 .. toctree::
     :maxdepth: 1
@@ -91,22 +138,98 @@ and its configurations are meticulously tracked, ensuring reproducibility and tr
 
     prompt-engineering/index
 
+Effective utilization of LLMs often hinges on crafting the right prompts. 
+The development of a high-quality prompt is an iterative process of trial and error, where subsequent experimentation is not guaranteed to 
+result in cumulative quality improvements. With the volume and speed of iteration through prompt experimentation, it can quickly become very 
+overwhelming to remember or keep a history of the state of different prompts that were tried.
+
+Serving as a powerful tool for prompt engineering, the `MLflow Prompt Engineering UI <prompt-engineering/index.html>`_ revolutionizes the 
+way developers interact with and refine LLM prompts. 
+
+Benefits of the MLflow Prompt Engineering UI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Iterative Development**: Streamlined process for trial and error without the overwhelming complexity.
+
+- **UI-Based Prototyping**: Prototype, iterate, and refine prompts without diving deep into code.
+
+- **Accessible Engineering**: Makes prompt engineering more user-friendly, speeding up experimentation.
+
+- **Optimized Configurations**: Quickly hone in on the best model configurations for tasks like question answering or document summarization.
+
+- **Transparent Tracking**: 
+
+  - Every model iteration and configuration is meticulously tracked.
+  - Ensures reproducibility and transparency in your development process.
+
+.. note:: 
+    The MLflow Prompt Engineering UI is in active development and has been marked as **Experimental**. 
+    Features and interfaces may evolve as feedback is gathered and the tool is refined.
+
+
+Native MLflow Flavors for LLMs
+------------------------------
+
+Harnessing the power of LLMs becomes effortless with flavors designed specifically for Large Language Models.
+
+Benefits of MLflow's Native Flavors for LLMs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Support for Popular Packages**: 
+
+  - Native integration with packages like `transformers <https://huggingface.co/docs/transformers/index>`_, 
+    `sentence-transformers <https://www.sbert.net/>`_, `open-ai <https://platform.openai.com/docs/libraries/python-library>`_ , and 
+    `langchain <https://www.langchain.com/>`_.
+  - Standardized interfaces for tasks like saving, logging, and managing inference configurations.
+
+- **PyFunc Compatibility**: 
+
+  - Load models as PyFuncs for broad compatibility across serving infrastructures.
+  - Strengthens the MLOps process for LLMs, ensuring smooth deployments.
+
+- **Cohesive Ecosystem**: 
+
+  - All essential tools and functionalities consolidated under MLflow.
+  - Focus on deriving value from LLMs without getting bogged down by interfacing and optimization intricacies.
+
+Explore the Native LLM Flavors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Select the integration below to read the documentation on how to leverage MLflow's native integration with these popular libraries:
+
 .. raw:: html
 
-    <div class="redirect-header">
-        <a href="llm-tracking/index.html">LLM Tracking in MLflow</a>
+    <section>
+    <div class="logo-grid">
+        
+        <a href="../models.html#transformers-transformers-experimental">
+            <div class="logo-card">
+                <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo">
+            </div>
+        </a>
+        
+        <a href="../models.html#sentencetransformers-sentence-transformers-experimental">
+            <div class="logo-card">
+                <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo">
+            </div>
+        </a>
+        
+        <a href="../models.html#langchain-langchain-experimental">
+            <div class="logo-card">
+                <img src="../_static/images/logos/langchain-logo.png" alt="LangChain Logo">
+            </div>
+        </a>
+        
+        <a href="../models.html#openai-openai-experimental">
+            <div class="logo-card">
+                <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo">
+            </div>
+        </a>
     </div>
+ </section>
 
-Harnessing the true potential of Large Language Models (LLMs) mandates robust tracking and management of every interaction. 
-MLflow's LLM Tracking system emerges as a sophisticated solution, meticulously designed to capture, monitor, and analyze these interactions.
-
-Building upon MLflow's foundational capabilities, the LLM Tracking system integrates unique features tailor-made for LLMs. 
-From logging prompts – the foundational queries directed towards an LLM – to tracking the dynamic data these models generate, 
-MLflow ensures comprehensive coverage. The inclusion of 'predictions' as a core entity, alongside the established 
-artifacts, parameters, and metrics, offers an unparalleled depth of insight into the behavior and performance of text-generating models.
-
-With this extensive tracking framework, MLflow endeavors to bring clarity, repeatability, and deep insight into the 
-realm of LLMs, facilitating better decision-making and optimization in their deployment and utilization.
+`LLM Tracking in MLflow <llm-tracking/index.html>`_
+---------------------------------------------------
 
 .. toctree::
     :maxdepth: 1
@@ -114,45 +237,29 @@ realm of LLMs, facilitating better decision-making and optimization in their dep
 
     llm-tracking/index
 
-Native MLflow Flavors for LLMs
-------------------------------
+Empowering developers with advanced tracking capabilities, the `MLflow LLM Tracking System <llm-tracking/index.html>`_ stands out as the 
+premier solution for managing and analyzing interactions with Large Language Models (LLMs).
 
-To streamline the development, management, and deployment of LLMs, MLflow offers native support for popular packages like transformers, 
-sentence-transformers, open-ai, and langchain. These flavors provide standardized interfaces for tasks such as saving, 
-logging, managing inference configurations, and more. 
+Benefits of the MLflow LLM Tracking System
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Notably, the ability to load models as PyFuncs ensures compatibility across a wide range of serving infrastructures, 
-fortifying the MLOps process for LLMs.
+- **Robust Interaction Management**: Comprehensive tracking of every LLM interaction for maximum insight.
 
-By consolidating these tools and functionalities under one umbrella, MLflow offers a cohesive ecosystem for users to seamlessly integrate, 
-manage, and deploy LLMs, ensuring that they can focus more on deriving value from the models and less on the intricacies of interfacing and optimization.
+- **Tailor-Made for LLMs**: 
 
-.. raw:: html
+  - Unique features specifically designed for LLMs.
+  - From logging prompts to tracking dynamic data, MLflow has it covered.
 
-    <section>
-        <div class="logo-scroller">
-            <div class="logo-box">
-                <a href="../models.html#transformers-transformers-experimental">
-                    <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="../models.html#sentencetransformers-sentence-transformers-experimental">
-                    <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="../models.html#langchain-langchain-experimental">
-                    <img src="../_static/images/logos/langchain-logo.png" alt="LangChain Logo" class="logo">
-                </a>
-            </div>
-            <div class="logo-box">
-                <a href="../models.html#openai-openai-experimental">
-                    <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo" class="logo">
-                </a>
-            </div>
-        </div>
-    </section>
+- **Deep Model Insight**: 
+
+  - Introduces 'predictions' as a core entity, alongside the existing artifacts, parameters, and metrics.
+  - Gain unparalleled understanding of text-generating model behavior and performance.
+
+- **Clarity and Repeatability**: 
+
+  - Ensures consistent and transparent tracking across all LLM interactions.
+  - Facilitates informed decision-making and optimization in LLM deployment and utilization.
+
 
 Tutorials and Use Case Guides for LLMs in MLflow
 ------------------------------------------------
@@ -164,7 +271,7 @@ Look in the tutorials and guides below to learn more about interesting use cases
 .. toctree::
     :maxdepth: 1
     :hidden:
-
+  
     rag/index
 
 .. raw:: html
