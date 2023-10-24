@@ -906,7 +906,7 @@ def _enforce_datatype(data: Any, dtype: DataType):
 def _enforce_array(data: Any, arr: Array, required=True):
     if not required and data is None:
         return None
-    if not isinstance(data, list):
+    if not isinstance(data, (list, np.ndarray)):
         if np.isscalar(data):
             data = [data]
         else:
