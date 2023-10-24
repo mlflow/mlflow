@@ -869,17 +869,16 @@ def load_model(
 def _is_model_distributed_in_memory(transformers_model):
     """Check if the model is distributed across multiple devices in memory."""
 
-    # Check if the model attribute exists and if the model is loaded on CPU
-    if not hasattr(transformers_model, "hf_device_map") or transformers_model.device.type == "cpu":
+    # Check if the model attribute exists. If not, accelerate was not used and the model can
+    # be safely saved
+    if not hasattr(transformers_model, "hf_device_map"):
         return False
 
-    # Check if all components are loaded into the same location
-    unique_device_types = {value.type for value in transformers_model.hf_device_map.values()}
-    if len(unique_device_types) == 1:
-        return False
+    if transformers_model.device.type == "meta":
+        return True
 
     # For all other configurations, we cannot be certain that the weights will be saved correctly
-    return True
+    return False
 
 
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries

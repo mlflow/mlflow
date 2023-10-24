@@ -3804,77 +3804,67 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
 def test_model_distributed_across_devices():
     # Mocking a transformers_model with weights on gpu:0, gpu:1, disk, and cpu
     mock_model = mock.Mock()
-    mock_model.device.type = "gpu"
+    mock_model.device.type = "meta"
     mock_model.hf_device_map = {
-        "layer1": mock.Mock(type="gpu", index=0),
-        "layer2": mock.Mock(type="gpu", index=1),
-        "layer3": mock.Mock(type="disk"),
-        "layer4": mock.Mock(type="cpu"),
+        "layer1": mock.Mock(type="cpu"),
+        "layer2": mock.Mock(type="cpu"),
+        "layer3": mock.Mock(type="gpu"),
+        "layer4": mock.Mock(type="disk"),
     }
 
     # Assert that the function returns True for a distributed model
-    assert _is_model_distributed_in_memory(mock_model) is True
+    assert _is_model_distributed_in_memory(mock_model)
 
 
 def test_model_on_single_device():
     # Mocking a transformers_model with all components on cpu
     mock_model = mock.Mock()
     mock_model.device.type = "cpu"
-    mock_model.hf_device_map = {
-        "layer1": mock.Mock(type="cpu"),
-        "layer2": mock.Mock(type="cpu"),
-        "layer3": mock.Mock(type="cpu"),
-        "layer4": mock.Mock(type="cpu"),
-    }
 
     # Assert that the function returns False for a non-distributed model
-    assert _is_model_distributed_in_memory(mock_model) is False
+    assert not _is_model_distributed_in_memory(mock_model)
 
 
-class MockPipeline(transformers.Pipeline):
-    def _sanitize_parameters(self, *args, **kwargs):
-        # This is used in a Pipeline validation, so iterable collections must be returned
-        return {}, {}, {}
+def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path):
+    task = "translation_en_to_de"
+    architecture = "t5-small"
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        pretrained_model_name_or_path=architecture,
+        device_map={"shared": "cpu", "encoder": "cpu", "decoder": "disk", "lm_head": "disk"},
+        offload_folder=str(tmp_path / "weights"),
+        low_cpu_mem_usage=True,
+    )
 
-    def preprocess(self, *args, **kwargs):
-        pass
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(
+        pretrained_model_name_or_path=architecture, model_max_length=100
+    )
+    pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
 
-    def _forward(self, *args, **kwargs):
-        pass
+    with pytest.raises(
+        MlflowException,
+        match="The model that is attempting to be saved has been loaded into memory",
+    ):
+        mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
 
-    def postprocess(self, *args, **kwargs):
-        pass
 
+def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
+    task = "translation_en_to_de"
+    architecture = "t5-small"
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        pretrained_model_name_or_path=architecture,
+        device_map={"shared": "cpu", "encoder": "cpu", "decoder": "cpu", "lm_head": "cpu"},
+        low_cpu_mem_usage=True,
+    )
 
-def test_save_model_raises_exception_for_distributed_model(tmp_path):
-    mock_model = mock.Mock()
-    mock_model.device.type = "cpu"
-    mock_model.name_or_path = "dummy_name_or_path"
-    mock_model.hf_device_map = {
-        "layer1": mock.Mock(type="gpu", index=0),
-        "layer2": mock.Mock(type="gpu", index=1),
-        "layer3": mock.Mock(type="disk"),
-        "layer4": mock.Mock(type="cpu"),
-    }
-    mock_model.config.task_specific_params = {}
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(
+        pretrained_model_name_or_path=architecture, model_max_length=100
+    )
+    pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
 
-    # NB: In order to avoid loading a model and filling up the disk in CI with some
-    # split configuration, this mock stack is being used to simulate a heterogenous
-    # memory setup for a mocked model.
-    # Due to the validations that occur within transformers when constructing a
-    # pipeline instance, a number of the validation stages need to be patched.
-    with mock.patch("transformers.utils.generic.infer_framework", return_value="pt"), mock.patch(
-        "transformers.pipelines.base.infer_framework_load_model", return_value=("pt", mock_model)
-    ), mock.patch("transformers.pipelines.base.is_torch_available", return_value=True):
-        mock_pipeline = MockPipeline(model=mock_model, tokenizer=None, device=torch.device("cpu"))
+    mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
 
-        with mock.patch("mlflow.transformers._validate_transformers_model_dict"), mock.patch(
-            "mlflow.transformers._TransformersModel.from_dict", return_value=mock_pipeline
-        ), mock.patch("mlflow.transformers._is_model_distributed_in_memory", return_value=True):
-            with pytest.raises(
-                MlflowException,
-                match="The model that is attempting to be saved has been loaded into memory",
-            ):
-                mlflow.transformers.save_model(
-                    transformers_model=mock_pipeline, path=str(tmp_path / "model")
-                )
+    loaded = mlflow.transformers.load_model(str(tmp_path / "model"))
+
+    text = "Apples are delicious"
+
+    assert loaded(text) == pipeline(text)
