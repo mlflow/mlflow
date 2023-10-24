@@ -20,6 +20,7 @@ from mlflow.utils.file_utils import (
     _copy_file_or_tree,
     _handle_readonly_on_windows,
     get_parent_dir,
+    get_total_size,
     local_file_uri_to_path,
     read_parquet_as_pandas_df,
     write_pandas_df_as_parquet,
@@ -364,3 +365,22 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
     assert set(os.listdir(dst_dir.joinpath("subdir"))) == {"subdir-file.txt"}
     assert dst_dir.joinpath("subdir/subdir-file.txt").read_text() == "testing 123"
     assert dst_dir.joinpath("top-level-file.txt").read_text() == "hi"
+
+
+def test_get_total_size(tmp_path):
+    root = str(tmp_path)
+
+    subdir = os.path.join(root, "subdir")
+    os.mkdir(subdir)
+    files = {
+        "file1.txt": "hello world",  # 11 bytes
+        "file2.txt": "This is mlflow testing."  # 23 bytes
+    }
+    for name, content in files.items():
+        with open(os.path.join(root, name), "w") as fp:
+            fp.write(content)
+    with open(os.path.join(subdir, "file3.txt"), "w") as fp:
+        fp.write("One file under subdir.")  # 22 bytes
+
+    assert get_total_size(root) == 56
+    assert get_total_size(subdir) == 22

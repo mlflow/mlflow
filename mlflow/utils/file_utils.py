@@ -25,6 +25,7 @@ from urllib.parse import unquote
 from urllib.request import pathname2url
 
 import yaml
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 try:
     from yaml import CSafeDumper as YamlSafeDumper
@@ -38,7 +39,7 @@ from mlflow.environment_variables import (
     MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
 )
-from mlflow.exceptions import MissingConfigException
+from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
@@ -999,3 +1000,23 @@ def chdir(path: str) -> None:
         yield
     finally:
         os.chdir(cwd)
+
+
+def get_total_size(path: str) -> int:
+    """
+    Return the size of all files under given path, including files in subdirectories.
+
+    :param path: The absolute path of a local directory.
+    :return: size in bytes.
+    """
+    if not os.path.isdir(path):
+        raise MlflowException(
+            message=f"The given {path} is not a directory.",
+            error_code=INVALID_PARAMETER_VALUE
+        )
+
+    total_size = 0
+    for cur_path, dirs, files in os.walk(path):
+        full_paths = [os.path.join(cur_path, file) for file in files]
+        total_size += sum([os.path.getsize(file) for file in full_paths])
+    return total_size
