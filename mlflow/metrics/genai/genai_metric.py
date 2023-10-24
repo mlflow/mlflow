@@ -64,7 +64,7 @@ def _extract_score_and_justification(output):
             data = json.loads(text)
             score = int(data.get("score"))
             justification = data.get("justification")
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError) as e:
             # If parsing fails, use regex
             match = re.search(r"score: (\d+),?\s*justification: (.+)", text)
             if match:
@@ -72,10 +72,10 @@ def _extract_score_and_justification(output):
                 justification = match.group(2)
             else:
                 score = None
-                justification = None
+                justification = f"Failed to extract score and justification. Error: {e!s}"
 
         if not isinstance(score, (int, float)) or not isinstance(justification, str):
-            return None, None
+            return None, justification
 
         return score, justification
 
@@ -282,8 +282,7 @@ def make_genai_metric(
                         ErrorCode.Name(UNAUTHENTICATED),
                     ]:
                         raise MlflowException(e)
-                _logger.info(f"Failed to score model on payload. Error: {e!r}")
-                return None, None
+                return None, f"Failed to score model on payload. Error:: {e!s}"
 
         scores = [None] * len(inputs)
         justifications = [None] * len(inputs)

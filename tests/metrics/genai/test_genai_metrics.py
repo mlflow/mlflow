@@ -297,7 +297,9 @@ def test_make_genai_metric_incorrect_response():
         )
 
     assert metric_value.scores == [None]
-    assert metric_value.justifications == [None]
+    assert metric_value.justifications == [
+        "Failed to extract score and justification. Error: Expecting value: line 1 column 1 (char 0)"
+    ]
 
     assert np.isnan(metric_value.aggregate_results["mean"])
     assert np.isnan(metric_value.aggregate_results["variance"])
