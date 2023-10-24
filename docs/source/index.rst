@@ -106,6 +106,16 @@ LLM Guides and Tutorials
                     discover how MLflow provides a holistic solution for managing LLM interactions.
                 </p>
             </div>
+            <div class="simple-card">
+                <a href="llms/llm-evaluate/index.html" >
+                    <div class="header">
+                        Evaluating LLMs
+                    </div>
+                </a>
+                <p>
+                    Learn how to evaluate LLMs with MLflow.
+                </p>
+            </div>
         </article>
     </section>
 
