@@ -1371,10 +1371,11 @@ Compound types:
                     )
             pdf = pandas.DataFrame(
                 data={
-                    names[i]: x
-                    if isinstance(x, pandas.Series)
-                    else x.apply(lambda row: row.to_dict(), axis=1)
-                    for i, x in enumerate(args)
+                    names[i]: arg if isinstance(arg, pandas.Series)
+                    # pandas_udf receives a StructType column as a pandas DataFrame.
+                    # We need to convert it back to a dict of pandas Series.
+                    else arg.apply(lambda row: row.to_dict(), axis=1)
+                    for i, arg in enumerate(args)
                 },
                 columns=names,
             )
