@@ -2,7 +2,7 @@
 LLM Evaluation Examples
 ============================================
 
-This notebook contains two step-by-step tutorials on how to use MLflow to evaluate LLMs. 
+The notebooks listed below contain step-by-step tutorials on how to use MLflow to evaluate LLMs. 
 The first notebook is centered around evaluating an LLM for question-answering with a 
 prompt engineering approach. The second notebook is centered around evaluating a RAG system. 
 Both notebooks will demonstrate how to use MLflow's builtin metrics such as token_count and 
