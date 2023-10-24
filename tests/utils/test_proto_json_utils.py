@@ -680,7 +680,7 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
     ],
 )
 def test_parse_tf_serving_input_for_dictionaries_and_lists(data, schema):
-    assert parse_tf_serving_input({"inputs": data}, schema) == data
+    np.testing.assert_equal(parse_tf_serving_input({"inputs": data}, schema), data)
     df = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
     df_split = df.to_dict(orient="split")
     pd.testing.assert_frame_equal(dataframe_from_parsed_json(df_split, "split", schema), df)
