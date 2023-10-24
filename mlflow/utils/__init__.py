@@ -9,9 +9,6 @@ import uuid
 from contextlib import closing
 from itertools import islice
 from sys import version_info
-from typing import TypeVar
-
-ParamValue = TypeVar("ParamValue")
 
 _logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import os
 from collections import OrderedDict
 from itertools import zip_longest
-from typing import List, Optional, Union
+from typing import List, Optional, TypeVar, Union
 
 from mlflow.entities import ExperimentTag, Metric, Param, RunStatus, RunTag, ViewType
 from mlflow.entities.dataset_input import DatasetInput
@@ -17,7 +17,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
-from mlflow.utils import ParamValue, chunk_list
+from mlflow.utils import chunk_list
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
@@ -31,6 +31,8 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+
+ParamValue = TypeVar("ParamValue")
 
 
 class TrackingServiceClient:
@@ -319,6 +321,7 @@ class TrackingServiceClient:
         try:
             if synchronous:
                 self.store.log_param(run_id, param)
+                return value
             else:
                 return self.store.log_param_async(run_id, param)
         except MlflowException as e:

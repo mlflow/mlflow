@@ -34,8 +34,9 @@ class AsyncLoggingQueue:
                 a list of Param objects, and a list of RunTag objects.
         """
         self._queue = Queue()
-        self._logging_func = logging_func
         self._lock = threading.RLock()
+        self._logging_func = logging_func
+
         self._is_activated = False
 
     def _at_exit_callback(self) -> None:
@@ -118,6 +119,42 @@ class AsyncLoggingQueue:
         batch.completion_event.wait()
         if batch.exception:
             raise batch.exception
+
+    def __getstate__(self):
+        """
+        Return the state of the object for pickling.
+
+        This method is called by the `pickle` module when the object is being pickled.
+        It returns a dictionary containing the object's state,
+        with internal attributes _queue, _lock, and _is_activated
+        removed to avoid pickling errors.
+
+        Returns:
+            dict: A dictionary containing the object's state,
+            with internal attributes _queue, _lock, and _is_activated
+            removed to avoid pickling errors.
+        """
+        state = self.__dict__.copy()
+        del state["_queue"]
+        del state["_lock"]
+        del state["_is_activated"]
+        return state
+
+    def __setstate__(self, state):
+        """
+        Set the state of the object from a given state dictionary.
+        Reinitializes the internal attributes _queue, _lock, and _is_activated.
+
+        Args:
+            state (dict): A dictionary containing the state of the object.
+
+        Returns:
+            None
+        """
+        self.__dict__.update(state)
+        self._queue = Queue()
+        self._lock = threading.RLock()
+        self._is_activated = False
 
     def log_batch_async(
         self, run_id: str, params: [Param], tags: [RunTag], metrics: [Metric]
