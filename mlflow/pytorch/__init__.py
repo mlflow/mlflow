@@ -947,35 +947,28 @@ def autolog(
                                   The registered model is created if it does not already exist.
     :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
-    .. code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import os
 
-        import pytorch_lightning as pl
+        import lightning as L
         import torch
         from torch.nn import functional as F
-        from torch.utils.data import DataLoader
+        from torch.utils.data import DataLoader, Subset
+        from torchmetrics import Accuracy
         from torchvision import transforms
         from torchvision.datasets import MNIST
-
-        try:
-            from torchmetrics.functional import accuracy
-        except ImportError:
-            from pytorch_lightning.metrics.functional import accuracy
 
         import mlflow.pytorch
         from mlflow import MlflowClient
 
-        # For brevity, here is the simplest most minimal example with just a training
-        # loop step, (no validation, no testing). It illustrates how you can use MLflow
-        # to auto log parameters, metrics, and models.
 
-
-        class MNISTModel(pl.LightningModule):
+        class MNISTModel(L.LightningModule):
             def __init__(self):
                 super().__init__()
                 self.l1 = torch.nn.Linear(28 * 28, 10)
+                self.accuracy = Accuracy("multiclass", num_classes=10)
 
             def forward(self, x):
                 return torch.relu(self.l1(x.view(x.size(0), -1)))
@@ -985,9 +978,9 @@ def autolog(
                 logits = self(x)
                 loss = F.cross_entropy(logits, y)
                 pred = logits.argmax(dim=1)
-                acc = accuracy(pred, y)
+                acc = self.accuracy(pred, y)
 
-                # Use the current of PyTorch logger
+                # PyTorch `self.log` will be automatically captured by MLflow.
                 self.log("train_loss", loss, on_epoch=True)
                 self.log("acc", acc, on_epoch=True)
                 return loss
@@ -1006,51 +999,30 @@ def autolog(
             print(f"tags: {tags}")
 
 
-        # Initialize our model
+        # Initialize our model.
         mnist_model = MNISTModel()
 
-        # Initialize DataLoader from MNIST Dataset
+        # Load MNIST dataset.
         train_ds = MNIST(
             os.getcwd(), train=True, download=True, transform=transforms.ToTensor()
         )
-        train_loader = DataLoader(train_ds, batch_size=32)
+        # Only take a subset of the data for faster training.
+        indices = torch.arange(32)
+        train_ds = Subset(train_ds, indices)
+        train_loader = DataLoader(train_ds, batch_size=8)
 
-        # Initialize a trainer
-        trainer = pl.Trainer(max_epochs=20, progress_bar_refresh_rate=20)
+        # Initialize a trainer.
+        trainer = L.Trainer(max_epochs=3)
 
         # Auto log all MLflow entities
         mlflow.pytorch.autolog()
 
-        # Train the model
+        # Train the model.
         with mlflow.start_run() as run:
             trainer.fit(mnist_model, train_loader)
 
-        # fetch the auto logged parameters and metrics
+        # Fetch the auto logged parameters and metrics.
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
-
-    .. code-block:: text
-        :caption: Output
-
-        run_id: 42caa17b60cb489c8083900fb52506a7
-        artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/data']
-        params: {'betas': '(0.9, 0.999)',
-                 'weight_decay': '0',
-                 'epochs': '20',
-                 'eps': '1e-08',
-                 'lr': '0.02',
-                 'optimizer_name': 'Adam', '
-                 amsgrad': 'False'}
-        metrics: {'acc_step': 0.0,
-                  'train_loss_epoch': 1.0917967557907104,
-                  'train_loss_step': 1.0794280767440796,
-                  'train_loss': 1.0794280767440796,
-                  'acc_epoch': 0.0033333334140479565,
-                  'acc': 0.0}
-        tags: {'Mode': 'training'}
-
-    .. figure:: ../_static/images/pytorch_lightening_autolog.png
-
-        PyTorch autologged MLflow entities
     """
     try:
         import pytorch_lightning as pl
