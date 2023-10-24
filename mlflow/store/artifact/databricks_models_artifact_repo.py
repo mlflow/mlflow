@@ -157,23 +157,18 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=headers,
             )
-            if any(not e.retryable for e in failed_downloads.values()):
-                template = "===== Chunk {index} =====\n{error}"
-                failure = "\n".join(
-                    template.format(index=index, error=error)
-                    for index, error in failed_downloads.items()
-                )
-                raise MlflowException(
-                    f"Failed to download artifact {dst_run_relative_artifact_path}:\n{failure}"
-                )
             if failed_downloads:
                 new_signed_uri, new_headers = self._get_signed_download_uri(
                     dst_run_relative_artifact_path
                 )
-            for i in failed_downloads:
-                download_chunk(
-                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
-                )
+                for chunk in failed_downloads:
+                    download_chunk(
+                        chunk.start,
+                        chunk.end,
+                        new_headers,
+                        dst_local_file_path,
+                        new_signed_uri,
+                    )
 
     def _download_file(self, remote_file_path, local_path):
         try:
