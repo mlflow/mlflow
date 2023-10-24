@@ -92,7 +92,7 @@ configuration and management of your LLM serving needs, select the provider that
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/PaLM-logo.svg" alt="PaLM Logo">
+                    <img src="../_static/images/logos/PaLM-logo.png" alt="PaLM Logo">
                 </div>
             </a>
             <a href="gateway/index.html#providers">
