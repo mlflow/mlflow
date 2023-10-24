@@ -55,7 +55,7 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
   };
 
   getSchemaTypeRepr = (schemaTypeSpec: ColumnSpec | TensorSpec): string => {
-    let { type } = schemaTypeSpec;
+    const { type } = schemaTypeSpec;
 
     let repr: string = type;
     if (schemaTypeSpec.type === 'tensor') {
