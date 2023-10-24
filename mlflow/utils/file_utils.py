@@ -756,7 +756,6 @@ def parallelized_download_file_using_http_uri(
 
     with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
         for future in as_completed(futures):
-            futures[future]
             future.result()
             pbar.update()
 
