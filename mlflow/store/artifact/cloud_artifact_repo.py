@@ -215,9 +215,9 @@ class CloudArtifactRepository(ArtifactRepository):
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-                for chunk in failed_downloads:
+                for chunk, exception in failed_downloads.items():
                     _logger.warning(
-                        f"Retrying download of chunk {chunk.index} of {remote_file_path}"
+                        f"Retrying download of chunk {chunk.index} of {remote_file_path}, got error: {exception}",
                     )
                     num_retries = 3
                     for retry in range(num_retries):
