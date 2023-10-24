@@ -48,7 +48,7 @@ def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
                 _logger.warning(
                     f"Cannot calculate metric '{metric_name}' for non-tuple[str] inputs. "
                     f"Row #{index} of column '{column_name}' has a non-tuple[str] value of:"
-                    f"{value}. Skipping metric logging. Data: {data}"
+                    f"{value}. Skipping metric logging."
                 )
                 return False
 
@@ -368,24 +368,11 @@ def _f1_score_eval_fn(
         return MetricValue(aggregate_results={"f1_score": f1})
 
 
-def _validate_positive_int_scalar(scalar, metric_name, scalar_name):
-    if isinstance(scalar, int) and scalar > 0:
-        return True
-    _logger.warning(
-        f"Cannot calculate {metric_name} for invalid parameter {scalar_name}."
-        f"{scalar_name} should be a positive integer; found:"
-        f"{scalar}. Skipping metric logging."
-    )
-    return False
-
-
 def _precision_at_k_eval_fn(k):
     def _fn(predictions, targets):
-        if (
-            not _validate_and_fix_text_tuple_data(predictions, "precision_at_k", "predictions")
-            or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets")
-            or not _validate_positive_int_scalar(k, "precision_at_k", "k")
-        ):
+        if not _validate_and_fix_text_tuple_data(
+            predictions, "precision_at_k", "predictions"
+        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets"):
             return
 
         scores = []

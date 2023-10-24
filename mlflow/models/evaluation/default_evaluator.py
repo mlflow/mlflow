@@ -1673,7 +1673,15 @@ class DefaultEvaluator(ModelEvaluator):
                 elif self.model_type == _ModelType.RETRIEVER:
                     if self.evaluator_config.get("k", None) is None:
                         self.evaluator_config["k"] = 3  # Setting the default k to 3
-                    self.builtin_metrics = [precision_at_k(self.evaluator_config.pop("k"))]
+                    k = self.evaluator_config.pop("k")
+                    if not (isinstance(k, int) and k > 0):
+                        _logger.warning(
+                            "Cannot calculate 'precision_at_k' for invalid parameter 'k'."
+                            f"'k' should be a positive integer; found: {k}"
+                            "Skipping metric logging."
+                        )
+                    else:
+                        self.builtin_metrics = [precision_at_k(k)]
 
                 self.y_pred = (
                     self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
