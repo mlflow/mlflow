@@ -1152,12 +1152,11 @@ class DefaultEvaluator(ModelEvaluator):
         parameters = inspect.signature(extra_metric.eval_fn).parameters
         eval_fn_args = []
         params_not_found = []
+        # eval_fn has parameters (eval_df, builtin_metrics) for backwards compatibility
         if len(parameters) == 2:
             eval_fn_args.append(eval_df_copy)
-            if "metrics" in parameters.keys():
-                eval_fn_args.append(copy.deepcopy(self.metrics_values))
-            else:
-                eval_fn_args.append(copy.deepcopy(self.metrics))
+            eval_fn_args.append(copy.deepcopy(self.metrics))
+        # eval_fn can have parameters like (predictions, targets, metrics, random_col)
         else:
             for param_name, param in parameters.items():
                 column = self.col_mapping.get(param_name, param_name)
