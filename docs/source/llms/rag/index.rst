@@ -9,7 +9,7 @@ through a retrieval mechanism, which enhances generated responses to be more con
 and factually accurate. This improvement results in a cost-effective and accessible alternative
 to training custom models for specific use cases.
 
-The retrieval mechanism works by embedding documents and questions in the same latent space, allowing
+The Retrieval mechanism works by embedding documents and questions in the same latent space, allowing
 a user to ask a question and get the most relevant document chunk as a response. This mechanism then passes
 the contextual chunk to the generative model, resulting in better quality responses with fewer hallucinations.
 
