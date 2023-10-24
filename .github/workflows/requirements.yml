@@ -79,4 +79,5 @@ jobs:
       - name: Run tests
         run: |
           source dev/setup-ssh.sh
-          ./dev/run-python-tests.sh
+          pytest tests --quiet --requires-ssh --ignore-flavors \
+            --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
