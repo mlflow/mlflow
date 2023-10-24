@@ -26,25 +26,33 @@ from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
     MetricValue,
+    accuracy_score,
     ari_grade_level,
     exact_match,
     example_count,
+    f1_score,
     flesch_kincaid_grade_level,
+    fn_score,
+    fp_score,
     mae,
     mape,
     max_error,
     mean_on_target,
     mse,
     perplexity,
+    precision_score,
     r2_score,
+    recall_score,
     rmse,
     rouge1,
     rouge2,
     rougeL,
     rougeLsum,
     sum_on_target,
+    tn_score,
     token_count,
     toxicity,
+    tp_score,
 )
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
@@ -1464,7 +1472,7 @@ class DefaultEvaluator(ModelEvaluator):
             stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
             raise MlflowException(stripped_message)
 
-    def _test_first_row(self, eval_df):
+    def _test_first_row(self, metrics_to_test, eval_df):
         # test calculations on first row of eval_df
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
@@ -1498,7 +1506,8 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate_metrics(self, eval_df):
         self._check_args(self.builtin_metrics + self.extra_metrics, eval_df)
-        self._test_first_row(eval_df)
+        metrics_to_test = self.builtin_metrics + self.extra_metrics
+        self._test_first_row(metrics_to_test, eval_df)
 
         # calculate metrics for the full eval_df
         self._evaluate_builtin_metrics(eval_df)
@@ -1631,18 +1640,6 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics_values = {}
             self.builtin_metrics = []
 
-            regression_metrics = [
-                example_count(),
-                sum_on_target(),
-                mean_on_target(),
-                mae(),
-                mse(),
-                rmse(),
-                r2_score(),
-                max_error(),
-                mape(),
-            ]
-
             text_metrics = [
                 token_count(),
                 toxicity(),
@@ -1664,8 +1661,41 @@ class DefaultEvaluator(ModelEvaluator):
                 self._generate_model_predictions(compute_latency=compute_latency)
                 if self.model_type == _ModelType.REGRESSOR:
                     self._evaluate_sklearn_model_score_if_scorable()
-                    self.builtin_metrics = regression_metrics
+                    self.builtin_metrics = [
+                        example_count(),
+                        sum_on_target(),
+                        mean_on_target(),
+                        mae(),
+                        mse(),
+                        rmse(),
+                        r2_score(),
+                        max_error(),
+                        mape(),
+                    ]
                 elif self.model_type == _ModelType.CLASSIFIER:
+                    self._evaluate_sklearn_model_score_if_scorable()
+                    if self.is_binomial:
+                        self.builtin_metrics = [
+                            example_count(),
+                            tn_score(),
+                            fp_score(),
+                            fn_score(),
+                            tp_score(),
+                            accuracy_score(),
+                            recall_score(),
+                            precision_score(),
+                            f1_score(),
+                        ]
+                        self._compute_roc_and_pr_curve()
+                    else:
+                        self.builtin_metrics = [
+                            example_count(),
+                            accuracy_score(),
+                            recall_score(),
+                            precision_score(),
+                            f1_score(),
+                        ]
+                        # TODO: something about roc
                     self._compute_builtin_classifier_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
                     self.builtin_metrics = [*text_metrics, exact_match()]

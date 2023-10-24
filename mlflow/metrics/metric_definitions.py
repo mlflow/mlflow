@@ -164,6 +164,38 @@ def _mean_on_target_eval_fn(predictions, targets, metrics, sample_weights=None):
         return MetricValue(aggregate_results={"mean_on_target": np.sum(mean_on_target)})
 
 
+def _tn_eval_fn(predictions, targets, metrics):
+    if targets is not None and len(targets) != 0:
+        from sklearn.metrics import confusion_matrix
+
+        tn, fp, fn, tp = confusion_matrix(targets, predictions).ravel()
+        return MetricValue(aggregate_results={"tn": tn})
+
+
+def _fp_eval_fn(predictions, targets, metrics):
+    if targets is not None and len(targets) != 0:
+        from sklearn.metrics import confusion_matrix
+
+        tn, fp, fn, tp = confusion_matrix(targets, predictions).ravel()
+        return MetricValue(aggregate_results={"fp": fp})
+
+
+def _fn_eval_fn(predictions, targets, metrics):
+    if targets is not None and len(targets) != 0:
+        from sklearn.metrics import confusion_matrix
+
+        tn, fp, fn, tp = confusion_matrix(targets, predictions).ravel()
+        return MetricValue(aggregate_results={"fn": fn})
+
+
+def _tp_eval_fn(predictions, targets, metrics):
+    if targets is not None and len(targets) != 0:
+        from sklearn.metrics import confusion_matrix
+
+        tn, fp, fn, tp = confusion_matrix(targets, predictions).ravel()
+        return MetricValue(aggregate_results={"tp": tp})
+
+
 def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import accuracy_score
