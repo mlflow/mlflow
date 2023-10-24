@@ -38,6 +38,8 @@ jobs:
           command: |
             pip --version
             pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .[gateway]
+          environment:
+            PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
       - run:
           name: Build documentation
           working_directory: docs
