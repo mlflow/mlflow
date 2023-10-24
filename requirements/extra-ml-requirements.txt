@@ -62,6 +62,8 @@ tiktoken
 tenacity
 # Required by mlflow.langchain
 langchain
+# Required by mlflow.promptflow
+promptflow
 # Required by mlflow.sentence_transformers
 sentence-transformers
 # Required by mlflow.keras_core
