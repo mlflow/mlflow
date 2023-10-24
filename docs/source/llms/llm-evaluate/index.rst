@@ -92,7 +92,7 @@ LLM Evaluation Metrics
 
 There are two types of LLM evaluation metrics in MLflow:
 
-1. Metrics relying on SaaS model (e.g., OpenAI) with prompt engineering, e.g., :py:func:`mlflow.metrics.relevance`. These  
+1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.relevance`. These  
    metrics are created via :py:func:`mlflow.metrics.make_genai_metric` method. For each data record, these metrics under the hood sends 
    one prompt consisting of the following information to the SaaS model, and extract the score from model response:
 
@@ -187,11 +187,23 @@ for LLM evaluation in MLFlow. MLflow provides two ways for selecting metrics to 
 
 The full reference for supported evaluation metrics can be found `here <../python_api/mlflow.html#mlflow.evaluate>`_. 
 
+Metrics with LLM as the Judge
+---------------------------------------------
+
+MLflow offers a few pre-canned metrics which uses LLM as the judge. Despite the difference under the hood, the usage
+is the same - put these metrics in the ``extra_metrics`` argument in ``mlflow.evaluate()``. Here is the list of pre-canned
+metrics:
+
+* :py:func:`mlflow.metrics.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
+* :py:func:`mlflow.metrics.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
+  and ground truth.
+* :py:func:`mlflow.metrics.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
+
 
 Create your Custom LLM-evaluation Metrics
 ---------------------------------------------
 
-Create LLM-as-judge Evaluation Metrics (Cateogory 1)
+Create LLM-as-judge Evaluation Metrics (Category 1)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can also create your own Saas LLM evaluation metrics with MLflow API :py:func:`mlflow.metrics.make_genai_metric`, which 
@@ -277,18 +289,11 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
         greater_is_better=True,
     )
 
-Best Practices for Creating Custom Metrics (LLM as the Judge)
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-Under the hood of evaluting with LLM as the judge is prompt engineering, and how to find the best prompt is still under research. 
-Here are some tips for setting required fields of custom SaaS LLM evaluation metrics:
-
-* TODO(sunish): please share your learnings here.
-* TODO(prithvi): please share your learnings here.
-* TODO(ann): please share your learnings here.
+..
+    TODO(prithvi): add best practice for creating GenAI metrics.
 
 
-Create Per-row LLM Evluation Metrics (Cateogory 2)
+Create Per-row LLM Evluation Metrics (Category 2)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This is very similar to creating a custom traditional metrics, with the exception of returning a `EvaluationResult` instance.
@@ -496,8 +501,20 @@ To see the score on selected metrics, you can check:
             evaluators="default",
         )
         print(f"See aggregated evaluation results below: \n{results.metrics}")
-* ``tables``: stores the per-row evaluation results. 
-  TODO(prithvi): The code example always uses "eval_results_table" as the key to fetch eval table, is this a hard requirement?
+
+* ``tables["eval_results_table"]``: stores the per-row evaluation results. 
+
+  .. code-block:: python
+
+    with mlflow.start_run() as run:
+        results = mlflow.evaluate(
+            data=eval_data,
+            targets="ground_truth",
+            predictions="predictions",
+            extra_metrics=[mlflow.metrics.answer_similarity()],
+            evaluators="default",
+        )
+        print(f"See per-data evaluation results below: \n{results.tables["eval_results_table"]}")
 
 
 View Evaluation Results via MLflow UI
