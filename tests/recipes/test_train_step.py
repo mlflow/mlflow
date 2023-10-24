@@ -205,6 +205,21 @@ def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     assert "training_mean_squared_error" in metrics
 
 
+@pytest.fixture(autouse=True)
+def fake_steps_train_estimator_fn(tmp_path, monkeypatch):
+    # `mock.patch("steps.train.estimator_fn", ...)` would fail without this fixture
+    steps = tmp_path / "steps"
+    steps.mkdir()
+    steps.joinpath("__init__.py").touch()
+    steps.joinpath("train.py").write_text(
+        """
+def estimator_fn(estimator_params=None):
+    return None
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+
 @mock.patch("mlflow.recipes.steps.train._REBALANCING_CUTOFF", 50)
 def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     train_step_output_dir = setup_train_dataset(
