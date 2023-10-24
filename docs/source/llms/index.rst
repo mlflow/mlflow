@@ -272,36 +272,8 @@ Look in the tutorials and guides below to learn more about interesting use cases
     :maxdepth: 1
     :hidden:
   
-    rag/index
-
-.. raw:: html
-
-    <section>
-        <article class="simple-grid">
-            <div class="simple-card">
-                <a href="rag/index.html" >
-                    <div class="header">
-                        Question Generation for RAG
-                    </div>
-                </a>
-                <p>
-                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
-                </p>
-            </div>
-        </article>
-    </section>
-
-LLM Tutorials
--------------
-
-Learn how to leverage MLflow to simplify and manage your entire end-to-end LLM lifecycle usage with engaging tutorials that target 
-specific use cases. Each of the tutorials below focus on specific real-world applications. 
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
     custom-pyfunc-for-llms/index
+    rag/index
 
 .. raw:: html
 
@@ -314,8 +286,17 @@ specific use cases. Each of the tutorials below focus on specific real-world app
                     </div>
                 </a>
                 <p>
-                    Explore the nuances of packaging and deploying advanced LLMs in MLflow using custom PyFuncs. This guide delves deep 
-                    into managing intricate model behaviors, ensuring seamless and efficient LLM deployments.
+                    Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs. 
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="rag/index.html" >
+                    <div class="header">
+                        Question Generation for RAG
+                    </div>
+                </a>
+                <p>
+                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
                 </p>
             </div>
         </article>
