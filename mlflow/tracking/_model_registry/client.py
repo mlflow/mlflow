@@ -205,6 +205,19 @@ class ModelRegistryClient:
             self.store._await_model_version_creation(mv, await_creation_for)
         return mv
 
+    def copy_model_version(self, src_mv, dst_name):
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                       the source model version.
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        return self.store.copy_model_version(src_mv=src_mv, dst_name=dst_name)
+
     def update_model_version(self, name, version, description):
         """
         Update metadata associated with a model version in backend.
@@ -273,6 +286,10 @@ class ModelRegistryClient:
     ):
         """
         Search for model versions in backend that satisfy the filter criteria.
+
+        .. warning:
+
+            The model version search results may not have aliases populated for performance reasons.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or
