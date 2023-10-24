@@ -52,6 +52,11 @@ jobs:
   recipes-windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
+    strategy:
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -82,4 +87,4 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           export MLFLOW_HOME=$(pwd)
-          pytest tests/recipes
+          pytest --splits ${{ matrix.splits }} --group ${{ matrix.group }} tests/recipes
