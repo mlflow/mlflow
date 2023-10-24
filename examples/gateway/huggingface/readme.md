@@ -42,7 +42,7 @@ sudo apt-get install -y nvidia-container-toolkit
 
 #### Running the TGI server.
 
-After you installed the NVIDIA Container toolkit, you can run the following Docker command to to start a TGI server on your local machine on port `5000`.
+After you installed the NVIDIA Container toolkit, you can run the following Docker command to to start a TGI server on your local machine on port `5000`. This will load a [falcon-7b-instruct](https://huggingface.co/tiiuae/falcon-7b-instruct) model on the TGI server.
 
 ```
 model=tiiuae/falcon-7b-instruct
@@ -50,7 +50,7 @@ volume=$PWD/data # share a volume with the Docker container to avoid downloading
 docker run --gpus all --shm-size 1g -p 5000:80 -v $volume:/data ghcr.io/huggingface/text-generation-inference:1.1.1 --model-id $model
 ```
 
-To test whether the model is deployed correctly, run the following script and investigate its output:
+After the TGI server is deployed, run the following script to verify that it is working correctly:
 
 ```
 import requests
