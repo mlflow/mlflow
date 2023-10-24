@@ -873,12 +873,9 @@ def _is_model_distributed_in_memory(transformers_model):
     # be safely saved
     if not hasattr(transformers_model, "hf_device_map"):
         return False
-
-    if transformers_model.device.type == "meta":
-        return True
-
-    # For all other configurations, we cannot be certain that the weights will be saved correctly
-    return False
+    # If the device map has more than one unique value entry, then the weights are not within
+    # a contiguous memory system (VRAM, SYS, or DISK) and thus cannot be safely saved.
+    return len(set(transformers_model.hf_device_map.values())) > 1
 
 
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries

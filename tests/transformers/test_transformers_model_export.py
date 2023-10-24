@@ -3802,7 +3802,6 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
 
 
 def test_model_distributed_across_devices():
-    # Mocking a transformers_model with weights on gpu:0, gpu:1, disk, and cpu
     mock_model = mock.Mock()
     mock_model.device.type = "meta"
     mock_model.hf_device_map = {
@@ -3812,16 +3811,14 @@ def test_model_distributed_across_devices():
         "layer4": mock.Mock(type="disk"),
     }
 
-    # Assert that the function returns True for a distributed model
     assert _is_model_distributed_in_memory(mock_model)
 
 
 def test_model_on_single_device():
-    # Mocking a transformers_model with all components on cpu
     mock_model = mock.Mock()
     mock_model.device.type = "cpu"
+    mock_model.hf_device_map = {}
 
-    # Assert that the function returns False for a non-distributed model
     assert not _is_model_distributed_in_memory(mock_model)
 
 
