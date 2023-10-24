@@ -1288,6 +1288,7 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method for generating model predictions
         """
+        _logger.info("Computing model predictions.")
 
         def predict_with_latency(X_copy):
             y_pred_list = []
