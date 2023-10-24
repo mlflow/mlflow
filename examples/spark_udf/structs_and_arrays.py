@@ -6,7 +6,7 @@ import mlflow
 
 class MyModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input):
-        return [hash(str(row)) for row in model_input.iterrows()]
+        return [str(" | ".join(map(str, row))) for _, row in model_input.iterrows()]
 
 
 def main():
@@ -64,7 +64,7 @@ def main():
         udf = mlflow.pyfunc.spark_udf(
             spark=spark,
             model_uri=model_info.model_uri,
-            result_type="long",
+            result_type="string",
         )
         df.withColumn("output", udf("str", "arr", "obj", "obj_arr")).show()
 
