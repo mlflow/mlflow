@@ -166,6 +166,7 @@ Look in the tutorials and guides below to learn more about interesting use cases
     :hidden:
 
     rag/index
+    llm-evaluate/index
 
 .. raw:: html
 
@@ -173,6 +174,16 @@ Look in the tutorials and guides below to learn more about interesting use cases
         <article class="simple-grid">
             <div class="simple-card">
                 <a href="rag/index.html" >
+                    <div class="header">
+                        Question Generation for RAG
+                    </div>
+                </a>
+                <p>
+                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="llms/rag/index.html" >
                     <div class="header">
                         Question Generation for RAG
                     </div>
