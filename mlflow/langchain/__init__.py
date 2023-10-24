@@ -577,9 +577,8 @@ def _save_model(model, path, loader_fn, persist_dir):
             except Exception as e:
                 raise mlflow.MlflowException(
                     "Error when attempting to pickle the AgentExecutor tools. "
-                    "This model likely does not support serialization.\n"
-                    f"Exception:\n{e}"
-                )
+                    "This model likely does not support serialization."
+                ) from e
             model_data_kwargs[_TOOLS_DATA_KEY] = _TOOLS_DATA_FILE_NAME
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
