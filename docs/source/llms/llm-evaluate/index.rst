@@ -113,7 +113,7 @@ Select Metrics to Evaluate
 --------------------------
 
 MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the 
-type of LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. 
+LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. 
 The default metrics for given model types are shown below:
 
 * **question-answering**: ``model_type="question-answering"``:
@@ -193,6 +193,8 @@ metrics:
 * :py:func:`mlflow.metrics.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
 * :py:func:`mlflow.metrics.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
   and ground truth.
+* :py:func:`mlflow.metrics.answer_relevance`: Evaluate the appropriateness and applicability of the output with 
+  respect to the input. 
 * :py:func:`mlflow.metrics.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
 
 
