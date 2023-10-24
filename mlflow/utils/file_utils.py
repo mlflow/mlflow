@@ -19,8 +19,8 @@ import urllib.request
 import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
+from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
-from typing import Optional
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -38,7 +38,7 @@ from mlflow.environment_variables import (
     MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
 )
-from mlflow.exceptions import MissingConfigException
+from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
@@ -661,16 +661,19 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
                 output_file.write(chunk)
 
 
-class _ChunkDownloadError(Exception):
-    def __init__(self, retryable: bool, error: str, status_code: Optional[int] = None) -> None:
-        self.retryable = retryable
-        self.error = error
-        self.status_code = status_code
-        super().__init__(
-            f"Chunk download failed: {error}"
-            if status_code is None
-            else f"Chunk download failed with status code {status_code}: {error}"
-        )
+@dataclass(frozen=True)
+class _Chunk:
+    index: int
+    start: int
+    end: int
+
+
+def _yield_chunks(file_size, chunk_size):
+    num_requests = int(math.ceil(file_size / float(chunk_size)))
+    for i in range(num_requests):
+        range_start = i * chunk_size
+        range_end = min(range_start + chunk_size - 1, file_size - 1)
+        yield _Chunk(i, range_start, range_end)
 
 
 def parallelized_download_file_using_http_uri(
@@ -694,81 +697,54 @@ def parallelized_download_file_using_http_uri(
     Returns a dict of chunk index : exception, if one was thrown for that index.
     """
 
-    def run_download(range_start, range_end):
-        template = """
+    def run_download(chunk: _Chunk):
+        try:
+            subprocess.run(
+                [
+                    sys.executable,
+                    download_cloud_file_chunk.__file__,
+                    "--range-start",
+                    str(chunk.start),
+                    "--range-end",
+                    str(chunk.end),
+                    "--headers",
+                    json.dumps(headers or {}),
+                    "--download-path",
+                    download_path,
+                    "--http-uri",
+                    http_uri,
+                ],
+                text=True,
+                check=True,
+                capture_output=True,
+                timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
+                env=env,
+            )
+        except (TimeoutExpired, CalledProcessError) as e:
+            raise MlflowException(
+                f"""
 ----- stdout -----
-{stdout}
+{e.stdout.strip()}
 
 ----- stderr -----
-{stderr}
+{e.stderr.strip()}
 """
-        with tempfile.TemporaryDirectory() as tmpdir:
-            json_file = os.path.join(tmpdir, "http_error.json")
-            try:
-                subprocess.run(
-                    [
-                        sys.executable,
-                        download_cloud_file_chunk.__file__,
-                        "--range-start",
-                        str(range_start),
-                        "--range-end",
-                        str(range_end),
-                        "--headers",
-                        json.dumps(headers or {}),
-                        "--download-path",
-                        download_path,
-                        "--http-uri",
-                        http_uri,
-                        "--temp-file",
-                        json_file,
-                    ],
-                    text=True,
-                    check=True,
-                    capture_output=True,
-                    timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
-                    env=env,
-                )
-            except TimeoutExpired as e:
-                raise _ChunkDownloadError(
-                    True,
-                    template.format(
-                        stdout=e.stdout.strip() or "(no stdout)",
-                        stderr=e.stderr.strip() or "(no stderr)",
-                    ),
-                ) from e
-            except CalledProcessError as e:
-                retryable = False
-                status_code = None
-                if os.path.exists(json_file):
-                    with open(json_file) as f:
-                        data = json.load(f)
-                        retryable = data.get("retryable", False)
-                        status_code = data.get("status_code")
-                raise _ChunkDownloadError(
-                    retryable,
-                    template.format(
-                        stdout=e.stdout.strip() or "(no stdout)",
-                        stderr=e.stderr.strip() or "(no stderr)",
-                    ),
-                    status_code,
-                ) from e
-            except Exception as e:
-                raise _ChunkDownloadError(False, str(e)) from e
+            ) from e
 
-    num_requests = int(math.ceil(file_size / float(chunk_size)))
+    chunks = _yield_chunks(file_size, chunk_size)
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
     # before sending to the workers so they can each individually seek to their respective positions
     # and write chunks without overwriting.
     with open(download_path, "w"):
         pass
-    starting_index = 0
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
+        chunk = next(chunks)
         # GCP files could be transcoded, in which case the range header is ignored.
         # Test if this is the case by downloading one chunk and seeing if it's larger than the
         # requested size. If yes, let that be the file; if not, continue downloading more chunks.
         download_chunk(
-            range_start=0,
-            range_end=chunk_size - 1,
+            range_start=chunk.start,
+            range_end=chunk.end,
             headers=headers,
             download_path=download_path,
             http_uri=http_uri,
@@ -778,24 +754,16 @@ def parallelized_download_file_using_http_uri(
         # so we don't need to consider this here
         if downloaded_size > chunk_size:
             return {}
-        else:
-            starting_index = 1
 
-    futures = {}
-    for i in range(starting_index, num_requests):
-        range_start = i * chunk_size
-        range_end = range_start + chunk_size - 1
-        futures[thread_pool_executor.submit(run_download, range_start, range_end)] = i
-
+    futures = {thread_pool_executor.submit(run_download, chunk): chunk for chunk in chunks}
     failed_downloads = {}
-
     with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
         for future in as_completed(futures):
-            index = futures[future]
+            chunk = futures[future]
             try:
                 future.result()
             except Exception:
-                failed_downloads[index] = future.exception()
+                failed_downloads[chunk] = future.exception()
             else:
                 pbar.update()
 
