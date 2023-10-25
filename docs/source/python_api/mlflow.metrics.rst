@@ -12,7 +12,7 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
 .. code-block:: python
 
     import mlflow
-    from mlflow.metrics import EvaluationExample, answer_similarity
+    from mlflow.metrics.genai import EvaluationExample, answer_similarity
 
     eval_df = pd.DataFrame(
         {

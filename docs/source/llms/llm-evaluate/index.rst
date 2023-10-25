@@ -224,7 +224,7 @@ output so that LLM, e.g., GPT4 can output the information we want.
 Now let's create a custom GenAI metrics called "professionalism", which measures how professional our model output is. 
 
 Let's first create a few examples with scores, these will be the reference samples LLM judge uses. To create such examples, 
-we will use :py:func:`mlflow.metrics.EvaluationExample` class, which has 4 fields:
+we will use :py:func:`mlflow.metrics.genai.EvaluationExample` class, which has 4 fields:
 
 * input: input text.
 * output: output text.
@@ -233,7 +233,7 @@ we will use :py:func:`mlflow.metrics.EvaluationExample` class, which has 4 field
 
 .. code-block:: python
 
-    professionalism_example_score_2 = mlflow.metrics.EvaluationExample(
+    professionalism_example_score_2 = mlflow.metrics.genai.EvaluationExample(
         input="What is MLflow?",
         output=(
             "MLflow is like your friendly neighborhood toolkit for managing your machine learning projects. It helps "
@@ -246,7 +246,7 @@ we will use :py:func:`mlflow.metrics.EvaluationExample` class, which has 4 field
             "exclamation points, which make it sound less professional. "
         ),
     )
-    professionalism_example_score_4 = mlflow.metrics.EvaluationExample(
+    professionalism_example_score_4 = mlflow.metrics.genai.EvaluationExample(
         input="What is MLflow?",
         output=(
             "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was "
