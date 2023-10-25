@@ -278,13 +278,25 @@ Look in the tutorials and guides below to learn more about interesting use cases
     :maxdepth: 1
     :hidden:
   
-    custom-pyfunc-for-llms/index
     rag/index
+    llm-evaluate/index
+    llm-evaluate/notebooks/index
+    custom-pyfunc-for-llms/index
 
 .. raw:: html
 
     <section>
         <article class="simple-grid">
+            <div class="simple-card">
+                <a href="llm-evaluate/index.html" >
+                    <div class="header">
+                        Evaluating LLMs
+                    </div>
+                </a>
+                <p>
+                    Learn how to evaluate LLMs with MLflow.
+                </p>
+            </div>
             <div class="simple-card">
                 <a href="custom-pyfunc-for-llms/index.html" >
                     <div class="header">
