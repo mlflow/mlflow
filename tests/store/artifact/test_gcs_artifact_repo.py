@@ -4,6 +4,7 @@ import posixpath
 from unittest import mock
 
 import pytest
+import requests
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud.storage import client as gcs_client
 
@@ -343,3 +344,45 @@ def test_delete_artifacts(mock_client):
     repo.delete_artifacts()
     artifact_file_names = [obj.path for obj in repo.list_artifacts()]
     assert not artifact_file_names
+
+
+def test_create_multipart_upload(mock_client):
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
+
+    mock_method_chain(
+        mock_client,
+        [
+            "bucket",
+            "blob",
+            "_get_upload_arguments",
+        ],
+        return_value=({}, {}, "application/octet-stream"),
+    )
+    mock_method_chain(
+        mock_client,
+        [
+            "bucket",
+            "blob",
+            "_get_transport",
+        ],
+        return_value=requests.Session(),
+    )
+
+    # see https://cloud.google.com/storage/docs/xml-api/post-object-multipart#example
+    upload_id = "VXBsb2FkIElEIGZvciBlbHZpbmcncyBteS1tb3ZpZS5tMnRzIHVwbG9hZA"
+    resp = mock.Mock(status_code=200)
+    resp.text = f"""<?xml version="1.0" encoding="UTF-8"?>
+<InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Bucket>test_bucket</Bucket>
+  <Key>file.txt</Key>
+  <UploadId>{upload_id}</UploadId>
+</InitiateMultipartUploadResult>"""
+
+    with mock.patch("requests.Session.request", return_value=resp) as request_mock:
+        create = repo.create_multipart_upload(
+            "file.txt", num_parts=5, artifact_path=artifact_root_path
+        )
+        request_mock.assert_called_once()
+        assert len(create.credentials) == 5
+        assert create.upload_id == upload_id
