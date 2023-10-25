@@ -102,7 +102,7 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
                         "text": resp["generated_text"],
                         "metadata": {
                             "finish_reason": resp["details"]["finish_reason"],
-                            "seed": resp["details"]["seed"],
+                            "seed": str(resp["details"]["seed"]),
                         },
                     }
                 ],
