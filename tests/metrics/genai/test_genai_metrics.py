@@ -7,8 +7,7 @@ import pandas as pd
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.base import EvaluationExample
-from mlflow.metrics.genai import model_utils
+from mlflow.metrics.genai import EvaluationExample, model_utils
 from mlflow.metrics.genai.genai_metric import (
     _extract_score_and_justification,
     _format_args_string,
@@ -270,6 +269,71 @@ def test_make_genai_metric_correct_response():
         assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
 
 
+def test_make_genai_metric_supports_string_value_for_grading_context_columns():
+    custom_metric = make_genai_metric(
+        name="fake_metric",
+        version="v1",
+        definition="Fake metric definition",
+        grading_prompt="Fake metric grading prompt",
+        model="openai:/gpt-3.5-turbo",
+        grading_context_columns="targets",
+        greater_is_better=True,
+        examples=[
+            EvaluationExample(
+                input="example-input",
+                output="example-output",
+                score=4,
+                justification="example-justification",
+                grading_context={"targets": "example-ground_truth"},
+            )
+        ],
+    )
+
+    assert [
+        param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
+    ] == ["predictions", "metrics", "inputs", "targets"]
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ) as mock_predict_function:
+        metric_value = custom_metric.eval_fn(
+            pd.Series(["prediction"]),
+            {},
+            pd.Series(["input"]),
+            pd.Series(["ground_truth"]),
+        )
+        assert mock_predict_function.call_count == 1
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][1] == {
+            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "fake_metric based on the input and output.\nA definition of "
+            "fake_metric and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
+            "\nInput:\ninput\n\nOutput:\nprediction\n\nAdditional information used by the model:\n"
+            "key: targets\nvalue:\nground_truth\n\nMetric definition:\nFake metric definition\n\n"
+            "Grading rubric:\nFake metric grading prompt\n\nExamples:\n\nInput:\nexample-input\n\n"
+            "Output:\nexample-output\n\nAdditional information used by the model:\nkey: targets\n"
+            "value:\nexample-ground_truth\n\nscore: 4\njustification: "
+            "example-justification\n        \n\nYou must return the following fields in your "
+            "response one below the other:\nscore: Your numerical score for the model's "
+            "fake_metric based on the rubric\njustification: Your step-by-step reasoning about "
+            "the model's fake_metric score\n    ",
+            "temperature": 0.0,
+            "max_tokens": 200,
+            "top_p": 1.0,
+        }
+        assert metric_value.scores == [3]
+        assert metric_value.justifications == [openai_justification1]
+        assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
+
+
 def test_make_genai_metric_incorrect_response():
     custom_metric = make_genai_metric(
         name="correctness",
@@ -297,7 +361,31 @@ def test_make_genai_metric_incorrect_response():
         )
 
     assert metric_value.scores == [None]
-    assert metric_value.justifications == [None]
+    assert metric_value.justifications == [
+        f"Failed to extract score and justification. Raw output:"
+        f" {incorrectly_formatted_openai_response}"
+    ]
+
+    assert np.isnan(metric_value.aggregate_results["mean"])
+    assert np.isnan(metric_value.aggregate_results["variance"])
+    assert metric_value.aggregate_results["p90"] is None
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        side_effect=Exception("Some error occurred"),
+    ):
+        metric_value = custom_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series(["What is MLflow?"]),
+            pd.Series([mlflow_ground_truth]),
+        )
+
+    assert metric_value.scores == [None]
+    assert metric_value.justifications == [
+        "Failed to score model on payload. Error: Some error occurred"
+    ]
 
     assert np.isnan(metric_value.aggregate_results["mean"])
     assert np.isnan(metric_value.aggregate_results["variance"])
@@ -508,18 +596,21 @@ def test_extract_score_and_justification():
     assert score4 == 4
     assert justification4 == "This is a justification"
 
-    score5, justification5 = _extract_score_and_justification(
-        output={
-            "candidates": [
-                {
-                    "text": '{"score": 4, "justification": {"foo": "bar"}}',
-                }
-            ]
-        }
-    )
+    malformed_output = {
+        "candidates": [
+            {
+                "text": '{"score": 4, "justification": {"foo": "bar"}}',
+            }
+        ]
+    }
+
+    score5, justification5 = _extract_score_and_justification(output=malformed_output)
 
     assert score5 is None
-    assert justification5 is None
+    assert (
+        justification5
+        == f"Failed to extract score and justification. Raw output: {malformed_output}"
+    )
 
 
 def test_correctness_metric():
