@@ -1,15 +1,5 @@
 from mlflow.metrics.base import (
-    EvaluationExample,
     MetricValue,
-)
-from mlflow.metrics.genai.genai_metric import (
-    make_genai_metric,
-)
-from mlflow.metrics.genai.metric_definitions import (
-    answer_correctness,
-    answer_relevance,
-    answer_similarity,
-    faithfulness,
 )
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
@@ -20,7 +10,7 @@ from mlflow.metrics.metric_definitions import (
     _mape_eval_fn,
     _max_error_eval_fn,
     _mse_eval_fn,
-    _perplexity_eval_fn,
+    _precision_at_k_eval_fn,
     _precision_eval_fn,
     _r2_score_eval_fn,
     _recall_eval_fn,
@@ -89,29 +79,6 @@ def toxicity() -> EvaluationMetric:
         greater_is_better=False,
         name="toxicity",
         long_name="toxicity/roberta-hate-speech-dynabench-r4",
-        version="v1",
-    )
-
-
-@experimental
-def perplexity() -> EvaluationMetric:
-    """
-    This function will create a metric for evaluating `perplexity`_ using the model gpt2.
-
-    The score ranges from 0 to infinity, where a lower score means that the model is better at
-    predicting the given text and a higher score means that the model is not likely to predict the
-    text.
-
-    Aggregations calculated for this metric:
-        - mean
-
-    .. _perplexity: https://huggingface.co/spaces/evaluate-metric/perplexity
-    """
-    return make_metric(
-        eval_fn=_perplexity_eval_fn,
-        greater_is_better=False,
-        name="perplexity",
-        long_name="perplexity/gpt2",
         version="v1",
     )
 
@@ -264,6 +231,55 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
+@experimental
+def precision_at_k(k) -> EvaluationMetric:
+    """
+    This function will create a metric for calculating ``precision_at_k`` for retriever models.
+
+    For retriever models, it's recommended to use a static dataset represented by a Pandas
+    Dataframe or an MLflow Pandas Dataset containing the input queries, retrieved relevant
+    document IDs, and the ground-truth relevant document IDs for the evaluation. A
+    "document ID" should be a string that identifies a document. For each row, the retrieved
+    relevant document IDs and the ground-truth relevant document IDs should be provided as
+    a tuple of document ID strings. The column name of the retrieved relevant document IDs
+    should be specified by the ``predictions`` parameter, and the column name of the
+    ground-truth relevant document IDs should be specified by the ``targets`` parameter.
+    Alternatively, you can use a function that returns a tuple of document ID strings for
+    the evaluation. The function should take a Pandas DataFrame as input and return a Pandas
+    DataFrame with the same number of rows, where each row contains a tuple of document ID
+    strings. The output column name of the function should be specified by the ``predictions``
+    parameter.
+
+    This metric computes a score between 0 and 1 for each row representing the precision of the
+    retriever model at the given k value. The score is calculated by dividing the number of relevant
+    documents retrieved by the total number of documents retrieved or k, whichever is smaller.
+    If no relevant documents are retrieved, the score is 1, indication that no false positives were
+    retrieved.
+
+    The model output should be a pandas dataframe with a column containing a tuple of strings on
+    each row. The strings in the tuple represent the document IDs.
+    The label column should contain a tuple of strings representing the relevant
+    document IDs for each row, provided by the input ``data`` parameter.
+    The ``k`` parameter should be a positive integer representing the number of retrieved documents
+    to evaluate for each row. ``k`` defaults to 3.
+
+    This metric is a default metric for the ``retriever`` model type.
+    When the model type is ``"retriever"``, this metric will be calculated automatically with the
+    default ``k`` value of 3. To use another ``k`` value, use the ``evaluator_config`` parameter
+    in the ``mlflow.evaluate()`` API as follows: ``evaluator_config={"k": <k_value>}``.
+    Alternatively, you can directly specify the ``mlflow.metrics.precision_at_k(<k_value>)`` metric
+    in the ``extra_metrics`` parameter of the ``mlflow.evaluate()`` API without specifying a model
+    type. In this case, the ``k`` value specified in the ``evaluator_config`` parameter will be
+    ignored.
+    """
+    return make_metric(
+        eval_fn=_precision_at_k_eval_fn(k),
+        greater_is_better=True,
+        name="precision_at_k",
+        version="v1",
+    )
+
+
 # General Regression Metrics
 def mae() -> EvaluationMetric:
     """
@@ -397,11 +413,9 @@ def f1_score() -> EvaluationMetric:
 
 
 __all__ = [
-    "EvaluationExample",
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
-    "perplexity",
     "flesch_kincaid_grade_level",
     "ari_grade_level",
     "accuracy",
@@ -410,7 +424,6 @@ __all__ = [
     "rougeL",
     "rougeLsum",
     "toxicity",
-    "make_genai_metric",
     "mae",
     "mse",
     "rmse",
