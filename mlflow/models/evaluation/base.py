@@ -1306,8 +1306,8 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For retriever models, the default evaluator logs:
-        - **metrics**: ``precision_at_k``: precision at k with the default value of k = 3. To use
-          a different value of k, specify the ``evaluator_config`` parameter to include ``"k"``:
+        - **metrics**: ``precision_at_k``: has a default value of k = 3. To use a different
+          value for k, include ``"k"`` in the ``evaluator_config`` parameter:
           ``evaluator_config={"k":5}``.
         - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
           of the model in tabular format.
@@ -1355,9 +1355,9 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
-        - **k**: The number of top retrieved documents to use when computing the built-in metric
-          precision_at_k for model type "retriever". Default value is 3. For other model types,
-          this parameter will be ignored.
+        - **k**: The number of top-ranked retrieved documents to use when computing the built-in
+          metric ``precision_at_k`` for model_type="retriever". Default value is 3. For all other
+          model types, this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
