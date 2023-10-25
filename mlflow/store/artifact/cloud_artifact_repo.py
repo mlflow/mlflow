@@ -2,10 +2,10 @@ import logging
 import math
 import os
 import posixpath
+import time
 from abc import abstractmethod
 from collections import namedtuple
 from concurrent.futures import as_completed
-import time
 
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
@@ -217,8 +217,8 @@ class CloudArtifactRepository(ArtifactRepository):
                     num_retries = 3
                     for retry in range(num_retries):
                         _logger.warning(
-                            f"Retrying download of chunk {chunk.index} of {remote_file_path} (retry attempt: {retry + 1}). "
-                            f"Last attempt failed with error: {exception}",
+                            f"Retrying download of chunk {chunk.index} of {remote_file_path} "
+                            f"(retry attempt: {retry + 1} of {num_retries})"
                         )
                         try:
                             new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
