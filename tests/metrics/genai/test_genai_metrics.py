@@ -532,18 +532,21 @@ def test_extract_score_and_justification():
     assert score4 == 4
     assert justification4 == "This is a justification"
 
-    score5, justification5 = _extract_score_and_justification(
-        output={
-            "candidates": [
-                {
-                    "text": '{"score": 4, "justification": {"foo": "bar"}}',
-                }
-            ]
-        }
-    )
+    malformed_output = {
+        "candidates": [
+            {
+                "text": '{"score": 4, "justification": {"foo": "bar"}}',
+            }
+        ]
+    }
+
+    score5, justification5 = _extract_score_and_justification(output=malformed_output)
 
     assert score5 is None
-    assert justification5 is None
+    assert (
+        justification5
+        == f"Failed to extract score and justification. Raw output: {malformed_output}"
+    )
 
 
 def test_correctness_metric():
