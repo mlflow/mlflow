@@ -223,7 +223,9 @@ class CloudArtifactRepository(ArtifactRepository):
                         try:
                             new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                             new_signed_uri = new_cloud_creds.signed_uri
-                            new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
+                            new_headers = self._extract_headers_from_credentials(
+                                new_cloud_creds.headers
+                            )
                             download_chunk(
                                 range_start=chunk.start,
                                 range_end=chunk.end,
