@@ -8,6 +8,7 @@ import requests
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud.storage import client as gcs_client
 
+from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 
@@ -373,11 +374,10 @@ def test_create_multipart_upload(mock_client):
     gcs_base_url = "gcs_base_url"
     repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
 
-    requests_session = requests.Session()
     gcs_mpu_arguments_patch = mock.patch(
         "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository._gcs_mpu_arguments",
         return_value=(
-            requests_session,
+            requests.Session(),
             f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}",
             {},
             "application/octet-stream",
@@ -402,9 +402,89 @@ def test_create_multipart_upload(mock_client):
             file_name, num_parts=5, artifact_path=artifact_root_path
         )
         request_mock.assert_called_once()
-        assert request_mock.call_args[0] == (
+        args, kwargs = request_mock.call_args
+        assert args == (
             "POST",
             f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}?uploads",
         )
         assert len(create.credentials) == 5
         assert create.upload_id == upload_id
+        assert kwargs["data"] is None
+
+
+def test_complete_multipart_upload(mock_client):
+    artifact_root_path = "experiment_id/run_id/"
+    bucket_name = "test_bucket"
+    file_name = "file.txt"
+    gcs_base_url = "gcs_base_url"
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
+
+    upload_id = "some_upload_id"
+    parts = []
+    for part_number in range(1, 3):
+        parts.append(MultipartUploadPart(part_number=part_number, etag=f"etag_{part_number}"))
+
+    gcs_mpu_arguments_patch = mock.patch(
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository._gcs_mpu_arguments",
+        return_value=(
+            requests.Session(),
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}",
+            {},
+            "application/octet-stream",
+        ),
+    )
+
+    # See https://cloud.google.com/storage/docs/xml-api/post-object-complete
+    expected_payload = (
+        b"<CompleteMultipartUpload>"
+        b"<Part><PartNumber>1</PartNumber>"
+        b"<ETag>etag_1</ETag></Part>"
+        b"<Part><PartNumber>2</PartNumber>"
+        b"<ETag>etag_2</ETag></Part>"
+        b"</CompleteMultipartUpload>"
+    )
+
+    resp = mock.Mock(status_code=200)
+    with gcs_mpu_arguments_patch, mock.patch(
+        "requests.Session.request", return_value=resp
+    ) as request_mock:
+        repo.complete_multipart_upload(file_name, upload_id, parts, artifact_root_path)
+        request_mock.assert_called_once()
+        args, kwargs = request_mock.call_args
+        assert args == (
+            "POST",
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}?uploadId={upload_id}",
+        )
+        assert kwargs["data"] == expected_payload
+
+
+def test_abort_multipart_upload(mock_client):
+    artifact_root_path = "experiment_id/run_id/"
+    bucket_name = "test_bucket"
+    file_name = "file.txt"
+    gcs_base_url = "gcs_base_url"
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
+
+    upload_id = "some_upload_id"
+    gcs_mpu_arguments_patch = mock.patch(
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository._gcs_mpu_arguments",
+        return_value=(
+            requests.Session(),
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}",
+            {},
+            "application/octet-stream",
+        ),
+    )
+
+    resp = mock.Mock(status_code=204)
+    with gcs_mpu_arguments_patch, mock.patch(
+        "requests.Session.request", return_value=resp
+    ) as request_mock:
+        repo.abort_multipart_upload(file_name, upload_id, artifact_root_path)
+        request_mock.assert_called_once()
+        args, kwargs = request_mock.call_args
+        assert args == (
+            "DELETE",
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}?uploadId={upload_id}",
+        )
+        assert kwargs["data"] is None
