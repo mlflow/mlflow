@@ -193,10 +193,10 @@ MLflow offers a few pre-canned metrics which uses LLM as the judge. Despite the 
 is the same - put these metrics in the ``extra_metrics`` argument in ``mlflow.evaluate()``. Here is the list of pre-canned
 metrics:
 
-* :py:func:`mlflow.metrics.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
-* :py:func:`mlflow.metrics.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
-  and ground truth.
-* :py:func:`mlflow.metrics.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
+* :py:func:`mlflow.metrics.answer_similarity`: Evaluate the semantic similarity of the LLM output to the ground_truth
+* :py:func:`mlflow.metrics.answer_correctness`: Evaluate the accuracy of the LLM output based on the ground_truth
+* :py:func:`mlflow.metrics.answer_relevance`: Evaluate the relevance of the LLM output based on the appropriateness and applicability of the output with respect to the input.
+* :py:func:`mlflow.metrics.faithfulness`: Evaluate the faithfulness of the LLM output based on how factually consistent the output is to the context.
 
 
 Create your Custom LLM-evaluation Metrics
