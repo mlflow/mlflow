@@ -1,6 +1,6 @@
 """
 Defines an AsyncLoggingQueue that provides async fashion logging of metrics/tags/params using
-queue based approach.
+ queue based approach.
 """
 
 import atexit
@@ -25,7 +25,8 @@ class AsyncLoggingQueue:
     """
 
     def __init__(self, logging_func: callable([str, [Metric], [Param], [RunTag]])) -> None:
-        """Initializes an AsyncLoggingQueue object.
+        """
+        Initializes an AsyncLoggingQueue object.
 
         Args:
             logging_func: A callable function that takes in four arguments: a string
@@ -39,10 +40,12 @@ class AsyncLoggingQueue:
         self._is_activated = False
 
     def _at_exit_callback(self) -> None:
-        """Callback function to be executed when the program is exiting.
-
-        Stops the data processing thread and waits for the queue to be drained. Finally, shuts down
-        the thread pools used for data logging and batch processing status check.
+        """
+        Callback function to be executed when the program is exiting.
+        Stops the data processing thread and waits for the
+        queue to be drained.
+        Finally, shuts down the thread pools used for data logging and batch processing status
+          check.
         """
         try:
             # Stop the data processing thread
@@ -68,12 +71,14 @@ class AsyncLoggingQueue:
             raise MlflowException(f"Exception inside the run data logging thread: {e}")
 
     def _log_run_data(self) -> None:
-        """Process the run data in the running runs queues.
+        """
+        Process the run data in the running runs queues.
 
         For each run in the running runs queues, this method retrieves the next batch of run data
-        from the queue and processes it by calling the `_processing_func` method with the run ID,
-        metrics, parameters, and tags in the batch. If the batch is empty, it is skipped. After
-        processing the batch, the processed watermark is updated and the batch event is set.
+         from the queue and processes it by calling the `_processing_func` method with the run ID,
+           metrics, parameters, and tags in the batch.
+        If the batch is empty, it is skipped. After processing the batch, the processed watermark
+         is updated and the batch event is set.
         If an exception occurs during processing, the exception is logged and the batch event is set
         with the exception. If the queue is empty, it is ignored.
 
@@ -102,7 +107,8 @@ class AsyncLoggingQueue:
             run_batch.completion_event.set()
 
     def _wait_for_batch(self, batch: RunBatch) -> None:
-        """Wait for the given batch to be processed by the logging thread.
+        """
+        Wait for the given batch to be processed by the logging thread.
 
         Args:
             batch: The batch to wait for.
@@ -115,13 +121,20 @@ class AsyncLoggingQueue:
             raise batch.exception
 
     def __getstate__(self):
-        """Return the state of the object for pickling.
+        """
+        Return the state of the object for pickling.
 
-        This method is called by the `pickle` module when the object is being pickled. It returns a
-        dictionary containing the object's state, with non-picklable attributes removed.
+        This method is called by the `pickle` module when the object is being pickled.
+        It returns a dictionary containing the object's state,
+        with internal attributes _queue, _lock, and _is_activated, _batch_logging_threadpool,
+        _batch_status_check_threadpool, _run_data_logging_thread, _stop_data_logging_thread_event
+        removed to avoid pickling errors.
 
         Returns:
-            dict: A dictionary containing the object's state.
+            dict: A dictionary containing the object's state,
+            with internal attributes _queue, _lock, and _is_activated, _batch_logging_threadpool,
+            _batch_status_check_threadpool, _run_data_logging_thread,
+            _stop_data_logging_thread_event removed to avoid pickling errors.
         """
         state = self.__dict__.copy()
         del state["_queue"]
@@ -144,9 +157,11 @@ class AsyncLoggingQueue:
         return state
 
     def __setstate__(self, state):
-        """Set the state of the object from a given state dictionary.
-
-        It pops back the removed non-picklable attributes from `self.__getstate__()`.
+        """
+        Set the state of the object from a given state dictionary.
+        Reinitializes the internal attributes _queue, _lock, and _is_activated,
+        _batch_logging_threadpool, _batch_status_check_threadpool, _run_data_logging_thread,
+        _stop_data_logging_thread_event removed to avoid pickling errors.
 
         Args:
             state (dict): A dictionary containing the state of the object.
@@ -165,7 +180,8 @@ class AsyncLoggingQueue:
     def log_batch_async(
         self, run_id: str, params: [Param], tags: [RunTag], metrics: [Metric]
     ) -> RunOperations:
-        """Asynchronously logs a batch of run data (parameters, tags, and metrics).
+        """
+        Asynchronously logs a batch of run data (parameters, tags, and metrics) for a given run ID.
 
         Args:
             run_id (str): The ID of the run to log data for.
@@ -175,10 +191,10 @@ class AsyncLoggingQueue:
 
         Returns:
             mlflow.utils.async_utils.RunOperations: An object that encapsulates the
-                asynchronous operation of logging the batch of run data.
-                The object contains a list of `concurrent.futures.Future` objects that can be used
+              asynchronous operation of logging the batch of run data.
+              The object contains a list of `concurrent.futures.Future` objects that can be used
                 to check the status of the operation and retrieve any exceptions
-                that occurred during the operation.
+            that occurred during the operation.
         """
         from mlflow import MlflowException
 
@@ -201,8 +217,8 @@ class AsyncLoggingQueue:
         return self._is_activated
 
     def activate(self) -> None:
-        """Activates the async logging queue
-
+        """
+        Activates the async logging queue
         1. Initializes queue draining thread.
         2. Initializes threads for checking the status of logged batch.
         3. Registering an atexit callback to ensure that any remaining log data
