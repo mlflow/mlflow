@@ -78,21 +78,26 @@ get_databricks_config <- function(profile) {
   config <- if (!is.na(profile)) {
     get_databricks_config_for_profile(profile)
   } else {
-    # try to get configs by the following order:
-    # - environment
-    # - 'DEFAULT' profile
-    # - Databricks notebook variables
 
+    # check for env vars
     config <- get_databricks_config_from_env()
     if (databricks_config_is_valid(config)) {
       return(config)
     }
 
-    config <- get_databricks_config_for_profile("DEFAULT")
+    # check 'DEFAULT' profile
+    # fetching a profile when it isn't present will error
+    config <- tryCatch({
+      get_databricks_config_for_profile("DEFAULT")
+    }, error = function(error_condition) {
+      # return known invalid config
+      lapply(config_variable_map, function(x) NA)
+    })
     if (databricks_config_is_valid(config)) {
       return(config)
     }
 
+    # when in Databricks (done last so other methods are explicit overrides)
     if (exists("spark.databricks.token") && exists("spark.databricks.api.url")) {
       config_vars <- list(
         host = get("spark.databricks.api.url", envir = .GlobalEnv),
@@ -100,11 +105,13 @@ get_databricks_config <- function(profile) {
         insecure = Sys.getenv(config_variable_map$insecure, "False")
       )
       config <- new_databricks_config(config_source = "db_dynamic", config_vars = config_vars)
+    }
+
+    if (databricks_config_is_valid(config)) {
+      return(config)
     } else {
       stop("Could not find valid Databricks configuration.")
     }
-
-    config
   }
   config
 }
