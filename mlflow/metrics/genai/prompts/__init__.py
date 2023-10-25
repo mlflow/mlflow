@@ -9,9 +9,9 @@ from mlflow.metrics.genai.metric_definitions import (
 )
 
 __all__ = [
-    "answer_similarity",
-    "faithfulness",
+    "make_genai_metric",
     "answer_correctness",
     "answer_relevance",
-    "make_genai_metric",
+    "answer_similarity",
+    "faithfulness",
 ]
