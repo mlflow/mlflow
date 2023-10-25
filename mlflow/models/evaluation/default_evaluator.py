@@ -26,11 +26,11 @@ from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
+    EvaluationMetric,
     MetricValue,
     ari_grade_level,
     exact_match,
     flesch_kincaid_grade_level,
-    perplexity,
     precision_at_k,
     rouge1,
     rouge2,
@@ -1292,6 +1292,7 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method for generating model predictions
         """
+        _logger.info("Computing model predictions.")
 
         def predict_with_latency(X_copy):
             y_pred_list = []
@@ -1606,10 +1607,11 @@ class DefaultEvaluator(ModelEvaluator):
         for metric_name, metric_value in self.metrics_values.items():
             if metric_value.aggregate_results:
                 for agg_name, agg_value in metric_value.aggregate_results.items():
-                    if agg_name == metric_name.split("/")[0]:
-                        self.metrics[metric_name] = agg_value
-                    else:
-                        self.metrics[f"{metric_name}/{agg_name}"] = agg_value
+                    if agg_value is not None:
+                        if agg_name == metric_name.split("/")[0]:
+                            self.metrics[metric_name] = agg_value
+                        else:
+                            self.metrics[f"{metric_name}/{agg_name}"] = agg_value
 
     def _evaluate(
         self,
@@ -1640,7 +1642,6 @@ class DefaultEvaluator(ModelEvaluator):
             text_metrics = [
                 token_count(),
                 toxicity(),
-                perplexity(),
                 flesch_kincaid_grade_level(),
                 ari_grade_level(),
             ]
@@ -1763,6 +1764,21 @@ class DefaultEvaluator(ModelEvaluator):
 
         if self.extra_metrics is None:
             self.extra_metrics = []
+
+        bad_metrics = []
+        for metric in self.extra_metrics:
+            if not isinstance(metric, EvaluationMetric):
+                bad_metrics.append(metric)
+        if len(bad_metrics) > 0:
+            message = "\n".join(
+                [f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics]
+            )
+            raise MlflowException(
+                f"In the 'extra_metrics' parameter, the following metrics have the wrong type:\n"
+                f"{message}\n"
+                f"Please ensure that all extra metrics are instances of "
+                f"mlflow.metrics.EvaluationMetric."
+            )
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)

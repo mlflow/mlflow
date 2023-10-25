@@ -105,25 +105,6 @@ def _toxicity_eval_fn(predictions, targets=None, metrics=None):
     )
 
 
-def _perplexity_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "perplexity", "predictions"):
-        return
-
-    try:
-        perplexity = _cached_evaluate_load("perplexity", module_type="metric")
-    except Exception as e:
-        _logger.warning(
-            f"Failed to load 'perplexity' metric (error: {e!r}), skipping metric logging."
-        )
-        return
-
-    scores = perplexity.compute(predictions=predictions, model_id="gpt2")["perplexities"]
-    return MetricValue(
-        scores=scores,
-        aggregate_results=standard_aggregations(scores),
-    )
-
-
 def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
     if not _validate_text_data(predictions, "flesch_kincaid", "predictions"):
         return
