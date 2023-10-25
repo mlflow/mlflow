@@ -109,6 +109,16 @@ LLM Guides and Tutorials
                 </p>
             </div>
             <div class="simple-card">
+                <a href="llms/llm-evaluate/index.html" >
+                    <div class="header">
+                        Evaluating LLMs
+                    </div>
+                </a>
+                <p>
+                    Learn how to evaluate LLMs with MLflow.
+                </p>
+            </div>
+            <div class="simple-card">
                 <a href="llms/custom-pyfunc-for-llms/index.html" >
                     <div class="header">
                         Using Custom PyFunc with LLMs
