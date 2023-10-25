@@ -386,7 +386,7 @@ def test_create_multipart_upload(mock_client):
 
     # mock the XML API response of initiate multipart upload
     # see https://cloud.google.com/storage/docs/xml-api/post-object-multipart#example
-    upload_id = "VXBsb2FkIElEIGZvciBlbHZpbmcncyBteS1tb3ZpZS5tMnRzIHVwbG9hZA"
+    upload_id = "some_upload_id"
     resp = mock.Mock(status_code=200)
     resp.text = f"""<?xml version="1.0" encoding="UTF-8"?>
 <InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
