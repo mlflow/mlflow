@@ -9,7 +9,7 @@ import inspect
 import logging
 import os
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
@@ -71,8 +71,6 @@ if TYPE_CHECKING:
     import PIL
     import plotly
 
-
-ParamValue = TypeVar("ParamValue")
 
 _active_run_stack = []
 run_id_to_system_metrics_monitor = {}
@@ -600,7 +598,7 @@ def get_parent_run(run_id: str) -> Optional[Run]:
     return MlflowClient().get_parent_run(run_id)
 
 
-def log_param(key: str, value: Any, synchronous: bool = True) -> Union[RunOperations, ParamValue]:
+def log_param(key: str, value: Any, synchronous: bool = True) -> any:
     """
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
     this method will create a new active run.
@@ -616,7 +614,7 @@ def log_param(key: str, value: Any, synchronous: bool = True) -> Union[RunOperat
                         successfully. If False, logs the parameter asynchronously and
                         returns a future representing the logging operation.
 
-    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+    :return: When `synchronous=True`, returns parameter value. When `synchronous=False`, returns an
              :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
              represents future for logging operation.
 

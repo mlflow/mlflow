@@ -7,7 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import os
 from collections import OrderedDict
 from itertools import zip_longest
-from typing import List, Optional, TypeVar, Union
+from typing import List, Optional
 
 from mlflow.entities import ExperimentTag, Metric, Param, RunStatus, RunTag, ViewType
 from mlflow.entities.dataset_input import DatasetInput
@@ -31,8 +31,6 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
-
-ParamValue = TypeVar("ParamValue")
 
 
 class TrackingServiceClient:
@@ -301,7 +299,7 @@ class TrackingServiceClient:
         else:
             return self.store.log_metric_async(run_id, metric)
 
-    def log_param(self, run_id, key, value, synchronous=True) -> Union[RunOperations, ParamValue]:
+    def log_param(self, run_id, key, value, synchronous=True) -> any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
@@ -313,7 +311,7 @@ class TrackingServiceClient:
                             successfully. If False, logs the parameters asynchronously and
                             returns a future representing the logging operation.
 
-        :return: When synchronous=True, returns None.
+        :return: When synchronous=True, returns parameter value.
                  When synchronous=False, returns :py:class:`mlflow.RunOperations` that
                  represents future for logging operation.
         """

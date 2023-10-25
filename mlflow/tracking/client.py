@@ -10,8 +10,8 @@ import os
 import posixpath
 import sys
 import tempfile
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, TypeVar, Union
 import urllib
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import yaml
 
@@ -52,8 +52,6 @@ from mlflow.utils.validation import (
     _validate_model_version,
     _validate_model_version_or_stage_exists,
 )
-
-ParamValue = TypeVar("ParamValue")
 
 if TYPE_CHECKING:
     import matplotlib
@@ -771,7 +769,7 @@ class MlflowClient:
 
     def log_param(
         self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
-    ) -> Union[RunOperations, ParamValue]:
+    ) -> any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
 
@@ -787,9 +785,9 @@ class MlflowClient:
                             successfully. If False, logs the parameter asynchronously and
                             returns a future representing the logging operation.
 
-        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
-             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
-             represents future for logging operation.
+        :return: When `synchronous=True`, returns parameter value. When `synchronous=False`,
+                 returns an :py:class:`mlflow.utils.async_logging.run_operations.RunOperations`
+                 instance that represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
