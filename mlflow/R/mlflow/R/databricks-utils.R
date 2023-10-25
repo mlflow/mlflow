@@ -94,7 +94,7 @@ get_databricks_config <- function(profile) {
   config <- tryCatch({
     get_databricks_config_for_profile("DEFAULT")
   }, error = function(e) {
-    # Return known invalid config
+    # On error assume known invalid config
     list(host = NA, token = NA, username = NA, password = NA)
   })
   if (databricks_config_is_valid(config)) {
