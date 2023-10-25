@@ -17,7 +17,7 @@ def standard_aggregations(scores):
     }
 
 
-def _validate_text_data(data, metric_name, column_name):
+def _validate_text_data(data, metric_name):
     """Validates that the data is a list of strs and is non-empty"""
     if data is None or len(data) == 0:
         return False
@@ -61,7 +61,7 @@ def _cached_evaluate_load(path, module_type=None):
 
 
 def _toxicity_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "toxicity", "predictions"):
+    if not _validate_text_data(predictions, "toxicity"):
         return
     try:
         toxicity = _cached_evaluate_load("toxicity", module_type="measurement")
@@ -85,7 +85,7 @@ def _toxicity_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "flesch_kincaid", "predictions"):
+    if not _validate_text_data(predictions, "flesch_kincaid"):
         return
 
     try:
@@ -102,7 +102,7 @@ def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _ari_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "ari", "predictions"):
+    if not _validate_text_data(predictions, "ari"):
         return
 
     try:
@@ -129,9 +129,7 @@ def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weight=Non
 
 
 def _rouge1_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rouge1", "targets") or not _validate_text_data(
-        predictions, "rouge1", "predictions"
-    ):
+    if not _validate_text_data(targets, "rouge1") or not _validate_text_data(predictions, "rouge1"):
         return
 
     try:
@@ -153,9 +151,7 @@ def _rouge1_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rouge2_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rouge2", "targets") or not _validate_text_data(
-        predictions, "rouge2", "predictions"
-    ):
+    if not _validate_text_data(targets, "rouge2") or not _validate_text_data(predictions, "rouge2"):
         return
 
     try:
@@ -177,9 +173,7 @@ def _rouge2_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rougeL_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rougeL", "targets") or not _validate_text_data(
-        predictions, "rougeL", "predictions"
-    ):
+    if not _validate_text_data(targets, "rougeL") or not _validate_text_data(predictions, "rougeL"):
         return
 
     try:
@@ -201,8 +195,8 @@ def _rougeL_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rougeLsum_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rougeLsum", "targets") or not _validate_text_data(
-        predictions, "rougeLsum", "predictions"
+    if not _validate_text_data(targets, "rougeLsum") or not _validate_text_data(
+        predictions, "rougeLsum"
     ):
         return
 
