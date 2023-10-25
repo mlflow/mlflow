@@ -246,41 +246,37 @@ def precision_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``precision_at_k`` for retriever models.
 
-    For retriever models, it's recommended to use a static dataset represented by a Pandas
-    Dataframe or an MLflow Pandas Dataset containing the input queries, retrieved relevant
-    document IDs, and the ground-truth relevant document IDs for the evaluation. A
-    "document ID" should be a string that identifies a document. For each row, the retrieved
-    relevant document IDs and the ground-truth relevant document IDs should be provided as
-    a tuple of document ID strings. The column name of the retrieved relevant document IDs
-    should be specified by the ``predictions`` parameter, and the column name of the
-    ground-truth relevant document IDs should be specified by the ``targets`` parameter.
-    Alternatively, you can use a function that returns a tuple of document ID strings for
-    the evaluation. The function should take a Pandas DataFrame as input and return a Pandas
-    DataFrame with the same number of rows, where each row contains a tuple of document ID
-    strings. The output column name of the function should be specified by the ``predictions``
+    It is recommended to use a static dataset (Pandas Dataframe or MLflow Pandas Dataset)
+    containing columns for: input queries, retrieved relevant doc IDs, and ground-truth doc IDs. A
+    "doc ID" is a string that uniquely identifies a document. All doc IDs should be entered as a
+    tuple of doc ID strings.
+
+    The ``targets`` parameter should specify the column name of the ground-truth relevant doc IDs.
+
+    If you choose to use a static dataset, the ``predictions`` parameter should specify the column
+    name of the retrieved relevant doc IDs. Alternatively, if you choose to specify a function for
+    the ``model`` parameter, the function should take a Pandas DataFrame as input and return a
+    Pandas DataFrame with a column of retrieved relevant doc IDs, specified by the ``predictions``
     parameter.
 
+    ``k`` should be a positive integer specifying the number of retrieved doc IDs to consider for
+    each input query. ``k`` defaults to 3.
+
     This metric computes a score between 0 and 1 for each row representing the precision of the
-    retriever model at the given k value. The score is calculated by dividing the number of relevant
-    documents retrieved by the total number of documents retrieved or k, whichever is smaller.
-    If no relevant documents are retrieved, the score is 1, indication that no false positives were
-    retrieved.
+    retriever model at the given ``k`` value. If no relevant documents are retrieved, the score is
+    0, indicating that no relevant docs were retrieved. Let ``x = min(k, # of retrieved doc IDs)``.
+    Then, the precision at k is calculated as follows:
 
-    The model output should be a pandas dataframe with a column containing a tuple of strings on
-    each row. The strings in the tuple represent the document IDs.
-    The label column should contain a tuple of strings representing the relevant
-    document IDs for each row, provided by the input ``data`` parameter.
-    The ``k`` parameter should be a positive integer representing the number of retrieved documents
-    to evaluate for each row. ``k`` defaults to 3.
+        ``precision_at_k`` = (# of relevant retrieved doc IDs in top-``x`` ranked docs) / ``x``.
 
-    This metric is a default metric for the ``retriever`` model type.
-    When the model type is ``"retriever"``, this metric will be calculated automatically with the
-    default ``k`` value of 3. To use another ``k`` value, use the ``evaluator_config`` parameter
-    in the ``mlflow.evaluate()`` API as follows: ``evaluator_config={"k": <k_value>}``.
-    Alternatively, you can directly specify the ``mlflow.metrics.precision_at_k(<k_value>)`` metric
-    in the ``extra_metrics`` parameter of the ``mlflow.evaluate()`` API without specifying a model
-    type. In this case, the ``k`` value specified in the ``evaluator_config`` parameter will be
-    ignored.
+    This metric is a builtin metric for the ``'retriever'`` model type, meaning it will be
+    automatically calculated with a default ``k`` value of 3. To use another ``k`` value, you have
+    two options with the :py:func:`mlflow.evaluate` API:
+
+    1. ``evaluator_config={"k": 5}``
+    2. ``extra_metrics = [mlflow.metrics.precision_at_k(k=5)]``
+
+        Note that the ``k`` value in the ``evaluator_config`` will be ignored in this case.
     """
     return make_metric(
         eval_fn=_precision_at_k_eval_fn(k),
