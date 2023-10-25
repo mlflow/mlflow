@@ -29,17 +29,10 @@ def _validate_text_data(data, metric_name, column_name=None):
 
     for row, line in enumerate(data):
         if not isinstance(line, str):
-            if column_name:
-                _logger.warning(
-                    f"Cannot calculate {metric_name} for non-string inputs. "
-                    f"Non-string found for {column_name} on row {row}. skipping metric logging."
-                )
-            else:
-                _logger.warning(
-                    f"Cannot calculate {metric_name} for non-string inputs. "
-                    f"Non-string found for the column specified by `predictions` "
-                    f"or the model output column on row {row}. Skipping metric logging."
-                )
+            _logger.warning(
+                f"Cannot calculate {metric_name} for non-string inputs. "
+                f"Non-string found for {column_name} on row {row}. skipping metric logging."
+            )
             return False
 
     return True
