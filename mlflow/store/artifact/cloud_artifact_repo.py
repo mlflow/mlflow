@@ -217,7 +217,8 @@ class CloudArtifactRepository(ArtifactRepository):
                     num_retries = 3
                     for retry in range(num_retries):
                         _logger.warning(
-                            f"Retrying download of chunk {chunk.index} of {remote_file_path}, got error: {exception}",
+                            f"Retrying download of chunk {chunk.index} of {remote_file_path} (retry attempt: {retry + 1}). "
+                            f"Last attempt failed with error: {exception}",
                         )
                         try:
                             new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
@@ -231,9 +232,10 @@ class CloudArtifactRepository(ArtifactRepository):
                                 http_uri=new_signed_uri,
                             )
                             return
-                        except Exception:
+                        except Exception as e:
                             if retry == num_retries - 1:
                                 raise
+                            exception = e
                         time.sleep(1)
 
     def _download_file(self, remote_file_path, local_path):
