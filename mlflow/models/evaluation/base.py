@@ -30,7 +30,7 @@ from mlflow.models.evaluation.validation import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _get_fully_qualified_class_name, _insecure_md5
+from mlflow.utils import _get_fully_qualified_class_name, insecure_hash
 from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
@@ -54,7 +54,7 @@ class _ModelType:
     QUESTION_ANSWERING = "question-answering"
     TEXT_SUMMARIZATION = "text-summarization"
     TEXT = "text"
-    # TODO: Add 'retrieval' model type
+    RETRIEVER = "retriever"
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
@@ -67,6 +67,7 @@ class _ModelType:
             cls.QUESTION_ANSWERING,
             cls.TEXT_SUMMARIZATION,
             cls.TEXT,
+            cls.RETRIEVER,
         )
 
 
@@ -605,7 +606,7 @@ class EvaluationDataset:
             )
 
         # generate dataset hash
-        md5_gen = _insecure_md5()
+        md5_gen = insecure_hash.md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
@@ -1159,7 +1160,7 @@ def _get_model_from_function(fn):
 
 
 def evaluate(
-    model: Optional[str] = None,
+    model=None,
     data=None,
     *,
     model_type: Optional[str] = None,
@@ -1304,6 +1305,13 @@ def evaluate(
         .. _textstat:
             https://pypi.org/project/textstat
 
+     - For retriever models, the default evaluator logs:
+        - **metrics**: ``precision_at_k``: precision at k with the default value of k = 3. To use
+          a different value of k, specify the ``evaluator_config`` parameter to include ``"k"``:
+          ``evaluator_config={"k":5}``.
+        - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
+          of the model in tabular format.
+
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
 
@@ -1347,6 +1355,9 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
+        - **k**: The number of top retrieved documents to use when computing the built-in metric
+          precision_at_k for model type "retriever". Default value is 3. For other model types,
+          this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
@@ -1466,13 +1477,15 @@ def evaluate(
                        - ``'question-answering'``
                        - ``'text-summarization'``
                        - ``'text'``
+                       - ``'retriever'``
 
                        If no ``model_type`` is specified, then you must provide a a list of
                        metrics to compute via the ``extra_metrics`` param.
 
                        .. note::
-                            ``'question-answering'``, ``'text-summarization'``, and ``'text'``
-                            are experimental and may be changed or removed in a future release.
+                            ``'question-answering'``, ``'text-summarization'``, ``'text'``, and
+                            ``'retriever'`` are experimental and may be changed or removed in a
+                            future release.
 
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
