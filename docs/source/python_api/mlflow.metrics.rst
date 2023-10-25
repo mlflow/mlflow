@@ -102,7 +102,7 @@ Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMet
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency
 
 Generative AI Metrics
 ---------------------
@@ -113,11 +113,11 @@ We also provide generative AI ("genai") :py:class:`EvaluationMetric <mlflow.metr
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: EvaluationExample
+    :exclude-members: EvaluationExample, make_genai_metric
 
-You can also create your own generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function.
+You can also create your own generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s using the :py:func:`make_genai_metric <mlflow.metrics.genai.make_genai_metric>` factory function.
 
-.. autofunction:: mlflow.metrics.make_genai_metric
+.. autofunction:: mlflow.metrics.genai.make_genai_metric
 
 When using generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.genai.EvaluationExample>`
 

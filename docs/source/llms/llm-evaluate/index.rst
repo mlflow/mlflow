@@ -92,7 +92,7 @@ LLM Evaluation Metrics
 There are two types of LLM evaluation metrics in MLflow:
 
 1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.answer_relevance`. These  
-   metrics are created via :py:func:`mlflow.metrics.make_genai_metric` method. For each data record, these metrics under the hood sends 
+   metrics are created via :py:func:`mlflow.metrics.genai.make_genai_metric` method. For each data record, these metrics under the hood sends 
    one prompt consisting of the following information to the SaaS model, and extract the score from model response:
 
    * Metrics definition.
@@ -204,7 +204,7 @@ Create your Custom LLM-evaluation Metrics
 Create LLM-as-judge Evaluation Metrics (Category 1)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can also create your own Saas LLM evaluation metrics with MLflow API :py:func:`mlflow.metrics.make_genai_metric`, which 
+You can also create your own Saas LLM evaluation metrics with MLflow API :py:func:`mlflow.metrics.genai.make_genai_metric`, which 
 needs the following information:
 
 * ``name``: the name of your custom metric.
@@ -262,7 +262,7 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
 
 .. code-block:: python
 
-    professionalism = mlflow.metrics.make_genai_metric(
+    professionalism = mlflow.metrics.genai.make_genai_metric(
         name="professionalism",
         definition=(
             "Professionalism refers to the use of a formal, respectful, and appropriate style of communication that is "

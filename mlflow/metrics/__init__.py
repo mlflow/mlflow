@@ -1,15 +1,6 @@
 from mlflow.metrics.base import (
     MetricValue,
 )
-from mlflow.metrics.genai.genai_metric import (
-    make_genai_metric,
-)
-from mlflow.metrics.genai.metric_definitions import (
-    answer_correctness,
-    answer_relevance,
-    answer_similarity,
-    faithfulness,
-)
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
@@ -433,7 +424,6 @@ __all__ = [
     "rougeL",
     "rougeLsum",
     "toxicity",
-    "make_genai_metric",
     "mae",
     "mse",
     "rmse",
