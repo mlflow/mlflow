@@ -133,9 +133,9 @@ def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weight=Non
 
 
 def _rouge1_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(
-        targets, "rouge1", "targets", targets_err_msg
-    ) or not _validate_text_data(predictions, "rouge1", predictions_err_msg):
+    if not _validate_text_data(targets, "rouge1", targets_err_msg) or not _validate_text_data(
+        predictions, "rouge1", predictions_err_msg
+    ):
         return
 
     try:
