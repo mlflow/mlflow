@@ -18,15 +18,16 @@ def standard_aggregations(scores):
 
 
 def _validate_text_data(data, metric_name, column_name):
-    """Validates that the data is text and is non-empty"""
-    if len(data) == 0:
+    """Validates that the data is a list of strs and is non-empty"""
+    if data is None or len(data) == 0:
         return False
 
     for row, line in enumerate(data):
         if not isinstance(line, str):
             _logger.warning(
                 f"Cannot calculate {metric_name} for non-string inputs. "
-                + f"Non-string found for {column_name} on row {row}. skipping metric logging."
+                f"Non-string found for the column specified by `predictions` "
+                f"or the model output column on row {row}. Skipping metric logging."
             )
             return False
 
@@ -128,111 +129,99 @@ def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weight=Non
 
 
 def _rouge1_eval_fn(predictions, targets=None, metrics=None):
-    if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rouge1", "targets") or not _validate_text_data(
-            predictions, "rouge1", "predictions"
-        ):
-            return
+    if not _validate_text_data(targets, "rouge1", "targets") or not _validate_text_data(
+        predictions, "rouge1", "predictions"
+    ):
+        return
 
-        try:
-            rouge = _cached_evaluate_load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
+    try:
+        rouge = _cached_evaluate_load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-        scores = rouge.compute(
-            predictions=predictions,
-            references=targets,
-            rouge_types=["rouge1"],
-            use_aggregator=False,
-        )["rouge1"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    scores = rouge.compute(
+        predictions=predictions,
+        references=targets,
+        rouge_types=["rouge1"],
+        use_aggregator=False,
+    )["rouge1"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
 def _rouge2_eval_fn(predictions, targets=None, metrics=None):
-    if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rouge2", "targets") or not _validate_text_data(
-            predictions, "rouge2", "predictions"
-        ):
-            return
+    if not _validate_text_data(targets, "rouge2", "targets") or not _validate_text_data(
+        predictions, "rouge2", "predictions"
+    ):
+        return
 
-        try:
-            rouge = _cached_evaluate_load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
+    try:
+        rouge = _cached_evaluate_load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-        scores = rouge.compute(
-            predictions=predictions,
-            references=targets,
-            rouge_types=["rouge2"],
-            use_aggregator=False,
-        )["rouge2"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    scores = rouge.compute(
+        predictions=predictions,
+        references=targets,
+        rouge_types=["rouge2"],
+        use_aggregator=False,
+    )["rouge2"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
 def _rougeL_eval_fn(predictions, targets=None, metrics=None):
-    if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rougeL", "targets") or not _validate_text_data(
-            predictions, "rougeL", "predictions"
-        ):
-            return
+    if not _validate_text_data(targets, "rougeL", "targets") or not _validate_text_data(
+        predictions, "rougeL", "predictions"
+    ):
+        return
 
-        try:
-            rouge = _cached_evaluate_load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
+    try:
+        rouge = _cached_evaluate_load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-        scores = rouge.compute(
-            predictions=predictions,
-            references=targets,
-            rouge_types=["rougeL"],
-            use_aggregator=False,
-        )["rougeL"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    scores = rouge.compute(
+        predictions=predictions,
+        references=targets,
+        rouge_types=["rougeL"],
+        use_aggregator=False,
+    )["rougeL"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
 def _rougeLsum_eval_fn(predictions, targets=None, metrics=None):
-    if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rougeLsum", "targets") or not _validate_text_data(
-            predictions, "rougeLsum", "predictions"
-        ):
-            return
+    if not _validate_text_data(targets, "rougeLsum", "targets") or not _validate_text_data(
+        predictions, "rougeLsum", "predictions"
+    ):
+        return
 
-        try:
-            rouge = _cached_evaluate_load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
+    try:
+        rouge = _cached_evaluate_load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-        scores = rouge.compute(
-            predictions=predictions,
-            references=targets,
-            rouge_types=["rougeLsum"],
-            use_aggregator=False,
-        )["rougeLsum"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    scores = rouge.compute(
+        predictions=predictions,
+        references=targets,
+        rouge_types=["rougeLsum"],
+        use_aggregator=False,
+    )["rougeLsum"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
 def _mae_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
