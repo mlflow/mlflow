@@ -72,10 +72,10 @@ def _extract_score_and_justification(output):
                 justification = match.group(2)
             else:
                 score = None
-                justification = None
+                justification = f"Failed to extract score and justification. Raw output: {output}"
 
         if not isinstance(score, (int, float)) or not isinstance(justification, str):
-            return None, None
+            return None, f"Failed to extract score and justification. Raw output: {output}"
 
         return score, justification
 
@@ -282,8 +282,7 @@ def make_genai_metric(
                         ErrorCode.Name(UNAUTHENTICATED),
                     ]:
                         raise MlflowException(e)
-                _logger.info(f"Failed to score model on payload. Error: {e!r}")
-                return None, None
+                return None, f"Failed to score model on payload. Error: {e!s}"
 
         scores = [None] * len(inputs)
         justifications = [None] * len(inputs)

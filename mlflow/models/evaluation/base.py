@@ -30,7 +30,7 @@ from mlflow.models.evaluation.validation import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _get_fully_qualified_class_name, _insecure_md5
+from mlflow.utils import _get_fully_qualified_class_name, insecure_hash
 from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
@@ -605,7 +605,7 @@ class EvaluationDataset:
             )
 
         # generate dataset hash
-        md5_gen = _insecure_md5()
+        md5_gen = insecure_hash.md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
@@ -1212,14 +1212,10 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``, ``token_count``, `mean_perplexity`_ (requires `evaluate`_,
-          `pytorch`_, `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
-          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
+        - **metrics**: ``exact_match``, ``token_count``, `toxicity_ratio`_ (requires `evaluate`_,
+          `pytorch`_, `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
-
-        .. _mean_perplexity:
-            https://huggingface.co/spaces/evaluate-metric/perplexity
 
         .. _toxicity_ratio:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
@@ -1244,18 +1240,14 @@ def evaluate(
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: ``token_count``, `ROUGE`_ (requires `evaluate`_, `nltk`_, and
-          `rouge_score`_ to be installed), `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
-          (requires `textstat`_).
+          `rouge_score`_ to be installed), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `mean_ari_grade_level`_ (requires `textstat`_),
+          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in the tabular format.
 
         .. _ROUGE:
             https://huggingface.co/spaces/evaluate-metric/rouge
-
-        .. _mean_perplexity:
-            https://huggingface.co/spaces/evaluate-metric/perplexity
 
         .. _toxicity_ratio:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
@@ -1285,18 +1277,14 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: ``token_count``, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
-          (requires `textstat`_).
+        - **metrics**: ``token_count``, `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `mean_ari_grade_level`_ (requires `textstat`_),
+          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
         .. _evaluate:
             https://pypi.org/project/evaluate
-
-        .. _mean_perplexity:
-            https://huggingface.co/spaces/evaluate-metric/perplexity
 
         .. _toxicity_ratio:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
@@ -1666,6 +1654,15 @@ def evaluate(
     '''
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
+
+    if evaluator_config is not None:
+        col_mapping = evaluator_config.get("col_mapping", {})
+
+        if isinstance(targets, str):
+            targets = col_mapping.get(targets, targets)
+
+        if isinstance(predictions, str):
+            predictions = col_mapping.get(predictions, predictions)
 
     if data is None:
         raise MlflowException(
