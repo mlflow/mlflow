@@ -1673,9 +1673,7 @@ class DefaultEvaluator(ModelEvaluator):
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
                 elif self.model_type == _ModelType.RETRIEVER:
-                    if self.evaluator_config.get("k", None) is None:
-                        self.evaluator_config["k"] = 3  # Setting the default k to 3
-                    k = self.evaluator_config.pop("k")
+                    k = self.evaluator_config.pop("k", 3)  # default k to 3 if not specified
                     if not (isinstance(k, int) and k > 0):
                         _logger.warning(
                             "Cannot calculate 'precision_at_k' for invalid parameter 'k'."
