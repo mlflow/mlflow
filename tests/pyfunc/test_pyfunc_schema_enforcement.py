@@ -2088,11 +2088,13 @@ def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
                     "object_column": {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
                     "string_column": "some_string",
                     "array_column": [{"name": "value"}, {"name": "value"}],
+                    "nested_array_column": [["token1", "token2", "token3"], ["token4", "token5"]],
                 },
                 {
                     "object_column": {"query": ["sentence_1", "sentence_2"]},
                     "string_column": "some_string",
                     "array_column": [{"name": "value"}],
+                    "nested_array_column": [["token1"], ["token2", "token3"]],
                 },
             ],
             Schema(
@@ -2110,6 +2112,10 @@ def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
                     ColSpec(
                         Array(Object([Property("name", DataType.string)])),
                         "array_column",
+                    ),
+                    ColSpec(
+                        Array(Array(DataType.string)),
+                        "nested_array_column",
                     ),
                 ]
             ),

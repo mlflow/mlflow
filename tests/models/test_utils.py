@@ -363,6 +363,11 @@ def test_enforce_property_with_errors():
             ),
             Array(Array(DataType.string)),
         ),
+        # 6. Empty array
+        (
+            [],
+            Array(DataType.string),
+        ),
     ],
 )
 def test_enforce_array(data, schema):
