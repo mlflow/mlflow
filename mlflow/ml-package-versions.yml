@@ -563,7 +563,7 @@ langchain:
           "numexpr",
         ]
     run: |
-      pytest tests/langchain/test_langchain_model_export.py
+      dev/pytest.sh tests/langchain/test_langchain_model_export.py
 
 sentence_transformers:
   package_info:
