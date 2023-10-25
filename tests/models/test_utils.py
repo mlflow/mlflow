@@ -321,50 +321,53 @@ def test_enforce_property_with_errors():
         )
 
 
-def test_enforce_array():
-    # Simple array
-    data = ["some_sentence1", "some_sentence2"]
-    arr = Array(DataType.string)
-    assert _enforce_array(data, arr) == data
-
-    # Numpy
-    data = np.array(["some_sentence1", "some_sentence2"])
-    assert _enforce_array(data, Array(DataType.string)) == ["some_sentence1", "some_sentence2"]
-
-    # Array of objects
-    data = [
-        {"a": "some_sentence1", "b": "some_sentence2"},
-        {"a": "some_sentence3", "c": ["some_sentence4", "some_sentence5"]},
-    ]
-    arr = Array(
-        Object(
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        # 1. Simply array
+        (["some_sentence1", "some_sentence2"], Array(DataType.string)),
+        # 2. Numpy
+        (np.array(["some_sentence1", "some_sentence2"]), Array(DataType.string)),
+        # 3. Array of Object
+        (
             [
-                Property("a", DataType.string),
-                Property("b", DataType.string, required=False),
-                Property("c", Array(DataType.string), required=False),
-            ]
-        )
-    )
-    assert _enforce_array(data, arr) == data
-
-    # Nested array
-    data = [
-        [["a", "b"], ["c", "d"]],
-        [["e", "f", "g"], ["h"]],
-        [[]],
-    ]
-    arr = Array(Array(Array(DataType.string)))
-    assert _enforce_array(data, arr) == data
-
-    # Numpy 2d array
-    data = np.array(
-        [
-            ["a", "b"],
-            ["c", "d"],
-        ]
-    )
-    arr = Array(Array(DataType.string))
-    assert _enforce_array(data, arr) == [["a", "b"], ["c", "d"]]
+                {"a": "some_sentence1", "b": "some_sentence2"},
+                {"a": "some_sentence3", "c": ["some_sentence4", "some_sentence5"]},
+            ],
+            Array(
+                Object(
+                    [
+                        Property("a", DataType.string),
+                        Property("b", DataType.string, required=False),
+                        Property("c", Array(DataType.string), required=False),
+                    ]
+                )
+            ),
+        ),
+        # 4. Nested array
+        (
+            [
+                [["a", "b"], ["c", "d"]],
+                [["e", "f", "g"], ["h"]],
+                [[]],
+            ],
+            Array(Array(Array(DataType.string))),
+        ),
+        # 5. Numpy 2D array
+        (
+            np.array(
+                [
+                    ["a", "b"],
+                    ["c", "d"],
+                ]
+            ),
+            Array(Array(DataType.string)),
+        ),
+    ],
+)
+def test_enforce_array(data, schema):
+    data = data.tolist() if isinstance(data, np.ndarray) else data
+    assert _enforce_array(data, schema) == data
 
 
 def test_enforce_array_with_errors():
