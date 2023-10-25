@@ -61,6 +61,7 @@ class EvaluationModel:
     name: str
     definition: str
     grading_prompt: str
+    grading_context_columns: List[str]
     examples: List[EvaluationExample] = None
     model: str = default_model
     parameters: Dict[str, Any] = field(default_factory=lambda: default_parameters)
@@ -84,7 +85,7 @@ class EvaluationModel:
         }
 
     def _format_examples(self):
-        return "\n".join(map(str, self.examples))
+        return "\n".join([example.to_prompt_component(self.grading_context_columns) for example in self.examples])
 
 
 @dataclass

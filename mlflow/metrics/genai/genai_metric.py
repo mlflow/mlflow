@@ -210,6 +210,7 @@ def make_genai_metric(
         name,
         definition,
         grading_prompt,
+        grading_context_columns,
         examples,
         model,
         *(parameters,) if parameters is not None else (),

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Union, Optional
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
 
@@ -76,18 +77,38 @@ class EvaluationExample:
     output: str
     score: float
     justification: str
-    grading_context: Dict[str, str] = None
+    grading_context: Optional[Union[str, Dict[str, str]]] = None
 
-    def _format_grading_context(self):
+    @staticmethod
+    def _format_grading_context(grading_context):
         return "\n".join(
-            [f"key: {key}\nvalue:\n{value}" for key, value in self.grading_context.items()]
+            [f"key: {key}\nvalue:\n{value}" for key, value in grading_context.items()]
         )
 
-    def __str__(self) -> str:
+    def to_prompt_component(self, grading_context_columns: List[str]) -> str:
+        if self.grading_context is None and len(grading_context_columns) == 0:
+            grading_context = {}
+        elif isinstance(self.grading_context, dict):
+            grading_context = self.grading_context
+        else:
+            grading_context = {
+                grading_context_columns[0]: self.grading_context
+            }
+
+        if set(grading_context.keys()) != set(grading_context_columns):
+            raise MlflowException.invalid_parameter_value(
+                f"Example grading context does not contain required columns.\n"
+                f" Example grading context columns: {list(grading_context.keys())}\n"
+                f" Required grading context columns: {grading_context_columns}\n"
+            )
+
         grading_context = (
-            ""
-            if self.grading_context is None
-            else "Additional information used by the model:\n" f"{self._format_grading_context()}"
+            (
+                "Additional information used by the model:\n"
+                f"{EvaluationExample._format_grading_context(grading_context)}"
+            )
+            if self.grading_context 
+            else ""
         )
 
         return f"""
