@@ -158,7 +158,13 @@ class _OAITokenHolder:
         self._api_token = None
         self._credential = None
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
-        self._key_configured = bool(openai.api_key) or "OPENAI_API_KEY" in os.environ
+        self._key_configured = bool(openai.api_key)
+
+        # set the api key if it's not set. this is to deal with cases where the
+        # user sets the environment variable after importing the `openai` module
+        if not bool(openai.api_key) and "OPENAI_API_KEY" in os.environ:
+            openai.api_key = os.environ["OPENAI_API_KEY"]
+            self._key_configured = True
 
         if self._is_azure_ad and not self._key_configured:
             try:
