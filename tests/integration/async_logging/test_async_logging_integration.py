@@ -1,3 +1,5 @@
+import io
+import pickle
 import time
 import uuid
 
@@ -6,6 +8,35 @@ from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
+
+
+def test_async_logging_mlflow_client_pickle():
+    experiment_name = f"mlflow-async-logging-pickle-test-{str(uuid.uuid4())[:8]}"
+    mlflow_client = MlflowClient()
+
+    buffer = io.BytesIO()
+    pickle.dump(mlflow_client, buffer)
+
+    deserialized_mlflow_client = pickle.loads(buffer.getvalue())  # Type: MlflowClient
+    experiment_id = deserialized_mlflow_client.create_experiment(experiment_name)
+
+    run = deserialized_mlflow_client.create_run(experiment_id=experiment_id)
+    run_id = run.info.run_id
+
+    run_operations = []
+
+    params_to_log = []
+    param1 = Param("async param 1", "async param 1 value")
+    run_operations.append(
+        mlflow_client.log_param(run_id, param1.key, param1.value, synchronous=False)
+    )
+    params_to_log.append(param1)
+
+    for run_operation in run_operations:
+        run_operation.wait()
+    run = mlflow_client.get_run(run_id)
+    assert param1.key in run.data.params
+    assert param1.value == run.data.params[param1.key]
 
 
 def test_async_logging_mlflow_client():
