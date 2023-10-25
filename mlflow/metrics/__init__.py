@@ -274,9 +274,9 @@ def precision_at_k(k) -> EvaluationMetric:
     This metric is a builtin metric for the ``'retriever'`` model type, meaning it will be
     automatically calculated with a default ``k`` value of 3. To use another ``k`` value, you have
     two options with the ``mlflow.evaluate()`` API:
-        ``evaluator_config={"k": 5}``
-        ``extra_metrics = [mlflow.metrics.precision_at_k(k=5)]``
-            Note that the ``k`` value in the ``evaluator_config`` will be ignored in this case.
+    1. ``evaluator_config={"k": 5}``
+    2. ``extra_metrics = [mlflow.metrics.precision_at_k(k=5)]``
+    Note that the ``k`` value in the ``evaluator_config`` will be ignored in this case.
     """
     return make_metric(
         eval_fn=_precision_at_k_eval_fn(k),
