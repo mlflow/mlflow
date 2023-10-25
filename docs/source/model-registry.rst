@@ -323,7 +323,7 @@ to copy model versions across registered models.
     client = MlflowClient()
     client.copy_model_version(
         src_model_uri="models:/regression-model-staging@candidate",
-        dst_name="regression-model-production"
+        dst_name="regression-model-production",
     )
 
 This code snippet copies the model version with the ``candidate`` alias in the ``regression-model-staging``
