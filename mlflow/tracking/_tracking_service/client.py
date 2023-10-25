@@ -299,7 +299,7 @@ class TrackingServiceClient:
         else:
             return self.store.log_metric_async(run_id, metric)
 
-    def log_param(self, run_id, key, value, synchronous=True) -> any:
+    def log_param(self, run_id, key, value, synchronous=True):
         """
         Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.

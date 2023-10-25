@@ -769,7 +769,7 @@ class MlflowClient:
 
     def log_param(
         self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
-    ) -> any:
+    ) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
 
