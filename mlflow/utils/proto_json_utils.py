@@ -440,8 +440,8 @@ def parse_tf_serving_input(inp_dict, schema=None):
                 input_data = np.array(input_data)
             else:
                 raise MlflowException(
-                    "Failed to parse input data. This model contains a tensor-based model"
-                    " signature with input names, which suggests a dictionary / a list of "
+                    "Failed to parse input data. This model contains a tensor-based model "
+                    "signature with input names, which suggests a dictionary / a list of "
                     "dictionaries input mapping input name to tensor or a pure list, but "
                     f"an input of {input_data} was found."
                 )
@@ -490,8 +490,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
             " a valid JSON-formatted string that conforms to the request body for"
             " TF serving's Predict API as documented at"
             " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2. "
-            f"Error: {e}"
-        )
+        ) from e
 
     # Sanity check inputted data. This check will only be applied when the row-format `instances`
     # is used since it requires same 0-th dimension for all items.
