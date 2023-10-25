@@ -8,8 +8,8 @@ from mlflow.metrics.base import MetricValue
 
 _logger = logging.getLogger(__name__)
 
-targets_err_msg = "the column specified by the `targets` parameter"
-predictions_err_msg = (
+targets_col_specifier = "the column specified by the `targets` parameter"
+predictions_col_specifier = (
     "the column specified by the `predictions` parameter or the model output column"
 )
 
@@ -22,7 +22,7 @@ def standard_aggregations(scores):
     }
 
 
-def _validate_text_data(data, metric_name, column_name):
+def _validate_text_data(data, metric_name, col_specifier):
     """Validates that the data is a list of strs and is non-empty"""
     if data is None or len(data) == 0:
         return False
@@ -31,7 +31,7 @@ def _validate_text_data(data, metric_name, column_name):
         if not isinstance(line, str):
             _logger.warning(
                 f"Cannot calculate {metric_name} for non-string inputs. "
-                f"Non-string found for {column_name} on row {row}. Skipping metric logging."
+                f"Non-string found for {col_specifier} on row {row}. Skipping metric logging."
             )
             return False
 
@@ -65,7 +65,7 @@ def _cached_evaluate_load(path, module_type=None):
 
 
 def _toxicity_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "toxicity", predictions_err_msg):
+    if not _validate_text_data(predictions, "toxicity", predictions_col_specifier):
         return
     try:
         toxicity = _cached_evaluate_load("toxicity", module_type="measurement")
@@ -89,7 +89,7 @@ def _toxicity_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "flesch_kincaid", predictions_err_msg):
+    if not _validate_text_data(predictions, "flesch_kincaid", predictions_col_specifier):
         return
 
     try:
@@ -106,7 +106,7 @@ def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _ari_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "ari", predictions_err_msg):
+    if not _validate_text_data(predictions, "ari", predictions_col_specifier):
         return
 
     try:
@@ -133,8 +133,8 @@ def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weight=Non
 
 
 def _rouge1_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rouge1", targets_err_msg) or not _validate_text_data(
-        predictions, "rouge1", predictions_err_msg
+    if not _validate_text_data(targets, "rouge1", targets_col_specifier) or not _validate_text_data(
+        predictions, "rouge1", predictions_col_specifier
     ):
         return
 
@@ -157,8 +157,8 @@ def _rouge1_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rouge2_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rouge2", targets_err_msg) or not _validate_text_data(
-        predictions, "rouge2", predictions_err_msg
+    if not _validate_text_data(targets, "rouge2", targets_col_specifier) or not _validate_text_data(
+        predictions, "rouge2", predictions_col_specifier
     ):
         return
 
@@ -181,8 +181,8 @@ def _rouge2_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rougeL_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rougeL", targets_err_msg) or not _validate_text_data(
-        predictions, "rougeL", predictions_err_msg
+    if not _validate_text_data(targets, "rougeL", targets_col_specifier) or not _validate_text_data(
+        predictions, "rougeL", predictions_col_specifier
     ):
         return
 
@@ -205,9 +205,9 @@ def _rougeL_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rougeLsum_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rougeLsum", targets_err_msg) or not _validate_text_data(
-        predictions, "rougeLsum", predictions_err_msg
-    ):
+    if not _validate_text_data(
+        targets, "rougeLsum", targets_col_specifier
+    ) or not _validate_text_data(predictions, "rougeLsum", predictions_col_specifier):
         return
 
     try:
