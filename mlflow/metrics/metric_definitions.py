@@ -8,6 +8,11 @@ from mlflow.metrics.base import MetricValue
 
 _logger = logging.getLogger(__name__)
 
+targets_err_msg = "the column specified by the `targets` parameter"
+predictions_err_msg = (
+    "the column specified by the `predictions` parameter or the model output column"
+)
+
 
 def standard_aggregations(scores):
     return {
@@ -67,7 +72,7 @@ def _cached_evaluate_load(path, module_type=None):
 
 
 def _toxicity_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "toxicity"):
+    if not _validate_text_data(predictions, "toxicity", predictions_err_msg):
         return
     try:
         toxicity = _cached_evaluate_load("toxicity", module_type="measurement")
@@ -91,7 +96,7 @@ def _toxicity_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "flesch_kincaid"):
+    if not _validate_text_data(predictions, "flesch_kincaid", predictions_err_msg):
         return
 
     try:
@@ -108,7 +113,7 @@ def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _ari_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(predictions, "ari"):
+    if not _validate_text_data(predictions, "ari", predictions_err_msg):
         return
 
     try:
@@ -135,9 +140,9 @@ def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weight=Non
 
 
 def _rouge1_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rouge1", "targets") or not _validate_text_data(
-        predictions, "rouge1"
-    ):
+    if not _validate_text_data(
+        targets, "rouge1", "targets", targets_err_msg
+    ) or not _validate_text_data(predictions, "rouge1", predictions_err_msg):
         return
 
     try:
@@ -159,8 +164,8 @@ def _rouge1_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rouge2_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rouge2", "targets") or not _validate_text_data(
-        predictions, "rouge2"
+    if not _validate_text_data(targets, "rouge2", targets_err_msg) or not _validate_text_data(
+        predictions, "rouge2", predictions_err_msg
     ):
         return
 
@@ -183,8 +188,8 @@ def _rouge2_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rougeL_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rougeL", "targets") or not _validate_text_data(
-        predictions, "rougeL"
+    if not _validate_text_data(targets, "rougeL", targets_err_msg) or not _validate_text_data(
+        predictions, "rougeL", predictions_err_msg
     ):
         return
 
@@ -207,8 +212,8 @@ def _rougeL_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rougeLsum_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rougeLsum", "targets") or not _validate_text_data(
-        predictions, "rougeLsum"
+    if not _validate_text_data(targets, "rougeLsum", targets_err_msg) or not _validate_text_data(
+        predictions, "rougeLsum", predictions_err_msg
     ):
         return
 
