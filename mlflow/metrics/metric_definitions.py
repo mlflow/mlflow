@@ -45,9 +45,9 @@ def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
 
     for index, value in data.items():
         if not isinstance(value, tuple) or not all(isinstance(val, str) for val in value):
+            # Single entry tuples are automatically unpacked by Pandas.
+            # So if the entry is a string, put it back into a tuple.
             if isinstance(value, str):
-                # Single entry tuples get unpacked.
-                # So if the entry is a string, put them back into a tuple.
                 data[index] = (value,)
             else:
                 _logger.warning(
