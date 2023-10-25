@@ -172,6 +172,20 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         return transport, url, headers, content_type
 
+    @staticmethod
+    def _gcs_signed_qs(blob):
+        """
+        Get the canonical query string for signed url. See
+        https://cloud.google.com/storage/docs/authentication/canonical-requests#required-query-parameters
+        for more information.
+        """
+        signed_url = blob.generate_signed_url(
+            method="PUT",
+            version="v4",
+            expiration=datetime.timedelta(minutes=60),
+        )
+        return urllib.parse.urlparse(signed_url).query
+
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         from google.resumable_media.requests import XMLMPUContainer
 
@@ -188,16 +202,12 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         upload_id = container.upload_id
 
         credentials = []
+        signed_qs = self._gcs_signed_qs(blob)
         for i in range(1, num_parts + 1):  # part number must be in [1, 10000]
-            url = blob.generate_signed_url(
-                method="PUT",
-                content_type="application/octet-stream",
-                version="v4",
-                expiration=datetime.timedelta(minutes=15),
-            )
+            signed_url = url + f"?partNumber={i}&uploadId={upload_id}" + "&" + signed_qs
             credentials.append(
                 MultipartUploadCredential(
-                    url=url,
+                    url=signed_url,
                     part_number=i,
                     headers={},
                 )
