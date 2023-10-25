@@ -13,7 +13,6 @@ from mlflow.metrics import (
     mape,
     max_error,
     mse,
-    perplexity,
     precision_score,
     r2_score,
     recall_score,
@@ -32,7 +31,6 @@ from mlflow.metrics import (
         ari_grade_level(),
         exact_match(),
         flesch_kincaid_grade_level(),
-        perplexity(),
         rouge1(),
         rouge2(),
         rougeL(),
@@ -67,16 +65,6 @@ def test_toxicity():
     assert result.aggregate_results["ratio"] == 0.5
     assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
     assert result.scores[0] < result.aggregate_results["p90"] < result.scores[1]
-    assert "variance" in result.aggregate_results
-
-
-def test_perplexity():
-    predictions = pd.Series(["sentence not", "This is a sentence"])
-    result = perplexity().eval_fn(predictions, None, {})
-    # A properly structured sentence should have lower perplexity
-    assert result.scores[0] > result.scores[1]
-    assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
-    assert result.scores[0] > result.aggregate_results["p90"] > result.scores[1]
     assert "variance" in result.aggregate_results
 
 

@@ -20,7 +20,6 @@ from mlflow.metrics.metric_definitions import (
     _mape_eval_fn,
     _max_error_eval_fn,
     _mse_eval_fn,
-    _perplexity_eval_fn,
     _precision_eval_fn,
     _r2_score_eval_fn,
     _recall_eval_fn,
@@ -89,29 +88,6 @@ def toxicity() -> EvaluationMetric:
         greater_is_better=False,
         name="toxicity",
         long_name="toxicity/roberta-hate-speech-dynabench-r4",
-        version="v1",
-    )
-
-
-@experimental
-def perplexity() -> EvaluationMetric:
-    """
-    This function will create a metric for evaluating `perplexity`_ using the model gpt2.
-
-    The score ranges from 0 to infinity, where a lower score means that the model is better at
-    predicting the given text and a higher score means that the model is not likely to predict the
-    text.
-
-    Aggregations calculated for this metric:
-        - mean
-
-    .. _perplexity: https://huggingface.co/spaces/evaluate-metric/perplexity
-    """
-    return make_metric(
-        eval_fn=_perplexity_eval_fn,
-        greater_is_better=False,
-        name="perplexity",
-        long_name="perplexity/gpt2",
         version="v1",
     )
 
@@ -401,7 +377,6 @@ __all__ = [
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
-    "perplexity",
     "flesch_kincaid_grade_level",
     "ari_grade_level",
     "accuracy",

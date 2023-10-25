@@ -2151,7 +2151,6 @@ def validate_question_answering_logged_data(
         "toxicity/v1/score",
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
-        "perplexity/v1/score",
         "token_count",
     }
     if with_targets:
@@ -2163,7 +2162,6 @@ def validate_question_answering_logged_data(
     assert logged_data[predictions_name].tolist() == ["words random", "This is a sentence."]
     assert logged_data["toxicity/v1/score"][0] < 0.5
     assert logged_data["toxicity/v1/score"][1] < 0.5
-    assert logged_data["perplexity/v1/score"][0] > logged_data["perplexity/v1/score"][1]
     assert all(
         isinstance(grade, float) for grade in logged_data["flesch_kincaid_grade_level/v1/score"]
     )
@@ -2307,13 +2305,10 @@ def test_evaluate_question_answering_on_static_dataset_with_targets():
     validate_question_answering_logged_data(logged_data, predictions_name="pred")
     assert set(results.metrics.keys()) == {
         "toxicity/v1/variance",
-        "perplexity/v1/p90",
-        "perplexity/v1/variance",
         "toxicity/v1/ratio",
         "toxicity/v1/mean",
         "flesch_kincaid_grade_level/v1/variance",
         "ari_grade_level/v1/p90",
-        "perplexity/v1/mean",
         "flesch_kincaid_grade_level/v1/p90",
         "flesch_kincaid_grade_level/v1/mean",
         "ari_grade_level/v1/mean",
@@ -2382,7 +2377,6 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
         "toxicity/v1/score",
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
-        "perplexity/v1/score",
         "token_count",
     }
     if with_targets:
@@ -2417,7 +2411,7 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
 
 
 def get_text_metrics_keys():
-    metric_names = ["perplexity", "toxicity", "flesch_kincaid_grade_level", "ari_grade_level"]
+    metric_names = ["toxicity", "flesch_kincaid_grade_level", "ari_grade_level"]
     standard_aggregations = ["mean", "variance", "p90"]
     version = "v1"
 
@@ -2542,7 +2536,6 @@ def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
                 model_type="text-summarization",
             )
             mock_load.assert_any_call("rouge")
-            mock_load.assert_any_call("perplexity", module_type="metric")
             mock_load.assert_any_call("toxicity", module_type="measurement")
 
     client = mlflow.MlflowClient()
@@ -2584,7 +2577,6 @@ def test_evaluate_text_and_text_metrics():
         "toxicity/v1/score",
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
-        "perplexity/v1/score",
         "token_count",
     }
     assert logged_data["text"].tolist() == ["sentence not", "All women are bad."]
@@ -2592,8 +2584,6 @@ def test_evaluate_text_and_text_metrics():
     # Hateful sentiments should be marked as toxic
     assert logged_data["toxicity/v1/score"][0] < 0.5
     assert logged_data["toxicity/v1/score"][1] > 0.5
-    # The perplexity of random words should be higher than a valid sentence.
-    assert logged_data["perplexity/v1/score"][0] > logged_data["perplexity/v1/score"][1]
     # Simple sentences should have a low grade level.
     assert logged_data["flesch_kincaid_grade_level/v1/score"][1] < 4
     assert logged_data["ari_grade_level/v1/score"][1] < 4
@@ -2677,7 +2667,6 @@ def test_eval_results_table_json_can_be_prefixed_with_metric_prefix(metric_prefi
         f"{metric_prefix}toxicity/v1/score",
         f"{metric_prefix}flesch_kincaid_grade_level/v1/score",
         f"{metric_prefix}ari_grade_level/v1/score",
-        f"{metric_prefix}perplexity/v1/score",
         f"{metric_prefix}token_count",
     }
 
@@ -2827,7 +2816,6 @@ def test_constructing_eval_df_for_custom_metrics():
         "context",
         "token_count",
         "toxicity/v1/score",
-        "perplexity/v1/score",
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
     ]
@@ -2858,18 +2846,19 @@ def test_evaluate_no_model_type_with_builtin_metric():
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
-            extra_metrics=[mlflow.metrics.perplexity()],
+            extra_metrics=[mlflow.metrics.toxicity()],
         )
         assert results.metrics.keys() == {
-            "perplexity/v1/mean",
-            "perplexity/v1/variance",
-            "perplexity/v1/p90",
+            "toxicity/v1/mean",
+            "toxicity/v1/variance",
+            "toxicity/v1/p90",
+            "toxicity/v1/ratio",
         }
         assert len(results.tables) == 1
         assert results.tables["eval_results_table"].columns.tolist() == [
             "text",
             "outputs",
-            "perplexity/v1/score",
+            "toxicity/v1/score",
         ]
 
 
@@ -2963,7 +2952,6 @@ def test_default_metrics_as_custom_metrics_static_dataset():
             model_type="question-answering",
             custom_metrics=[
                 mlflow.metrics.flesch_kincaid_grade_level(),
-                mlflow.metrics.perplexity(),
                 mlflow.metrics.ari_grade_level(),
                 mlflow.metrics.toxicity(),
                 mlflow.metrics.exact_match(),
@@ -2974,7 +2962,7 @@ def test_default_metrics_as_custom_metrics_static_dataset():
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
-    for metric in ["toxicity", "perplexity", "ari_grade_level", "flesch_kincaid_grade_level"]:
+    for metric in ["toxicity", "ari_grade_level", "flesch_kincaid_grade_level"]:
         for measure in ["mean", "p90", "variance"]:
             assert f"{metric}/v1/{measure}" in results.metrics.keys()
     assert "exact_match/v1" in results.metrics.keys()
@@ -3002,7 +2990,6 @@ def test_multi_output_model_error_handling():
                 model_type="question-answering",
                 custom_metrics=[
                     mlflow.metrics.flesch_kincaid_grade_level(),
-                    mlflow.metrics.perplexity(),
                     mlflow.metrics.ari_grade_level(),
                     mlflow.metrics.toxicity(),
                     mlflow.metrics.exact_match(),
@@ -3055,7 +3042,6 @@ def test_evaluate_with_latency():
         "toxicity/v1/score",
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
-        "perplexity/v1/score",
         "latency",
         "token_count",
     }
@@ -3091,7 +3077,6 @@ def test_evaluate_with_latency_static_dataset():
         "toxicity/v1/score",
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
-        "perplexity/v1/score",
         "latency",
         "token_count",
     }
