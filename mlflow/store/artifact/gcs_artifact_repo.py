@@ -218,7 +218,34 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
 
     def complete_multipart_upload(self, local_file, upload_id, parts=None, artifact_path=None):
-        pass
+        from google.resumable_media.requests import XMLMPUContainer
+
+        (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+
+        gcs_bucket = self._get_bucket(bucket)
+        blob = gcs_bucket.blob(dest_path)
+        transport, url, headers, _ = self._gcs_mpu_arguments(local_file, blob)
+        container = XMLMPUContainer(url, local_file, headers=headers)
+        container._upload_id = upload_id
+        for part in parts:
+            container.register_part(part.part_number, part.etag)
+
+        container.finalize(transport=transport)
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
-        pass
+        from google.resumable_media.requests import XMLMPUContainer
+
+        (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+
+        gcs_bucket = self._get_bucket(bucket)
+        blob = gcs_bucket.blob(dest_path)
+        transport, url, headers, _ = self._gcs_mpu_arguments(local_file, blob)
+        container = XMLMPUContainer(url, local_file, headers=headers)
+        container._upload_id = upload_id
+        container.cancel(transport=transport)
