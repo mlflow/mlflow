@@ -174,7 +174,6 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         from google.resumable_media.requests import XMLMPUContainer
-        from google.cloud.storage import Blob
 
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
@@ -182,7 +181,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
 
         gcs_bucket = self._get_bucket(bucket)
-        blob: Blob = gcs_bucket.blob(dest_path)
+        blob = gcs_bucket.blob(dest_path)
         transport, url, headers, content_type = self._gcs_mpu_arguments(local_file, blob)
         container = XMLMPUContainer(url, local_file, headers=headers)
         container.initiate(transport=transport, content_type=content_type)
