@@ -1298,3 +1298,108 @@ def test_spark_udf_with_model_serving(spark):
 
         res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
         assert res["res"][0] == ("string")
+
+
+def test_spark_udf_structs_and_arrays(spark, tmp_path):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return [str(" | ".join(map(str, row))) for _, row in model_input.iterrows()]
+
+    df = spark.createDataFrame(
+        [
+            (
+                "a",
+                [0],
+                {"bool": True},
+                [{"double": 0.1}],
+            ),
+            (
+                "b",
+                [1, 2],
+                {"bool": False},
+                [{"double": 0.2}, {"double": 0.3}],
+            ),
+        ],
+        schema=StructType(
+            [
+                StructField(
+                    "str",
+                    StringType(),
+                ),
+                StructField(
+                    "arr",
+                    ArrayType(IntegerType()),
+                ),
+                StructField(
+                    "obj",
+                    StructType(
+                        [
+                            StructField("bool", BooleanType()),
+                        ]
+                    ),
+                ),
+                StructField(
+                    "obj_arr",
+                    ArrayType(
+                        StructType(
+                            [
+                                StructField("double", DoubleType()),
+                            ]
+                        )
+                    ),
+                ),
+            ]
+        ),
+    )
+    save_path = tmp_path / "1"
+    mlflow.pyfunc.save_model(
+        path=save_path,
+        python_model=MyModel(),
+        signature=mlflow.models.infer_signature(df),
+    )
+
+    udf = mlflow.pyfunc.spark_udf(spark=spark, model_uri=save_path, result_type="string")
+    pdf = df.withColumn("output", udf("str", "arr", "obj", "obj_arr")).toPandas()
+    assert pdf["output"][0] == "a | [0] | {'bool': True} | [{'double': 0.1}]"
+    assert pdf["output"][1] == "b | [1, 2] | {'bool': False} | [{'double': 0.2}, {'double': 0.3}]"
+
+    # More complex nested structures
+    df = spark.createDataFrame(
+        [
+            ([{"arr": [{"bool": True}]}],),
+            ([{"arr": [{"bool": False}]}],),
+        ],
+        schema=StructType(
+            [
+                StructField(
+                    "test",
+                    ArrayType(
+                        StructType(
+                            [
+                                StructField(
+                                    "arr",
+                                    ArrayType(
+                                        StructType(
+                                            [
+                                                StructField("bool", BooleanType()),
+                                            ]
+                                        )
+                                    ),
+                                ),
+                            ]
+                        )
+                    ),
+                ),
+            ]
+        ),
+    )
+    save_path = tmp_path / "2"
+    mlflow.pyfunc.save_model(
+        path=save_path,
+        python_model=MyModel(),
+        signature=mlflow.models.infer_signature(df),
+    )
+    udf = mlflow.pyfunc.spark_udf(spark=spark, model_uri=save_path, result_type="string")
+    pdf = df.withColumn("output", udf("test")).toPandas()
+    assert pdf["output"][0] == "[{'arr': [{'bool': True}]}]"
+    assert pdf["output"][1] == "[{'arr': [{'bool': False}]}]"
