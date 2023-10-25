@@ -113,9 +113,12 @@ We also provide generative AI ("genai") :py:class:`EvaluationMetric <mlflow.metr
     :members:
     :undoc-members:
     :show-inheritance:
+    :exclude-members: EvaluationExample
 
 You can also create your own generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function.
 
 .. autofunction:: mlflow.metrics.make_genai_metric
 
 When using generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.genai.EvaluationExample>`
+
+.. autoclass:: mlflow.metrics.genai.EvaluationExample
