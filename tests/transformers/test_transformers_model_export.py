@@ -1644,6 +1644,17 @@ def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, r
     assert pd_inference == result
 
 
+def test_fill_mask_pipeline_with_multiple_masks(fill_mask_pipeline, model_path):
+    data = ["I <mask> the whole <mask> of <mask>", "I <mask> the whole <mask> of <mask>"]
+
+    mlflow.transformers.save_model(fill_mask_pipeline, path=model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(data)
+    assert len(inference) == 2
+    assert all(len(value) == 3 for value in inference)
+
+
 @pytest.mark.parametrize(
     "invalid_data",
     [

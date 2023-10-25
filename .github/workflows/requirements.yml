@@ -18,6 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PYTHON_VERSION: "3.8"
@@ -79,4 +80,5 @@ jobs:
       - name: Run tests
         run: |
           source dev/setup-ssh.sh
-          ./dev/run-python-tests.sh
+          pytest tests --quiet --requires-ssh --ignore-flavors \
+            --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
