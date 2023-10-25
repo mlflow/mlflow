@@ -49,6 +49,17 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
         headers=combined_headers,
         timeout=10,
     ) as response:
+        expected_length = response.headers.get('Content-Length')
+        if expected_length is not None:
+            actual_length = response.raw.tell()
+            expected_length = int(expected_length)
+            if actual_length < expected_length:
+                raise IOError(
+                    'incomplete read ({} bytes read, {} more expected)'.format(
+                        actual_length,
+                        expected_length - actual_length
+                    )
+                )
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
         augmented_raise_for_status(response)
