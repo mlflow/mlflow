@@ -907,14 +907,13 @@ def _enforce_array(data: Any, arr: Array, required=True):
     if not required and data is None:
         return None
     if not isinstance(data, (list, np.ndarray)):
-        if np.isscalar(data):
-            data = [data]
-        else:
-            raise MlflowException(f"Expected data to be list, got {type(data).__name__}")
+        raise MlflowException(f"Expected data to be list, got {type(data).__name__}")
     if isinstance(arr.dtype, DataType):
         return [_enforce_datatype(x, arr.dtype) for x in data]
     if isinstance(arr.dtype, Object):
         return [_enforce_object(x, arr.dtype) for x in data]
+    if isinstance(arr.dtype, Array):
+        return [_enforce_array(x, arr.dtype) for x in data]
     raise MlflowException(f"Failed to enforce schema of data `{data}` with dtype `{arr.dtype}`")
 
 
