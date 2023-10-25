@@ -1,6 +1,7 @@
 # DO NO IMPORT MLFLOW IN THIS FILE.
 # This file is imported by download_cloud_file_chunk.py.
 # Importing mlflow is time-consuming and we want to avoid that in artifact download subprocesses.
+import logging
 import os
 from functools import lru_cache
 
@@ -10,6 +11,8 @@ from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
 from urllib3.util import Retry
+
+_logger = logging.getLogger(__name__)
 
 # Response codes that generally indicate transient network failures and merit client retries,
 # based on guidance from cloud service providers
@@ -54,11 +57,8 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
         augmented_raise_for_status(response)
         with open(download_path, "r+b") as f:
             f.seek(range_start)
-            if b"\x00" in response.content:
-                raise Exception(
-                    "Received null character in response. This may indicate that the "
-                    "artifact at the requested URI is corrupted."
-                )
+            if b"\x00" * 512 in response.content:
+                _logger.warning("Found null bytes in response content.")
             f.write(response.content)
 
 
