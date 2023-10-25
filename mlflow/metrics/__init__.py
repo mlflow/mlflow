@@ -23,6 +23,7 @@ from mlflow.metrics.metric_definitions import (
     _precision_at_k_eval_fn,
     _precision_eval_fn,
     _r2_score_eval_fn,
+    _recall_at_k_eval_fn,
     _recall_eval_fn,
     _rmse_eval_fn,
     _rouge1_eval_fn,
@@ -284,6 +285,19 @@ def precision_at_k(k) -> EvaluationMetric:
         eval_fn=_precision_at_k_eval_fn(k),
         greater_is_better=True,
         name="precision_at_k",
+        version="v1",
+    )
+
+
+@experimental
+def recall_at_k(k) -> EvaluationMetric:
+    """
+    This function will create a metric for calculating ``recall_at_k`` for retriever models.
+    """
+    return make_metric(
+        eval_fn=_recall_at_k_eval_fn(k),
+        greater_is_better=True,
+        name="recall_at_k",
         version="v1",
     )
 

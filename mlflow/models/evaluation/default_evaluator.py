@@ -32,6 +32,7 @@ from mlflow.metrics import (
     exact_match,
     flesch_kincaid_grade_level,
     precision_at_k,
+    recall_at_k,
     rouge1,
     rouge2,
     rougeL,
@@ -1676,12 +1677,12 @@ class DefaultEvaluator(ModelEvaluator):
                     k = self.evaluator_config.pop("k", 3)  # default k to 3 if not specified
                     if not (isinstance(k, int) and k > 0):
                         _logger.warning(
-                            "Cannot calculate 'precision_at_k' for invalid parameter 'k'."
-                            f"'k' should be a positive integer; found: {k}"
+                            "Cannot calculate 'precision_at_k' and 'recall_at_k' for invalid "
+                            f"parameter 'k'. 'k' should be a positive integer; found: {k}. "
                             "Skipping metric logging."
                         )
                     else:
-                        self.builtin_metrics = [precision_at_k(k)]
+                        self.builtin_metrics = [precision_at_k(k), recall_at_k(k)]
 
                 self.y_pred = (
                     self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred

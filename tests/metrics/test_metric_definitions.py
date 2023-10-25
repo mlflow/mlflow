@@ -238,3 +238,13 @@ def test_binary_f1_score():
     targets = pd.Series([1, 1, 1, 1, 0, 0, 0, 0])
     result = f1_score().eval_fn(predictions, targets, {})
     assert abs(result.aggregate_results["f1_score"] - 0.5713) < 1e-3
+
+
+def test_precision_at_k():
+    # bbqiu
+    pass
+
+
+def test_recall_at_k():
+    # bbqiu
+    pass

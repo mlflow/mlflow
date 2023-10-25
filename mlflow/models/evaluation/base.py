@@ -1309,6 +1309,7 @@ def evaluate(
         - **metrics**: ``precision_at_k``: has a default value of k = 3. To use a different
           value for k, include ``"k"`` in the ``evaluator_config`` parameter:
           ``evaluator_config={"k":5}``.
+            - ``recall_at_k`` BBQIU
         - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
           of the model in tabular format.
 
@@ -1356,8 +1357,8 @@ def evaluate(
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
         - **k**: The number of top-ranked retrieved documents to use when computing the built-in
-          metric ``precision_at_k`` for model_type="retriever". Default value is 3. For all other
-          model types, this parameter will be ignored.
+          metric ``precision_at_k`` and ``recall_at_k`` for model_type="retriever". Default value
+          is 3. For all other model types, this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
