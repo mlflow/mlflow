@@ -17,18 +17,24 @@ def standard_aggregations(scores):
     }
 
 
-def _validate_text_data(data, metric_name):
+def _validate_text_data(data, metric_name, column_name):
     """Validates that the data is a list of strs and is non-empty"""
     if data is None or len(data) == 0:
         return False
 
     for row, line in enumerate(data):
         if not isinstance(line, str):
-            _logger.warning(
-                f"Cannot calculate {metric_name} for non-string inputs. "
-                f"Non-string found for the column specified by `predictions` "
-                f"or the model output column on row {row}. Skipping metric logging."
-            )
+            if column_name:
+                _logger.warning(
+                    f"Cannot calculate {metric_name} for non-string inputs. "
+                    f"Non-string found for {column_name} on row {row}. skipping metric logging."
+                )
+            else:
+                _logger.warning(
+                    f"Cannot calculate {metric_name} for non-string inputs. "
+                    f"Non-string found for the column specified by `predictions` "
+                    f"or the model output column on row {row}. Skipping metric logging."
+                )
             return False
 
     return True
@@ -129,7 +135,9 @@ def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weight=Non
 
 
 def _rouge1_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rouge1") or not _validate_text_data(predictions, "rouge1"):
+    if not _validate_text_data(targets, "rouge1", "targets") or not _validate_text_data(
+        predictions, "rouge1"
+    ):
         return
 
     try:
@@ -151,7 +159,9 @@ def _rouge1_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rouge2_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rouge2") or not _validate_text_data(predictions, "rouge2"):
+    if not _validate_text_data(targets, "rouge2", "targets") or not _validate_text_data(
+        predictions, "rouge2"
+    ):
         return
 
     try:
@@ -173,7 +183,9 @@ def _rouge2_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rougeL_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rougeL") or not _validate_text_data(predictions, "rougeL"):
+    if not _validate_text_data(targets, "rougeL", "targets") or not _validate_text_data(
+        predictions, "rougeL"
+    ):
         return
 
     try:
@@ -195,7 +207,7 @@ def _rougeL_eval_fn(predictions, targets=None, metrics=None):
 
 
 def _rougeLsum_eval_fn(predictions, targets=None, metrics=None):
-    if not _validate_text_data(targets, "rougeLsum") or not _validate_text_data(
+    if not _validate_text_data(targets, "rougeLsum", "targets") or not _validate_text_data(
         predictions, "rougeLsum"
     ):
         return
