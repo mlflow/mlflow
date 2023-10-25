@@ -110,10 +110,10 @@ def make_genai_metric(
         "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
     :param grading_context_columns: (Optional) The name of the grading context column, or a list of
-        grading context column names, required to compute the metric. These grading_context_columns
-        are used by the LLM as a judge as additional information to compute the metric. The columns
-        are extracted from the input dataset or output predictions based on col_mapping in
-        evaluator_config.
+        grading context column names, required to compute the metric. The
+        ``grading_context_columns`` are used by the LLM as a judge as additional information to
+        compute the metric. The columns are extracted from the input dataset or output predictions
+        based on ``col_mapping`` in the ``evaluator_config`` passed to :py:func:`mlflow.evaluate()`.
     :param parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
         set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
         setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
