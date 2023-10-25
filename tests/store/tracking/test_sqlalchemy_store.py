@@ -11,7 +11,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 from unittest import mock
 
 import pytest
@@ -152,27 +152,20 @@ class TestDatabase:
 
 
 @pytest.fixture
-def test_database() -> TestDatabase:
-    temp_dbfile, db_url = _setup_db_uri()
+def test_database(tmp_path: Path) -> TestDatabase:
+    db_url = _setup_db_uri(tmp_path)
     store = _get_store(db_url)
     yield TestDatabase(db_url, store)
-    _cleanup_database(temp_dbfile, store)
+    _cleanup_database(store)
 
 
 def _get_store(db_uri=""):
     return SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
 
-def _setup_db_uri():
-    if uri := MLFLOW_TRACKING_URI.get():
-        temp_dbfile = None
-        db_url = uri
-    else:
-        fd, temp_dbfile = tempfile.mkstemp()
-        # Close handle immediately so that we can remove the file later on in Windows
-        os.close(fd)
-        db_url = f"{DB_URI}{temp_dbfile}"
-    return temp_dbfile, db_url
+def _setup_db_uri(tmp_path: Path):
+    uri = MLFLOW_TRACKING_URI.get()
+    return uri if uri else f"{DB_URI}{tmp_path / 'temp.db'}"
 
 
 def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):
@@ -189,30 +182,27 @@ def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):
     raise ValueError(f"Invalid dialect: {dialect}")
 
 
-def _cleanup_database(temp_dbfile: Optional[str], store: SqlAlchemyStore):
-    if temp_dbfile:
-        os.remove(temp_dbfile)
-    else:
-        with store.ManagedSessionMaker() as session:
-            # Delete all rows in all tables
-            for model in (
-                SqlParam,
-                SqlMetric,
-                SqlLatestMetric,
-                SqlTag,
-                SqlInputTag,
-                SqlInput,
-                SqlDataset,
-                SqlRun,
-                SqlExperimentTag,
-                SqlExperiment,
-            ):
-                session.query(model).delete()
+def _cleanup_database(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        # Delete all rows in all tables
+        for model in (
+            SqlParam,
+            SqlMetric,
+            SqlLatestMetric,
+            SqlTag,
+            SqlInputTag,
+            SqlInput,
+            SqlDataset,
+            SqlRun,
+            SqlExperimentTag,
+            SqlExperiment,
+        ):
+            session.query(model).delete()
 
-            # Reset experiment_id to start at 1
-            reset_experiment_id = _get_query_to_reset_experiment_id(store)
-            if reset_experiment_id:
-                session.execute(sqlalchemy.sql.text(reset_experiment_id))
+        # Reset experiment_id to start at 1
+        reset_experiment_id = _get_query_to_reset_experiment_id(store)
+        if reset_experiment_id:
+            session.execute(sqlalchemy.sql.text(reset_experiment_id))
     shutil.rmtree(ARTIFACT_URI)
 
 
@@ -277,7 +267,7 @@ def test_default_experiment_lifecycle(test_database):
     assert another.name == "aNothEr"
 
 
-# This unittest class is under refactoring. Please use pytest for new unit tests from now on: #10042
+# This unit test class is under refactoring. Please use pytest for new unit tests: #10042
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_store(self, db_uri=""):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
