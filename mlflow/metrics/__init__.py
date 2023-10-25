@@ -276,7 +276,9 @@ def precision_at_k(k) -> EvaluationMetric:
     1. ``evaluator_config={"k": 5}``
     2. ``extra_metrics = [mlflow.metrics.precision_at_k(k=5)]``
 
-        Note that the ``k`` value in the ``evaluator_config`` will be ignored in this case.
+        Note that the ``k`` value in the ``evaluator_config`` will be ignored in this case. It is
+        recommended to remove the ``model_type`` as well, or else precision@3 and precision@5 will
+        both be calculated.
     """
     return make_metric(
         eval_fn=_precision_at_k_eval_fn(k),
