@@ -89,6 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
+      fail-fast: false
       matrix:
         group: [1, 2]
         include:
@@ -227,6 +228,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
+      fail-fast: false
       matrix:
         group: [1, 2]
         include:
@@ -279,6 +281,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
+      fail-fast: false
       matrix:
         group: [1, 2]
         include:
@@ -329,6 +332,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
+      fail-fast: false
       matrix:
         group: [1, 2]
         include:
