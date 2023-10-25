@@ -55,7 +55,7 @@ from mlflow.models.evaluation.evaluator_registry import _model_evaluation_regist
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracking.artifact_utils import get_artifact_uri
-from mlflow.utils import _insecure_md5
+from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import TempDir
 
 
@@ -690,7 +690,7 @@ def test_dataset_metadata():
 
 def test_gen_md5_for_arraylike_obj():
     def get_md5(data):
-        md5_gen = _insecure_md5()
+        md5_gen = insecure_hash.md5()
         _gen_md5_for_arraylike_obj(md5_gen, data)
         return md5_gen.hexdigest()
 
