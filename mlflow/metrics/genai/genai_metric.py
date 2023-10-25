@@ -6,7 +6,8 @@ from inspect import Parameter, Signature
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.base import EvaluationExample, MetricValue
+from mlflow.metrics.base import MetricValue
+from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric

@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.base import EvaluationExample
+from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.genai_metric import make_genai_metric
 from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric

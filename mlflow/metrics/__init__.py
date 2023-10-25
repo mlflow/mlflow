@@ -1,5 +1,4 @@
 from mlflow.metrics.base import (
-    EvaluationExample,
     MetricValue,
 )
 from mlflow.metrics.genai.genai_metric import (
@@ -423,7 +422,6 @@ def f1_score() -> EvaluationMetric:
 
 
 __all__ = [
-    "EvaluationExample",
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
