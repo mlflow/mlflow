@@ -1,6 +1,0 @@
-python: "3.8"
-build_dependencies:
-  - pip
-dependencies:
-  - pmdarima
-  - mlflow>=1.23.1

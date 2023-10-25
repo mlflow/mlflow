@@ -1,9 +1,0 @@
-python: "3.8"
-build_dependencies:
-  - pip
-dependencies:
-  - torch==1.8.1
-  - torchvision==0.9.1
-  - mlflow>=1.0
-  - tensorboardX
-  - protobuf<4.0.0

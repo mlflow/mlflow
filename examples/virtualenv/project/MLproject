@@ -1,7 +1,0 @@
-name: virtualenv-example
-python_env: python_env.yaml
-entry_points:
-  main:
-    command: 'python entrypoint.py'
-  test:
-    command: 'python entrypoint.py --test'
