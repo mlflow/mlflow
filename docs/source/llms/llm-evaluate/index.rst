@@ -91,7 +91,7 @@ LLM Evaluation Metrics
 
 There are two types of LLM evaluation metrics in MLflow:
 
-1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.answer_relevance`. These  
+1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.genai.answer_relevance`. These  
    metrics are created via :py:func:`mlflow.metrics.genai.make_genai_metric` method. For each data record, these metrics under the hood sends 
    one prompt consisting of the following information to the SaaS model, and extract the score from model response:
 
@@ -190,12 +190,12 @@ MLflow offers a few pre-canned metrics which uses LLM as the judge. Despite the 
 is the same - put these metrics in the ``extra_metrics`` argument in ``mlflow.evaluate()``. Here is the list of pre-canned
 metrics:
 
-* :py:func:`mlflow.metrics.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
-* :py:func:`mlflow.metrics.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
+* :py:func:`mlflow.metrics.genai.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
+* :py:func:`mlflow.metrics.genai.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
   and ground truth.
-* :py:func:`mlflow.metrics.answer_relevance`: Evaluate the appropriateness and applicability of the output with 
+* :py:func:`mlflow.metrics.genai.answer_relevance`: Evaluate the appropriateness and applicability of the output with 
   respect to the input. 
-* :py:func:`mlflow.metrics.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
+* :py:func:`mlflow.metrics.genai.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
 
 
 Create your Custom LLM-evaluation Metrics
