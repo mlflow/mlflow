@@ -57,9 +57,9 @@ function getColumnTypeRepr(columnType: ColumnType, indentationLevel: number): st
 
 function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
   let required = true;
-  if (spec.required != null) {
-    required = spec.required;
-  } else if (spec.optional != null && spec.optional) {
+  if (spec.required !== undefined) {
+    ({ required } = spec);
+  } else if (spec.optional !== undefined && spec.optional) {
     required = false;
   }
   const requiredTag = required ? (
@@ -68,10 +68,7 @@ function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
     <Text color='secondary'>{'(optional)'}</Text>
   );
 
-  let name = '-';
-  if ('name' in spec) {
-    name = spec.name;
-  }
+  const name = 'name' in spec ? spec.name : '-';
 
   return (
     <Text>
@@ -88,7 +85,18 @@ function formatColumnSchema(spec: ColumnSpec | TensorSpec): React.ReactElement {
     repr = getColumnTypeRepr(spec, 0);
   }
 
-  return <pre style={{ padding: 8, marginTop: 8, marginBottom: 8 }}>{repr}</pre>;
+  return (
+    <pre
+      style={{
+        padding: 8,
+        marginTop: 8,
+        marginBottom: 8,
+        whiteSpace: 'pre-wrap',
+      }}
+    >
+      {repr}
+    </pre>
+  );
 }
 
 export class SchemaTableImpl extends React.PureComponent<Props> {
@@ -246,7 +254,7 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
               defaultMessage: 'Name',
               description: 'Text for name column in schema table in model version page',
             })}
-            width='50%'
+            width='40%'
             dataIndex='name'
             render={this.renderSectionHeader}
           />
@@ -256,7 +264,7 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
               defaultMessage: 'Type',
               description: 'Text for type column in schema table in model version page',
             })}
-            width='50%'
+            width='60%'
             dataIndex='type'
             render={this.renderSectionHeader}
           />
