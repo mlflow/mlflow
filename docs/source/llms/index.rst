@@ -106,11 +106,17 @@ configuration and management of your LLM serving needs, select the provider that
 `LLM Model Evaluation <../model-evaluation/index.html>`_
 --------------------------------------------------------
 
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    llm-evaluate/index
+
 Navigating the vast landscape of Large Language Models (LLMs) can be daunting. Determining the right model, prompt, or service that aligns 
 with a project's needs is no small feat. Traditional machine learning evaluation metrics often fall short when it comes to assessing the 
 nuanced performance of generative models.
 
-Enter the `MLflow LLM Model Evaluation <../model-evaluation/index.html>`_. This feature is designed to simplify the evaluation process, 
+Enter the `MLflow LLM Model Evaluation <llm-evaluate/index.html>`_. This feature is designed to simplify the evaluation process, 
 offering a streamlined approach to compare foundational models, providers, and prompts.
 
 Benefits of MLflow's LLM Model Evaluation
@@ -275,6 +281,7 @@ Look in the tutorials and guides below to learn more about interesting use cases
     rag/index
     llm-evaluate/index
     llm-evaluate/notebooks/index
+    custom-pyfunc-for-llms/index
 
 .. raw:: html
 
@@ -291,6 +298,16 @@ Look in the tutorials and guides below to learn more about interesting use cases
                 </p>
             </div>
             <div class="simple-card">
+                <a href="custom-pyfunc-for-llms/index.html" >
+                    <div class="header">
+                        Using Custom PyFunc with LLMs
+                    </div>
+                </a>
+                <p>
+                    Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs. 
+                </p>
+            </div>
+            <div class="simple-card">
                 <a href="rag/index.html" >
                     <div class="header">
                         Question Generation for RAG
@@ -298,36 +315,6 @@ Look in the tutorials and guides below to learn more about interesting use cases
                 </a>
                 <p>
                     Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
-                </p>
-            </div>
-        </article>
-    </section>
-
-LLM Tutorials
--------------
-
-Learn how to leverage MLflow to simplify and manage your entire end-to-end LLM lifecycle usage with engaging tutorials that target 
-specific use cases. Each of the tutorials below focus on specific real-world applications. 
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    custom-pyfunc-for-llms/index
-
-.. raw:: html
-
-    <section>
-        <article class="simple-grid">
-            <div class="simple-card">
-                <a href="custom-pyfunc-for-llms/index.html" >
-                    <div class="header">
-                        Using Custom PyFunc with LLMs
-                    </div>
-                </a>
-                <p>
-                    Explore the nuances of packaging and deploying advanced LLMs in MLflow using custom PyFuncs. This guide delves deep 
-                    into managing intricate model behaviors, ensuring seamless and efficient LLM deployments.
                 </p>
             </div>
         </article>

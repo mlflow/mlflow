@@ -10,6 +10,7 @@ import os
 import posixpath
 import sys
 import tempfile
+import urllib
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import yaml
@@ -20,6 +21,9 @@ from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
+from mlflow.store.artifact.utils.models import (
+    get_model_name_and_version,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -2354,7 +2358,9 @@ class MlflowClient:
         """
         return self._get_registry_client().get_registered_model(name)
 
-    def get_latest_versions(self, name: str, stages: List[str] = None) -> List[ModelVersion]:
+    def get_latest_versions(
+        self, name: str, stages: Optional[List[str]] = None
+    ) -> List[ModelVersion]:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
@@ -2664,6 +2670,29 @@ class MlflowClient:
             description=description,
             await_creation_for=await_creation_for,
         )
+
+    def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_model_uri: the model URI of the model version to copy. This must be a model
+                              registry URI with a `"models:/"` scheme (e.g.,
+                              `"models:/iris_model@champion"`).
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the copied model version.
+        """
+        if urllib.parse.urlparse(src_model_uri).scheme != "models":
+            raise MlflowException(
+                f"Unsupported source model URI: '{src_model_uri}'. The `copy_model_version` API "
+                "only copies models stored in the 'models:/' scheme."
+            )
+        client = self._get_registry_client()
+        src_name, src_version = get_model_name_and_version(client, src_model_uri)
+        src_mv = client.get_model_version(src_name, src_version)
+
+        return client.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
@@ -3016,6 +3045,10 @@ class MlflowClient:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
+        .. warning:
+
+            The model version search results may not have aliases populated for performance reasons.
+
         :param filter_string: Filter query string
             (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
             defaults to searching for all model versions. The following identifiers, comparators,
@@ -3130,7 +3163,12 @@ class MlflowClient:
         return ALL_STAGES
 
     def set_model_version_tag(
-        self, name: str, version: str = None, key: str = None, value: Any = None, stage: str = None
+        self,
+        name: str,
+        version: Optional[str] = None,
+        key: Optional[str] = None,
+        value: Any = None,
+        stage: Optional[str] = None,
     ) -> None:
         """
         Set a tag for the model version.
@@ -3213,7 +3251,11 @@ class MlflowClient:
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
     def delete_model_version_tag(
-        self, name: str, version: str = None, key: str = None, stage: str = None
+        self,
+        name: str,
+        version: Optional[str] = None,
+        key: Optional[str] = None,
+        stage: Optional[str] = None,
     ) -> None:
         """
         Delete a tag associated with the model version.

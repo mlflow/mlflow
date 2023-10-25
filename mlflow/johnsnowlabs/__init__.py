@@ -143,9 +143,6 @@ def get_default_pip_requirements():
         f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
         _get_pinned_requirement("pyspark"),
         _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
-        # TODO remove pandas constraint when NLU supports it
-        # https://github.com/JohnSnowLabs/nlu/issues/176
-        "pandas<=1.5.3",
     ]
 
 
@@ -232,11 +229,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -448,9 +441,9 @@ def _save_jars_and_lic(dst_dir, store_license=False):
 
     suite = get_install_suite_from_jsl_home(False)
     if suite.hc.get_java_path():
-        shutil.copyfile(suite.hc.get_java_path(), deps_data_path / "hc_jar.jar")
+        shutil.copy2(suite.hc.get_java_path(), deps_data_path / "hc_jar.jar")
     if suite.nlp.get_java_path():
-        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / "os_jar.jar")
+        shutil.copy2(suite.nlp.get_java_path(), deps_data_path / "os_jar.jar")
 
     if store_license:
         # Read the secrets from env vars and write to license.json
@@ -530,11 +523,7 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.

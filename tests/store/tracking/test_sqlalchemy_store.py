@@ -2797,7 +2797,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with TempDir() as tmp_db_dir:
             db_path = tmp_db_dir.path("tmp_db.sql")
             db_url = "sqlite:///" + db_path
-            shutil.copyfile(
+            shutil.copy2(
                 src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
                 dst=db_path,
             )
@@ -2969,23 +2969,23 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             conn.execute(
                 sqlalchemy.sql.text(
                     f"""
-                INSERT INTO datasets 
-                    (dataset_uuid, 
-                    experiment_id, 
-                    name, 
-                    digest, 
-                    dataset_source_type, 
-                    dataset_source, 
-                    dataset_schema, 
+                INSERT INTO datasets
+                    (dataset_uuid,
+                    experiment_id,
+                    name,
+                    digest,
+                    dataset_source_type,
+                    dataset_source,
+                    dataset_schema,
                     dataset_profile)
-                VALUES 
-                    ('test_uuid', 
-                    0, 
-                    'test_name', 
-                    'test_digest', 
-                    'test_source_type', 
+                VALUES
+                    ('test_uuid',
+                    0,
+                    'test_name',
+                    'test_digest',
+                    'test_source_type',
                     '{dataset_source}', '
-                    test_schema', 
+                    test_schema',
                     '{dataset_profile}')
                 """
                 )

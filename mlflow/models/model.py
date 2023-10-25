@@ -260,7 +260,7 @@ class Model:
         utc_time_created=None,
         flavors=None,
         signature=None,  # ModelSignature
-        saved_input_example_info: Dict[str, Any] = None,
+        saved_input_example_info: Optional[Dict[str, Any]] = None,
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[Dict[str, Any]] = None,
@@ -557,11 +557,19 @@ class Model:
                             train = df.drop_column("target_label")
                             signature = infer_signature(train, model.predict(train))
 
-        :param input_example: Input example provides one or several examples of
-                              valid model input. The example can be used as a hint of what data to
-                              feed the model. The given example will be converted to a Pandas
-                              DataFrame and then serialized to json using the Pandas split-oriented
-                              format. Bytes are base64-encoded.
+        :param input_example: one or several instances of valid model input. The input example is
+                            used as a hint of what data to feed the model. It will be converted to
+                            a Pandas DataFrame and then serialized to json using the Pandas
+                            split-oriented format, or a numpy array where the example will be
+                            serialized to json by converting it to a list. If input example is a
+                            tuple, then the first element must be a valid model input, and the
+                            second element must be a valid params dictionary that can optionally
+                            be used during model inference. Bytes are base64-encoded. When the
+                            ``signature`` parameter is ``None``, the input example is used to infer
+                            a model's signature. If an input example containing params is provided,
+                            and signature is inferred from the input example, then params will be
+                            used as default params during model inference if no extra params are
+                            passed at inference time.
 
         :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function

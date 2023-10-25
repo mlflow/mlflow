@@ -11,7 +11,6 @@ import os
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import mlflow  # noqa: F401
 from mlflow.data.dataset import Dataset
 from mlflow.entities import (
     DatasetInput,
@@ -82,7 +81,9 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
-def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Experiment:
+def set_experiment(
+    experiment_name: Optional[str] = None, experiment_id: Optional[str] = None
+) -> Experiment:
     """
     Set the given experiment as the active experiment. The experiment must either be specified by
     name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
@@ -189,7 +190,7 @@ class ActiveRun(Run):  # pylint: disable=abstract-method
 
 
 def start_run(
-    run_id: str = None,
+    run_id: Optional[str] = None,
     experiment_id: Optional[str] = None,
     run_name: Optional[str] = None,
     nested: bool = False,
@@ -348,10 +349,7 @@ def start_run(
             )
         active_run_obj = client.get_run(existing_run_id)
     else:
-        if len(_active_run_stack) > 0:
-            parent_run_id = _active_run_stack[-1].info.run_id
-        else:
-            parent_run_id = None
+        parent_run_id = _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 

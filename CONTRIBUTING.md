@@ -580,8 +580,9 @@ Then, verify that the unit tests & linter pass before submitting a pull
 request by running:
 
 ```bash
-./dev/lint.sh
-./dev/run-python-tests.sh
+pre-commit run --all-files
+pytest tests --quiet --requires-ssh --ignore-flavors \
+  --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
 ```
 
 We use [pytest](https://docs.pytest.org/en/latest/contents.html) to run
@@ -612,7 +613,7 @@ If you are adding new framework flavor support, you'll need to modify
 `pytest` and Github action configurations so tests for your code can run
 properly. Generally, the files you'll have to edit are:
 
-1.  `dev/run-python-tests.sh`:
+1.  `.github/workflows/master.yml`: lines where pytest runs with `--ignore-flavors` flag
 
     1. Add your tests to the ignore list, where the other frameworks are
        ignored

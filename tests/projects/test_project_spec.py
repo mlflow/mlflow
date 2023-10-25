@@ -66,7 +66,8 @@ def test_load_project(tmp_path, mlproject, conda_env_path, conda_env_contents, m
     expected_env_path = str(tmp_path.joinpath(conda_env_path)) if conda_env_path else None
     assert project.env_config_path == expected_env_path
     if conda_env_path:
-        assert open(project.env_config_path).read() == conda_env_contents
+        with open(project.env_config_path) as f:
+            assert f.read() == conda_env_contents
 
 
 def test_load_docker_project(tmp_path):

@@ -1080,7 +1080,7 @@ def test_artifact_logging(databricks_artifact_repo, tmp_path):
         time.sleep(2)
         dst_run_relative_artifact_path = dst_dir.joinpath(artifact_file_path)
         dst_run_relative_artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(src=src_file_path, dst=dst_run_relative_artifact_path)
+        shutil.copy2(src=src_file_path, dst=dst_run_relative_artifact_path)
 
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
