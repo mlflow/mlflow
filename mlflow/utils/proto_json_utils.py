@@ -378,13 +378,118 @@ def convert_data_type(data, spec):
         return np.array(data, dtype=spec.type)
     if isinstance(spec, ColSpec):
         if isinstance(spec.type, DataType):
-            return np.array(data, spec.type.to_numpy())
+            return (
+                np.array(data, spec.type.to_numpy())
+                if isinstance(data, (list, np.ndarray))
+                else np.array([data], spec.type.to_numpy())[0]
+            )
         elif isinstance(spec.type, Array):
+            # convert to numpy array for backwards compatibility
             return np.array(_enforce_array(data, spec.type))
         elif isinstance(spec.type, Object):
             return _enforce_object(data, spec.type)
 
     raise MlflowException(f"Failed to convert data type for data `{data}` with spec `{spec}`.")
+
+
+def _cast_schema_type(input_data, schema=None):
+    import numpy as np
+
+    # spec_name -> spec mapping
+    types_dict = schema.input_dict() if schema and schema.has_input_names() else {}
+    if schema is not None:
+        if (
+            len(types_dict) == 1
+            and isinstance(input_data, list)
+            and not any(isinstance(x, dict) for x in input_data)
+        ):
+            # for data with a single column (not List[Dict]), match input with column
+            input_data = {list(types_dict.keys())[0]: input_data}
+        # Un-named schema should only contain a single column
+        elif not schema.has_input_names() and not isinstance(input_data, list):
+            raise MlflowException(
+                "Failed to parse input data. This model contains an un-named tensor-based"
+                " model signature which expects a single n-dimensional array as input,"
+                f" however, an input of type {type(input_data)} was found."
+            )
+    if isinstance(input_data, dict):
+        # each key corresponds to a column, values should be
+        # checked against the schema
+        input_data = {
+            col: convert_data_type(data, types_dict.get(col)) for col, data in input_data.items()
+        }
+    elif isinstance(input_data, list):
+        # List of dictionaries of column_name -> value mapping
+        # List[Dict] must correspond to a schema with named columns
+        if all(isinstance(x, dict) for x in input_data):
+            input_data = [
+                {col: convert_data_type(value, types_dict.get(col)) for col, value in data.items()}
+                for data in input_data
+            ]
+        # List of values
+        else:
+            spec = schema.inputs[0] if schema else None
+            input_data = convert_data_type(input_data, spec)
+    else:
+        if schema is None:
+            input_data = np.array(input_data)
+        else:
+            raise MlflowException(
+                "Failed to parse input data. This model contains a tensor-based model "
+                "signature with input names, which suggests a dictionary / a list of "
+                "dictionaries input mapping input name to tensor or a pure list, but "
+                f"an input of {input_data} was found."
+            )
+    return input_data
+
+
+def parse_instances_data(data, schema=None):
+    import numpy as np
+
+    from mlflow.types.schema import Array
+
+    if "instances" not in data:
+        raise MlflowException("Expecting data to have `instances` as key.")
+    data = data["instances"]
+    # List[Dict]
+    if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+        # convert items to column format (map column/input name to tensor)
+        data_dict = defaultdict(list)
+        types_dict = schema.input_dict() if schema and schema.has_input_names() else {}
+        for item in data:
+            for col, v in item.items():
+                data_dict[col].append(convert_data_type(v, types_dict.get(col)))
+        # convert to numpy array for backwards compatibility
+        data = {col: np.array(v) for col, v in data_dict.items()}
+    else:
+        data = _cast_schema_type(data, schema)
+
+    # Sanity check inputted data. This check will only be applied
+    # when the row-format `instances` is used since it requires
+    # same 0-th dimension for all items.
+    if isinstance(data, dict):
+        # ensure all columns have the same number of items
+        # Only check the data when it's a list or numpy array
+        check_data = {k: v for k, v in data.items() if isinstance(v, (list, np.ndarray))}
+        if schema and schema.has_input_names():
+            # Only check required columns
+            required_cols = schema.required_input_names()
+            # For Array schema we should not check the length of the data matching
+            check_cols = {
+                col for col, spec in schema.input_dict().items() if not isinstance(spec.type, Array)
+            }
+            check_cols = list(set(required_cols) & check_cols & set(check_data.keys()))
+        else:
+            check_cols = list(check_data.keys())
+
+        if check_cols:
+            expected_len = len(check_data[check_cols[0]])
+            if not all(len(check_data[col]) == expected_len for col in check_cols[1:]):
+                raise MlflowException(
+                    "Failed to parse data as TF serving input. The length of values for"
+                    " each input/column name are not the same"
+                )
+    return data
 
 
 def parse_tf_serving_input(inp_dict, schema=None):
@@ -394,58 +499,6 @@ def parse_tf_serving_input(inp_dict, schema=None):
                      (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
     :param schema: Mlflow schema used when parsing the data.
     """
-    import numpy as np
-
-    def cast_schema_type(input_data):
-        types_dict = {}
-        if schema is not None:
-            if schema.has_input_names():
-                types_dict = schema.input_dict()
-                if (
-                    len(types_dict) == 1
-                    and isinstance(input_data, list)
-                    and not any(isinstance(x, dict) for x in input_data)
-                ):
-                    # for schemas with a single column (not List[Dict]), match input with column
-                    input_data = {list(types_dict.keys())[0]: input_data}
-            # Un-named schema should only contain a single column
-            elif not isinstance(input_data, list):
-                raise MlflowException(
-                    "Failed to parse input data. This model contains an un-named tensor-based"
-                    " model signature which expects a single n-dimensional array as input,"
-                    f" however, an input of type {type(input_data)} was found."
-                )
-        if isinstance(input_data, dict):
-            input_data = {
-                col: convert_data_type(data, types_dict.get(col))
-                for col, data in input_data.items()
-            }
-        elif isinstance(input_data, list):
-            # List of dictionaries of column_name -> value mapping
-            # List[Dict] must correspond to a schema with named columns
-            if all(isinstance(x, dict) for x in input_data):
-                input_data = [
-                    {
-                        col: convert_data_type(value, types_dict.get(col))
-                        for col, value in data.items()
-                    }
-                    for data in input_data
-                ]
-            # List of values
-            else:
-                spec = schema.inputs[0] if schema else None
-                input_data = convert_data_type(input_data, spec)
-        else:
-            if schema is None:
-                input_data = np.array(input_data)
-            else:
-                raise MlflowException(
-                    "Failed to parse input data. This model contains a tensor-based model "
-                    "signature with input names, which suggests a dictionary / a list of "
-                    "dictionaries input mapping input name to tensor or a pure list, but "
-                    f"an input of {input_data} was found."
-                )
-        return input_data
 
     # pylint: disable=broad-except
     if "signature_name" in inp_dict:
@@ -470,20 +523,10 @@ def parse_tf_serving_input(inp_dict, schema=None):
         # Schema([ColSpec(Array(long), "col1"), ColSpec(Array(long), "col2")])
         # To avoid this, we shouldn't use `instances` for such data.
         if "instances" in inp_dict:
-            items = inp_dict["instances"]
-            if len(items) > 0 and isinstance(items[0], dict):
-                # convert items to column format (map column/input name to tensor)
-                data = defaultdict(list)
-                for item in items:
-                    for k, v in item.items():
-                        data[k].append(v)
-                data = cast_schema_type(data)
-            else:
-                data = cast_schema_type(items)
+            return parse_instances_data(inp_dict, schema)
         else:
             # items already in column format, convert values to tensor
-            items = inp_dict["inputs"]
-            data = cast_schema_type(items)
+            return _cast_schema_type(inp_dict["inputs"], schema)
     except Exception as e:
         raise MlflowException(
             "Failed to parse data as TF serving input. Ensure that the input is"
@@ -491,19 +534,6 @@ def parse_tf_serving_input(inp_dict, schema=None):
             " TF serving's Predict API as documented at"
             " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2. "
         ) from e
-
-    # Sanity check inputted data. This check will only be applied when the row-format `instances`
-    # is used since it requires same 0-th dimension for all items.
-    if isinstance(data, dict) and "instances" in inp_dict:
-        # ensure all columns have the same number of items
-        expected_len = len(list(data.values())[0])
-        if not all(len(v) == expected_len for v in data.values()):
-            raise MlflowException(
-                "Failed to parse data as TF serving input. The length of values for"
-                " each input/column name are not the same"
-            )
-
-    return data
 
 
 # Reference: https://stackoverflow.com/a/12126976

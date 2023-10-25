@@ -15,6 +15,7 @@ from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.types import ColSpec, DataType, Schema, TensorSpec
 from mlflow.types.schema import Array, Object, Property
+from mlflow.types.utils import _infer_schema
 from mlflow.utils.proto_json_utils import (
     MlflowFailedTypeConversion,
     _CustomJsonEncoder,
@@ -299,6 +300,15 @@ def test_parse_tf_serving_dictionary():
     # With df Schema
     result = parse_tf_serving_input(tfserving_input, df_schema)
     assert_result(result, expected_result_schema)
+    # With df Schema containing array
+    new_schema = _infer_schema(tfserving_input["instances"])
+    result = parse_tf_serving_input(tfserving_input, new_schema)
+    expected_result = {
+        "a": np.array(["s1", "s2", "s3"]),
+        "b": np.array([1.1, 2.2, 3.3], dtype="float64"),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int64"),
+    }
+    assert_result(result, expected_result)
 
     # input provided as a dict
     tfserving_input = {
@@ -418,9 +428,7 @@ def test_parse_tf_serving_raises_expected_errors():
             {"a": "s3", "b": 3, "c": [7, 8, 9]},
         ]
     }
-    with pytest.raises(
-        MlflowException, match="The length of values for each input/column name are not the same"
-    ):
+    with pytest.raises(MlflowException, match="Failed to parse data as TF serving input."):
         parse_tf_serving_input(tfserving_instances)
 
     # cannot specify both instance and inputs
@@ -626,12 +634,13 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
 
 
 @pytest.mark.parametrize(
-    ("data", "schema"),
+    ("data", "schema", "instances_data"),
     [
-        ({"query": "sentence"}, Schema([ColSpec(DataType.string, name="query")])),
+        ({"query": "sentence"}, Schema([ColSpec(DataType.string, name="query")]), None),
         (
             {"query": ["sentence_1", "sentence_2"]},
             Schema([ColSpec(Array(DataType.string), name="query")]),
+            None,
         ),
         (
             {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
@@ -641,6 +650,7 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
                     ColSpec(DataType.string, name="table"),
                 ]
             ),
+            None,
         ),
         (
             {"query": [{"name": "value", "age": 10}, {"name": "value"}], "table": ["some_table"]},
@@ -660,10 +670,12 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
                     ColSpec(Array(DataType.string), name="table"),
                 ]
             ),
+            None,
         ),
         (
             [{"query": "sentence"}, {"query": "sentence"}],
             Schema([ColSpec(DataType.string, name="query")]),
+            {"query": ["sentence", "sentence"]},
         ),
         (
             [
@@ -676,11 +688,43 @@ def test_cast_df_types_according_to_schema_error_message(dataframe, schema, erro
                     ColSpec(DataType.string, name="table", required=False),
                 ]
             ),
+            {
+                "query": [["sentence_1", "sentence_2"], ["sentence_1", "sentence_2"]],
+                "table": ["some_table"],
+            },
+        ),
+        (
+            [
+                {"query": {"a": "sentence_1", "b": "sentence_2"}, "table": "some_table"},
+                {"query": {"a": "sentence_1"}, "table": "some_table"},
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Object(
+                            [
+                                Property("a", DataType.string),
+                                Property("b", DataType.string, required=False),
+                            ]
+                        ),
+                        name="query",
+                    ),
+                    ColSpec(DataType.string, name="table"),
+                ]
+            ),
+            {
+                "query": [{"a": "sentence_1", "b": "sentence_2"}, {"a": "sentence_1"}],
+                "table": ["some_table", "some_table"],
+            },
         ),
     ],
 )
-def test_parse_tf_serving_input_for_dictionaries_and_lists(data, schema):
+def test_parse_tf_serving_input_for_dictionaries_and_lists(data, schema, instances_data):
     np.testing.assert_equal(parse_tf_serving_input({"inputs": data}, schema), data)
+    if instances_data is None:
+        np.testing.assert_equal(parse_tf_serving_input({"instances": data}, schema), data)
+    else:
+        np.testing.assert_equal(parse_tf_serving_input({"instances": data}, schema), instances_data)
     df = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
     df_split = df.to_dict(orient="split")
     pd.testing.assert_frame_equal(dataframe_from_parsed_json(df_split, "split", schema), df)

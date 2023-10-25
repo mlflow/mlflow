@@ -2224,3 +2224,37 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
     result = json.loads(response.content.decode("utf-8"))["predictions"]
     expected_result = df.to_dict(orient="records")
     np.testing.assert_equal(result, expected_result)
+
+
+def test_bad_data_format_with_pyfunc_model_serving():
+    data = [{"query": {"a": "b"}, "name": "A"}, {"query": {"a": "c"}, "name": "B"}]
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    signature = infer_signature(data)
+    obj = Object([Property("a", DataType.string)])
+    assert signature == ModelSignature(
+        Schema([ColSpec(obj, name="query"), ColSpec(DataType.string, name="name")])
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=signature,
+        )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"instances": data}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 500, response.content
+    query_data = np.array([{"a": "b"}, {"a": "c"}])
+    assert (
+        f"Failed to enforce schema of '{query_data}' with type '{obj}'. "
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
