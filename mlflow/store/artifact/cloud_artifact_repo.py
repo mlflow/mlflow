@@ -5,6 +5,7 @@ import posixpath
 from abc import abstractmethod
 from collections import namedtuple
 from concurrent.futures import as_completed
+import time
 
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
@@ -212,16 +213,16 @@ class CloudArtifactRepository(ArtifactRepository):
             )
 
             if failed_downloads:
-                new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
-                new_signed_uri = new_cloud_creds.signed_uri
-                new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
                 for chunk, exception in failed_downloads.items():
-                    _logger.warning(
-                        f"Retrying download of chunk {chunk.index} of {remote_file_path}, got error: {exception}",
-                    )
                     num_retries = 3
                     for retry in range(num_retries):
+                        _logger.warning(
+                            f"Retrying download of chunk {chunk.index} of {remote_file_path}, got error: {exception}",
+                        )
                         try:
+                            new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
+                            new_signed_uri = new_cloud_creds.signed_uri
+                            new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
                             download_chunk(
                                 range_start=chunk.start,
                                 range_end=chunk.end,
@@ -233,7 +234,7 @@ class CloudArtifactRepository(ArtifactRepository):
                         except Exception:
                             if retry == num_retries - 1:
                                 raise
-                            pass
+                        time.sleep(1)
 
     def _download_file(self, remote_file_path, local_path):
         # list_artifacts API only returns a list of FileInfos at the specified path
