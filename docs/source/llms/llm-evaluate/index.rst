@@ -467,7 +467,7 @@ top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
             data=eval_data,
             targets="ground_truth",
             predictions="predictions",
-            extra_metrics=[mlflow.metrics.answer_similarity()],
+            extra_metrics=[mlflow.metrics.genai.answer_similarity()],
             evaluators="default",
         )
         print(f"See aggregated evaluation results below: \n{results.metrics}")
@@ -495,7 +495,7 @@ To see the score on selected metrics, you can check:
             data=eval_data,
             targets="ground_truth",
             predictions="predictions",
-            extra_metrics=[mlflow.metrics.answer_similarity()],
+            extra_metrics=[mlflow.metrics.genai.answer_similarity()],
             evaluators="default",
         )
         print(f"See aggregated evaluation results below: \n{results.metrics}")
@@ -509,7 +509,7 @@ To see the score on selected metrics, you can check:
             data=eval_data,
             targets="ground_truth",
             predictions="predictions",
-            extra_metrics=[mlflow.metrics.answer_similarity()],
+            extra_metrics=[mlflow.metrics.genai.answer_similarity()],
             evaluators="default",
         )
         print(
