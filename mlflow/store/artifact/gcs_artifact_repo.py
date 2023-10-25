@@ -148,7 +148,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blob.delete()
 
     @staticmethod
-    def _gcs_mpu_arguments(filename: str, blob: "google.cloud.storage.Blob"):
+    def _gcs_mpu_arguments(filename: str, blob):
         """See :py:func:`google.cloud.storage.transfer_manager.upload_chunks_concurrently`"""
         from google.cloud.storage.transfer_manager import _headers_from_metadata
 
