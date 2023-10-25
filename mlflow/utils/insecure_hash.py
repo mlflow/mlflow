@@ -12,3 +12,4 @@ import sys
 # - https://docs.python.org/3/library/hashlib.html
 _kwargs = {"usedforsecurity": False} if sys.version_info >= (3, 9) else {}
 md5 = functools.partial(hashlib.md5, **_kwargs)
+sha1 = functools.partial(hashlib.sha1, **_kwargs)

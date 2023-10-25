@@ -1,4 +1,3 @@
-import hashlib
 import logging
 import os
 import re
@@ -10,7 +9,7 @@ from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import PYTHON_VERSION
+from mlflow.utils import PYTHON_VERSION, insecure_hash
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _infer_requirements,
@@ -557,7 +556,7 @@ def _get_mlflow_env_name(s):
     :returns: String in the form of "mlflow-{hash}"
               (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
     """
-    return "mlflow-" + hashlib.sha1(s.encode("utf-8")).hexdigest()
+    return "mlflow-" + insecure_hash.sha1(s.encode("utf-8")).hexdigest()
 
 
 def _get_pip_install_mlflow():
