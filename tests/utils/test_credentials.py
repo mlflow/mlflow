@@ -113,12 +113,12 @@ def test_mlflow_login(tmp_path, monkeypatch):
         monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", profile)
 
         class FakeWorkspaceClient:
-            class FakeUser:
-                def me(self):
-                    return ["dummyusername"]
+            class FakeClusters:
+                def list(self):
+                    return ["dummy_cluster"]
 
             def __init__(self):
-                self.current_user = FakeWorkspaceClient.FakeUser()
+                self.clusters = FakeWorkspaceClient.FakeClusters()
 
         with patch(
             "databricks.sdk.WorkspaceClient",
