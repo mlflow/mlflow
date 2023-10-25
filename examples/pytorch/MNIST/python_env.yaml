@@ -1,0 +1,10 @@
+python: "3.8"
+build_dependencies:
+  - pip
+dependencies:
+  - mlflow
+  - torchvision>=0.15.1
+  - torch>=2.0
+  - lightning==2.0.0
+  - jsonargparse[signatures]>=4.17.0
+  - protobuf<4.0.0

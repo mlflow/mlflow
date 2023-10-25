@@ -1,0 +1,9 @@
+python: "3.8"
+build_dependencies:
+  - pip
+dependencies:
+  - mlflow>=1.6.0
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - xgboost

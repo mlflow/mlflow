@@ -1,0 +1,12 @@
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8.2
+  - pip
+  - pip:
+      - mlflow
+      - torchvision>=0.15.1
+      - torch>=2.0
+      - lightning==2.0.0
+      - jsonargparse[signatures]>=4.17.0
+      - protobuf<4.0.0

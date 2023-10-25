@@ -1,0 +1,6 @@
+name: h2o-example
+python_env: python_env.yaml
+
+entry_points:
+    main:
+        command: "python random_forest.py"  
