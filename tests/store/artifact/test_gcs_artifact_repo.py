@@ -346,27 +346,39 @@ def test_delete_artifacts(mock_client):
     assert not artifact_file_names
 
 
+def test_gcs_mpu_arguments():
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
+    requests_session = requests.Session()
+    mock_blob = mock.MagicMock()
+    mock_blob.name = "experiment_id/run_id/file.txt"
+    mock_blob.bucket.name = "test_bucket"
+    mock_blob.kms_key_name = None
+    mock_blob.user_project = None
+    mock_blob._get_upload_arguments.return_value = {}, {}, "application/octet-stream"
+    mock_blob._get_transport.return_value = requests_session
+    mock_blob.client._connection.get_api_base_url_for_mtls.return_value = "gcs_base_url"
+    assert repo._gcs_mpu_arguments("file.txt", mock_blob) == (
+        requests_session,
+        "gcs_base_url/test_bucket/experiment_id/run_id/file.txt",
+        {},
+        "application/octet-stream",
+    )
+
+
 def test_create_multipart_upload(mock_client):
     artifact_root_path = "/experiment_id/run_id/"
     repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
 
-    mock_method_chain(
-        mock_client,
-        [
-            "bucket",
-            "blob",
-            "_get_upload_arguments",
-        ],
-        return_value=({}, {}, "application/octet-stream"),
-    )
-    mock_method_chain(
-        mock_client,
-        [
-            "bucket",
-            "blob",
-            "_get_transport",
-        ],
-        return_value=requests.Session(),
+    requests_session = requests.Session()
+    gcs_mpu_arguments_patch = mock.patch(
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository._gcs_mpu_arguments",
+        return_value=(
+            requests_session,
+            "gcs_base_url/test_bucket/experiment_id/run_id/file.txt",
+            {},
+            "application/octet-stream",
+        ),
     )
 
     # see https://cloud.google.com/storage/docs/xml-api/post-object-multipart#example
@@ -379,10 +391,16 @@ def test_create_multipart_upload(mock_client):
   <UploadId>{upload_id}</UploadId>
 </InitiateMultipartUploadResult>"""
 
-    with mock.patch("requests.Session.request", return_value=resp) as request_mock:
+    with gcs_mpu_arguments_patch, mock.patch(
+        "requests.Session.request", return_value=resp
+    ) as request_mock:
         create = repo.create_multipart_upload(
             "file.txt", num_parts=5, artifact_path=artifact_root_path
         )
         request_mock.assert_called_once()
+        assert request_mock.call_args[0] == (
+            "POST",
+            "gcs_base_url/test_bucket/experiment_id/run_id/file.txt?uploads",
+        )
         assert len(create.credentials) == 5
         assert create.upload_id == upload_id
