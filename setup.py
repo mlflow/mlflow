@@ -147,7 +147,7 @@ setup(
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
             # Required to log artifacts and models to GCS artifact locations
-            "google-cloud-storage>=1.30.0",
+            "google-cloud-storage>=2.11.0",
             "azureml-core>=1.2.0",
             # Required to log artifacts to SFTP artifact locations
             "pysftp",
@@ -167,7 +167,7 @@ setup(
         "databricks": [
             # Required to write model artifacts to unity catalog locations
             "azure-storage-file-datalake>12",
-            "google-cloud-storage>=1.30.0",
+            "google-cloud-storage>=2.11.0",
             "boto3>1",
         ],
         "gateway": GATEWAY_REQUIREMENTS,
