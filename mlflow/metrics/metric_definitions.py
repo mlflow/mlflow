@@ -33,6 +33,28 @@ def _validate_text_data(data, metric_name, column_name):
     return True
 
 
+def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
+    """Validates that the data is a pandas Series of a tuple of strings and is non-empty"""
+    if data is None or len(data) == 0:
+        return False
+
+    for index, value in data.items():
+        if not isinstance(value, tuple) or not all(isinstance(val, str) for val in value):
+            if isinstance(value, str):
+                # Single entry tuples get unpacked.
+                # So if the entry is a string, put them back into a tuple.
+                data[index] = (value,)
+            else:
+                _logger.warning(
+                    f"Cannot calculate metric '{metric_name}' for non-tuple[str] inputs. "
+                    f"Row #{index} of column '{column_name}' has a non-tuple[str] value of:"
+                    f"{value}. Skipping metric logging."
+                )
+                return False
+
+    return True
+
+
 def _token_count_eval_fn(predictions, targets=None, metrics=None):
     import tiktoken
 
@@ -325,3 +347,25 @@ def _f1_score_eval_fn(
             sample_weight=sample_weight,
         )
         return MetricValue(aggregate_results={"f1_score": f1})
+
+
+def _precision_at_k_eval_fn(k):
+    def _fn(predictions, targets):
+        if not _validate_and_fix_text_tuple_data(
+            predictions, "precision_at_k", "predictions"
+        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets"):
+            return
+
+        scores = []
+        for i in range(len(predictions)):
+            # only include the top k retrieved chunks
+            ground_truth, retrieved = set(targets[i]), predictions[i][:k]
+            relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
+            if len(retrieved) > 0:
+                scores.append(relevant_doc_count / len(retrieved))
+            else:
+                scores.append(1)
+
+        return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+
+    return _fn
