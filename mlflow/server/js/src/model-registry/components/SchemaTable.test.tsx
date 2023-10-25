@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { shallow, render } from "enzyme"
 import { SchemaTable } from './SchemaTable';
 import { Table } from 'antd';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
@@ -102,11 +103,35 @@ describe('SchemaTable', () => {
     // click to render input schema table
     wrapper.find('tr.section-header-row').at(0).simulate('click');
     expect(wrapper.html()).toContain('column1');
-    expect(wrapper.html()).toContain('column2');
+    // the optional input param should have (optional) after the name"
+    const col2 = wrapper.find("span").filterWhere((n: any) => n.text().includes("column2"))
+    expect(render(col2.get(0)).text()).toContain('column2 (optional)');
     expect(wrapper.html()).toContain('string');
-    // the optional input param should be wrapped with "Optional[...]"
-    expect(wrapper.html()).toContain('Optional[float]');
+    expect(wrapper.html()).toContain('float');
   });
+
+  test('Should display required input field schema as expected', () => {
+    props = {
+      schema: {
+        // column1 is required but column2 is optional
+        inputs: [
+          { name: 'column', type: 'string', required: true },
+        ],
+        outputs: [{ name: 'score', type: 'long', required: true }],
+      },
+    };
+    wrapper = mountWithIntl(
+      <MemoryRouter>
+        <SchemaTable {...props} />
+      </MemoryRouter>,
+    );
+    // click to render input schema table
+    wrapper.find('tr.section-header-row').at(0).simulate('click');
+    expect(wrapper.html()).toContain('column');
+    // the optional input param should have (optional) after the name"
+    const col2 = wrapper.find("span").filterWhere((n: any) => n.text().includes("column"))
+    expect(render(col2.get(0)).text()).toContain('column (required)');
+  })
 
   test('Should display optional output field schema as expected', () => {
     props = {
@@ -123,9 +148,9 @@ describe('SchemaTable', () => {
     );
     // click to render output schema table
     wrapper.find('tr.section-header-row').at(1).simulate('click');
-    expect(wrapper.html()).toContain('score1');
-    // the optional output param should be wrapped with "Optional[...]"
-    expect(wrapper.html()).toContain('Optional[long]');
+    // the optional output name should have (optional) after the name
+    const score1 = wrapper.find("span").filterWhere((n: any) => n.text().includes("score1"))
+    expect(render(score1).text()).toContain('score1 (optional)');
   });
 
   test('should outputs table render by click', () => {
@@ -215,4 +240,40 @@ describe('SchemaTable', () => {
     expect(wrapper.html()).toContain('TensorOutput');
     expect(wrapper.html()).toContain('Tensor (dtype: float64, shape: [-1])');
   });
+  
+  test('should render object/array column types correctly', () => {
+    props = {
+      schema: {
+        // column1 is required but column2 is optional
+        inputs: [{
+          name: 'objectCol', 
+          type: 'object', 
+          properties: {
+            prop1: { type: 'string', required: true }
+          },
+          required: true,
+        }, {
+          name: 'arrayCol',
+          type: 'array',
+          items: { type: 'binary', required: true },
+          required: true,
+        }],
+        outputs: [{ name: 'score1', type: 'long', required: true }],
+      },
+    };
+
+    wrapper = mountWithIntl(
+      <MemoryRouter>
+        <SchemaTable {...props} />
+      </MemoryRouter>,
+    );
+    // click to render input schema table
+    wrapper.find('tr.section-header-row').at(0).simulate('click');
+    
+    const signatures = wrapper.find('pre');
+    expect(signatures).toHaveLength(2)
+    expect(shallow(signatures.get(0)).text()).toEqual("{\n  prop1: string\n}")
+    expect(shallow(signatures.get(1)).text()).toEqual("Array(binary)")
+  })
 });
+

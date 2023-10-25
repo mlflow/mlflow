@@ -79,7 +79,7 @@ function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
 
 function formatColumnSchema(spec: ColumnSpec | TensorSpec): React.ReactElement {
   let repr = '';
-  if (spec.type == 'tensor') {
+  if (spec.type === 'tensor') {
     repr = `Tensor (dtype: ${spec['tensor-spec'].dtype}, shape: [${spec['tensor-spec'].shape}])`;
   } else {
     repr = getColumnTypeRepr(spec, 0);
