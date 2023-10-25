@@ -22,7 +22,7 @@ def standard_aggregations(scores):
     }
 
 
-def _validate_text_data(data, metric_name, column_name=None):
+def _validate_text_data(data, metric_name, column_name):
     """Validates that the data is a list of strs and is non-empty"""
     if data is None or len(data) == 0:
         return False
