@@ -270,6 +270,71 @@ def test_make_genai_metric_correct_response():
         assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
 
 
+def test_make_genai_metric_supports_string_value_for_grading_context_columns():
+    custom_metric = make_genai_metric(
+        name="fake_metric",
+        version="v1",
+        definition="Fake metric definition",
+        grading_prompt="Fake metric grading prompt",
+        model="openai:/gpt-3.5-turbo",
+        grading_context_columns="targets",
+        greater_is_better=True,
+        examples=[
+            EvaluationExample(
+                input="example-input",
+                output="example-output",
+                score=4,
+                justification="example-justification",
+                grading_context={"targets": "example-ground_truth"},
+            )
+        ],
+    )
+
+    assert [
+        param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
+    ] == ["predictions", "metrics", "inputs", "targets"]
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ) as mock_predict_function:
+        metric_value = custom_metric.eval_fn(
+            pd.Series(["prediction"]),
+            {},
+            pd.Series(["input"]),
+            pd.Series(["ground_truth"]),
+        )
+        assert mock_predict_function.call_count == 1
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][1] == {
+            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "fake_metric based on the input and output.\nA definition of "
+            "fake_metric and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
+            "\nInput:\ninput\n\nOutput:\nprediction\n\nAdditional information used by the model:\n"
+            "key: targets\nvalue:\nground_truth\n\nMetric definition:\nFake metric definition\n\n"
+            "Grading rubric:\nFake metric grading prompt\n\nExamples:\n\nInput:\nexample-input\n\n"
+            "Output:\nexample-output\n\nAdditional information used by the model:\nkey: targets\n"
+            "value:\nexample-ground_truth\n\nscore: 4\njustification: "
+            "example-justification\n        \n\nYou must return the following fields in your "
+            "response one below the other:\nscore: Your numerical score for the model's "
+            "fake_metric based on the rubric\njustification: Your step-by-step reasoning about "
+            "the model's fake_metric score\n    ",
+            "temperature": 0.0,
+            "max_tokens": 200,
+            "top_p": 1.0,
+        }
+        assert metric_value.scores == [3]
+        assert metric_value.justifications == [openai_justification1]
+        assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
+
+
 def test_make_genai_metric_incorrect_response():
     custom_metric = make_genai_metric(
         name="correctness",

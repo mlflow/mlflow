@@ -16,6 +16,6 @@ class MetricValue:
     """
 
     scores: List[float] = None
-    justifications: List[float] = None
+    justifications: List[str] = None
     aggregate_results: Dict[str, float] = None
 
