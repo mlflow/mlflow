@@ -2062,6 +2062,8 @@ def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
 
     signature = infer_signature(data)
     assert signature.inputs == schema
+    pdf = pd.DataFrame(data if isinstance(data, list) else [data])
+    assert infer_signature(pdf).inputs == schema
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
