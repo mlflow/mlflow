@@ -188,7 +188,7 @@ def make_genai_metric(
         )
     """
     if not isinstance(grading_context_columns, list):
-        grading_context_columns = list(grading_context_columns)
+        grading_context_columns = [grading_context_columns]
 
     class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
     try:

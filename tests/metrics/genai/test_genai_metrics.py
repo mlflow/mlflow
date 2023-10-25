@@ -277,8 +277,17 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
         definition="Fake metric definition",
         grading_prompt="Fake metric grading prompt",
         model="openai:/gpt-3.5-turbo",
-        grading_context_columns=["targets"],
+        grading_context_columns="targets",
         greater_is_better=True,
+        examples=[
+            EvaluationExample(
+                input="example-input",
+                output="example-output",
+                score=4,
+                justification="example-justification",
+                grading_context={"targets": "example-ground_truth"},
+            )
+        ],
     )
 
     assert [
