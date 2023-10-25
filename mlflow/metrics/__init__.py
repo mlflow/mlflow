@@ -254,29 +254,29 @@ def precision_at_k(k) -> EvaluationMetric:
     The ``targets`` parameter should specify the column name of the ground-truth relevant doc IDs.
 
     If you choose to use a static dataset, the ``predictions`` parameter should specify the column
-    name of the retrieved relevant doc IDs.
-
-    Alternatively, if you choose to specify a function for the ``model`` parameter, the function
-    should take a Pandas DataFrame as input and return a Pandas DataFrame with a column of
-    retrieved relevant doc IDs, specified by the ``predictions`` parameter.
+    name of the retrieved relevant doc IDs. Alternatively, if you choose to specify a function for
+    the ``model`` parameter, the function should take a Pandas DataFrame as input and return a
+    Pandas DataFrame with a column of retrieved relevant doc IDs, specified by the ``predictions``
+    parameter.
 
     ``k`` should be a positive integer specifying the number of retrieved doc IDs to consider for
     each input query. ``k`` defaults to 3.
 
     This metric computes a score between 0 and 1 for each row representing the precision of the
-    retriever model at the given ``k`` value. Let ``x = min(k, # of retrieved doc IDs)``. Then, the
-    precision at k is calculated as follows:
-    precision_at_k = (# of relevant retrieved doc IDs in top-x ranked documents) / x.
+    retriever model at the given ``k`` value. If no relevant documents are retrieved, the score is
+    0, indicating that no relevant docs were retrieved. Let ``x = min(k, # of retrieved doc IDs)``.
+    Then, the precision at k is calculated as follows:
 
-    If no relevant documents are retrieved, the score is 0, indicating that no relevant docs were
-    retrieved. #TODO
+        ``precision_at_k`` = (# of relevant retrieved doc IDs in top-``x`` ranked documents) / ``x``.
 
     This metric is a builtin metric for the ``'retriever'`` model type, meaning it will be
     automatically calculated with a default ``k`` value of 3. To use another ``k`` value, you have
-    two options with the ``mlflow.evaluate()`` API:
+    two options with the :py:func:`mlflow.evaluate` API:
+
     1. ``evaluator_config={"k": 5}``
     2. ``extra_metrics = [mlflow.metrics.precision_at_k(k=5)]``
-    Note that the ``k`` value in the ``evaluator_config`` will be ignored in this case.
+
+        Note that the ``k`` value in the ``evaluator_config`` will be ignored in this case.
     """
     return make_metric(
         eval_fn=_precision_at_k_eval_fn(k),
