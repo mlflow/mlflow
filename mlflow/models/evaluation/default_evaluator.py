@@ -1292,7 +1292,6 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method for generating model predictions
         """
-        _logger.info("Computing model predictions.")
 
         def predict_with_latency(X_copy):
             y_pred_list = []
@@ -1333,6 +1332,8 @@ class DefaultEvaluator(ModelEvaluator):
 
         X_copy = self.X.copy_to_avoid_mutation()
         if self.model is not None:
+            _logger.info("Computing model predictions.")
+
             if compute_latency:
                 model_predictions = predict_with_latency(X_copy)
             else:
