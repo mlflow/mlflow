@@ -297,7 +297,31 @@ def test_make_genai_metric_incorrect_response():
         )
 
     assert metric_value.scores == [None]
-    assert metric_value.justifications == [None]
+    assert metric_value.justifications == [
+        f"Failed to extract score and justification. Raw output:"
+        f" {incorrectly_formatted_openai_response}"
+    ]
+
+    assert np.isnan(metric_value.aggregate_results["mean"])
+    assert np.isnan(metric_value.aggregate_results["variance"])
+    assert metric_value.aggregate_results["p90"] is None
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        side_effect=Exception("Some error occurred"),
+    ):
+        metric_value = custom_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series(["What is MLflow?"]),
+            pd.Series([mlflow_ground_truth]),
+        )
+
+    assert metric_value.scores == [None]
+    assert metric_value.justifications == [
+        "Failed to score model on payload. Error: Some error occurred"
+    ]
 
     assert np.isnan(metric_value.aggregate_results["mean"])
     assert np.isnan(metric_value.aggregate_results["variance"])
@@ -508,18 +532,21 @@ def test_extract_score_and_justification():
     assert score4 == 4
     assert justification4 == "This is a justification"
 
-    score5, justification5 = _extract_score_and_justification(
-        output={
-            "candidates": [
-                {
-                    "text": '{"score": 4, "justification": {"foo": "bar"}}',
-                }
-            ]
-        }
-    )
+    malformed_output = {
+        "candidates": [
+            {
+                "text": '{"score": 4, "justification": {"foo": "bar"}}',
+            }
+        ]
+    }
+
+    score5, justification5 = _extract_score_and_justification(output=malformed_output)
 
     assert score5 is None
-    assert justification5 is None
+    assert (
+        justification5
+        == f"Failed to extract score and justification. Raw output: {malformed_output}"
+    )
 
 
 def test_correctness_metric():
