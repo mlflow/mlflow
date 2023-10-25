@@ -367,7 +367,10 @@ def test_gcs_mpu_arguments():
 
 
 def test_create_multipart_upload(mock_client):
-    artifact_root_path = "/experiment_id/run_id/"
+    artifact_root_path = "experiment_id/run_id/"
+    bucket_name = "test_bucket"
+    file_name = "file.txt"
+    gcs_base_url = "gcs_base_url"
     repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
 
     requests_session = requests.Session()
@@ -375,19 +378,20 @@ def test_create_multipart_upload(mock_client):
         "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository._gcs_mpu_arguments",
         return_value=(
             requests_session,
-            "gcs_base_url/test_bucket/experiment_id/run_id/file.txt",
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}",
             {},
             "application/octet-stream",
         ),
     )
 
+    # mock the XML API response of initiate multipart upload
     # see https://cloud.google.com/storage/docs/xml-api/post-object-multipart#example
     upload_id = "VXBsb2FkIElEIGZvciBlbHZpbmcncyBteS1tb3ZpZS5tMnRzIHVwbG9hZA"
     resp = mock.Mock(status_code=200)
     resp.text = f"""<?xml version="1.0" encoding="UTF-8"?>
 <InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-  <Bucket>test_bucket</Bucket>
-  <Key>file.txt</Key>
+  <Bucket>{bucket_name}</Bucket>
+  <Key>{file_name}</Key>
   <UploadId>{upload_id}</UploadId>
 </InitiateMultipartUploadResult>"""
 
@@ -395,12 +399,12 @@ def test_create_multipart_upload(mock_client):
         "requests.Session.request", return_value=resp
     ) as request_mock:
         create = repo.create_multipart_upload(
-            "file.txt", num_parts=5, artifact_path=artifact_root_path
+            file_name, num_parts=5, artifact_path=artifact_root_path
         )
         request_mock.assert_called_once()
         assert request_mock.call_args[0] == (
             "POST",
-            "gcs_base_url/test_bucket/experiment_id/run_id/file.txt?uploads",
+            f"{gcs_base_url}/{bucket_name}/{artifact_root_path}/{file_name}?uploads",
         )
         assert len(create.credentials) == 5
         assert create.upload_id == upload_id
