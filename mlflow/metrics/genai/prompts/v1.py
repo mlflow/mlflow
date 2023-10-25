@@ -72,6 +72,8 @@ class EvaluationModel:
             else f"Examples:\n{self._format_examples()}"
         )
 
+        print("EXAMPLES STR", examples_str)
+
         return {
             "model": self.model,
             "eval_prompt": grading_system_prompt_template.partial_fill(
@@ -84,6 +86,8 @@ class EvaluationModel:
         }
 
     def _format_examples(self):
+        print("EXAMPLES", self.examples)
+        print("FORMATTED", "\n".join(map(str, self.examples)))
         return "\n".join(map(str, self.examples))
 
 

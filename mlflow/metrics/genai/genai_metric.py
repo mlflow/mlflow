@@ -3,7 +3,7 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample, MetricValue
@@ -90,7 +90,7 @@ def make_genai_metric(
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = _get_default_model(),
-    grading_context_columns: Optional[List[str]] = [],  # noqa: B006
+    grading_context_columns: Optional[Union[str, List[str]]] = [],  # noqa: B006
     parameters: Optional[Dict[str, Any]] = None,
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
@@ -187,6 +187,8 @@ def make_genai_metric(
             greater_is_better=True,
         )
     """
+    if not isinstance(grading_context_columns, list):
+        grading_context_columns = list(grading_context_columns)
 
     class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
     try:
@@ -212,6 +214,8 @@ def make_genai_metric(
         *(parameters,) if parameters is not None else (),
     ).to_dict()
 
+    print("EVAL CONTEXT", evaluation_context)
+
     def eval_fn(
         predictions: "pd.Series",
         metrics: Dict[str, MetricValue],
@@ -221,8 +225,9 @@ def make_genai_metric(
         """
         This is the function that is called when the metric is evaluated.
         """
-
+        print("ARGS", args)
         eval_values = dict(zip(grading_context_columns, args))
+        print("EVAL VALUES", eval_values)
 
         outputs = predictions.to_list()
         inputs = inputs.to_list()
