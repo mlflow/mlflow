@@ -267,7 +267,7 @@ def precision_at_k(k) -> EvaluationMetric:
     0, indicating that no relevant docs were retrieved. Let ``x = min(k, # of retrieved doc IDs)``.
     Then, the precision at k is calculated as follows:
 
-        ``precision_at_k`` = (# of relevant retrieved doc IDs in top-``x`` ranked documents) / ``x``.
+        ``precision_at_k`` = (# of relevant retrieved doc IDs in top-``x`` ranked docs) / ``x``.
 
     This metric is a builtin metric for the ``'retriever'`` model type, meaning it will be
     automatically calculated with a default ``k`` value of 3. To use another ``k`` value, you have
