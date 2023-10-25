@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { Typography } from '@databricks/design-system';
 import { Table } from 'antd';
 import { LogModelWithSignatureUrl } from '../../common/constants';
 import { gray800 } from '../../common/styles/color';
@@ -14,6 +15,8 @@ import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
 import { FormattedMessage, injectIntl } from 'react-intl';
 
 const { Column } = Table;
+const { Text } = Typography;
+const INDENTATION_SPACES = 2;
 
 type Props = {
   schema?: any;
@@ -23,6 +26,71 @@ type Props = {
   };
 };
 
+// return a formatted string representation of the column type
+function getColumnTypeRepr(columnType: ColumnType, indentationLevel: number): string {
+  const { type } = columnType;
+
+  const indentation = ' '.repeat(indentationLevel * INDENTATION_SPACES);
+  if (type === 'object') {
+    const propertyReprs = Object.keys(columnType.properties).map((propertyName) => {
+      const property = columnType.properties[propertyName];
+      const requiredRepr = property.required ? '' : ' (optional)';
+      const propertyRepr = getColumnTypeRepr(property, indentationLevel + 1);
+      const indentOffset = (indentationLevel + 1) * INDENTATION_SPACES;
+
+      return `${' '.repeat(indentOffset)}${propertyName}: ${propertyRepr.slice(
+        indentOffset,
+      )}${requiredRepr}`;
+    });
+
+    return `${indentation}{\n${propertyReprs.join(',\n')}\n${indentation}}`;
+  }
+
+  if (type === 'array') {
+    const indentOffset = indentationLevel * INDENTATION_SPACES;
+    const itemsTypeRepr = getColumnTypeRepr(columnType.items, indentationLevel).slice(indentOffset);
+    return `${indentation}Array(${itemsTypeRepr})`;
+  }
+
+  return `${indentation}${type}`;
+}
+
+function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
+  let required = true;
+  if (spec.required != null) {
+    required = spec.required;
+  } else if (spec.optional != null && spec.optional) {
+    required = false;
+  }
+  const requiredTag = required ? (
+    <Text bold>{'(required)'}</Text>
+  ) : (
+    <Text color='secondary'>{'(optional)'}</Text>
+  );
+
+  let name = '-';
+  if ('name' in spec) {
+    name = spec.name;
+  }
+
+  return (
+    <Text>
+      {name} {requiredTag}
+    </Text>
+  );
+}
+
+function formatColumnSchema(spec: ColumnSpec | TensorSpec): React.ReactElement {
+  let repr = '';
+  if (spec.type == 'tensor') {
+    repr = `Tensor (dtype: ${spec['tensor-spec'].dtype}, shape: [${spec['tensor-spec'].shape}])`;
+  } else {
+    repr = getColumnTypeRepr(spec, 0);
+  }
+
+  return <pre style={{ padding: 8, marginTop: 8, marginBottom: 8 }}>{repr}</pre>;
+}
+
 export class SchemaTableImpl extends React.PureComponent<Props> {
   renderSchemaTable = (schemaData: any, schemaType: any) => {
     const columns = [
@@ -30,13 +98,13 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
         title: 'Name',
         dataIndex: 'name',
         key: 'name',
-        width: '50%',
+        width: '40%',
       },
       {
         title: 'Type',
         dataIndex: 'type',
         key: 'type',
-        width: '50%',
+        width: '60%',
       },
     ];
 
@@ -61,7 +129,7 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
     if (schemaTypeSpec.type === 'tensor') {
       repr = `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype}, shape: [${schemaTypeSpec['tensor-spec'].shape}])`;
     } else {
-      repr = this.getColumnTypeRepr(schemaTypeSpec);
+      repr = getColumnTypeRepr(schemaTypeSpec, 0);
     }
 
     // If the "optional" property is present and true, wrap the type around an "Optional[]"
@@ -69,30 +137,9 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
     // have to support both since both exist.
     if (schemaTypeSpec.optional) {
       repr = `Optional[${repr}]`;
-    } else if (schemaTypeSpec.required) {
-      repr = `${repr} (required)`;
     }
 
     return repr;
-  };
-
-  getColumnTypeRepr = (columnType: ColumnType): string => {
-    const { type } = columnType;
-
-    if (type === 'object') {
-      const propertyReprs = Object.keys(columnType.properties).map((propertyName) => {
-        const property = columnType.properties[propertyName];
-        const required = property.required ? ' (required)' : '';
-        return `"${propertyName}": ${this.getColumnTypeRepr(property)}${required}`;
-      });
-      return `{ ${propertyReprs.join(', ')} }`;
-    }
-
-    if (type === 'array') {
-      return `Array(${this.getColumnTypeRepr(columnType.items)})`;
-    }
-
-    return type;
   };
 
   getSchemaRowData = (schemaData: any) => {
@@ -100,8 +147,8 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
     schemaData.forEach((row: any, index: any) => {
       rowData[index] = {
         key: index,
-        name: row.name ? row.name : '-',
-        type: row.type ? this.getSchemaTypeRepr(row) : '-',
+        name: formatColumnName(row),
+        type: formatColumnSchema(row),
       };
     });
     return rowData;
