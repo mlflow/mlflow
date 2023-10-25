@@ -219,7 +219,7 @@ def answer_relevance(
     """
     This function will create a genai metric used to evaluate the answer relevance of an LLM
     using the model provided. Answer relevance will be assessed based on the appropriateness and
-    applicability of the output with respect to the input.
+    applicability of the output with respect to the input based on the provided context.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 

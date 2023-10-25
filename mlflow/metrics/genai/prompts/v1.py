@@ -304,16 +304,23 @@ class AnswerCorrectnessMetric:
 class AnswerRelevanceMetric:
     definition = (
         "Answer relevance measures the appropriateness and applicability of the output with "
-        "respect to the input. Scores should reflect the extent to which the output directly "
+        "respect to the input based on the context provided which is considered to be correct. "
+        "The context provides more information that is used to generate the provided output. "
+        "Scores should reflect the extent to which the output directly "
         "addresses the question provided in the input, and give lower scores for incomplete or "
         "redundant output."
     )
 
     grading_prompt = (
         "Answer relevance: Please give a score from 1-5 based on the degree of relevance to the "
-        "input, where the lowest and highest scores are defined as follows:"
+        "input based on the provided context, where the lowest and highest scores are "
+        "defined as follows:\n"
         "- Score 1: the output doesn't mention anything about the question or is completely "
         "irrelevant to the input.\n"
+        "- Score 2: the output provides some relevance to the input and outputs one aspect "
+        "of the input correctly using the context.\n"
+        "- Score 3: the output mostly outputs for the input based on the provided context but "
+        "is missing or hallucinating on one critical aspect based on the provided context.\n"
         "- Score 5: the output addresses all aspects of the question and all parts of the output "
         "are meaningful and relevant to the question."
     )
