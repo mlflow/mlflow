@@ -3,6 +3,8 @@ import filecmp
 import hashlib
 import json
 import os
+import pickle
+import cloudpickle
 import shutil
 import stat
 import tarfile
@@ -10,10 +12,13 @@ import tarfile
 import jinja2.exceptions
 import pandas as pd
 import pytest
+import transformers
+import sklearn.linear_model as glm
+from sklearn import datasets
 from pyspark.sql import SparkSession
 
 import mlflow
-from mlflow.exceptions import MissingConfigException
+from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
     TempDir,
@@ -28,7 +33,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.os import is_windows
 
-from tests.helper_functions import random_file, random_int, safe_edit_yaml
+from tests.helper_functions import random_file, random_int, safe_edit_yaml, flaky
 from tests.projects.utils import TEST_PROJECT_DIR
 
 
@@ -367,7 +372,7 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
     assert dst_dir.joinpath("top-level-file.txt").read_text() == "hi"
 
 
-def test_get_total_size(tmp_path):
+def test_get_total_size_basic(tmp_path):
     root = str(tmp_path)
 
     subdir = os.path.join(root, "subdir")
@@ -384,3 +389,55 @@ def test_get_total_size(tmp_path):
 
     assert get_total_size(root) == 56
     assert get_total_size(subdir) == 22
+
+    path_not_exists = os.path.join(root, "does_not_exist")
+    with pytest.raises(MlflowException, match=f"The given {path_not_exists} does not exist.",):
+        get_total_size(path_not_exists)
+
+    path_file = os.path.join(root, "file1.txt")
+    with pytest.raises(MlflowException, match=f"The given {path_file} is not a directory.",):
+        get_total_size(path_file)
+
+
+@pytest.fixture
+@flaky()
+def small_qa_pipeline():
+    # The return type of this model's language head is a Dict[str, Any]
+    architecture = "csarron/mobilebert-uncased-squad-v2"
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture, low_cpu_mem_usage=True)
+    model = transformers.MobileBertForQuestionAnswering.from_pretrained(
+        architecture, low_cpu_mem_usage=True
+    )
+    return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
+
+
+def test_get_total_size_transformers(small_qa_pipeline, tmp_path):
+    small_qa_pipeline.model.save_pretrained(save_directory=tmp_path.joinpath("model"))
+    small_qa_pipeline.tokenizer.save_pretrained(tmp_path.joinpath("components").joinpath("tokenizer"))
+
+    assert get_total_size(str(tmp_path)) == 99646933
+
+
+def test_get_total_size_sklearn(tmp_path):
+    iris = datasets.load_iris()
+    X = iris.data
+    y = iris.target
+    X_df = pd.DataFrame(X, columns=iris.feature_names)
+    X_df = X_df.iloc[:, :2]  # we only take the first two features.
+    y_series = pd.Series(y)
+
+    linear_lr = glm.LogisticRegression()
+    linear_lr.fit(X_df, y_series)
+
+    path = str(tmp_path)
+    pickle_dir = os.path.join(path, "pickle_model")
+    os.mkdir(pickle_dir)
+    with open(os.path.join(pickle_dir, "model.pkl"), "wb") as out:
+        pickle.dump(linear_lr, out, protocol=pickle.DEFAULT_PROTOCOL)
+    assert get_total_size(pickle_dir) == 906
+
+    cloudpickle_dir = os.path.join(path, "cloudpickle_model")
+    os.mkdir(cloudpickle_dir)
+    with open(os.path.join(cloudpickle_dir, "model.pkl"), "wb") as out:
+        cloudpickle.dump(linear_lr, out, protocol=pickle.DEFAULT_PROTOCOL)
+    assert get_total_size(cloudpickle_dir) == 906

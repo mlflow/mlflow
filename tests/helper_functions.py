@@ -13,6 +13,7 @@ import time
 import uuid
 from contextlib import ExitStack, contextmanager
 from unittest import mock
+from functools import wraps
 
 import pytest
 import requests
@@ -635,3 +636,28 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
+
+
+def flaky(max_tries=3):
+    """
+    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
+    if it fails after max_tries attempts.
+    :param max_tries: Maximum number of times to retry the function.
+    :return: Decorated function.
+    """
+
+    def flaky_test_func(test_func):
+        @wraps(test_func)
+        def decorated_func(*args, **kwargs):
+            for i in range(max_tries):
+                try:
+                    return test_func(*args, **kwargs)
+                except Exception as e:
+                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    if i == max_tries - 1:
+                        raise
+                    time.sleep(3)
+
+        return decorated_func
+
+    return flaky_test_func

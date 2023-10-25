@@ -1010,6 +1010,10 @@ def get_total_size(path: str) -> int:
     :param path: The absolute path of a local directory.
     :return: size in bytes.
     """
+    if not os.path.exists(path):
+        raise MlflowException(
+            message=f"The given {path} does not exist.", error_code=INVALID_PARAMETER_VALUE
+        )
     if not os.path.isdir(path):
         raise MlflowException(
             message=f"The given {path} is not a directory.", error_code=INVALID_PARAMETER_VALUE
