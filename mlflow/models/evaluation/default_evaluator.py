@@ -30,7 +30,6 @@ from mlflow.metrics import (
     ari_grade_level,
     exact_match,
     flesch_kincaid_grade_level,
-    perplexity,
     rouge1,
     rouge2,
     rougeL,
@@ -1633,7 +1632,6 @@ class DefaultEvaluator(ModelEvaluator):
             text_metrics = [
                 token_count(),
                 toxicity(),
-                perplexity(),
                 flesch_kincaid_grade_level(),
                 ari_grade_level(),
             ]
