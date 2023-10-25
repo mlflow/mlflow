@@ -1,3 +1,5 @@
+import io
+import pickle
 import random
 import threading
 import time
@@ -62,9 +64,6 @@ def test_single_thread_publish_consume_queue():
 
     for run_operation in run_operations:
         run_operation.wait()
-
-    # Stop the run data processing thread.
-    async_logging_queue._continue_to_log_data.set()
 
     _assert_sent_received_data(
         metrics_sent,
@@ -133,8 +132,6 @@ def test_partial_logging_failed():
     for run_operation in run_operations:
         run_operation.wait()
 
-    # Stop the run data processing thread.
-    async_logging_queue._continue_to_log_data.set()
     _assert_sent_received_data(
         metrics_sent,
         params_sent,
@@ -168,12 +165,84 @@ def test_publish_multithread_consume_single_thread():
     for run_operation in run_operations:
         run_operation.wait()
 
-    # Stop the run data processing thread.
-    async_logging_queue._continue_to_log_data.set()
-
     assert len(run_data.received_metrics) == 2 * METRIC_PER_BATCH * TOTAL_BATCHES
     assert len(run_data.received_tags) == 2 * TAGS_PER_BATCH * TOTAL_BATCHES
     assert len(run_data.received_params) == 2 * PARAMS_PER_BATCH * TOTAL_BATCHES
+
+
+class Consumer:
+    def __init__(self) -> None:
+        self.metrics = []
+        self.tags = []
+        self.params = []
+
+    def consume_queue_data(self, run_id, metrics, tags, params):
+        time.sleep(0.5)
+        self.metrics.extend(metrics or [])
+        self.params.extend(params or [])
+        self.tags.extend(tags or [])
+
+
+def test_async_logging_queue_pickle():
+    run_id = "test_run_id"
+    consumer = Consumer()
+    async_logging_queue = AsyncLoggingQueue(consumer.consume_queue_data)
+
+    # Pickle the queue without activating it.
+    buffer = io.BytesIO()
+    pickle.dump(async_logging_queue, buffer)
+    deserialized_queue = pickle.loads(buffer.getvalue())  # Type: AsyncLoggingQueue
+
+    # activate the queue and then try to pickle it
+    async_logging_queue.activate()
+
+    run_operations = []
+    for val in range(0, 10):
+        run_operations.append(
+            async_logging_queue.log_batch_async(
+                run_id=run_id,
+                metrics=[Metric("metric", val, timestamp=time.time(), step=1)],
+                tags=[],
+                params=[],
+            )
+        )
+
+    assert not async_logging_queue._queue.empty()
+
+    # Pickle the queue
+    buffer = io.BytesIO()
+    pickle.dump(async_logging_queue, buffer)
+
+    deserialized_queue = pickle.loads(buffer.getvalue())  # Type: AsyncLoggingQueue
+    assert deserialized_queue._queue.empty()
+    assert deserialized_queue._lock is not None
+    assert deserialized_queue._is_activated is False
+
+    for run_operation in run_operations:
+        run_operation.wait()
+
+    assert len(consumer.metrics) == 10
+
+    # try to log using deserialized queue after activating it.
+    deserialized_queue.activate()
+    assert deserialized_queue._is_activated
+
+    run_operations = []
+
+    for val in range(0, 10):
+        run_operations.append(
+            deserialized_queue.log_batch_async(
+                run_id=run_id,
+                metrics=[Metric("metric", val, timestamp=time.time(), step=1)],
+                tags=[],
+                params=[],
+            )
+        )
+
+    for run_operation in run_operations:
+        run_operation.wait()
+
+    assert len(deserialized_queue._logging_func.__self__.metrics) == 10
 
 
 def _send_metrics_tags_params(run_data_queueing_processor, run_id, run_operations=None):

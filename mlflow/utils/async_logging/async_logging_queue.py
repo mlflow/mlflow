@@ -49,11 +49,11 @@ class AsyncLoggingQueue:
         """
         try:
             # Stop the data processing thread
-            self._continue_to_log_data.set()
+            self._stop_data_logging_thread_event.set()
             # Waits till queue is drained.
             self._run_data_logging_thread.result()
-            self._BATCH_LOGGING_THREADPOOL.shutdown(wait=False)
-            self._BATCH_STATUS_CHECK_THREADPOOL.shutdown(wait=False)
+            self._batch_logging_threadpool.shutdown(wait=False)
+            self._batch_status_check_threadpool.shutdown(wait=False)
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
@@ -63,7 +63,7 @@ class AsyncLoggingQueue:
         If an exception occurs during logging, a `MlflowException` is raised.
         """
         try:
-            while not self._continue_to_log_data.is_set():
+            while not self._stop_data_logging_thread_event.is_set():
                 self._log_run_data()
         except Exception as e:
             from mlflow.exceptions import MlflowException
@@ -126,24 +126,42 @@ class AsyncLoggingQueue:
 
         This method is called by the `pickle` module when the object is being pickled.
         It returns a dictionary containing the object's state,
-        with internal attributes _queue, _lock, and _is_activated
+        with internal attributes _queue, _lock, and _is_activated, _batch_logging_threadpool,
+        _batch_status_check_threadpool, _run_data_logging_thread, _stop_data_logging_thread_event
         removed to avoid pickling errors.
 
         Returns:
             dict: A dictionary containing the object's state,
-            with internal attributes _queue, _lock, and _is_activated
-            removed to avoid pickling errors.
+            with internal attributes _queue, _lock, and _is_activated, _batch_logging_threadpool,
+            _batch_status_check_threadpool, _run_data_logging_thread,
+            _stop_data_logging_thread_event removed to avoid pickling errors.
         """
         state = self.__dict__.copy()
         del state["_queue"]
         del state["_lock"]
         del state["_is_activated"]
+
+        if "_run_data_logging_thread" in state:
+            del state["_run_data_logging_thread"]
+        if "_stop_data_logging_thread_event" in state:
+            del state["_stop_data_logging_thread_event"]
+        if "_batch_logging_threadpool" in state:
+            del state["_batch_logging_threadpool"]
+        if "_batch_status_check_threadpool" in state:
+            del state["_batch_status_check_threadpool"]
+        if "_run_data_logging_thread" in state:
+            del state["_run_data_logging_thread"]
+        if "_stop_data_logging_thread_event" in state:
+            del state["_stop_data_logging_thread_event"]
+
         return state
 
     def __setstate__(self, state):
         """
         Set the state of the object from a given state dictionary.
-        Reinitializes the internal attributes _queue, _lock, and _is_activated.
+        Reinitializes the internal attributes _queue, _lock, and _is_activated,
+        _batch_logging_threadpool, _batch_status_check_threadpool, _run_data_logging_thread,
+        _stop_data_logging_thread_event removed to avoid pickling errors.
 
         Args:
             state (dict): A dictionary containing the state of the object.
@@ -155,6 +173,9 @@ class AsyncLoggingQueue:
         self._queue = Queue()
         self._lock = threading.RLock()
         self._is_activated = False
+        self._batch_logging_threadpool = None
+        self._batch_status_check_threadpool = None
+        self._stop_data_logging_thread_event = None
 
     def log_batch_async(
         self, run_id: str, params: [Param], tags: [RunTag], metrics: [Metric]
@@ -189,7 +210,7 @@ class AsyncLoggingQueue:
 
         self._queue.put(batch)
 
-        operation_future = self._BATCH_STATUS_CHECK_THREADPOOL.submit(self._wait_for_batch, batch)
+        operation_future = self._batch_status_check_threadpool.submit(self._wait_for_batch, batch)
         return RunOperations(operation_futures=[operation_future])
 
     def is_active(self) -> bool:
@@ -209,14 +230,14 @@ class AsyncLoggingQueue:
             if self._is_activated:
                 return
 
-            self._continue_to_log_data = threading.Event()
+            self._stop_data_logging_thread_event = threading.Event()
 
             # Keeping max_workers=1 so that there are no two threads
-            self._BATCH_LOGGING_THREADPOOL = ThreadPoolExecutor(max_workers=1)
+            self._batch_logging_threadpool = ThreadPoolExecutor(max_workers=1)
 
-            self._BATCH_STATUS_CHECK_THREADPOOL = ThreadPoolExecutor(max_workers=10)
+            self._batch_status_check_threadpool = ThreadPoolExecutor(max_workers=10)
 
-            self._run_data_logging_thread = self._BATCH_LOGGING_THREADPOOL.submit(
+            self._run_data_logging_thread = self._batch_logging_threadpool.submit(
                 self._logging_loop
             )  # concurrent.futures.Future[self._logging_loop]
 
