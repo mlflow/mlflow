@@ -54,6 +54,11 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
         augmented_raise_for_status(response)
         with open(download_path, "r+b") as f:
             f.seek(range_start)
+            if b"\x00" in response.content:
+                raise Exception(
+                    "Received null character in response. This may indicate that the "
+                    "artifact at the requested URI is corrupted."
+                )
             f.write(response.content)
 
 
