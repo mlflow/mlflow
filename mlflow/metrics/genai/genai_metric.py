@@ -214,8 +214,6 @@ def make_genai_metric(
         *(parameters,) if parameters is not None else (),
     ).to_dict()
 
-    print("EVAL CONTEXT", evaluation_context)
-
     def eval_fn(
         predictions: "pd.Series",
         metrics: Dict[str, MetricValue],
@@ -225,9 +223,7 @@ def make_genai_metric(
         """
         This is the function that is called when the metric is evaluated.
         """
-        print("ARGS", args)
         eval_values = dict(zip(grading_context_columns, args))
-        print("EVAL VALUES", eval_values)
 
         outputs = predictions.to_list()
         inputs = inputs.to_list()
