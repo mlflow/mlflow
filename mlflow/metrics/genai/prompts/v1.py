@@ -314,7 +314,7 @@ class AnswerRelevanceMetric:
         "are meaningful and relevant to the question."
     )
 
-    grading_context_columns = ["context"]
+    grading_context_columns = []
     parameters = default_parameters
     default_model = default_model
 
@@ -328,13 +328,7 @@ class AnswerRelevanceMetric:
         "point of the question, which is the relationship between MLflow and Databricks. "
         "Therefore, while the output is not completely irrelevant, it does not fully answer the "
         "question, leading to a lower score.",
-        grading_context={
-            "context": "MLflow is an open-source platform for managing the end-to-end machine "
-            "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
-            "in big data and machine learning solutions. MLflow is designed to address the "
-            "challenges that data scientists and machine learning engineers face when developing, "
-            "training, and deploying machine learning models."
-        },
+        grading_context={},
     )
 
     example_score_5 = EvaluationExample(
@@ -347,13 +341,7 @@ class AnswerRelevanceMetric:
         "MLflow is a product created by Databricks, and also adds relevant information about the "
         "purpose of MLflow, which is to enhance the efficiency of machine learning processes. "
         "Therefore, the output is highly relevant to the input and deserves a full score.",
-        grading_context={
-            "context": "MLflow is an open-source platform for managing the end-to-end machine "
-            "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
-            "in big data and machine learning solutions. MLflow is designed to address the "
-            "challenges that data scientists and machine learning engineers face when developing, "
-            "training, and deploying machine learning models."
-        },
+        grading_context={},
     )
 
     default_examples = [example_score_2, example_score_5]
