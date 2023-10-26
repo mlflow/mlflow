@@ -18,6 +18,7 @@ from mlflow.store.tracking import GET_METRIC_HISTORY_MAX_RESULTS, SEARCH_MAX_RES
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
+from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
@@ -261,7 +262,9 @@ class TrackingServiceClient:
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None, step=None):
+    def log_metric(
+        self, run_id, key, value, timestamp=None, step=None, synchronous=True
+    ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
 
@@ -278,21 +281,47 @@ class TrackingServiceClient:
                       may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
+        :param synchronous: *Experimental* If True, blocks until the metrics is logged
+                            successfully. If False, logs the metrics asynchronously and
+                            returns a future representing the logging operation.
+
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that represents
+                 future for logging operation.
+
         """
         timestamp = timestamp if timestamp is not None else get_current_time_millis()
         step = step if step is not None else 0
         metric_value = convert_metric_value_to_float_if_possible(value)
         metric = Metric(key, metric_value, timestamp, step)
-        self.store.log_metric(run_id, metric)
+        if synchronous:
+            self.store.log_metric(run_id, metric)
+        else:
+            return self.store.log_metric_async(run_id, metric)
 
-    def log_param(self, run_id, key, value):
+    def log_param(self, run_id, key, value, synchronous=True):
         """
         Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
         a string.
+
+        :param run_id: ID of the run to log the parameter against.
+        :param key: Name of the parameter.
+        :param value: Value of the parameter.
+        :param synchronous: *Experimental* If True, blocks until the parameters are logged
+                            successfully. If False, logs the parameters asynchronously and
+                            returns a future representing the logging operation.
+
+        :return: When synchronous=True, returns parameter value.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+                 represents future for logging operation.
         """
         param = Param(key, str(value))
         try:
-            self.store.log_param(run_id, param)
+            if synchronous:
+                self.store.log_param(run_id, param)
+                return value
+            else:
+                return self.store.log_param_async(run_id, param)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
                 msg = f"{e.message}{PARAM_VALIDATION_MSG}"
@@ -311,7 +340,7 @@ class TrackingServiceClient:
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
 
-    def set_tag(self, run_id, key, value):
+    def set_tag(self, run_id, key, value, synchronous=True) -> Optional[RunOperations]:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -323,9 +352,20 @@ class TrackingServiceClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
+        :param synchronous: *Experimental* If True, blocks until the tag is logged
+                            successfully. If False, logs the tag asynchronously and
+                            returns a future representing the logging operation.
+
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` object
+                 that represents future for logging operation.
+
         """
         tag = RunTag(key, str(value))
-        self.store.set_tag(run_id, tag)
+        if synchronous:
+            self.store.set_tag(run_id, tag)
+        else:
+            return self.store.set_tag_async(run_id, tag)
 
     def delete_tag(self, run_id, key):
         """
@@ -359,7 +399,9 @@ class TrackingServiceClient:
             run_name=name,
         )
 
-    def log_batch(self, run_id, metrics=(), params=(), tags=()):
+    def log_batch(
+        self, run_id, metrics=(), params=(), tags=(), synchronous=True
+    ) -> Optional[RunOperations]:
         """
         Log multiple metrics, params, and/or tags.
 
@@ -367,15 +409,27 @@ class TrackingServiceClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
+        :param synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
+                            successfully. If False, logs the metrics/tags/params asynchronously
+                            and returns a future representing the logging operation.
 
         Raises an MlflowException if any errors occur.
-        :return: None
+
+        :return: When synchronous=True, returns None.
+                 When synchronous=False, returns :py:class:`mlflow.RunOperations` that
+                 represents future for logging operation.
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
 
         param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
         tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
+
+        # When given data is split into one or more batches, we need to wait for all the batches.
+        # Each batch logged returns run_operations which we append to this list
+        # At the end we merge all the run_operations into a single run_operations object and return.
+        # Applicable only when synchronous is False
+        run_operations_list = []
 
         for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
             metrics_batch_size = min(
@@ -386,12 +440,33 @@ class TrackingServiceClient:
             metrics_batch = metrics[:metrics_batch_size]
             metrics = metrics[metrics_batch_size:]
 
-            self.store.log_batch(
-                run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch
-            )
+            if synchronous:
+                self.store.log_batch(
+                    run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch
+                )
+            else:
+                run_operations_list.append(
+                    self.store.log_batch_async(
+                        run_id=run_id,
+                        metrics=metrics_batch,
+                        params=params_batch,
+                        tags=tags_batch,
+                    )
+                )
 
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
-            self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
+            if synchronous:
+                self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
+            else:
+                run_operations_list.append(
+                    self.store.log_batch_async(
+                        run_id=run_id, metrics=metrics_batch, params=[], tags=[]
+                    )
+                )
+
+        if not synchronous:
+            # Merge all the run operations into a single run operations object
+            return get_combined_run_operations(run_operations_list)
 
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
