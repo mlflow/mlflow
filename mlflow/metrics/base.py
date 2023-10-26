@@ -81,9 +81,7 @@ class EvaluationExample:
 
     @staticmethod
     def _format_grading_context(grading_context):
-        return "\n".join(
-            [f"key: {key}\nvalue:\n{value}" for key, value in grading_context.items()]
-        )
+        return "\n".join([f"key: {key}\nvalue:\n{value}" for key, value in grading_context.items()])
 
     def to_prompt_component(self, grading_context_columns: List[str]) -> str:
         if self.grading_context is None and len(grading_context_columns) == 0:
@@ -91,9 +89,7 @@ class EvaluationExample:
         elif isinstance(self.grading_context, dict):
             grading_context = self.grading_context
         else:
-            grading_context = {
-                grading_context_columns[0]: self.grading_context
-            }
+            grading_context = {grading_context_columns[0]: self.grading_context}
 
         if set(grading_context.keys()) != set(grading_context_columns):
             raise MlflowException.invalid_parameter_value(
@@ -107,7 +103,7 @@ class EvaluationExample:
                 "Additional information used by the model:\n"
                 f"{EvaluationExample._format_grading_context(grading_context)}"
             )
-            if self.grading_context 
+            if self.grading_context
             else ""
         )
 

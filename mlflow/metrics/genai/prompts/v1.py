@@ -85,7 +85,9 @@ class EvaluationModel:
         }
 
     def _format_examples(self):
-        return "\n".join([example.to_prompt_component(self.grading_context_columns) for example in self.examples])
+        return "\n".join(
+            [example.to_prompt_component(self.grading_context_columns) for example in self.examples]
+        )
 
 
 @dataclass

@@ -537,8 +537,7 @@ def test_make_genai_metric_throws_if_examples_dont_contain_correct_grading_conte
     import pandas as pd
 
     with pytest.raises(
-        MlflowException,
-        match="Example grading context does not contain required columns"
+        MlflowException, match="Example grading context does not contain required columns"
     ):
         make_genai_metric(
             name="correctness",
