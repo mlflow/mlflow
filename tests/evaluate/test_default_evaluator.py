@@ -3197,12 +3197,14 @@ def test_evaluate_custom_metrics_string_values():
         assert results.metrics["cm/eval_config_value_average"] == 3
 
 
-def validate_retriever_logged_data(logged_data):
+def validate_retriever_logged_data(logged_data, k=3):
     columns = {
         "question",
-        "outputs",  # TODO: fix the logged data to name the model output column "retrieved_context"
+        "outputs",
+        # TODO: fix the logged data to name the model output column "retrieved_context"
         # Right now, it's hard-coded "outputs", which is not ideal
-        "precision_at_k/v1/score",
+        f"precision_at_{k}/score",
+        f"recall_at_{k}/score",
         "ground_truth",
     }
 
@@ -3210,7 +3212,8 @@ def validate_retriever_logged_data(logged_data):
 
     assert logged_data["question"].tolist() == ["q1?", "q1?", "q1?"]
     assert logged_data["outputs"].tolist() == [["doc1", "doc3", "doc2"]] * 3
-    assert (logged_data["precision_at_k/v1/score"] <= 1).all()
+    assert (logged_data[f"precision_at_{k}/score"] <= 1).all()
+    assert (logged_data[f"recall_at_{k}/score"] <= 1).all()
     assert logged_data["ground_truth"].tolist() == [["doc1", "doc2"]] * 3
 
 
@@ -3233,27 +3236,22 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 2 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 2 / 3,
+        "precision_at_3/mean": 2 / 3,
+        "precision_at_3/variance": 0,
+        "precision_at_3/p90": 2 / 3,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
     }
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_retriever_logged_data(logged_data)
-    assert set(results.metrics.keys()) == {
-        "precision_at_k/v1/p90",
-        "precision_at_k/v1/mean",
-        "precision_at_k/v1/variance",
-    }
-    assert results.metrics["precision_at_k/v1/p90"] == 2 / 3
-    assert results.metrics["precision_at_k/v1/mean"] == 2 / 3
-    assert results.metrics["precision_at_k/v1/variance"] == 0
 
     # test with a big k to ensure we use min(k, len(retrieved_chunks))
     with mlflow.start_run() as run:
-        mlflow.evaluate(
+        results = mlflow.evaluate(
             model=fn,
             data=X,
             targets="ground_truth",
@@ -3265,14 +3263,17 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 2 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 2 / 3,
+        "precision_at_6/mean": 2 / 3,
+        "precision_at_6/variance": 0,
+        "precision_at_6/p90": 2 / 3,
+        "recall_at_6/mean": 1.0,
+        "recall_at_6/p90": 1.0,
+        "recall_at_6/variance": 0.0,
     }
 
     # test with default k
     with mlflow.start_run() as run:
-        mlflow.evaluate(
+        results = mlflow.evaluate(
             model=fn,
             data=X,
             targets="ground_truth",
@@ -3280,9 +3281,12 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 2 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 2 / 3,
+        "precision_at_3/mean": 2 / 3,
+        "precision_at_3/variance": 0,
+        "precision_at_3/p90": 2 / 3,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
     }
 
     # test with multiple chunks from same doc
@@ -3292,7 +3296,7 @@ def test_evaluate_retriever():
     X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc3")] * 3})
 
     with mlflow.start_run() as run:
-        mlflow.evaluate(
+        results = mlflow.evaluate(
             model=fn2,
             data=X,
             targets="ground_truth",
@@ -3305,9 +3309,12 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 1,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 1,
+        "precision_at_3/mean": 1,
+        "precision_at_3/p90": 1,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
     }
 
     # test with empty retrieved doc
@@ -3328,9 +3335,12 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 0,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 0,
+        "precision_at_3/mean": 0,
+        "precision_at_3/p90": 0,
+        "precision_at_3/variance": 0,
+        "recall_at_3/mean": 0,
+        "recall_at_3/p90": 0,
+        "recall_at_3/variance": 0,
     }
 
     # test with single retrieved doc
@@ -3351,9 +3361,12 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 1,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 1,
+        "precision_at_3/mean": 1.0,
+        "precision_at_3/p90": 1.0,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 0.5,
+        "recall_at_3/p90": 0.5,
+        "recall_at_3/variance": 0.0,
     }
 
     # test with single ground truth doc
@@ -3373,9 +3386,12 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 1 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 1 / 3,
+        "precision_at_3/mean": 1 / 3,
+        "precision_at_3/p90": 1 / 3,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
     }
 
 
