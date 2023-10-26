@@ -2085,6 +2085,52 @@ def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
     ("data", "schema"),
     [
         (
+            {
+                "netsed_list": [
+                    [["a", "b"], ["c", "d"]],
+                    [["e", "f"], ["g"]],
+                ]
+            },
+            Schema([ColSpec(Array(Array(DataType.string)), name="netsed_list")]),
+        ),
+        (
+            {
+                "numpy_2d_array": [
+                    np.array([[np.int32(1), np.int32(2)], [np.int32(3), np.int32(4)]])
+                ]
+            },
+            Schema([ColSpec(Array(Array(DataType.integer)), name="numpy_2d_array")]),
+        ),
+        (
+            {"list_of_np_array": [[np.array(["a", "b"])], [np.array(["c", "d"])]]},
+            Schema([ColSpec(Array(Array(DataType.string)), name="list_of_np_array")]),
+        ),
+    ],
+)
+def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    df = pd.DataFrame.from_records(data)
+    signature = infer_signature(df)
+    assert signature.inputs == schema
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=signature,
+        )
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    prediction = loaded_model.predict(df)
+    pd.testing.assert_frame_equal(prediction, df)
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        (
             [
                 {
                     "object_column": {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
