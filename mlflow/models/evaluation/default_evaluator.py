@@ -1674,15 +1674,19 @@ class DefaultEvaluator(ModelEvaluator):
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
                 elif self.model_type == _ModelType.RETRIEVER:
-                    k = self.evaluator_config.pop("k", 3)  # default k to 3 if not specified
-                    if not (isinstance(k, int) and k > 0):
+                    # default k to 3 if not specified
+                    retriever_k = self.evaluator_config.pop("retriever_k", 3)
+                    if not (isinstance(retriever_k, int) and retriever_k > 0):
                         _logger.warning(
                             "Cannot calculate 'precision_at_k' and 'recall_at_k' for invalid "
-                            f"parameter 'k'. 'k' should be a positive integer; found: {k}. "
-                            "Skipping metric logging."
+                            f"parameter 'retriever_k'. 'retriever_k' should be a positive integer; "
+                            f"found: {retriever_k}. Skipping metric logging."
                         )
                     else:
-                        self.builtin_metrics = [precision_at_k(k), recall_at_k(k)]
+                        self.builtin_metrics = [
+                            precision_at_k(retriever_k),
+                            recall_at_k(retriever_k),
+                        ]
 
                 self.y_pred = (
                     self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred

@@ -3258,7 +3258,7 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluators="default",
             evaluator_config={
-                "k": 6,
+                "retriever_k": 6,
             },
         )
     run = mlflow.get_run(run.info.run_id)
@@ -3303,7 +3303,7 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluator_config={
                 "default": {
-                    "k": 3,
+                    "retriever_k": 3,
                 }
             },
         )
@@ -3329,7 +3329,7 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluator_config={
                 "default": {
-                    "k": 3,
+                    "retriever_k": 3,
                 }
             },
         )
@@ -3355,7 +3355,7 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluator_config={
                 "default": {
-                    "k": 3,
+                    "retriever_k": 3,
                 }
             },
         )
@@ -3380,7 +3380,7 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluator_config={
                 "default": {
-                    "k": 3,
+                    "retriever_k": 3,
                 }
             },
         )
@@ -3395,7 +3395,7 @@ def test_evaluate_retriever():
     }
 
 
-def test_evaluate_precision_at_k_no_model_type():
+def test_evaluate_retriever_builtin_metrics_no_model_type():
     X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc2")] * 3})
 
     def fn(X):
@@ -3406,27 +3406,26 @@ def test_evaluate_precision_at_k_no_model_type():
             model=fn,
             data=X,
             targets="ground_truth",
-            extra_metrics=[mlflow.metrics.precision_at_k(3)],
+            extra_metrics=[mlflow.metrics.precision_at_k(3), mlflow.metrics.recall_at_k(3)],
         )
     run = mlflow.get_run(run.info.run_id)
-    assert run.data.metrics == {
-        "precision_at_k/v1/mean": 2 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 2 / 3,
-    }
+    assert (
+        run.data.metrics
+        == results.metrics
+        == {
+            "precision_at_3/mean": 2 / 3,
+            "precision_at_3/p90": 2 / 3,
+            "precision_at_3/variance": 0.0,
+            "recall_at_3/mean": 1.0,
+            "recall_at_3/p90": 1.0,
+            "recall_at_3/variance": 0.0,
+        }
+    )
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_retriever_logged_data(logged_data)
-    assert set(results.metrics.keys()) == {
-        "precision_at_k/v1/p90",
-        "precision_at_k/v1/mean",
-        "precision_at_k/v1/variance",
-    }
-    assert results.metrics["precision_at_k/v1/p90"] == 2 / 3
-    assert results.metrics["precision_at_k/v1/mean"] == 2 / 3
-    assert results.metrics["precision_at_k/v1/variance"] == 0
 
 
 def test_evaluate_with_numpy_array():

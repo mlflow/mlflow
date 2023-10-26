@@ -1307,8 +1307,8 @@ def evaluate(
 
      - For retriever models, the default evaluator logs:
         - **metrics**: :mod:`precision_at_k(k) <mlflow.metrics.precision_at_k>` and
-          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>` - both have a default value of ``k`` =
-          3.
+          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>` - both have a default value of
+          ``retriever_k`` = 3.
         - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
           of the model in tabular format.
 
