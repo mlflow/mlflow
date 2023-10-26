@@ -433,10 +433,6 @@ __all__ = [
     "binary_recall",
     "binary_precision",
     "binary_f1_score",
-    "answer_similarity",
-    "faithfulness",
-    "answer_correctness",
-    "answer_relevance",
     "token_count",
     "latency",
 ]
