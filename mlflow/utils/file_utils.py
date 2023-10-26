@@ -971,7 +971,7 @@ def chdir(path: str) -> None:
         os.chdir(cwd)
 
 
-def get_total_size(path: str) -> int:
+def get_total_file_size(path: str) -> int:
     """
     Return the size of all files under given path, including files in subdirectories.
 
@@ -992,12 +992,3 @@ def get_total_size(path: str) -> int:
         full_paths = [os.path.join(cur_path, file) for file in files]
         total_size += sum([os.path.getsize(file) for file in full_paths])
     return total_size
-
-
-# def get_total_size_safe(path: str, logger) -> int:
-#     try:
-#         return get_total_size(path)
-#     except Exception:
-#
-#         return None
-#

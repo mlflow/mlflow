@@ -25,7 +25,7 @@ from mlflow.utils.file_utils import (
     _copy_file_or_tree,
     _handle_readonly_on_windows,
     get_parent_dir,
-    get_total_size,
+    get_total_file_size,
     local_file_uri_to_path,
     read_parquet_as_pandas_df,
     write_pandas_df_as_parquet,
@@ -378,25 +378,25 @@ def test_get_total_size_basic(tmp_path):
     subdir = os.path.join(root, "subdir")
     os.mkdir(subdir)
     files = {
-        "file1.txt": "hello world",  # 11 bytes
-        "file2.txt": "This is mlflow testing.",  # 23 bytes
+        "file1.txt": b"hello world",  # 11 bytes
+        "file2.txt": b"This is mlflow testing.",  # 23 bytes
     }
     for name, content in files.items():
-        with open(os.path.join(root, name), "w") as fp:
+        with open(os.path.join(root, name), "wb") as fp:
             fp.write(content)
-    with open(os.path.join(subdir, "file3.txt"), "w") as fp:
-        fp.write("One file under subdir.")  # 22 bytes
+    with open(os.path.join(subdir, "file3.txt"), "wb") as fp:
+        fp.write(b"One file under subdir.")  # 22 bytes
 
-    assert get_total_size(root) == 56
-    assert get_total_size(subdir) == 22
+    assert get_total_file_size(root) == 56
+    assert get_total_file_size(subdir) == 22
 
     path_not_exists = os.path.join(root, "does_not_exist")
-    with pytest.raises(MlflowException, match=f"The given {path_not_exists} does not exist.",):
-        get_total_size(path_not_exists)
+    with pytest.raises(MlflowException, match=f"does not exist.",):
+        get_total_file_size(path_not_exists)
 
     path_file = os.path.join(root, "file1.txt")
-    with pytest.raises(MlflowException, match=f"The given {path_file} is not a directory.",):
-        get_total_size(path_file)
+    with pytest.raises(MlflowException, match=f"is not a directory.",):
+        get_total_file_size(path_file)
 
 
 @pytest.fixture
@@ -412,10 +412,30 @@ def small_qa_pipeline():
 
 
 def test_get_total_size_transformers(small_qa_pipeline, tmp_path):
-    small_qa_pipeline.model.save_pretrained(save_directory=tmp_path.joinpath("model"))
-    small_qa_pipeline.tokenizer.save_pretrained(tmp_path.joinpath("components").joinpath("tokenizer"))
+    model_dir = tmp_path.joinpath("model")
+    small_qa_pipeline.model.save_pretrained(save_directory=model_dir)
+    tokenizer_dir = tmp_path.joinpath("components").joinpath("tokenizer")
+    small_qa_pipeline.tokenizer.save_pretrained(tokenizer_dir)
 
-    assert get_total_size(str(tmp_path)) == 99646933
+    expected_size = 0
+    for folder in [model_dir, tokenizer_dir]:
+        folder = str(folder)
+        expected_size += _calcualte_expected_size(folder)
+
+    assert get_total_file_size(str(tmp_path)) == expected_size
+
+
+def _calcualte_expected_size(folder):
+    # this helper function does not consider subdirectories
+    expected_size = 0
+    for path in os.listdir(folder):
+        path = os.path.join(folder, path)
+        print(path, os.path.isfile(path))
+        if not os.path.isfile(path):
+            continue
+        with open(path, "rb") as fp:
+            expected_size += len(fp.read())
+    return expected_size
 
 
 def test_get_total_size_sklearn(tmp_path):
@@ -434,10 +454,12 @@ def test_get_total_size_sklearn(tmp_path):
     os.mkdir(pickle_dir)
     with open(os.path.join(pickle_dir, "model.pkl"), "wb") as out:
         pickle.dump(linear_lr, out, protocol=pickle.DEFAULT_PROTOCOL)
-    assert get_total_size(pickle_dir) == 906
+    expected_size = _calcualte_expected_size(pickle_dir)
+    assert get_total_file_size(pickle_dir) == expected_size
 
     cloudpickle_dir = os.path.join(path, "cloudpickle_model")
     os.mkdir(cloudpickle_dir)
     with open(os.path.join(cloudpickle_dir, "model.pkl"), "wb") as out:
         cloudpickle.dump(linear_lr, out, protocol=pickle.DEFAULT_PROTOCOL)
-    assert get_total_size(cloudpickle_dir) == 906
+    expected_size = _calcualte_expected_size(cloudpickle_dir)
+    assert get_total_file_size(cloudpickle_dir) == expected_size
