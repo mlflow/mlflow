@@ -216,8 +216,8 @@ class CloudArtifactRepository(ArtifactRepository):
                 num_retries = 3
                 for chunk in failed_downloads:
                     _logger.warning(
-                        f"Retrying download (up to {num_retries} times) of chunk {chunk} "
-                        f"for {remote_file_path}"
+                        f"Retrying download of chunk {chunk} for {remote_file_path} "
+                        "up to {num_retries} times"
                     )
                     new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                     new_signed_uri = new_cloud_creds.signed_uri
