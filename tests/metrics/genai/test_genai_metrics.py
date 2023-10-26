@@ -542,7 +542,7 @@ def test_make_genai_metric_failure():
         (["column_a", "column_b"], ["column_a", "column_c"]),
         (["column_a"], ["column_a", "column_b"]),
         (None, ["column_a"]),
-    ]
+    ],
 )
 def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, example_context_cols):
     import pandas as pd
@@ -562,10 +562,7 @@ def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, ex
                     output="output",
                     score=1,
                     justification="justification",
-                    grading_context={
-                        col: "something"
-                        for col in example_context_cols
-                    }
+                    grading_context={col: "something" for col in example_context_cols},
                 )
             ],
             parameters={"temperature": 0.0},
