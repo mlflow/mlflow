@@ -328,7 +328,7 @@ def relevance(
         examples=examples,
         version=metric_version,
         model=model,
-        variables=relevance_class_module.variables,
+        grading_context_columns=relevance_class_module.grading_context_columns,
         parameters=relevance_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,

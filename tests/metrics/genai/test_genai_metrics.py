@@ -880,7 +880,12 @@ def test_relevance_metric():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = relevance_metric.eval_fn(eval_df, {})
+        metric_value = relevance_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series([input]),
+            pd.Series([mlflow_ground_truth]),
+        )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
         assert mock_predict_function.call_args[0][1] == {
@@ -895,7 +900,8 @@ def test_relevance_metric():
             "references and to\nunderstand them before completing the task.\n"
             f"\nInput:\n{input}\n"
             f"\nOutput:\n{mlflow_prediction}\n"
-            "\n\n"
+            "\nAdditional information used by the model:\nkey: context\nvalue:\n"
+            f"{mlflow_ground_truth}\n"
             f"\nMetric definition:\n{RelevanceMetric.definition}\n"
             f"\nGrading rubric:\n{RelevanceMetric.grading_prompt}\n"
             "\n\n"
