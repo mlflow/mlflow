@@ -344,7 +344,7 @@ nitpick_ignore = [
     ("py:class", "mlflow.types.schema.ParamSpec"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
-    ("py:class", "mlflow.metrics.base.EvaluationExample"),
+    ("py:class", "mlflow.metrics.genai.base.EvaluationExample"),
     ("py:class", "mlflow.models.evaluation.base.EvaluationMetric"),
     ("py:class", "MlflowInferableDataset"),
     ("py:class", "csr_matrix"),

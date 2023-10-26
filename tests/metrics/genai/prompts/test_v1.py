@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from mlflow.metrics.base import EvaluationExample
+from mlflow.metrics.genai import EvaluationExample
 from mlflow.metrics.genai.prompts.v1 import EvaluationModel
 
 

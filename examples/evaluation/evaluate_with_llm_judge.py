@@ -4,7 +4,7 @@ import openai
 import pandas as pd
 
 import mlflow
-from mlflow.metrics import EvaluationExample, answer_similarity
+from mlflow.metrics.genai import EvaluationExample, answer_similarity
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 

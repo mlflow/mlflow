@@ -1,12 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-from mlflow.metrics.base import (
-    EvaluationExample,
-)
-from mlflow.metrics.genai.prompt_template import (
-    PromptTemplate,
-)
+from mlflow.metrics.genai.base import EvaluationExample
+from mlflow.metrics.genai.prompt_template import PromptTemplate
 
 # TODO: Update the default_mode and default_parameters to the correct values post experimentation
 default_model = "openai:/gpt-4"

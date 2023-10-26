@@ -12,7 +12,7 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
 .. code-block:: python
 
     import mlflow
-    from mlflow.metrics import EvaluationExample, answer_similarity
+    from mlflow.metrics.genai import EvaluationExample, answer_similarity
 
     eval_df = pd.DataFrame(
         {
@@ -98,26 +98,27 @@ Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMet
 
 .. autofunction:: mlflow.metrics.make_metric
 
-We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. Note that your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and governed by the LLM service's terms of use. The following factory functions help you customize the intelligent metric to your use case.
-
-.. autofunction:: mlflow.metrics.answer_similarity
-
-.. autofunction:: mlflow.metrics.answer_correctness
-
-.. autofunction:: mlflow.metrics.faithfulness
-
-.. autofunction:: mlflow.metrics.answer_relevance
-
-Users can also create their own LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function.
-
-.. autofunction:: mlflow.metrics.make_genai_metric
-
-When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.EvaluationExample>`
-
-.. autoclass:: mlflow.metrics.EvaluationExample
-
 .. automodule:: mlflow.metrics
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency
+
+Generative AI Metrics
+---------------------
+
+We also provide generative AI ("genai") :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. Note that your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and governed by the LLM service's terms of use. The following factory functions help you customize the intelligent metric to your use case.
+
+.. automodule:: mlflow.metrics.genai
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: EvaluationExample, make_genai_metric
+
+You can also create your own generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s using the :py:func:`make_genai_metric <mlflow.metrics.genai.make_genai_metric>` factory function.
+
+.. autofunction:: mlflow.metrics.genai.make_genai_metric
+
+When using generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.genai.EvaluationExample>`
+
+.. autoclass:: mlflow.metrics.genai.EvaluationExample
