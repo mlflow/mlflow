@@ -92,6 +92,7 @@ def save_model(
     onnx_execution_providers=None,
     onnx_session_options=None,
     metadata=None,
+    save_as_external_data=True,
 ):
     """
     Save an ONNX model to a path on the local file system.
@@ -139,6 +140,7 @@ def save_model(
                                  See onnxruntime API for further descriptions:
                                  https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    :param save_as_external_data: Save tensors to external file(s).
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
@@ -167,7 +169,7 @@ def save_model(
 
     # Save onnx-model
     if Version(onnx.__version__) >= Version("1.9.0"):
-        onnx.save_model(onnx_model, model_data_path, save_as_external_data=True)
+        onnx.save_model(onnx_model, model_data_path, save_as_external_data)
     else:
         onnx.save_model(onnx_model, model_data_path)
 
