@@ -349,7 +349,7 @@ def test_enforce_property_with_errors():
             [
                 [["a", "b"], ["c", "d"]],
                 [["e", "f", "g"], ["h"]],
-                [[]],
+                [["g"]],
             ],
             Array(Array(Array(DataType.string))),
         ),
@@ -363,16 +363,30 @@ def test_enforce_property_with_errors():
             ),
             Array(Array(DataType.string)),
         ),
-        # 6. Empty array
-        (
-            [],
-            Array(DataType.string),
-        ),
     ],
 )
 def test_enforce_array(data, schema):
     data = data.tolist() if isinstance(data, np.ndarray) else data
     assert _enforce_array(data, schema) == data
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        ([], Array(DataType.string)),
+        ([[], []], Array(Array(DataType.string))),
+        ([["a", "b"], []], Array(Array(DataType.string))),
+        (np.array([]), Array(Array(DataType.string))),
+        (np.array([[], []]), Array(Array(DataType.string))),
+    ],
+)
+def test_enforce_array_empty(data, schema):
+    with pytest.raises(
+        MlflowException,
+        match="Expected a non-empty list/array for Array column. "
+        "If you want an empty value, mark the column `required=False` and put `None` instead.",
+    ):
+        _enforce_array(data, schema)
 
 
 def test_enforce_array_with_errors():
