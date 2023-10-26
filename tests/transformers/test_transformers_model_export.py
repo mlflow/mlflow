@@ -4012,4 +4012,8 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
 
     text = "Apples are delicious"
 
+<<<<<<< HEAD
     assert loaded(text) == pipeline(text)
+=======
+    assert loaded(text) == pipeline(text)
+>>>>>>> 87f1abb56 (Disallow heterogeneous memory configuration when saving transformers model (#10087))
