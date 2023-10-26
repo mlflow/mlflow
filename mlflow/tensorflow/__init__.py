@@ -407,7 +407,7 @@ def save_model(
         # To maintain prior behavior, when the format is HDF5, we save
         # with the h5 file extension. Otherwise, model_path is a directory
         # where the saved_model.pb will be stored (for SavedModel format)
-        is_keras_3 = Version(tensorflow.keras.__version__).major >= 3
+        is_keras_3 = Version(_get_keras_version()).major >= 3
         file_extension = ".h5" if save_format == "h5" else (".keras" if is_keras_3 else "")
         model_path = os.path.join(path, model_subpath) + file_extension
         if path.startswith("/dbfs/"):
