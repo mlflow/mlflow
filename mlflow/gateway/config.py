@@ -38,6 +38,7 @@ class Provider(str, Enum):
     AI21LABS = "ai21labs"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     MOSAICML = "mosaicml"
+    HUGGINGFACE_TEXT_GENERATION_INFERENCE = "huggingface-text-generation-inference"
     PALM = "palm"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
@@ -181,6 +182,10 @@ class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
 
 
+class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
+    hf_server_url: str
+
+
 config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
@@ -189,6 +194,7 @@ config_types = {
     Provider.MOSAICML: MosaicMLConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
+    Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
 }
 
 
@@ -245,6 +251,7 @@ class Model(ConfigModel):
             AnthropicConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
+            HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
         ]
     ] = None
