@@ -4,6 +4,7 @@ import errno
 import fnmatch
 import gzip
 import json
+import logging
 import math
 import os
 import pathlib
@@ -50,6 +51,9 @@ from mlflow.utils.rest_utils import augmented_raise_for_status
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ArtifactProgressBar:
@@ -762,7 +766,11 @@ def parallelized_download_file_using_http_uri(
             chunk = futures[future]
             try:
                 future.result()
-            except Exception:
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to download chunk {chunk.index} for {http_uri}: {e!r}. "
+                    f"The download of this chunk will be retried in case of transient errors."
+                )
                 failed_downloads[chunk] = future.exception()
             else:
                 pbar.update()

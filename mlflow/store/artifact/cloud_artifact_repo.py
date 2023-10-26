@@ -213,19 +213,17 @@ class CloudArtifactRepository(ArtifactRepository):
             )
 
             if failed_downloads:
-                for chunk, exception in failed_downloads.items():
-                    num_retries = 3
+                num_retries = 3
+                for chunk in failed_downloads:
+                    _logger.warning(
+                        f"Retrying download (up to {num_retries} times) of chunk {chunk} "
+                        f"for {remote_file_path}"
+                    )
+                    new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
+                    new_signed_uri = new_cloud_creds.signed_uri
+                    new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
                     for retry in range(num_retries):
-                        _logger.warning(
-                            f"Retrying download of chunk {chunk.index} of {remote_file_path} "
-                            f"(retry attempt: {retry + 1} of {num_retries})"
-                        )
                         try:
-                            new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
-                            new_signed_uri = new_cloud_creds.signed_uri
-                            new_headers = self._extract_headers_from_credentials(
-                                new_cloud_creds.headers
-                            )
                             download_chunk(
                                 range_start=chunk.start,
                                 range_end=chunk.end,
@@ -233,11 +231,13 @@ class CloudArtifactRepository(ArtifactRepository):
                                 download_path=local_path,
                                 http_uri=new_signed_uri,
                             )
-                            return
-                        except Exception as e:
+                            _logger.warning(
+                                f"Successfully downloaded chunk {chunk} for {remote_file_path}"
+                            )
+                            break
+                        except Exception:
                             if retry == num_retries - 1:
                                 raise
-                            exception = e
                         time.sleep(1)
 
     def _download_file(self, remote_file_path, local_path):

@@ -55,7 +55,7 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
             expected_length = int(expected_length)
             if actual_length < expected_length:
                 raise IOError(
-                    "incomplete read ({} bytes read, {} more expected)".format(
+                    "Incomplete read ({} bytes read, {} more expected)".format(
                         actual_length, expected_length - actual_length
                     )
                 )
