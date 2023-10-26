@@ -1657,6 +1657,8 @@ def test_enforce_schema_in_python_model_serving(sample_params_basic):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
+    # x = json.loads(response.content.decode("utf-8"))["message"]
+    # assert x == ""
     assert response.status_code == 400
     assert (
         "Incompatible types for param 'double_param'"
@@ -2151,6 +2153,120 @@ def test_pyfunc_model_scoring_with_objects_and_arrays(data, format_key):
 
 
 @pytest.mark.parametrize(
+    "data",
+    [
+        {"query": "sentence"},
+        {"query": ["sentence_1", "sentence_2"]},
+        {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+        {"query": [{"name": "value"}, {"name": "value"}], "table": ["some_table"]},
+        [{"query": "sentence"}, {"query": "sentence"}],
+    ],
+)
+def test_pyfunc_model_scoring_with_objects_and_arrays_instances(data):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=infer_signature(data),
+        )
+
+    df = pd.DataFrame(data) if isinstance(data, list) else pd.DataFrame([data])
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"instances": data}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    expected_result = df.to_dict(orient="records")
+    np.testing.assert_equal(result, expected_result)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        [{"query": {"a": "b"}, "name": "A"}, {"query": {"a": "c"}, "name": "B"}],
+        [
+            {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+            {"query": ["sentence_1", "sentence_2"]},
+        ],
+        [
+            {"query": [{"name": "value"}, {"name": "value"}], "table": ["some_table"]},
+            {"query": [{"name": "value", "age": 10}, {"name": "value"}], "table": ["some_table"]},
+        ],
+    ],
+)
+def test_pyfunc_model_scoring_with_objects_and_arrays_instances_errors(data):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=infer_signature(data),
+        )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"instances": data}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 400, response.content
+    assert "Failed to enforce schema" in json.loads(response.content.decode("utf-8"))["message"]
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        (
+            [{"query": "question1"}, {"query": "question2"}],
+            Schema([ColSpec(DataType.string, "query")]),
+        ),
+        (
+            [{"query": ["sentence_1", "sentence_2"]}, {"query": ["sentence_1", "sentence_2"]}],
+            Schema([ColSpec(DataType.string, "query")]),
+        ),
+        (
+            [
+                {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+                {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
+            ],
+            Schema([ColSpec(DataType.string, "query"), ColSpec(DataType.string, "table")]),
+        ),
+    ],
+)
+def test_pyfunc_model_scoring_instances_backwards_compatibility(data, schema):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            signature=ModelSignature(schema),
+        )
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"instances": data}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert response.status_code == 200, response.content
+    result = json.loads(response.content.decode("utf-8"))["predictions"]
+    np.testing.assert_equal(result, data)
+
+
+@pytest.mark.parametrize(
     ("data", "schema"),
     [
         (
@@ -2224,37 +2340,3 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
     result = json.loads(response.content.decode("utf-8"))["predictions"]
     expected_result = df.to_dict(orient="records")
     np.testing.assert_equal(result, expected_result)
-
-
-def test_bad_data_format_with_pyfunc_model_serving():
-    data = [{"query": {"a": "b"}, "name": "A"}, {"query": {"a": "c"}, "name": "B"}]
-
-    class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input, params=None):
-            return model_input
-
-    signature = infer_signature(data)
-    obj = Object([Property("a", DataType.string)])
-    assert signature == ModelSignature(
-        Schema([ColSpec(obj, name="query"), ColSpec(DataType.string, name="name")])
-    )
-
-    with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model(
-            python_model=MyModel(),
-            artifact_path="test_model",
-            signature=signature,
-        )
-
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=json.dumps({"instances": data}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    assert response.status_code == 500, response.content
-    query_data = np.array([{"a": "b"}, {"a": "c"}])
-    assert (
-        f"Failed to enforce schema of '{query_data}' with type '{obj}'. "
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
