@@ -375,11 +375,6 @@ def test_schema_inference_on_list_of_dicts():
     )
 
 
-def test_mixed_string_and_numpy_array_with_errors():
-    with pytest.raises(MlflowException, match=r"Data is not one of the supported DataType"):
-        _infer_schema({"a": np.array([1, 2, 3]), "b": "c"})
-
-
 def test_dict_input_valid_checks_on_keys():
     match = "The dictionary keys are not all strings or "
     # User-defined keys
@@ -1600,6 +1595,8 @@ def test_schema_inference_on_dictionaries(data, data_type):
             [np.datetime64("2023-10-13 00:00:00"), np.datetime64("2023-10-14 00:00:00")],
             DataType.datetime,
         ),
+        ([["a", "b"], ["c"]], Array(DataType.string)),
+        ([np.array([np.int32(1), np.int32(2)]), np.array([np.int32(3)])], Array(DataType.integer)),
     ],
 )
 def test_schema_inference_on_lists(data, data_type):
@@ -1607,6 +1604,9 @@ def test_schema_inference_on_lists(data, data_type):
 
     test_data = [{"data": data}]
     assert _infer_schema(test_data) == Schema([ColSpec(Array(data_type), name="data")])
+
+    test_data = [{"data": [data]}]
+    assert _infer_schema(test_data) == Schema([ColSpec(Array(Array(data_type)), name="data")])
 
     test_data = [{"data": {"dict": data}}, {"data": {"dict": data, "string": "a"}}]
     inferred_schema = _infer_schema(test_data)
