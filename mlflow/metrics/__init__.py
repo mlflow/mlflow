@@ -272,8 +272,8 @@ def recall_at_k(k) -> EvaluationMetric:
     documents were retrieved, the score is 0. In all other cases, the recall at k is calculated as
     follows:
 
-        ``recall_at_k`` = (# of relevant retrieved doc IDs in top-``k`` ranked docs) / (# of ground
-        truth doc IDs)
+        ``recall_at_k`` = (# of unique relevant retrieved doc IDs in top-``k`` ranked docs) / (# of
+        ground truth doc IDs)
     """
     return make_metric(
         eval_fn=_recall_at_k_eval_fn(k),
