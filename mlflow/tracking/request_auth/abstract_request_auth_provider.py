@@ -4,7 +4,7 @@ from mlflow.utils.annotations import developer_stable
 
 
 @developer_stable
-class RequestAuthProvider:
+class RequestAuthProvider(ABC):
     """
     Abstract base class for specifying custom request auth to add to outgoing requests
 
@@ -14,8 +14,6 @@ class RequestAuthProvider:
 
     The resulting request auth will then be added and sent with the request.
     """
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def get_name(self):
