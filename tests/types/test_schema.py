@@ -1600,6 +1600,8 @@ def test_schema_inference_on_dictionaries(data, data_type):
             [np.datetime64("2023-10-13 00:00:00"), np.datetime64("2023-10-14 00:00:00")],
             DataType.datetime,
         ),
+        ([["a", "b"], ["c"]], Array(DataType.string)),
+        ([np.array([np.int32(1), np.int32(2)]), np.array([np.int32(3)])], Array(DataType.integer)),
     ],
 )
 def test_schema_inference_on_lists(data, data_type):
@@ -1607,6 +1609,9 @@ def test_schema_inference_on_lists(data, data_type):
 
     test_data = [{"data": data}]
     assert _infer_schema(test_data) == Schema([ColSpec(Array(data_type), name="data")])
+
+    test_data = [{"data": [data]}]
+    assert _infer_schema(test_data) == Schema([ColSpec(Array(Array(data_type)), name="data")])
 
     test_data = [{"data": {"dict": data}}, {"data": {"dict": data, "string": "a"}}]
     inferred_schema = _infer_schema(test_data)
