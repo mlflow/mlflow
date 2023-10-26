@@ -34,13 +34,13 @@ function getColumnTypeRepr(columnType: ColumnType, indentationLevel: number): st
   if (type === 'object') {
     const propertyReprs = Object.keys(columnType.properties).map((propertyName) => {
       const property = columnType.properties[propertyName];
-      const requiredRepr = property.required ? '' : '?';
+      const requiredRepr = property.required ? '' : ' (optional)';
       const propertyRepr = getColumnTypeRepr(property, indentationLevel + 1);
       const indentOffset = (indentationLevel + 1) * INDENTATION_SPACES;
 
-      return `${' '.repeat(indentOffset)}${propertyName + requiredRepr}: ${propertyRepr.slice(
-        indentOffset,
-      )}`;
+      return `${' '.repeat(indentOffset)}${propertyName}: ${
+        propertyRepr.slice(indentOffset) + requiredRepr
+      }`;
     });
 
     return `${indentation}{\n${propertyReprs.join(',\n')}\n${indentation}}`;
