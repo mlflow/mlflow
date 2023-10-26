@@ -28,16 +28,33 @@ from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
     EvaluationMetric,
     MetricValue,
+    accuracy_score,
     ari_grade_level,
     exact_match,
+    example_count,
+    f1_score,
     flesch_kincaid_grade_level,
+    fn_score,
+    fp_score,
+    mae,
+    mape,
+    max_error,
+    mean_on_target,
+    mse,
     precision_at_k,
+    precision_score,
+    r2_score,
+    recall_score,
+    rmse,
     rouge1,
     rouge2,
     rougeL,
     rougeLsum,
+    sum_on_target,
+    tn_score,
     token_count,
     toxicity,
+    tp_score,
 )
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
@@ -1197,7 +1214,12 @@ class DefaultEvaluator(ModelEvaluator):
 
                     # case where the param is defined as part of the evaluator_config
                     elif column in self.evaluator_config:
-                        eval_fn_args.append(self.evaluator_config.get(column))
+                        col_values = self.evaluator_config.get(column)
+                        if isinstance(col_values, (list, np.ndarray)):
+                            eval_fn_args.append(col_values[: len(eval_df)])
+                        else:
+                            eval_fn_args.append(col_values)
+
                     elif param.default == inspect.Parameter.empty:
                         params_not_found.append(param_name)
                     else:
@@ -1394,44 +1416,37 @@ class DefaultEvaluator(ModelEvaluator):
             model_predictions, output_column_name
         )
 
-    def _compute_builtin_metrics(self):
+    def _compute_builtin_classifier_metrics(self):
         """
-        Helper method for computing builtin metrics
+        Helper method for computing builtin classifier metrics
         """
         self._evaluate_sklearn_model_score_if_scorable()
-        if self.model_type == _ModelType.CLASSIFIER:
-            if self.is_binomial:
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values(
-                        _get_binary_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            pos_label=self.pos_label,
-                            sample_weights=self.sample_weights,
-                        )
-                    )
-                )
-                self._compute_roc_and_pr_curve()
-            else:
-                average = self.evaluator_config.get("average", "weighted")
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values(
-                        _get_multiclass_classifier_metrics(
-                            y_true=self.y,
-                            y_pred=self.y_pred,
-                            y_proba=self.y_probs,
-                            labels=self.label_list,
-                            average=average,
-                            sample_weights=self.sample_weights,
-                        )
-                    )
-                )
-        elif self.model_type == _ModelType.REGRESSOR:
+        if self.is_binomial:
             self.metrics_values.update(
                 _get_aggregate_metrics_values(
-                    _get_regressor_metrics(self.y, self.y_pred, self.sample_weights)
+                    _get_binary_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        pos_label=self.pos_label,
+                        sample_weights=self.sample_weights,
+                    )
+                )
+            )
+            self._compute_roc_and_pr_curve()
+        else:
+            average = self.evaluator_config.get("average", "weighted")
+            self.metrics_values.update(
+                _get_aggregate_metrics_values(
+                    _get_multiclass_classifier_metrics(
+                        y_true=self.y,
+                        y_pred=self.y_pred,
+                        y_proba=self.y_probs,
+                        labels=self.label_list,
+                        average=average,
+                        sample_weights=self.sample_weights,
+                    )
                 )
             )
 
@@ -1466,7 +1481,7 @@ class DefaultEvaluator(ModelEvaluator):
             stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
             raise MlflowException(stripped_message)
 
-    def _test_first_row(self, eval_df):
+    def _test_first_row(self, metrics_to_test, eval_df):
         # test calculations on first row of eval_df
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
@@ -1506,7 +1521,8 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate_metrics(self, eval_df):
         self._check_args(self.builtin_metrics + self.extra_metrics, eval_df)
-        self._test_first_row(eval_df)
+        metrics_to_test = self.builtin_metrics + self.extra_metrics
+        self._test_first_row(metrics_to_test, eval_df)
 
         # calculate metrics for the full eval_df
         self._evaluate_builtin_metrics(eval_df)
@@ -1658,8 +1674,44 @@ class DefaultEvaluator(ModelEvaluator):
                         self.extra_metrics.remove(extra_metric)
                         break
                 self._generate_model_predictions(compute_latency=compute_latency)
-                if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
-                    self._compute_builtin_metrics()
+                if self.model_type == _ModelType.REGRESSOR:
+                    self._evaluate_sklearn_model_score_if_scorable()
+                    self.builtin_metrics = [
+                        example_count(),
+                        sum_on_target(),
+                        mean_on_target(),
+                        mae(),
+                        mse(),
+                        rmse(),
+                        r2_score(),
+                        max_error(),
+                        mape(),
+                    ]
+                elif self.model_type == _ModelType.CLASSIFIER:
+                    self._evaluate_sklearn_model_score_if_scorable()
+                    if self.is_binomial:
+                        self.builtin_metrics = [
+                            example_count(),
+                            tn_score(),
+                            fp_score(),
+                            fn_score(),
+                            tp_score(),
+                            accuracy_score(),
+                            recall_score(),
+                            precision_score(),
+                            f1_score(),
+                        ]
+                        self._compute_roc_and_pr_curve()
+                    else:
+                        self.builtin_metrics = [
+                            example_count(),
+                            accuracy_score(),
+                            recall_score(),
+                            precision_score(),
+                            f1_score(),
+                        ]
+                        # TODO: something about roc
+                    self._compute_builtin_classifier_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
                     self.builtin_metrics = [*text_metrics, exact_match()]
                 elif self.model_type == _ModelType.TEXT_SUMMARIZATION:

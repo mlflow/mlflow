@@ -14,11 +14,16 @@ from mlflow.metrics.genai.metric_definitions import (
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
+    _exact_match_eval_fn,
+    _example_count_eval_fn,
     _f1_score_eval_fn,
     _flesch_kincaid_eval_fn,
+    _fn_eval_fn,
+    _fp_eval_fn,
     _mae_eval_fn,
     _mape_eval_fn,
     _max_error_eval_fn,
+    _mean_on_target_eval_fn,
     _mse_eval_fn,
     _precision_at_k_eval_fn,
     _precision_eval_fn,
@@ -29,14 +34,54 @@ from mlflow.metrics.metric_definitions import (
     _rouge2_eval_fn,
     _rougeL_eval_fn,
     _rougeLsum_eval_fn,
+    _sum_on_target_eval_fn,
+    _tn_eval_fn,
     _token_count_eval_fn,
     _toxicity_eval_fn,
+    _tp_eval_fn,
 )
 from mlflow.models import (
     EvaluationMetric,
     make_metric,
 )
 from mlflow.utils.annotations import experimental
+
+# General Regression Metrics
+
+# Refactor these to be factory functions that return EvaluationMetric objects
+
+
+def example_count() -> EvaluationMetric:
+    """
+    This function will create a metric for counting the number of examples.
+    """
+    return make_metric(
+        eval_fn=_example_count_eval_fn,
+        greater_is_better=True,
+        name="example_count",
+    )
+
+
+def sum_on_target() -> EvaluationMetric:
+    """
+    This function will create a metric for summing the values on the target column.
+    """
+    return make_metric(
+        eval_fn=_sum_on_target_eval_fn,
+        greater_is_better=True,
+        name="sum_on_target",
+    )
+
+
+def mean_on_target() -> EvaluationMetric:
+    """
+    This function will create a metric for averaging the values on the target column.
+    """
+    return make_metric(
+        eval_fn=_mean_on_target_eval_fn,
+        greater_is_better=True,
+        name="mean_on_target",
+    )
 
 
 @experimental
@@ -152,7 +197,7 @@ def exact_match() -> EvaluationMetric:
     .. _accuracy: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
     """
     return make_metric(
-        eval_fn=_accuracy_eval_fn, greater_is_better=True, name="exact_match", version="v1"
+        eval_fn=_exact_match_eval_fn, greater_is_better=True, name="exact_match", version="v1"
     )
 
 
@@ -408,6 +453,18 @@ def precision_score() -> EvaluationMetric:
     return make_metric(eval_fn=_precision_eval_fn, greater_is_better=True, name="precision_score")
 
 
+def accuracy_score() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating `accuracy`_ for classification.
+
+    This metric computes an aggregate score between 0 and 1 for the accuracy of a classification
+    task.
+
+    .. _accuracy: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+    """
+    return make_metric(eval_fn=_accuracy_eval_fn, greater_is_better=True, name="accuracy")
+
+
 def f1_score() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `f1_score`_ for binary classification.
@@ -418,6 +475,38 @@ def f1_score() -> EvaluationMetric:
     .. _f1_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
     """
     return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
+
+
+def tn_score() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating true negatives for binary classification.
+    """
+
+    return make_metric(eval_fn=_tn_eval_fn, greater_is_better=True, name="tn_score")
+
+
+def fp_score() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating false positives for binary classification.
+    """
+
+    return make_metric(eval_fn=_fp_eval_fn, greater_is_better=True, name="fp_score")
+
+
+def fn_score() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating false negatives for binary classification.
+    """
+
+    return make_metric(eval_fn=_fn_eval_fn, greater_is_better=True, name="fn_score")
+
+
+def tp_score() -> EvaluationMetric:
+    """
+    This function will create a metric for evaluating true positives for binary classification.
+    """
+
+    return make_metric(eval_fn=_tp_eval_fn, greater_is_better=True, name="tp_score")
 
 
 __all__ = [
@@ -440,13 +529,21 @@ __all__ = [
     "r2_score",
     "max_error",
     "mape",
-    "binary_recall",
-    "binary_precision",
-    "binary_f1_score",
+    "recall_score",
+    "precision_score",
+    "f1_score",
+    "accuracy_score",
     "answer_similarity",
     "faithfulness",
     "answer_correctness",
     "answer_relevance",
     "token_count",
     "latency",
+    "example_count",
+    "sum_on_target",
+    "mean_on_target",
+    "tn_score",
+    "fp_score",
+    "fn_score",
+    "tp_score",
 ]
