@@ -769,7 +769,7 @@ def parallelized_download_file_using_http_uri(
             except Exception as e:
                 _logger.warning(
                     f"Failed to download chunk {chunk.index} for {http_uri}: {e!r}. "
-                    f"The download of this chunk will be retried in case of transient errors."
+                    f"The download of this chunk will be retried later."
                 )
                 failed_downloads[chunk] = future.exception()
             else:
