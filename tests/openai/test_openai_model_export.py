@@ -459,6 +459,9 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
             "OPENAI_API_KEY_PATH": f"{scope}:openai_api_key_path",
             "OPENAI_API_BASE": f"{scope}:openai_api_base",
             "OPENAI_ORGANIZATION": f"{scope}:openai_organization",
+            "OPENAI_API_VERSION": f"{scope}:openai_api_version",
+            "OPENAI_DEPLOYMENT_NAME": f"{scope}:openai_deployment_name",
+            "OPENAI_ENGINE": f"{scope}:openai_engine",
         }
 
 
@@ -566,6 +569,7 @@ def test_embeddings(tmp_path):
 
 def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    monkeypatch.setenv("OPENAI_ENGINE", "test_engine")
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
         task=openai.Embedding,
