@@ -2,11 +2,13 @@ import base64
 import gc
 import importlib.util
 import json
+import time
 import logging
 import os
 import pathlib
 import textwrap
 from unittest import mock
+from functools import wraps
 
 import huggingface_hub
 import librosa
@@ -62,7 +64,6 @@ from tests.helper_functions import (
     _get_deps_from_requirement_file,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
-    flaky,
     pyfunc_serve_and_score_model,
 )
 
@@ -87,6 +88,31 @@ GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 # - Conversational pipeline tests
 
 _logger = logging.getLogger(__name__)
+
+
+def flaky(max_tries=3):
+    """
+    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
+    if it fails after max_tries attempts.
+    :param max_tries: Maximum number of times to retry the function.
+    :return: Decorated function.
+    """
+
+    def flaky_test_func(test_func):
+        @wraps(test_func)
+        def decorated_func(*args, **kwargs):
+            for i in range(max_tries):
+                try:
+                    return test_func(*args, **kwargs)
+                except Exception as e:
+                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    if i == max_tries - 1:
+                        raise
+                    time.sleep(3)
+
+        return decorated_func
+
+    return flaky_test_func
 
 
 @pytest.fixture(autouse=True)
@@ -3839,3 +3865,40 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
     text = "Apples are delicious"
 
     assert loaded(text) == pipeline(text)
+
+
+def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
+    def _calculate_expected_size(path_or_dir):
+        # this helper function does not consider subdirectories
+        expected_size = 0
+        if os.path.isdir(path_or_dir):
+            for path in os.listdir(path_or_dir):
+                path = os.path.join(path_or_dir, path)
+                if not os.path.isfile(path):
+                    continue
+                with open(path, "rb") as fp:
+                    expected_size += len(fp.read())
+        elif os.path.isfile(path_or_dir):
+            with open(path_or_dir, "rb") as fp:
+                expected_size = len(fp.read())
+        return expected_size
+
+    mlflow.transformers.save_model(
+        transformers_model=small_qa_pipeline,
+        path=tmp_path,
+    )
+
+    # expected size only counts for files saved before the MLmodel file is saved
+    model_dir = tmp_path.joinpath("model")
+    tokenizer_dir = tmp_path.joinpath("components").joinpath("tokenizer")
+    expected_size = 0
+    for folder in [model_dir, tokenizer_dir]:
+        folder = str(folder)
+        expected_size += _calculate_expected_size(folder)
+    other_files = ["model_card.md", "model_card_data.yaml"]
+    for file in other_files:
+        path = str(tmp_path.joinpath(file))
+        expected_size += _calculate_expected_size(path)
+
+    mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
+    assert mlmodel['model_size_bytes'] == expected_size

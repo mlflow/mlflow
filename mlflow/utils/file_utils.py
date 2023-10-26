@@ -990,5 +990,6 @@ def get_total_file_size(path: str) -> int:
     total_size = 0
     for cur_path, dirs, files in os.walk(path):
         full_paths = [os.path.join(cur_path, file) for file in files]
+        print("get_total_file_size:", full_paths, dirs)
         total_size += sum([os.path.getsize(file) for file in full_paths])
     return total_size

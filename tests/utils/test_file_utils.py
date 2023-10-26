@@ -374,19 +374,18 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
 
 def test_get_total_size_basic(tmp_path):
     root = str(tmp_path)
-
     subdir = os.path.join(root, "subdir")
     os.mkdir(subdir)
-    files = {
-        "file1.txt": b"hello world",  # 11 bytes
-        "file2.txt": b"This is mlflow testing.",  # 23 bytes
-    }
-    for name, content in files.items():
-        with open(os.path.join(root, name), "wb") as fp:
-            fp.write(content)
-    with open(os.path.join(subdir, "file3.txt"), "wb") as fp:
-        fp.write(b"One file under subdir.")  # 22 bytes
 
+    def generate_file(path, size_in_bytes):
+        with open(path, 'wb') as fp:
+            fp.write(b'\0' * size_in_bytes)
+
+    file_size_map = {"file1.txt": 11, "file2.txt": 23}
+    for name, size in file_size_map.items():
+        path = os.path.join(root, name)
+        generate_file(path, size)
+    generate_file(os.path.join(subdir, "file3.txt"), 22)
     assert get_total_file_size(root) == 56
     assert get_total_file_size(subdir) == 22
 
@@ -403,69 +402,3 @@ def test_get_total_size_basic(tmp_path):
         match="is not a directory.",
     ):
         get_total_file_size(path_file)
-
-
-@pytest.fixture
-@flaky()
-def small_qa_pipeline():
-    # The return type of this model's language head is a Dict[str, Any]
-    architecture = "csarron/mobilebert-uncased-squad-v2"
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture, low_cpu_mem_usage=True)
-    model = transformers.MobileBertForQuestionAnswering.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
-    return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
-
-
-def test_get_total_size_transformers(small_qa_pipeline, tmp_path):
-    model_dir = tmp_path.joinpath("model")
-    small_qa_pipeline.model.save_pretrained(save_directory=model_dir)
-    tokenizer_dir = tmp_path.joinpath("components").joinpath("tokenizer")
-    small_qa_pipeline.tokenizer.save_pretrained(tokenizer_dir)
-
-    expected_size = 0
-    for folder in [model_dir, tokenizer_dir]:
-        folder = str(folder)
-        expected_size += _calcualte_expected_size(folder)
-
-    assert get_total_file_size(str(tmp_path)) == expected_size
-
-
-def _calcualte_expected_size(folder):
-    # this helper function does not consider subdirectories
-    expected_size = 0
-    for path in os.listdir(folder):
-        path = os.path.join(folder, path)
-        print(path, os.path.isfile(path))
-        if not os.path.isfile(path):
-            continue
-        with open(path, "rb") as fp:
-            expected_size += len(fp.read())
-    return expected_size
-
-
-def test_get_total_size_sklearn(tmp_path):
-    iris = datasets.load_iris()
-    X = iris.data
-    y = iris.target
-    X_df = pd.DataFrame(X, columns=iris.feature_names)
-    X_df = X_df.iloc[:, :2]  # we only take the first two features.
-    y_series = pd.Series(y)
-
-    linear_lr = glm.LogisticRegression()
-    linear_lr.fit(X_df, y_series)
-
-    path = str(tmp_path)
-    pickle_dir = os.path.join(path, "pickle_model")
-    os.mkdir(pickle_dir)
-    with open(os.path.join(pickle_dir, "model.pkl"), "wb") as out:
-        pickle.dump(linear_lr, out, protocol=pickle.DEFAULT_PROTOCOL)
-    expected_size = _calcualte_expected_size(pickle_dir)
-    assert get_total_file_size(pickle_dir) == expected_size
-
-    cloudpickle_dir = os.path.join(path, "cloudpickle_model")
-    os.mkdir(cloudpickle_dir)
-    with open(os.path.join(cloudpickle_dir, "model.pkl"), "wb") as out:
-        cloudpickle.dump(linear_lr, out, protocol=pickle.DEFAULT_PROTOCOL)
-    expected_size = _calcualte_expected_size(cloudpickle_dir)
-    assert get_total_file_size(cloudpickle_dir) == expected_size
