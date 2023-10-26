@@ -1,6 +1,5 @@
 from unittest import mock
 
-import openai
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -100,7 +99,7 @@ def test_score_model_openai(set_envs):
                     "messages": [{"role": "user", "content": "my prompt"}],
                 }
             ],
-            openai.ChatCompletion,
+            mock.ANY,
             api_token=mock.ANY,
             max_requests_per_minute=3_500,
             max_tokens_per_minute=90_000,
@@ -142,7 +141,7 @@ def test_score_model_azure_openai(set_azure_envs):
                     "messages": [{"role": "user", "content": "my prompt"}],
                 }
             ],
-            openai.ChatCompletion,
+            mock.ANY,
             api_token=mock.ANY,
             max_requests_per_minute=3_500,
             max_tokens_per_minute=90_000,
