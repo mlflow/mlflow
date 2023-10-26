@@ -326,7 +326,7 @@ def test_enforce_property_with_errors():
     [
         # 1. 1D array
         (["some_sentence1", "some_sentence2"], Array(DataType.string)),
-        # 2. Numpy 1D ARRAY
+        # 2. Numpy 1D Array
         (np.array(["some_sentence1", "some_sentence2"]), Array(DataType.string)),
         # 3. Array of Object
         (
