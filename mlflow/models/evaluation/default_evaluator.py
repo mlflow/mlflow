@@ -41,12 +41,11 @@ from mlflow.metrics import (
     max_error,
     mean_on_target,
     mse,
-    perplexity,
+    precision_at_k,
     precision_score,
     r2_score,
     recall_score,
     rmse,
-    precision_at_k,
     rouge1,
     rouge2,
     rougeL,
@@ -1216,7 +1215,10 @@ class DefaultEvaluator(ModelEvaluator):
                     # case where the param is defined as part of the evaluator_config
                     elif column in self.evaluator_config:
                         col_values = self.evaluator_config.get(column)
-                        eval_fn_args.append(col_values[: len(eval_df)])
+                        if isinstance(col_values, (list, np.ndarray)):
+                            eval_fn_args.append(col_values[: len(eval_df)])
+                        else:
+                            eval_fn_args.append(col_values)
 
                     elif param.default == inspect.Parameter.empty:
                         params_not_found.append(param_name)
