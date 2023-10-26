@@ -6,8 +6,9 @@ from inspect import Parameter, Signature
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.base import EvaluationExample, MetricValue
+from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
+from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import (
@@ -38,7 +39,7 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
 
     return (
         ""
-        if args_dict is None
+        if args_dict is None or len(args_dict) == 0
         else (
             "Additional information used by the model:\n"
             + "\n".join(
@@ -130,7 +131,7 @@ def make_genai_metric(
     .. testcode:: python
         :caption: Example for creating a genai metric
 
-        from mlflow.metrics import EvaluationExample, make_genai_metric
+        from mlflow.metrics.genai import EvaluationExample, make_genai_metric
 
         example = EvaluationExample(
             input="What is MLflow?",
