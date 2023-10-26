@@ -2466,6 +2466,7 @@ def test_evaluate_text_summarization_with_targets():
 
 def test_evaluate_text_summarization_with_targets_no_type_hints():
     def another_language_model(x):
+        x.rename(columns={"text": "outputs"}, inplace=True)
         return x
 
     with mlflow.start_run() as run:
@@ -2723,24 +2724,42 @@ def test_extracting_output_and_other_columns():
             "other": "other_b",
         },
     ]
-    data_list = ["data_a", "data_b"]
+    data_list = (["data_a", "data_b"],)
+    data_dict_text = {
+        "text": ["text_a", "text_b"],
+    }
 
-    output1, other1 = _extract_output_and_other_columns(data_dict, "target")
-    output2, other2 = _extract_output_and_other_columns(data_df, "target")
-    output3, other3 = _extract_output_and_other_columns(data_list_dict, "target")
-    output4, other4 = _extract_output_and_other_columns(data_list, "output")
-    output5, other5 = _extract_output_and_other_columns(pd.Series(data_list), "output")
+    output1, other1, prediction_col1 = _extract_output_and_other_columns(data_dict, "target")
+    output2, other2, prediction_col2 = _extract_output_and_other_columns(data_df, "target")
+    output3, other3, prediction_col3 = _extract_output_and_other_columns(data_list_dict, "target")
+    output4, other4, prediction_col4 = _extract_output_and_other_columns(data_list, None)
+    output5, other5, prediction_col5 = _extract_output_and_other_columns(pd.Series(data_list), None)
+    output6, other6, prediction_col6 = _extract_output_and_other_columns(data_dict_text, None)
+    output7, other7, prediction_col7 = _extract_output_and_other_columns(
+        pd.DataFrame(data_dict_text), None
+    )
 
     assert output1.equals(data_df["target"])
     assert other1.equals(data_df.drop(columns=["target"]))
+    assert prediction_col1 == "target"
     assert output2.equals(data_df["target"])
     assert other2.equals(data_df.drop(columns=["target"]))
+    assert prediction_col2 == "target"
     assert output3.equals(data_df["target"])
     assert other3.equals(data_df.drop(columns=["target"]))
+    assert prediction_col3 == "target"
     assert output4 == data_list
     assert other4 is None
+    assert prediction_col4 is None
     assert output5.equals(pd.Series(data_list))
     assert other5 is None
+    assert prediction_col5 is None
+    assert output6.equals(pd.Series(data_dict_text["text"]))
+    assert other6 is None
+    assert prediction_col6 == "text"
+    assert output7.equals(pd.Series(data_dict_text["text"]))
+    assert other7 is None
+    assert prediction_col7 == "text"
 
 
 def language_model_with_context(inputs: List[str]) -> List[Dict[str, str]]:
@@ -2812,7 +2831,7 @@ def test_constructing_eval_df_for_custom_metrics():
         "text",
         "truth",
         "targets",
-        "outputs",
+        "output",
         "context",
         "token_count",
         "toxicity/v1/score",
@@ -3200,8 +3219,7 @@ def test_evaluate_custom_metrics_string_values():
 def validate_retriever_logged_data(logged_data):
     columns = {
         "question",
-        "outputs",  # TODO: fix the logged data to name the model output column "retrieved_context"
-        # Right now, it's hard-coded "outputs", which is not ideal
+        "retrieved_context",
         "precision_at_k/v1/score",
         "ground_truth",
     }
@@ -3209,7 +3227,7 @@ def validate_retriever_logged_data(logged_data):
     assert set(logged_data.columns.tolist()) == columns
 
     assert logged_data["question"].tolist() == ["q1?", "q1?", "q1?"]
-    assert logged_data["outputs"].tolist() == [["doc1", "doc3", "doc2"]] * 3
+    assert logged_data["retrieved_context"].tolist() == [["doc1", "doc3", "doc2"]] * 3
     assert (logged_data["precision_at_k/v1/score"] <= 1).all()
     assert logged_data["ground_truth"].tolist() == [["doc1", "doc2"]] * 3
 
@@ -3383,7 +3401,7 @@ def test_evaluate_precision_at_k_no_model_type():
     X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc2")] * 3})
 
     def fn(X):
-        return pd.DataFrame({"retrieved_context": [("doc1", "doc3", "doc2")] * len(X)})
+        return {"retrieved_context": [("doc1", "doc3", "doc2")] * len(X)}
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
