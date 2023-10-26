@@ -32,7 +32,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' && github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/untracked
