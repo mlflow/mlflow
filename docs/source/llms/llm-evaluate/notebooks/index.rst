@@ -1,6 +1,5 @@
-============================================
 LLM Evaluation Examples
-============================================
+=======================
 
 The notebooks listed below contain step-by-step tutorials on how to use MLflow to evaluate LLMs. 
 The first notebook is centered around evaluating an LLM for question-answering with a 

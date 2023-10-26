@@ -16,9 +16,17 @@ MLflow's LLM evaluation functionality consists of 3 main components:
 3. **Evaluation data**: the data your model is evaluated at, it can be a pandas Dataframe, a python list, a 
    numpy array or an :py:func:`mlflow.data.dataset.Dataset` instance.
 
+Full Notebook Guides and Examples
+---------------------------------
+If you're interested in thorough use-case oriented guides that showcase the simplicity and power of MLflow's evaluate 
+functionality for LLMs, please navigate to the notebook collection below:
+
+.. raw:: html
+
+    <a href="notebooks/index.html" class="download-btn">View the Notebook Guides</a><br>
 
 Quickstart
-==========
+----------
 
 Below is a simple example that gives an quick overview of how MLflow LLM evaluation works. The example builds
 a simple question-answering model by wrapping "openai/gpt-4" with custom prompt. You can paste it to
@@ -87,7 +95,7 @@ requires OpenAI API key, if you don't have an OpenAI key, you can set it up [her
 
 
 LLM Evaluation Metrics
-=======================
+----------------------
 
 There are two types of LLM evaluation metrics in MLflow:
 
@@ -110,7 +118,7 @@ There are two types of LLM evaluation metrics in MLflow:
 
 
 Select Metrics to Evaluate
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the 
 LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. 
@@ -184,7 +192,7 @@ for LLM evaluation in MLFlow. MLflow provides two ways for selecting metrics to 
 The full reference for supported evaluation metrics can be found `here <../python_api/mlflow.html#mlflow.evaluate>`_. 
 
 Metrics with LLM as the Judge
----------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 MLflow offers a few pre-canned metrics which uses LLM as the judge. Despite the difference under the hood, the usage
 is the same - put these metrics in the ``extra_metrics`` argument in ``mlflow.evaluate()``. Here is the list of pre-canned
@@ -200,8 +208,8 @@ metrics:
 * :py:func:`mlflow.metrics.genai.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
 
 
-Create your Custom LLM-evaluation Metrics
----------------------------------------------
+Creating Custom LLM-evaluation Metrics
+--------------------------------------
 
 Create LLM-as-judge Evaluation Metrics (Category 1)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -289,9 +297,6 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
         greater_is_better=True,
     )
 
-..
-    TODO(prithvi): add best practice for creating GenAI metrics.
-
 
 Create Per-row LLM Evluation Metrics (Category 2)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -328,7 +333,7 @@ the score is 1 otherwise 0.
 
 
 Prepare Your LLM for Evaluating
-=====================================
+-------------------------------
 
 In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one of the following type:
 
@@ -342,7 +347,7 @@ In order to evaluate your LLM with ``mlflow.evaluate()``, your LLM has to be one
 3. Set ``model=None``, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
 
 Evaluating with an MLflow Model
----------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For detailed instruction on how to convert your model into a ``mlflow.pyfunc.PyFuncModel`` instance, please read
 `this doc <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models>`_. But in short,
@@ -377,7 +382,7 @@ to evaluate your model as an MLflow model, we recomment following the steps belo
         )
 
 Evaluating with a Custom Function
-----------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
 logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
@@ -424,7 +429,7 @@ up OpenAI authentication to run the code below.
         )
 
 Evaluating with a Static Dataset
-----------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For MLflow >= 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a static dataset without specifying a model.
 This is useful when you save the model output to a column in a Pandas DataFrame or an MLflow PandasDataset, and
@@ -478,11 +483,11 @@ top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
         print(f"See evaluation table below: \n{eval_table}")
 
 
-View Evaluation Results
-========================
+Viewing Evaluation Results
+--------------------------
 
 View Evaluation Results via Code
------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instace. 
 To see the score on selected metrics, you can check:
@@ -519,8 +524,9 @@ To see the score on selected metrics, you can check:
         )
 
 
-View Evaluation Results via MLflow UI
---------------------------------------  
+
+View Evaluation Results via the MLflow UI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Your evaluation result is automatically logged into MLflow server, so you can view your evaluation results directly from the
 MLflow UI. To view the evaluation results on MLflow UI, please follow the steps below:
