@@ -193,6 +193,8 @@ metrics:
 * :py:func:`mlflow.metrics.genai.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
 * :py:func:`mlflow.metrics.genai.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
   and ground truth.
+* :py:func:`mlflow.metrics.genai.relevance`: Evaluate the appropriateness, significance and applicability of the output with 
+  respect to both the input and context. 
 * :py:func:`mlflow.metrics.genai.answer_relevance`: Evaluate the appropriateness and applicability of the output with 
   respect to the input. 
 * :py:func:`mlflow.metrics.genai.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
@@ -299,7 +301,7 @@ Basically you need to:
 
 1. Implement a ``eval_fn`` to define your scoring logic, it must take in 3 args ``predictions``, ``targets`` and ``metrics``.
    ``eval_fn`` must return a :py:func:`mlflow.metrics.MetricValue` instance.
-2. Pass ``eval_fn`` and other arguments to ``mlflow.metricsmake_metric`` API to create the metric. 
+2. Pass ``eval_fn`` and other arguments to ``mlflow.metrics.make_metric`` API to create the metric. 
 
 The following code creates a dummy per-row metric called ``"over_10_chars"``: if the model output is greater than 10, 
 the score is 1 otherwise 0.
