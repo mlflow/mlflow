@@ -7,6 +7,7 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
+import { Switch } from '@databricks/design-system';
 
 import {
   HashRouterV5,
@@ -61,7 +62,12 @@ const classNames = {
 // eslint-disable-next-line no-unused-vars
 const InteractionTracker = ({ children }: any) => children;
 
-class App extends Component {
+interface AppProps {
+  isDarkTheme: boolean;
+  setIsDarkTheme: (isDarkTheme: boolean) => void;
+}
+
+class App extends Component<AppProps> {
   render() {
     const marginRight = 24;
     return (
@@ -109,6 +115,10 @@ class App extends Component {
                   </NavLinkV5>
                 </div>
                 <div className='header-links'>
+                  <div style={{ display: 'flex', alignItems: 'center' }} css={{ marginRight }}>
+                    <Switch checked={this.props.isDarkTheme} onChange={this.props.setIsDarkTheme} />
+                    {this.props.isDarkTheme ? <span>Dark</span> : <span>Light</span>}
+                  </div>
                   <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
                     <div className='github'>
                       <span>GitHub</span>

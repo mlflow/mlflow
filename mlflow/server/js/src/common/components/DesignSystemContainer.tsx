@@ -14,6 +14,7 @@ const isInsideShadowDOM = (element: any) =>
   element instanceof window.Node && element.getRootNode() !== document;
 
 type DesignSystemContainerProps = {
+  isDarkTheme?: boolean;
   children: React.ReactNode;
 };
 
@@ -43,7 +44,7 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
   }, []);
 
   return (
-    <SupportsDuBoisThemes enabled={false}>
+    <SupportsDuBoisThemes enabled={props.isDarkTheme}>
       {/* @ts-expect-error TS(2322): Type '() => HTMLElement | undefined' is not assign... Remove this comment to see the full error message */}
       <DesignSystemProvider getPopupContainer={getPopupContainer} isCompact {...props}>
         <ConfigProvider prefixCls='ant'>

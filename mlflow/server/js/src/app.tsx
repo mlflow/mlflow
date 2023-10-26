@@ -15,6 +15,7 @@ import { MlflowRouter } from './MlflowRouter';
 
 export function MLFlowRoot() {
   const i18n = useI18nInit();
+  const [isDarkTheme, setIsDarkTheme] = React.useState(false);
 
   if (!i18n) {
     return (
@@ -29,9 +30,13 @@ export function MLFlowRoot() {
   return (
     <IntlProvider locale={locale} messages={messages}>
       <Provider store={store}>
-        <DesignSystemContainer>
+        <DesignSystemContainer isDarkTheme={isDarkTheme}>
           <ConfigProvider prefixCls='ant'>
-            {shouldUsePathRouting() ? <MlflowRouter /> : <App />}
+            {shouldUsePathRouting() ? (
+              <MlflowRouter />
+            ) : (
+              <App isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+            )}
           </ConfigProvider>
         </DesignSystemContainer>
       </Provider>
