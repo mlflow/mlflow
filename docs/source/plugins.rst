@@ -86,15 +86,17 @@ that will be added to the http request.
 
 .. code-block:: python
 
-  from mlflow.tracking.request_auth.abstract_request_auth_provider import RequestAuthProvider
+  from mlflow.tracking.request_auth.abstract_request_auth_provider import (
+      RequestAuthProvider,
+  )
+
 
   class DummyAuthProvider(RequestAuthProvider):
+      def get_name(self):
+          return "dummy_auth_provider_name"
 
-    def get_name(self):
-        return "dummy_auth_provider_name"
-
-    def get_auth(self):
-        return DummyAuth()
+      def get_auth(self):
+          return DummyAuth()
 
 Once you have the implemented request auth provider class, register it in the ``entry_points`` and install the plugin.
 
@@ -368,6 +370,44 @@ To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/
         mlflow.pyfunc.log_model("model_test", python_model=Mod())
 
 In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``oss://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
+and the conda.yaml file associated with the model.
+
+XetHub Plugin
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+The `xethub plugin <https://pypi.org/project/mlflow-xethub/>`_ allows MLflow to use XetHub storage as an artifact store.
+
+.. code-block:: bash
+
+        pip install mlflow[xethub]
+
+and then use MLflow as normal. The XetHub artifact store support will be provided automatically.
+
+The plugin implements all of the MLflow artifact store APIs.
+It expects XetHub access credentials through ``xet login`` CLI command or in the ``XET_USER_EMAIL``, ``XET_USER_NAME`` and ``XET_USER_TOKEN`` environment variables,
+so you must authenticate with XetHub for both your client application and your MLflow tracking server.
+To use XetHub as an artifact store, an XetHub URI of the form ``xet://<username>/<repo>/<branch>`` must be provided, as shown in the example below:
+
+.. code-block:: python
+
+        import mlflow
+        import mlflow.pyfunc
+
+
+        class Mod(mlflow.pyfunc.PythonModel):
+            def predict(self, ctx, inp, params=None):
+                return 7
+
+
+        exp_name = "myexp"
+        mlflow.create_experiment(
+            exp_name, artifact_location="xet://<your_username>/mlflow-test/main"
+        )
+        mlflow.set_experiment(exp_name)
+        mlflow.pyfunc.log_model("model_test", python_model=Mod())
+
+In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``xet://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
 and the conda.yaml file associated with the model.
 
 
