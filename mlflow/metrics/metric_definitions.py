@@ -357,7 +357,8 @@ def _precision_at_k_eval_fn(k):
             if len(retrieved) > 0:
                 scores.append(relevant_doc_count / len(retrieved))
             else:
-                scores.append(1)
+                # when no documents are retrieved, precision is 0
+                scores.append(0)
 
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
 
