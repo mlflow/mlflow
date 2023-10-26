@@ -266,7 +266,7 @@ logging-modules=logging
 
 [MISCELLANEOUS]
 
-# List of note tags to take in consideration, separated by a comma.
+# List of note tags to take into consideration, separated by a comma.
 notes=FIXME,
       XXX,
       TODO
