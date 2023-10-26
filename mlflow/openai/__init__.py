@@ -90,6 +90,8 @@ class _OpenAIApiConfig(NamedTuple):
     batch_size: int
     max_requests_per_minute: int
     max_tokens_per_minute: int
+    api_version: Optional[str]
+    api_base: str
 
 
 @experimental
@@ -185,23 +187,25 @@ def _get_api_config() -> _OpenAIApiConfig:
     import openai
 
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
+    api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
+    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, openai.api_base)
     if api_type in ("azure", "azure_ad", "azuread"):
-        return _OpenAIApiConfig(
-            api_type=api_type,
-            batch_size=16,
-            max_requests_per_minute=3_500,
-            max_tokens_per_minute=60_000,
-        )
+        batch_size = 16
+        max_tokens_per_minute = 60_000
     else:
         # The maximum batch size is 2048:
         # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
         # We use a smaller batch size to be safe.
-        return _OpenAIApiConfig(
-            api_type=api_type,
-            batch_size=1024,
-            max_requests_per_minute=3_500,
-            max_tokens_per_minute=90_000,
-        )
+        batch_size = 1024
+        max_tokens_per_minute = 90_000
+    return _OpenAIApiConfig(
+        api_type=api_type,
+        batch_size=batch_size,
+        max_requests_per_minute=3_500,
+        max_tokens_per_minute=max_tokens_per_minute,
+        api_base=api_base,
+        api_version=api_version,
+    )
 
 
 def _get_openai_package_version():
@@ -221,6 +225,7 @@ class _OpenAIEnvVar(str, Enum):
     OPENAI_API_BASE = "OPENAI_API_BASE"
     OPENAI_API_KEY = "OPENAI_API_KEY"
     OPENAI_API_KEY_PATH = "OPENAI_API_KEY_PATH"
+    OPENAI_API_VERSION = "OPENAI_API_VERSION"
     OPENAI_ORGANIZATION = "OPENAI_ORGANIZATION"
 
     @property
@@ -662,6 +667,9 @@ class _OpenAIWrapper:
         self.task = task
         self.api_config = _get_api_config()
         self.api_token = _OAITokenHolder(self.api_config.api_type)
+        self.kwargs = {
+            x: getattr(self.api_config, x) for x in ["api_base", "api_version", "api_type"]
+        }
 
         if self.task != "embeddings":
             self._setup_completions()
@@ -694,7 +702,10 @@ class _OpenAIWrapper:
 
         _validate_model_params(self.task, self.model, params)
         messages_list = self.format_completions(self.get_params_list(data))
-        requests = [{**self.model, **params, "messages": messages} for messages in messages_list]
+        requests = [
+            {**self.model, **params, "messages": messages, **self.kwargs}
+            for messages in messages_list
+        ]
         results = process_api_requests(
             requests,
             openai.ChatCompletion,
@@ -719,6 +730,7 @@ class _OpenAIWrapper:
                 **self.model,
                 **params,
                 "prompt": prompts_list[i : i + batch_size],
+                **self.kwargs,
             }
             for i in range(0, len(prompts_list), batch_size)
         ]
@@ -747,6 +759,7 @@ class _OpenAIWrapper:
                 **self.model,
                 **params,
                 "input": texts[i : i + batch_size],
+                **self.kwargs,
             }
             for i in range(0, len(texts), batch_size)
         ]
