@@ -89,13 +89,14 @@ def _check_databricks_auth():
     try:
         w = WorkspaceClient()
         # If credentials are invalid, `clusters.list()` will throw an error.
-        w.current_user.me()
+        w.clusters.list()
         _logger.info(
             "Succesfully signed in Databricks! Please run `mlflow.set_tracking_uri('databricks')` "
             "to connect MLflow to Databricks tracking server."
         )
         return True
-    except Exception:
+    except Exception as e:
+        _logger.error(f"Failed to sign in Databricks: {e}")
         return False
 
 
