@@ -3,19 +3,14 @@ import filecmp
 import hashlib
 import json
 import os
-import pickle
 import shutil
 import stat
 import tarfile
 
-import cloudpickle
 import jinja2.exceptions
 import pandas as pd
 import pytest
-import sklearn.linear_model as glm
-import transformers
 from pyspark.sql import SparkSession
-from sklearn import datasets
 
 import mlflow
 from mlflow.exceptions import MissingConfigException, MlflowException
@@ -33,7 +28,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.os import is_windows
 
-from tests.helper_functions import flaky, random_file, random_int, safe_edit_yaml
+from tests.helper_functions import random_file, random_int, safe_edit_yaml
 from tests.projects.utils import TEST_PROJECT_DIR
 
 
@@ -378,8 +373,8 @@ def test_get_total_size_basic(tmp_path):
     os.mkdir(subdir)
 
     def generate_file(path, size_in_bytes):
-        with open(path, 'wb') as fp:
-            fp.write(b'\0' * size_in_bytes)
+        with open(path, "wb") as fp:
+            fp.write(b"\0" * size_in_bytes)
 
     file_size_map = {"file1.txt": 11, "file2.txt": 23}
     for name, size in file_size_map.items():

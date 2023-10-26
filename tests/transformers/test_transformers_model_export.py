@@ -2,13 +2,13 @@ import base64
 import gc
 import importlib.util
 import json
-import time
 import logging
 import os
 import pathlib
 import textwrap
-from unittest import mock
+import time
 from functools import wraps
+from unittest import mock
 
 import huggingface_hub
 import librosa
@@ -3901,4 +3901,4 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
         expected_size += _calculate_expected_size(path)
 
     mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
-    assert mlmodel['model_size_bytes'] == expected_size
+    assert mlmodel["model_size_bytes"] == expected_size

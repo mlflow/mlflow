@@ -836,4 +836,4 @@ def test_model_size_bytes(sklearn_logreg_model, tmp_path):
         expected_size = len(fp.read())
 
     mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
-    assert mlmodel['model_size_bytes'] == expected_size
+    assert mlmodel["model_size_bytes"] == expected_size

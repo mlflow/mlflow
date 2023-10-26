@@ -20,6 +20,7 @@ CatBoost (native) format
 """
 
 import contextlib
+import logging
 import os
 from typing import Any, Dict, Optional
 
@@ -45,7 +46,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -59,6 +60,8 @@ _MODEL_TYPE_KEY = "model_type"
 _SAVE_FORMAT_KEY = "save_format"
 _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.cb"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements():
@@ -157,6 +160,10 @@ def save_model(
     mlflow_model.add_flavor(
         FLAVOR_NAME, catboost_version=cb.__version__, code=code_dir_subpath, **flavor_conf
     )
+    try:
+        mlflow_model.model_size_bytes = get_total_file_size(str(path))
+    except Exception as e:
+        _logger.info(f"Fail to get the total size of {path!s} because of error :{e}")
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

@@ -7,6 +7,7 @@ H20 (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+import logging
 import os
 import warnings
 from typing import Any, Dict, Optional
@@ -33,6 +34,7 @@ from mlflow.utils.environment import (
     _validate_env_arguments,
 )
 from mlflow.utils.file_utils import (
+    get_total_file_size,
     write_to,
 )
 from mlflow.utils.model_utils import (
@@ -44,6 +46,8 @@ from mlflow.utils.model_utils import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "h2o"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements():
@@ -153,6 +157,10 @@ def save_model(
     mlflow_model.add_flavor(
         FLAVOR_NAME, h2o_version=h2o.__version__, data=model_data_subpath, code=code_dir_subpath
     )
+    try:
+        mlflow_model.model_size_bytes = get_total_file_size(path)
+    except Exception as e:
+        _logger.info(f"Fail to get the total size of {path} because of error :{e}")
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
