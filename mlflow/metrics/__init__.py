@@ -258,7 +258,6 @@ def precision_at_k(k) -> EvaluationMetric:
         eval_fn=_precision_at_k_eval_fn(k),
         greater_is_better=True,
         name=f"precision_at_{k}",
-        version="v1",
     )
 
 
@@ -280,7 +279,6 @@ def recall_at_k(k) -> EvaluationMetric:
         eval_fn=_recall_at_k_eval_fn(k),
         greater_is_better=True,
         name=f"recall_at_{k}",
-        version="v1",
     )
 
 
