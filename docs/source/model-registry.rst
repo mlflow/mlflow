@@ -311,7 +311,7 @@ Promoting an MLflow Model across environments
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Over the course of a model’s lifecycle, it might progress through various separate environments like
-development, testing, staging, production, and so on. This segregation facilites continuous integration
+development, testing, staging, production, and so on. This segregation facilitates continuous integration
 and deployment for the model. In MLflow, you can use registered models to set up environments for your 
 MLflow Models, where each registered model corresponds to a specific environment. Furthermore, you can
 configure access controls for the registered models using :ref:`MLflow Authentication <auth>`. Then,
