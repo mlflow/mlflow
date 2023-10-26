@@ -137,6 +137,31 @@ def test_signature_inference_infers_input_and_output_as_expected():
     assert sig1.outputs == sig0.inputs
 
 
+def test_infer_signature_on_nested_array():
+    signature = infer_signature(
+        model_input=[{"queries": [["a", "b", "c"], ["d", "e"]]}],
+        model_output=[{"answers": [["f", "g"], ["h"]]}],
+    )
+    assert signature.inputs == Schema([ColSpec(Array(Array(DataType.string)), name="queries")])
+    assert signature.outputs == Schema([ColSpec(Array(Array(DataType.string)), name="answers")])
+
+    signature = infer_signature(
+        model_input=[
+            {
+                "inputs": [
+                    np.array([["a", "b"], ["c", "d"]]),
+                    np.array([["e", "f"], ["g", "h"]]),
+                ]
+            }
+        ],
+        model_output=[{"outputs": [np.int32(5), np.int32(6)]}],
+    )
+    assert signature.inputs == Schema(
+        [ColSpec(Array(Array(Array(DataType.string))), name="inputs")]
+    )
+    assert signature.outputs == Schema([ColSpec(Array(DataType.integer), name="outputs")])
+
+
 def test_infer_signature_on_list_of_dictionaries():
     signature = infer_signature(
         model_input=[{"query": "test query"}],

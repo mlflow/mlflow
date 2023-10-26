@@ -115,7 +115,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
         for k, v in data.items():
             properties.append(Property(name=k, dtype=_infer_colspec_type(v)))
         return Object(properties=properties)
-    if isinstance(data, list):
+    if isinstance(data, (list, np.ndarray)):
         # We accept None in list to provide backward compatibility
         data = [x for x in data if not _is_none_or_nan(x)]
         if len(data) == 0:
