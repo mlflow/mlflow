@@ -48,7 +48,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.openai.utils import _OAITokenHolder, _validate_model_params
+from mlflow.openai.utils import _OAITokenHolder, _validate_model_params, _validate_params_and_envs
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -682,15 +682,15 @@ class _OpenAIWrapper:
         self.api_token = _OAITokenHolder(self.api_config.api_type)
         # If the same parameter exists in self.model & self.api_config,
         # we use the parameter from self.model
-        self.kwargs = {
+        self.envs = {
             x: getattr(self.api_config, x)
             for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
             if getattr(self.api_config, x) is not None and x not in self.model
         }
-        api_type = self.model.get("api_type") or self.kwargs.get("api_type")
+        api_type = self.model.get("api_type") or self.envs.get("api_type")
         if api_type in ("azure", "azure_ad", "azuread"):
-            deployment_id = self.model.get("deployment_id") or self.kwargs.get("deployment_id")
-            if self.model.get("engine") or self.kwargs.get("engine"):
+            deployment_id = self.model.get("deployment_id") or self.envs.get("deployment_id")
+            if self.model.get("engine") or self.envs.get("engine"):
                 # Avoid using both parameters as they serve the same purpose
                 # Invalid inputs:
                 #   - Wrong engine + correct/wrong deployment_id
@@ -738,10 +738,10 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
+        envs = _validate_params_and_envs(params, self.envs)
         messages_list = self.format_completions(self.get_params_list(data))
         requests = [
-            {**self.model, **params, "messages": messages, **self.kwargs}
-            for messages in messages_list
+            {**self.model, **params, "messages": messages, **envs} for messages in messages_list
         ]
         results = process_api_requests(
             requests,
@@ -758,6 +758,7 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
+        envs = _validate_params_and_envs(params, self.envs)
         prompts_list = self.format_completions(self.get_params_list(data))
 
         batch_size = params.pop("batch_size", self.api_config.batch_size)
@@ -767,7 +768,7 @@ class _OpenAIWrapper:
                 **self.model,
                 **params,
                 "prompt": prompts_list[i : i + batch_size],
-                **self.kwargs,
+                **envs,
             }
             for i in range(0, len(prompts_list), batch_size)
         ]
@@ -786,6 +787,7 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
+        envs = _validate_params_and_envs(params, self.envs)
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
@@ -796,7 +798,7 @@ class _OpenAIWrapper:
                 **self.model,
                 **params,
                 "input": texts[i : i + batch_size],
-                **self.kwargs,
+                **envs,
             }
             for i in range(0, len(texts), batch_size)
         ]
