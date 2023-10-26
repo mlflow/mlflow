@@ -84,13 +84,25 @@ To use it, implement the ``RequestAuthProvider`` class and override the ``get_na
 ``get_name`` should return the name of your auth provider, while ``get_auth`` should return the auth object
 that will be added to the http request.
 
+.. code-block:: python
+
+  from mlflow.tracking.request_auth.abstract_request_auth_provider import RequestAuthProvider
+
+  class DummyAuthProvider(RequestAuthProvider):
+
+    def get_name(self):
+        return "dummy_auth_provider_name"
+
+    def get_auth(self):
+        return DummyAuth()
+
 Once you have the implemented request auth provider class, register it in the ``entry_points`` and install the plugin.
 
 .. code-block:: python
 
   setup(
       entry_points={
-          "mlflow.request_auth_provider": "<dummy-backend>=<the_implemented_auth_request_provider>",
+          "mlflow.request_auth_provider": "dummy-backend=DummyAuthProvider",
       },
   )
 
@@ -99,7 +111,7 @@ The value of this environment variable should match the name of the auth provide
 
 .. code-block:: bash
 
-  export MLFLOW_TRACKING_AUTH=AUTH_PROVIDER_NAME
+  export MLFLOW_TRACKING_AUTH=dummy_auth_provider_name
 
 
 Writing Your Own MLflow Plugins
