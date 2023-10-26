@@ -1,13 +1,8 @@
-# Dev/Deployment
-# sphinx >= 4.0.0 is incompatible with our custom CSS styles and renders the documents improperly.
-# See https://github.com/mlflow/mlflow/pull/4480
-sphinx==3.5.4
-jinja2==3.0.3
-# to be compatible with jinja2==3.0.3
-flask<=2.2.5
-sphinx-autobuild
-sphinx-click
+-r doc-min-requirements.txt
 tensorflow-cpu<=2.12.0
 pyspark
 datasets
 keras-core
+torch>=1.11.0
+torchvision>=0.12.0
+lightning>=1.8.1

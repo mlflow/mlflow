@@ -1289,3 +1289,83 @@ def test_get_parent_run():
     assert parent_run.data.params == {"a": "1"}
 
     assert mlflow.get_parent_run(run_id) is None
+
+
+def test_log_metric_async():
+    run_operations = []
+
+    with mlflow.start_run() as parent:
+        for num in range(100):
+            run_operations.append(
+                mlflow.log_metric("async single metric", step=num, value=num, synchronous=False)
+            )
+        metrics = {f"async batch metric {num}": num for num in range(100)}
+        run_operations.append(mlflow.log_metrics(metrics=metrics, step=1, synchronous=False))
+
+    for run_operation in run_operations:
+        run_operation.wait()
+    parent_run = mlflow.get_run(parent.info.run_id)
+    assert parent_run.info.run_id == parent.info.run_id
+    assert parent_run.data.metrics["async single metric"] == 99
+    for num in range(100):
+        assert parent_run.data.metrics[f"async batch metric {num}"] == num
+
+
+def test_log_metric_async_throws():
+    with mlflow.start_run():
+        with pytest.raises(MlflowException, match="Please specify value as a valid double"):
+            mlflow.log_metric(
+                "async single metric", step=1, value="single metric value", synchronous=False
+            ).wait()
+
+        with pytest.raises(MlflowException, match="Please specify value as a valid double"):
+            mlflow.log_metrics(
+                metrics={f"async batch metric {num}": "batch metric value" for num in range(2)},
+                step=1,
+                synchronous=False,
+            ).wait()
+
+
+def test_log_param_async():
+    run_operations = []
+
+    with mlflow.start_run() as parent:
+        run_operations.append(mlflow.log_param("async single param", value="1", synchronous=False))
+        params = {f"async batch param {num}": num for num in range(100)}
+        run_operations.append(mlflow.log_params(params=params, synchronous=False))
+
+    for run_operation in run_operations:
+        run_operation.wait()
+    parent_run = mlflow.get_run(parent.info.run_id)
+    assert parent_run.info.run_id == parent.info.run_id
+    assert parent_run.data.params["async single param"] == "1"
+    for num in range(100):
+        assert parent_run.data.params[f"async batch param {num}"] == str(num)
+
+
+def test_log_param_async_throws():
+    with mlflow.start_run():
+        mlflow.log_param("async single param", value="1", synchronous=False)
+        with pytest.raises(MlflowException, match="Changing param values is not allowed"):
+            mlflow.log_param("async single param", value="2", synchronous=False).wait()
+
+        mlflow.log_params({"async batch param": "2"}, synchronous=False)
+        with pytest.raises(MlflowException, match="Changing param values is not allowed"):
+            mlflow.log_params({"async batch param": "3"}, synchronous=False).wait()
+
+
+def test_set_tag_async():
+    run_operations = []
+
+    with mlflow.start_run() as parent:
+        run_operations.append(mlflow.set_tag("async single tag", value="1", synchronous=False))
+        tags = {f"async batch tag {num}": num for num in range(100)}
+        run_operations.append(mlflow.set_tags(tags=tags, synchronous=False))
+
+    for run_operation in run_operations:
+        run_operation.wait()
+    parent_run = mlflow.get_run(parent.info.run_id)
+    assert parent_run.info.run_id == parent.info.run_id
+    assert parent_run.data.tags["async single tag"] == "1"
+    for num in range(100):
+        assert parent_run.data.tags[f"async batch tag {num}"] == str(num)

@@ -6,9 +6,10 @@ from mlflow.metrics.genai.genai_metric import (
     make_genai_metric,
 )
 from mlflow.metrics.genai.metric_definitions import (
+    answer_correctness,
+    answer_relevance,
     answer_similarity,
-    relevance,
-    strict_correctness,
+    faithfulness,
 )
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
@@ -19,7 +20,7 @@ from mlflow.metrics.metric_definitions import (
     _mape_eval_fn,
     _max_error_eval_fn,
     _mse_eval_fn,
-    _perplexity_eval_fn,
+    _precision_at_k_eval_fn,
     _precision_eval_fn,
     _r2_score_eval_fn,
     _recall_eval_fn,
@@ -88,29 +89,6 @@ def toxicity() -> EvaluationMetric:
         greater_is_better=False,
         name="toxicity",
         long_name="toxicity/roberta-hate-speech-dynabench-r4",
-        version="v1",
-    )
-
-
-@experimental
-def perplexity() -> EvaluationMetric:
-    """
-    This function will create a metric for evaluating `perplexity`_ using the model gpt2.
-
-    The score ranges from 0 to infinity, where a lower score means that the model is better at
-    predicting the given text and a higher score means that the model is not likely to predict the
-    text.
-
-    Aggregations calculated for this metric:
-        - mean
-
-    .. _perplexity: https://huggingface.co/spaces/evaluate-metric/perplexity
-    """
-    return make_metric(
-        eval_fn=_perplexity_eval_fn,
-        greater_is_better=False,
-        name="perplexity",
-        long_name="perplexity/gpt2",
         version="v1",
     )
 
@@ -263,6 +241,53 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
+@experimental
+def precision_at_k(k) -> EvaluationMetric:
+    """
+    This function will create a metric for calculating ``precision_at_k`` for retriever models.
+
+    It is recommended to use a static dataset (Pandas Dataframe or MLflow Pandas Dataset)
+    containing columns for: input queries, retrieved relevant doc IDs, and ground-truth doc IDs. A
+    "doc ID" is a string that uniquely identifies a document. All doc IDs should be entered as a
+    tuple of doc ID strings.
+
+    The ``targets`` parameter should specify the column name of the ground-truth relevant doc IDs.
+
+    If you choose to use a static dataset, the ``predictions`` parameter should specify the column
+    name of the retrieved relevant doc IDs. Alternatively, if you choose to specify a function for
+    the ``model`` parameter, the function should take a Pandas DataFrame as input and return a
+    Pandas DataFrame with a column of retrieved relevant doc IDs, specified by the ``predictions``
+    parameter.
+
+    ``k`` should be a positive integer specifying the number of retrieved doc IDs to consider for
+    each input query. ``k`` defaults to 3.
+
+    This metric computes a score between 0 and 1 for each row representing the precision of the
+    retriever model at the given ``k`` value. If no relevant documents are retrieved, the score is
+    0, indicating that no relevant docs were retrieved. Let ``x = min(k, # of retrieved doc IDs)``.
+    Then, the precision at k is calculated as follows:
+
+        ``precision_at_k`` = (# of relevant retrieved doc IDs in top-``x`` ranked docs) / ``x``.
+
+    This metric is a builtin metric for the ``'retriever'`` model type, meaning it will be
+    automatically calculated with a default ``k`` value of 3. To use another ``k`` value, you have
+    two options with the :py:func:`mlflow.evaluate` API:
+
+    1. ``evaluator_config={"k": 5}``
+    2. ``extra_metrics = [mlflow.metrics.precision_at_k(k=5)]``
+
+        Note that the ``k`` value in the ``evaluator_config`` will be ignored in this case. It is
+        recommended to remove the ``model_type`` as well, or else precision@3 and precision@5 will
+        both be calculated.
+    """
+    return make_metric(
+        eval_fn=_precision_at_k_eval_fn(k),
+        greater_is_better=True,
+        name="precision_at_k",
+        version="v1",
+    )
+
+
 # General Regression Metrics
 def mae() -> EvaluationMetric:
     """
@@ -400,7 +425,6 @@ __all__ = [
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
-    "perplexity",
     "flesch_kincaid_grade_level",
     "ari_grade_level",
     "accuracy",
@@ -420,8 +444,9 @@ __all__ = [
     "binary_precision",
     "binary_f1_score",
     "answer_similarity",
-    "relevance",
-    "strict_correctness",
+    "faithfulness",
+    "answer_correctness",
+    "answer_relevance",
     "token_count",
     "latency",
 ]

@@ -2,8 +2,10 @@ import logging
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
 
+from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
@@ -320,6 +322,39 @@ class AbstractStore:
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass
+
+    def copy_model_version(self, src_mv, dst_name):
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                       the source model version.
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        raise MlflowException(
+            "Method 'copy_model_version' has not yet been implemented for the current model "
+            "registry backend. To request support for implementing this method with this backend, "
+            "please submit an issue on GitHub."
+        )
+
+    def _copy_model_version_impl(self, src_mv, dst_name):
+        try:
+            self.create_registered_model(dst_name)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                raise
+
+        return self.create_model_version(
+            name=dst_name,
+            source=f"models:/{src_mv.name}/{src_mv.version}",
+            run_id=src_mv.run_id,
+            tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
+            run_link=src_mv.run_link,
+            description=src_mv.description,
+        )
 
     def _await_model_version_creation(self, mv, await_creation_for):
         """
