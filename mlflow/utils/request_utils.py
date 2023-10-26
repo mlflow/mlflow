@@ -62,6 +62,7 @@ def _cached_get_request_session(
     max_retries,
     backoff_factor,
     retry_codes,
+    raise_on_status,
     # To create a new Session object for each process, we use the process id as the cache key.
     # This is to avoid sharing the same Session object across processes, which can lead to issues
     # such as https://stackoverflow.com/q/3724900.
@@ -73,25 +74,22 @@ def _cached_get_request_session(
     assert 0 <= max_retries < 10
     assert 0 <= backoff_factor < 120
 
-    # If max_retries is set to 0, do not configure retry for HTTPAdapter.
-    if max_retries == 0:
-        adapter = HTTPAdapter()
+    retry_kwargs = {
+        "total": max_retries,
+        "connect": max_retries,
+        "read": max_retries,
+        "redirect": max_retries,
+        "status": max_retries,
+        "status_forcelist": retry_codes,
+        "backoff_factor": backoff_factor,
+        "raise_on_status": raise_on_status,
+    }
+    if Version(urllib3.__version__) >= Version("1.26.0"):
+        retry_kwargs["allowed_methods"] = None
     else:
-        retry_kwargs = {
-            "total": max_retries,
-            "connect": max_retries,
-            "read": max_retries,
-            "redirect": max_retries,
-            "status": max_retries,
-            "status_forcelist": retry_codes,
-            "backoff_factor": backoff_factor,
-        }
-        if Version(urllib3.__version__) >= Version("1.26.0"):
-            retry_kwargs["allowed_methods"] = None
-        else:
-            retry_kwargs["method_whitelist"] = None
-        retry = Retry(**retry_kwargs)
-        adapter = HTTPAdapter(max_retries=retry)
+        retry_kwargs["method_whitelist"] = None
+    retry = Retry(**retry_kwargs)
+    adapter = HTTPAdapter(max_retries=retry)
 
     session = requests.Session()
     session.mount("https://", adapter)
@@ -99,7 +97,7 @@ def _cached_get_request_session(
     return session
 
 
-def _get_request_session(max_retries, backoff_factor, retry_codes):
+def _get_request_session(max_retries, backoff_factor, retry_codes, raise_on_status):
     """
     Returns a `Requests.Session` object for making an HTTP request.
 
@@ -108,18 +106,21 @@ def _get_request_session(max_retries, backoff_factor, retry_codes):
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :param raise_on_status: whether to raise an exception, or return a response, if status falls
+      in retry_codes range and retries have been exhausted.
     :return: requests.Session object.
     """
     return _cached_get_request_session(
         max_retries,
         backoff_factor,
         retry_codes,
+        raise_on_status,
         _pid=os.getpid(),
     )
 
 
 def _get_http_response_with_retries(
-    method, url, max_retries, backoff_factor, retry_codes, **kwargs
+    method, url, max_retries, backoff_factor, retry_codes, raise_on_status=True, **kwargs
 ):
     """
     Performs an HTTP request using Python's `requests` module with an automatic retry policy.
@@ -131,11 +132,13 @@ def _get_http_response_with_retries(
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :param raise_on_status: whether to raise an exception, or return a response, if status falls
+      in retry_codes range and retries have been exhausted.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return: requests.Response object.
     """
-    session = _get_request_session(max_retries, backoff_factor, retry_codes)
+    session = _get_request_session(max_retries, backoff_factor, retry_codes, raise_on_status)
     return session.request(method, url, **kwargs)
 
 

@@ -33,6 +33,7 @@ def http_request(
     extra_headers=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
+    raise_on_status=True,
     **kwargs,
 ):
     """
@@ -53,6 +54,8 @@ def http_request(
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request.
+    :param raise_on_status: whether to raise an exception, or return a response, if status falls
+      in retry_codes range and retries have been exhausted.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return: requests.Response object.
@@ -95,6 +98,7 @@ def http_request(
             max_retries,
             backoff_factor,
             retry_codes,
+            raise_on_status,
             headers=headers,
             verify=host_creds.verify,
             timeout=timeout,
@@ -108,21 +112,6 @@ def http_request(
         ) from to
     except requests.exceptions.InvalidURL as iu:
         raise InvalidUrlException(f"Invalid url: {url}") from iu
-    except requests.exceptions.RetryError:
-        # When RetryError happens, make one more request to the server (without retries) and
-        # return the server's response to the caller. Displaying a more detailed error message
-        # is helpful for users to debug issues.
-        return _get_http_response_with_retries(
-            method,
-            url,
-            0,
-            backoff_factor,
-            retry_codes,
-            headers=headers,
-            verify=host_creds.verify,
-            timeout=timeout,
-            **kwargs,
-        )
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
 

@@ -640,8 +640,8 @@ def test_invalid_response_structure_raises(gateway):
     async def mock_chat(self, payload):
         return expected_output
 
-    def _mock_request_session(max_retries, backoff_factor, retry_codes):
-        return _cached_get_request_session(1, 1, retry_codes, os.getpid())
+    def _mock_request_session(max_retries, backoff_factor, retry_codes, raise_on_status):
+        return _cached_get_request_session(1, 1, retry_codes, True, os.getpid())
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
@@ -651,7 +651,7 @@ def test_invalid_response_structure_raises(gateway):
         query(route=route.name, data=data)
 
 
-def test_invalid_response_structure_without_retries(gateway):
+def test_invalid_response_structure_no_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("chat-openai")
     expected_output = {
@@ -670,8 +670,8 @@ def test_invalid_response_structure_without_retries(gateway):
     async def mock_chat(self, payload):
         return expected_output
 
-    def _mock_request_session(max_retries, backoff_factor, retry_codes):
-        return _cached_get_request_session(0, 1, retry_codes, os.getpid())
+    def _mock_request_session(max_retries, backoff_factor, retry_codes, raise_on_status):
+        return _cached_get_request_session(0, 1, retry_codes, False, os.getpid())
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
@@ -708,8 +708,8 @@ def test_invalid_query_request_raises(gateway):
     async def mock_chat(self, payload):
         return expected_output
 
-    def _mock_request_session(max_retries, backoff_factor, retry_codes):
-        return _cached_get_request_session(2, 1, retry_codes, os.getpid())
+    def _mock_request_session(max_retries, backoff_factor, retry_codes, raise_on_status):
+        return _cached_get_request_session(2, 1, retry_codes, True, os.getpid())
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
