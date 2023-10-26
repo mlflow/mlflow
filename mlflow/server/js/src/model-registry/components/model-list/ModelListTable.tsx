@@ -29,7 +29,7 @@ import type {
   ModelVersionInfoEntity,
 } from '../../../experiment-tracking/types';
 import { Stages } from '../../constants';
-import { getModelPageRoute } from '../../routes';
+import { ModelRegistryRoutes } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
 import { ModelsTableAliasedVersionsCell } from '../aliases/ModelsTableAliasedVersionsCell';
 import { useNextModelsUIContext } from '../../hooks/useNextModelsUI';
@@ -89,7 +89,7 @@ export const ModelListTable = ({
         }),
         accessorKey: 'name',
         cell: ({ getValue }) => (
-          <Link to={getModelPageRoute(getValue())}>
+          <Link to={ModelRegistryRoutes.getModelPageRoute(String(getValue()))}>
             <Tooltip title={getValue()}>{getValue()}</Tooltip>
           </Link>
         ),

@@ -27,7 +27,6 @@ export const ExperimentViewHeader = React.memo(
 
     const feedbackFormUrl = useExperimentPageFeedbackUrl();
 
-    /* eslint-disable prettier/prettier */
     return (
       <PageHeader
         title={
@@ -51,7 +50,6 @@ export const ExperimentViewHeader = React.memo(
           <ExperimentViewHeaderShareButton />
       </PageHeader>
     );
-    /* eslint-enable prettier/prettier */
   },
 );
 

@@ -102,7 +102,7 @@ describe('GenericInputModal', () => {
       try {
         await onValidationPromise;
         // Reported during ESLint upgrade
-        // eslint-disable-next-line no-undef
+        // eslint-disable-next-line no-undef, jest/no-jasmine-globals -- TODO: Fix this (use throw new Error())
         fail('Must throw');
       } catch (e) {
         // For validation errors, the form should not be reset (so that the user can fix the

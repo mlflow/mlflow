@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
-import type { CompareChartRunData } from '../charts/CompareRunsCharts.common';
+import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 import type { RunsCompareContourCardConfig } from '../runs-compare.types';
 import { RunsCompareChartCardWrapper } from './ChartCard.common';
-import { CompareRunsContourPlot } from '../charts/CompareRunsContourPlot';
-import { useCompareRunsTooltip } from '../hooks/useCompareRunsTooltip';
+import { RunsContourPlot } from '../../runs-charts/components/RunsContourPlot';
+import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsTooltip';
 
 export interface RunsCompareContourChartCardProps {
   config: RunsCompareContourCardConfig;
-  chartRunData: CompareChartRunData[];
+  chartRunData: RunsChartsRunData[];
 
   onDelete: () => void;
   onEdit: () => void;
@@ -24,7 +24,7 @@ export const RunsCompareContourChartCard = ({
     [chartRunData, config],
   );
 
-  const { setTooltip, resetTooltip, selectedRunUuid } = useCompareRunsTooltip(config);
+  const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
   return (
     <RunsCompareChartCardWrapper
@@ -35,7 +35,7 @@ export const RunsCompareContourChartCard = ({
       subtitle={<>Comparing first {slicedRuns.length} runs</>}
     >
       <div css={styles.contourChartCardWrapper}>
-        <CompareRunsContourPlot
+        <RunsContourPlot
           runsData={slicedRuns}
           xAxis={config.xaxis}
           yAxis={config.yaxis}

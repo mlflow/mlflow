@@ -33,7 +33,7 @@ export const ExperimentPage = () => {
       description: 'Title on a page used to manage MLflow experiments runs',
     });
     Utils.updatePageTitle(pageTitle);
-  });
+  }, [formatMessage]);
 
   return (
     <GetExperimentsContextProvider actions={getExperimentActions}>

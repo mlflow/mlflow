@@ -12,16 +12,17 @@ import { ModelVersionStatus, Stages } from '../constants';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
-import { getCompareModelVersionsPageRoute } from '../routes';
+import { ModelRegistryRoutes } from '../routes';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { RegisteredModelTag } from '../sdk/ModelRegistryMessages';
 import { Provider } from 'react-redux';
-import { mountWithIntl } from '../../common/utils/TestUtils';
+import { act, mountWithIntl, renderWithIntl, screen } from '../../common/utils/TestUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
+import userEvent from '@testing-library/user-event';
 describe('ModelView', () => {
-  let wrapper;
+  let wrapper: any;
   let instance;
   let minimalProps: any;
   let minimalStoreRaw;
@@ -100,6 +101,10 @@ describe('ModelView', () => {
           </Provider>
         </DesignSystemProvider>,
       );
+    // This hides the useNextModelsUI promotion modal
+    jest
+      .spyOn(window.localStorage, 'getItem')
+      .mockImplementation((key) => (key.match(/promo/) ? 'true' : ''));
   });
   test('should render with minimal props without exploding', () => {
     wrapper = createComponentInstance(minimalProps);
@@ -107,10 +112,10 @@ describe('ModelView', () => {
   });
   test('should render all model versions initially', () => {
     wrapper = createComponentInstance(minimalProps);
-    expect(wrapper.find('td.model-version').length).toBe(3);
-    expect(wrapper.find('td.model-version').at(0).text()).toBe('Version 3');
-    expect(wrapper.find('td.model-version').at(1).text()).toBe('Version 2');
-    expect(wrapper.find('td.model-version').at(2).text()).toBe('Version 1');
+    expect(wrapper.find('div[role="cell"].model-version').length).toBe(3);
+    expect(wrapper.find('div[role="cell"].model-version').at(0).text()).toBe('Version 3');
+    expect(wrapper.find('div[role="cell"].model-version').at(1).text()).toBe('Version 2');
+    expect(wrapper.find('div[role="cell"].model-version').at(2).text()).toBe('Version 1');
   });
   test('should render model version table with activeStageOnly when "Active" button is on', () => {
     wrapper = createComponentInstance(minimalProps);
@@ -169,7 +174,10 @@ describe('ModelView', () => {
     );
     wrapper.find('[data-test-id="compareButton"]').hostNodes().simulate('click');
     expect(navigateMock).toHaveBeenCalledWith(
-      getCompareModelVersionsPageRoute(minimalProps['model']['name'], twoRunsSelected),
+      ModelRegistryRoutes.getCompareModelVersionsPageRoute(
+        minimalProps['model']['name'],
+        twoRunsSelected,
+      ),
     );
   });
   test('should tags rendered in the UI', () => {
@@ -196,5 +204,33 @@ describe('ModelView', () => {
     expect(wrapper.find('[data-testid="model-view-metadata-item"]').length).toBe(3);
     expect(wrapper.find('[data-testid="model-view-metadata"]').text()).toContain('Creator');
     expect(wrapper.find('[data-testid="model-view-metadata"]').text()).toContain(user_id);
+  });
+  test('should display aliases and tags column instead of stage when new models UI is used', async () => {
+    renderWithIntl(
+      <DesignSystemProvider>
+        <Provider store={minimalStore}>
+          <MemoryRouter>
+            <ModelView {...minimalProps} />
+          </MemoryRouter>
+        </Provider>
+      </DesignSystemProvider>,
+    );
+
+    // Assert stage column being visible and aliases column being absent
+    expect(screen.queryByRole('columnheader', { name: 'Stage' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Active \d*/ })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Tags' })).not.toBeInTheDocument();
+
+    // Flip the "Next models UI" switch
+    await act(async () => {
+      userEvent.click(screen.getByRole('switch'));
+    });
+
+    // Assert the opposite: stage column should be invisible and aliases column should be present
+    expect(screen.queryByRole('columnheader', { name: 'Stage' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /Active/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Aliases' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
   });
 });

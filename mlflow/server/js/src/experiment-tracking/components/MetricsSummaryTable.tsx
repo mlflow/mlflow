@@ -136,6 +136,7 @@ class MetricsSummaryTable extends React.Component<MetricsSummaryTableProps> {
         dataIndex: 'latestFormatted',
         sorter: (a: any, b: any) => a.latestValue - b.latestValue,
         width: dataColWidth,
+        ellipsis: true,
       },
       {
         title: this.props.intl.formatMessage({
@@ -146,6 +147,7 @@ class MetricsSummaryTable extends React.Component<MetricsSummaryTableProps> {
         dataIndex: 'minFormatted',
         sorter: (a: any, b: any) => a.minValue - b.minValue,
         width: dataColWidth,
+        ellipsis: true,
       },
       {
         title: this.props.intl.formatMessage({
@@ -156,6 +158,7 @@ class MetricsSummaryTable extends React.Component<MetricsSummaryTableProps> {
         dataIndex: 'maxFormatted',
         sorter: (a: any, b: any) => a.maxValue - b.maxValue,
         width: dataColWidth,
+        ellipsis: true,
       },
     ];
   }
@@ -176,7 +179,7 @@ const getMetricValuesByRun = (
     return {
       runName: runName,
       runLink: (
-        <Link to={Routes.getRunPageRoute(runExperimentIds[runUuid], runUuid)}>{runName}</Link>
+        <Link to={Routes.getRunPageRoute(runExperimentIds[runUuid] || '', runUuid)}>{runName}</Link>
       ),
       key: runUuid,
       ...rowData(runUuid, metricKey, latestMetrics, minMetrics, maxMetrics, intl),
@@ -216,9 +219,21 @@ const rowData = (
   const minValue = getValue(minMetric);
   const maxValue = getValue(maxMetric);
   return {
-    latestFormatted: <span title={latestValue}>{formatMetric(latestMetric, intl)}</span>,
-    minFormatted: <span title={minValue}>{formatMetric(minMetric, intl)}</span>,
-    maxFormatted: <span title={maxValue}>{formatMetric(maxMetric, intl)}</span>,
+    latestFormatted: (
+      <span title={latestValue} css={{ marginRight: 10 }}>
+        {formatMetric(latestMetric, intl)}
+      </span>
+    ),
+    minFormatted: (
+      <span title={minValue} css={{ marginRight: 10 }}>
+        {formatMetric(minMetric, intl)}
+      </span>
+    ),
+    maxFormatted: (
+      <span title={maxValue} css={{ marginRight: 10 }}>
+        {formatMetric(maxMetric, intl)}
+      </span>
+    ),
     latestValue,
     minValue,
     maxValue,
@@ -239,7 +254,7 @@ const formatMetric = (metric: any, intl: any) =>
           description: 'Formats a metric value along with the step number it corresponds to',
         },
         {
-          value: Utils.formatMetric(metric.value),
+          value: metric.value,
           step: metric.step,
         },
       );

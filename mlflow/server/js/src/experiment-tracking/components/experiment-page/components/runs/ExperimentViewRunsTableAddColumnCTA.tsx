@@ -240,7 +240,7 @@ const styles = {
     width: COLUMN_CTA_WIDTH,
     height: 0,
     position: 'absolute' as const,
-    border: `1px solid ${theme.colors.grey200}`,
+    border: `1px solid ${theme.colors.borderDecorative}`,
     borderTop: 0,
     top: 0,
     left: 0,

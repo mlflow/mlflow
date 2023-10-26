@@ -20,7 +20,7 @@ import {
   extractCanonicalSortKey,
   isCanonicalSortKeyOfType,
   makeCanonicalSortKey,
-} from '../../utils/experimentPage.column-utils';
+} from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
 
@@ -359,7 +359,7 @@ export const ExperimentViewRunsColumnSelector = (props: ExperimentViewRunsColumn
 
 const styles = {
   dropdown: (theme: Theme) => ({
-    backgroundColor: theme.colors.white,
+    backgroundColor: theme.colors.backgroundPrimary,
     width: 400,
     border: `1px solid`,
     borderColor: theme.colors.border,

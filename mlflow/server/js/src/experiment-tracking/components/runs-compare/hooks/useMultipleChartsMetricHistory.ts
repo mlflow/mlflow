@@ -1,13 +1,14 @@
 import { max } from 'lodash';
 import { useMemo } from 'react';
-import { MetricHistoryByName } from '../../../types';
-import { CompareChartRunData } from '../charts/CompareRunsCharts.common';
+import { useSelector } from 'react-redux';
+import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 import {
   RunsCompareCardConfig,
   RunsCompareChartType,
   RunsCompareLineCardConfig,
 } from '../runs-compare.types';
 import { useFetchCompareRunsMetricHistory } from './useFetchCompareRunsMetricHistory';
+import type { ReduxState } from '../../../../redux-types';
 
 /**
  * This hook aggregates demands from multiple charts requiring metric
@@ -16,8 +17,7 @@ import { useFetchCompareRunsMetricHistory } from './useFetchCompareRunsMetricHis
  */
 export const useMultipleChartsMetricHistory = (
   cardsConfig: RunsCompareCardConfig[],
-  chartRunData: CompareChartRunData[],
-  metricsByRunUuid: Record<string, MetricHistoryByName>,
+  chartRunData: RunsChartsRunData[],
 ) => {
   // First, determine which cards require metric history
   const cardsRequiringMetricHistory = useMemo(
@@ -28,6 +28,8 @@ export const useMultipleChartsMetricHistory = (
       ) as RunsCompareLineCardConfig[],
     [cardsConfig],
   );
+
+  const metricsByRunUuid = useSelector((store: ReduxState) => store.entities.metricsByRunUuid);
 
   // Next, determine runs requiring history
   const runsRequiringMetricHistory = useMemo(() => {
@@ -48,11 +50,10 @@ export const useMultipleChartsMetricHistory = (
   const { isLoading } = useFetchCompareRunsMetricHistory(
     metricsRequiringHistory,
     runsRequiringMetricHistory,
-    metricsByRunUuid,
   );
 
   // Enrich the input data with the metric history and return it
-  const chartRunDataWithHistory = useMemo<CompareChartRunData[]>(() => {
+  const chartRunDataWithHistory = useMemo<RunsChartsRunData[]>(() => {
     // If there are no runs requiring metric history, just pass runs through
     if (!runsRequiringMetricHistory.length) {
       return chartRunData;

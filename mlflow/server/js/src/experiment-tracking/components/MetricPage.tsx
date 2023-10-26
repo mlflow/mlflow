@@ -84,16 +84,17 @@ export class MetricPageImpl extends Component<MetricPageImplProps> {
 }
 
 const mapStateToProps = (state: any, ownProps: WithRouterNextProps<{ metricKey: string }>) => {
-  const { params, location } = ownProps;
+  const { location } = ownProps;
   const searchValues = qs.parse(location.search);
   // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
   const runUuids = JSON.parse(searchValues['?runs']);
+  // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
+  const metricKey = JSON.parse(searchValues['metric']);
   let experimentIds = null;
   if (searchValues.hasOwnProperty('experiments')) {
     // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
     experimentIds = JSON.parse(searchValues['experiments']);
   }
-  const { metricKey } = params;
   return {
     runUuids,
     metricKey,
@@ -107,3 +108,4 @@ export const MetricPage = withErrorBoundary(
   ErrorUtils.mlflowServices.EXPERIMENTS,
   MetricPageWithRouter,
 );
+export default MetricPage;
