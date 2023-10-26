@@ -215,15 +215,13 @@ class CloudArtifactRepository(ArtifactRepository):
             if failed_downloads:
                 num_retries = 3
                 for chunk in failed_downloads:
-                    _logger.warning(
-                        f"Retrying download of chunk {chunk} for {remote_file_path} "
-                        "up to {num_retries} times"
-                    )
                     new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                     new_signed_uri = new_cloud_creds.signed_uri
                     new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
+                    _logger.warning(f"Retrying download of chunk {chunk} for {remote_file_path}")
                     for retry in range(num_retries):
                         try:
+                            _logger.warning(f"Attempt {retry + 1}/{num_retries}")
                             download_chunk(
                                 range_start=chunk.start,
                                 range_end=chunk.end,
