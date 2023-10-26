@@ -98,8 +98,7 @@ def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, exp
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.log_artifact(file_path, artifact_path)
 
-    mpu_minimum_file_size = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
-    file_path.write_text("0" * (mpu_minimum_file_size + 1))
+    file_path.write_text("0" * MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get())
     with mock.patch.object(
         http_artifact_repo, "_try_multipart_upload", return_value=200
     ) as mock_mpu:
