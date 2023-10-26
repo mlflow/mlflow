@@ -1,5 +1,6 @@
 from unittest import mock
 
+import openai
 import pytest
 from requests import Response
 
@@ -65,16 +66,6 @@ def test_score_model_openai_without_key():
 
 
 def test_score_model_openai(set_envs):
-    class MockResponse(Response):
-        def __init__(self, json_data, status_code):
-            super().__init__()
-            self.json_data = json_data
-            self.status_code = status_code
-            self.headers = {"Content-Type": "application/json"}
-
-        def json(self):
-            return self.json_data
-
     resp = {
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
@@ -98,17 +89,22 @@ def test_score_model_openai(set_envs):
         "headers": {"Content-Type": "application/json"},
     }
 
-    with mock.patch("requests.post", return_value=MockResponse(resp, 200)) as mock_post:
+    with mock.patch(
+        "mlflow.openai.api_request_parallel_processor.process_api_requests", return_value=[resp]
+    ) as mock_post:
         score_model_on_payload("openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1})
         mock_post.assert_called_once_with(
-            url="https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": "Bearer test"},
-            json={
-                "model": "gpt-3.5-turbo",
-                "temperature": 0.2,
-                "messages": [{"role": "user", "content": "my prompt"}],
-            },
-            timeout=10,
+            [
+                {
+                    "model": "gpt-3.5-turbo",
+                    "temperature": 0.2,
+                    "messages": [{"role": "user", "content": "my prompt"}],
+                }
+            ],
+            openai.ChatCompletion,
+            api_token=mock.ANY,
+            max_requests_per_minute=3_500,
+            max_tokens_per_minute=90_000,
         )
 
 
