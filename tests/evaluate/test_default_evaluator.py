@@ -3102,7 +3102,7 @@ properly_formatted_openai_response1 = {
 
 
 def test_evaluate_with_correctness():
-    metric = mlflow.metrics.make_genai_metric(
+    metric = mlflow.metrics.genai.make_genai_metric(
         name="correctness",
         definition=(
             "Correctness refers to how well the generated output matches "
@@ -3448,7 +3448,7 @@ def test_evaluate_with_numpy_array():
 
 
 def test_target_prediction_col_mapping():
-    metric = mlflow.metrics.make_genai_metric(
+    metric = mlflow.metrics.genai.make_genai_metric(
         name="correctness",
         definition=(
             "Correctness refers to how well the generated output matches "

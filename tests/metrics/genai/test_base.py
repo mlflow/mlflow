@@ -1,6 +1,6 @@
 import re
 
-from mlflow.metrics.base import EvaluationExample
+from mlflow.metrics.genai import EvaluationExample
 
 
 def test_evaluation_example_str():
