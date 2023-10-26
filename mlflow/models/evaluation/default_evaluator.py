@@ -9,6 +9,7 @@ import pickle
 import shutil
 import tempfile
 import time
+import traceback
 import warnings
 from collections import namedtuple
 from functools import partial
@@ -25,11 +26,12 @@ from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
+    EvaluationMetric,
     MetricValue,
     ari_grade_level,
     exact_match,
     flesch_kincaid_grade_level,
-    perplexity,
+    precision_at_k,
     rouge1,
     rouge2,
     rougeL,
@@ -1154,6 +1156,8 @@ class DefaultEvaluator(ModelEvaluator):
         params_not_found = []
         # eval_fn has parameters (eval_df, builtin_metrics) for backwards compatibility
         if len(parameters) == 2:
+            param_0_name, param_1_name = parameters.keys()
+        if len(parameters) == 2 and param_0_name != "predictions" and param_1_name != "targets":
             eval_fn_args.append(eval_df_copy)
             eval_fn_args.append(copy.deepcopy(self.metrics))
         # eval_fn can have parameters like (predictions, targets, metrics, random_col)
@@ -1288,7 +1292,6 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method for generating model predictions
         """
-        _logger.info("Computing model predictions.")
 
         def predict_with_latency(X_copy):
             y_pred_list = []
@@ -1329,6 +1332,8 @@ class DefaultEvaluator(ModelEvaluator):
 
         X_copy = self.X.copy_to_avoid_mutation()
         if self.model is not None:
+            _logger.info("Computing model predictions.")
+
             if compute_latency:
                 model_predictions = predict_with_latency(X_copy)
             else:
@@ -1475,20 +1480,26 @@ class DefaultEvaluator(ModelEvaluator):
                     name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
+                stacktrace_str = traceback.format_exc()
                 if isinstance(e, MlflowException):
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e.message}")
+                    exceptions.append(
+                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
+                    )
                 else:
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}")
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
         self._update_metrics()
         for metric in self.extra_metrics:
             try:
                 eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
                 metric.eval_fn(*eval_fn_args)
             except Exception as e:
+                stacktrace_str = traceback.format_exc()
                 if isinstance(e, MlflowException):
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e.message}")
+                    exceptions.append(
+                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
+                    )
                 else:
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}")
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
 
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
@@ -1597,10 +1608,11 @@ class DefaultEvaluator(ModelEvaluator):
         for metric_name, metric_value in self.metrics_values.items():
             if metric_value.aggregate_results:
                 for agg_name, agg_value in metric_value.aggregate_results.items():
-                    if agg_name == metric_name.split("/")[0]:
-                        self.metrics[metric_name] = agg_value
-                    else:
-                        self.metrics[f"{metric_name}/{agg_name}"] = agg_value
+                    if agg_value is not None:
+                        if agg_name == metric_name.split("/")[0]:
+                            self.metrics[metric_name] = agg_value
+                        else:
+                            self.metrics[f"{metric_name}/{agg_name}"] = agg_value
 
     def _evaluate(
         self,
@@ -1631,7 +1643,6 @@ class DefaultEvaluator(ModelEvaluator):
             text_metrics = [
                 token_count(),
                 toxicity(),
-                perplexity(),
                 flesch_kincaid_grade_level(),
                 ari_grade_level(),
             ]
@@ -1661,6 +1672,16 @@ class DefaultEvaluator(ModelEvaluator):
                     ]
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
+                elif self.model_type == _ModelType.RETRIEVER:
+                    k = self.evaluator_config.pop("k", 3)  # default k to 3 if not specified
+                    if not (isinstance(k, int) and k > 0):
+                        _logger.warning(
+                            "Cannot calculate 'precision_at_k' for invalid parameter 'k'."
+                            f"'k' should be a positive integer; found: {k}"
+                            "Skipping metric logging."
+                        )
+                    else:
+                        self.builtin_metrics = [precision_at_k(k)]
 
                 self.y_pred = (
                     self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
@@ -1742,6 +1763,21 @@ class DefaultEvaluator(ModelEvaluator):
 
         if self.extra_metrics is None:
             self.extra_metrics = []
+
+        bad_metrics = []
+        for metric in self.extra_metrics:
+            if not isinstance(metric, EvaluationMetric):
+                bad_metrics.append(metric)
+        if len(bad_metrics) > 0:
+            message = "\n".join(
+                [f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics]
+            )
+            raise MlflowException(
+                f"In the 'extra_metrics' parameter, the following metrics have the wrong type:\n"
+                f"{message}\n"
+                f"Please ensure that all extra metrics are instances of "
+                f"mlflow.metrics.EvaluationMetric."
+            )
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)
