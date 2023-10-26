@@ -1447,6 +1447,15 @@ class DefaultEvaluator(ModelEvaluator):
             output_columns = (
                 [] if self.other_output_columns is None else list(self.other_output_columns.columns)
             )
+            if self.dataset.predictions_name:
+                output_columns.append(self.dataset.predictions_name)
+            else:
+                output_columns.append("predictions")
+            if "target" in eval_df:
+                if self.dataset.targets_name:
+                    output_columns.append(self.dataset.targets_name)
+                else:
+                    output_columns.append("targets")
             input_columns = list(self.X.copy_to_avoid_mutation().columns)
 
             error_messages = [
