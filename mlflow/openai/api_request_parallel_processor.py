@@ -89,7 +89,7 @@ class APIRequest:
     token_consumption: int
     attempts_left: int
     results: list[tuple[int, OpenAIObject]]
-    timeout: int = 300
+    timeout: int = 30
 
     def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
         """
