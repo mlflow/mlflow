@@ -26,6 +26,10 @@ type Props = {
   };
 };
 
+function getTensorTypeRepr(tensorType: TensorSpec): string {
+  return `Tensor (dtype: ${tensorType['tensor-spec'].dtype}, shape: [${tensorType['tensor-spec'].shape}])`;
+}
+
 // return a formatted string representation of the column type
 function getColumnTypeRepr(columnType: ColumnType, indentationLevel: number): string {
   const { type } = columnType;
@@ -78,12 +82,7 @@ function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
 }
 
 function formatColumnSchema(spec: ColumnSpec | TensorSpec): React.ReactElement {
-  let repr = '';
-  if (spec.type === 'tensor') {
-    repr = `Tensor (dtype: ${spec['tensor-spec'].dtype}, shape: [${spec['tensor-spec'].shape}])`;
-  } else {
-    repr = getColumnTypeRepr(spec, 0);
-  }
+  const repr = spec.type === 'tensor' ? getTensorTypeRepr(spec) : getColumnTypeRepr(spec, 0);
 
   return (
     <pre
