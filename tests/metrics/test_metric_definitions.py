@@ -248,7 +248,6 @@ def test_precision_at_k():
     result = precision_at_k(4).eval_fn(predictions, targets)
 
     assert result.scores == [1.0, 0.5, 1.0, 0.0]
-    print(result.aggregate_results)
     assert result.aggregate_results == {
         "mean": 2.5 / 4,
         "p90": 1.0,
