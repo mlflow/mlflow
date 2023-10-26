@@ -867,7 +867,7 @@ def test_relevance_metric():
     relevance_metric = relevance(model="gateway:/gpt-3.5-turbo", examples=[])
 
     input = "What is MLflow?"
-    eval_df = pd.DataFrame(
+    pd.DataFrame(
         {
             "input": [input],
             "prediction": [mlflow_prediction],
