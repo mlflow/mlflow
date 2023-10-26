@@ -377,7 +377,6 @@ def _recall_at_k_eval_fn(k):
             ground_truth, retrieved = set(targets[i]), predictions[i][:k]
             relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
             if len(ground_truth) > 0:
-                # do we want to len(ground truth) or min(k, len(ground_truth)?
                 scores.append(relevant_doc_count / len(ground_truth))
             elif len(retrieved) == 0:
                 # there are 0 retrieved and ground truth docs, so reward for the match
