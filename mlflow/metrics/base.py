@@ -83,6 +83,9 @@ class EvaluationExample:
     def _format_grading_context(grading_context):
         return "\n".join([f"key: {key}\nvalue:\n{value}" for key, value in grading_context.items()])
 
+    def __str__(self) -> str:
+
+
     def to_prompt_component(self, grading_context_columns: List[str]) -> str:
         if self.grading_context is None and len(grading_context_columns) == 0:
             grading_context = {}
