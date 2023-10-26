@@ -47,7 +47,7 @@ The officially supported integrations for traditional ML libraries include:
             </a>
             <a href="../models.html#lightgbm-lightgbm">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/lightgbm-logo.svg" alt="LightGBM Logo">
+                    <img src="../_static/images/logos/lightgbm-logo.png" alt="LightGBM Logo">
                 </div>
             </a>
             <a href="../models.html#catboost-catboost">
