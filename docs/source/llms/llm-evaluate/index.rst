@@ -121,13 +121,12 @@ Select Metrics to Evaluate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the 
-type of LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. 
+LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. 
 The default metrics for given model types are shown below:
 
 * **question-answering**: ``model_type="question-answering"``:
 
     * exact-match
-    * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
     * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
@@ -135,14 +134,12 @@ The default metrics for given model types are shown below:
 * **text-summarization**: ``model_type="text-summarization"``: 
 
     * `ROUGE <https://huggingface.co/spaces/evaluate-metric/rouge>`_ :sup:`3`
-    * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
     * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
 * **text models**: ``model_type="text"``:
 
-    * `perplexity <https://huggingface.co/spaces/evaluate-metric/perplexity>`_ :sup:`1`
     * `toxicity <https://huggingface.co/spaces/evaluate-measurement/toxicity>`_ :sup:`1`
     * `ari_grade_level <https://en.wikipedia.org/wiki/Automated_readability_index>`_ :sup:`2`
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
@@ -201,10 +198,12 @@ MLflow offers a few pre-canned metrics which uses LLM as the judge. Despite the 
 is the same - put these metrics in the ``extra_metrics`` argument in ``mlflow.evaluate()``. Here is the list of pre-canned
 metrics:
 
-* :py:func:`mlflow.metrics.answer_similarity`: Evaluate the semantic similarity of the LLM output to the ground_truth
-* :py:func:`mlflow.metrics.answer_correctness`: Evaluate the accuracy of the LLM output based on the ground_truth
-* :py:func:`mlflow.metrics.answer_relevance`: Evaluate the relevance of the LLM output based on the appropriateness and applicability of the output with respect to the input.
-* :py:func:`mlflow.metrics.faithfulness`: Evaluate the faithfulness of the LLM output based on how factually consistent the output is to the context.
+* :py:func:`mlflow.metrics.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
+* :py:func:`mlflow.metrics.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
+  and ground truth.
+* :py:func:`mlflow.metrics.answer_relevance`: Evaluate the appropriateness and applicability of the output with 
+  respect to the input. 
+* :py:func:`mlflow.metrics.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
 
 
 Creating Custom LLM-evaluation Metrics
