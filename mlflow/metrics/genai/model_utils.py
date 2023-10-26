@@ -79,10 +79,12 @@ def _call_openai_api(openai_uri, payload):
     from mlflow.openai.api_request_parallel_processor import process_api_requests
     from mlflow.openai.utils import _OAITokenHolder
 
+    api_token = _OAITokenHolder(os.environ.get("OPENAI_API_TYPE", "openai"))
+
     resp = process_api_requests(
         [openai_provider._add_model_to_payload_if_necessary(payload)],
         openai.ChatCompletion,
-        api_token=_OAITokenHolder(""),
+        api_token=api_token,
         max_requests_per_minute=3_500,
         max_tokens_per_minute=90_000,
     )[0]
