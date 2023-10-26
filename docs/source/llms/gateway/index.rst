@@ -28,6 +28,22 @@ This simplification and centralization of language model interactions, coupled w
 layer of security for API key management, make the MLflow AI Gateway service an ideal choice for
 organizations that use LLMs on a regular basis.
 
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    guides/index
+
+Tutorials and Guides
+====================
+
+If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow AI Gateway 
+as fast as possible, the guides below will be your best first stop. 
+
+.. raw:: html
+
+    <a href="guides/index.html" class="download-btn">View the AI Gateway Getting Started Guide</a><br>
+
 .. _gateway-quickstart:
 
 Quickstart
