@@ -533,7 +533,18 @@ def test_make_genai_metric_failure():
             )
 
 
-def test_make_genai_metric_throws_if_examples_dont_contain_correct_grading_context_columns():
+@pytest.mark.parametrize(
+    ("grading_cols", "example_context_cols"),
+    [
+        ("good_column", "bad_column"),
+        (["good_column"], ["bad_column"]),
+        (["column_a", "column_b"], ["column_a"]),
+        (["column_a", "column_b"], ["column_a", "column_c"]),
+        (["column_a"], ["column_a", "column_b"]),
+        (None, ["column_a"]),
+    ]
+)
+def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, example_context_cols):
     import pandas as pd
 
     with pytest.raises(
@@ -544,14 +555,17 @@ def test_make_genai_metric_throws_if_examples_dont_contain_correct_grading_conte
             definition="definition",
             grading_prompt="grading_prompt",
             model="model",
-            grading_context_columns=["there"],
+            grading_context_columns=grading_cols,
             examples=[
                 EvaluationExample(
                     input="input",
                     output="output",
                     score=1,
                     justification="justification",
-                    grading_context={"notthere": "ground_truth"},
+                    grading_context={
+                        col: "something"
+                        for col in example_context_cols
+                    }
                 )
             ],
             parameters={"temperature": 0.0},
