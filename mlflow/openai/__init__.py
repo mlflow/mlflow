@@ -44,6 +44,7 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
@@ -211,6 +212,10 @@ def _get_api_config() -> _OpenAIApiConfig:
                     "Both engine and deployment_id are set. Using engine as it takes precedence."
                 )
                 deployment_id = None
+        elif deployment_id is None:
+            raise MlflowException(
+                "Either engine or deployment_id must be set for Azure OpenAI API",
+            )
     else:
         # The maximum batch size is 2048:
         # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
