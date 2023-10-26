@@ -123,6 +123,7 @@ with your favorite provider!
 * `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/anthropic/README.md>`_
 * `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/cohere/README.md>`_
 * `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/mlflow_serving/README.md>`_
+* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/ai21labs/README.md>`_ 
 * `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/palm/README.md>`_
 * `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/azure_openai/README.md>`_
 * `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/huggingface/readme.md>`_
