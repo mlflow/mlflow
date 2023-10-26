@@ -13,6 +13,7 @@ from mlflow.metrics import (
     mape,
     max_error,
     mse,
+    precision_at_k,
     precision_score,
     r2_score,
     recall_score,
@@ -32,6 +33,7 @@ from mlflow.metrics import (
         ari_grade_level(),
         exact_match(),
         flesch_kincaid_grade_level(),
+        precision_at_k(3),  
         recall_at_k(3),
         rouge1(),
         rouge2(),
@@ -242,6 +244,19 @@ def test_binary_f1_score():
     assert abs(result.aggregate_results["f1_score"] - 0.5713) < 1e-3
 
 
+def test_precision_at_k():
+    predictions = pd.Series([("a", "b"), ("c", "d"), ("e"), ("f", "g")])
+    targets = pd.Series([("a", "b"), ("c", "b"), ("e"), ("c")])
+    result = precision_at_k(4).eval_fn(predictions, targets)
+
+    assert result.scores == [1.0, 0.5, 1.0, 0.0]
+    assert result.aggregate_results == {
+        "mean": 2.5 / 4,
+        "p90": 1.0,
+        "variance": 0.171875,
+    }
+
+    
 def test_recall_at_k():
     predictions = pd.Series([("a", "b"), ("c", "d", "e"), (), ("f", "g"), ("a", "b")])
     targets = pd.Series([("a", "b", "c", "d"), ("c", "b", "a", "d"), (), (), ("a", "c")])

@@ -3328,9 +3328,9 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 1,
+        "precision_at_k/v1/mean": 0,
         "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 1,
+        "precision_at_k/v1/p90": 0,
     }
 
     # test with single retrieved doc
