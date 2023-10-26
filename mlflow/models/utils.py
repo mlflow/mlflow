@@ -907,12 +907,6 @@ def _enforce_array(data: Any, arr: Array, required=True):
     if not required and data is None:
         return None
 
-    if len(data) == 0:
-        raise MlflowException(
-            "Expected a non-empty list/array for Array column. If you want an empty value, "
-            "mark the column `required=False` and put `None` instead."
-        )
-
     if not isinstance(data, (list, np.ndarray)):
         raise MlflowException(f"Expected data to be list, got {type(data).__name__}")
     if isinstance(arr.dtype, DataType):
