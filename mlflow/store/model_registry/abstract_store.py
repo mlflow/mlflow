@@ -323,7 +323,6 @@ class AbstractStore:
         """
         pass
 
-    @abstractmethod
     def copy_model_version(self, src_mv, dst_name):
         """
         Copy a model version from one registered model to another as a new model version.
@@ -335,7 +334,9 @@ class AbstractStore:
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                  the cloned model version.
         """
-        pass
+        raise MlflowException(
+            "Method 'copy_model_version' is not supported for this model registry backend."
+        )
 
     def _copy_model_version_impl(self, src_mv, dst_name):
         try:
