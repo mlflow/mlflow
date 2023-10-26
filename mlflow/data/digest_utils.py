@@ -29,9 +29,16 @@ def compute_pandas_digest(df) -> str:
     desired_columns = string_columns.union(numeric_columns)
     trimmed_df = trimmed_df[desired_columns]
 
+    values = pd.util.hash_pandas_object(trimmed_df).values
+
+    for val in values:
+        if isinstance(val, list):
+            # turn into a tuple here so it's hashable
+            pass
+
     return get_normalized_md5_digest(
         [
-            pd.util.hash_pandas_object(trimmed_df).values,
+            values,
             np.int64(len(df)),
         ]
         + [str(x).encode() for x in df.columns]
