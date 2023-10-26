@@ -15,6 +15,7 @@ def test_request_auth_provider_registry_register():
 
     assert set(registry) == {provider_class.return_value}
 
+
 def test_request_auth_provider_registry_register_entrypoints():
     provider_class = mock.Mock()
     mock_entrypoint = mock.Mock()
@@ -29,6 +30,7 @@ def test_request_auth_provider_registry_register_entrypoints():
     assert set(registry) == {provider_class.return_value}
     mock_entrypoint.load.assert_called_once_with()
     mock_get_group_all.assert_called_once_with("mlflow.request_auth_provider")
+
 
 @pytest.mark.parametrize(
     "exception", [AttributeError("test exception"), ImportError("test exception")]
@@ -48,6 +50,7 @@ def test_request_auth_provider_registry_register_entrypoints_handles_exception(e
     mock_entrypoint.load.assert_called_once_with()
     mock_get_group_all.assert_called_once_with("mlflow.request_auth_provider")
 
+
 def test_registry_instance_loads_entrypoints():
     class MockRequestAuthProvider:
         pass
@@ -65,11 +68,13 @@ def test_registry_instance_loads_entrypoints():
     assert MockRequestAuthProvider in _currently_registered_request_auth_provider_classes()
     mock_get_group_all.assert_called_once_with("mlflow.request_auth_provider")
 
+
 def _currently_registered_request_auth_provider_classes():
     return {
         provider.__class__
         for provider in mlflow.tracking.request_auth.registry._request_auth_provider_registry
     }
+
 
 def test_run_context_provider_registry_with_installed_plugin():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
@@ -79,10 +84,12 @@ def test_run_context_provider_registry_with_installed_plugin():
     from mlflow_test_plugin.request_auth_provider import PluginRequestAuthProvider
 
     assert PluginRequestAuthProvider in _currently_registered_request_auth_provider_classes()
-    
+
     auth_provider_name = "test_auth_provider_name"
     assert fetch_auth(auth_provider_name)["auth_name"] == "test_auth_provider_name"
 
+
 def test_fetch_auth():
+    reload(mlflow.tracking.request_auth.registry)
     auth_provider_name = "test_auth_provider_name"
     assert fetch_auth(auth_provider_name)["auth_name"] == auth_provider_name
