@@ -193,8 +193,6 @@ def _get_api_config() -> _OpenAIApiConfig:
     api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
     api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, openai.api_base)
     engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
-    # openai hangs when engine is wrong (no matter if deployment_id is correct or not)
-    # if only providing correct deployment_id, it works fine
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
