@@ -91,8 +91,8 @@ LLM Evaluation Metrics
 
 There are two types of LLM evaluation metrics in MLflow:
 
-1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.answer_relevance`. These  
-   metrics are created via :py:func:`mlflow.metrics.make_genai_metric` method. For each data record, these metrics under the hood sends 
+1. Metrics relying on SaaS model (e.g., OpenAI) for scoring, e.g., :py:func:`mlflow.metrics.genai.answer_relevance`. These  
+   metrics are created via :py:func:`mlflow.metrics.genai.make_genai_metric` method. For each data record, these metrics under the hood sends 
    one prompt consisting of the following information to the SaaS model, and extract the score from model response:
 
    * Metrics definition.
@@ -190,12 +190,12 @@ MLflow offers a few pre-canned metrics which uses LLM as the judge. Despite the 
 is the same - put these metrics in the ``extra_metrics`` argument in ``mlflow.evaluate()``. Here is the list of pre-canned
 metrics:
 
-* :py:func:`mlflow.metrics.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
-* :py:func:`mlflow.metrics.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
+* :py:func:`mlflow.metrics.genai.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
+* :py:func:`mlflow.metrics.genai.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
   and ground truth.
-* :py:func:`mlflow.metrics.answer_relevance`: Evaluate the appropriateness and applicability of the output with 
+* :py:func:`mlflow.metrics.genai.answer_relevance`: Evaluate the appropriateness and applicability of the output with 
   respect to the input. 
-* :py:func:`mlflow.metrics.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
+* :py:func:`mlflow.metrics.genai.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
 
 
 Create your Custom LLM-evaluation Metrics
@@ -204,7 +204,7 @@ Create your Custom LLM-evaluation Metrics
 Create LLM-as-judge Evaluation Metrics (Category 1)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can also create your own Saas LLM evaluation metrics with MLflow API :py:func:`mlflow.metrics.make_genai_metric`, which 
+You can also create your own Saas LLM evaluation metrics with MLflow API :py:func:`mlflow.metrics.genai.make_genai_metric`, which 
 needs the following information:
 
 * ``name``: the name of your custom metric.
@@ -224,7 +224,7 @@ output so that LLM, e.g., GPT4 can output the information we want.
 Now let's create a custom GenAI metrics called "professionalism", which measures how professional our model output is. 
 
 Let's first create a few examples with scores, these will be the reference samples LLM judge uses. To create such examples, 
-we will use :py:func:`mlflow.metrics.EvaluationExample` class, which has 4 fields:
+we will use :py:func:`mlflow.metrics.genai.EvaluationExample` class, which has 4 fields:
 
 * input: input text.
 * output: output text.
@@ -233,7 +233,7 @@ we will use :py:func:`mlflow.metrics.EvaluationExample` class, which has 4 field
 
 .. code-block:: python
 
-    professionalism_example_score_2 = mlflow.metrics.EvaluationExample(
+    professionalism_example_score_2 = mlflow.metrics.genai.EvaluationExample(
         input="What is MLflow?",
         output=(
             "MLflow is like your friendly neighborhood toolkit for managing your machine learning projects. It helps "
@@ -246,7 +246,7 @@ we will use :py:func:`mlflow.metrics.EvaluationExample` class, which has 4 field
             "exclamation points, which make it sound less professional. "
         ),
     )
-    professionalism_example_score_4 = mlflow.metrics.EvaluationExample(
+    professionalism_example_score_4 = mlflow.metrics.genai.EvaluationExample(
         input="What is MLflow?",
         output=(
             "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was "
@@ -262,7 +262,7 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
 
 .. code-block:: python
 
-    professionalism = mlflow.metrics.make_genai_metric(
+    professionalism = mlflow.metrics.genai.make_genai_metric(
         name="professionalism",
         definition=(
             "Professionalism refers to the use of a formal, respectful, and appropriate style of communication that is "
@@ -467,7 +467,7 @@ top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
             data=eval_data,
             targets="ground_truth",
             predictions="predictions",
-            extra_metrics=[mlflow.metrics.answer_similarity()],
+            extra_metrics=[mlflow.metrics.genai.answer_similarity()],
             evaluators="default",
         )
         print(f"See aggregated evaluation results below: \n{results.metrics}")
@@ -495,7 +495,7 @@ To see the score on selected metrics, you can check:
             data=eval_data,
             targets="ground_truth",
             predictions="predictions",
-            extra_metrics=[mlflow.metrics.answer_similarity()],
+            extra_metrics=[mlflow.metrics.genai.answer_similarity()],
             evaluators="default",
         )
         print(f"See aggregated evaluation results below: \n{results.metrics}")
@@ -509,7 +509,7 @@ To see the score on selected metrics, you can check:
             data=eval_data,
             targets="ground_truth",
             predictions="predictions",
-            extra_metrics=[mlflow.metrics.answer_similarity()],
+            extra_metrics=[mlflow.metrics.genai.answer_similarity()],
             evaluators="default",
         )
         print(
