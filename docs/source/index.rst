@@ -114,11 +114,11 @@ LLM Guides and Tutorials
             <div class="simple-card">
                 <a href="llms/llm-evaluate/index.html" >
                     <div class="header">
-                        Evaluating LLMs
+                        Evaluating LLMs with MLflow Guide
                     </div>
                 </a>
                 <p>
-                    Learn how to evaluate LLMs with MLflow.
+                    Learn how to evaluate LLMs and LLM-powered solutions with MLflow Evaluate.
                 </p>
             </div>
             <div class="simple-card">
