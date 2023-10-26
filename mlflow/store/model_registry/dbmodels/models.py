@@ -80,6 +80,8 @@ class SqlModelVersion(Base):
 
     source = Column(String(500), nullable=True, default=None)
 
+    storage_location = Column(String(500), nullable=True, default=None)
+
     run_id = Column(String(32), nullable=True, default=None)
 
     run_link = Column(String(500), nullable=True, default=None)
