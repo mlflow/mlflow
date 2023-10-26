@@ -9,6 +9,7 @@ import pickle
 import shutil
 import tempfile
 import time
+import traceback
 import warnings
 from collections import namedtuple
 from functools import partial
@@ -25,11 +26,12 @@ from mlflow import MlflowClient
 from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.metrics import (
+    EvaluationMetric,
     MetricValue,
     ari_grade_level,
     exact_match,
     flesch_kincaid_grade_level,
-    perplexity,
+    precision_at_k,
     rouge1,
     rouge2,
     rougeL,
@@ -61,7 +63,6 @@ _logger = logging.getLogger(__name__)
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 _EVAL_TABLE_FILE_NAME = "eval_results_table.json"
-_Y_PREDICTED_OUTPUT_COLUMN_NAME = "predicted_column"
 _TOKEN_COUNT_METRIC_NAME = "token_count"
 _LATENCY_METRIC_NAME = "latency"
 
@@ -444,6 +445,10 @@ _matplotlib_config = {
 def _extract_output_and_other_columns(model_predictions, output_column_name):
     y_pred = None
     other_output_columns = None
+    ERROR_MISSING_OUTPUT_COLUMN_NAME = (
+        "Output column name is not specified for the multi-output model. "
+        "Please set the correct output column name using the `predictions` parameter."
+    )
 
     if isinstance(model_predictions, list) and all(isinstance(p, dict) for p in model_predictions):
         # Extract 'y_pred' and 'other_output_columns' from list of dictionaries
@@ -455,20 +460,32 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
                 [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
             )
         elif len(model_predictions) > 1:
+            if output_column_name is None:
+                raise MlflowException(
+                    ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the model "
                 f"predictions list: {model_predictions}. Please set the correct output column "
-                "name using the `predicted_column` parameter in evaluator config."
+                "name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
     elif isinstance(model_predictions, pd.DataFrame):
         if output_column_name in model_predictions.columns:
             y_pred = model_predictions[output_column_name]
             other_output_columns = model_predictions.drop(columns=output_column_name)
         elif model_predictions.shape[1] > 1:
+            if output_column_name is None:
+                raise MlflowException(
+                    ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the model "
                 f"predictions dataframe {model_predictions.columns}. Please set the correct "
-                "output column name using the `predicted_column` parameter in evaluator config."
+                "output column name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
     elif isinstance(model_predictions, dict):
         if output_column_name in model_predictions:
@@ -477,10 +494,16 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
                 {k: v for k, v in model_predictions.items() if k != output_column_name}
             )
         elif len(model_predictions) > 1:
+            if output_column_name is None:
+                raise MlflowException(
+                    ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the "
                 f"model predictions dict {model_predictions}. Please set the correct "
-                "output column name using the `predicted_column` parameter in evaluator config."
+                "output column name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
     return y_pred if y_pred is not None else model_predictions, other_output_columns
@@ -1130,63 +1153,61 @@ class DefaultEvaluator(ModelEvaluator):
         input_df = self.X.copy_to_avoid_mutation()
         parameters = inspect.signature(extra_metric.eval_fn).parameters
         eval_fn_args = []
+        params_not_found = []
+        # eval_fn has parameters (eval_df, builtin_metrics) for backwards compatibility
         if len(parameters) == 2:
+            param_0_name, param_1_name = parameters.keys()
+        if len(parameters) == 2 and param_0_name != "predictions" and param_1_name != "targets":
             eval_fn_args.append(eval_df_copy)
-            if "metrics" in parameters.keys():
-                eval_fn_args.append(copy.deepcopy(self.metrics_values))
-            else:
-                eval_fn_args.append(copy.deepcopy(self.metrics))
+            eval_fn_args.append(copy.deepcopy(self.metrics))
+        # eval_fn can have parameters like (predictions, targets, metrics, random_col)
         else:
             for param_name, param in parameters.items():
-                if param_name == "predictions":
+                column = self.col_mapping.get(param_name, param_name)
+
+                if column == "predictions" or column == self.dataset.predictions_name:
                     eval_fn_args.append(eval_df_copy["prediction"])
-                elif param_name == "targets":
+                elif column == "targets" or column == self.dataset.targets_name:
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
                     else:
-                        eval_fn_args.append(None)
-                elif param_name == "metrics":
+                        if param.default == inspect.Parameter.empty:
+                            params_not_found.append(param_name)
+                        else:
+                            eval_fn_args.append(param.default)
+                elif column == "metrics":
                     eval_fn_args.append(copy.deepcopy(self.metrics_values))
                 else:
-                    column = self.col_mapping.get(param_name, param_name)
+                    # case when column passed in col_mapping contains the entire column
                     if not isinstance(column, str):
                         eval_fn_args.append(column)
+
+                    # case column in col_mapping is string and the column value
+                    # is part of the input_df
                     elif column in input_df.columns:
                         eval_fn_args.append(input_df[column])
+
+                    # case column in col_mapping is string and the column value
+                    # is part of the output_df(other than predictions)
                     elif (
                         self.other_output_columns is not None
                         and column in self.other_output_columns.columns
                     ):
                         eval_fn_args.append(self.other_output_columns[column])
-                    elif param.default == inspect.Parameter.empty:
-                        output_column_name = self.evaluator_config.get(
-                            _Y_PREDICTED_OUTPUT_COLUMN_NAME, "output"
-                        )
-                        if self.other_output_columns:
-                            output_columns = list(self.other_output_columns.columns)
-                        else:
-                            output_columns = []
-                        input_columns = list(input_df.columns)
-                        raise MlflowException(
-                            "Error: Metric Calculation Failed\n"
-                            f"Metric '{extra_metric.name}' requires the column '{param_name}' to "
-                            "be defined in either the input data or resulting output data.\n\n"
-                            "Below are the existing column names for the input/output data:\n"
-                            f"Input Columns: {input_columns}\n"
-                            f"Output Columns: {output_columns}\n"
-                            "Note that this does not include the output column: "
-                            f"'{output_column_name}'\n\n"
-                            f"To resolve this issue, you may want to map {param_name} to an "
-                            "existing column using the following configuration:\n"
-                            f"evaluator_config={{'col_mapping': {{'{param_name}': "
-                            "'<existing column name>'}}\n"
-                        )
 
+                    # case where the param is defined as part of the evaluator_config
+                    elif column in self.evaluator_config:
+                        eval_fn_args.append(self.evaluator_config.get(column))
+                    elif param.default == inspect.Parameter.empty:
+                        params_not_found.append(param_name)
+                    else:
+                        eval_fn_args.append(param.default)
+
+        if len(params_not_found) > 0:
+            return extra_metric.name, params_not_found
         return eval_fn_args
 
     def _evaluate_extra_metrics(self, eval_df):
-        if not self.extra_metrics:
-            return
         for index, extra_metric in enumerate(self.extra_metrics):
             eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
             _logger.info(f"Evaluating metrics: {extra_metric.name}")
@@ -1310,20 +1331,30 @@ class DefaultEvaluator(ModelEvaluator):
                 )
 
         X_copy = self.X.copy_to_avoid_mutation()
-        if compute_latency:
-            model_predictions = predict_with_latency(X_copy)
-        else:
-            if self.model is not None:
-                model_predictions = self.model.predict(X_copy)
+        if self.model is not None:
+            _logger.info("Computing model predictions.")
+
+            if compute_latency:
+                model_predictions = predict_with_latency(X_copy)
             else:
-                if self.dataset.predictions_data is None:
-                    raise MlflowException(
-                        message="Predictions data is missing when model is not provided. "
-                        "Please provide predictions data in the pandas dataset or provide "
-                        "a model.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                model_predictions = self.dataset.predictions_data
+                model_predictions = self.model.predict(X_copy)
+        else:
+            if self.dataset.predictions_data is None:
+                raise MlflowException(
+                    message="Predictions data is missing when model is not provided. "
+                    "Please provide predictions data in a dataset or provide a model. "
+                    "See the documentation for mlflow.evaluate() for how to specify "
+                    "the predictions data in a dataset.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if compute_latency:
+                _logger.warning(
+                    "Setting the latency to 0 for all entries because the model " "is not provided."
+                )
+                self.metrics_values.update(
+                    {_LATENCY_METRIC_NAME: MetricValue(scores=[0.0] * len(X_copy))}
+                )
+            model_predictions = self.dataset.predictions_data
 
         if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
@@ -1358,7 +1389,7 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 self.y_probs = None
 
-        output_column_name = self.evaluator_config.get(_Y_PREDICTED_OUTPUT_COLUMN_NAME, "output")
+        output_column_name = self.predictions
         self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
             model_predictions, output_column_name
         )
@@ -1404,9 +1435,85 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             )
 
+    def _check_args(self, metrics, eval_df):
+        failed_metrics = []
+        # collect all failures for getting metric arguments
+        for metric in metrics:
+            result = self._get_args_for_metrics(metric, eval_df)
+            if isinstance(result, tuple):
+                failed_metrics.append(result)
+
+        if len(failed_metrics) > 0:
+            output_columns = (
+                [] if self.other_output_columns is None else list(self.other_output_columns.columns)
+            )
+            input_columns = list(self.X.copy_to_avoid_mutation().columns)
+
+            error_messages = [
+                f"Metric '{metric_name}' requires the columns {param_names}"
+                for metric_name, param_names in failed_metrics
+            ]
+            joined_error_message = "\n".join(error_messages)
+            full_message = f"""Error: Metric calculation failed for the following metrics:
+            {joined_error_message}
+
+            Below are the existing column names for the input/output data:
+            Input Columns: {input_columns}
+            Output Columns: {output_columns}
+            To resolve this issue, you may want to map the missing column to an existing column
+            using the following configuration:
+            evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
+            stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
+            raise MlflowException(stripped_message)
+
+    def _test_first_row(self, eval_df):
+        # test calculations on first row of eval_df
+        exceptions = []
+        first_row_df = eval_df.iloc[[0]]
+        for metric in self.builtin_metrics:
+            try:
+                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
+                metric_value = metric.eval_fn(*eval_fn_args)
+
+                # need to update metrics because they might be used in calculating extra_metrics
+                if metric_value:
+                    name = f"{metric.name}/{metric.version}" if metric.version else metric.name
+                    self.metrics_values.update({name: metric_value})
+            except Exception as e:
+                stacktrace_str = traceback.format_exc()
+                if isinstance(e, MlflowException):
+                    exceptions.append(
+                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
+                    )
+                else:
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
+        self._update_metrics()
+        for metric in self.extra_metrics:
+            try:
+                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
+                metric.eval_fn(*eval_fn_args)
+            except Exception as e:
+                stacktrace_str = traceback.format_exc()
+                if isinstance(e, MlflowException):
+                    exceptions.append(
+                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
+                    )
+                else:
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
+
+        if len(exceptions) > 0:
+            raise MlflowException("\n".join(exceptions))
+
+    def _evaluate_metrics(self, eval_df):
+        self._check_args(self.builtin_metrics + self.extra_metrics, eval_df)
+        self._test_first_row(eval_df)
+
+        # calculate metrics for the full eval_df
+        self._evaluate_builtin_metrics(eval_df)
+        self._update_metrics()
+        self._evaluate_extra_metrics(eval_df)
+
     def _evaluate_builtin_metrics(self, eval_df):
-        if not self.builtin_metrics:
-            return
         for builtin_metric in self.builtin_metrics:
             _logger.info(f"Evaluating builtin metrics: {builtin_metric.name}")
 
@@ -1445,14 +1552,31 @@ class DefaultEvaluator(ModelEvaluator):
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if not isinstance(metric_prefix, str):
             metric_prefix = ""
-        if self.dataset.has_targets:
-            data = self.dataset.features_data.assign(
-                **{self.dataset.targets_name or "target": self.y, "outputs": self.y_pred}
-            )
+        if isinstance(self.dataset.features_data, pd.DataFrame):
+            # Handle DataFrame case
+            if self.dataset.has_targets:
+                data = self.dataset.features_data.assign(
+                    **{
+                        self.dataset.targets_name or "target": self.y,
+                        self.dataset.predictions_name or "outputs": self.y_pred,
+                    }
+                )
+            else:
+                data = self.dataset.features_data.assign(outputs=self.y_pred)
         else:
-            data = self.dataset.features_data.assign(outputs=self.y_pred)
+            # Handle NumPy array case, converting it to a DataFrame
+            data = pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
+            if self.dataset.has_targets:
+                data = data.assign(
+                    **{
+                        self.dataset.targets_name or "target": self.y,
+                        self.dataset.predictions_name or "outputs": self.y_pred,
+                    }
+                )
+            else:
+                data = data.assign(outputs=self.y_pred)
 
-        # include other_output_columns in the eval table
+        # Include other_output_columns in the eval table
         if self.other_output_columns is not None:
             data = data.assign(**self.other_output_columns)
 
@@ -1484,10 +1608,11 @@ class DefaultEvaluator(ModelEvaluator):
         for metric_name, metric_value in self.metrics_values.items():
             if metric_value.aggregate_results:
                 for agg_name, agg_value in metric_value.aggregate_results.items():
-                    if agg_name == metric_name.split("/")[0]:
-                        self.metrics[metric_name] = agg_value
-                    else:
-                        self.metrics[f"{metric_name}/{agg_name}"] = agg_value
+                    if agg_value is not None:
+                        if agg_name == metric_name.split("/")[0]:
+                            self.metrics[metric_name] = agg_value
+                        else:
+                            self.metrics[f"{metric_name}/{agg_name}"] = agg_value
 
     def _evaluate(
         self,
@@ -1513,36 +1638,50 @@ class DefaultEvaluator(ModelEvaluator):
             self.artifacts = {}
             self.metrics = {}
             self.metrics_values = {}
-            self.builtin_metrics = {}
+            self.builtin_metrics = []
 
             text_metrics = [
-                token_count,
-                toxicity,
-                perplexity,
-                flesch_kincaid_grade_level,
-                ari_grade_level,
+                token_count(),
+                toxicity(),
+                flesch_kincaid_grade_level(),
+                ari_grade_level(),
             ]
 
             with mlflow.utils.autologging_utils.disable_autologging():
                 compute_latency = False
-                if self.extra_metrics:
-                    for extra_metric in self.extra_metrics:
-                        # If latency metric is specified, we will compute latency for the model
-                        # during prediction, and we will remove the metric from the list of extra
-                        # metrics to be computed after prediction.
-                        if extra_metric.name == _LATENCY_METRIC_NAME:
-                            compute_latency = True
-                            self.extra_metrics.remove(extra_metric)
-                            break
+                for extra_metric in self.extra_metrics:
+                    # If latency metric is specified, we will compute latency for the model
+                    # during prediction, and we will remove the metric from the list of extra
+                    # metrics to be computed after prediction.
+                    if extra_metric.name == _LATENCY_METRIC_NAME:
+                        compute_latency = True
+                        self.extra_metrics.remove(extra_metric)
+                        break
                 self._generate_model_predictions(compute_latency=compute_latency)
                 if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
                     self._compute_builtin_metrics()
                 elif self.model_type == _ModelType.QUESTION_ANSWERING:
-                    self.builtin_metrics = [*text_metrics, exact_match]
+                    self.builtin_metrics = [*text_metrics, exact_match()]
                 elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
-                    self.builtin_metrics = [*text_metrics, rouge1, rouge2, rougeL, rougeLsum]
+                    self.builtin_metrics = [
+                        *text_metrics,
+                        rouge1(),
+                        rouge2(),
+                        rougeL(),
+                        rougeLsum(),
+                    ]
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
+                elif self.model_type == _ModelType.RETRIEVER:
+                    k = self.evaluator_config.pop("k", 3)  # default k to 3 if not specified
+                    if not (isinstance(k, int) and k > 0):
+                        _logger.warning(
+                            "Cannot calculate 'precision_at_k' for invalid parameter 'k'."
+                            f"'k' should be a positive integer; found: {k}"
+                            "Skipping metric logging."
+                        )
+                    else:
+                        self.builtin_metrics = [precision_at_k(k)]
 
                 self.y_pred = (
                     self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
@@ -1551,9 +1690,7 @@ class DefaultEvaluator(ModelEvaluator):
                 if self.dataset.has_targets:
                     eval_df["target"] = self.y
 
-                self._evaluate_builtin_metrics(eval_df)
-                self._update_metrics()
-                self._evaluate_extra_metrics(eval_df)
+                self._evaluate_metrics(eval_df)
                 if not is_baseline_model:
                     self._log_custom_artifacts(eval_df)
 
@@ -1592,6 +1729,7 @@ class DefaultEvaluator(ModelEvaluator):
         extra_metrics=None,
         custom_artifacts=None,
         baseline_model=None,
+        predictions=None,
         **kwargs,
     ):
         self.dataset = dataset
@@ -1602,6 +1740,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         self.custom_artifacts = custom_artifacts
         self.y = dataset.labels_data
+        self.predictions = predictions
         self.col_mapping = self.evaluator_config.get("col_mapping", {})
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
@@ -1621,6 +1760,24 @@ class DefaultEvaluator(ModelEvaluator):
             self.extra_metrics = custom_metrics
         else:
             self.extra_metrics = extra_metrics
+
+        if self.extra_metrics is None:
+            self.extra_metrics = []
+
+        bad_metrics = []
+        for metric in self.extra_metrics:
+            if not isinstance(metric, EvaluationMetric):
+                bad_metrics.append(metric)
+        if len(bad_metrics) > 0:
+            message = "\n".join(
+                [f"- Metric '{m}' has type '{type(m).__name__}'" for m in bad_metrics]
+            )
+            raise MlflowException(
+                f"In the 'extra_metrics' parameter, the following metrics have the wrong type:\n"
+                f"{message}\n"
+                f"Please ensure that all extra metrics are instances of "
+                f"mlflow.metrics.EvaluationMetric."
+            )
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)

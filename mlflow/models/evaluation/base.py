@@ -14,7 +14,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -30,7 +30,7 @@ from mlflow.models.evaluation.validation import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _get_fully_qualified_class_name, _insecure_md5
+from mlflow.utils import _get_fully_qualified_class_name, insecure_hash
 from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
@@ -54,7 +54,7 @@ class _ModelType:
     QUESTION_ANSWERING = "question-answering"
     TEXT_SUMMARIZATION = "text-summarization"
     TEXT = "text"
-    # TODO: Add 'retrieval' model type
+    RETRIEVER = "retriever"
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
@@ -67,6 +67,7 @@ class _ModelType:
             cls.QUESTION_ANSWERING,
             cls.TEXT_SUMMARIZATION,
             cls.TEXT,
+            cls.RETRIEVER,
         )
 
 
@@ -109,23 +110,30 @@ class EvaluationMetric:
     :param long_name: (Optional) The long name of the metric. For example,
         ``"root_mean_squared_error"`` for ``"mse"``.
     :param version: (Optional) The metric version. For example ``v1``.
+    :param metric_details: (Optional) A description of the metric and how it is calculated.
     '''
 
-    def __init__(self, eval_fn, name, greater_is_better, long_name=None, version=None):
+    def __init__(
+        self, eval_fn, name, greater_is_better, long_name=None, version=None, metric_details=None
+    ):
         self.eval_fn = eval_fn
         self.name = name
         self.greater_is_better = greater_is_better
         self.long_name = long_name or name
         self.version = version
+        self.metric_details = metric_details
 
     def __str__(self):
+        parts = [f"name={self.name}, greater_is_better={self.greater_is_better}"]
+
         if self.long_name:
-            return (
-                f"EvaluationMetric(name={self.name}, long_name={self.long_name}, "
-                f"greater_is_better={self.greater_is_better})"
-            )
-        else:
-            return f"EvaluationMetric(name={self.name}, greater_is_better={self.greater_is_better})"
+            parts.append(f"long_name={self.long_name}")
+        if self.version:
+            parts.append(f"version={self.version}")
+        if self.metric_details:
+            parts.append(f"metric_details={self.metric_details}")
+
+        return "EvaluationMetric(" + ", ".join(parts) + ")"
 
 
 def make_metric(
@@ -135,6 +143,7 @@ def make_metric(
     name=None,
     long_name=None,
     version=None,
+    metric_details=None,
 ):
     '''
     A factory function to create an :py:class:`EvaluationMetric` object.
@@ -175,6 +184,7 @@ def make_metric(
     :param long_name: (Optional) The long name of the metric. For example, ``"mean_squared_error"``
         for ``"mse"``.
     :param version: (Optional) The metric version. For example ``v1``.
+    :param metric_details: (Optional) A description of the metric and how it is calculated.
 
     .. seealso::
 
@@ -194,7 +204,7 @@ def make_metric(
             )
         name = eval_fn.__name__
 
-    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version)
+    return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version, metric_details)
 
 
 @developer_stable
@@ -596,7 +606,7 @@ class EvaluationDataset:
             )
 
         # generate dataset hash
-        md5_gen = _insecure_md5()
+        md5_gen = insecure_hash.md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
@@ -655,7 +665,7 @@ class EvaluationDataset:
     @property
     def predictions_name(self):
         """
-        return targets name
+        return predictions name
         """
         return self._predictions_name
 
@@ -769,6 +779,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         extra_metrics=None,
         custom_artifacts=None,
         baseline_model=None,
+        predictions=None,
         **kwargs,
     ):
         """
@@ -793,6 +804,9 @@ class ModelEvaluator(metaclass=ABCMeta):
                                           flavor as a baseline model to be compared with the
                                           candidate model (specified by the `model` param) for model
                                           validation. (pyfunc model instance is not allowed)
+        :param predictions: The column name of the model output column that is used for evaluation.
+                            This is only used when a model returns a pandas dataframe that contains
+                            multiple columns.
         :return: A :py:class:`mlflow.models.EvaluationResult` instance containing
                  evaluation metrics for candidate model and baseline model and
                  artifacts for candidate model.
@@ -1066,6 +1080,7 @@ def _evaluate(
     extra_metrics,
     custom_artifacts,
     baseline_model,
+    predictions,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -1107,6 +1122,7 @@ def _evaluate(
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
+                predictions=predictions,
             )
             eval_results.append(eval_result)
 
@@ -1144,7 +1160,7 @@ def _get_model_from_function(fn):
 
 
 def evaluate(
-    model: Optional[str] = None,
+    model=None,
     data=None,
     *,
     model_type: Optional[str] = None,
@@ -1155,7 +1171,7 @@ def evaluate(
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
-    extra_metrics=None,
+    extra_metrics: Optional[List[EvaluationMetric]] = None,
     custom_artifacts=None,
     validation_thresholds=None,
     baseline_model=None,
@@ -1197,14 +1213,10 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``, ``token_count``, `mean_perplexity`_ (requires `evaluate`_,
-          `pytorch`_, `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
-          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
+        - **metrics**: ``exact_match``, ``token_count``, `toxicity_ratio`_ (requires `evaluate`_,
+          `pytorch`_, `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
-
-        .. _mean_perplexity:
-            https://huggingface.co/spaces/evaluate-metric/perplexity
 
         .. _toxicity_ratio:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
@@ -1229,18 +1241,14 @@ def evaluate(
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: ``token_count``, `ROUGE`_ (requires `evaluate`_, `nltk`_, and
-          `rouge_score`_ to be installed), `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
-          (requires `textstat`_).
+          `rouge_score`_ to be installed), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `mean_ari_grade_level`_ (requires `textstat`_),
+          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in the tabular format.
 
         .. _ROUGE:
             https://huggingface.co/spaces/evaluate-metric/rouge
-
-        .. _mean_perplexity:
-            https://huggingface.co/spaces/evaluate-metric/perplexity
 
         .. _toxicity_ratio:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
@@ -1270,18 +1278,14 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: ``token_count``, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
-          (requires `textstat`_).
+        - **metrics**: ``token_count``, `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `mean_ari_grade_level`_ (requires `textstat`_),
+          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
         .. _evaluate:
             https://pypi.org/project/evaluate
-
-        .. _mean_perplexity:
-            https://huggingface.co/spaces/evaluate-metric/perplexity
 
         .. _toxicity_ratio:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
@@ -1300,6 +1304,13 @@ def evaluate(
 
         .. _textstat:
             https://pypi.org/project/textstat
+
+     - For retriever models, the default evaluator logs:
+        - **metrics**: ``precision_at_k``: has a default value of k = 3. To use a different
+          value for k, include ``"k"`` in the ``evaluator_config`` parameter:
+          ``evaluator_config={"k":5}``.
+        - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
+          of the model in tabular format.
 
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
@@ -1344,6 +1355,9 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
+        - **k**: The number of top-ranked retrieved documents to use when computing the built-in
+          metric ``precision_at_k`` for model_type="retriever". Default value is 3. For all other
+          model types, this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
@@ -1428,8 +1442,32 @@ def evaluate(
                     ``data`` is a :py:class:`mlflow.data.dataset.Dataset` that defines targets,
                     then ``targets`` is optional.
 
-    :param predictions: Optional. Only used when ``model`` is not specified and ``data`` is a pandas
-                        dataframe. The name of the column in ``data`` that contains model outputs.
+    :param predictions: Optional. The name of the column that contains model outputs. There are two
+                        cases where this argument is required:
+
+                        - When ``model`` is specified and outputs multiple columns. The
+                          ``predictions`` should be the name of the column that is used for
+                          evaluation.
+                        - When ``model`` is not specified and ``data`` is a pandas dataframe. The
+                          ``predictions`` should be the name of the column in ``data`` that
+                          contains model outputs.
+
+        .. code-block:: python
+            :caption: Example usage of predictions
+
+            # Evaluate a model that outputs multiple columns
+            data = pd.DataFrame({"question": ["foo"]})
+
+
+            def model(inputs):
+                return pd.DataFrame({"answer": ["bar"], "source": ["baz"]})
+
+
+            results = evalaute(model=model, data=data, predictions="answer", ...)
+
+            # Evaluate a static dataset
+            data = pd.DataFrame({"question": ["foo"], "answer": ["bar"], "source": ["baz"]})
+            results = evalaute(data=data, predictions="answer", ...)
 
     :param model_type: (Optional) A string describing the model type. The default evaluator
                        supports the following model types:
@@ -1439,13 +1477,15 @@ def evaluate(
                        - ``'question-answering'``
                        - ``'text-summarization'``
                        - ``'text'``
+                       - ``'retriever'``
 
                        If no ``model_type`` is specified, then you must provide a a list of
                        metrics to compute via the ``extra_metrics`` param.
 
                        .. note::
-                            ``'question-answering'``, ``'text-summarization'``, and ``'text'``
-                            are experimental and may be changed or removed in a future release.
+                            ``'question-answering'``, ``'text-summarization'``, ``'text'``, and
+                            ``'retriever'`` are experimental and may be changed or removed in a
+                            future release.
 
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
@@ -1473,10 +1513,10 @@ def evaluate(
     :param extra_metrics:
         (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>` objects.
         See the `mlflow.metrics` module for more information about the
-        builtin metrics and how to define custom metrics
+        builtin metrics and how to define extra metrics
 
         .. code-block:: python
-            :caption: Example usage of custom metrics
+            :caption: Example usage of extra metrics
 
             import mlflow
             import numpy as np
@@ -1628,21 +1668,24 @@ def evaluate(
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
+    if evaluator_config is not None:
+        col_mapping = evaluator_config.get("col_mapping", {})
+
+        if isinstance(targets, str):
+            targets = col_mapping.get(targets, targets)
+
+        if isinstance(predictions, str):
+            predictions = col_mapping.get(predictions, predictions)
+
     if data is None:
         raise MlflowException(
             message="The data argument cannot be None.", error_code=INVALID_PARAMETER_VALUE
         )
 
-    if predictions is not None and model is not None:
-        raise MlflowException(
-            message="The predictions argument cannot be specified when model is specified.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     _EnvManager.validate(env_manager)
 
-    # If Dataset is provided, the targets and predictions can only be specified by the Dataset,
-    # not the targets and predictions parameters of the mlflow.evaluate() API.
+    # If Dataset is provided, the targets can only be specified by the Dataset,
+    # not the targets parameters of the mlflow.evaluate() API.
     if isinstance(data, Dataset) and targets is not None:
         raise MlflowException(
             message="The top-level targets parameter should not be specified since a Dataset "
@@ -1651,12 +1694,25 @@ def evaluate(
             "Meanwhile, please specify `mlflow.evaluate(..., targets=None, ...)`.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if isinstance(data, Dataset) and predictions is not None:
+    # If Dataset is provided and model is None, then the predictions can only be specified by the
+    # Dataset, not the predictions parameters of the mlflow.evaluate() API.
+    if isinstance(data, Dataset) and model is None and predictions is not None:
         raise MlflowException(
             message="The top-level predictions parameter should not be specified since a Dataset "
             "is used. Please only specify the predictions column name in the Dataset. For example:"
             " `data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`"
             "Meanwhile, please specify `mlflow.evaluate(..., predictions=None, ...)`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    # If Dataset is provided and model is specified, then the data.predictions cannot be specified.
+    if (
+        isinstance(data, Dataset)
+        and model is not None
+        and getattr(data, "predictions", None) is not None
+    ):
+        raise MlflowException(
+            message="The predictions parameter should not be specified in the Dataset since a "
+            "model is specified. Please remove the predictions column from the Dataset.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -1779,9 +1835,12 @@ def evaluate(
     with _start_run_or_reuse_active_run() as run_id:
         if not isinstance(data, Dataset):
             # Convert data to `mlflow.data.dataset.Dataset`.
-            data = _convert_data_to_mlflow_dataset(
-                data=data, targets=targets, predictions=predictions
-            )
+            if model is None:
+                data = _convert_data_to_mlflow_dataset(
+                    data=data, targets=targets, predictions=predictions
+                )
+            else:
+                data = _convert_data_to_mlflow_dataset(data=data, targets=targets)
 
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
@@ -1802,6 +1861,7 @@ def evaluate(
                 path=dataset_path,
                 feature_names=feature_names,
             )
+        predictions_expected_in_model_output = predictions if model is not None else None
 
         try:
             evaluate_result = _evaluate(
@@ -1815,6 +1875,7 @@ def evaluate(
                 extra_metrics=extra_metrics,
                 custom_artifacts=custom_artifacts,
                 baseline_model=baseline_model,
+                predictions=predictions_expected_in_model_output,
             )
         finally:
             if isinstance(model, _ServedPyFuncModel):

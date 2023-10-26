@@ -44,6 +44,7 @@ from mlflow.transformers import (
     _get_instance_type,
     _get_or_infer_task_type,
     _infer_transformers_task_type,
+    _is_model_distributed_in_memory,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
@@ -1616,6 +1617,17 @@ def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, r
 
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
+
+
+def test_fill_mask_pipeline_with_multiple_masks(fill_mask_pipeline, model_path):
+    data = ["I <mask> the whole <mask> of <mask>", "I <mask> the whole <mask> of <mask>"]
+
+    mlflow.transformers.save_model(fill_mask_pipeline, path=model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(data)
+    assert len(inference) == 2
+    assert all(len(value) == 3 for value in inference)
 
 
 @pytest.mark.parametrize(
@@ -3761,3 +3773,69 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
                 python_model=TestModel(),
                 artifacts={"some-model": "hf:/invalid-repo-id"},
             )
+
+
+def test_model_distributed_across_devices():
+    mock_model = mock.Mock()
+    mock_model.device.type = "meta"
+    mock_model.hf_device_map = {
+        "layer1": mock.Mock(type="cpu"),
+        "layer2": mock.Mock(type="cpu"),
+        "layer3": mock.Mock(type="gpu"),
+        "layer4": mock.Mock(type="disk"),
+    }
+
+    assert _is_model_distributed_in_memory(mock_model)
+
+
+def test_model_on_single_device():
+    mock_model = mock.Mock()
+    mock_model.device.type = "cpu"
+    mock_model.hf_device_map = {}
+
+    assert not _is_model_distributed_in_memory(mock_model)
+
+
+def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path):
+    task = "translation_en_to_de"
+    architecture = "t5-small"
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        pretrained_model_name_or_path=architecture,
+        device_map={"shared": "cpu", "encoder": "cpu", "decoder": "disk", "lm_head": "disk"},
+        offload_folder=str(tmp_path / "weights"),
+        low_cpu_mem_usage=True,
+    )
+
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(
+        pretrained_model_name_or_path=architecture, model_max_length=100
+    )
+    pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
+
+    with pytest.raises(
+        MlflowException,
+        match="The model that is attempting to be saved has been loaded into memory",
+    ):
+        mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+
+
+def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
+    task = "translation_en_to_de"
+    architecture = "t5-small"
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        pretrained_model_name_or_path=architecture,
+        device_map={"shared": "cpu", "encoder": "cpu", "decoder": "cpu", "lm_head": "cpu"},
+        low_cpu_mem_usage=True,
+    )
+
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(
+        pretrained_model_name_or_path=architecture, model_max_length=100
+    )
+    pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
+
+    mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+
+    loaded = mlflow.transformers.load_model(str(tmp_path / "model"))
+
+    text = "Apples are delicious"
+
+    assert loaded(text) == pipeline(text)

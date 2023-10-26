@@ -209,7 +209,6 @@ You may prefer the second, lower-level workflow for the following reasons:
 
 import collections
 import functools
-import hashlib
 import importlib
 import inspect
 import logging
@@ -269,6 +268,7 @@ from mlflow.utils import (
     check_port_connectivity,
     find_free_port,
     get_major_minor_py_version,
+    insecure_hash,
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.annotations import deprecated, experimental
@@ -1584,7 +1584,7 @@ Compound types:
                 model_path = os.path.join(
                     tempfile.gettempdir(),
                     "mlflow",
-                    hashlib.sha1(model_uri.encode()).hexdigest(),
+                    insecure_hash.sha1(model_uri.encode()).hexdigest(),
                 )
                 try:
                     loaded_model = mlflow.pyfunc.load_model(model_path)

@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 
@@ -6,6 +7,11 @@ import numpy as np
 from mlflow.metrics.base import MetricValue
 
 _logger = logging.getLogger(__name__)
+
+targets_col_specifier = "the column specified by the `targets` parameter"
+predictions_col_specifier = (
+    "the column specified by the `predictions` parameter or the model output column"
+)
 
 
 def standard_aggregations(scores):
@@ -16,30 +22,50 @@ def standard_aggregations(scores):
     }
 
 
-def _validate_text_data(data, metric_name, column_name):
-    """Validates that the data is text and is non-empty"""
-    if len(data) == 0:
+def _validate_text_data(data, metric_name, col_specifier):
+    """Validates that the data is a list of strs and is non-empty"""
+    if data is None or len(data) == 0:
         return False
 
     for row, line in enumerate(data):
         if not isinstance(line, str):
             _logger.warning(
                 f"Cannot calculate {metric_name} for non-string inputs. "
-                + f"Non-string found for {column_name} on row {row}. skipping metric logging."
+                f"Non-string found for {col_specifier} on row {row}. Skipping metric logging."
             )
             return False
 
     return True
 
 
-def _token_count_eval_fn(predictions, targets, metrics):
+def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
+    """Validates that the data is a pandas Series of a tuple of strings and is non-empty"""
+    if data is None or len(data) == 0:
+        return False
+
+    for index, value in data.items():
+        if not isinstance(value, tuple) or not all(isinstance(val, str) for val in value):
+            # Single entry tuples are automatically unpacked by Pandas.
+            # So if the entry is a string, put it back into a tuple.
+            if isinstance(value, str):
+                data[index] = (value,)
+            else:
+                _logger.warning(
+                    f"Cannot calculate metric '{metric_name}' for non-tuple[str] inputs. "
+                    f"Row #{index} of column '{column_name}' has a non-tuple[str] value of:"
+                    f"{value}. Skipping metric logging."
+                )
+                return False
+
+    return True
+
+
+def _token_count_eval_fn(predictions, targets=None, metrics=None):
     import tiktoken
 
     # ref: https://github.com/openai/tiktoken/issues/75
     os.environ["TIKTOKEN_CACHE_DIR"] = ""
     encoding = tiktoken.get_encoding("cl100k_base")
-
-    _logger.info("Computing token count metric:")
 
     num_tokens = []
     for prediction in predictions:
@@ -53,21 +79,24 @@ def _token_count_eval_fn(predictions, targets, metrics):
     )
 
 
-def _toxicity_eval_fn(predictions, targets, metrics):
-    if not _validate_text_data(predictions, "toxicity", "predictions"):
+@functools.lru_cache(maxsize=8)
+def _cached_evaluate_load(path, module_type=None):
+    import evaluate
+
+    return evaluate.load(path, module_type=module_type)
+
+
+def _toxicity_eval_fn(predictions, targets=None, metrics=None):
+    if not _validate_text_data(predictions, "toxicity", predictions_col_specifier):
         return
     try:
-        _logger.info("Loading toxicity metric:")
-        import evaluate
-
-        toxicity = evaluate.load("toxicity", module_type="measurement")
+        toxicity = _cached_evaluate_load("toxicity", module_type="measurement")
     except Exception as e:
         _logger.warning(
             f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging."
         )
         return
 
-    _logger.info("Computing toxicity metric:")
     scores = toxicity.compute(predictions=predictions)["toxicity"]
     toxicity_ratio = toxicity.compute(predictions=predictions, aggregation="ratio")[
         "toxicity_ratio"
@@ -81,31 +110,8 @@ def _toxicity_eval_fn(predictions, targets, metrics):
     )
 
 
-def _perplexity_eval_fn(predictions, targets, metrics):
-    if not _validate_text_data(predictions, "perplexity", "predictions"):
-        return
-
-    try:
-        _logger.info("Loading perplexity metric:")
-        import evaluate
-
-        perplexity = evaluate.load("perplexity", module_type="metric")
-    except Exception as e:
-        _logger.warning(
-            f"Failed to load 'perplexity' metric (error: {e!r}), skipping metric logging."
-        )
-        return
-
-    _logger.info("Computing perplexity metric:")
-    scores = perplexity.compute(predictions=predictions, model_id="gpt2")["perplexities"]
-    return MetricValue(
-        scores=scores,
-        aggregate_results=standard_aggregations(scores),
-    )
-
-
-def _flesch_kincaid_eval_fn(predictions, targets, metrics):
-    if not _validate_text_data(predictions, "flesch_kincaid", "predictions"):
+def _flesch_kincaid_eval_fn(predictions, targets=None, metrics=None):
+    if not _validate_text_data(predictions, "flesch_kincaid", predictions_col_specifier):
         return
 
     try:
@@ -114,7 +120,6 @@ def _flesch_kincaid_eval_fn(predictions, targets, metrics):
         _logger.warning("Failed to load flesch kincaid metric, skipping metric logging.")
         return
 
-    _logger.info("Computing flesch kincaid metric:")
     scores = [textstat.flesch_kincaid_grade(prediction) for prediction in predictions]
     return MetricValue(
         scores=scores,
@@ -122,8 +127,8 @@ def _flesch_kincaid_eval_fn(predictions, targets, metrics):
     )
 
 
-def _ari_eval_fn(predictions, targets, metrics):
-    if not _validate_text_data(predictions, "ari", "predictions"):
+def _ari_eval_fn(predictions, targets=None, metrics=None):
+    if not _validate_text_data(predictions, "ari", predictions_col_specifier):
         return
 
     try:
@@ -134,7 +139,6 @@ def _ari_eval_fn(predictions, targets, metrics):
         )
         return
 
-    _logger.info("Computing automated readability index metric:")
     scores = [textstat.automated_readability_index(prediction) for prediction in predictions]
     return MetricValue(
         scores=scores,
@@ -142,7 +146,7 @@ def _ari_eval_fn(predictions, targets, metrics):
     )
 
 
-def _accuracy_eval_fn(predictions, targets, metrics, sample_weight=None):
+def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import accuracy_score
 
@@ -150,123 +154,103 @@ def _accuracy_eval_fn(predictions, targets, metrics, sample_weight=None):
         return MetricValue(aggregate_results={"exact_match": acc})
 
 
-def _rouge1_eval_fn(predictions, targets, metrics):
-    if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rouge1", "targets") or not _validate_text_data(
-            predictions, "rouge1", "predictions"
-        ):
-            return
+def _rouge1_eval_fn(predictions, targets=None, metrics=None):
+    if not _validate_text_data(targets, "rouge1", targets_col_specifier) or not _validate_text_data(
+        predictions, "rouge1", predictions_col_specifier
+    ):
+        return
 
-        try:
-            import evaluate
+    try:
+        rouge = _cached_evaluate_load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-            rouge = evaluate.load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
-
-        scores = rouge.compute(
-            predictions=predictions,
-            references=targets,
-            rouge_types=["rouge1"],
-            use_aggregator=False,
-        )["rouge1"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    scores = rouge.compute(
+        predictions=predictions,
+        references=targets,
+        rouge_types=["rouge1"],
+        use_aggregator=False,
+    )["rouge1"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
-def _rouge2_eval_fn(predictions, targets, metrics):
-    if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rouge2", "targets") or not _validate_text_data(
-            predictions, "rouge2", "predictions"
-        ):
-            return
+def _rouge2_eval_fn(predictions, targets=None, metrics=None):
+    if not _validate_text_data(targets, "rouge2", targets_col_specifier) or not _validate_text_data(
+        predictions, "rouge2", predictions_col_specifier
+    ):
+        return
 
-        try:
-            import evaluate
+    try:
+        rouge = _cached_evaluate_load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-            rouge = evaluate.load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
-
-        scores = rouge.compute(
-            predictions=predictions,
-            references=targets,
-            rouge_types=["rouge2"],
-            use_aggregator=False,
-        )["rouge2"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    scores = rouge.compute(
+        predictions=predictions,
+        references=targets,
+        rouge_types=["rouge2"],
+        use_aggregator=False,
+    )["rouge2"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
-def _rougeL_eval_fn(predictions, targets, metrics):
-    if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rougeL", "targets") or not _validate_text_data(
-            predictions, "rougeL", "predictions"
-        ):
-            return
+def _rougeL_eval_fn(predictions, targets=None, metrics=None):
+    if not _validate_text_data(targets, "rougeL", targets_col_specifier) or not _validate_text_data(
+        predictions, "rougeL", predictions_col_specifier
+    ):
+        return
 
-        try:
-            import evaluate
+    try:
+        rouge = _cached_evaluate_load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-            rouge = evaluate.load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
-
-        scores = rouge.compute(
-            predictions=predictions,
-            references=targets,
-            rouge_types=["rougeL"],
-            use_aggregator=False,
-        )["rougeL"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    scores = rouge.compute(
+        predictions=predictions,
+        references=targets,
+        rouge_types=["rougeL"],
+        use_aggregator=False,
+    )["rougeL"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
-def _rougeLsum_eval_fn(predictions, targets, metrics):
-    if targets is not None and len(targets) != 0:
-        if not _validate_text_data(targets, "rougeLsum", "targets") or not _validate_text_data(
-            predictions, "rougeLsum", "predictions"
-        ):
-            return
+def _rougeLsum_eval_fn(predictions, targets=None, metrics=None):
+    if not _validate_text_data(
+        targets, "rougeLsum", targets_col_specifier
+    ) or not _validate_text_data(predictions, "rougeLsum", predictions_col_specifier):
+        return
 
-        try:
-            import evaluate
+    try:
+        rouge = _cached_evaluate_load("rouge")
+    except Exception as e:
+        _logger.warning(f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging.")
+        return
 
-            rouge = evaluate.load("rouge")
-        except Exception as e:
-            _logger.warning(
-                f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
-            )
-            return
-
-        scores = rouge.compute(
-            predictions=predictions,
-            references=targets,
-            rouge_types=["rougeLsum"],
-            use_aggregator=False,
-        )["rougeLsum"]
-        return MetricValue(
-            scores=scores,
-            aggregate_results=standard_aggregations(scores),
-        )
+    scores = rouge.compute(
+        predictions=predictions,
+        references=targets,
+        rouge_types=["rougeLsum"],
+        use_aggregator=False,
+    )["rougeLsum"]
+    return MetricValue(
+        scores=scores,
+        aggregate_results=standard_aggregations(scores),
+    )
 
 
-def _mae_eval_fn(predictions, targets, metrics, sample_weight=None):
+def _mae_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_absolute_error
 
@@ -274,7 +258,7 @@ def _mae_eval_fn(predictions, targets, metrics, sample_weight=None):
         return MetricValue(aggregate_results={"mean_absolute_error": mae})
 
 
-def _mse_eval_fn(predictions, targets, metrics, sample_weight=None):
+def _mse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_squared_error
 
@@ -282,7 +266,7 @@ def _mse_eval_fn(predictions, targets, metrics, sample_weight=None):
         return MetricValue(aggregate_results={"mean_squared_error": mse})
 
 
-def _rmse_eval_fn(predictions, targets, metrics, sample_weight=None):
+def _rmse_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_squared_error
 
@@ -290,7 +274,7 @@ def _rmse_eval_fn(predictions, targets, metrics, sample_weight=None):
         return MetricValue(aggregate_results={"root_mean_squared_error": rmse})
 
 
-def _r2_score_eval_fn(predictions, targets, metrics, sample_weight=None):
+def _r2_score_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import r2_score
 
@@ -298,7 +282,7 @@ def _r2_score_eval_fn(predictions, targets, metrics, sample_weight=None):
         return MetricValue(aggregate_results={"r2_score": r2})
 
 
-def _max_error_eval_fn(predictions, targets, metrics):
+def _max_error_eval_fn(predictions, targets=None, metrics=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import max_error
 
@@ -306,7 +290,7 @@ def _max_error_eval_fn(predictions, targets, metrics):
         return MetricValue(aggregate_results={"max_error": error})
 
 
-def _mape_eval_fn(predictions, targets, metrics, sample_weight=None):
+def _mape_eval_fn(predictions, targets=None, metrics=None, sample_weight=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import mean_absolute_percentage_error
 
@@ -315,7 +299,7 @@ def _mape_eval_fn(predictions, targets, metrics, sample_weight=None):
 
 
 def _recall_eval_fn(
-    predictions, targets, metrics, pos_label=1, average="binary", sample_weight=None
+    predictions, targets=None, metrics=None, pos_label=1, average="binary", sample_weight=None
 ):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import recall_score
@@ -327,7 +311,7 @@ def _recall_eval_fn(
 
 
 def _precision_eval_fn(
-    predictions, targets, metrics, pos_label=1, average="binary", sample_weight=None
+    predictions, targets=None, metrics=None, pos_label=1, average="binary", sample_weight=None
 ):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import precision_score
@@ -343,7 +327,7 @@ def _precision_eval_fn(
 
 
 def _f1_score_eval_fn(
-    predictions, targets, metrics, pos_label=1, average="binary", sample_weight=None
+    predictions, targets=None, metrics=None, pos_label=1, average="binary", sample_weight=None
 ):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import f1_score
@@ -356,3 +340,25 @@ def _f1_score_eval_fn(
             sample_weight=sample_weight,
         )
         return MetricValue(aggregate_results={"f1_score": f1})
+
+
+def _precision_at_k_eval_fn(k):
+    def _fn(predictions, targets):
+        if not _validate_and_fix_text_tuple_data(
+            predictions, "precision_at_k", "predictions"
+        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets"):
+            return
+
+        scores = []
+        for i in range(len(predictions)):
+            # only include the top k retrieved chunks
+            ground_truth, retrieved = set(targets[i]), predictions[i][:k]
+            relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
+            if len(retrieved) > 0:
+                scores.append(relevant_doc_count / len(retrieved))
+            else:
+                scores.append(1)
+
+        return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+
+    return _fn

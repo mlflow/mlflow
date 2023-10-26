@@ -575,8 +575,14 @@ def _save_model(model, path, loader_fn, persist_dir):
 
         if model.tools:
             tools_data_path = os.path.join(path, _TOOLS_DATA_FILE_NAME)
-            with open(tools_data_path, "wb") as f:
-                cloudpickle.dump(model.tools, f)
+            try:
+                with open(tools_data_path, "wb") as f:
+                    cloudpickle.dump(model.tools, f)
+            except Exception as e:
+                raise mlflow.MlflowException(
+                    "Error when attempting to pickle the AgentExecutor tools. "
+                    "This model likely does not support serialization."
+                ) from e
             model_data_kwargs[_TOOLS_DATA_KEY] = _TOOLS_DATA_FILE_NAME
         else:
             raise mlflow.MlflowException.invalid_parameter_value(

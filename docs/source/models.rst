@@ -3644,10 +3644,10 @@ each model:
 For additional examples demonstrating the use of ``mlflow.evaluate()`` with LLMs, check out the
 `MLflow LLMs example repository <https://github.com/mlflow/mlflow/tree/master/examples/llms>`_.
 
-Evaluating with Custom Metrics
+Evaluating with Extra Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the default set of metrics is insufficient, you can supply ``custom_metrics`` and ``custom_artifacts``
+If the default set of metrics is insufficient, you can supply ``extra_metrics`` and ``custom_artifacts``
 to :py:func:`mlflow.evaluate()` to produce custom metrics and artifacts for the model(s) that you're evaluating.
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
@@ -3659,6 +3659,43 @@ uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the 
 
 For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
+
+Evaluating with a Function
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
+logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
+it. The following example uses :py:func:`mlflow.evaluate()` to evaluate a function:
+
+
+.. literalinclude:: ../../examples/evaluation/evaluate_with_function.py
+    :language: python
+
+Evaluating with a Static Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a static dataset without specifying a model.
+This is useful when you save the model output to a column in a Pandas DataFrame or an MLflow PandasDataset, and
+want to evaluate the static dataset without re-running the model.
+
+If you are using a Pandas DataFrame, you must specify the column name that contains the model output using the
+top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
+
+.. code-block:: python
+
+    mlflow.evaluate(data=pandas_df, predictions="model_output", ...)
+
+If you are using an MLflow PandasDataset, you must specify the column name that contains the model output using
+the ``predictions`` parameter in :py:func:`mlflow.data.from_pandas()`, and specify ``None`` for the
+``predictions`` parameter in :py:func:`mlflow.evaluate()`:
+
+.. code-block:: python
+
+    dataset = mlflow.data.from_pandas(pandas_df, predictions="model_output")
+    mlflow.evaluate(data=pandas_df, predictions=None, ...)
+
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dataset:
+
+.. literalinclude:: ../../examples/evaluation/evaluate_with_static_dataset.py
+    :language: python
 
 .. _model-validation:
 

@@ -55,7 +55,7 @@ from mlflow.models.evaluation.evaluator_registry import _model_evaluation_regist
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracking.artifact_utils import get_artifact_uri
-from mlflow.utils import _insecure_md5
+from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import TempDir
 
 
@@ -690,7 +690,7 @@ def test_dataset_metadata():
 
 def test_gen_md5_for_arraylike_obj():
     def get_md5(data):
-        md5_gen = _insecure_md5()
+        md5_gen = insecure_hash.md5()
         _gen_md5_for_arraylike_obj(md5_gen, data)
         return md5_gen.hexdigest()
 
@@ -910,6 +910,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     extra_metrics=None,
                     custom_artifacts=None,
                     baseline_model=None,
+                    predictions=None,
                 )
 
 
@@ -991,6 +992,7 @@ def test_evaluate_with_multi_evaluators(
                 "custom_metrics": None,
                 "custom_artifacts": None,
                 "baseline_model": baseline_model,
+                "predictions": None,
             }
 
         # evaluators = None is the case evaluators unspecified, it should fetch all registered
@@ -1370,6 +1372,32 @@ def test_evaluate_with_targets_error_handling():
             )
 
 
+def test_evaluate_with_predictions_error_handling():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    lgb_data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, lgb_data, num_boost_round=5)
+    mlflow_dataset_with_predictions = mlflow.data.from_pandas(
+        df=X.assign(y=y, model_output=y),
+        targets="y",
+        predictions="model_output",
+    )
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match="The predictions parameter should not be specified in the Dataset since a model "
+            "is specified. Please remove the predictions column from the Dataset.",
+        ):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_with_predictions,
+                model_type="regressor",
+            )
+
+
 def test_evaluate_with_function_input_single_output():
     import lightgbm as lgb
 
@@ -1503,18 +1531,6 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataframe():
             "mlflow.data.pandas_dataset.PandasDataset when model=None.",
         ):
             mlflow.evaluate(
-                data=X.assign(y=y, model_output=y).to_numpy(),
-                targets="y",
-                predictions="model_output",
-                model_type="regressor",
-            )
-
-        with pytest.raises(
-            MlflowException,
-            match="The predictions argument cannot be specified when model is specified.",
-        ):
-            mlflow.evaluate(
-                model="models:/test",
                 data=X.assign(y=y, model_output=y).to_numpy(),
                 targets="y",
                 predictions="model_output",

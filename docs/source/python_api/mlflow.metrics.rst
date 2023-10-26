@@ -54,64 +54,45 @@ Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricVa
 
 .. autoclass:: mlflow.metrics.MetricValue
 
-We provide the following builtin :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating models. These metrics are computed automatically depending on the ``model_type``. For more information on the ``model_type`` parameter, see :py:func:`mlflow.evaluate()` API.
+We provide the following builtin factory functions to create :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating models. These metrics are computed automatically depending on the ``model_type``. For more information on the ``model_type`` parameter, see :py:func:`mlflow.evaluate()` API.
 
-.. autodata:: mlflow.metrics.mae
-   :annotation:
+.. autofunction:: mlflow.metrics.mae
 
-.. autodata:: mlflow.metrics.mape
-   :annotation:
+.. autofunction:: mlflow.metrics.mape
 
-.. autodata:: mlflow.metrics.max_error
-   :annotation:
+.. autofunction:: mlflow.metrics.max_error
 
-.. autodata:: mlflow.metrics.mse
-   :annotation:
+.. autofunction:: mlflow.metrics.mse
 
-.. autodata:: mlflow.metrics.rmse
-   :annotation:
+.. autofunction:: mlflow.metrics.rmse
 
-.. autodata:: mlflow.metrics.r2_score
-   :annotation:
+.. autofunction:: mlflow.metrics.r2_score
 
-.. autodata:: mlflow.metrics.precision_score
-   :annotation:
+.. autofunction:: mlflow.metrics.precision_score
 
-.. autodata:: mlflow.metrics.recall_score
-   :annotation:
+.. autofunction:: mlflow.metrics.recall_score
 
-.. autodata:: mlflow.metrics.f1_score
-   :annotation:
+.. autofunction:: mlflow.metrics.f1_score
 
-.. autodata:: mlflow.metrics.ari_grade_level
-   :annotation:
+.. autofunction:: mlflow.metrics.ari_grade_level
 
-.. autodata:: mlflow.metrics.flesch_kincaid_grade_level
-   :annotation:
+.. autofunction:: mlflow.metrics.flesch_kincaid_grade_level
 
-.. autodata:: mlflow.metrics.perplexity
-   :annotation:
+.. autofunction:: mlflow.metrics.rouge1
 
-.. autodata:: mlflow.metrics.rouge1
-   :annotation:
+.. autofunction:: mlflow.metrics.rouge2
 
-.. autodata:: mlflow.metrics.rouge2
-   :annotation:
+.. autofunction:: mlflow.metrics.rougeL
 
-.. autodata:: mlflow.metrics.rougeL
-   :annotation:
+.. autofunction:: mlflow.metrics.rougeLsum
 
-.. autodata:: mlflow.metrics.rougeLsum
-   :annotation:
+.. autofunction:: mlflow.metrics.precision_at_k
 
-.. autodata:: mlflow.metrics.toxicity
-   :annotation:
+.. autofunction:: mlflow.metrics.toxicity
 
-.. autodata:: mlflow.metrics.token_count
-   :annotation:
+.. autofunction:: mlflow.metrics.token_count
 
-.. autodata:: mlflow.metrics.latency
-   :annotation:
+.. autofunction:: mlflow.metrics.latency
 
 Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_metric <mlflow.metrics.make_metric>` factory function
 
@@ -121,9 +102,11 @@ We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <m
 
 .. autofunction:: mlflow.metrics.answer_similarity
 
-.. autofunction:: mlflow.metrics.strict_correctness
+.. autofunction:: mlflow.metrics.answer_correctness
 
-.. autofunction:: mlflow.metrics.relevance
+.. autofunction:: mlflow.metrics.faithfulness
+
+.. autofunction:: mlflow.metrics.answer_relevance
 
 Users can also create their own LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function.
 
@@ -137,4 +120,4 @@ When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetri
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, strict_correctness, relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency

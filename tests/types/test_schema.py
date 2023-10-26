@@ -632,10 +632,12 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     )
     actual_spark_schema = schema.as_spark_schema()
     assert expected_spark_schema.jsonValue() == actual_spark_schema.jsonValue()
-    spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
-    sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=actual_spark_schema)
-    schema2 = _infer_schema(sparkdf)
-    assert schema == schema2
+    with pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate()) as spark_session:
+        sparkdf = spark_session.createDataFrame(
+            pandas_df_with_all_types, schema=actual_spark_schema
+        )
+        schema2 = _infer_schema(sparkdf)
+        assert schema == schema2
 
     # test unnamed columns
     schema = Schema([ColSpec(col.type) for col in schema.inputs])

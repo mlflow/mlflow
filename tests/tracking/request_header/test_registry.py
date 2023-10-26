@@ -15,6 +15,12 @@ from mlflow.tracking.request_header.registry import (
 # pylint: disable=unused-argument
 
 
+@pytest.fixture(autouse=True)
+def reload_registry():
+    yield
+    reload(mlflow.tracking.request_header.registry)
+
+
 def test_request_header_context_provider_registry_register():
     provider_class = mock.Mock()
 
