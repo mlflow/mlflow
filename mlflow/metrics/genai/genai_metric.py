@@ -39,7 +39,7 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
 
     return (
         ""
-        if args_dict is None
+        if args_dict is None or len(args_dict) == 0
         else (
             "Additional information used by the model:\n"
             + "\n".join(
