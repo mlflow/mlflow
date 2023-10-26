@@ -117,7 +117,7 @@ class App extends Component<AppProps> {
                 <div className='header-links'>
                   <div style={{ display: 'flex', alignItems: 'center' }} css={{ marginRight }}>
                     <Switch checked={this.props.isDarkTheme} onChange={this.props.setIsDarkTheme} />
-                    {this.props.isDarkTheme ? <span>Dark</span> : <span>Light</span>}
+                    {this.props.isDarkTheme ? <span>Dark theme</span> : <span>Light theme</span>}
                   </div>
                   <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
                     <div className='github'>
