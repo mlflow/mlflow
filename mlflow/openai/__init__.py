@@ -199,23 +199,6 @@ def _get_api_config() -> _OpenAIApiConfig:
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
         max_tokens_per_minute = 60_000
-        if engine is not None:
-            # Avoid using both parameters as they serve the same purpose
-            # Invalid inputs:
-            #   - Wrong engine + correct/wrong deployment_id
-            #   - No engine + wrong deployment_id
-            # Valid inputs:
-            #   - Correct engine + correct/wrong deployment_id
-            #   - No engine + correct deployment_id
-            if deployment_id is not None:
-                _logger.warning(
-                    "Both engine and deployment_id are set. Using engine as it takes precedence."
-                )
-                deployment_id = None
-        elif deployment_id is None:
-            raise MlflowException(
-                "Either engine or deployment_id must be set for Azure OpenAI API",
-            )
     else:
         # The maximum batch size is 2048:
         # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
@@ -697,11 +680,33 @@ class _OpenAIWrapper:
         self.task = task
         self.api_config = _get_api_config()
         self.api_token = _OAITokenHolder(self.api_config.api_type)
+        # If the same parameter exists in self.model & self.api_config,
+        # we use the parameter from self.model
         self.kwargs = {
             x: getattr(self.api_config, x)
             for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
-            if getattr(self.api_config, x) is not None
+            if getattr(self.api_config, x) is not None and x not in self.model
         }
+        api_type = self.model.get("api_type") or self.kwargs.get("api_type")
+        if api_type in ("azure", "azure_ad", "azuread"):
+            deployment_id = self.model.get("deployment_id") or self.kwargs.get("deployment_id")
+            if self.model.get("engine") or self.kwargs.get("engine"):
+                # Avoid using both parameters as they serve the same purpose
+                # Invalid inputs:
+                #   - Wrong engine + correct/wrong deployment_id
+                #   - No engine + wrong deployment_id
+                # Valid inputs:
+                #   - Correct engine + correct/wrong deployment_id
+                #   - No engine + correct deployment_id
+                if deployment_id is not None:
+                    _logger.warning(
+                        "Both engine and deployment_id are set. "
+                        "Using engine as it takes precedence."
+                    )
+            elif deployment_id is None:
+                raise MlflowException(
+                    "Either engine or deployment_id must be set for Azure OpenAI API",
+                )
 
         if self.task != "embeddings":
             self._setup_completions()
