@@ -100,11 +100,40 @@ configuration and management of your LLM serving needs, select the provider that
                     <img src="../_static/images/logos/ai21labs-logo.svg" alt="ai21Labs Logo">
                 </div>
             </a>
+            <a href="gateway/index.html#providers">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/huggingface-logo.svg" alt="Hugging Face Logo">
+                </div>
+            </a>
         </div>
     </section>
 
-`LLM Model Evaluation <llm-evaluate/index.html>`_
--------------------------------------------------
+`Getting Started Examples for each Provider <https://github.com/mlflow/mlflow/blob/master/examples/gateway/README.md>`_
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you're interested in learning about how to set up the MLflow AI Gateway for a specific provider, follow the links below for our up-to-date 
+documentation on GitHub. 
+
+Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as 
+the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started 
+with your favorite provider!
+
+* `OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/openai/README.md>`_
+* `MosaicML quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/mosaicml/README.md>`_
+* `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/anthropic/README.md>`_
+* `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/cohere/README.md>`_
+* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/mlflow_serving/README.md>`_
+* `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/palm/README.md>`_
+* `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/azure_openai/README.md>`_
+* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/huggingface/readme.md>`_
+
+.. note::
+    The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source 
+    LLM models, or your own custom LLM. The example documentation for these providers will show you how to get started with these, using free-to-use open-source 
+    models from the `Hugging Face Hub <https://huggingface.co/docs/hub/index>`_.
+
+`LLM Evaluation <llm-evaluate/index.html>`_
+-------------------------------------------
 
 .. toctree::
     :maxdepth: 1
@@ -116,11 +145,11 @@ Navigating the vast landscape of Large Language Models (LLMs) can be daunting. D
 with a project's needs is no small feat. Traditional machine learning evaluation metrics often fall short when it comes to assessing the 
 nuanced performance of generative models.
 
-Enter `MLflow LLM Model Evaluation <llm-evaluate/index.html>`_. This feature is designed to simplify the evaluation process, 
+Enter `MLflow LLM Evaluation <llm-evaluate/index.html>`_. This feature is designed to simplify the evaluation process, 
 offering a streamlined approach to compare foundational models, providers, and prompts.
 
-Benefits of MLflow's LLM Model Evaluation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Benefits of MLflow's LLM Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **Simplified Evaluation**: Navigate the LLM space with ease, ensuring the best fit for your project with standard metrics that can be used to compare generated text.
 
@@ -132,7 +161,7 @@ Benefits of MLflow's LLM Model Evaluation
 
 - **Deep Insights**: Dive into the intricacies of generative models with a comprehensive suite of LLM-relevant metrics.
 
-MLflow's LLM Model Evaluation is designed to bridge the gap between traditional machine learning evaluation and the unique challenges posed by LLMs.
+MLflow's LLM Evaluation is designed to bridge the gap between traditional machine learning evaluation and the unique challenges posed by LLMs.
 
 
 `Prompt Engineering UI <prompt-engineering/index.html>`_
@@ -176,7 +205,7 @@ Benefits of the MLflow Prompt Engineering UI
 Native MLflow Flavors for LLMs
 ------------------------------
 
-Harnessing the power of LLMs becomes effortless with flavors designed specifically for Large Language Models.
+Harnessing the power of LLMs becomes effortless with flavors designed specifically for working with LLM libraries and frameworks.
 
 Benefits of MLflow's Native Flavors for LLMs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -233,6 +262,42 @@ Select the integration below to read the documentation on how to leverage MLflow
         </a>
     </div>
  </section>
+
+Native Integration Examples
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you'd like to directly explore code examples for how to get started with using our official library integrations, you can navigate 
+directly to our up-to-date examples on GitHub below:
+
+* **transformers**
+
+    * `Simple Text Generation Example <https://github.com/mlflow/mlflow/blob/master/examples/transformers/simple.py>`_
+    * `A Conversational Model Example <https://github.com/mlflow/mlflow/blob/master/examples/transformers/conversational.py>`_
+    * `Component Logging with Transformers <https://github.com/mlflow/mlflow/blob/master/examples/transformers/load_components.py>`_
+    * `Audio Transcription with Whisper <https://github.com/mlflow/mlflow/blob/master/examples/transformers/whisper.py>`_
+    * `Fine-tuning a Text Classification Model <https://github.com/mlflow/mlflow/blob/master/examples/transformers/MLFlow_X_HuggingFace_Finetune_a_text_classification_model.ipynb>`_
+
+* **sentence-transformers**
+
+    * `Text Encoding Example <https://github.com/mlflow/mlflow/blob/master/examples/sentence_transformers/simple.py>`_
+
+* **langchain**
+
+    * `Logging and using a Chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/simple_chain.py>`_
+    * `Logging and using an Agent <https://github.com/mlflow/mlflow/blob/master/examples/langchain/simple_agent.py>`_
+    * `Logging and using a Retriever Chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py>`_ :sup:`1`
+    * `Logging and using a Retrieval QA Chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retrieval_qa_chain.py>`_ :sup:`1`
+
+:sup:`1` Demonstrates the use of Retrieval Augmented Generation (RAG) using a Vector Store
+
+* **openai**
+
+    * `Using a Completions endpoint <https://github.com/mlflow/mlflow/blob/master/examples/openai/completions.py>`_
+    * `Using a Chat endpoint <https://github.com/mlflow/mlflow/blob/master/examples/openai/chat_completions.py>`_
+    * `Performing Embeddings Generation <https://github.com/mlflow/mlflow/blob/master/examples/openai/embeddings.py>`_
+    * `Using OpenAI on a Spark DataFrame for Batch Processing <https://github.com/mlflow/mlflow/blob/master/examples/openai/spark_udf.py>`_
+    * `Using Azure OpenAI <https://github.com/mlflow/mlflow/blob/master/examples/openai/azure_openai.py>`_
+
 
 `LLM Tracking in MLflow <llm-tracking/index.html>`_
 ---------------------------------------------------
