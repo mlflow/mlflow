@@ -246,19 +246,19 @@ With the rapid development of LLMs, there is no guarantee that this list will be
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
 ``N/A`` means that the provider currently doesn't support the route type.
 
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+
-| Route Type         | OpenAI                   | MosaicML           | Anthropic        | Cohere                      | Azure OpenAI             | PaLM                  | MLflow                   | HuggingFace TGI          |
-+====================+==========================+====================+==================+=============================+==========================+=======================+==========================+==========================+
-| llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - text-bison-001      | - MLflow served models*  | - N/A                    |
-|                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                       |                          |                          |
-|                    |                          | - llama2-70b-chat† | - claude-2       |                             |                          |                       |                          |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+
-| llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - chat-bison-001      | - MLflow served models*  | - HF TGI Models          |
-|                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                       |                          |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+
-| llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - embedding-gecko-001 | - MLflow served models** | - N/A                    |
-|                    |                          | - instructor-xl    |                  | - embed-multilingual-v2.0   |                          |                       |                          |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+--------------------------+
+| Route Type         | OpenAI                   | MosaicML           | Anthropic        | Cohere                      | Azure OpenAI             | PaLM                  | MLflow                   | HuggingFace TGI          | AI21 Labs                |
++====================+==========================+====================+==================+=============================+==========================+=======================+==========================+==========================+==========================+
+| llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - text-bison-001      | - MLflow served models*  | - N/A                    | - j2-ultra               |
+|                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                       |                          |                          | - j2-mid                 |
+|                    |                          | - llama2-70b-chat† | - claude-2       |                             |                          |                       |                          |                          | - j2-light               |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+--------------------------+
+| llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - chat-bison-001      | - MLflow served models*  | - HF TGI Models          | - N/A                    |
+|                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                       |                          |                          |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+--------------------------+
+| llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - embedding-gecko-001 | - MLflow served models** | - N/A                    | - N/A                    |
+|                    |                          | - instructor-xl    |                  | - embed-multilingual-v2.0   |                          |                       |                          |                          |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+--------------------------+
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
@@ -297,6 +297,7 @@ As of now, the MLflow AI Gateway supports the following providers:
 * **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
 * **palm**: This is used for models offered by `PaLM <https://developers.generativeai.google/api/rest/generativelanguage/models/>`_.
 * **huggingface text generation inference**: This is used for models deployed using `Huggingface Text Generation Inference <https://huggingface.co/docs/text-generation-inference/index>`_.
+* **ai21labs**: This is used for models offered by `AI21 Labs <https://studio.ai21.com/foundation-models>`_.
 
 
 More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
@@ -491,6 +492,7 @@ Each route has the following configuration parameters:
     - "azure" / "azuread"
     - "mlflow-model-serving"
     - "huggingface-text-generation-inference"
+    - "ai21labs"
 
   - **name**: This is an optional field to specify the name of the model.
   - **config**: This contains provider-specific configuration details.
@@ -555,6 +557,16 @@ PaLM
 | Configuration Parameter  | Required | Default                  | Description                                           |
 +==========================+==========+==========================+=======================================================+
 | **palm_api_key**         | Yes      | N/A                      | This is the API key for the PaLM service.             |
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+
+
+AI21 Labs
++++++++++
+
++--------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter  | Required | Default                  | Description                                           |
++==========================+==========+==========================+=======================================================+
+| **ai21labs_api_key**     | Yes      | N/A                      | This is the API key for the AI21 Labs service.        |
 +--------------------------+----------+--------------------------+-------------------------------------------------------+
 
 
@@ -741,8 +753,8 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 
 - ``logit_bias`` (supported by OpenAI, Cohere)
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
-- ``frequency_penalty`` (supported by OpenAI, Cohere)
-- ``presence_penalty`` (supported by OpenAI, Cohere)
+- ``frequency_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
+- ``presence_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
 
 The following parameters are not allowed:
 
