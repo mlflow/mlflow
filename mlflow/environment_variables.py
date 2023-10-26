@@ -110,6 +110,10 @@ MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT"
 #: See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
 MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIGV4", False)
 
+#: Specifies the auth provider to sign the MLFlow HTTP request
+#: (default: ``None``). When set, it will overwrite the "Authorization" HTTP header.
+MLFLOW_TRACKING_AUTH = _EnvironmentVariable("MLFLOW_TRACKING_AUTH", str, None)
+
 #: Specifies the chunk size to use when downloading a file from GCS
 #: (default: ``None``). If None, the chunk size is automatically determined by the
 #: ``google-cloud-storage`` package.
