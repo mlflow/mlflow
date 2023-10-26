@@ -5,14 +5,14 @@ Usage:
 python dev/get_minimum_required_python.py -p scikit-learn -v 1.1.0 --python-versions "3.8"
 """
 import argparse
-import typing as t
+from typing import Optional
 
 import requests
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 
-def get_requires_python(package: str, version: str) -> t.Optional[str]:
+def get_requires_python(package: str, version: str) -> Optional[str]:
     resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
     resp.raise_for_status()
     return next(
