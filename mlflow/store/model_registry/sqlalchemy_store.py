@@ -638,11 +638,9 @@ class SqlAlchemyStore(AbstractStore):
         storage_location = source
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
-            src_model_name = parsed_model_uri.name
-            src_model_version = parsed_model_uri.version
             try:
                 storage_location = self.get_model_version_download_uri(
-                    src_model_name, src_model_version
+                    parsed_model_uri.name, parsed_model_uri.version
                 )
             except Exception as e:
                 raise MlflowException(

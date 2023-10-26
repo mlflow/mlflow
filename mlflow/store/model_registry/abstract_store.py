@@ -335,9 +335,9 @@ class AbstractStore:
                  the cloned model version.
         """
         raise MlflowException(
-            "Method 'copy_model_version' has not been implemented for the current model registry "
-            "backend. To request support for implementing this method with this backend, please "
-            "submit an issue on GitHub."
+            "Method 'copy_model_version' has not yet been implemented for the current model "
+            "registry backend. To request support for implementing this method with this backend, "
+            "please submit an issue on GitHub."
         )
 
     def _copy_model_version_impl(self, src_mv, dst_name):
