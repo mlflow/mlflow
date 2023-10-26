@@ -407,12 +407,13 @@ def save_model(
         # To maintain prior behavior, when the format is HDF5, we save
         # with the h5 file extension. Otherwise, model_path is a directory
         # where the saved_model.pb will be stored (for SavedModel format)
-        file_extension = ".h5" if save_format == "h5" else ""
+        is_keras_3 = Version(tensorflow.keras.__version__).major >= 3
+        file_extension = ".h5" if save_format == "h5" else (".keras" if is_keras_3 else "")
         model_path = os.path.join(path, model_subpath) + file_extension
         if path.startswith("/dbfs/"):
             # The Databricks Filesystem uses a FUSE implementation that does not support
             # random writes. It causes an error.
-            with tempfile.NamedTemporaryFile(suffix=".h5") as f:
+            with tempfile.NamedTemporaryFile(suffix=file_extension) as f:
                 model.save(f.name, **keras_model_kwargs)
                 f.flush()  # force flush the data
                 shutil.copy2(src=f.name, dst=model_path)
