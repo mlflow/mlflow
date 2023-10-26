@@ -17,6 +17,9 @@ If this is your first time exploring MLflow, the tutorials and guides here are a
 getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to 
 enhance your learning in area-specific guides and tutorials. 
 
+Getting Started Guides
+^^^^^^^^^^^^^^^^^^^^^^
+
 .. raw:: html
 
     <section>
@@ -213,8 +216,19 @@ Traditional ML Guides and Tutorials
     </section>
 
 
-Deployment
-----------
+`Deployment <deployment/index.html>`_
+-------------------------------------
+
+In today's ML-driven landscape, the ability to deploy models seamlessly and reliably is crucial. MLflow offers a robust suite tailored for this 
+very purpose, ensuring that models transition from development to production without a hitch. Whether you're aiming for real-time predictions, 
+batch analyses, or interactive insights, MLflow's deployment capabilities have got you covered. From managing dependencies and packaging models 
+with their associated code to offering a large ecosystem of deployment avenues like local servers, cloud platforms, or Kubernetes clusters, 
+MLflow ensures your models are not just artifacts but actionable, decision-making tools. 
+
+Dive deep into the platform's offerings, explore the tutorials, and harness the power of MLflow for efficient model serving.
+
+Deployment Guides and Tutorials
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. raw:: html
 

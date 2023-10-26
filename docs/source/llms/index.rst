@@ -279,9 +279,9 @@ Look in the tutorials and guides below to learn more about interesting use cases
     :hidden:
   
     rag/index
-    llm-evaluate/index
-    llm-evaluate/notebooks/index
     custom-pyfunc-for-llms/index
+    llm-evaluate/notebooks/index
+
 
 .. raw:: html
 
