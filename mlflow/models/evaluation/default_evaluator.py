@@ -1451,12 +1451,13 @@ class DefaultEvaluator(ModelEvaluator):
                 output_columns.append(self.dataset.predictions_name)
             else:
                 output_columns.append("predictions")
+
+            input_columns = list(self.X.copy_to_avoid_mutation().columns)
             if "target" in eval_df:
                 if self.dataset.targets_name:
-                    output_columns.append(self.dataset.targets_name)
+                    input_columns.append(self.dataset.targets_name)
                 else:
-                    output_columns.append("targets")
-            input_columns = list(self.X.copy_to_avoid_mutation().columns)
+                    input_columns.append("targets")
 
             error_messages = [
                 f"Metric '{metric_name}' requires the columns {param_names}"
