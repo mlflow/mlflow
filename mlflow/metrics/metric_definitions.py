@@ -368,8 +368,10 @@ def _precision_at_k_eval_fn(k):
 def _recall_at_k_eval_fn(k):
     def _fn(predictions, targets):
         if not _validate_and_fix_text_tuple_data(
-            predictions, "precision_at_k", "predictions"
-        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets"):
+            predictions, "precision_at_k", predictions_col_specifier
+        ) or not _validate_and_fix_text_tuple_data(
+            targets, "precision_at_k", targets_col_specifier
+        ):
             return
 
         scores = []
