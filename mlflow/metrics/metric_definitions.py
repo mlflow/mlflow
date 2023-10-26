@@ -176,35 +176,59 @@ def _tn_eval_fn(predictions, targets, metrics):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import confusion_matrix
 
-        tn, fp, fn, tp = confusion_matrix(targets, predictions).ravel()
-        return MetricValue(aggregate_results={"tn": tn})
+        results = confusion_matrix(targets, predictions).ravel()
+        if len(results) == 4:
+            tn, fp, fn, tp = results
+            return MetricValue(aggregate_results={"tn": tn})
+        else:
+            return MetricValue()
 
 
 def _fp_eval_fn(predictions, targets, metrics):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import confusion_matrix
 
-        tn, fp, fn, tp = confusion_matrix(targets, predictions).ravel()
-        return MetricValue(aggregate_results={"fp": fp})
+        results = confusion_matrix(targets, predictions).ravel()
+        if len(results) == 4:
+            tn, fp, fn, tp = results
+            return MetricValue(aggregate_results={"fp": fp})
+        else:
+            return MetricValue()
 
 
 def _fn_eval_fn(predictions, targets, metrics):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import confusion_matrix
 
-        tn, fp, fn, tp = confusion_matrix(targets, predictions).ravel()
-        return MetricValue(aggregate_results={"fn": fn})
+        results = confusion_matrix(targets, predictions).ravel()
+        if len(results) == 4:
+            tn, fp, fn, tp = results
+            return MetricValue(aggregate_results={"fn": fn})
+        else:
+            return MetricValue()
 
 
 def _tp_eval_fn(predictions, targets, metrics):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import confusion_matrix
 
-        tn, fp, fn, tp = confusion_matrix(targets, predictions).ravel()
-        return MetricValue(aggregate_results={"tp": tp})
+        results = confusion_matrix(targets, predictions).ravel()
+        if len(results) == 4:
+            tn, fp, fn, tp = results
+            return MetricValue(aggregate_results={"tp": tp})
+        else:
+            return MetricValue()
 
 
-def _accuracy_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
+def _accuracy_eval_fn(predictions, targets, metrics, sample_weights=None):
+    if targets is not None and len(targets) != 0:
+        from sklearn.metrics import accuracy_score
+
+        acc = accuracy_score(y_true=targets, y_pred=predictions, sample_weight=sample_weights)
+        return MetricValue(aggregate_results={"accuracy": acc})
+
+
+def _exact_match_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import accuracy_score
 
@@ -357,19 +381,19 @@ def _mape_eval_fn(predictions, targets=None, metrics=None, sample_weights=None):
 
 
 def _recall_eval_fn(
-    predictions, targets=None, metrics=None, pos_label=1, average="binary", sample_weight=None
+    predictions, targets=None, metrics=None, pos_label=1, average="binary", sample_weights=None
 ):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import recall_score
 
         recall = recall_score(
-            targets, predictions, pos_label=pos_label, average=average, sample_weight=sample_weight
+            targets, predictions, pos_label=pos_label, average=average, sample_weight=sample_weights
         )
         return MetricValue(aggregate_results={"recall_score": recall})
 
 
 def _precision_eval_fn(
-    predictions, targets=None, metrics=None, pos_label=1, average="binary", sample_weight=None
+    predictions, targets=None, metrics=None, pos_label=1, average="binary", sample_weights=None
 ):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import precision_score
@@ -379,13 +403,13 @@ def _precision_eval_fn(
             predictions,
             pos_label=pos_label,
             average=average,
-            sample_weight=sample_weight,
+            sample_weight=sample_weights,
         )
         return MetricValue(aggregate_results={"precision_score": precision})
 
 
 def _f1_score_eval_fn(
-    predictions, targets=None, metrics=None, pos_label=1, average="binary", sample_weight=None
+    predictions, targets=None, metrics=None, pos_label=1, average="binary", sample_weights=None
 ):
     if targets is not None and len(targets) != 0:
         from sklearn.metrics import f1_score
@@ -395,7 +419,7 @@ def _f1_score_eval_fn(
             predictions,
             pos_label=pos_label,
             average=average,
-            sample_weight=sample_weight,
+            sample_weight=sample_weights,
         )
         return MetricValue(aggregate_results={"f1_score": f1})
 

@@ -14,6 +14,7 @@ from mlflow.metrics.genai.metric_definitions import (
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
+    _exact_match_eval_fn,
     _example_count_eval_fn,
     _f1_score_eval_fn,
     _flesch_kincaid_eval_fn,
@@ -196,7 +197,7 @@ def exact_match() -> EvaluationMetric:
     .. _accuracy: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
     """
     return make_metric(
-        eval_fn=_accuracy_eval_fn, greater_is_better=True, name="exact_match", version="v1"
+        eval_fn=_exact_match_eval_fn, greater_is_better=True, name="exact_match", version="v1"
     )
 
 
@@ -461,7 +462,7 @@ def accuracy_score() -> EvaluationMetric:
 
     .. _accuracy: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
     """
-    return make_metric(eval_fn=_accuracy_eval_fn, greater_is_better=True, name="accuracy_score")
+    return make_metric(eval_fn=_accuracy_eval_fn, greater_is_better=True, name="accuracy")
 
 
 def f1_score() -> EvaluationMetric:
