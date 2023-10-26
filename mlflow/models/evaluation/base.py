@@ -1669,8 +1669,6 @@ def evaluate(
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
-    print("bbqiu2", data)
-
     if evaluator_config is not None:
         col_mapping = evaluator_config.get("col_mapping", {})
 
