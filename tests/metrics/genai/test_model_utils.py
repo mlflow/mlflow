@@ -1,7 +1,6 @@
 from unittest import mock
 
 import pytest
-from requests import Response
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai.model_utils import (
@@ -56,25 +55,15 @@ def test_parse_model_uri_throws_for_malformed():
 
 def test_score_model_on_payload_throws_for_invalid():
     with pytest.raises(MlflowException, match="Unknown model uri prefix"):
-        score_model_on_payload("myprovider:/gpt-3.5-turbo", {}, 10)
+        score_model_on_payload("myprovider:/gpt-3.5-turbo", {})
 
 
 def test_score_model_openai_without_key():
     with pytest.raises(MlflowException, match="OPENAI_API_KEY environment variable not set"):
-        score_model_on_payload("openai:/gpt-3.5-turbo", {}, 10)
+        score_model_on_payload("openai:/gpt-3.5-turbo", {})
 
 
 def test_score_model_openai(set_envs):
-    class MockResponse(Response):
-        def __init__(self, json_data, status_code):
-            super().__init__()
-            self.json_data = json_data
-            self.status_code = status_code
-            self.headers = {"Content-Type": "application/json"}
-
-        def json(self):
-            return self.json_data
-
     resp = {
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
@@ -98,33 +87,26 @@ def test_score_model_openai(set_envs):
         "headers": {"Content-Type": "application/json"},
     }
 
-    with mock.patch("requests.post", return_value=MockResponse(resp, 200)) as mock_post:
-        score_model_on_payload(
-            "openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1}, 10
-        )
+    with mock.patch(
+        "mlflow.openai.api_request_parallel_processor.process_api_requests", return_value=[resp]
+    ) as mock_post:
+        score_model_on_payload("openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1})
         mock_post.assert_called_once_with(
-            url="https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": "Bearer test"},
-            json={
-                "model": "gpt-3.5-turbo",
-                "temperature": 0.2,
-                "messages": [{"role": "user", "content": "my prompt"}],
-            },
-            timeout=10,
+            [
+                {
+                    "model": "gpt-3.5-turbo",
+                    "temperature": 0.2,
+                    "messages": [{"role": "user", "content": "my prompt"}],
+                }
+            ],
+            mock.ANY,
+            api_token=mock.ANY,
+            max_requests_per_minute=3_500,
+            max_tokens_per_minute=90_000,
         )
 
 
 def test_score_model_azure_openai(set_azure_envs):
-    class MockResponse(Response):
-        def __init__(self, json_data, status_code):
-            super().__init__()
-            self.json_data = json_data
-            self.status_code = status_code
-            self.headers = {"Content-Type": "application/json"}
-
-        def json(self):
-            return self.json_data
-
     resp = {
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
@@ -148,19 +130,21 @@ def test_score_model_azure_openai(set_azure_envs):
         "headers": {"Content-Type": "application/json"},
     }
 
-    with mock.patch("requests.post", return_value=MockResponse(resp, 200)) as mock_post:
-        score_model_on_payload(
-            "openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1}, 10
-        )
+    with mock.patch(
+        "mlflow.openai.api_request_parallel_processor.process_api_requests", return_value=[resp]
+    ) as mock_post:
+        score_model_on_payload("openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1})
         mock_post.assert_called_once_with(
-            url="https://openai-for.openai.azure.com/openai/deployments/test-openai/chat/"
-            "completions?api-version=2023-05-15",
-            headers={"api-key": "test"},
-            json={
-                "temperature": 0.2,
-                "messages": [{"role": "user", "content": "my prompt"}],
-            },
-            timeout=10,
+            [
+                {
+                    "temperature": 0.2,
+                    "messages": [{"role": "user", "content": "my prompt"}],
+                }
+            ],
+            mock.ANY,
+            api_token=mock.ANY,
+            max_requests_per_minute=3_500,
+            max_tokens_per_minute=90_000,
         )
 
 
@@ -186,5 +170,5 @@ def test_score_model_gateway():
     }
 
     with mock.patch("mlflow.gateway.query", return_value=expected_output):
-        response = score_model_on_payload("gateway:/my-route", {}, 10)
+        response = score_model_on_payload("gateway:/my-route", {})
         assert response == expected_output

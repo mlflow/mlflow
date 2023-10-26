@@ -2,23 +2,20 @@ import json
 import os
 import urllib.parse
 
-import requests
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, UNAUTHENTICATED
-from mlflow.utils.uri import append_to_uri_path
 
 ROUTE_TYPE = "llm/v1/completions"
 
 
 # TODO: improve this name
-def score_model_on_payload(model_uri, payload, timeout):
+def score_model_on_payload(model_uri, payload):
     """Call the model identified by the given uri with the given payload."""
 
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
-        return _call_openai_api(suffix, payload, timeout)
+        return _call_openai_api(suffix, payload)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload)
     elif prefix in ("model", "runs"):
@@ -43,7 +40,7 @@ def _parse_model_uri(model_uri):
     return scheme, path
 
 
-def _call_openai_api(openai_uri, payload, timeout):
+def _call_openai_api(openai_uri, payload):
     """Wrapper around the OpenAI API to make it compatible with the MLflow Gateway API."""
     from mlflow.gateway.config import RouteConfig
     from mlflow.gateway.providers.openai import OpenAIProvider
@@ -77,13 +74,20 @@ def _call_openai_api(openai_uri, payload, timeout):
 
     payload = openai_provider._prepare_completion_request_payload(payload)
 
-    # use python requests instead of aiohttp
-    resp = requests.post(
-        url=append_to_uri_path(openai_provider._request_base_url, "chat/completions"),
-        headers=openai_provider._request_headers,
-        json=openai_provider._add_model_to_payload_if_necessary(payload),
-        timeout=timeout,
-    ).json()
+    import openai
+
+    from mlflow.openai.api_request_parallel_processor import process_api_requests
+    from mlflow.openai.utils import _OAITokenHolder
+
+    api_token = _OAITokenHolder(os.environ.get("OPENAI_API_TYPE", "openai"))
+
+    resp = process_api_requests(
+        [openai_provider._add_model_to_payload_if_necessary(payload)],
+        openai.ChatCompletion,
+        api_token=api_token,
+        max_requests_per_minute=3_500,
+        max_tokens_per_minute=90_000,
+    )[0]
 
     if "error" in resp:
         error_type = resp["error"]["type"]
