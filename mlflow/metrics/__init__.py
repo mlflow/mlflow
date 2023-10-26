@@ -257,7 +257,7 @@ def precision_at_k(k) -> EvaluationMetric:
     return make_metric(
         eval_fn=_precision_at_k_eval_fn(k),
         greater_is_better=True,
-        name="precision_at_k",
+        name=f"precision_at_{k}",
         version="v1",
     )
 
@@ -279,7 +279,7 @@ def recall_at_k(k) -> EvaluationMetric:
     return make_metric(
         eval_fn=_recall_at_k_eval_fn(k),
         greater_is_better=True,
-        name="recall_at_k",
+        name=f"recall_at_{k}",
         version="v1",
     )
 
