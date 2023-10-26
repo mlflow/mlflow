@@ -637,7 +637,9 @@ class SqlAlchemyStore(AbstractStore):
             _validate_model_version_tag(tag.key, tag.value)
         storage_location = source
         if urllib.parse.urlparse(source).scheme == "models":
-            (src_model_name, src_model_version, _, _) = _parse_model_uri(source)
+            parsed_model_uri = _parse_model_uri(source)
+            src_model_name = parsed_model_uri.name
+            src_model_version = parsed_model_uri.version
             try:
                 storage_location = self.get_model_version_download_uri(
                     src_model_name, src_model_version
