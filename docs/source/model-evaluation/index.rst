@@ -35,6 +35,48 @@ The rise of Large Language Models (LLMs) like ChatGPT has transformed the landsc
 
 Harnessing these features, MLflow's LLM evaluation tools eliminate the complexities and ambiguities associated with evaluating large language models. By automating these critical evaluation tasks, MLflow ensures that users can confidently assess the performance of their LLMs, leading to more informed decisions in the deployment and application of these models.
 
+Guides and Tutorials for LLM Model Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To learn more about how you can leverage MLflow's evaluation features for your LLM-powered project work, see the tutorials below:
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="../llms/llm-evaluate/notebooks/rag-evaluation.html">
+                    <div class="header">
+                        RAG Evaluation
+                    </div>
+                </a>
+                <p>
+                    Learn how to evaluate a Retrieval Augmented Generation setup with MLflow Evaluate
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="../llms/llm-evaluate/notebooks/question-answering-evaluation.html">
+                    <div class="header">
+                        Question-Answering Evaluation
+                    </div>
+                </a>
+                <p>
+                    See a working example of how to evaluate the quality of an LLM Question-Answering solution
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="../llms/rag/notebooks/question-generation-retrieval-evaluation.html">
+                    <div class="header">
+                        RAG Question Generation Evaluation
+                    </div>
+                </a>
+                <p>
+                    See how to generate Questions for RAG generation and how to evaluate a RAG solution using MLflow
+                </p>
+            </div>
+        </article>
+    </section>
+
 
 `Traditional ML Evaluation <../models.html#model-evaluation>`_
 --------------------------------------------------------------
