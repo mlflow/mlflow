@@ -75,27 +75,48 @@ get_databricks_config_from_env <- function() {
 }
 
 get_databricks_config <- function(profile) {
-  config <- if (!is.na(profile)) {
-    get_databricks_config_for_profile(profile)
-  } else if (exists("spark.databricks.token") && exists("spark.databricks.api.url")) {
+
+  # If a profile is provided, fetch its configuration
+  if (!is.na(profile)) {
+    config <- get_databricks_config_for_profile(profile)
+    if (databricks_config_is_valid(config)) {
+      return(config)
+    }
+  }
+
+  # Check for environment variables
+  config <- get_databricks_config_from_env()
+  if (databricks_config_is_valid(config)) {
+    return(config)
+  }
+
+  # Check 'DEFAULT' profile
+  config <- tryCatch({
+    get_databricks_config_for_profile("DEFAULT")
+  }, error = function(e) {
+    # On error assume known invalid config
+    list(host = NA, token = NA, username = NA, password = NA)
+  })
+  if (databricks_config_is_valid(config)) {
+    return(config)
+  }
+
+  # When in Databricks (done last so other methods are explicit overrides)
+  if (exists("spark.databricks.token", envir = .GlobalEnv) &&
+      exists("spark.databricks.api.url", envir = .GlobalEnv)) {
     config_vars <- list(
       host = get("spark.databricks.api.url", envir = .GlobalEnv),
       token = get("spark.databricks.token", envir = .GlobalEnv),
       insecure = Sys.getenv(config_variable_map$insecure, "False")
     )
-    new_databricks_config(config_source = "db_dynamic", config_vars = config_vars)
-  } else {
-    config <- get_databricks_config_from_env()
+    config <- new_databricks_config(config_source = "db_dynamic", config_vars = config_vars)
     if (databricks_config_is_valid(config)) {
-      config
-    } else {
-      get_databricks_config_for_profile("DEFAULT")
+      return(config)
     }
   }
-  if (!databricks_config_is_valid(config)) {
-    stop("Could not find valid Databricks configuration.")
-  }
-  config
+
+  # If no valid configuration is found by this point, raise an error
+  stop("Could not find valid Databricks configuration.")
 }
 
 #' Get information from Databricks Notebook environment
