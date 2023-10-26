@@ -99,7 +99,8 @@ def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, exp
             http_artifact_repo.log_artifact(file_path, artifact_path)
 
     mpu_minimum_file_size = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
-    with mock.patch("os.path.getsize", return_value=mpu_minimum_file_size + 1), mock.patch.object(
+    file_path.write_text("0" * (mpu_minimum_file_size + 1))
+    with mock.patch.object(
         http_artifact_repo, "_try_multipart_upload", return_value=200
     ) as mock_mpu:
         http_artifact_repo.log_artifact(file_path, artifact_path)
