@@ -570,7 +570,8 @@ class FileStore(AbstractStore):
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
-        :param source: Source path where the MLflow model is stored.
+        :param source: Source path or model version URI (in the format
+                       ``models:/<model_name>/<version>``) where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
@@ -593,10 +594,10 @@ class FileStore(AbstractStore):
             _validate_model_version_tag(tag.key, tag.value)
         storage_location = source
         if urllib.parse.urlparse(source).scheme == "models":
-            (src_model_name, src_model_version, _, _) = _parse_model_uri(source)
+            parsed_model_uri = _parse_model_uri(source)
             try:
                 storage_location = self.get_model_version_download_uri(
-                    src_model_name, src_model_version
+                    parsed_model_uri.name, parsed_model_uri.version
                 )
             except Exception as e:
                 raise MlflowException(
