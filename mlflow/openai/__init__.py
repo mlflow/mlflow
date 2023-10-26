@@ -92,6 +92,8 @@ class _OpenAIApiConfig(NamedTuple):
     max_tokens_per_minute: int
     api_version: Optional[str]
     api_base: str
+    engine: Optional[str]
+    deployment_id: Optional[str]
 
 
 @experimental
@@ -189,9 +191,26 @@ def _get_api_config() -> _OpenAIApiConfig:
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
     api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
     api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, openai.api_base)
+    engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
+    # openai hangs when engine is wrong (no matter if deployment_id is correct or not)
+    # if only providing correct deployment_id, it works fine
+    deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
         batch_size = 16
         max_tokens_per_minute = 60_000
+        if engine is not None:
+            # Avoid using both parameters as they serve the same purpose
+            # Invalid inputs:
+            #   - Wrong engine + correct/wrong deployment_id
+            #   - No engine + wrong deployment_id
+            # Valid inputs:
+            #   - Correct engine + correct/wrong deployment_id
+            #   - No engine + correct deployment_id
+            if deployment_id is not None:
+                _logger.warning(
+                    "Both engine and deployment_id are set. Using engine as it takes precedence."
+                )
+                deployment_id = None
     else:
         # The maximum batch size is 2048:
         # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
@@ -205,6 +224,8 @@ def _get_api_config() -> _OpenAIApiConfig:
         max_tokens_per_minute=max_tokens_per_minute,
         api_base=api_base,
         api_version=api_version,
+        engine=engine,
+        deployment_id=deployment_id,
     )
 
 
@@ -227,6 +248,10 @@ class _OpenAIEnvVar(str, Enum):
     OPENAI_API_KEY_PATH = "OPENAI_API_KEY_PATH"
     OPENAI_API_VERSION = "OPENAI_API_VERSION"
     OPENAI_ORGANIZATION = "OPENAI_ORGANIZATION"
+    OPENAI_ENGINE = "OPENAI_ENGINE"
+    # use deployment_name instead of deployment_id to be
+    # consistent with gateway
+    OPENAI_DEPLOYMENT_NAME = "OPENAI_DEPLOYMENT_NAME"
 
     @property
     def secret_key(self):
@@ -668,7 +693,9 @@ class _OpenAIWrapper:
         self.api_config = _get_api_config()
         self.api_token = _OAITokenHolder(self.api_config.api_type)
         self.kwargs = {
-            x: getattr(self.api_config, x) for x in ["api_base", "api_version", "api_type"]
+            x: getattr(self.api_config, x)
+            for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
+            if getattr(self.api_config, x) is not None
         }
 
         if self.task != "embeddings":

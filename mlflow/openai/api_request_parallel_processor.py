@@ -89,6 +89,7 @@ class APIRequest:
     token_consumption: int
     attempts_left: int
     results: list[tuple[int, OpenAIObject]]
+    timeout: int = 300
 
     def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
         """
@@ -96,7 +97,7 @@ class APIRequest:
         """
         _logger.debug(f"Request #{self.index} started")
         try:
-            response = self.task.create(**self.request_json)
+            response = self.task.create(**self.request_json, timeout=self.timeout)
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
@@ -113,6 +114,12 @@ class APIRequest:
             openai.error.ServiceUnavailableError,
         ) as e:
             _logger.warning(f"Request #{self.index} failed with {e!r}")
+            if isinstance(e, openai.error.Timeout):
+                _logger.warning(
+                    "If you're using Azure OpenAI, please double check the "
+                    "value of engine/deployment_id. An invalid value might "
+                    "cause the process to hang."
+                )
             status_tracker.increment_num_api_errors()
             if self.attempts_left > 0:
                 retry_queue.put_nowait(self)
