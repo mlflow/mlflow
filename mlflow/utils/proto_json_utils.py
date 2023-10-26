@@ -404,7 +404,7 @@ def _cast_schema_type(input_data, schema=None):
             and not any(isinstance(x, dict) for x in input_data)
         ):
             # for data with a single column (not List[Dict]), match input with column
-            input_data = {list(types_dict.keys())[0]: input_data}
+            input_data = {next(iter(types_dict)): input_data}
         # Un-named schema should only contain a single column
         elif not schema.has_input_names() and not isinstance(input_data, list):
             raise MlflowException(
@@ -528,11 +528,13 @@ def parse_tf_serving_input(inp_dict, schema=None):
             # items already in column format, convert values to tensor
             return _cast_schema_type(inp_dict["inputs"], schema)
     except Exception as e:
+        # Add error into message to provide details for serving usage
         raise MlflowException(
             "Failed to parse data as TF serving input. Ensure that the input is"
             " a valid JSON-formatted string that conforms to the request body for"
             " TF serving's Predict API as documented at"
-            " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2. "
+            " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2.\n"
+            f"Error: {e!r}"
         ) from e
 
 
