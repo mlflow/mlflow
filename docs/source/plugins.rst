@@ -86,15 +86,17 @@ that will be added to the http request.
 
 .. code-block:: python
 
-  from mlflow.tracking.request_auth.abstract_request_auth_provider import RequestAuthProvider
+  from mlflow.tracking.request_auth.abstract_request_auth_provider import (
+      RequestAuthProvider,
+  )
+
 
   class DummyAuthProvider(RequestAuthProvider):
+      def get_name(self):
+          return "dummy_auth_provider_name"
 
-    def get_name(self):
-        return "dummy_auth_provider_name"
-
-    def get_auth(self):
-        return DummyAuth()
+      def get_auth(self):
+          return DummyAuth()
 
 Once you have the implemented request auth provider class, register it in the ``entry_points`` and install the plugin.
 
@@ -399,7 +401,9 @@ To use XetHub as an artifact store, an XetHub URI of the form ``xet://<username>
 
 
         exp_name = "myexp"
-        mlflow.create_experiment(exp_name, artifact_location="xet://<your_username>/mlflow-test/main")
+        mlflow.create_experiment(
+            exp_name, artifact_location="xet://<your_username>/mlflow-test/main"
+        )
         mlflow.set_experiment(exp_name)
         mlflow.pyfunc.log_model("model_test", python_model=Mod())
 
