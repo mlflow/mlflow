@@ -12,8 +12,8 @@ import tempfile
 import time
 import uuid
 from contextlib import ExitStack, contextmanager
-from unittest import mock
 from functools import wraps
+from unittest import mock
 
 import pytest
 import requests

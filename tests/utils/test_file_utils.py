@@ -4,18 +4,18 @@ import hashlib
 import json
 import os
 import pickle
-import cloudpickle
 import shutil
 import stat
 import tarfile
 
+import cloudpickle
 import jinja2.exceptions
 import pandas as pd
 import pytest
-import transformers
 import sklearn.linear_model as glm
-from sklearn import datasets
+import transformers
 from pyspark.sql import SparkSession
+from sklearn import datasets
 
 import mlflow
 from mlflow.exceptions import MissingConfigException, MlflowException
@@ -33,7 +33,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.os import is_windows
 
-from tests.helper_functions import random_file, random_int, safe_edit_yaml, flaky
+from tests.helper_functions import flaky, random_file, random_int, safe_edit_yaml
 from tests.projects.utils import TEST_PROJECT_DIR
 
 
@@ -391,11 +391,17 @@ def test_get_total_size_basic(tmp_path):
     assert get_total_file_size(subdir) == 22
 
     path_not_exists = os.path.join(root, "does_not_exist")
-    with pytest.raises(MlflowException, match=f"does not exist.",):
+    with pytest.raises(
+        MlflowException,
+        match="does not exist.",
+    ):
         get_total_file_size(path_not_exists)
 
     path_file = os.path.join(root, "file1.txt")
-    with pytest.raises(MlflowException, match=f"is not a directory.",):
+    with pytest.raises(
+        MlflowException,
+        match="is not a directory.",
+    ):
         get_total_file_size(path_file)
 
 

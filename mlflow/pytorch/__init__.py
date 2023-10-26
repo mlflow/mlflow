@@ -50,7 +50,8 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import (
     TempDir,
-    write_to, get_total_file_size,
+    get_total_file_size,
+    write_to,
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
@@ -551,7 +552,7 @@ def save_model(
     try:
         mlflow_model.model_size_bytes = get_total_file_size(str(path))
     except Exception as e:
-        _logger.info(f"Fail to get the total size of {str(path)} because of error :{e}")
+        _logger.info(f"Fail to get the total size of {path!s} because of error :{e}")
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

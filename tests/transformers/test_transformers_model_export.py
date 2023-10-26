@@ -62,8 +62,8 @@ from tests.helper_functions import (
     _get_deps_from_requirement_file,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    flaky,
     pyfunc_serve_and_score_model,
-    flaky
 )
 
 pytestmark = pytest.mark.large

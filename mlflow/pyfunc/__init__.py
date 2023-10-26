@@ -2183,7 +2183,7 @@ def _save_model_with_loader_module_and_data_path(
     try:
         mlflow_model.model_size_bytes = get_total_file_size(str(path))
     except Exception as e:
-        _logger.info(f"Fail to get the total size of {str(path)} because of error :{e}")
+        _logger.info(f"Fail to get the total size of {path!s} because of error :{e}")
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
