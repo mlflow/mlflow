@@ -273,9 +273,7 @@ def make_genai_metric(
                 **eval_parameters,
             }
             try:
-                raw_result = model_utils.score_model_on_payload(
-                    eval_model, payload, judge_request_timeout
-                )
+                raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 return _extract_score_and_justification(raw_result)
             except Exception as e:
                 if isinstance(e, MlflowException):
