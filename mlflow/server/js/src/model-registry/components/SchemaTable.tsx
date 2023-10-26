@@ -129,26 +129,6 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
     );
   };
 
-  getSchemaTypeRepr = (schemaTypeSpec: ColumnSpec | TensorSpec): string => {
-    const { type } = schemaTypeSpec;
-
-    let repr: string = type;
-    if (schemaTypeSpec.type === 'tensor') {
-      repr = `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype}, shape: [${schemaTypeSpec['tensor-spec'].shape}])`;
-    } else {
-      repr = getColumnTypeRepr(schemaTypeSpec, 0);
-    }
-
-    // If the "optional" property is present and true, wrap the type around an "Optional[]"
-    // NOTE: newer model signatures will have "required" instead of "optional", but we currently
-    // have to support both since both exist.
-    if (schemaTypeSpec.optional) {
-      repr = `Optional[${repr}]`;
-    }
-
-    return repr;
-  };
-
   getSchemaRowData = (schemaData: any) => {
     const rowData: any = [];
     schemaData.forEach((row: any, index: any) => {
