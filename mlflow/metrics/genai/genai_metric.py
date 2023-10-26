@@ -3,7 +3,7 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import EvaluationExample, MetricValue
@@ -72,10 +72,10 @@ def _extract_score_and_justification(output):
                 justification = match.group(2)
             else:
                 score = None
-                justification = None
+                justification = f"Failed to extract score and justification. Raw output: {output}"
 
         if not isinstance(score, (int, float)) or not isinstance(justification, str):
-            return None, None
+            return None, f"Failed to extract score and justification. Raw output: {output}"
 
         return score, justification
 
@@ -90,7 +90,7 @@ def make_genai_metric(
     examples: Optional[List[EvaluationExample]] = None,
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = _get_default_model(),
-    grading_context_columns: Optional[List[str]] = [],  # noqa: B006
+    grading_context_columns: Optional[Union[str, List[str]]] = [],  # noqa: B006
     parameters: Optional[Dict[str, Any]] = None,
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
@@ -109,10 +109,11 @@ def make_genai_metric(
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
         "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
-    :param grading_context_columns: (Optional) grading_context_columns required to compute
-        the metric. These grading_context_columns are used by the LLM as a judge as additional
-        information to compute the metric. The columns are extracted from the input dataset or
-        output predictions based on col_mapping in evaluator_config.
+    :param grading_context_columns: (Optional) The name of the grading context column, or a list of
+        grading context column names, required to compute the metric. The
+        ``grading_context_columns`` are used by the LLM as a judge as additional information to
+        compute the metric. The columns are extracted from the input dataset or output predictions
+        based on ``col_mapping`` in the ``evaluator_config`` passed to :py:func:`mlflow.evaluate()`.
     :param parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
         set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
         setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
@@ -187,6 +188,8 @@ def make_genai_metric(
             greater_is_better=True,
         )
     """
+    if not isinstance(grading_context_columns, list):
+        grading_context_columns = [grading_context_columns]
 
     class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
     try:
@@ -221,7 +224,6 @@ def make_genai_metric(
         """
         This is the function that is called when the metric is evaluated.
         """
-
         eval_values = dict(zip(grading_context_columns, args))
 
         outputs = predictions.to_list()
@@ -282,8 +284,7 @@ def make_genai_metric(
                         ErrorCode.Name(UNAUTHENTICATED),
                     ]:
                         raise MlflowException(e)
-                _logger.info(f"Failed to score model on payload. Error: {e!r}")
-                return None, None
+                return None, f"Failed to score model on payload. Error: {e!s}"
 
         scores = [None] * len(inputs)
         justifications = [None] * len(inputs)
