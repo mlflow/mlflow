@@ -5,7 +5,7 @@ from time import sleep, time
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
@@ -323,7 +323,6 @@ class AbstractStore:
         """
         pass
 
-    @abstractmethod
     def copy_model_version(self, src_mv, dst_name):
         """
         Copy a model version from one registered model to another as a new model version.
@@ -335,13 +334,17 @@ class AbstractStore:
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                  the cloned model version.
         """
-        pass
+        raise MlflowException(
+            "Method 'copy_model_version' has not yet been implemented for the current model "
+            "registry backend. To request support for implementing this method with this backend, "
+            "please submit an issue on GitHub."
+        )
 
     def _copy_model_version_impl(self, src_mv, dst_name):
         try:
             self.create_registered_model(dst_name)
         except MlflowException as e:
-            if e.error_code != RESOURCE_ALREADY_EXISTS:
+            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 raise
 
         return self.create_model_version(

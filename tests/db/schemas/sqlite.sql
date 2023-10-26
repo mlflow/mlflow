@@ -82,6 +82,7 @@ CREATE TABLE model_versions (
 	status VARCHAR(20),
 	status_message VARCHAR(500),
 	run_link VARCHAR(500),
+	storage_location VARCHAR(500),
 	CONSTRAINT model_version_pk PRIMARY KEY (name, version),
 	FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
 )

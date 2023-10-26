@@ -79,6 +79,7 @@ CREATE TABLE model_versions (
 	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	status_message VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	run_link VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	storage_location VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT model_version_pk PRIMARY KEY (name, version),
 	CONSTRAINT "FK__model_vers__name__5812160E" FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
 )
