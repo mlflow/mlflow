@@ -48,7 +48,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.openai.utils import _OAITokenHolder, _validate_model_params, _validate_params_and_envs
+from mlflow.openai.utils import _exclude_params_from_envs, _OAITokenHolder, _validate_model_params
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -736,10 +736,10 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        envs = _validate_params_and_envs(params, self.envs)
+        envs = _exclude_params_from_envs(params, self.envs)
         messages_list = self.format_completions(self.get_params_list(data))
         requests = [
-            {**self.model, **params, "messages": messages, **envs} for messages in messages_list
+            {**self.model, **envs, **params, "messages": messages} for messages in messages_list
         ]
         results = process_api_requests(
             requests,
@@ -756,7 +756,7 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        envs = _validate_params_and_envs(params, self.envs)
+        envs = _exclude_params_from_envs(params, self.envs)
         prompts_list = self.format_completions(self.get_params_list(data))
 
         batch_size = params.pop("batch_size", self.api_config.batch_size)
@@ -764,9 +764,9 @@ class _OpenAIWrapper:
         requests = [
             {
                 **self.model,
+                **envs,
                 **params,
                 "prompt": prompts_list[i : i + batch_size],
-                **envs,
             }
             for i in range(0, len(prompts_list), batch_size)
         ]
@@ -785,7 +785,7 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        envs = _validate_params_and_envs(params, self.envs)
+        envs = _exclude_params_from_envs(params, self.envs)
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
@@ -794,9 +794,9 @@ class _OpenAIWrapper:
         requests = [
             {
                 **self.model,
+                **envs,
                 **params,
                 "input": texts[i : i + batch_size],
-                **envs,
             }
             for i in range(0, len(texts), batch_size)
         ]

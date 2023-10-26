@@ -151,7 +151,7 @@ def _validate_model_params(task, model, params):
         )
 
 
-def _validate_params_and_envs(params, envs):
+def _exclude_params_from_envs(params, envs):
     """
     params passed at inference time should override envs.
     """
