@@ -223,7 +223,8 @@ def process_api_requests(
             if next_request is None:
                 if not retry_queue.empty():
                     next_request = retry_queue.get_nowait()
-                    _logger.warning(f"Retrying request {next_request.index}: {next_request}")
+                    _logger.warning(f"Retrying request {next_request.index}")
+                    _logger.debug(f"Request being retried: {next_request}")
                 elif req := next(requests_iter, None):
                     # get new request
                     index, request_json = req
