@@ -262,7 +262,6 @@ def answer_relevance(
         examples=examples,
         version=metric_version,
         model=model,
-        grading_context_columns=answer_relevance_class_module.grading_context_columns,
         parameters=answer_relevance_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,

@@ -829,7 +829,7 @@ def test_answer_relevance_metric():
             "references and to\nunderstand them before completing the task.\n"
             f"\nInput:\n{input}\n"
             f"\nOutput:\n{mlflow_prediction}\n"
-            "\nAdditional information used by the model:\n\n"
+            "\n\n"
             f"\nMetric definition:\n{AnswerRelevanceMetric.definition}\n"
             f"\nGrading rubric:\n{AnswerRelevanceMetric.grading_prompt}\n"
             "\n\n"
