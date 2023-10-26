@@ -64,7 +64,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, get_total_size
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -454,6 +454,12 @@ def save_model(
         code=code_dir_subpath,
         **pyfunc_options,
     )
+
+    # add model file size to mlflow_model
+    try:
+        mlflow_model.model_size_bytes = get_total_size(str(path))
+    except Exception as e:
+        _logger.info(f"Fail to get the total size of {str(path)} because of error :{e}")
 
     # save mlflow_model to path/MLmodel
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
