@@ -253,16 +253,11 @@ def test_model_save_load(onnx_model, model_path):
 
 
 def test_model_save_load_nonexternal_data(onnx_model, model_path):
-    original_save_model = onnx.save_model
     if Version(onnx.__version__) >= Version("1.9.0"):
+        onnx.convert_model_to_external_data = mock.Mock()
 
-        def onnx_save_nonexternal(
-            model, path, save_as_external_data
-        ):  # pylint: disable=unused-argument
-            original_save_model(model, path, save_as_external_data=False)
-
-        with mock.patch("onnx.save_model", wraps=onnx_save_nonexternal):
-            mlflow.onnx.save_model(onnx_model, model_path)
+        mlflow.onnx.save_model(onnx_model, model_path, save_as_external_data=False)
+        onnx.convert_model_to_external_data.assert_not_called()
 
         # Loading ONNX model
         onnx.checker.check_model = mock.Mock()

@@ -169,7 +169,7 @@ def save_model(
 
     # Save onnx-model
     if Version(onnx.__version__) >= Version("1.9.0"):
-        onnx.save_model(onnx_model, model_data_path, save_as_external_data)
+        onnx.save_model(onnx_model, model_data_path, save_as_external_data=save_as_external_data)
     else:
         onnx.save_model(onnx_model, model_data_path)
 
