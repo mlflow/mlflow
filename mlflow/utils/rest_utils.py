@@ -108,6 +108,21 @@ def http_request(
         ) from to
     except requests.exceptions.InvalidURL as iu:
         raise InvalidUrlException(f"Invalid url: {url}") from iu
+    except requests.exceptions.RetryError:
+        # When RetryError happens, make one more request to the server (without retries) and
+        # return the server's response to the caller. Displaying a more detailed error message
+        # is helpful for users to debug issues.
+        return _get_http_response_with_retries(
+            method,
+            url,
+            0,
+            backoff_factor,
+            retry_codes,
+            headers=headers,
+            verify=host_creds.verify,
+            timeout=timeout,
+            **kwargs,
+        )
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
 

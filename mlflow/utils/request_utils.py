@@ -73,22 +73,26 @@ def _cached_get_request_session(
     assert 0 <= max_retries < 10
     assert 0 <= backoff_factor < 120
 
-    retry_kwargs = {
-        "total": max_retries,
-        "connect": max_retries,
-        "read": max_retries,
-        "redirect": max_retries,
-        "status": max_retries,
-        "status_forcelist": retry_codes,
-        "backoff_factor": backoff_factor,
-    }
-    if Version(urllib3.__version__) >= Version("1.26.0"):
-        retry_kwargs["allowed_methods"] = None
+    # If max_retries is set to 0, do not configure retry for HTTPAdapter.
+    if max_retries == 0:
+        adapter = HTTPAdapter()
     else:
-        retry_kwargs["method_whitelist"] = None
+        retry_kwargs = {
+            "total": max_retries,
+            "connect": max_retries,
+            "read": max_retries,
+            "redirect": max_retries,
+            "status": max_retries,
+            "status_forcelist": retry_codes,
+            "backoff_factor": backoff_factor,
+        }
+        if Version(urllib3.__version__) >= Version("1.26.0"):
+            retry_kwargs["allowed_methods"] = None
+        else:
+            retry_kwargs["method_whitelist"] = None
+        retry = Retry(**retry_kwargs)
+        adapter = HTTPAdapter(max_retries=retry)
 
-    retry = Retry(**retry_kwargs)
-    adapter = HTTPAdapter(max_retries=retry)
     session = requests.Session()
     session.mount("https://", adapter)
     session.mount("http://", adapter)
