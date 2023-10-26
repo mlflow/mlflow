@@ -86,6 +86,34 @@ We provide the following builtin factory functions to create :py:class:`Evaluati
 
 .. autofunction:: mlflow.metrics.rougeLsum
 
+Retriever Specific Metrics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following metrics are builtin metrics for the ``'retriever'`` model type, meaning it will be automatically calculated with a default ``k`` value of 3. 
+
+It is recommended to use a static dataset (Pandas Dataframe or MLflow Pandas Dataset) containing 
+columns for: input queries, retrieved relevant doc IDs, and ground-truth doc IDs. A "doc ID" is a 
+string that uniquely identifies a document. All doc IDs should be entered as a tuple of doc ID 
+strings.
+
+The ``targets`` parameter should specify the column name of the ground-truth relevant doc IDs.
+
+If you choose to use a static dataset, the ``predictions`` parameter should specify the column name 
+of the retrieved relevant doc IDs. Alternatively, if you choose to specify a function for the 
+``model`` parameter, the function should take a Pandas DataFrame as input and return a Pandas 
+DataFrame with a column of retrieved relevant doc IDs, specified by the ``predictions`` parameter.
+
+``k`` should be a positive integer specifying the number of retrieved doc IDs to consider for each 
+input query. ``k`` defaults to 3. To use another ``k`` value, you have two options with the :py:func:`mlflow.evaluate` API:
+
+1. ``evaluator_config={"k": 5}``
+2. ``extra_metrics = [mlflow.metrics.precision_at_k(k=5), mlflow.metrics.precision_at_k(k=6), 
+   mlflow.metrics.recall_at_k(4), mlflow.metrics.recall_at_k(5)]``
+
+    Note that the ``k`` value in the ``evaluator_config`` will be ignored in this case. It is 
+    recommended to remove the ``model_type`` as well, or else precision@3 will be calculated along 
+    with precision@5, precision@6, recall@4, and recall@5.
+
 .. autofunction:: mlflow.metrics.precision_at_k
 
 .. autofunction:: mlflow.metrics.recall_at_k

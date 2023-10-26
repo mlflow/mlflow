@@ -1306,8 +1306,9 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For retriever models, the default evaluator logs:
-        - **metrics**: :py:func:`mlflow.metrics.precision_at_k` and
-          :py:func:`mlflow.metrics.recall_at_k`: both have a default value of ``k`` = 3.
+        - **metrics**: :mod:`precision_at_k(k) <mlflow.metrics.precision_at_k>` and
+          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>` - both have a default value of ``k`` =
+          3.
         - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
           of the model in tabular format.
 
@@ -1354,10 +1355,10 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
-        - **k**: The number of top-ranked retrieved documents to use when computing the built-in
-          metric :py:func:`mlflow.metrics.precision_at_k` and :py:func:`mlflow.metrics.recall_at_k`
-          for model_type="retriever". Default value is 3. For all other model types, this parameter
-          will be ignored.
+        - **k**: A parameter used when ``model_type="retriever"`` as the number of top-ranked
+          retrieved documents to use when computing the built-in metric :mod:`precision_at_k(k)
+          <mlflow.metrics.precision_at_k>` and :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>`.
+          Default value is 3. For all other model types, this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
