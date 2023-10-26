@@ -19,7 +19,7 @@ import mlflow
 from mlflow.entities import DatasetInput, Experiment, FileInfo, Metric, Param, Run, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, ErrorCode, PERMISSION_DENIED
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -2737,9 +2737,14 @@ class MlflowClient:
                 "only copies models stored in the 'models:/' scheme."
             )
         client = self._get_registry_client()
-        src_name, src_version = get_model_name_and_version(client, src_model_uri)
-        src_mv = client.get_model_version(src_name, src_version)
-
+        try:
+            src_name, src_version = get_model_name_and_version(client, src_model_uri)
+            src_mv = client.get_model_version(src_name, src_version)
+        except MlflowException as e:
+            raise MlflowException(
+                f"Failed to fetch model version from source model URI: '{src_model_uri}'. "
+                f"Error: {e}"
+            ) from e
         return client.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(
