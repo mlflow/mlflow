@@ -99,7 +99,7 @@ The value of this environment variable should match the name of the auth provide
 
 .. code-block:: bash
 
-  MLFLOW_TRACKING_AUTH=AUTH_PROVIDER_NAME
+  export MLFLOW_TRACKING_AUTH=AUTH_PROVIDER_NAME
 
 
 Writing Your Own MLflow Plugins
