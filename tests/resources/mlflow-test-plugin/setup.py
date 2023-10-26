@@ -23,6 +23,9 @@ setup(
         # Define a RequestHeaderProvider plugin. The entry point name for request header providers
         # is not used, and so is set to the string "unused" here
         "mlflow.request_header_provider": "unused=mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider",  # pylint: disable=line-too-long
+        # Define a RequestAuthProvider plugin. The entry point name for request auth providers
+        # is not used, and so is set to the string "unused" here
+        "mlflow.request_auth_provider": "unused=mlflow_test_plugin.request_auth_provider:PluginRequestAuthProvider",  # pylint: disable=line-too-long
         # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
         "mlflow.model_registry_store": "file-plugin=mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore",  # pylint: disable=line-too-long
         # Define a MLflow Project Backend plugin called 'dummy-backend'
