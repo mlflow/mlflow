@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 import torch
 import transformers
+from PIL import Image
 import yaml
 from datasets import load_dataset
 from huggingface_hub import ModelCard, scan_cache_dir
@@ -46,6 +47,7 @@ from mlflow.transformers import (
     _get_instance_type,
     _get_or_infer_task_type,
     _infer_transformers_task_type,
+    _is_model_distributed_in_memory,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
@@ -623,6 +625,29 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
     assert flavor_config["task"] == "image-classification"
     assert flavor_config["source_model_name"] == "google/mobilenet_v2_1.0_224"
 
+def test_vision_model_save__model_for_task_and_card_inference(small_vision_model, model_path):
+    mlflow.transformers.save_model(transformers_model=small_vision_model, path=model_path)
+    # validate inferred pip requirements
+    with model_path.joinpath("requirements.txt").open() as file:
+        requirements = file.read()
+    reqs = {req.split("==")[0] for req in requirements.split("\n")}
+    expected_requirements = {"torch", "torchvision", "transformers"}
+    assert reqs.intersection(expected_requirements) == expected_requirements
+    # validate inferred model card data
+    card_data = yaml.safe_load(model_path.joinpath("model_card_data.yaml").read_bytes())
+    assert card_data["tags"] == ["vision", "image-classification"]
+    # Validate inferred model card text
+    with model_path.joinpath("model_card.md").open() as file:
+        card_text = file.read()
+    assert len(card_text) > 0
+    
+    # Validate the MLModel file
+    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
+    flavor_config = mlmodel["flavors"]["transformers"]
+    assert flavor_config["instance_type"] == "ImageClassificationPipeline"
+    assert flavor_config["pipeline_model_type"] == "MobileNetV2ForImageClassification"
+    assert flavor_config["task"] == "image-classification"
+    assert flavor_config["source_model_name"] == "google/mobilenet_v2_1.0_224"
 
 def test_qa_model_save_model_for_task_and_card_inference(small_seq2seq_pipeline, model_path):
     mlflow.transformers.save_model(
@@ -655,7 +680,27 @@ def test_qa_model_save_model_for_task_and_card_inference(small_seq2seq_pipeline,
     assert flavor_config["task"] == "text-classification"
     assert flavor_config["source_model_name"] == "lordtt13/emo-mobilebert"
 
+def test_vision_model_save_and_override_card(small_vision_model, model_path):
+    supplied_card = """
+                    ---
+                    language: en
+                    license: bsd
+                    ---
 
+                    # I made a new model!
+                    """
+    card_info = textwrap.dedent(supplied_card)
+    card = ModelCard(card_info)
+    # save the model instance
+    mlflow.transformers.save_model(
+        transformers_model=small_vision_model,
+        path=model_path,
+        model_card=card,
+    )
+    # validate that the card was acquired by model reference
+    card_data = yaml.safe_load(model_path.joinpath("model_card_data.yaml").read_bytes())
+    assert card_data["language"] == "en"
+    assert card_data["license"] == "bsd"
 def test_qa_model_save_and_override_card(small_qa_pipeline, model_path):
     supplied_card = """
                     ---
@@ -678,18 +723,6 @@ def test_qa_model_save_and_override_card(small_qa_pipeline, model_path):
     assert card_data["language"] == "en"
     assert card_data["license"] == "bsd"
     # Validate inferred model card text
-    with model_path.joinpath("model_card.md").open() as file:
-        card_text = file.read()
-    assert card_text.startswith("\n# I made a new model!")
-    # validate MLmodel files
-    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
-    flavor_config = mlmodel["flavors"]["transformers"]
-    assert flavor_config["instance_type"] == "QuestionAnsweringPipeline"
-    assert flavor_config["pipeline_model_type"] == "MobileBertForQuestionAnswering"
-    assert flavor_config["task"] == "question-answering"
-    assert flavor_config["source_model_name"] == "csarron/mobilebert-uncased-squad-v2"
-
-
 def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_path):
     mlflow.transformers.save_model(
         transformers_model={
@@ -1339,6 +1372,33 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert isinstance(pd_inference, list)
     assert all(isinstance(element, str) for element in inference)
 
+def test_Vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
+    signature = infer_signature(
+        inference_payload,
+        mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=small_vision_model,
+        path=model_path,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(inference_payload)
+
+    assert isinstance(inference, list)
+    assert all(isinstance(element, str) for element in inference)
+
+    if isinstance(inference_payload, dict):
+        pd_input = pd.DataFrame(inference_payload, index=[0])
+    else:
+        pd_input = pd.DataFrame(inference_payload)
+    pd_inference = pyfunc_loaded.predict(pd_input)
+
+    assert isinstance(pd_inference, list)
+    assert all(isinstance(element, str) for element in inference)    
+
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.parametrize(
@@ -1642,6 +1702,17 @@ def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, r
 
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
+
+
+def test_fill_mask_pipeline_with_multiple_masks(fill_mask_pipeline, model_path):
+    data = ["I <mask> the whole <mask> of <mask>", "I <mask> the whole <mask> of <mask>"]
+
+    mlflow.transformers.save_model(fill_mask_pipeline, path=model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(data)
+    assert len(inference) == 2
+    assert all(len(value) == 3 for value in inference)
 
 
 @pytest.mark.parametrize(
@@ -2056,6 +2127,47 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 
     assert values.to_dict(orient="records") == [{0: "Run"}]
 
+    
+def test_vision_pipeline_pyfunc_predict(small_vision_model):
+    artifact_path = "image_classification_model"
+
+    # Log the image classification model
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=small_vision_model,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    # Define the image file path or data
+    image_file_path = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"  # Replace with the actual image file path
+
+    # Load the image data (you may need to preprocess the image according to your model's requirements)
+    image_data = image = Image.open(image_file_path)
+
+    # Prepare the inference payload
+    inference_payload = json.dumps({
+        "inputs": {
+            "image": image_data  # Replace with the input field name for your image classification model
+        }
+    })
+
+    # Serve and score the model
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    # Parse the response to get predictions
+    predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    # Define your expected class labels or values
+    expected_labels = ["tabby", "tabbycat"]  # Replace with your expected class labels
+
+    # Assert that the model's predictions match the expected labels
+    assert predictions == expected_labels
 
 def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     artifact_path = "text_classifier_model"
@@ -3458,7 +3570,55 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     assert txt == card_data.text
     data = yaml.safe_load(tmp_path.joinpath(_CARD_DATA_FILE_NAME).read_text())
     assert data == card_data.data.to_dict()
+def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
+    artifact_path = "image_classification_model"
 
+    # Define image file paths or data for testing
+    image_file_paths = ["https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat_image.jpg", "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/tiger_cat.jpg"]  # Replace with actual image file paths
+    labels = ["tabby", "tabby cat", "tiger cat","egyptian cat"]  # Replace with corresponding class labels
+
+    # Prepare the inference payload
+    inference_payload = json.dumps({
+        "inputs": {
+            "images": image_file_paths,  # Replace with the input field name for image classification
+        },
+        "params": {
+            "top_k": 2,  # Specify your image classification parameters here
+            "confidence_threshold": 0.8,  # Example parameter; adjust as needed
+        },
+    })
+
+    # Define the expected predictions for each image
+    expected_predictions = ["tabby", "tabby cat", "tiger cat","egyptian cat"]  # Replace with expected class labels
+
+    # Log the image classification model
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=small_vision_model,
+            artifact_path=artifact_path,
+            signature=infer_signature(
+                {
+                    "images": image_file_paths,
+                },
+                mlflow.transformers.generate_signature_output(small_vision_model, {"images": image_file_paths}),
+                {"top_k": 2, "confidence_threshold": 0.8},  # Match with your parameter names
+            ),
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    # Serve and score the model
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    # Parse the response to get predictions
+    predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    # Assert that the model's predictions match the expected labels
+    assert predictions == expected_predictions
 
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
     artifact_path = "qa_model"
@@ -3787,3 +3947,69 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
                 python_model=TestModel(),
                 artifacts={"some-model": "hf:/invalid-repo-id"},
             )
+
+
+def test_model_distributed_across_devices():
+    mock_model = mock.Mock()
+    mock_model.device.type = "meta"
+    mock_model.hf_device_map = {
+        "layer1": mock.Mock(type="cpu"),
+        "layer2": mock.Mock(type="cpu"),
+        "layer3": mock.Mock(type="gpu"),
+        "layer4": mock.Mock(type="disk"),
+    }
+
+    assert _is_model_distributed_in_memory(mock_model)
+
+
+def test_model_on_single_device():
+    mock_model = mock.Mock()
+    mock_model.device.type = "cpu"
+    mock_model.hf_device_map = {}
+
+    assert not _is_model_distributed_in_memory(mock_model)
+
+
+def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path):
+    task = "translation_en_to_de"
+    architecture = "t5-small"
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        pretrained_model_name_or_path=architecture,
+        device_map={"shared": "cpu", "encoder": "cpu", "decoder": "disk", "lm_head": "disk"},
+        offload_folder=str(tmp_path / "weights"),
+        low_cpu_mem_usage=True,
+    )
+
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(
+        pretrained_model_name_or_path=architecture, model_max_length=100
+    )
+    pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
+
+    with pytest.raises(
+        MlflowException,
+        match="The model that is attempting to be saved has been loaded into memory",
+    ):
+        mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+
+
+def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
+    task = "translation_en_to_de"
+    architecture = "t5-small"
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        pretrained_model_name_or_path=architecture,
+        device_map={"shared": "cpu", "encoder": "cpu", "decoder": "cpu", "lm_head": "cpu"},
+        low_cpu_mem_usage=True,
+    )
+
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(
+        pretrained_model_name_or_path=architecture, model_max_length=100
+    )
+    pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
+
+    mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+
+    loaded = mlflow.transformers.load_model(str(tmp_path / "model"))
+
+    text = "Apples are delicious"
+
+    assert loaded(text) == pipeline(text)
