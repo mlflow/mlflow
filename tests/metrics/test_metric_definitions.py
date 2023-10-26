@@ -32,6 +32,7 @@ from mlflow.metrics import (
         ari_grade_level(),
         exact_match(),
         flesch_kincaid_grade_level(),
+        precision_at_k(3),
         rouge1(),
         rouge2(),
         rougeL(),
@@ -43,14 +44,14 @@ def test_return_type_and_len_with_target(metric):
     predictions = pd.Series(["sentence not", "random text", "a", "c"])
     targets = pd.Series(["sentence not", "random text", "a", "c"])
 
-    result = metric.eval_fn(predictions, targets, metrics={})
+    result = metric.eval_fn(predictions, targets)
     assert isinstance(result, MetricValue)
     if result.scores:
         assert len(result.scores) == len(predictions) == len(targets)
 
     predictions = pd.Series([])
     targets = pd.Series([])
-    result = metric.eval_fn(predictions, targets, metrics={})
+    result = metric.eval_fn(predictions, targets)
     assert result is None
 
 
