@@ -197,7 +197,7 @@ def make_genai_metric(
     except ModuleNotFoundError:
         raise MlflowException(
             f"Failed to find evaluation model for version {version}."
-            f"Please check the correctness of the version",
+            f" Please check the correctness of the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:

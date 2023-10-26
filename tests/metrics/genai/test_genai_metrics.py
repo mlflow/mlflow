@@ -285,7 +285,7 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
                 output="example-output",
                 score=4,
                 justification="example-justification",
-                grading_context={"targets": "example-ground_truth"},
+                grading_context="example-ground_truth",
             )
         ],
     )
@@ -531,6 +531,34 @@ def test_make_genai_metric_failure():
                 pd.Series(["What is MLflow?"]),
                 pd.Series(["truth"]),
             )
+
+
+def test_make_genai_metric_throws_if_examples_dont_contain_correct_grading_context_columns():
+    import pandas as pd
+
+    with pytest.raises(
+        MlflowException,
+        match="Example grading context does not contain required columns"
+    ):
+        make_genai_metric(
+            name="correctness",
+            definition="definition",
+            grading_prompt="grading_prompt",
+            model="model",
+            grading_context_columns=["there"],
+            examples=[
+                EvaluationExample(
+                    input="input",
+                    output="output",
+                    score=1,
+                    justification="justification",
+                    grading_context={"notthere": "ground_truth"},
+                )
+            ],
+            parameters={"temperature": 0.0},
+            greater_is_better=True,
+            aggregations=["mean"],
+        )
 
 
 def test_format_args_string():
