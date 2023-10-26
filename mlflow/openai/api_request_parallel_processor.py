@@ -89,7 +89,7 @@ class APIRequest:
     token_consumption: int
     attempts_left: int
     results: list[tuple[int, OpenAIObject]]
-    timeout: int = 30
+    timeout: int = 60
 
     def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
         """
@@ -114,12 +114,6 @@ class APIRequest:
             openai.error.ServiceUnavailableError,
         ) as e:
             _logger.warning(f"Request #{self.index} failed with {e!r}")
-            if isinstance(e, openai.error.Timeout):
-                _logger.warning(
-                    "If you're using Azure OpenAI, please double check the "
-                    "value of engine/deployment_id. An invalid value might "
-                    "cause the process to hang."
-                )
             status_tracker.increment_num_api_errors()
             if self.attempts_left > 0:
                 retry_queue.put_nowait(self)
@@ -133,6 +127,9 @@ class APIRequest:
                     f"Request #{self.index} failed because of content filtering: "
                     f"{content_filter_result}"
                 )
+                status_tracker.increment_num_api_errors()
+                status_tracker.complete_task(success=False)
+            else:
                 status_tracker.increment_num_api_errors()
                 status_tracker.complete_task(success=False)
         except Exception as e:
