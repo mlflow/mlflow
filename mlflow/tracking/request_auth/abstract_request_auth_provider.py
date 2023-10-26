@@ -27,7 +27,8 @@ class RequestAuthProvider(ABC):
     @abstractmethod
     def get_auth(self):
         """
-        Generate request auth object.
+        Generate request auth object (e.g., `requests.auth import HTTPBasicAuth`). See
+        https://requests.readthedocs.io/en/latest/user/authentication/ for more details.
 
         :return: request auth object.
         """
