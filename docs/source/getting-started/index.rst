@@ -7,8 +7,8 @@ step-by-step through fundamental concepts, focusing purely on a task that will m
 how to use MLflow to solve a particular task. 
 
 
-Logging your first MLflow Model
--------------------------------
+`Logging your first MLflow Model <logging-first-model/index.html>`_
+-------------------------------------------------------------------
 
 In this quickstart tutorial, you will walk through the basics of MLflow in a sequential and guided manner. With each subsequent step, 
 you will increase your familiarity with the primary functionality around MLflow Tracking and how to navigate the MLflow UI.
@@ -20,13 +20,14 @@ If you would like to get started immediately by interactively running the notebo
     <a href="logging-first-model/notebooks/logging-first-model.ipynb" class="download-btn">
         <i class="fas fa-download"></i>Download the Notebook</a><br>
 
+Guide sections
+^^^^^^^^^^^^^^
+
+Interested in navigating directly to the content that you're curious about? Select the section from each tutorial below!
+
 .. raw:: html
 
      <section>
-        <div class="clickable-header">
-            <a href="logging-first-model/index.html"></a>
-            View the introduction
-        </div>
         <article class="simple-grid">
             <div class="simple-card">
                 <a href="logging-first-model/step1-tracking-server.html" >
@@ -114,8 +115,8 @@ If you would like to get started immediately by interactively running the notebo
     logging-first-model/step6-logging-a-run
     logging-first-model/notebooks/index
 
-15 minute Quickstart - Learn the basics of MLflow
--------------------------------------------------
+`15 minute Quickstart - Learn the basics of MLflow <quickstart-1/index.html>`_
+------------------------------------------------------------------------------
 
 In this rapid-pace quickstart, you will be exposed to the autologging feature in MLflow to simplify the logging of models, metrics, and parameters. 
 After training and viewing the logged run data, we'll load the logged model to perform inference, showing core features of MLflow Tracking in the 
@@ -164,8 +165,8 @@ most time-efficient manner possible.
 
     quickstart-1/index
 
-15 minute Quickstart - Comparing Runs and Deploying your Best Model
--------------------------------------------------------------------
+`15 minute Quickstart - Comparing Runs and Deploying your Best Model <quickstart-2/index.html>`_
+------------------------------------------------------------------------------------------------
 
 This quickstart tutorial focuses on the MLflow UI's run comparison feature, provides a brief overview of MLflow Projects, 
 and shows how to register a model. After locally serving the registered model, a brief example of preparing a model for remote deployment 

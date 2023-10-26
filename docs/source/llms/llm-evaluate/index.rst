@@ -1,7 +1,7 @@
 .. _llm-eval:
 
 MLflow LLM Evaluate
-====================================
+===================
 
 With the emerging of ChatGPT, LLMs have shown its power of text generation in various fields, such as 
 question answering, translating and text summarization. Evaluating LLMs' performance is slightly different 
@@ -299,7 +299,7 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
 
 
 Create Per-row LLM Evluation Metrics (Category 2)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This is very similar to creating a custom traditional metrics, with the exception of returning a `EvaluationResult` instance.
 Basically you need to:
