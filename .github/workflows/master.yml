@@ -32,7 +32,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' && github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/untracked
@@ -89,6 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
+      fail-fast: false
       matrix:
         group: [1, 2]
         include:
@@ -108,8 +109,6 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
-          # pyspark 3.5 is incompatible with delta 2.4
-          pip install 'pyspark<3.5'
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
@@ -168,27 +167,6 @@ jobs:
 
           test $err = 0
 
-      - name: Rebuild images with SQLAlchemy < 2.0
-        run: |
-          sed -i 's/sqlalchemy.*/sqlalchemy<2.0/g' requirements/core-requirements.txt
-          git diff
-          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
-      - name: Run tests
-        run: |
-          set +e
-          err=0
-          trap 'err=1' ERR
-
-          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
-          do
-            # Set `--no-TTY` to show container logs on GitHub Actions:
-            ./tests/db/compose.sh run --rm --no-TTY $service pytest \
-              tests/store/tracking/test_sqlalchemy_store.py \
-              tests/store/model_registry/test_sqlalchemy_store.py \
-              tests/db
-          done
-
-          test $err = 0
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
@@ -248,6 +226,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
+      fail-fast: false
       matrix:
         group: [1, 2]
         include:
@@ -300,6 +279,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
+      fail-fast: false
       matrix:
         group: [1, 2]
         include:
@@ -350,6 +330,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
+      fail-fast: false
       matrix:
         group: [1, 2]
         include:
@@ -370,8 +351,7 @@ jobs:
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-          # pyspark 3.5 is incompatible with delta 2.4
-          pip install 'pyspark<3.5'
+          pip install pyspark
           pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets

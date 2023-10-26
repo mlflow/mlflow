@@ -38,6 +38,7 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import experimental
+from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
@@ -693,7 +694,8 @@ class MlflowClient:
         value: float,
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
-    ) -> None:
+        synchronous: bool = True,
+    ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
 
@@ -710,6 +712,13 @@ class MlflowClient:
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Integer training step (iteration) at which was the metric calculated.
                      Defaults to 0.
+        :param synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                            If False, logs the metric asynchronously and returns a future
+                            representing the logging operation.
+
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -740,6 +749,9 @@ class MlflowClient:
             run = client.get_run(run.info.run_id)
             print_run_info(run)
 
+            # To log metric in async fashion
+            client.log_metric(run.info.run_id, "m", 1.5, synchronous=False)
+
         .. code-block:: text
             :caption: Output
 
@@ -751,9 +763,13 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
-        self._tracking_client.log_metric(run_id, key, value, timestamp, step)
+        return self._tracking_client.log_metric(
+            run_id, key, value, timestamp, step, synchronous=synchronous
+        )
 
-    def log_param(self, run_id: str, key: str, value: Any) -> Any:
+    def log_param(
+        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
+    ) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
 
@@ -765,7 +781,13 @@ class MlflowClient:
         :param value: Parameter value (string, but will be string-ified if not).
                       All built-in backend stores support values up to length 6000, but some
                       may support larger values.
-        :return: the parameter value that is logged.
+        :param synchronous: *Experimental* If True, blocks until the parameter is logged
+                            successfully. If False, logs the parameter asynchronously and
+                            returns a future representing the logging operation.
+
+        :return: When `synchronous=True`, returns parameter value. When `synchronous=False`,
+                 returns an :py:class:`mlflow.utils.async_logging.run_operations.RunOperations`
+                 instance that represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -808,8 +830,11 @@ class MlflowClient:
             params: {'p': '1'}
             status: FINISHED
         """
-        self._tracking_client.log_param(run_id, key, value)
-        return value
+        if synchronous:
+            self._tracking_client.log_param(run_id, key, value, synchronous=True)
+            return value
+        else:
+            return self._tracking_client.log_param(run_id, key, value, synchronous=False)
 
     def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
         """
@@ -842,7 +867,9 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(self, run_id: str, key: str, value: Any) -> None:
+    def set_tag(
+        self, run_id: str, key: str, value: Any, synchronous: bool = True
+    ) -> Optional[RunOperations]:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -854,6 +881,13 @@ class MlflowClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
+        :param synchronous: *Experimental* If True, blocks until the tag is logged successfully.
+                            If False, logs the tag asynchronously and returns a future
+                            representing the logging operation.
+
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -887,7 +921,7 @@ class MlflowClient:
             run_id: 4f226eb5758145e9b28f78514b59a03b
             Tags: {'nlp.framework': 'Spark NLP'}
         """
-        self._tracking_client.set_tag(run_id, key, value)
+        return self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
 
     def delete_tag(self, run_id: str, key: str) -> None:
         """
@@ -986,7 +1020,8 @@ class MlflowClient:
         metrics: Sequence[Metric] = (),
         params: Sequence[Param] = (),
         tags: Sequence[RunTag] = (),
-    ) -> None:
+        synchronous: bool = True,
+    ) -> Optional[RunOperations]:
         """
         Log multiple metrics, params, and/or tags.
 
@@ -994,9 +1029,15 @@ class MlflowClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
+        :param synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
+                            successfully. If False, logs the metrics/tags/params asynchronously
+                            and returns a future representing the logging operation.
 
         Raises an MlflowException if any errors occur.
-        :return: None
+
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -1030,6 +1071,9 @@ class MlflowClient:
             run = client.get_run(run.info.run_id)
             print_run_info(run)
 
+            # To log metric in async fashion
+            client.log_metric(run.info.run_id, "m", 1.5, synchronous=False)
+
         .. code-block:: text
             :caption: Output
 
@@ -1039,7 +1083,9 @@ class MlflowClient:
             tags: {'t': 't'}
             status: FINISHED
         """
-        self._tracking_client.log_batch(run_id, metrics, params, tags)
+        return self._tracking_client.log_batch(
+            run_id, metrics, params, tags, synchronous=synchronous
+        )
 
     @experimental
     def log_inputs(
@@ -1673,7 +1719,9 @@ class MlflowClient:
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
                     downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                        run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
+                        run_id=run_id,
+                        artifact_path=artifact_file,
+                        dst_path=tmpdir,
                     )
                     existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
                     if extra_columns is not None:
@@ -3118,8 +3166,8 @@ class MlflowClient:
         )
 
     def get_model_version_stages(
-        self, name: str, version: str  # pylint: disable=unused-argument
-    ) -> List[str]:
+        self, name: str, version: str
+    ) -> List[str]:  # pylint: disable=unused-argument
         """
         :return: A list of valid stages.
 
