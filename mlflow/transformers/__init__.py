@@ -225,7 +225,7 @@ def save_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
@@ -426,6 +426,20 @@ def save_model(
     else:
         built_pipeline = transformers_model
 
+    # Verify that the model has not been loaded to distributed memory
+    # NB: transformers does not correctly save a model whose weights have been loaded
+    # using accelerate iff the model weights have been loaded using a device_map that is
+    # heterogeneous. There is a distinct possibility for a partial write to occur, causing an
+    # invalid state of the model's weights in this scenario. Hence, we raise.
+    if _is_model_distributed_in_memory(built_pipeline.model):
+        raise MlflowException(
+            "The model that is attempting to be saved has been loaded into memory "
+            "with an incompatible configuration. If you are using the accelerate "
+            "library to load your model, please ensure that it is saved only after "
+            "loading with the default device mapping. Do not specify `device_map` "
+            "and please try again."
+        )
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -560,14 +574,14 @@ def log_model(
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
-    registered_model_name: str = None,
+    registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     **kwargs,
 ):
@@ -777,7 +791,9 @@ def log_model(
 
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", device=None, **kwargs):
+def load_model(
+    model_uri: str, dst_path: Optional[str] = None, return_type="pipeline", device=None, **kwargs
+):
     """
     Load a ``transformers`` object from a local file or a run.
 
@@ -848,6 +864,18 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", dev
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
     return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
+
+
+def _is_model_distributed_in_memory(transformers_model):
+    """Check if the model is distributed across multiple devices in memory."""
+
+    # Check if the model attribute exists. If not, accelerate was not used and the model can
+    # be safely saved
+    if not hasattr(transformers_model, "hf_device_map"):
+        return False
+    # If the device map has more than one unique value entry, then the weights are not within
+    # a contiguous memory system (VRAM, SYS, or DISK) and thus cannot be safely saved.
+    return len(set(transformers_model.hf_device_map.values())) > 1
 
 
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
@@ -1568,7 +1596,7 @@ def _get_model_config(local_path, pyfunc_config):
         return pyfunc_config or {}
 
 
-def _load_pyfunc(path, model_config: Dict[str, Any] = None):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     Loads the model as pyfunc model
     """
@@ -1721,11 +1749,7 @@ class _TransformersWrapper:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             input_data = data
-        elif isinstance(data, str):
-            input_data = data
-        elif isinstance(data, bytes):
-            input_data = data
-        elif isinstance(data, np.ndarray):
+        elif isinstance(data, (str, bytes, np.ndarray)):
             input_data = data
         else:
             raise MlflowException(
@@ -1982,9 +2006,9 @@ class _TransformersWrapper:
     def _parse_conversation_input(self, data):
         import transformers
 
-        if not isinstance(self.pipeline, transformers.ConversationalPipeline):
-            return data
-        elif isinstance(data, str):
+        if not isinstance(self.pipeline, transformers.ConversationalPipeline) or isinstance(
+            data, str
+        ):
             return data
         elif isinstance(data, list) and all(isinstance(elem, dict) for elem in data):
             return next(iter(data[0].values()))
@@ -2318,8 +2342,16 @@ class _TransformersWrapper:
         Returns the first value of the `target_dict_key` that matches in the first dictionary in a
         list of dictionaries.
         """
+
+        def fetch_target_key_value(data, key):
+            if isinstance(data[0], dict):
+                return data[0][key]
+            return [item[0][key] for item in data]
+
         if isinstance(output_data[0], list):
-            return [collection[0][target_dict_key] for collection in output_data]
+            return [
+                fetch_target_key_value(collection, target_dict_key) for collection in output_data
+            ]
         else:
             return [output_data[0][target_dict_key]]
 
@@ -2395,9 +2427,9 @@ class _TransformersWrapper:
                 return list(data.values())
         elif isinstance(data, list) and all(isinstance(value, dict) for value in data):
             return [self._parse_text2text_input(entry) for entry in data]
-        elif isinstance(data, str):
-            return data
-        elif isinstance(data, list) and all(isinstance(value, str) for value in data):
+        elif isinstance(data, str) or (
+            isinstance(data, list) and all(isinstance(value, str) for value in data)
+        ):
             return data
         else:
             raise MlflowException(

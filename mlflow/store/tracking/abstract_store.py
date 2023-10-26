@@ -5,6 +5,8 @@ from mlflow.entities import DatasetInput, ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.annotations import developer_stable, experimental
+from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
+from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
@@ -21,7 +23,7 @@ class AbstractStore:
         Empty constructor for now. This is deliberately not marked as abstract, else every
         derived class would be forced to create one.
         """
-        pass
+        self._async_logging_queue = AsyncLoggingQueue(logging_func=self.log_batch)
 
     @abstractmethod
     def search_experiments(
@@ -158,7 +160,7 @@ class AbstractStore:
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
         contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
         as well as a collection of run parameters, tags, and metrics -
-        :py:class`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
+        :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
         same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
         the value at the latest timestamp for each metric. If there are multiple values with the
         latest timestamp for a given metric, the maximum of these values is returned.
@@ -219,6 +221,15 @@ class AbstractStore:
         """
         self.log_batch(run_id, metrics=[metric], params=[], tags=[])
 
+    def log_metric_async(self, run_id, metric) -> RunOperations:
+        """
+        Log a metric for the specified run in async fashion.
+
+        :param run_id: String id for the run
+        :param metric: :py:class:`mlflow.entities.Metric` instance to log
+        """
+        return self.log_batch_async(run_id, metrics=[metric], params=[], tags=[])
+
     def log_param(self, run_id, param):
         """
         Log a param for the specified run
@@ -227,6 +238,15 @@ class AbstractStore:
         :param param: :py:class:`mlflow.entities.Param` instance to log
         """
         self.log_batch(run_id, metrics=[], params=[param], tags=[])
+
+    def log_param_async(self, run_id, param) -> RunOperations:
+        """
+        Log a param for the specified run in async fashion.
+
+        :param run_id: String id for the run
+        :param param: :py:class:`mlflow.entities.Param` instance to log
+        """
+        return self.log_batch_async(run_id, metrics=[], params=[param], tags=[])
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -245,6 +265,15 @@ class AbstractStore:
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
+
+    def set_tag_async(self, run_id, tag) -> RunOperations:
+        """
+        Set a tag for the specified run in async fashion.
+
+        :param run_id: String id for the run
+        :param tag: :py:class:`mlflow.entities.RunTag` instance to set
+        """
+        return self.log_batch_async(run_id, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
@@ -296,13 +325,24 @@ class AbstractStore:
             meaningful in such cases.
         """
         runs, token = self._search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            max_results,
+            order_by,
+            page_token,
         )
         return PagedList(runs, token)
 
     @abstractmethod
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
     ):
         """
         Return runs that match the given list of search expressions within the experiments, as
@@ -331,6 +371,26 @@ class AbstractStore:
         :return: None.
         """
         pass
+
+    def log_batch_async(self, run_id, metrics, params, tags) -> RunOperations:
+        """
+        Log multiple metrics, params, and tags for the specified run in async fashion.
+        This API does not offer immediate consistency of the data. When API returns,
+        data is accepted but not persisted/processed by back end. Data would be processed
+        in near real time fashion.
+
+        :param run_id: String id for the run
+        :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
+        :param params: List of :py:class:`mlflow.entities.Param` instances to log
+        :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
+        :return: None.
+        """
+        if not self._async_logging_queue.is_active():
+            self._async_logging_queue.activate()
+
+        return self._async_logging_queue.log_batch_async(
+            run_id=run_id, metrics=metrics, params=params, tags=tags
+        )
 
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):

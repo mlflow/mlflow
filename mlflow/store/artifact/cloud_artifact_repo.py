@@ -210,21 +210,22 @@ class CloudArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
-            if any(not e.retryable for e in failed_downloads.values()):
-                template = "===== Chunk {index} =====\n{error}"
-                failure = "\n".join(
-                    template.format(index=index, error=error)
-                    for index, error in failed_downloads.items()
-                )
-                raise MlflowException(f"Failed to download artifact {remote_file_path}:\n{failure}")
 
             if failed_downloads:
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-
-                for i in failed_downloads:
-                    download_chunk(i, _DOWNLOAD_CHUNK_SIZE, new_headers, local_path, new_signed_uri)
+                for chunk in failed_downloads:
+                    _logger.warning(
+                        f"Retrying download of chunk {chunk.index} of {remote_file_path}"
+                    )
+                    download_chunk(
+                        range_start=chunk.start,
+                        range_end=chunk.end,
+                        headers=new_headers,
+                        download_path=local_path,
+                        http_uri=new_signed_uri,
+                    )
 
     def _download_file(self, remote_file_path, local_path):
         # list_artifacts API only returns a list of FileInfos at the specified path

@@ -1,6 +1,3 @@
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
@@ -77,6 +74,9 @@ class OpenAIProvider(BaseProvider):
             return payload
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        from fastapi import HTTPException
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         if "n" in payload:
@@ -145,13 +145,7 @@ class OpenAIProvider(BaseProvider):
             }
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = jsonable_encoder(payload, exclude_none=True)
-        self.check_for_model_field(payload)
-        if "n" in payload:
-            raise HTTPException(
-                status_code=422, detail="Invalid parameter `n`. Use `candidate_count` instead."
-            )
+    def _prepare_completion_request_payload(self, payload):
         payload = rename_payload_keys(
             payload,
             {"candidate_count": "n"},
@@ -159,6 +153,40 @@ class OpenAIProvider(BaseProvider):
         # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
         payload["temperature"] = 2 * payload["temperature"]
         payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
+        return payload
+
+    def _prepare_completion_response_payload(self, resp):
+        return completions.ResponsePayload(
+            **{
+                "candidates": [
+                    {
+                        "text": c["message"]["content"],
+                        "metadata": {"finish_reason": c["finish_reason"]},
+                    }
+                    for c in resp["choices"]
+                ],
+                "metadata": {
+                    "input_tokens": resp["usage"]["prompt_tokens"],
+                    "output_tokens": resp["usage"]["completion_tokens"],
+                    "total_tokens": resp["usage"]["total_tokens"],
+                    "model": resp["model"],
+                    "route_type": self.config.route_type,
+                },
+            }
+        )
+
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        from fastapi import HTTPException
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        if "n" in payload:
+            raise HTTPException(
+                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
+            )
+        payload = self._prepare_completion_request_payload(payload)
+
         resp = await send_request(
             headers=self._request_headers,
             base_url=self._request_base_url,
@@ -187,26 +215,11 @@ class OpenAIProvider(BaseProvider):
         #   }
         # }
         # ```
-        return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": c["message"]["content"],
-                        "metadata": {"finish_reason": c["finish_reason"]},
-                    }
-                    for c in resp["choices"]
-                ],
-                "metadata": {
-                    "input_tokens": resp["usage"]["prompt_tokens"],
-                    "output_tokens": resp["usage"]["completion_tokens"],
-                    "total_tokens": resp["usage"]["total_tokens"],
-                    "model": resp["model"],
-                    "route_type": self.config.route_type,
-                },
-            }
-        )
+        return self._prepare_completion_response_payload(resp)
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = rename_payload_keys(
             jsonable_encoder(payload, exclude_none=True),
             {"text": "input"},
