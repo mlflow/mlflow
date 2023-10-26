@@ -165,19 +165,18 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 raise
 
         try:
-            for i, credential in enumerate(create.credentials):
-                with open(local_file, "rb") as f:
-                    f.seek(i * chunk_size)
+            with open(local_file, "rb") as f:
+                for credential in create.credentials:
                     chunk = f.read(chunk_size)
 
-                response = requests.put(credential.url, data=chunk)
-                augmented_raise_for_status(response)
-                parts.append(
-                    MultipartUploadPart(
-                        part_number=credential.part_number,
-                        etag=response.headers["ETag"],
+                    response = requests.put(credential.url, data=chunk)
+                    augmented_raise_for_status(response)
+                    parts.append(
+                        MultipartUploadPart(
+                            part_number=credential.part_number,
+                            etag=response.headers["ETag"],
+                        )
                     )
-                )
 
             self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
         except Exception as e:
