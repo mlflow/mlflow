@@ -1,5 +1,5 @@
-Query an OpenAI MLflow AI Gateway
-======================================
+Querying routes in the AI Gateway
+=================================
 Now that the gateway is operational, it's time to send it some data. You can interact with the 
 gateway using fluent APIs, the MLflowGatewayClient, or REST APIs. In this instance, we'll 
 utilize the fluent APIs for simplicity.
@@ -18,7 +18,7 @@ space, where similar items are positioned closely in the space, facilitating var
 In the following steps, we will explore how to query the gateway using these model types.
 
 Setup
------------------
+-----
 First, import the necessary functions and define the gateway URI.
 
 .. code-section::
@@ -31,7 +31,7 @@ First, import the necessary functions and define the gateway URI.
 
 
 Example 1: Completions
--------------------------------
+----------------------
 Completion models are designed to finish sentences or respond to prompts. 
 
 To query these models via the MLflow AI Gateway, you need to provide a ``prompt`` parameter, 
@@ -53,13 +53,13 @@ various other parameters. For detailed information, please refer to the document
         response = query(route_name, data)
         print(response)
 
-.. figure:: ../../_static/images/tutorials/gateway/creating-first-gateway/completions.gif
+.. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/completions.gif
    :width: 800px
    :align: center
    :alt: Completions example.
 
 Example 2: Chat
--------------------------------
+---------------
 Chat models facilitate interactive conversations with users, gradually accumulating context over time.
 
 Creating a chat payload is slightly more complex compared to the other model types since it accommodates an 
@@ -89,13 +89,13 @@ For further details, please consult the documentation.
         response = query(route_name, data)
         print(response)
 
-.. figure:: ../../_static/images/tutorials/gateway/creating-first-gateway/chat.gif
+.. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/chat.gif
    :width: 800px
    :align: center
    :alt: Chat example.
 
 Example 3: Embeddings 
------------------------------------
+---------------------
 Embedding models transform tokens into numerical vectors. 
 
 To use embedding models via the MLflow AI Gateway, supply a `text` parameter, which can be a 
@@ -119,7 +119,7 @@ respective numerical vectors. Let's proceed with an example...
         response = chat_gateway_client.query(route_name, data)
         print(response)
 
-.. figure:: ../../_static/images/tutorials/gateway/creating-first-gateway/embeddings.gif
+.. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/embeddings.gif
    :width: 800px
    :align: center
    :alt: Chat example.

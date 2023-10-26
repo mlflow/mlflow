@@ -17,6 +17,9 @@ If this is your first time exploring MLflow, the tutorials and guides here are a
 getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to 
 enhance your learning in area-specific guides and tutorials. 
 
+Getting Started Guides
+^^^^^^^^^^^^^^^^^^^^^^
+
 .. raw:: html
 
     <section>
@@ -143,25 +146,31 @@ LLM Guides and Tutorials
     </section>
 
 
-Model Evaluation
-----------------
+`Model Evaluation <model-evaluation/index.html>`_
+-------------------------------------------------
 
-Dive into MLflow's robust framework for evaluating the performance of your ML models. With the `mlflow.evaluate()` API, you can assess models on 
-your chosen datasets, including special support for Large Language Models (LLMs) encompassing tasks like text summarization and question answering. 
-Additionally, discover the intricacies of prompt engineering with OpenAI, define custom metrics, and set validation thresholds for comprehensive 
-model quality checks. 
-Visual insights are also available through the MLflow UI, showcasing logged outputs and model comparison artifacts. 
+Dive into MLflow's robust framework for evaluating the performance of your ML models. 
+
+With support for traditional ML evaluation (classification and regression tasks), as well as support for evaluating large language models (LLMs), 
+this suite of APIs offers a simple but powerful automated approach to evaluating the quality of the model development work that you're doing.
+
+In particular, for LLM evaluation, the `mlflow.evaluate()` API allows you to validate not only models, but providers and prompts. 
+By leveraging your own datasets and using the provided default evaluation criteria for tasks such as text summarization and question answering, you can 
+get reliable metrics that allow you to focus on improving the quality of your solution, rather than spending time writing scoring code.
+
+Visual insights are also available through the MLflow UI, showcasing logged outputs, auto-generated plots, and model comparison artifacts. 
 
 
 
+`Deep Learning <deep-learning/index.html>`_
+-------------------------------------------
 
-Deep Learning
--------------
+See how MLflow can help manage the full lifecycle of your Deep Learning projects. Whether you're using frameworks like 
+**TensorFlow (tensorflow)**, **Keras (keras)**, **PyTorch (torch)**, **Fastai (fastai)**, or **spaCy (spacy)**, MLflow offers first-class support, 
+ensuring seamless integration and deployment. Additionally, generic packaging frameworks that have native MLflow integration such as **ONNX (onnx)** 
+grealy help to simplify the deployment of deep learning models to a wide variety of deployment providers and environments. 
 
-See how MLflow can help manage the full lifecycle of your Deep Learning projects. Whether you're using frameworks like **TensorFlow (tensorflow)**, **Keras (keras)**, 
-**PyTorch (pytorch)**, or **MXNet Gluon (gluon)**, MLflow offers first-class support, ensuring seamless integration and deployment. Additionally, 
-libraries like **Fastai (fastai)** and **ONNX (onnx)** are also natively supported. Paired with MLflow's streamlined APIs and comparative UI, 
-you are equipped with everything needed to manage, track, and optimize your deep learning workflows.
+Paired with MLflow's streamlined APIs and comparative UI, you are equipped with everything needed to manage, track, and optimize your deep learning workflows.
 
 
 
@@ -207,8 +216,19 @@ Traditional ML Guides and Tutorials
     </section>
 
 
-Deployment
-----------
+`Deployment <deployment/index.html>`_
+-------------------------------------
+
+In today's ML-driven landscape, the ability to deploy models seamlessly and reliably is crucial. MLflow offers a robust suite tailored for this 
+very purpose, ensuring that models transition from development to production without a hitch. Whether you're aiming for real-time predictions, 
+batch analyses, or interactive insights, MLflow's deployment capabilities have got you covered. From managing dependencies and packaging models 
+with their associated code to offering a large ecosystem of deployment avenues like local servers, cloud platforms, or Kubernetes clusters, 
+MLflow ensures your models are not just artifacts but actionable, decision-making tools. 
+
+Dive deep into the platform's offerings, explore the tutorials, and harness the power of MLflow for efficient model serving.
+
+Deployment Guides and Tutorials
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. raw:: html
 

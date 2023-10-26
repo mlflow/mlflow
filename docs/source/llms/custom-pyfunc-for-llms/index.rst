@@ -22,7 +22,15 @@ This guide is designed to provide insights into the deployment of advanced LLMs 
 
 By the conclusion of this guide, you'll possess a deep understanding of how to deploy advanced LLMs in MLflow using custom PyFuncs. You'll appreciate the role of custom PyFuncs in making complex deployments streamlined and efficient.
 
+Explore the Tutorial
+--------------------
+
+.. raw:: html
+
+    <a href="notebooks/index.html" class="download-btn">View the Custom Pyfunc for LLMs Tutorial</a><br>
+
 .. toctree::
     :maxdepth: 1
+    :hidden:
 
     Full Notebooks <notebooks/index>
