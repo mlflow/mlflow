@@ -6,23 +6,32 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
 )
-from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 
-class AnthropicProvider(BaseProvider):
-    def __init__(self, config: RouteConfig) -> None:
-        super().__init__(config)
-        if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
-            raise TypeError(f"Invalid config type {config.model.config}")
-        self.anthropic_config: AnthropicConfig = config.model.config
-        self.headers = {"x-api-key": self.anthropic_config.anthropic_api_key}
-        self.base_url = "https://api.anthropic.com/v1/"
+class AnthropicAdapter(ProviderAdapter):
+    @classmethod
+    def model_to_completions(cls, resp, config):
+        stop_reason = "stop" if resp["stop_reason"] == "stop_sequence" else "length"
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = jsonable_encoder(payload, exclude_none=True)
-        self.check_for_model_field(payload)
+        return completions.ResponsePayload(
+            **{
+                "candidates": [
+                    {"text": resp["completion"], "metadata": {"finish_reason": stop_reason}}
+                ],
+                "metadata": {
+                    "model": resp["model"],
+                    "route_type": config.route_type,
+                },
+            }
+        )
+
+    @classmethod
+    def completions_to_model(cls, payload, config):
+        key_mapping = {"max_tokens": "max_tokens_to_sample", "stop": "stop_sequences"}
+
         if "top_p" in payload:
             raise HTTPException(
                 status_code=422,
@@ -54,17 +63,49 @@ class AnthropicProvider(BaseProvider):
                 f"Received value: '{candidate_count}'.",
             )
 
-        payload = rename_payload_keys(
-            payload, {"max_tokens": "max_tokens_to_sample", "stop": "stop_sequences"}
-        )
+        payload = rename_payload_keys(payload, key_mapping)
 
-        payload["prompt"] = f"\n\nHuman: {payload['prompt']}\n\nAssistant:"
+        if payload["prompt"].startswith("Human: "):
+            payload["prompt"] = "\n\n" + payload["prompt"]
+
+        if not payload["prompt"].startswith("\n\nHuman: "):
+            payload["prompt"] = "\n\nHuman: " + payload["prompt"]
+
+        if not payload["prompt"].endswith("\n\nAssistant:"):
+            payload["prompt"] = payload["prompt"] + "\n\nAssistant:"
+
+        return payload
+
+    @classmethod
+    def embeddings_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def model_to_embeddings(cls, resp, config):
+        raise NotImplementedError
+
+
+class AnthropicProvider(BaseProvider, AnthropicAdapter):
+    def __init__(self, config: RouteConfig) -> None:
+        super().__init__(config)
+        if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
+            raise TypeError(f"Invalid config type {config.model.config}")
+        self.anthropic_config: AnthropicConfig = config.model.config
+        self.headers = {"x-api-key": self.anthropic_config.anthropic_api_key}
+        self.base_url = "https://api.anthropic.com/v1/"
+
+    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
 
         resp = await send_request(
             headers=self.headers,
             base_url=self.base_url,
             path="complete",
-            payload={"model": self.config.model.name, **payload},
+            payload={
+                "model": self.config.model.name,
+                **AnthropicAdapter.completions_to_model(payload, self.config),
+            },
         )
 
         # Example response:
@@ -81,19 +122,7 @@ class AnthropicProvider(BaseProvider):
         # }
         # ```
 
-        stop_reason = "stop" if resp["stop_reason"] == "stop_sequence" else "length"
-
-        return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {"text": resp["completion"], "metadata": {"finish_reason": stop_reason}}
-                ],
-                "metadata": {
-                    "model": resp["model"],
-                    "route_type": self.config.route_type,
-                },
-            }
-        )
+        return AnthropicAdapter.model_to_completions(resp, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> None:
         # Anthropic does not have a chat endpoint
