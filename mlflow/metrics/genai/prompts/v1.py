@@ -94,13 +94,13 @@ class AnswerSimilarityMetric:
 
     grading_prompt = (
         "Answer similarity: Below are the details for different scores:\n"
-        "- Score 1: the output has little to no semantic similarity to the provided targets.\n"
-        "- Score 2: the output displays partial semantic similarity to the provided targets on "
+        "- Score 1: The output has little to no semantic similarity to the provided targets.\n"
+        "- Score 2: The output displays partial semantic similarity to the provided targets on "
         "some aspects.\n"
-        "- Score 3: the output has moderate semantic similarity to the provided targets.\n"
-        "- Score 4: the output aligns with the provided targets in most aspects and has "
+        "- Score 3: The output has moderate semantic similarity to the provided targets.\n"
+        "- Score 4: The output aligns with the provided targets in most aspects and has "
         "substantial semantic similarity.\n"
-        "- Score 5: the output closely aligns with the provided targets in all significant aspects."
+        "- Score 5: The output closely aligns with the provided targets in all significant aspects."
     )
 
     grading_context_columns = ["targets"]
@@ -235,16 +235,16 @@ class AnswerCorrectnessMetric:
 
     grading_prompt = (
         "Answer Correctness: Below are the details for different scores:\n"
-        "- Score 1: the output is completely incorrect. It is completely different from or "
+        "- Score 1: The output is completely incorrect. It is completely different from or "
         "contradicts the provided targets.\n"
-        "- Score 2: the output demonstrates some degree of semantic similarity and includes "
+        "- Score 2: The output demonstrates some degree of semantic similarity and includes "
         "partially correct information. However, the output still has significant discrepancies "
         "with the provided targets or inaccuracies.\n"
-        "- Score 3: the output addresses a couple of aspects of the input accurately, aligning "
+        "- Score 3: The output addresses a couple of aspects of the input accurately, aligning "
         "with the provided targets. However, there are still omissions or minor inaccuracies.\n"
-        "- Score 4: the output is mostly correct. It provides mostly accurate information, but "
+        "- Score 4: The output is mostly correct. It provides mostly accurate information, but "
         "there may be one or more minor omissions or inaccuracies.\n"
-        "- Score 5: the output is correct. It demonstrates a high degree of accuracy and "
+        "- Score 5: The output is correct. It demonstrates a high degree of accuracy and "
         "semantic similarity to the targets."
     )
 
@@ -308,9 +308,9 @@ class AnswerRelevanceMetric:
     grading_prompt = (
         "Answer relevance: Please give a score from 1-5 based on the degree of relevance to the "
         "input, where the lowest and highest scores are defined as follows:"
-        "- Score 1: the output doesn't mention anything about the question or is completely "
+        "- Score 1: The output doesn't mention anything about the question or is completely "
         "irrelevant to the input.\n"
-        "- Score 5: the output addresses all aspects of the question and all parts of the output "
+        "- Score 5: The output addresses all aspects of the question and all parts of the output "
         "are meaningful and relevant to the question."
     )
 
@@ -354,14 +354,14 @@ class RelevanceMetric:
 
     grading_prompt = (
         "Relevance: Below are the details for different scores:"
-        "- Score 1: the output doesn't mention anything about the question or is completely "
+        "- Score 1: The output doesn't mention anything about the question or is completely "
         "irrelevant to the provided context.\n"
-        "- Score 2: the output provides some relevance to the question and is somehow related "
+        "- Score 2: The output provides some relevance to the question and is somehow related "
         "to the provided context.\n"
-        "- Score 3: the output mostly answers the question and is largely consistent with the "
+        "- Score 3: The output mostly answers the question and is largely consistent with the "
         "provided context.\n"
-        "- Score 4: the output answers the question and is consistent with the provided context.\n"
-        "- Score 5: the output answers the question comprehensively using the provided context."
+        "- Score 4: The output answers the question and is consistent with the provided context.\n"
+        "- Score 5: The output answers the question comprehensively using the provided context."
     )
 
     grading_context_columns = ["context"]
