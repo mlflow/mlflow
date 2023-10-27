@@ -121,6 +121,8 @@ class APIRequest:
                 retry_queue.put_nowait(self)
             else:
                 status_tracker.complete_task(success=False)
+                if raise_exceptions:
+                    raise e
         # Unretryable errors
         except openai.error.InvalidRequestError as e:
             if e.error.code == "content_filter" and e.error.innererror:
@@ -131,6 +133,8 @@ class APIRequest:
                 )
                 status_tracker.increment_num_api_errors()
                 status_tracker.complete_task(success=False)
+                if raise_exceptions:
+                    raise e
             else:
                 _logger.warning(f"Request #{self.index} failed with {e!r}")
                 status_tracker.increment_num_api_errors()
