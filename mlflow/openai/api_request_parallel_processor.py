@@ -324,7 +324,10 @@ def process_one_api_request(
     request_json: dict,
     task: OpenAIObject,
     api_token: _OAITokenHolder,
+    max_requests_per_minute: float = 3_500,
+    max_tokens_per_minute: float = 90_000,
     token_encoding_name: str = "cl100k_base",
+    max_attempts: int = 5,
 ):
     """
     Processes a single API request and throws the actual exception if encountered.
@@ -336,7 +339,7 @@ def process_one_api_request(
         index=0,  # Since it's a single request, index is set to 0
         request_json=request_json,
         token_consumption=num_tokens_consumed_from_request(request_json, task, token_encoding_name),
-        attempts_left=1,  # Only one attempt for this function
+        attempts_left=max_attempts,
         results=[],
     )
 

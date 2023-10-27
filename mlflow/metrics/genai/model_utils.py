@@ -86,8 +86,8 @@ def _call_openai_api(openai_uri, payload):
             openai_provider._add_model_to_payload_if_necessary(payload),
             openai.ChatCompletion,
             api_token=api_token,
-            # max_requests_per_minute=3_500,
-            # max_tokens_per_minute=90_000,
+            max_requests_per_minute=3_500,
+            max_tokens_per_minute=90_000,
         )
     except openai.error.AuthenticationError as e:
         raise MlflowException(
