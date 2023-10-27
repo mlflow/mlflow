@@ -9,6 +9,7 @@ import { Services } from './services';
 import { getUUID } from '../common/utils/ActionUtils';
 import { getArtifactContent } from '../common/utils/ArtifactUtils';
 import yaml from 'js-yaml';
+import type { KeyValueEntity, ModelVersionInfoEntity } from '../experiment-tracking/types';
 
 export const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 // @ts-expect-error TS(7006): Parameter 'name' implicitly has an 'any' type.
@@ -321,8 +322,47 @@ export const setModelVersionAliasesApi = (
   ]);
 
   return {
-    type: SET_MODEL_VERSION_TAG,
+    type: SET_MODEL_VERSION_ALIASES,
     payload: updateRequests,
     meta: { id, modelName, version, existingAliases, draftAliases },
+  };
+};
+
+export const UPDATE_MODEL_VERSION_TAGS = 'UPDATE_MODEL_VERSION_TAGS';
+export const updateModelVersionTagsApi = (
+  { name, version }: ModelVersionInfoEntity,
+  existingTags: KeyValueEntity[],
+  newTags: KeyValueEntity[],
+  id = getUUID(),
+) => {
+  // We need to add/remove tags in separate requests.
+
+  // First, determine new aliases to be added
+  const addedOrModifiedTags = newTags.filter(
+    ({ key: newTagKey, value: newTagValue }) =>
+      !existingTags.some(
+        ({ key: existingTagKey, value: existingTagValue }) =>
+          existingTagKey === newTagKey && newTagValue === existingTagValue,
+      ),
+  );
+
+  // Next, determine those to be deleted
+  const deletedTags = existingTags.filter(
+    ({ key: existingTagKey }) =>
+      !newTags.some(({ key: newTagKey }) => existingTagKey === newTagKey),
+  );
+
+  // Fire all requests at once
+  const updateRequests = Promise.all([
+    ...addedOrModifiedTags.map(({ key, value }) =>
+      Services.setModelVersionTag({ name, version, key, value }),
+    ),
+    ...deletedTags.map(({ key }) => Services.deleteModelVersionTag({ name, version, key })),
+  ]);
+
+  return {
+    type: SET_MODEL_VERSION_TAG,
+    payload: updateRequests,
+    meta: { id, name, version, existingTags, newTags },
   };
 };

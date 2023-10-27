@@ -16,7 +16,7 @@ import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelPageImpl, ModelPage } from './ModelPage';
 import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '../../common/utils/TestUtils';
-import { modelListPageRoute } from '../routes';
+import { ModelRegistryRoutes } from '../routes';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 describe('ModelPage', () => {
@@ -80,6 +80,6 @@ describe('ModelPage', () => {
     Utils.isBrowserTabVisible = jest.fn(() => true);
     instance.loadData = jest.fn().mockReturnValue(Promise.reject(mockError));
     await instance.pollData();
-    expect(navigate).toHaveBeenCalledWith(modelListPageRoute);
+    expect(navigate).toHaveBeenCalledWith(ModelRegistryRoutes.modelListPageRoute);
   });
 });

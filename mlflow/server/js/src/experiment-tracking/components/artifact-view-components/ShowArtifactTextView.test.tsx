@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { shallow, mount } from 'enzyme';
-import ShowArtifactTextView from './ShowArtifactTextView';
+import ShowArtifactTextView, { prettifyArtifactText } from './ShowArtifactTextView';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 describe('ShowArtifactTextView', () => {
@@ -27,11 +27,11 @@ describe('ShowArtifactTextView', () => {
       return Promise.resolve('some content');
     });
     commonProps = { ...minimalProps, getArtifact };
-    wrapper = shallow(<ShowArtifactTextView {...commonProps} />);
+    wrapper = shallow(<ShowArtifactTextView {...commonProps} />).dive();
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ShowArtifactTextView {...minimalProps} />);
+    wrapper = shallow(<ShowArtifactTextView {...minimalProps} />).dive();
     expect(wrapper.length).toBe(1);
   });
 
@@ -40,7 +40,7 @@ describe('ShowArtifactTextView', () => {
       return Promise.reject(new Error('my error text'));
     });
     const props = { ...minimalProps, getArtifact };
-    wrapper = shallow(<ShowArtifactTextView {...props} />);
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       expect(wrapper.find('.artifact-text-view-error').length).toBe(1);
       expect(wrapper.instance().state.loading).toBe(false);
@@ -76,7 +76,7 @@ describe('ShowArtifactTextView', () => {
       return Promise.resolve('print("foo")');
     });
     const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact };
-    wrapper = shallow(<ShowArtifactTextView {...props} />);
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find(SyntaxHighlighter).first().props().language).toBe('py');
@@ -89,7 +89,7 @@ describe('ShowArtifactTextView', () => {
       return Promise.resolve('key: value');
     });
     const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact };
-    wrapper = shallow(<ShowArtifactTextView {...props} />);
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find(SyntaxHighlighter).first().props().language).toBe('yaml');
@@ -102,7 +102,7 @@ describe('ShowArtifactTextView', () => {
       return Promise.resolve('key: value');
     });
     const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact };
-    wrapper = shallow(<ShowArtifactTextView {...props} />);
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
       expect(wrapper.find(SyntaxHighlighter).first().props().language).toBe('yaml');
@@ -135,7 +135,7 @@ describe('ShowArtifactTextView', () => {
   });
 
   test('should leave invalid json untouched', () => {
-    const outputText = ShowArtifactTextView.prettifyText('json', '{"hello');
+    const outputText = prettifyArtifactText('json', '{"hello');
     expect(outputText).toBe('{"hello');
   });
 });

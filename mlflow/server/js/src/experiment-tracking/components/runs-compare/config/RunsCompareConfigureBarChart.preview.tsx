@@ -1,20 +1,20 @@
 import { barChartCardDefaultMargin } from '../cards/RunsCompareBarChartCard';
-import { CompareChartRunData } from '../charts/CompareRunsCharts.common';
-import { CompareRunsMetricsBarPlot } from '../charts/CompareRunsMetricsBarPlot';
-import { useCompareRunsTooltip } from '../hooks/useCompareRunsTooltip';
+import { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
+import { RunsMetricsBarPlot } from '../../runs-charts/components/RunsMetricsBarPlot';
+import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsTooltip';
 import { RunsCompareBarCardConfig } from '../runs-compare.types';
 
 export const RunsCompareConfigureBarChartPreview = ({
   previewData,
   cardConfig,
 }: {
-  previewData: CompareChartRunData[];
+  previewData: RunsChartsRunData[];
   cardConfig: RunsCompareBarCardConfig;
 }) => {
-  const { resetTooltip, setTooltip } = useCompareRunsTooltip(cardConfig);
+  const { resetTooltip, setTooltip } = useRunsChartsTooltip(cardConfig);
 
   return (
-    <CompareRunsMetricsBarPlot
+    <RunsMetricsBarPlot
       useDefaultHoverBox={false}
       displayRunNames={false}
       displayMetricKey={false}

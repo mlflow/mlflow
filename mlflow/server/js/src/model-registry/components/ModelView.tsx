@@ -9,7 +9,7 @@ import React from 'react';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
-import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
+import { ModelRegistryRoutes } from '../routes';
 import { message } from 'antd';
 import { ACTIVE_STAGES } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
@@ -27,7 +27,7 @@ import {
   DangerModal,
 } from '@databricks/design-system';
 import { Descriptions } from '../../common/components/Descriptions';
-import { type ModelEntity } from '../../experiment-tracking/types';
+import { ModelVersionInfoEntity, type ModelEntity } from '../../experiment-tracking/types';
 import { shouldUseToggleModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
@@ -39,9 +39,7 @@ export const StageFilters = {
 
 type ModelViewImplProps = {
   model?: ModelEntity;
-  modelVersions?: {
-    current_stage: string;
-  }[];
+  modelVersions?: ModelVersionInfoEntity[];
   handleEditDescription: (...args: any[]) => any;
   handleDelete: (...args: any[]) => any;
   navigate: NavigateFunction;
@@ -55,7 +53,7 @@ type ModelViewImplProps = {
   setRegisteredModelTagApi: (...args: any[]) => any;
   deleteRegisteredModelTagApi: (...args: any[]) => any;
   intl: IntlShape;
-  onAliasesModified: () => void;
+  onMetadataUpdated: () => void;
   usingNextModelsUI: boolean;
 };
 
@@ -152,7 +150,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     this.props
       .handleDelete()
       .then(() => {
-        navigate(modelListPageRoute);
+        navigate(ModelRegistryRoutes.modelListPageRoute);
       })
       .catch((e: any) => {
         this.hideConfirmLoading();
@@ -212,9 +210,14 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   };
 
   onCompare() {
+    if (!this.props.model) {
+      return;
+    }
     this.props.navigate(
-      // @ts-expect-error TS(2532): Object is possibly 'undefined'.
-      getCompareModelVersionsPageRoute(this.props.model.name, this.state.runsSelected),
+      ModelRegistryRoutes.getCompareModelVersionsPageRoute(
+        this.props.model.name,
+        this.state.runsSelected,
+      ),
     );
   }
 
@@ -353,28 +356,30 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                        model view page'
                   />
                 </span>
-                <SegmentedControlGroup
-                  value={this.state.stageFilter}
-                  onChange={(e) => this.handleStageFilterChange(e)}
-                >
-                  <SegmentedControlButton value={StageFilters.ALL}>
-                    <FormattedMessage
-                      defaultMessage='All'
-                      description={
-                        'Tab text to view all versions under details tab on' +
-                        ' the model view page'
-                      }
-                    />
-                  </SegmentedControlButton>
-                  <SegmentedControlButton value={StageFilters.ACTIVE}>
-                    <FormattedMessage
-                      defaultMessage='Active'
-                      description='Tab text to view active versions under details tab
-                               on the model view page'
-                    />{' '}
-                    {this.getActiveVersionsCount()}
-                  </SegmentedControlButton>
-                </SegmentedControlGroup>
+                {!this.props.usingNextModelsUI && (
+                  <SegmentedControlGroup
+                    value={this.state.stageFilter}
+                    onChange={(e) => this.handleStageFilterChange(e)}
+                  >
+                    <SegmentedControlButton value={StageFilters.ALL}>
+                      <FormattedMessage
+                        defaultMessage='All'
+                        description={
+                          'Tab text to view all versions under details tab on' +
+                          ' the model view page'
+                        }
+                      />
+                    </SegmentedControlButton>
+                    <SegmentedControlButton value={StageFilters.ACTIVE}>
+                      <FormattedMessage
+                        defaultMessage='Active'
+                        description='Tab text to view active versions under details tab
+                                on the model view page'
+                      />{' '}
+                      {this.getActiveVersionsCount()}
+                    </SegmentedControlButton>
+                  </SegmentedControlGroup>
+                )}
                 <Button
                   data-test-id='compareButton'
                   disabled={compareDisabled}
@@ -403,12 +408,12 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             </div>
           )}
           <ModelVersionTable
-            activeStageOnly={stageFilter === StageFilters.ACTIVE}
+            activeStageOnly={stageFilter === StageFilters.ACTIVE && !this.props.usingNextModelsUI}
             modelName={modelName}
             modelVersions={modelVersions}
             modelEntity={model}
             onChange={this.onChange}
-            onAliasesModified={this.props.onAliasesModified}
+            onMetadataUpdated={this.props.onMetadataUpdated}
             usingNextModelsUI={this.props.usingNextModelsUI}
           />
         </CollapsibleSection>
@@ -455,7 +460,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const modelName = model.name;
 
     const breadcrumbs = [
-      <Link to={modelListPageRoute}>
+      <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
           defaultMessage='Registered Models'
           description='Text for link back to model page under the header on the model view page'
