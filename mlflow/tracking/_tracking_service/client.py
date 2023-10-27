@@ -281,8 +281,8 @@ class TrackingServiceClient:
                       may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
-        :param synchronous: *Experimental* If True, blocks until the metrics is logged
-                            successfully. If False, logs the metrics asynchronously and
+        :param synchronous: *Experimental* If True, blocks until the metric is logged
+                            successfully. If False, logs the metric asynchronously and
                             returns a future representing the logging operation.
 
         :return: When synchronous=True, returns None.
