@@ -465,7 +465,15 @@ class PyFuncModel:
         """
         input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
-            data = _enforce_schema(data, input_schema)
+            try:
+                data = _enforce_schema(data, input_schema)
+            except Exception as e:
+                # Include error in message for backwards compatibility
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to enforce schema of data '{data}' "
+                    f"with schema '{input_schema}'. "
+                    f"Error: {e}",
+                )
 
         params = _validate_params(params, self.metadata)
 
