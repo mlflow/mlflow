@@ -46,8 +46,9 @@ def _validate_list_str_data(data, metric_name, col_specifier):
     for index, value in data.items():
         if not isinstance(value, list) or not all(isinstance(val, str) for val in value):
             _logger.warning(
-                f"Cannot calculate metric '{metric_name}' for non-list[str] inputs. "
-                f"Non-list[str] found for {col_specifier} on row {index}. Skipping metric logging."
+                f"Cannot calculate metric '{metric_name}' for non-list of string inputs. "
+                f"Non-list of strings found for {col_specifier} on row {index}. Skipping metric "
+                f"logging."
             )
             return False
 
