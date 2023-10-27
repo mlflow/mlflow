@@ -238,9 +238,9 @@ def precision_at_k(k) -> EvaluationMetric:
     This function will create a metric for calculating ``precision_at_k`` for retriever models.
 
     This metric computes a score between 0 and 1 for each row representing the precision of the
-    retriever model at the given ``k`` value. If no relevant documents are retrieved, the score is
-    0, indicating that no relevant docs were retrieved. Let ``x = min(k, # of retrieved doc IDs)``.
-    Then, in all other cases, the precision at k is calculated as follows:
+    retriever model at the given ``retriever_k`` value. If no relevant documents are retrieved, the
+    score is 0, indicating that no relevant docs were retrieved. Let ``x = min(k, # of retrieved
+    doc IDs)``. Then, in all other cases, the precision at k is calculated as follows:
 
         ``precision_at_k`` = (# of relevant retrieved doc IDs in top-``x`` ranked docs) / ``x``.
     """
@@ -257,12 +257,13 @@ def recall_at_k(k) -> EvaluationMetric:
     This function will create a metric for calculating ``recall_at_k`` for retriever models.
 
     This metric computes a score between 0 and 1 for each row representing the recall ability of
-    the retriever model at the given ``k`` value. If no ground truth doc IDs are provided and no documents were retrieved, the score is 1. However, if no ground truth doc IDs are provided and
-    documents were retrieved, the score is 0. In all other cases, the recall at k is calculated as
-    follows:
+    the retriever model at the given ``retriever_k`` value. If no ground truth doc IDs are provided
+    and no documents were retrieved, the score is 1. However, if no ground truth doc IDs are
+    provided and documents were retrieved, the score is 0. In all other cases, the recall at k is
+    calculated as follows:
 
-        ``recall_at_k`` = (# of unique relevant retrieved doc IDs in top-``k`` ranked docs) / (# of
-        ground truth doc IDs)
+        ``recall_at_k`` = (# of unique relevant retrieved doc IDs in top-``retriever_k`` ranked
+        docs) / (# of ground truth doc IDs)
     """
     return make_metric(
         eval_fn=_recall_at_k_eval_fn(k),

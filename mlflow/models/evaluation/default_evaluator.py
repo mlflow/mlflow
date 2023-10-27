@@ -1708,10 +1708,11 @@ class DefaultEvaluator(ModelEvaluator):
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
                 elif self.model_type == _ModelType.RETRIEVER:
-                    k = self.evaluator_config.pop("k", 3)  # default to 3 if not specified
+                    # default k to 3 if not specified
+                    retriever_k = self.evaluator_config.pop("retriever_k", 3)
                     self.builtin_metrics = [
-                        precision_at_k(k),
-                        recall_at_k(k),
+                        precision_at_k(retriever_k),
+                        recall_at_k(retriever_k),
                     ]
 
                 eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
