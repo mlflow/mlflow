@@ -138,3 +138,9 @@ class InvalidUrlException(MlflowException):
     """Exception thrown when a http request fails to send due to an invalid URL"""
 
     pass
+
+
+class UnsupportedMultipartUploadException(MlflowException):
+    """Exception thrown when multipart upload is unsupported by an artifact repository"""
+
+    pass

@@ -40,7 +40,7 @@ class MultipartUploadCredential:
         return cls(
             url=dict_["url"],
             part_number=dict_["part_number"],
-            headers=dict_["headers"],
+            headers=dict_.get("headers", {}),
         )
 
 
