@@ -79,22 +79,18 @@ class EvaluationExample:
     justification: str
     grading_context: Optional[Union[str, Dict[str, str]]] = None
 
-    @staticmethod
-    def _format_grading_context(grading_context: Union[str, Dict[str, str]]):
-        if isinstance(grading_context, dict):
+    def _format_grading_context(self) -> str:
+        if isinstance(self.grading_context, dict):
             return "\n".join([f"key: {key}\nvalue:\n{value}" for key, value in grading_context.items()])
         else:
-            return grading_context
+            return self.grading_context
 
     @staticmethod
     def _to_prompt_component(grading_context: Optional[str] = None) -> str:
-        grading_context_prompt_component = (
-            (
-                "Additional information used by the model:\n"
-                f"{EvaluationExample._format_grading_context(grading_context)}"
-            )
-            if self.grading_context
-            else ""
+        grading_context = (
+            ""
+            if self.grading_context is None
+            else "Additional information used by the model:\n" f"{self._format_grading_context()}"
         )
 
         return f"""
@@ -104,32 +100,8 @@ Input:
 Output:
 {self.output}
 
-{grading_context_prompt_component}
+{grading_context}
 
 score: {self.score}
 justification: {self.justification}
         """
-
-    def __str__(self) -> str:
-        return EvaluationExample._to_prompt_component(self.grading_context)
-
-    def format(self, grading_context_columns: List[str]) -> str:
-        """
-        Obtains a string representation of the evaluation example
-        """
-        if self.grading_context is None and len(grading_context_columns) == 0:
-            grading_context = {}
-        elif isinstance(self.grading_context, dict):
-            grading_context = self.grading_context
-        else:
-            grading_context = {grading_context_columns[0]: self.grading_context}
-
-        if set(grading_context.keys()) != set(grading_context_columns):
-            raise MlflowException.invalid_parameter_value(
-                f"Example grading context does not contain required columns.\n"
-                f" Example grading context columns: {list(grading_context.keys())}\n"
-                f" Required grading context columns: {grading_context_columns}\n"
-            )
-
-        return EvaluationExample._to_prompt_component(grading_context)
-

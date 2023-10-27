@@ -85,9 +85,7 @@ class EvaluationModel:
         }
 
     def _format_examples(self):
-        return "\n".join(
-            [example.format(self.grading_context_columns) for example in self.examples]
-        )
+        return "\n".join(map(str, self.examples))
 
 
 @dataclass
