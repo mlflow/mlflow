@@ -92,6 +92,7 @@ class APIRequest:
     results: list[tuple[int, OpenAIObject]]
     timeout: int = 60
     start_time: int
+    last_log_time: int
 
     def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
         """
@@ -108,8 +109,10 @@ class APIRequest:
             current_time = time.time()
             status_tracker.time_of_last_rate_limit_error = current_time
             status_tracker.increment_num_rate_limit_errors()
-            # check attempts left for rate limit
+            # check time since first request, fail at 10 minutes
             if current_time - self.start_time < 600:
+                if current_time - self.last_log_time > 60:
+                    _logger.info(f"Retrying for request failed with error {e}.")
                 retry_queue.put_nowait(self)
             else:
                 status_tracker.complete_task(success=False)
@@ -255,6 +258,7 @@ def process_api_requests(
                         attempts_left=max_attempts,
                         results=results,
                         start_time=current_time,
+                        last_log_time=current_time,
                     )
                     status_tracker.start_task()
                     requests_exhausted = index == last_index
