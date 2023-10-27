@@ -469,10 +469,6 @@ module.exports = {
       plugins: ['prettier', '@typescript-eslint', '@emotion'],
       parser: '@typescript-eslint/parser',
 
-      // BEGIN-EDGE
-      // While we're waiting to have code sharing here, the following rules
-      // are plucked from js/packages/config-eslint/presets/createConfig.js
-      // END-EDGE
       rules: {
         // Turning off temporarily until TS migration is complete
         'import/first': 0,
@@ -585,13 +581,3 @@ module.exports = {
     },
   ],
 };
-// BEGIN-EDGE
-
-module.exports = {
-  ...module.exports,
-  rules: {
-    ...module.exports.rules,
-    'import/no-duplicates': 0,
-  },
-};
-// END-EDGE
