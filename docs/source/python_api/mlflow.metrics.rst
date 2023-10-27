@@ -110,7 +110,7 @@ your retrieval model. The function should take a Pandas DataFrame containing inp
 ground-truth relevant doc IDs, and return a DataFrame with a column of retrieved relevant doc IDs.
 
 A "doc ID" is a string that uniquely identifies a document. All doc IDs should be entered as a 
-tuple of doc ID  strings.
+list of doc ID  strings.
 
 Parameters:
 
