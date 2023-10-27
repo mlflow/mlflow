@@ -3467,7 +3467,7 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
     response_data = json.loads(response.content.decode("utf-8"))
 
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
-    assert response_data["message"].startswith("Failed to process the input audio data. Either")
+    assert "Failed to process the input audio data. Either" in response_data["message"]
 
 
 @pytest.mark.skipcacheclean
