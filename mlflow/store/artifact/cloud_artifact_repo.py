@@ -213,15 +213,16 @@ class CloudArtifactRepository(ArtifactRepository):
             )
 
             if failed_downloads:
-                num_retries = 3
+                num_retries = os.environ.get("_MLFLOW_MPD_NUM_RETRIES", 3)
+                interval = os.environ.get("_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", 1)
                 for chunk in failed_downloads:
                     new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                     new_signed_uri = new_cloud_creds.signed_uri
                     new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-                    _logger.warning(f"Retrying download of chunk {chunk} for {remote_file_path}")
+                    _logger.info(f"Retrying download of chunk {chunk} for {remote_file_path}")
                     for retry in range(num_retries):
                         try:
-                            _logger.warning(f"Attempt {retry + 1}/{num_retries}")
+                            _logger.debug(f"Attempt {retry + 1}/{num_retries}")
                             download_chunk(
                                 range_start=chunk.start,
                                 range_end=chunk.end,
@@ -229,14 +230,14 @@ class CloudArtifactRepository(ArtifactRepository):
                                 download_path=local_path,
                                 http_uri=new_signed_uri,
                             )
-                            _logger.warning(
+                            _logger.info(
                                 f"Successfully downloaded chunk {chunk} for {remote_file_path}"
                             )
                             break
                         except Exception:
                             if retry == num_retries - 1:
                                 raise
-                        time.sleep(1)
+                        time.sleep(interval)
 
     def _download_file(self, remote_file_path, local_path):
         # list_artifacts API only returns a list of FileInfos at the specified path
