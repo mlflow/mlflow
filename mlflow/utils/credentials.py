@@ -76,7 +76,7 @@ def login(backend="databricks"):
         )
 
 
-def _check_databricks_host(host):
+def _is_valid_databricks_host(host):
     # Check if the host is a valid Databricks URL: 1) start with https://, 2) end with
     # "databricks.com" or "databricks.com/"
     if not host.startswith("https://"):
