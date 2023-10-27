@@ -260,14 +260,12 @@ def test_enforce_property():
     prop = Property("a", Array(DataType.string))
     assert _enforce_property(data, prop) == data
 
-    data = np.array(["some_sentence1", "some_sentence2"])
-    assert _enforce_property(data, Property("a", Array(DataType.string))) == [
-        "some_sentence1",
-        "some_sentence2",
-    ]
-
     prop = Property("a", Array(DataType.binary))
-    assert _enforce_property(data, prop) == ["some_sentence1", "some_sentence2"]
+    assert _enforce_property(data, prop) == data
+
+    data = np.array([np.int32(1), np.int32(2)])
+    prop = Property("a", Array(DataType.integer))
+    assert (_enforce_property(data, prop) == data).all()
 
     data = {
         "a": "some_sentence",
@@ -324,10 +322,17 @@ def test_enforce_property_with_errors():
 @pytest.mark.parametrize(
     ("data", "schema"),
     [
-        # 1. 1D array
+        # 1. Flat list
         (["some_sentence1", "some_sentence2"], Array(DataType.string)),
-        # 2. Numpy 1D Array
-        (np.array(["some_sentence1", "some_sentence2"]), Array(DataType.string)),
+        # 2. Nested list
+        (
+            [
+                [["a", "b"], ["c", "d"]],
+                [["e", "f", "g"], ["h"]],
+                [[]],
+            ],
+            Array(Array(Array(DataType.string))),
+        ),
         # 3. Array of Object
         (
             [
@@ -344,16 +349,20 @@ def test_enforce_property_with_errors():
                 )
             ),
         ),
-        # 4. Nested array
-        (
-            [
-                [["a", "b"], ["c", "d"]],
-                [["e", "f", "g"], ["h"]],
-                [[]],
-            ],
-            Array(Array(Array(DataType.string))),
-        ),
-        # 5. Numpy 2D array
+        # 4. Empty list
+        ([], Array(DataType.string)),
+    ],
+)
+def test_enforce_array_on_list(data, schema):
+    assert _enforce_array(data, schema) == data
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        # 1. 1D array
+        (np.array(["some_sentence1", "some_sentence2"]), Array(DataType.string)),
+        # 2. 2D array
         (
             np.array(
                 [
@@ -363,19 +372,16 @@ def test_enforce_property_with_errors():
             ),
             Array(Array(DataType.string)),
         ),
-        # 6. Empty 1D array
-        ([], Array(DataType.string)),
-        # 7. Empty numpy 2D array
+        # 3. Empty array
         (np.array([[], []]), Array(Array(DataType.string))),
     ],
 )
-def test_enforce_array(data, schema):
-    data = data.tolist() if isinstance(data, np.ndarray) else data
-    assert _enforce_array(data, schema) == data
+def test_enforce_array_on_numpy_array(data, schema):
+    assert (_enforce_array(data, schema) == data).all()
 
 
 def test_enforce_array_with_errors():
-    with pytest.raises(MlflowException, match=r"Expected data to be list, got str"):
+    with pytest.raises(MlflowException, match=r"Expected data to be list or numpy array, got str"):
         _enforce_array("abc", Array(DataType.string))
 
     with pytest.raises(
@@ -390,7 +396,7 @@ def test_enforce_array_with_errors():
         _enforce_array([["a", "b"], [1, 2]], Array(Array(DataType.string)))
 
     # Nested array with different nest level
-    with pytest.raises(MlflowException, match=r"Expected data to be list, got str"):
+    with pytest.raises(MlflowException, match=r"Expected data to be list or numpy array, got str"):
         _enforce_array([["a", "b"], "c"], Array(Array(DataType.string)))
 
     # Missing priperties in Object
