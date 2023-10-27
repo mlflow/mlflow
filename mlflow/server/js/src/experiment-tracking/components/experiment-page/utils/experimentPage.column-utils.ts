@@ -156,6 +156,33 @@ export const getAdjustableAttributeColumns = (isComparingExperiments = false) =>
   return result;
 };
 
+function reorderParams(newColumnOrderNames: string[], filterParams: string[]): string[] {
+  // First, we separate the 'params' items and non-'params' items in the original array.
+  const paramsItems: string[] = newColumnOrderNames.filter((name) => name.startsWith('params.'));
+  const nonParamsItems: string[] = newColumnOrderNames.filter(
+    (name) => !name.startsWith('params.'),
+  );
+
+  // Create a map to easily search for 'params' items based on their name, recording their order in the original array.
+  const paramsOrder: Map<string, number> = new Map();
+  paramsItems.forEach(item => {
+    paramsOrder.set(item, filterParams.indexOf(item));
+  });
+
+  // Sort 'params' items based on the order in filterParams. If some items don't exist in filterParams, we keep their original order.
+  paramsItems.sort((a, b) => {
+    return (
+      (paramsOrder.get(a) !== -1 ? paramsOrder.get(a) : Infinity) -
+      (paramsOrder.get(b) !== -1 ? paramsOrder.get(b) : Infinity)
+    );
+  });
+
+  // Now, we can build the final array by combining non-'params' items with the sorted 'params' items.
+  const finalArray: string[] = [...nonParamsItems, ...paramsItems];
+
+  return finalArray;
+}
+
 /**
  * This internal hook passes through the list of all metric/param/tag keys.
  * The lists are memoized internally so if somehow a particular param/metric/tag key is not present
@@ -222,7 +249,7 @@ export const useRunsColumnDefinitions = ({
   isComparingRuns,
   expandRows,
 }: UseRunsColumnDefinitionsParams) => {
-  const { orderByAsc, orderByKey, selectedColumns } = searchFacetsState;
+  const { orderByAsc, orderByKey, selectedColumns, filterParams } = searchFacetsState;
 
   const cumulativeColumns = useCumulativeColumnKeys({
     metricKeyList,
@@ -518,7 +545,11 @@ export const useRunsColumnDefinitions = ({
       const visible = selectedColumns.includes(canonicalKey);
       columnApi.setColumnVisible(canonicalKey, visible);
     }
-  }, [selectedColumns, columnApi, canonicalSortKeys, isComparingRuns]);
+
+    const newOrderedColumns: string[] = reorderParams(selectedColumns, filterParams);
+
+    columnApi.moveColumns(newOrderedColumns, 0);
+  }, [selectedColumns, columnApi, canonicalSortKeys, isComparingRuns, filterParams]);
 
   return columnSet;
 };
@@ -530,5 +561,5 @@ export const EXPERIMENTS_DEFAULT_COLUMN_SETUP = {
   resizable: true,
   filter: true,
   suppressMenu: true,
-  suppressMovable: true,
+  suppressMovable: false,
 };

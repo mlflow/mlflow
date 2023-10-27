@@ -121,6 +121,11 @@ export class SearchExperimentRunsFacetsState {
   selectedColumns: string[] = getDefaultSelectedColumns();
 
   /**
+   * Params reordering
+   */
+  filterParams: string[] = [];
+
+  /**
    * Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
    * a run has been expanded (its child runs are visible).
    */
