@@ -299,7 +299,7 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
         "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
         "headers": [{"name": "header_name", "value": "header_value"}],
     }
-    error_downloads = {_Chunk(1, 2, 3): Exception("Internal Server Error")}
+    error_downloads = {_Chunk(1, 2, 3, "test"): Exception("Internal Server Error")}
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
@@ -343,7 +343,7 @@ def test_parallelized_download_file_using_http_uri_with_failed_downloads(
         "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
         "headers": [{"name": "header_name", "value": "header_value"}],
     }
-    failed_downloads = {_Chunk(1, 2, 3): Exception("Internal Server Error")}
+    failed_downloads = {_Chunk(1, 2, 3, "test"): Exception("Internal Server Error")}
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",

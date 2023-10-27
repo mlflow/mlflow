@@ -773,7 +773,7 @@ def parallelized_download_file_using_http_uri(
                 future.result()
             except Exception as e:
                 _logger.warning(
-                    f"Failed to download chunk {chunk.index} for {chunk.path}: {e!r}. "
+                    f"Failed to download chunk {chunk.index} for {chunk.path}: {e}. "
                     f"The download of this chunk will be retried later."
                 )
                 failed_downloads[chunk] = future.exception()
