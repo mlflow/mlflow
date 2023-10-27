@@ -41,6 +41,7 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
 
 jobs:
@@ -130,7 +131,11 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          if [ "${{ matrix.package }}" = "tensorflow" ] && [ "${{ matrix.version }}" = "dev" ]; then
+            python_version=3.9
+          else
+            python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
+          fi
           echo "version=$python_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-python
         with:
@@ -193,5 +198,4 @@ jobs:
           PACKAGE_VERSION: ${{ matrix.version }}
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
         run: |
-          export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}

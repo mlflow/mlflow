@@ -21,6 +21,7 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
@@ -41,19 +42,20 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install -e .
-          # pyspark 3.5 is incompatible with delta 2.4
-          pip install 'pyspark<3.5'
-          # TODO: Remove xgboost once https://github.com/microsoft/FLAML/issues/1217 is fixed
-          pip install pyspark 'xgboost<2'
+          pip install pyspark
       - name: Run tests
         run: |
-          export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
 
   recipes-windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -66,10 +68,7 @@ jobs:
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .
-          # pyspark 3.5 is incompatible with delta 2.4
-          pip install 'pyspark<3.5'
-          # TODO: Remove xgboost once https://github.com/microsoft/FLAML/issues/1217 is fixed
-          pip install pyspark 'xgboost<2'
+          pip install pyspark
           # TODO: Importing datasets in a pandas UDF (created by mlflow.pyfunc.spark_udf) crashes
           # the Python worker. To avoid this, uninstall `datasets`. This is a temporary workaround.
           pip uninstall -y datasets
@@ -85,6 +84,5 @@ jobs:
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
-          # Run recipes tests
           export MLFLOW_HOME=$(pwd)
-          pytest tests/recipes
+          pytest --splits ${{ matrix.splits }} --group ${{ matrix.group }} tests/recipes

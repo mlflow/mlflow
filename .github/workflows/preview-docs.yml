@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   main:
-    if: github.repository == 'mlflow/mlflow' && github.event.pull_request.draft == false
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     permissions:
       statuses: read # preview_docs.py checks PR statuses

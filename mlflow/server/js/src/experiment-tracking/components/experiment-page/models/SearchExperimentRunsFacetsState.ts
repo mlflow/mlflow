@@ -8,7 +8,7 @@ import {
   DEFAULT_START_TIME,
 } from '../../../constants';
 import { SerializedRunsCompareCardConfigCard } from '../../runs-compare/runs-compare.types';
-import { makeCanonicalSortKey } from '../utils/experimentPage.column-utils';
+import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
 import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
 import type { DatasetSummary, ExperimentViewRunsCompareMode } from '../../../types';
 

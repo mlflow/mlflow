@@ -89,7 +89,8 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = []
+# We exclude "registry.rst" because it is an orphan redirect
+exclude_patterns = ["registry.rst"]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -343,6 +344,8 @@ nitpick_ignore = [
     ("py:class", "mlflow.types.schema.ParamSpec"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
+    ("py:class", "mlflow.metrics.genai.base.EvaluationExample"),
+    ("py:class", "mlflow.models.evaluation.base.EvaluationMetric"),
     ("py:class", "MlflowInferableDataset"),
     ("py:class", "csr_matrix"),
     ("py:class", "csc_matrix"),

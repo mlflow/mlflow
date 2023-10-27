@@ -1,11 +1,30 @@
 import React, { useCallback, useRef, useState } from 'react';
 
 import type { TextAreaRef } from 'antd/lib/input/TextArea';
-import { DEFAULT_PROMPTLAB_NEW_TEMPLATE_VALUE } from '../../prompt-engineering/PromptEngineering.utils';
+import {
+  DEFAULT_PROMPTLAB_NEW_TEMPLATE_VALUE,
+  extractPromptInputVariables,
+} from '../../prompt-engineering/PromptEngineering.utils';
+import { max } from 'lodash';
 
 const newVariableStartSegment = ' {{ ';
 const newVariableEndSegment = ' }}';
-const newVariableNameSegment = 'new_variable';
+const newDefaultVariableName = 'new_variable';
+
+const getNewVariableName = (alreadyExistingVariableNames: string[] = []) => {
+  if (!alreadyExistingVariableNames.includes(newDefaultVariableName)) {
+    return newDefaultVariableName;
+  }
+
+  const maximumVariableNameIndex =
+    max(
+      alreadyExistingVariableNames.map((name) =>
+        parseInt(name.match(/new_variable_(\d+)/)?.[1] || '1', 10),
+      ),
+    ) || 1;
+
+  return `${newDefaultVariableName}_${maximumVariableNameIndex + 1}`;
+};
 
 /**
  * Keeps track of the current prompt value and exports method for adding + autoselecting new variables
@@ -17,7 +36,8 @@ export const usePromptEvaluationPromptTemplateValue = () => {
 
   const handleAddVariableToTemplate = useCallback(() => {
     updatePromptTemplate((template) => {
-      const newValue = `${template}${newVariableStartSegment}${newVariableNameSegment}${newVariableEndSegment}`;
+      const newVariableName = getNewVariableName(extractPromptInputVariables(template));
+      const newValue = `${template}${newVariableStartSegment}${newVariableName}${newVariableEndSegment}`;
 
       // Wait until the next execution frame
       requestAnimationFrame(() => {
@@ -28,7 +48,7 @@ export const usePromptEvaluationPromptTemplateValue = () => {
         // Focus the element and set the newly added variable name
         textAreaElement.focus();
         textAreaElement.setSelectionRange(
-          newValue.length - newVariableNameSegment.length - newVariableEndSegment.length,
+          newValue.length - newVariableName.length - newVariableEndSegment.length,
           newValue.length - newVariableEndSegment.length,
         );
       });

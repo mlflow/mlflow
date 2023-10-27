@@ -101,7 +101,7 @@ class CohereAdapter(ProviderAdapter):
         for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
+                    status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         return rename_payload_keys(payload, key_mapping)
 
@@ -123,7 +123,7 @@ class CohereProvider(BaseProvider):
         )
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        raise HTTPException(status_code=404, detail="The chat route is not available for Cohere.")
+        raise HTTPException(status_code=422, detail="The chat route is not available for Cohere.")
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)

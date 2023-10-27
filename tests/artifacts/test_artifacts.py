@@ -234,7 +234,7 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
         "test_exp_d", experiment_test_1_artifact_location
     )
     with mlflow.start_run(experiment_id=experiment_test_1_id) as run:
-        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+        with mock.patch("shutil.copy2") as copyfile_mock, mock.patch(
             "os.path.exists", return_value=True
         ) as exists_mock:
             mlflow.log_artifact(text_artifact.artifact_path)
@@ -253,7 +253,7 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
         "test_exp_e", experiment_test_2_artifact_location
     )
     with mlflow.start_run(experiment_id=experiment_test_2_id) as run:
-        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+        with mock.patch("shutil.copy2") as copyfile_mock, mock.patch(
             "os.path.exists", return_value=True
         ) as exists_mock:
             mlflow.log_artifact(text_artifact.artifact_path)

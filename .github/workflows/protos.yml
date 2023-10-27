@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - mlflow/protos/**
+      - mlflow/java/client/src/main/java/com/databricks/api/proto/**
   push:
     branches:
       - master

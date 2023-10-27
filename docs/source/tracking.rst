@@ -865,6 +865,11 @@ Use ``--backend-store-uri`` to configure the type of backend store. You specify:
     take a backup of your database prior to running ``mlflow db upgrade`` - consult your database's
     documentation for instructions on taking a backup.
 
+.. note::
+    ``2d6e25af4d3e_increase_max_param_val_length`` is a non-invertible migration script that increases 
+    the param value length to 8k (but we limit param value max length to 6000 internally). Please be careful
+    if you want to upgrade and backup your database before upgrading.
+
 
 By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (the same as when
 running ``mlflow run`` locally), but when running a server, make sure that this points to a

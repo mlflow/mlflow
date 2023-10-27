@@ -57,14 +57,23 @@ prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
 types = [np.int32, int, str, np.float32, np.double, bool]
 
 
-def score_model_as_udf(model_uri, pandas_df, result_type="double"):
-    spark = get_spark_session(pyspark.SparkConf())
+def score_spark(spark, model_uri, pandas_df, result_type="double"):
     spark_df = spark.createDataFrame(pandas_df).coalesce(1)
     pyfunc_udf = spark_udf(
         spark=spark, model_uri=model_uri, result_type=result_type, env_manager="local"
     )
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
     return [x["prediction"] for x in new_df.collect()]
+
+
+def score_model_as_udf(model_uri, pandas_df, result_type="double"):
+    if spark := pyspark.sql.SparkSession.getActiveSession():
+        # Reuse the active SparkSession, don't kill it after use
+        return score_spark(spark, model_uri, pandas_df, result_type)
+
+    # Create a new SparkSession, kill it after use
+    with get_spark_session(pyspark.SparkConf()) as spark:
+        return score_spark(spark, model_uri, pandas_df, result_type)
 
 
 class ConstantPyfuncWrapper:

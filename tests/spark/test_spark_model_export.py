@@ -72,14 +72,14 @@ SparkModelWithData = namedtuple(
 
 def _get_spark_session_with_retry(max_tries=3):
     conf = pyspark.SparkConf()
-    for num_tries in range(max_tries):
+    for attempt in range(max_tries):
         try:
             return get_spark_session(conf)
         except Exception as e:
-            if num_tries >= max_tries - 1:
+            if attempt >= max_tries - 1:
                 raise
             _logger.exception(
-                e, f"Attempt {num_tries} to create a SparkSession failed, retrying..."
+                f"Attempt {attempt} to create a SparkSession failed ({e!r}), retrying..."
             )
 
 
@@ -87,8 +87,8 @@ def _get_spark_session_with_retry(max_tries=3):
 # before any tests are executed. This ensures that the Hadoop filesystem
 # does not create its own SparkContext without the MLeap libraries required by
 # other tests.
-@pytest.fixture(scope="module", autouse=True)
-def spark_context():
+@pytest.fixture(scope="module")
+def spark():
     if Version(pyspark.__version__) < Version("3.1"):
         # A workaround for this issue:
         # https://stackoverflow.com/questions/62109276/errorjava-lang-unsupportedoperationexception-for-pyspark-pandas-udf-documenta
@@ -105,9 +105,9 @@ spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 """
             f.write(conf)
-    spark = _get_spark_session_with_retry()
-    yield spark.sparkContext
-    spark.stop()
+
+    with _get_spark_session_with_retry() as spark:
+        yield spark
 
 
 def iris_pandas_df():
@@ -121,11 +121,10 @@ def iris_pandas_df():
 
 
 @pytest.fixture(scope="module")
-def iris_df(spark_context):
+def iris_df(spark):
     pdf = iris_pandas_df()
     feature_names = list(pdf.drop("label", axis=1).columns)
-    spark_session = pyspark.sql.SparkSession(spark_context)
-    iris_spark_df = spark_session.createDataFrame(pdf)
+    iris_spark_df = spark.createDataFrame(pdf)
     return feature_names, pdf, iris_spark_df
 
 
@@ -172,8 +171,7 @@ def spark_model_transformer(iris_df):
 
 
 @pytest.fixture(scope="module")
-def spark_model_estimator(iris_df, spark_context):
-    # pylint: disable=unused-argument
+def spark_model_estimator(iris_df):
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
     features_df = assembler.transform(iris_spark_df)
@@ -192,6 +190,7 @@ def model_path(tmp_path):
     return os.path.join(tmp_path, "model")
 
 
+@pytest.mark.usefixtures("spark")
 def test_hadoop_filesystem(tmp_path):
     # copy local dir to and back from HadoopFS and make sure the results match
     from mlflow.spark import _HadoopFileSystem as FS
@@ -375,10 +374,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs_tmpdir):
     old_tracking_uri = mlflow.get_tracking_uri()
-    if use_dfs_tmpdir:
-        dfs_tmpdir = None
-    else:
-        dfs_tmpdir = tmp_path.joinpath("test")
+    dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")
@@ -452,10 +448,7 @@ def test_sparkml_estimator_model_log(
     tmp_path, spark_model_estimator, should_start_run, use_dfs_tmpdir
 ):
     old_tracking_uri = mlflow.get_tracking_uri()
-    if use_dfs_tmpdir:
-        dfs_tmpdir = None
-    else:
-        dfs_tmpdir = tmp_path.joinpath("test")
+    dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")

@@ -2,7 +2,7 @@
 
 The examples in this directory demonstrate how to use the `mlflow.evaluate()` API. Specifically,
 they show how to evaluate a PyFunc model on a specified dataset using the builtin default evaluator
-and specified custom metrics, where the resulting metrics & artifacts are logged to MLflow Tracking.
+and specified extra metrics, where the resulting metrics & artifacts are logged to MLflow Tracking.
 They also show how to specify validation thresholds for the resulting metrics to validate the quality
 of your model. See full list of examples below:
 
@@ -18,7 +18,7 @@ of your model. See full list of examples below:
   with a comprehensive list of custom metric functions on dataset loaded by `sklearn.datasets.fetch_california_housing`
 - Example `evaluate_with_model_validation.py` trains both a candidate xgboost `XGBClassifier` model
   and a baseline `DummyClassifier` model on dataset loaded by `shap.datasets.adult`. Then, it validates
-  the candidate model against specified thresholds on both builtin and custom metrics and the dummy model.
+  the candidate model against specified thresholds on both builtin and extra metrics and the dummy model.
 
 #### Prerequisites
 

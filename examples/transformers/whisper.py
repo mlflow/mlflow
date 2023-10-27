@@ -4,7 +4,11 @@ import transformers
 import mlflow
 
 # Acquire an audio file
-audio = requests.get("https://www.nasa.gov/62283main_landing.wav").content
+resp = requests.get(
+    "https://github.com/mlflow/mlflow/raw/master/tests/datasets/apollo11_launch.wav"
+)
+resp.raise_for_status()
+audio = resp.content
 
 task = "automatic-speech-recognition"
 architecture = "openai/whisper-tiny"

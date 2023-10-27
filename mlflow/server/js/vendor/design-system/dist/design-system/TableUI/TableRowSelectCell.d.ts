@@ -11,6 +11,7 @@ interface TableRowSelectCellProps extends HTMLDataAttributes, React.HTMLAttribut
     noCheckbox?: boolean;
     /** Whether the checkbox is disabled */
     isDisabled?: boolean;
+    checkboxLabel?: string;
 }
 export declare const TableRowSelectCell: import("react").ForwardRefExoticComponent<TableRowSelectCellProps & import("react").RefAttributes<HTMLDivElement>>;
 export {};
