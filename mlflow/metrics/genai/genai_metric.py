@@ -96,7 +96,6 @@ def make_genai_metric(
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
     max_workers: int = 10,
-    judge_request_timeout: int = 60,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow.
@@ -123,8 +122,6 @@ def make_genai_metric(
     :param greater_is_better: (Optional) Whether the metric is better when it is greater.
     :param max_workers: (Optional) The maximum number of workers to use for judge scoring.
         Defaults to 10 workers.
-    :param judge_request_timeout: (Optional) The timeout in seconds for each judge scoring request.
-        Defaults to 60 seconds.
 
     :return: A metric object.
 
@@ -305,7 +302,7 @@ def make_genai_metric(
                 for indx, (input, output) in enumerate(zip(inputs, outputs))
             }
 
-            for future in as_completed(futures, timeout=judge_request_timeout):
+            for future in as_completed(futures):
                 indx = futures[future]
                 score, justification = future.result()
                 scores[indx] = score
