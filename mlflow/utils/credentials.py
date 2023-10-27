@@ -76,6 +76,27 @@ def login(backend="databricks"):
         )
 
 
+def _check_databricks_host(host):
+    # Check if the host is a valid Databricks URL: 1) start with https://, 2) end with
+    # "databricks.com" or "databricks.com/"
+    if not host.startswith("https://"):
+        _logger.error(f"Host must start with 'https://', but received: {host}")
+        return False
+
+    # Handle the trailing "/" in URL.
+    host = host[:-1] if host.endswith("/") else host
+    if not host.endswith("databricks.com"):
+        # Valid Databricks host must end with "databricks.com".
+        _logger.error(
+            f"Invalid Databricks host: {host}. The host must be a valid Databricks URL ending with "
+            "'databricks.com' or 'databricks.com/', and no query string like 'o=6051921418418893' "
+            f"should be included, e.g. https://community.cloud.databricks.com"
+        )
+        return False
+
+    return True
+
+
 def _check_databricks_auth():
     # Check if databricks credentials are set.
     try:
@@ -90,10 +111,11 @@ def _check_databricks_auth():
         w = WorkspaceClient()
         # If credentials are invalid, `clusters.list()` will throw an error.
         w.clusters.list()
-        _logger.info(
-            "Succesfully signed in Databricks! Please run `mlflow.set_tracking_uri('databricks')` "
-            "to connect MLflow to Databricks tracking server."
-        )
+        _logger.info("Succesfully signed in Databricks!")
+        # Connect MLflow to Databricks tracking server.
+        from mlflow import set_tracking_uri
+
+        set_tracking_uri("databricks")
         return True
     except Exception as e:
         _logger.error(f"Failed to sign in Databricks: {e}")
@@ -160,9 +182,8 @@ def _databricks_login():
 
     while True:
         host = input("Databricks Host (should begin with https://): ")
-        if host.startswith("https://"):
+        if _check_databricks_host(host):
             break
-        _logger.error("Error: The host does not start with https://")
 
     profile = {"host": host}
     if "community" in host:

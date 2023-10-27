@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
+from mlflow import get_tracking_uri
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.utils.credentials import login, read_mlflow_creds
@@ -136,3 +137,6 @@ def test_mlflow_login(tmp_path, monkeypatch):
         assert lines[1] == "host = https://community.cloud.databricks.com/\n"
         assert lines[2] == "username = dummyusername\n"
         assert lines[3] == "password = dummypassword\n"
+
+    # Assert that the tracking URI is set to the databricks.
+    assert get_tracking_uri() == "databricks"
