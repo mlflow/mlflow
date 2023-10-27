@@ -90,13 +90,14 @@ def _call_openai_api(openai_uri, payload):
         #     max_tokens_per_minute=90_000,
         # )
 
-         resp = process_api_requests(
+        resp = process_api_requests(
             [openai_provider._add_model_to_payload_if_necessary(payload)],
             openai.ChatCompletion,
             api_token=api_token,
             max_requests_per_minute=3_500,
             max_tokens_per_minute=90_000,
-            throw_original_error=True
+            throw_original_error=True,
+            max_workers=1,
         )[0]
 
     except openai.error.AuthenticationError as e:
@@ -109,7 +110,6 @@ def _call_openai_api(openai_uri, payload):
             f"Invalid Request to OpenAI. Error response:\n {e}", error_code=BAD_REQUEST
         )
     except Exception as e:
-        print(type(e))
         raise MlflowException(f"Error response from OpenAI:\n {e}")
 
     return json.loads(openai_provider._prepare_completion_response_payload(resp).json())
