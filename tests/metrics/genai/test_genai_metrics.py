@@ -489,7 +489,7 @@ def test_make_genai_metric_failure():
         MlflowException,
         match=re.escape(
             "Failed to find evaluation model for version v-latest."
-            "Please check the correctness of the version"
+            " Please check the correctness of the version"
         ),
     ):
         make_genai_metric(

@@ -57,7 +57,6 @@ class EvaluationModel:
     name: str
     definition: str
     grading_prompt: str
-    grading_context_columns: List[str]
     examples: List[EvaluationExample] = None
     model: str = default_model
     parameters: Dict[str, Any] = field(default_factory=lambda: default_parameters)
