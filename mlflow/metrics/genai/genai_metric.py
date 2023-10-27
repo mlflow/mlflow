@@ -6,8 +6,9 @@ from inspect import Parameter, Signature
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.base import EvaluationExample, MetricValue
+from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
+from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.protos.databricks_pb2 import (
@@ -38,7 +39,7 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
 
     return (
         ""
-        if args_dict is None
+        if args_dict is None or len(args_dict) == 0
         else (
             "Additional information used by the model:\n"
             + "\n".join(
@@ -95,7 +96,6 @@ def make_genai_metric(
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
     max_workers: int = 10,
-    judge_request_timeout: int = 60,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow.
@@ -122,15 +122,13 @@ def make_genai_metric(
     :param greater_is_better: (Optional) Whether the metric is better when it is greater.
     :param max_workers: (Optional) The maximum number of workers to use for judge scoring.
         Defaults to 10 workers.
-    :param judge_request_timeout: (Optional) The timeout in seconds for each judge scoring request.
-        Defaults to 60 seconds.
 
     :return: A metric object.
 
     .. testcode:: python
         :caption: Example for creating a genai metric
 
-        from mlflow.metrics import EvaluationExample, make_genai_metric
+        from mlflow.metrics.genai import EvaluationExample, make_genai_metric
 
         example = EvaluationExample(
             input="What is MLflow?",
@@ -280,6 +278,7 @@ def make_genai_metric(
                     if e.error_code in [
                         ErrorCode.Name(BAD_REQUEST),
                         ErrorCode.Name(UNAUTHENTICATED),
+                        ErrorCode.Name(INVALID_PARAMETER_VALUE),
                     ]:
                         raise MlflowException(e)
                 return None, f"Failed to score model on payload. Error: {e!s}"
@@ -303,7 +302,7 @@ def make_genai_metric(
                 for indx, (input, output) in enumerate(zip(inputs, outputs))
             }
 
-            for future in as_completed(futures, timeout=judge_request_timeout):
+            for future in as_completed(futures):
                 indx = futures[future]
                 score, justification = future.result()
                 scores[indx] = score

@@ -7,8 +7,7 @@ import pandas as pd
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.base import EvaluationExample
-from mlflow.metrics.genai import model_utils
+from mlflow.metrics.genai import EvaluationExample, model_utils
 from mlflow.metrics.genai.genai_metric import (
     _extract_score_and_justification,
     _format_args_string,
@@ -19,12 +18,14 @@ from mlflow.metrics.genai.metric_definitions import (
     answer_relevance,
     answer_similarity,
     faithfulness,
+    relevance,
 )
 from mlflow.metrics.genai.prompts.v1 import (
     AnswerCorrectnessMetric,
     AnswerRelevanceMetric,
     AnswerSimilarityMetric,
     FaithfulnessMetric,
+    RelevanceMetric,
 )
 
 openai_justification1 = (
@@ -830,8 +831,7 @@ def test_answer_relevance_metric():
             "references and to\nunderstand them before completing the task.\n"
             f"\nInput:\n{input}\n"
             f"\nOutput:\n{mlflow_prediction}\n"
-            "\nAdditional information used by the model:\nkey: context\nvalue:\n"
-            f"{mlflow_ground_truth}\n"
+            "\n\n"
             f"\nMetric definition:\n{AnswerRelevanceMetric.definition}\n"
             f"\nGrading rubric:\n{AnswerRelevanceMetric.grading_prompt}\n"
             "\n\n"
@@ -856,6 +856,74 @@ def test_answer_relevance_metric():
         match="Failed to find answer relevance metric for version non-existent-version",
     ):
         answer_relevance(
+            model="gateway:/gpt-3.5-turbo",
+            metric_version="non-existent-version",
+            examples=[mlflow_example],
+        )
+
+
+def test_relevance_metric():
+    relevance_metric = relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+
+    input = "What is MLflow?"
+    pd.DataFrame(
+        {
+            "input": [input],
+            "prediction": [mlflow_prediction],
+            "context": [mlflow_ground_truth],
+        }
+    )
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ) as mock_predict_function:
+        metric_value = relevance_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series([input]),
+            pd.Series([mlflow_ground_truth]),
+        )
+        assert mock_predict_function.call_count == 1
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][1] == {
+            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "relevance based on the input and output.\nA definition of "
+            "relevance and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
+            f"\nInput:\n{input}\n"
+            f"\nOutput:\n{mlflow_prediction}\n"
+            "\nAdditional information used by the model:\nkey: context\nvalue:\n"
+            f"{mlflow_ground_truth}\n"
+            f"\nMetric definition:\n{RelevanceMetric.definition}\n"
+            f"\nGrading rubric:\n{RelevanceMetric.grading_prompt}\n"
+            "\n\n"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's relevance based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "relevance score\n    ",
+            **RelevanceMetric.parameters,
+        }
+
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }
+
+    with pytest.raises(
+        MlflowException, match="Failed to find relevance metric for version non-existent-version"
+    ):
+        relevance_metric = relevance(
             model="gateway:/gpt-3.5-turbo",
             metric_version="non-existent-version",
             examples=[mlflow_example],
