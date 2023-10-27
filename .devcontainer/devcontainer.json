@@ -12,8 +12,14 @@
         "terminal.integrated.defaultProfile.linux": "zsh",
         "editor.rulers": [80, 100],
         "editor.formatOnSave": true,
+        "editor.formatOnSaveTimeout": 5000,
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.analysis.autoImportCompletions": false,
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true
+        },
+        "python.formatting.provider": "none",
         "prettier.prettierPath": "/workspaces/mlflow/mlflow/server/js/node_modules/prettier",
         "prettier.configPath": "/workspaces/mlflow/mlflow/server/js/.prettierrc.js"
       },
@@ -33,11 +39,7 @@
         "PKief.material-icon-theme",
         "ritwickdey.LiveServer",
         "shardulm94.trailing-spaces"
-      ],
-      "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.formatOnSave": true
-      }
+      ]
     }
   }
 }
