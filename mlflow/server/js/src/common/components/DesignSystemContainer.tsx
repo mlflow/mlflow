@@ -25,7 +25,7 @@ type DesignSystemContainerProps = {
  */
 export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
   const modalContainerElement = useRef();
-  const { children } = props;
+  const { isDarkTheme = false, children } = props;
 
   useEffect(() => {
     if (isInsideShadowDOM(modalContainerElement.current)) {
@@ -44,7 +44,7 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
   }, []);
 
   return (
-    <SupportsDuBoisThemes enabled={props.isDarkTheme}>
+    <SupportsDuBoisThemes enabled={isDarkTheme}>
       {/* @ts-expect-error TS(2322): Type '() => HTMLElement | undefined' is not assign... Remove this comment to see the full error message */}
       <DesignSystemProvider getPopupContainer={getPopupContainer} isCompact {...props}>
         <ConfigProvider prefixCls='ant'>

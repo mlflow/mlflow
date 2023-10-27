@@ -16,7 +16,7 @@ import { MlflowRouter } from './MlflowRouter';
 export function MLFlowRoot() {
   const i18n = useI18nInit();
   const [isDarkTheme, setIsDarkTheme] = React.useState(
-    window.matchMedia('(prefers-color-scheme: dark)').matches,
+    window.matchMedia('(prefers-color-scheme: dark)').matches || false,
   );
 
   if (!i18n) {

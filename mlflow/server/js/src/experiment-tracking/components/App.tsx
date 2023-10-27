@@ -63,12 +63,13 @@ const classNames = {
 const InteractionTracker = ({ children }: any) => children;
 
 interface AppProps {
-  isDarkTheme: boolean;
+  isDarkTheme?: boolean;
   setIsDarkTheme: (isDarkTheme: boolean) => void;
 }
 
 class App extends Component<AppProps> {
   render() {
+    const { isDarkTheme = false, setIsDarkTheme = (val) => {} } = this.props;
     const marginRight = 24;
     return (
       <HashRouterV5
@@ -116,8 +117,8 @@ class App extends Component<AppProps> {
                 </div>
                 <div className='header-links'>
                   <div style={{ display: 'flex', alignItems: 'center' }} css={{ marginRight }}>
-                    <Switch checked={this.props.isDarkTheme} onChange={this.props.setIsDarkTheme} />
-                    {this.props.isDarkTheme ? <span>Dark theme</span> : <span>Light theme</span>}
+                    <Switch checked={isDarkTheme} onChange={setIsDarkTheme} />
+                    {isDarkTheme ? <span>Dark theme</span> : <span>Light theme</span>}
                   </div>
                   <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
                     <div className='github'>
