@@ -113,6 +113,7 @@ class APIRequest:
             if current_time - self.start_time < 600:
                 if current_time - self.last_log_time > 60:
                     _logger.warning(f"Retrying for request failed with error {e}.")
+                    self.last_log_time = current_time
                 retry_queue.put_nowait(self)
             else:
                 status_tracker.complete_task(success=False)
