@@ -12,6 +12,111 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
+                        MLflow Docs Overhaul 
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        The MLflow docs are getting a facelift with added content, tutorials, and guides. Stay tuned for further improvements to the site!
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.8.0">released in 2.8.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        New Features for LLM Evaluation
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        The functionality provided for LLM evaluation in MLflow is getting greatly expanded. Check out all of the new features in the 
+                        <a href="../llms/llm-evaluate/index.html">guide</a> and the <a href="../llms/llm-evaluate/notebooks/index.html">tutorials</a>.
+                    </div>
+                    <div class="doc"><a class="icon bell" href="../llms/llm-evaluate/index.html">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.8.0">released in 2.8.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Spark Connect support 
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/spark-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        You can now log, save, and load models trained using Spark Connect. Try out Spark 3.5 and the MLflow integration today!
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.8.0">released in 2.8.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        AI21 Labs added as an MLflow Gateway provider 
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/ai21labs-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        You can now use the MLflow AI Gateway to connect to LLMs hosted by <a href="https://www.ai21.com/">AI21 Labs</a>.
+                    </div>
+                    <div class="doc"><a class="icon bell" href="../llms/index.html#id1">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.8.0">released in 2.8.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        AWS Bedrock added as an MLflow Gateway provider 
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/aws-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        You can now use the MLflow AI Gateway to connect to LLMs hosted by <a href="https://aws.amazon.com/bedrock/">AWS's Bedrock</a> service.
+                    </div>
+                    <div class="doc"><a class="icon bell" href="../llms/index.html#id1">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.8.0">released in 2.8.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        PaLM 2 added as an MLflow Gateway provider 
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/PaLM-logo.png" alt="MLflow"></img>
+                    <div class="body">
+                        You can now use the MLflow AI Gateway to connect to LLMs hosted by <a href="https://ai.google/discover/palm2/">Google's PaLM 2</a> service.
+                    </div>
+                    <div class="doc"><a class="icon bell" href="../llms/index.html#id1">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.8.0">released in 2.8.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Hugging Face TGI added as an MLflow Gateway provider 
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/huggingface-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        You can self-host your own transformers-based models from the Hugging Face Hub and directly connect to the models with the AI Gateway
+                        with <a href="https://huggingface.co/docs/text-generation-inference/index">TGI</a>.
+                    </div>
+                    <div class="doc"><a class="icon bell" href="../llms/index.html#id1">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.8.0">released in 2.8.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
                         Introducting the Prompt Engineering UI
                     </div>
                     <img class="card-image" src="../_static/images/intro/new_features/prompt-eng-ui.png" alt="Prompt Engineering UI" style="max-height: 5rem"></img>
@@ -133,7 +238,7 @@ Find out about the details of major features, changes, and deprecations below.
                         LLM modeling tasks of text summarization, text classification, question answering, and text generation allows you 
                         to view the results of submitted text to multiple models in a single UI element. 
                     </div>
-                    <div class="doc"><a href="../models.html#model-evaluation-llms">Learn more</a></div>
+                    <div class="doc"><a href="../llms/llm-evaluate/index.html">Learn more</a></div>
                     <div class="tag">
                         <a href="https://github.com/mlflow/mlflow/releases/tag/v2.4.0">released in 2.4.0</a>
                     </div>
