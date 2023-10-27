@@ -908,14 +908,25 @@ def _enforce_array(data: Any, arr: Array, required=True):
         return None
 
     if not isinstance(data, (list, np.ndarray)):
-        raise MlflowException(f"Expected data to be list, got {type(data).__name__}")
+        raise MlflowException(f"Expected data to be list or numpy array, got {type(data).__name__}")
+
     if isinstance(arr.dtype, DataType):
-        return [_enforce_datatype(x, arr.dtype) for x in data]
-    if isinstance(arr.dtype, Object):
-        return [_enforce_object(x, arr.dtype) for x in data]
-    if isinstance(arr.dtype, Array):
-        return [_enforce_array(x, arr.dtype) for x in data]
-    raise MlflowException(f"Failed to enforce schema of data `{data}` with dtype `{arr.dtype}`")
+        data_enforced = [_enforce_datatype(x, arr.dtype) for x in data]
+    elif isinstance(arr.dtype, Object):
+        data_enforced = [_enforce_object(x, arr.dtype) for x in data]
+    elif isinstance(arr.dtype, Array):
+        data_enforced = [_enforce_array(x, arr.dtype) for x in data]
+    else:
+        raise MlflowException(
+            f"Failed to enforce schema of data `{data}` with dtype `{arr}`. "
+            f"Invalid schema, `{arr.dtype}` is not supported type for Array element."
+        )
+
+    # Keep input data type
+    if isinstance(data, np.ndarray):
+        data_enforced = np.array(data_enforced)
+
+    return data_enforced
 
 
 def _enforce_property(data: Any, property: Property):
