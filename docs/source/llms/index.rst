@@ -22,7 +22,7 @@ capabilities into their applications.
 
 Serving as a unified interface, the `MLflow AI Gateway <gateway/index.html>`_ simplifies interactions with multiple LLM providers, such as 
 `OpenAI <https://openai.com/>`_, `MosaicML <https://www.mosaicml.com/>`_, `Cohere <https://cohere.com/>`_, `Anthropic <https://www.anthropic.com/>`_, 
-`PaLM 2 <https://ai.google/discover/palm2/>`_, and `AI21 Labs <https://www.ai21.com/>`_. 
+`PaLM 2 <https://ai.google/discover/palm2/>`_, `AWS Bedrock <https://aws.amazon.com/bedrock/>`_, and `AI21 Labs <https://www.ai21.com/>`_. 
 
 In addition to supporting the most popular SaaS LLM providers, the AI Gateway provides an integration to MLflow model serving, allowing you to serve your 
 own LLM or a fine-tuned foundation model within your own serving infrastructure.
@@ -92,6 +92,11 @@ configuration and management of your LLM serving needs, select the provider that
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
+                    <img src="../_static/images/logos/aws-logo.svg" alt="AWS Logo" style="max-height: 3rem;">
+                </div>
+            </a>
+            <a href="gateway/index.html#providers">
+                <div class="logo-card">
                     <img src="../_static/images/logos/PaLM-logo.png" alt="PaLM Logo">
                 </div>
             </a>
@@ -123,6 +128,7 @@ with your favorite provider!
 * `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/anthropic/README.md>`_
 * `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/cohere/README.md>`_
 * `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/mlflow_serving/README.md>`_
+* `AWS Bedrock quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/bedrock/README.md>`_
 * `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/ai21labs/README.md>`_ 
 * `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/palm/README.md>`_
 * `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/azure_openai/README.md>`_
