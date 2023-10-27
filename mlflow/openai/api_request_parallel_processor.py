@@ -91,7 +91,9 @@ class APIRequest:
     results: list[tuple[int, OpenAIObject]]
     timeout: int = 60
 
-    def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
+    def call_api(
+        self, retry_queue: queue.Queue, status_tracker: StatusTracker, raise_exceptions=False
+    ):
         """
         Calls the OpenAI API and stores results.
         """
@@ -134,9 +136,11 @@ class APIRequest:
                 status_tracker.increment_num_api_errors()
                 status_tracker.complete_task(success=False)
         except Exception as e:
-            _logger.debug(f"Request #{self.index} failed with {e!r}")
+            _logger.warning(f"Request #{self.index} failed with {e!r}")
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
+            if raise_exceptions:
+                raise e
 
 
 def num_tokens_consumed_from_request(request_json: dict, task: type, token_encoding_name: str):
@@ -314,3 +318,32 @@ def process_api_requests(
         )
 
     return [res for _, res in sorted(results)]
+
+
+def process_one_api_request(
+    request_json: dict,
+    task: OpenAIObject,
+    api_token: _OAITokenHolder,
+    token_encoding_name: str = "cl100k_base",
+):
+    """
+    Processes a single API request and throws the actual exception if encountered.
+    """
+    api_token.validate(_logger)
+
+    request = APIRequest(
+        task=task,
+        index=0,  # Since it's a single request, index is set to 0
+        request_json=request_json,
+        token_consumption=num_tokens_consumed_from_request(request_json, task, token_encoding_name),
+        attempts_left=1,  # Only one attempt for this function
+        results=[],
+    )
+
+    # Make the API call
+    request.call_api(
+        retry_queue=queue.Queue(), status_tracker=StatusTracker(), raise_exceptions=True
+    )
+
+    # If there are results, return them, else return None
+    return request.results[0][1] if request.results else None
