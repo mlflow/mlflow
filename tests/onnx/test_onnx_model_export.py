@@ -235,7 +235,6 @@ def onnx_custom_env(tmp_path):
     _mlflow_conda_env(conda_env, additional_pip_deps=["onnx", "pytest", "torch"])
     return conda_env
 
-
 def test_model_save_load(onnx_model, model_path):
     # New ONNX versions can optionally convert to external data
     if Version(onnx.__version__) >= Version("1.9.0"):
@@ -251,6 +250,30 @@ def test_model_save_load(onnx_model, model_path):
     mlflow.onnx.load_model(model_path)
     assert onnx.checker.check_model.called
 
+
+@pytest.mark.parametrize("save_as_external_data", [True, False])
+def test_model_log_load(onnx_model, model_path, save_as_external_data):
+    # New ONNX versions can optionally convert to external data
+    if Version(onnx.__version__) >= Version("1.9.0"):
+        onnx.convert_model_to_external_data = mock.Mock()
+
+    with mlflow.start_run():
+        model_info = mlflow.onnx.log_model(
+            onnx_model, 
+            artifact_path="model", 
+            save_as_external_data=save_as_external_data
+        )
+
+    if Version(onnx.__version__) >= Version("1.9.0"):
+        if save_as_external_data:
+            onnx.convert_model_to_external_data.assert_called()
+        else:
+            onnx.convert_model_to_external_data.assert_not_called()
+
+    # Loading ONNX model
+    onnx.checker.check_model = mock.Mock()
+    mlflow.onnx.load_model(model_info.model_uri)
+    assert onnx.checker.check_model.called
 
 def test_model_save_load_nonexternal_data(onnx_model, model_path):
     if Version(onnx.__version__) >= Version("1.9.0"):
