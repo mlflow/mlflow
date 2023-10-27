@@ -76,10 +76,10 @@ def _call_openai_api(openai_uri, payload):
 
     import openai
 
+    from mlflow.openai.api_request_parallel_processor import process_api_requests
     from mlflow.openai.utils import _OAITokenHolder
 
     api_token = _OAITokenHolder(os.environ.get("OPENAI_API_TYPE", "openai"))
-    from mlflow.openai.api_request_parallel_processor import process_api_requests
 
     try:
         resp = process_api_requests(
@@ -89,7 +89,6 @@ def _call_openai_api(openai_uri, payload):
             throw_original_error=True,
             max_workers=1,
         )[0]
-
     except openai.error.AuthenticationError as e:
         raise MlflowException(
             f"Authentication Error for OpenAI. Error response:\n {e}",
