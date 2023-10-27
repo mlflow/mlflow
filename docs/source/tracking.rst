@@ -444,7 +444,7 @@ Java and Scala
 Visualizing Metrics
 -------------------
 
-Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the step x-axis and two timestamp axes:
+Here is an example plot of the :ref:`quick start tutorial <quickstart-1>` with the step x-axis and two timestamp axes:
 
 .. figure:: _static/images/metrics-step.png
 
