@@ -695,23 +695,3 @@ def get_model_info(model_uri: str) -> ModelInfo:
         mlflow_version=model_meta.mlflow_version,
         metadata=model_meta.metadata,
     )
-
-class House:
-    @property
-    def price(self) -> Optional[float]:
-        return self._price
-
-    @price.setter
-    def price(self, new_price):
-        if new_price > 0 and isinstance(new_price, float):
-            self._price = new_price
-        else:
-            print("Please enter a valid price")
-
-    def to_yaml(self, stream=None):
-        """Write the model as yaml string."""
-        return yaml.safe_dump(self.to_dict(), stream=stream, default_flow_style=False)
-    def save(self, path):
-        """Write the model as a local YAML file."""
-        with open(path, "w") as out:
-            self.to_yaml(out)

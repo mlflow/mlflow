@@ -13,7 +13,7 @@ import pytest
 from pyspark.sql import SparkSession
 
 import mlflow
-from mlflow.exceptions import MissingConfigException, MlflowException
+from mlflow.exceptions import MissingConfigException
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
     TempDir,
