@@ -2180,10 +2180,8 @@ def _save_model_with_loader_module_and_data_path(
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
     )
-    try:
-        mlflow_model.model_size_bytes = get_total_file_size(path)
-    except Exception as e:
-        _logger.info(f"Failed to get the total size of {path} because of error :{e}")
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

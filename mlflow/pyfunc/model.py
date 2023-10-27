@@ -317,7 +317,8 @@ def _save_model_with_class_artifacts_params(
         model_config=model_config,
         **custom_model_config_kwargs,
     )
-    mlflow_model.model_size_bytes = get_total_file_size(str(path))
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

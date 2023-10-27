@@ -412,10 +412,8 @@ def _save_model_metadata(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
-    try:
-        mlflow_model.model_size_bytes = get_total_file_size(dst_dir)
-    except Exception as e:
-        _logger.info(f"Fail to get the total size of {dst_dir} because of error :{e}")
+    if size := get_total_file_size(dst_dir):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(str(Path(dst_dir) / MLMODEL_FILE_NAME))
 
     if conda_env is None:

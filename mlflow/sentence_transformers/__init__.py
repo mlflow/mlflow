@@ -169,10 +169,8 @@ def save_model(
         sentence_transformers_version=sentence_transformers.__version__,
         code=code_dir_subpath,
     )
-    try:
-        mlflow_model.model_size_bytes = get_total_file_size(str(path))
-    except Exception as e:
-        _logger.info(f"Failed to get the total size of {path!s} because of error :{e}")
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
 
     if inference_config:

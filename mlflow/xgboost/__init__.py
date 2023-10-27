@@ -184,10 +184,8 @@ def save_model(
         model_format=model_format,
         code=code_dir_subpath,
     )
-    try:
-        mlflow_model.model_size_bytes = get_total_file_size(str(path))
-    except Exception as e:
-        _logger.info(f"Failed to get the total size of {path!s} because of error :{e}")
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

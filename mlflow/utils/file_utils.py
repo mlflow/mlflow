@@ -4,6 +4,7 @@ import errno
 import fnmatch
 import gzip
 import json
+import logging
 import math
 import os
 import pathlib
@@ -21,6 +22,7 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
+from typing import Optional, Union
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -52,6 +54,8 @@ from mlflow.utils.rest_utils import augmented_raise_for_status
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
+
+_logger = logging.getLogger(__name__)
 
 
 class ArtifactProgressBar:
@@ -971,24 +975,30 @@ def chdir(path: str) -> None:
         os.chdir(cwd)
 
 
-def get_total_file_size(path: str) -> int:
+def get_total_file_size(path: Union[str, pathlib.Path]) -> Optional[int]:
     """
     Return the size of all files under given path, including files in subdirectories.
 
     :param path: The absolute path of a local directory.
     :return: size in bytes.
     """
-    if not os.path.exists(path):
-        raise MlflowException(
-            message=f"The given {path} does not exist.", error_code=INVALID_PARAMETER_VALUE
-        )
-    if not os.path.isdir(path):
-        raise MlflowException(
-            message=f"The given {path} is not a directory.", error_code=INVALID_PARAMETER_VALUE
-        )
+    try:
+        if isinstance(path, pathlib.Path):
+            path = str(path)
+        if not os.path.exists(path):
+            raise MlflowException(
+                message=f"The given {path} does not exist.", error_code=INVALID_PARAMETER_VALUE
+            )
+        if not os.path.isdir(path):
+            raise MlflowException(
+                message=f"The given {path} is not a directory.", error_code=INVALID_PARAMETER_VALUE
+            )
 
-    total_size = 0
-    for cur_path, dirs, files in os.walk(path):
-        full_paths = [os.path.join(cur_path, file) for file in files]
-        total_size += sum([os.path.getsize(file) for file in full_paths])
-    return total_size
+        total_size = 0
+        for cur_path, dirs, files in os.walk(path):
+            full_paths = [os.path.join(cur_path, file) for file in files]
+            total_size += sum([os.path.getsize(file) for file in full_paths])
+        return total_size
+    except Exception as e:
+        _logger.info(f"Failed to get the total size of {path} because of error :{e}")
+        return None
