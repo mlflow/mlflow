@@ -11,6 +11,7 @@ export declare const antdTypography: {
     lineHeightLg: string;
     lineHeightXl: string;
     lineHeightXxl: string;
+    typographyRegularFontWeight: number;
     typographyBoldFontWeight: number;
 };
 declare const _default: {
@@ -26,6 +27,7 @@ declare const _default: {
     lineHeightLg: string;
     lineHeightXl: string;
     lineHeightXxl: string;
+    typographyRegularFontWeight: number;
     typographyBoldFontWeight: number;
 };
 export default _default;

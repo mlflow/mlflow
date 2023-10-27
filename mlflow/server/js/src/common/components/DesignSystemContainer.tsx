@@ -43,7 +43,7 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
   }, []);
 
   return (
-    <SupportsDuBoisThemes enabled={false}>
+    <SupportsDuBoisThemes>
       {/* @ts-expect-error TS(2322): Type '() => HTMLElement | undefined' is not assign... Remove this comment to see the full error message */}
       <DesignSystemProvider getPopupContainer={getPopupContainer} isCompact {...props}>
         <ConfigProvider prefixCls='ant'>

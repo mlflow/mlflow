@@ -7,20 +7,22 @@ export type DarkModePref = 'system' | 'dark' | 'light';
 const DARK_MODE_PREF_DEFAULT = 'light';
 
 export interface SupportsDuBoisThemesProps {
-  enabled?: boolean;
+  disabled?: boolean;
 }
 
 export const SupportsDuBoisThemes: React.FC<SupportsDuBoisThemesProps> = ({
-  enabled = false,
+  disabled = false,
   children,
 }) => {
-  return <DesignSystemThemeProvider isDarkMode={enabled}>{children}</DesignSystemThemeProvider>;
+  // eslint-disable-next-line react/forbid-elements
+  return <DesignSystemThemeProvider isDarkMode={false}>{children}</DesignSystemThemeProvider>;
 };
 
 export function getUserDarkModePref(): DarkModePref {
   return 'system';
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-function
 export function setUserDarkModePref(value: DarkModePref) {}
 
 // For system-level dark mode preference
@@ -30,4 +32,5 @@ export function systemPrefersDark(): boolean {
   return darkModeMediaQuery.matches;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-function
 export function setDarkModeSupported(value: boolean) {}

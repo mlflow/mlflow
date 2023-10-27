@@ -1,25 +1,13 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import React from 'react';
-import { ModelVersionTable } from './ModelVersionTable';
 import { mockModelVersionDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
-import { Table } from 'antd';
-import { RegisteringModelDocUrl } from '../../common/constants';
-import { act, mountWithIntl, renderWithIntl, screen } from '../../common/utils/TestUtils';
+import { renderWithIntl, screen } from '../../common/utils/TestUtils';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { useNextModelsUIContext, withNextModelsUIContext } from '../hooks/useNextModelsUI';
-import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
-import userEvent from '@testing-library/user-event';
+import { ModelVersionTable } from './ModelVersionTable';
 
 jest.mock('../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../common/utils/FeatureUtils'),
@@ -28,32 +16,32 @@ jest.mock('../../common/utils/FeatureUtils', () => ({
 }));
 
 describe('ModelVersionTable', () => {
-  let wrapper;
-  let minimalProps: any;
-  beforeEach(() => {
-    minimalProps = {
-      modelName: 'Model A',
-      modelVersions: [],
-      onChange: jest.fn(),
-    };
-  });
+  const minimalProps = {
+    modelName: 'Model A',
+    modelVersions: [],
+    onChange: jest.fn(),
+    onMetadataUpdated: jest.fn(),
+    usingNextModelsUI: false,
+  };
+
+  const mockStoreFactory = configureStore([thunk, promiseMiddleware()]);
 
   // Wrap the rendered components with redux provider so useDispatch() will work properly
-  const mockStoreFactory = configureStore([thunk, promiseMiddleware()]);
-  const mountWithProviders = (node: React.ReactNode) =>
-    mountWithIntl(
-      <MemoryRouter>
-        <Provider store={mockStoreFactory({})}>{node}</Provider>
-      </MemoryRouter>,
-    );
+  const wrapProviders = (node: React.ReactNode) => (
+    <MemoryRouter>
+      <Provider store={mockStoreFactory({})}>{node}</Provider>
+    </MemoryRouter>
+  );
 
-  test('should render with minimal props without exploding', () => {
-    wrapper = mountWithProviders(<ModelVersionTable {...minimalProps} />);
-    expect(wrapper.length).toBe(1);
+  const renderWithProviders = (node: React.ReactNode) => renderWithIntl(wrapProviders(node));
+
+  test('should render with minimal props', () => {
+    renderWithProviders(<ModelVersionTable {...minimalProps} />);
+    expect(screen.getByRole('row')).toBeInTheDocument();
   });
   test('should render correct empty text', () => {
-    wrapper = wrapper = mountWithProviders(<ModelVersionTable {...minimalProps} />);
-    expect(wrapper.find(`a[href="${RegisteringModelDocUrl}"]`)).toHaveLength(1);
+    renderWithProviders(<ModelVersionTable {...minimalProps} />);
+    expect(screen.getByRole('link', { name: /Learn more/ })).toBeInTheDocument();
   });
   test('should render active versions when activeStageOnly is true', () => {
     const props = {
@@ -63,42 +51,30 @@ describe('ModelVersionTable', () => {
         mockModelVersionDetailed('Model A', 2, Stages.PRODUCTION, ModelVersionStatus.READY),
         mockModelVersionDetailed('Model A', 3, Stages.STAGING, ModelVersionStatus.READY),
         mockModelVersionDetailed('Model A', 4, Stages.ARCHIVED, ModelVersionStatus.READY),
-      ],
+      ] as any,
     };
-    wrapper = mountWithProviders(<ModelVersionTable {...props} />);
-    expect(wrapper.find(Table).props().dataSource.length).toBe(4);
-    const propsWithActive = {
-      ...props,
-      activeStageOnly: true,
-    };
-    wrapper = mountWithProviders(<ModelVersionTable {...propsWithActive} />);
-    expect(wrapper.find(Table).props().dataSource.length).toBe(2);
+    const { rerender } = renderWithProviders(<ModelVersionTable {...props} />);
+
+    expect(screen.getAllByRole('row')).toHaveLength(5); // 4 model rows and 1 header row
+
+    rerender(wrapProviders(<ModelVersionTable {...props} activeStageOnly />));
+
+    expect(screen.getAllByRole('row')).toHaveLength(3); // 2 model rows and 1 header row
   });
-
-  test('should display aliases column instead of stage when new models UI is used', async () => {
-    const TestComponent = withNextModelsUIContext(() => {
-      const { usingNextModelsUI } = useNextModelsUIContext();
-      return (
-        <Provider store={mockStoreFactory({})}>
-          {/* <ModelVersionTable> relies on usingNextModelsUI prop instead of getting it from context by itself */}
-          <ModelVersionTable {...minimalProps} usingNextModelsUI={usingNextModelsUI} />
-          <ModelsNextUIToggleSwitch />
-        </Provider>
-      );
-    });
-    renderWithIntl(<TestComponent />);
-
-    // Assert stage column being visible and aliases column being absent
+  test('should display stages instead of aliases and tags when new models UI is not used', () => {
+    renderWithProviders(<ModelVersionTable {...minimalProps} />);
     expect(screen.queryByRole('columnheader', { name: 'Stage' })).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
-
-    // Flip the "Next models UI" switch
-    await act(async () => {
-      userEvent.click(screen.getByRole('switch'));
-    });
-
-    // Assert the opposite: stage column should be invisible and aliases column should be present
+    expect(screen.queryByRole('columnheader', { name: 'Tags' })).not.toBeInTheDocument();
+  });
+  test('should display aliases and tags column instead of stage when new models UI is used', () => {
+    const props = {
+      ...minimalProps,
+      usingNextModelsUI: true,
+    };
+    renderWithProviders(<ModelVersionTable {...props} />);
     expect(screen.queryByRole('columnheader', { name: 'Stage' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Aliases' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
   });
 });

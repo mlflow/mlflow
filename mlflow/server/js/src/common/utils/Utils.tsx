@@ -20,6 +20,7 @@ import _ from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
 import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
+import { shouldUsePathRouting } from './FeatureUtils';
 
 class Utils {
   /**
@@ -1105,7 +1106,6 @@ class Utils {
     return true;
   }
 
-  // eslint-disable-next-line prettier/prettier
   static updatePageTitle(title: any) {
   }
 
@@ -1166,7 +1166,7 @@ class Utils {
 
   static isUsingExternalRouter() {
     // Running inside the iFrame indicates that we're using externally managed routing.
-    if (window.self !== window.top || (window as any).isTestingIframe) {
+    if (window.isTestingIframe) {
       return true;
     }
 
@@ -1174,6 +1174,10 @@ class Utils {
   }
 
   static getIframeCorrectedRoute(route: any) {
+    if (shouldUsePathRouting()) {
+      // After enabling path routing, we don't need any hash splitting etc.
+      return route;
+    }
     if (Utils.isUsingExternalRouter()) {
       // If using external routing, include the parent params and assume mlflow served at #
       const parentHref = window.parent.location.href;

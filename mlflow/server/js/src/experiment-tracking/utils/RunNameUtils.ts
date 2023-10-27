@@ -49,3 +49,46 @@ export const getDuplicatedRunName = (
   }
   return nameSegmentWithoutIndex + ' (' + newIndex + ')';
 };
+
+/**
+ * Temporary function that assigns randomized, yet stable color
+ * from the static palette basing on an input string. Used for coloring runs.
+ *
+ * TODO: make a decision on the final color hashing per run
+ */
+export const getStableColorForRun = (runUuid: string) => {
+  // Taken from Figma design
+  const colors = [
+    '#077A9D',
+    '#8BCAE7',
+    '#FFAB00',
+    '#FFDB96',
+    '#00A972',
+    '#99DDB4',
+    '#BA7B23',
+    '#FF3621',
+    '#FCA4A1',
+    '#919191',
+    '#00875C',
+    '#1B5162',
+    '#914B9F',
+    '#D01F0B',
+    '#BD89C7',
+    '#AB4057',
+    '#5F5F5F',
+    '#BF7080',
+    '#C2C2C2',
+    '#7F1035',
+  ];
+  let a = 0,
+    b = 0;
+
+  // Let's use super simple hashing method
+  for (let i = 0; i < runUuid.length; i++) {
+    a = (a + runUuid.charCodeAt(i)) % 255;
+    b = (b + a) % 255;
+  }
+
+  // eslint-disable-next-line no-bitwise
+  return colors[(a | (b << 8)) % colors.length];
+};

@@ -23,7 +23,7 @@ import { getLatestMetrics } from '../../experiment-tracking/reducers/MetricReduc
 import CompareRunUtil from '../../experiment-tracking/components/CompareRunUtil';
 import Utils from '../../common/utils/Utils';
 import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/ParallelCoordinatesPlotPanel';
-import { modelListPageRoute, getModelPageRoute, getModelVersionPageRoute } from '../routes';
+import { ModelRegistryRoutes } from '../routes';
 import { getModelVersionSchemas } from '../reducers';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
@@ -152,13 +152,13 @@ export class CompareModelVersionsViewImpl extends Component<
       />
     );
     const breadcrumbs = [
-      <Link to={modelListPageRoute}>
+      <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
           defaultMessage='Registered Models'
           description='Text for registered model link in the title for model comparison page'
         />
       </Link>,
-      <Link to={getModelPageRoute(modelName)}>{modelName}</Link>,
+      <Link to={ModelRegistryRoutes.getModelPageRoute(modelName)}>{modelName}</Link>,
     ];
 
     return (
@@ -351,7 +351,9 @@ export class CompareModelVersionsViewImpl extends Component<
             const run = versionsToRuns[modelVersion];
             return (
               <td className='meta-info block-content' key={run}>
-                <Link to={getModelVersionPageRoute(modelName, modelVersion)}>{modelVersion}</Link>
+                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, modelVersion)}>
+                  {modelVersion}
+                </Link>
               </td>
             );
           })}
