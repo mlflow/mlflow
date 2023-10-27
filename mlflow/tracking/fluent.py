@@ -734,8 +734,8 @@ def log_metric(
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
-    :param synchronous: *Experimental* If True, blocks until the parameter is logged
-                        successfully. If False, logs the parameter asynchronously and
+    :param synchronous: *Experimental* If True, blocks until the metric is logged
+                        successfully. If False, logs the metric asynchronously and
                         returns a future representing the logging operation.
 
     :return: When `synchronous=True`, returns None.
@@ -775,7 +775,7 @@ def log_metrics(
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
-    :param synchronous: *Experimental* If True, blocks until the metrics is logged
+    :param synchronous: *Experimental* If True, blocks until the metrics are logged
                         successfully. If False, logs the metrics asynchronously and
                         returns a future representing the logging operation.
 
@@ -913,9 +913,9 @@ def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOper
 
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
-    :param synchronous: *Experimental* If True, blocks until the tag is logged
-                        successfully. If False, logs the tag asynchronously and
-                        returns a future representing the logging operation.
+    :param synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+                        logs tags asynchronously and returns a future representing the logging
+                        operation.
 
     :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
              :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
