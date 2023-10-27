@@ -81,6 +81,7 @@ def _call_openai_api(openai_uri, payload):
     api_token = _OAITokenHolder(os.environ.get("OPENAI_API_TYPE", "openai"))
     from mlflow.openai.api_request_parallel_processor import process_api_requests
 
+<<<<<<< Updated upstream
     try:
         resp = process_api_requests(
             [openai_provider._add_model_to_payload_if_necessary(payload)],
@@ -89,6 +90,15 @@ def _call_openai_api(openai_uri, payload):
             throw_original_error=True,
             max_workers=1,
         )[0]
+=======
+    resp = process_api_requests(
+        [openai_provider._add_model_to_payload_if_necessary(payload)],
+        openai.ChatCompletion,
+        api_token=api_token,
+        max_requests_per_minute=3_500,
+        max_tokens_per_minute=500_000,
+    )[0]
+>>>>>>> Stashed changes
 
     except openai.error.AuthenticationError as e:
         raise MlflowException(
