@@ -182,7 +182,7 @@ def _databricks_login():
 
     while True:
         host = input("Databricks Host (should begin with https://): ")
-        if _check_databricks_host(host):
+        if _is_valid_databricks_host(host):
             break
 
     profile = {"host": host}
