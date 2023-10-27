@@ -323,6 +323,15 @@ def invocations(data, content_type, model, input_schema):
             _log_warning_if_params_not_in_predict_signature(_logger, params)
             raw_predictions = model.predict(data)
     except MlflowException as e:
+        if "Failed to enforce schema" in e.message:
+            _logger.warning(
+                "If using `instances` as input key, we internally convert "
+                "the data type from `records` (List[Dict]) type to "
+                "`list` (Dict[str, List]) type if the data is a pandas "
+                "dataframe representation. This might cause schema changes. "
+                "Please use `inputs` to avoid this converesion.\n"
+            )
+        e.message = f"Failed to predict data '{data}'. \nError: {e.message}"
         raise e
     except Exception:
         raise MlflowException(

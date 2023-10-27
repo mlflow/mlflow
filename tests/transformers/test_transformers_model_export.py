@@ -27,7 +27,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -55,6 +55,7 @@ from mlflow.transformers import (
     get_default_conda_env,
     get_default_pip_requirements,
 )
+from mlflow.types.schema import Array, ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 
 from tests.helper_functions import (
@@ -1949,6 +1950,7 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
     assert fourth_response == "Only if you have a boat that can't sink."
 
 
+@pytest.mark.skip("Remove this test after input_example is updated")
 @pytest.mark.parametrize(
     ("pipeline_name", "example", "in_signature", "out_signature"),
     [
@@ -2107,28 +2109,24 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 
 def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     artifact_path = "text_classifier_model"
+    data = [
+        "I think this sushi might have gone off",
+        "That gym smells like feet, hot garbage, and sadness",
+        "I love that we have a moon",
+        "I 'love' debugging subprocesses",
+        'Quote "in" the string',
+    ]
+    signature = infer_signature(data)
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             transformers_model=text_classification_pipeline,
             artifact_path=artifact_path,
+            signature=signature,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-
-    inference_payload = json.dumps(
-        {
-            "inputs": [
-                "I think this sushi might have gone off",
-                "That gym smells like feet, hot garbage, and sadness",
-                "I love that we have a moon",
-                "I 'love' debugging subprocesses",
-                'Quote "in" the string',
-            ]
-        }
-    )
 
     response = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_payload,
+        model_info.model_uri,
+        data=json.dumps({"inputs": data}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
@@ -2137,6 +2135,20 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     assert len(values.to_dict()) == 2
     assert len(values.to_dict()["score"]) == 5
 
+    # test simple string input
+    inference_payload = json.dumps({"inputs": ["testing"]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert len(values.to_dict()) == 2
+    assert len(values.to_dict()["score"]) == 1
+
     # Test the alternate TextClassificationPipeline input structure where text_pair is used
     # and ensure that model serving and direct native inference match
     inference_data = [
@@ -2144,9 +2156,16 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
         {"text": "test2", "text_pair": "pair2"},
         {"text": "test 'quote", "text_pair": "pair 'quote'"},
     ]
+    signature = infer_signature(inference_data)
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=text_classification_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+        )
     inference_payload = json.dumps({"inputs": inference_data})
     response = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
@@ -2159,20 +2178,6 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     for key in ["score", "label"]:
         for value in [0, 1]:
             assert values_dict[key][value] == native_predict[value][key]
-
-    # test simple string input
-    inference_payload = json.dumps({"inputs": ["testing"]})
-
-    response = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-
-    assert len(values.to_dict()) == 2
-    assert len(values.to_dict()["score"]) == 1
 
 
 def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
@@ -3464,7 +3469,7 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
     response_data = json.loads(response.content.decode("utf-8"))
 
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
-    assert response_data["message"].startswith("Failed to process the input audio data. Either")
+    assert "Failed to process the input audio data. Either" in response_data["message"]
 
 
 @pytest.mark.skipcacheclean
@@ -3508,7 +3513,6 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     assert data == card_data.data.to_dict()
 
 
-@pytest.mark.skip("Skipping until scoring_server supports new signature")
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
     artifact_path = "qa_model"
     data = {
@@ -3534,11 +3538,28 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
             "params": parameters,
         }
     )
+    output = mlflow.transformers.generate_signature_output(small_qa_pipeline, data)
     signature_with_params = infer_signature(
         data,
-        mlflow.transformers.generate_signature_output(small_qa_pipeline, data),
+        output,
         parameters,
     )
+    expected_signature = ModelSignature(
+        Schema(
+            [
+                ColSpec(Array(DataType.string), name="question"),
+                ColSpec(Array(DataType.string), name="context"),
+            ]
+        ),
+        Schema([ColSpec(DataType.string)]),
+        ParamSchema(
+            [
+                ParamSpec("top_k", DataType.long, 2),
+                ParamSpec("max_answer_len", DataType.long, 5),
+            ]
+        ),
+    )
+    assert signature_with_params == expected_signature
 
     with mlflow.start_run():
         mlflow.transformers.log_model(

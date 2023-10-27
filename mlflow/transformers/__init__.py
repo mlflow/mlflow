@@ -2668,9 +2668,13 @@ class _TransformersWrapper:
         valid_uri = os.path.isfile(input_str) or is_uri(input_str)
 
         if not valid_uri:
+            if len(input_str) <= 20:
+                data_str = f"Received: {input_str}"
+            else:
+                data_str = f"Received (truncated): {input_str[:20]}..."
             raise MlflowException(
                 "An invalid string input was provided. String inputs to "
-                "audio files must be either a file location or a uri.",
+                f"audio files must be either a file location or a uri. {data_str}",
                 error_code=BAD_REQUEST,
             )
 
