@@ -1478,6 +1478,14 @@ Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
 
+.. warning::
+    The default behavior for saving ONNX files is to use the ONNX save option ``save_as_external_data=True``
+    in order to support model files that are **in excess of 2GB**. For edge deployments of small model files, this 
+    may create issues. If you need to save a small model as a single file for such deployment considerations, 
+    you can set the parameter ``save_as_external_data=False`` in either :py:func:`mlflow.onnx.save_model` or 
+    :py:func:`mlflow.onnx.log_model` to force the serialization of the model as a small file. Note that if the 
+    model is in excess of 2GB, **saving as a single file will not work**. 
+
 ONNX pyfunc usage example
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 

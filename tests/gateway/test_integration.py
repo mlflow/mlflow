@@ -650,13 +650,43 @@ def test_invalid_response_structure_raises(gateway):
     async def mock_chat(self, payload):
         return expected_output
 
-    def _mock_request_session(max_retries, backoff_factor, retry_codes):
-        return _cached_get_request_session(1, 1, retry_codes, os.getpid())
+    def _mock_request_session(max_retries, backoff_factor, retry_codes, raise_on_status):
+        return _cached_get_request_session(1, 1, retry_codes, True, os.getpid())
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
     ), patch.object(OpenAIProvider, "chat", mock_chat), pytest.raises(
         MlflowException, match=".*Max retries exceeded.*"
+    ):
+        query(route=route.name, data=data)
+
+
+def test_invalid_response_structure_no_raises(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    route = get_route("chat-openai")
+    expected_output = {
+        "embeddings": [[0.0, 1.0]],
+        "metadata": {
+            "input_tokens": 17,
+            "output_tokens": 24,
+            "total_tokens": 41,
+            "model": "gpt-3.5-turbo-0301",
+            "route_type": "llm/v1/chat",
+        },
+    }
+
+    data = {"messages": [{"role": "user", "content": "invalid test"}]}
+
+    async def mock_chat(self, payload):
+        return expected_output
+
+    def _mock_request_session(max_retries, backoff_factor, retry_codes, raise_on_status):
+        return _cached_get_request_session(0, 1, retry_codes, False, os.getpid())
+
+    with patch(
+        "mlflow.utils.request_utils._get_request_session", _mock_request_session
+    ), patch.object(OpenAIProvider, "chat", mock_chat), pytest.raises(
+        requests.exceptions.HTTPError, match=".*Internal Server Error.*"
     ):
         query(route=route.name, data=data)
 
@@ -688,8 +718,8 @@ def test_invalid_query_request_raises(gateway):
     async def mock_chat(self, payload):
         return expected_output
 
-    def _mock_request_session(max_retries, backoff_factor, retry_codes):
-        return _cached_get_request_session(2, 1, retry_codes, os.getpid())
+    def _mock_request_session(max_retries, backoff_factor, retry_codes, raise_on_status):
+        return _cached_get_request_session(2, 1, retry_codes, True, os.getpid())
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session

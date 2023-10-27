@@ -303,7 +303,7 @@ Basically you need to:
 
 1. Implement a ``eval_fn`` to define your scoring logic, it must take in 3 args ``predictions``, ``targets`` and ``metrics``.
    ``eval_fn`` must return a :py:func:`mlflow.metrics.MetricValue` instance.
-2. Pass ``eval_fn`` and other arguments to ``mlflow.metricsmake_metric`` API to create the metric. 
+2. Pass ``eval_fn`` and other arguments to ``mlflow.metrics.make_metric`` API to create the metric. 
 
 The following code creates a dummy per-row metric called ``"over_10_chars"``: if the model output is greater than 10, 
 the score is 1 otherwise 0.

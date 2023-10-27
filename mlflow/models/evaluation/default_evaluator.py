@@ -459,12 +459,17 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
             other_output_columns = pd.DataFrame(
                 [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
             )
-        elif len(model_predictions) > 1:
-            if output_column_name is None:
-                raise MlflowException(
-                    ERROR_MISSING_OUTPUT_COLUMN_NAME,
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+        elif len(model_predictions[0]) == 1:
+            # Set the only key as self.predictions and its value as self.y_pred
+            key, value = list(model_predictions[0].items())[0]
+            y_pred = pd.Series(value, name=key)
+            output_column_name = key
+        elif output_column_name is None:
+            raise MlflowException(
+                ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        else:
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the model "
                 f"predictions list: {model_predictions}. Please set the correct output column "
@@ -475,12 +480,15 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
         if output_column_name in model_predictions.columns:
             y_pred = model_predictions[output_column_name]
             other_output_columns = model_predictions.drop(columns=output_column_name)
-        elif model_predictions.shape[1] > 1:
-            if output_column_name is None:
-                raise MlflowException(
-                    ERROR_MISSING_OUTPUT_COLUMN_NAME,
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+        elif len(model_predictions.columns) == 1:
+            output_column_name = model_predictions.columns[0]
+            y_pred = model_predictions[output_column_name]
+        elif output_column_name is None:
+            raise MlflowException(
+                ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        else:
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the model "
                 f"predictions dataframe {model_predictions.columns}. Please set the correct "
@@ -493,12 +501,16 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
             other_output_columns = pd.DataFrame(
                 {k: v for k, v in model_predictions.items() if k != output_column_name}
             )
-        elif len(model_predictions) > 1:
-            if output_column_name is None:
-                raise MlflowException(
-                    ERROR_MISSING_OUTPUT_COLUMN_NAME,
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+        elif len(model_predictions) == 1:
+            key, value = list(model_predictions.items())[0]
+            y_pred = pd.Series(value, name=key)
+            output_column_name = key
+        elif output_column_name is None:
+            raise MlflowException(
+                ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        else:
             raise MlflowException(
                 f"Output column name '{output_column_name}' is not found in the "
                 f"model predictions dict {model_predictions}. Please set the correct "
@@ -506,7 +518,11 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    return y_pred if y_pred is not None else model_predictions, other_output_columns
+    return (
+        y_pred if y_pred is not None else model_predictions,
+        other_output_columns,
+        output_column_name,
+    )
 
 
 class _CustomMetric(NamedTuple):
@@ -1165,7 +1181,11 @@ class DefaultEvaluator(ModelEvaluator):
             for param_name, param in parameters.items():
                 column = self.col_mapping.get(param_name, param_name)
 
-                if column == "predictions" or column == self.dataset.predictions_name:
+                if (
+                    column == "predictions"
+                    or column == self.predictions
+                    or column == self.dataset.predictions_name
+                ):
                     eval_fn_args.append(eval_df_copy["prediction"])
                 elif column == "targets" or column == self.dataset.targets_name:
                     if "target" in eval_df_copy:
@@ -1390,9 +1410,11 @@ class DefaultEvaluator(ModelEvaluator):
                 self.y_probs = None
 
         output_column_name = self.predictions
-        self.y_pred, self.other_output_columns = _extract_output_and_other_columns(
-            model_predictions, output_column_name
-        )
+        (
+            self.y_pred,
+            self.other_output_columns,
+            self.predictions,
+        ) = _extract_output_and_other_columns(model_predictions, output_column_name)
 
     def _compute_builtin_metrics(self):
         """
@@ -1447,7 +1469,19 @@ class DefaultEvaluator(ModelEvaluator):
             output_columns = (
                 [] if self.other_output_columns is None else list(self.other_output_columns.columns)
             )
+            if self.predictions:
+                output_columns.append(self.predictions)
+            elif self.dataset.predictions_name:
+                output_columns.append(self.dataset.predictions_name)
+            else:
+                output_columns.append("predictions")
+
             input_columns = list(self.X.copy_to_avoid_mutation().columns)
+            if "target" in eval_df:
+                if self.dataset.targets_name:
+                    input_columns.append(self.dataset.targets_name)
+                else:
+                    input_columns.append("targets")
 
             error_messages = [
                 f"Metric '{metric_name}' requires the columns {param_names}"
@@ -1558,7 +1592,7 @@ class DefaultEvaluator(ModelEvaluator):
                 data = self.dataset.features_data.assign(
                     **{
                         self.dataset.targets_name or "target": self.y,
-                        self.dataset.predictions_name or "outputs": self.y_pred,
+                        self.dataset.predictions_name or self.predictions or "outputs": self.y_pred,
                     }
                 )
             else:
@@ -1570,7 +1604,7 @@ class DefaultEvaluator(ModelEvaluator):
                 data = data.assign(
                     **{
                         self.dataset.targets_name or "target": self.y,
-                        self.dataset.predictions_name or "outputs": self.y_pred,
+                        self.dataset.predictions_name or self.predictions or "outputs": self.y_pred,
                     }
                 )
             else:
@@ -1683,9 +1717,6 @@ class DefaultEvaluator(ModelEvaluator):
                     else:
                         self.builtin_metrics = [precision_at_k(k)]
 
-                self.y_pred = (
-                    self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
-                )
                 eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
                 if self.dataset.has_targets:
                     eval_df["target"] = self.y
