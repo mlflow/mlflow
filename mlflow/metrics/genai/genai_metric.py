@@ -295,8 +295,8 @@ def make_genai_metric(
             try:
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 return _extract_score_and_justification(raw_result)
-            except ImportError as e:
-                raise e
+            except ImportError:
+                raise
             except MlflowException as e:
                 if e.error_code in [
                     ErrorCode.Name(BAD_REQUEST),
