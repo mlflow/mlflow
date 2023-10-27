@@ -33,8 +33,6 @@ from mlflow.metrics import (
         ari_grade_level(),
         exact_match(),
         flesch_kincaid_grade_level(),
-        precision_at_k(3),
-        recall_at_k(3),
         rouge1(),
         rouge2(),
         rougeL(),
