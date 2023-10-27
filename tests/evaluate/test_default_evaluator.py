@@ -3360,54 +3360,29 @@ def test_evaluate_retriever():
         "recall_at_3/variance": 0,
     }
 
-    # test with single retrieved doc
-    def fn4(X):
-        return pd.DataFrame({"output": [["doc1"]] * len(X)})
-
+    # test with a static dataset
+    X_1 = pd.DataFrame(
+        {
+            "question": [["q1?"]] * 3,
+            "targets_param": [["doc1", "doc2"]] * 3,
+            "predictions_param": [["doc1", "doc4", "doc5"]] * 3,
+        }
+    )
     with mlflow.start_run() as run:
         mlflow.evaluate(
-            model=fn4,
-            data=X,
-            targets="ground_truth",
-            model_type="retriever",
-            evaluator_config={
-                "default": {
-                    "retriever_k": 3,
-                }
-            },
-        )
-    run = mlflow.get_run(run.info.run_id)
-    assert run.data.metrics == {
-        "precision_at_3/mean": 1.0,
-        "precision_at_3/p90": 1.0,
-        "precision_at_3/variance": 0.0,
-        "recall_at_3/mean": 0.5,
-        "recall_at_3/p90": 0.5,
-        "recall_at_3/variance": 0.0,
-    }
-
-    # test with single ground truth doc
-    X_1 = pd.DataFrame({"question": [["q1?"]] * 3, "ground_truth": [["doc1"]] * 3})
-
-    with mlflow.start_run() as run:
-        mlflow.evaluate(
-            model=fn,
             data=X_1,
-            targets="ground_truth",
+            predictions="predictions_param",
+            targets="targets_param",
             model_type="retriever",
-            evaluator_config={
-                "default": {
-                    "retriever_k": 3,
-                }
-            },
+            extra_metrics=[mlflow.metrics.precision_at_k(3), mlflow.metrics.recall_at_k(3)],
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
         "precision_at_3/mean": 1 / 3,
         "precision_at_3/p90": 1 / 3,
         "precision_at_3/variance": 0.0,
-        "recall_at_3/mean": 1.0,
-        "recall_at_3/p90": 1.0,
+        "recall_at_3/mean": 0.5,
+        "recall_at_3/p90": 0.5,
         "recall_at_3/variance": 0.0,
     }
 
