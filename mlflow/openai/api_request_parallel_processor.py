@@ -53,6 +53,7 @@ class StatusTracker:
     num_other_errors: int = 0
     time_of_last_rate_limit_error: int = 0  # used to cool off after hitting rate limits
     lock: threading.Lock = threading.Lock()
+    error = None
 
     def start_task(self):
         with self.lock:
@@ -119,6 +120,7 @@ class APIRequest:
                 retry_queue.put_nowait(self)
             else:
                 status_tracker.complete_task(success=False)
+                status_tracker.error = e
         # Unretryable errors
         except openai.error.InvalidRequestError as e:
             if e.error.code == "content_filter" and e.error.innererror:
@@ -129,14 +131,17 @@ class APIRequest:
                 )
                 status_tracker.increment_num_api_errors()
                 status_tracker.complete_task(success=False)
+                status_tracker.error = e
             else:
                 _logger.warning(f"Request #{self.index} failed with {e!r}")
                 status_tracker.increment_num_api_errors()
                 status_tracker.complete_task(success=False)
+                status_tracker.error = e
         except Exception as e:
             _logger.debug(f"Request #{self.index} failed with {e!r}")
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
+            status_tracker.error = e
 
 
 def num_tokens_consumed_from_request(request_json: dict, task: type, token_encoding_name: str):
@@ -201,6 +206,7 @@ def process_api_requests(
     token_encoding_name: str = "cl100k_base",
     max_attempts: int = 5,
     max_workers: int = 10,
+    throw_original_error=False,
 ):
     """
     Processes API requests in parallel, throttling to stay under rate limits.
@@ -304,6 +310,8 @@ def process_api_requests(
 
     # after finishing, log final status
     if status_tracker.num_tasks_failed > 0:
+        if throw_original_error and len(requests) == 1:
+            raise status_tracker.error
         raise mlflow.MlflowException(
             f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
         )
