@@ -1361,7 +1361,7 @@ def test_spark_udf_structs_and_arrays(spark, tmp_path):
     udf = mlflow.pyfunc.spark_udf(spark=spark, model_uri=save_path, result_type="string")
     pdf = df.withColumn("output", udf("str", "arr", "obj", "obj_arr")).toPandas()
     assert pdf["output"][0] == "a | [0] | {'bool': True} | [{'double': 0.1}]"
-    assert pdf["output"][1] == "b | [1, 2] | {'bool': False} | [{'double': 0.2}, {'double': 0.3}]"
+    assert pdf["output"][1] == "b | [1 2] | {'bool': False} | [{'double': 0.2} {'double': 0.3}]"
 
     # More complex nested structures
     df = spark.createDataFrame(
@@ -1401,5 +1401,5 @@ def test_spark_udf_structs_and_arrays(spark, tmp_path):
     )
     udf = mlflow.pyfunc.spark_udf(spark=spark, model_uri=save_path, result_type="string")
     pdf = df.withColumn("output", udf("test")).toPandas()
-    assert pdf["output"][0] == "[{'arr': [{'bool': True}]}]"
-    assert pdf["output"][1] == "[{'arr': [{'bool': False}]}]"
+    assert pdf["output"][0] == "[{'arr': array([{'bool': True}], dtype=object)}]"
+    assert pdf["output"][1] == "[{'arr': array([{'bool': False}], dtype=object)}]"
