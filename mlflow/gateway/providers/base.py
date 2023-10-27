@@ -1,6 +1,8 @@
 from abc import ABC, abstractclassmethod
 from typing import Tuple
 
+from fastapi import HTTPException
+
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.schemas import chat, completions, embeddings
 
