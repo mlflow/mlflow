@@ -1,6 +1,6 @@
 {
   // https://code.visualstudio.com/docs/remote/devcontainerjson-reference
-  "name": "MLflow Development Container",
+  "name": "mlflow-devcontainer",
   "dockerComposeFile": "docker-compose.yml",
   "workspaceFolder": "/workspaces/mlflow",
   "service": "mlflow",
@@ -33,7 +33,11 @@
         "PKief.material-icon-theme",
         "ritwickdey.LiveServer",
         "shardulm94.trailing-spaces"
-      ]
+      ],
+      "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true
+      }
     }
   }
 }
