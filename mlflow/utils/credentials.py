@@ -2,7 +2,6 @@ import configparser
 import getpass
 import logging
 import os
-import urllib
 from typing import NamedTuple, Optional, Tuple
 
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
