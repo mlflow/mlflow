@@ -3275,7 +3275,7 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluators="default",
             evaluator_config={
-                "retriever_k": 6,
+                "k": 6,
             },
         )
     run = mlflow.get_run(run.info.run_id)
@@ -3320,7 +3320,7 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluator_config={
                 "default": {
-                    "retriever_k": 3,
+                    "k": 3,
                 }
             },
         )
@@ -3346,7 +3346,7 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluator_config={
                 "default": {
-                    "retriever_k": 4,
+                    "k": 4,
                 }
             },
         )
@@ -3420,7 +3420,7 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluators="default",
             evaluator_config={
-                "retriever_k": -1,
+                "k": -1,
             },
         )
     run = mlflow.get_run(run.info.run_id)

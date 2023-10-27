@@ -96,7 +96,7 @@ Retriever Metrics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following metrics are built-in metrics for the ``'retriever'`` model type, meaning they will be 
-automatically calculated with a default ``retriever_k`` value of 3. 
+automatically calculated with a default ``k`` value of 3. 
 
 To evaluate document retrieval models, it is recommended to use a dataset with the following 
 columns:
@@ -117,9 +117,8 @@ Parameters:
 - ``targets``: A string specifying the column name of the ground-truth relevant doc IDs
 - ``predictions``: A string specifying the column name of the retrieved relevant doc IDs in either 
   the static dataset or the Dataframe returned by the ``model`` function
-- ``retriever_k``: A positive integer specifying the number of retrieved docs IDs to consider for 
-  each input query. ``retriever_k`` defaults to 3. You can change ``retriever_k`` by using the 
-  :py:func:`mlflow.evaluate` API:
+- ``k``: A positive integer specifying the number of retrieved docs IDs to consider for each input 
+  query. ``k`` defaults to 3. You can change ``k`` by using the :py:func:`mlflow.evaluate` API:
 
     1. .. code-block:: python
 
@@ -130,7 +129,7 @@ Parameters:
             targets="ground_truth",
             model_type="retriever",
             evaluators="default",
-            evaluator_config={"retriever_k": 5}
+            evaluator_config={"k": 5}
         )
     2. .. code-block:: python
 
