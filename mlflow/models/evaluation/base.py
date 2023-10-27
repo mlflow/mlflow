@@ -1180,16 +1180,15 @@ def evaluate(
     baseline_config=None,
 ):
     '''
-    Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
-    log resulting metrics & artifacts to MLflow Tracking. Set thresholds on the generated metrics to
-    validate model quality. For additional overview information, see
-    :ref:`the Model Evaluation documentation <model-evaluation>`.
+    Evaluate a PyFunc model or custom callable on the specified dataset using specified
+    ``evaluators``, and log resulting metrics & artifacts to MLflow tracking server. For additional
+    overview information, see :ref:`the Model Evaluation documentation <model-evaluation>`.
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
-       ``evaluators=None``, supports the ``"regressor"`` and ``"classifier"`` model types.
-       It generates a variety of model performance metrics, model performance plots, and
-       model explanations.
+       ``evaluators=None``, supports model types listed below. For each pre-defined model type, the
+       default evaluator evaluates your model on a selected set of metrics and generate artifacts
+       like plots. Please find more details below.
 
      - For both the ``"regressor"`` and ``"classifier"`` model types, the default evaluator
        generates model summary plots and feature importance plots using
@@ -1213,12 +1212,12 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``, ``token_count``, `toxicity_ratio`_ (requires `evaluate`_,
-          `pytorch`_, `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
+        - **metrics**: ``exact_match``, ``token_count``, `toxicity`_ (requires `evaluate`_,
+          `pytorch`_, `flesch_kincaid_grade_level`_ (requires `textstat`_) and `ari_grade_level`_.
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
-        .. _toxicity_ratio:
+        .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
         .. _pytorch:
@@ -1227,10 +1226,10 @@ def evaluate(
         .. _transformers:
             https://huggingface.co/docs/transformers/installation
 
-        .. _mean_ari_grade_level:
+        .. _ari_grade_level:
             https://en.wikipedia.org/wiki/Automated_readability_index
 
-        .. _mean_flesch_kincaid_grade_level:
+        .. _flesch_kincaid_grade_level:
             https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
 
         .. _evaluate:
@@ -1241,16 +1240,16 @@ def evaluate(
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: ``token_count``, `ROUGE`_ (requires `evaluate`_, `nltk`_, and
-          `rouge_score`_ to be installed), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `mean_ari_grade_level`_ (requires `textstat`_),
-          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
+          `rouge_score`_ to be installed), `toxicity`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `ari_grade_level`_ (requires `textstat`_),
+          `flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in the tabular format.
 
         .. _ROUGE:
             https://huggingface.co/spaces/evaluate-metric/rouge
 
-        .. _toxicity_ratio:
+        .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
         .. _pytorch:
@@ -1259,10 +1258,10 @@ def evaluate(
         .. _transformers:
             https://huggingface.co/docs/transformers/installation
 
-        .. _mean_ari_grade_level:
+        .. _ari_grade_level:
             https://en.wikipedia.org/wiki/Automated_readability_index
 
-        .. _mean_flesch_kincaid_grade_level:
+        .. _flesch_kincaid_grade_level:
             https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
 
         .. _evaluate:
@@ -1278,16 +1277,16 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: ``token_count``, `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `mean_ari_grade_level`_ (requires `textstat`_),
-          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
+        - **metrics**: ``token_count``, `toxicity`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `ari_grade_level`_ (requires `textstat`_),
+          `flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
         .. _evaluate:
             https://pypi.org/project/evaluate
 
-        .. _toxicity_ratio:
+        .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
         .. _pytorch:
@@ -1296,18 +1295,18 @@ def evaluate(
         .. _transformers:
             https://huggingface.co/docs/transformers/installation
 
-        .. _mean_ari_grade_level:
+        .. _ari_grade_level:
             https://en.wikipedia.org/wiki/Automated_readability_index
 
-        .. _mean_flesch_kincaid_grade_level:
+        .. _flesch_kincaid_grade_level:
             https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
 
         .. _textstat:
             https://pypi.org/project/textstat
 
      - For retriever models, the default evaluator logs:
-        - **metrics**: ``precision_at_k``: precision at k with the default value of k = 3. To use
-          a different value of k, specify the ``evaluator_config`` parameter to include ``"k"``:
+        - **metrics**: ``precision_at_k``: has a default value of k = 3. To use a different
+          value for k, include ``"k"`` in the ``evaluator_config`` parameter:
           ``evaluator_config={"k":5}``.
         - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
           of the model in tabular format.
@@ -1355,9 +1354,9 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
-        - **k**: The number of top retrieved documents to use when computing the built-in metric
-          precision_at_k for model type "retriever". Default value is 3. For other model types,
-          this parameter will be ignored.
+        - **k**: The number of top-ranked retrieved documents to use when computing the built-in
+          metric ``precision_at_k`` for model_type="retriever". Default value is 3. For all other
+          model types, this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
@@ -1765,7 +1764,7 @@ def evaluate(
             # If data is a pandas dataframe, predictions must be specified
             if predictions is None:
                 raise MlflowException(
-                    message="The model output must be specified in the predicitons "
+                    message="The model output must be specified in the predictions "
                     "parameter when model=None.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
