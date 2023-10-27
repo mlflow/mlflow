@@ -92,9 +92,7 @@ class APIRequest:
     results: list[tuple[int, OpenAIObject]]
     timeout: int = 60
 
-    def call_api(
-        self, retry_queue: queue.Queue, status_tracker: StatusTracker
-    ):
+    def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
         """
         Calls the OpenAI API and stores results.
         """
@@ -144,7 +142,6 @@ class APIRequest:
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
             status_tracker.error = e
-
 
 
 def num_tokens_consumed_from_request(request_json: dict, task: type, token_encoding_name: str):
@@ -325,5 +322,3 @@ def process_api_requests(
         )
 
     return [res for _, res in sorted(results)]
-
-
