@@ -6,6 +6,7 @@ from mlflow.gateway.providers.base import BaseProvider
 def get_provider(provider: Provider) -> BaseProvider:
     from mlflow.gateway.providers.ai21labs import AI21LabsProvider
     from mlflow.gateway.providers.anthropic import AnthropicProvider
+    from mlflow.gateway.providers.bedrock import AWSBedrockProvider
     from mlflow.gateway.providers.cohere import CohereProvider
     from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
     from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
@@ -22,6 +23,7 @@ def get_provider(provider: Provider) -> BaseProvider:
         Provider.PALM: PaLMProvider,
         Provider.MLFLOW_MODEL_SERVING: MlflowModelServingProvider,
         Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HFTextGenerationInferenceServerProvider,
+        Provider.BEDROCK: AWSBedrockProvider,
     }
     if prov := provider_to_class.get(provider):
         return prov

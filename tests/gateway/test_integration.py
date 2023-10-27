@@ -11,6 +11,7 @@ from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_ur
 from mlflow.gateway.config import Route
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.bedrock import AWSBedrockProvider
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
@@ -209,6 +210,15 @@ def basic_config_dict():
                     "config": {"hf_server_url": "http://127.0.0.1:5000"},
                 },
             },
+            {
+                "name": "completions-bedrock",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "bedrock",
+                    "name": "amazon.titan-tg1-large",
+                    "config": {"aws_config": {"aws_region": "us-east-1"}},
+                },
+            },
         ]
     }
 
@@ -257,7 +267,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 17
+    assert len(routes) == 18
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -876,4 +886,39 @@ def test_huggingface_completions(gateway):
 
     with patch.object(HFTextGenerationInferenceServerProvider, "completions", mock_completions):
         response = client.query(route=route.name, data=data)
+
+    assert response == expected_output
+
+
+def test_bedrock_completions(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    route = get_route("completions-bedrock")
+    expected_output = {
+        "candidates": [
+            {
+                "text": "test",
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "model": "amazon.titan-tg1-large",
+            "route_type": "llm/v1/completions",
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+        },
+    }
+
+    data = {
+        "prompt": "test",
+        "max_tokens": 500,
+        "temperature": 0.3,
+    }
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(AWSBedrockProvider, "completions", mock_completions):
+        response = query(route=route.name, data=data)
+
     assert response == expected_output
