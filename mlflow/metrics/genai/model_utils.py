@@ -3,7 +3,6 @@ import os
 import urllib.parse
 
 from mlflow.exceptions import MlflowException
-from mlflow.openai.api_request_parallel_processor import process_api_requests
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, UNAUTHENTICATED
 
 ROUTE_TYPE = "llm/v1/completions"
@@ -80,6 +79,7 @@ def _call_openai_api(openai_uri, payload):
     from mlflow.openai.utils import _OAITokenHolder
 
     api_token = _OAITokenHolder(os.environ.get("OPENAI_API_TYPE", "openai"))
+    from mlflow.openai.api_request_parallel_processor import process_api_requests
 
     try:
         resp = process_api_requests(
