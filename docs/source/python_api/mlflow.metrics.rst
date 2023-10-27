@@ -92,7 +92,7 @@ We provide the following builtin factory functions to create :py:class:`Evaluati
 
 .. autofunction:: mlflow.metrics.latency
 
-Retriever Specific Metrics
+Retriever Metrics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following metrics are built-in metrics for the ``'retriever'`` model type, meaning they will be 
