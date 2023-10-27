@@ -1766,7 +1766,7 @@ def evaluate(
             # If data is a pandas dataframe, predictions must be specified
             if predictions is None:
                 raise MlflowException(
-                    message="The model output must be specified in the predicitons "
+                    message="The model output must be specified in the predictions "
                     "parameter when model=None.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
