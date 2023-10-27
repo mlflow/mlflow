@@ -140,7 +140,7 @@ export const useEditRegisteredModelAliasesModal = ({
           </Button>
           <Button loading={false} type='primary' disabled={isInvalid} onClick={save}>
             <FormattedMessage
-              defaultMessage='Continue'
+              defaultMessage='Save aliases'
               description='Model registry > model version alias editor > Confirm change of aliases'
             />
           </Button>

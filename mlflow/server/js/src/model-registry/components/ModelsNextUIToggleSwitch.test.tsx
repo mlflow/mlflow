@@ -111,7 +111,7 @@ describe('ModelsNextUIToggleSwitch', () => {
     });
 
     expect(
-      within(screen.getByRole('dialog')).getByText(/we would love to get your feedback/),
+      within(screen.getByRole('dialog')).getByText(/your feedback is invaluable/),
     ).toBeInTheDocument();
 
     await act(async () => {

@@ -24,15 +24,16 @@ import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRu
 
 export const ExperimentViewRunsSortSelector = React.memo(
   ({
-    searchFacetsState,
+    orderByKey,
+    orderByAsc,
     sortOptions,
     onSortKeyChanged,
   }: {
-    searchFacetsState: SearchExperimentRunsFacetsState;
+    orderByKey: string;
+    orderByAsc: boolean;
     sortOptions: ExperimentRunSortOption[];
     onSortKeyChanged: (valueContainer: any) => void;
   }) => {
-    const { orderByKey, orderByAsc } = searchFacetsState;
     const { theme } = useDesignSystemTheme();
 
     // Currently used canonical "sort by" value in form of "COLUMN_NAME***DIRECTION", e.g. "metrics.`metric`***DESCENDING"

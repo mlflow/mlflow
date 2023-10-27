@@ -123,6 +123,30 @@ describe('test modelByName', () => {
     };
     expect(modelByName(state, action)).toEqual({ modelAA: modelAA });
   });
+
+  test('GET_REGISTERED_MODEL overwrites stored model when the API response payload contains no aliases', () => {
+    // Create a partial model entity with no aliases
+    const bareModel = mockRegisteredModelDetailed('modelA');
+
+    // Now, create similar model with aliases set and place it in the store
+    const modelA = {
+      ...bareModel,
+      aliases: [{ alias: 'champion', version: '1' }],
+    };
+    const state = { modelA };
+
+    // Action simulating retrieval of a model with no "aliases" field set (meaning there are no alias assignments)
+    const action = {
+      type: fulfilled(GET_REGISTERED_MODEL),
+      meta: { model: modelA, modelName: modelA.name },
+      payload: {
+        registered_model: bareModel,
+      },
+    };
+
+    // Assert that the aliases have been cleared
+    expect(modelByName(state, action)).toEqual({ modelA: { ...bareModel, aliases: [] } });
+  });
 });
 
 describe('test modelVersionsByModel', () => {

@@ -97,6 +97,7 @@ export const ExperimentViewDatasetDrawerImpl = ({
             display: 'flex',
             borderTop: `1px solid ${theme.colors.border}`,
             height: '100%',
+            marginLeft: -theme.spacing.sm,
           }}
         >
           {/* column for dataset selection */}
@@ -114,6 +115,7 @@ export const ExperimentViewDatasetDrawerImpl = ({
               css={{
                 marginBottom: theme.spacing.sm,
                 marginTop: theme.spacing.sm,
+                paddingLeft: theme.spacing.sm,
               }}
             >
               {runData.datasets.length}{' '}
@@ -141,12 +143,12 @@ export const ExperimentViewDatasetDrawerImpl = ({
                     backgroundColor:
                       dataset.dataset.name === datasetWithTags.dataset.name &&
                       dataset.dataset.digest === datasetWithTags.dataset.digest
-                        ? theme.colors.grey100
+                        ? theme.colors.backgroundSecondary
                         : 'transparent',
                     borderTop: `1px solid ${theme.colors.border}`,
-                    borderBottom: `1px solid ${theme.colors.border}`,
                     paddingBottom: theme.spacing.sm,
                     paddingTop: theme.spacing.sm,
+                    paddingLeft: theme.spacing.sm,
                   }}
                 >
                   <Button
