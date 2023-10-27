@@ -1354,10 +1354,11 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
-        - **k**: A parameter used when ``model_type="retriever"`` as the number of top-ranked
-          retrieved documents to use when computing the built-in metric :mod:`precision_at_k(k)
-          <mlflow.metrics.precision_at_k>` and :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>`.
-          Default value is 3. For all other model types, this parameter will be ignored.
+        - **retriever_k**: A parameter used when ``model_type="retriever"`` as the number of
+          top-ranked retrieved documents to use when computing the built-in metric
+          :mod:`precision_at_k(k) <mlflow.metrics.precision_at_k>` and
+          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>`. Default value is 3. For all other
+          model types, this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.

@@ -121,7 +121,7 @@ Parameters:
   each input query. ``retriever_k`` defaults to 3. You can change ``retriever_k`` by using the 
   :py:func:`mlflow.evaluate` API:
 
-    1. ``evaluator_config={"k": 5}``
+    1. ``evaluator_config={"retriever_k": 5}``
     2. .. code-block:: python
 
         extra_metrics = [
