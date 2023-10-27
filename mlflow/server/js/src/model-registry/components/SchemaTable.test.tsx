@@ -26,7 +26,6 @@ function clickHeaderRow(container: HTMLElement, rowIndex: number): void {
 }
 
 describe('SchemaTable', () => {
-  let wrapper: any;
   let minimalProps: any;
   let props: any;
 
@@ -52,16 +51,16 @@ describe('SchemaTable', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    const container = renderWithIntl(<SchemaTable {...minimalProps} />).container;
+    const { container } = renderWithIntl(<SchemaTable {...minimalProps} />);
     expect(container).not.toBeNull();
   });
 
   test('should nested table not be rendered by default', () => {
-    const container = renderWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
-    ).container;
+    );
     expect(container.querySelector('.outer-table table')).not.toBeNull();
     expect(container.querySelector('.inner-table table')).toBeNull();
     expect(container.innerHTML).toContain('Inputs');
@@ -75,11 +74,11 @@ describe('SchemaTable', () => {
   });
 
   test('should inputs table render by click', () => {
-    const container = renderWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
-    ).container;
+    );
 
     expect(container.getElementsByTagName('table')).toHaveLength(1);
     // click to render inputs table
@@ -166,11 +165,11 @@ describe('SchemaTable', () => {
   });
 
   test('should outputs table render by click', () => {
-    const container = renderWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
-    ).container;
+    );
     // click to render outputs table
     expect(container.getElementsByTagName('table')).toHaveLength(1);
     clickHeaderRow(container, 1);
@@ -189,11 +188,11 @@ describe('SchemaTable', () => {
   });
 
   test('should inputs and outputs table render by click', () => {
-    const container = renderWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
-    ).container;
+    );
     expect(container.getElementsByTagName('table')).toHaveLength(1);
     // click to render inputs and outputs table
     clickHeaderRow(container, 0);
@@ -231,11 +230,11 @@ describe('SchemaTable', () => {
         ],
       },
     };
-    const container = renderWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
-    ).container;
+    );
     expect(container.getElementsByTagName('table')).toHaveLength(1);
     // click to render inputs and outputs table
     clickHeaderRow(container, 0);
@@ -278,11 +277,11 @@ describe('SchemaTable', () => {
       },
     };
 
-    const container = renderWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
-    ).container;
+    );
 
     // click to render input schema table
     const row = container.querySelector('tr.section-header-row');
