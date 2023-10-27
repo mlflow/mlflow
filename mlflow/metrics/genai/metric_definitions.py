@@ -319,7 +319,6 @@ def relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
-    judge_request_timeout=60,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the evaluate the relevance of an
@@ -340,8 +339,6 @@ def relevance(
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
         relevance. It is highly recommended to add examples to be used as a reference to evaluate
         the new results.
-    :param judge_request_timeout: (Optional) The timeout in seconds for the judge API request.
-        Defaults to 60 seconds.
     :return: A metric object
     """
     if metric_version is None:
@@ -377,5 +374,4 @@ def relevance(
         parameters=relevance_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
-        judge_request_timeout=judge_request_timeout,
     )
