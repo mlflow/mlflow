@@ -47,7 +47,6 @@ def test_evaluation_example_str():
         """
     assert re.sub(r"\s+", "", example2_expected) == re.sub(r"\s+", "", example2)
 
-
     example3 = str(
         EvaluationExample(
             input="This is an input",
