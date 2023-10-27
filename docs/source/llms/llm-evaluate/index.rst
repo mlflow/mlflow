@@ -122,8 +122,8 @@ Select Metrics to Evaluate
 
 There are two ways to select metrics to evaluate your model:
 
-* Use default metrics for pre-defined model types.
-* Use a custom list of metrics.
+* Use **default** metrics for pre-defined model types.
+* Use a **custom** list of metrics.
 
 Use Default Metrics for Pre-defined Model Types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
