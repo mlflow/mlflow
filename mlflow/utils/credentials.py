@@ -2,6 +2,7 @@ import configparser
 import getpass
 import logging
 import os
+import urllib
 from typing import NamedTuple, Optional, Tuple
 
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
@@ -77,20 +78,25 @@ def login(backend="databricks"):
 
 
 def _is_valid_databricks_host(host):
-    # Check if the host is a valid Databricks URL: 1) start with https://, 2) end with
-    # "databricks.com" or "databricks.com/"
+    # Check if the host is a valid Databricks URL: 1) starts with https://. 2) has "databricks.com"
+    # in the domain. 3) No params/query/fragment in the URL.
     if not host.startswith("https://"):
         _logger.error(f"Host must start with 'https://', but received: {host}")
         return False
 
-    # Handle the trailing "/" in URL.
-    host = host[:-1] if host.endswith("/") else host
-    if not host.endswith("databricks.com"):
-        # Valid Databricks host must end with "databricks.com".
+    parsed_url = urllib.parse.urlparse(host)
+    if not "databricks.com" in parsed_url.netloc:
+        # A valid Databricks host must have "databricks.com" in the domain.
         _logger.error(
-            f"Invalid Databricks host: {host}. The host must be a valid Databricks URL ending with "
-            "'databricks.com' or 'databricks.com/', and no query string like 'o=6051921418418893' "
-            f"should be included, e.g. https://community.cloud.databricks.com"
+            f"Invalid Databricks host: {host}. The host must have 'databricks.com' in the domain."
+            "A valid URL is like https://community.cloud.databricks.com"
+        )
+        return False
+    if parsed_url.params or parsed_url.query or parsed_url.fragment:
+        _logger.error(
+            f"Invalid Databricks host: {host}. The host must not contain params/query/fragment"
+            ", please remove it from the host URL. A valid URL is like "
+            "https://community.cloud.databricks.com"
         )
         return False
 
