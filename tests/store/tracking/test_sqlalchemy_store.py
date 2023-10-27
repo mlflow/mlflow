@@ -9,7 +9,6 @@ import time
 import unittest
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
 from unittest import mock
@@ -145,27 +144,17 @@ def test_fail_on_multiple_drivers():
         extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
 
 
-@dataclass
-class TestDatabase:
-    db_url: str
-    store: SqlAlchemyStore
-
-
 @pytest.fixture
-def test_database(tmp_path: Path) -> TestDatabase:
-    db_url = _setup_db_uri(tmp_path)
-    store = _get_store(db_url)
-    yield TestDatabase(db_url, store)
+def test_database(tmp_path: Path) -> SqlAlchemyStore:
+    store = _get_store(tmp_path)
+    yield store
     _cleanup_database(store)
 
 
-def _get_store(db_uri=""):
-    return SqlAlchemyStore(db_uri, ARTIFACT_URI)
-
-
-def _setup_db_uri(tmp_path: Path):
-    uri = MLFLOW_TRACKING_URI.get()
-    return uri if uri else f"{DB_URI}{tmp_path / 'temp.db'}"
+def _get_store(tmp_path: Path):
+    db_uri = f"{DB_URI}{tmp_path / 'temp.db'}"
+    MLFLOW_TRACKING_URI.set(db_uri)
+    return SqlAlchemyStore(db_uri, str(tmp_path))
 
 
 def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):
@@ -203,7 +192,7 @@ def _cleanup_database(store: SqlAlchemyStore):
         reset_experiment_id = _get_query_to_reset_experiment_id(store)
         if reset_experiment_id:
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
-    shutil.rmtree(ARTIFACT_URI)
+    MLFLOW_TRACKING_URI.unset()
 
 
 def _experiment_factory(names, store: SqlAlchemyStore) -> Union[str, list]:
@@ -221,7 +210,7 @@ def _experiment_factory(names, store: SqlAlchemyStore) -> Union[str, list]:
 
 
 def test_default_experiment(test_database):
-    experiments = test_database.store.search_experiments()
+    experiments = test_database.search_experiments()
     assert len(experiments) == 1
 
     first = experiments[0]
@@ -229,41 +218,40 @@ def test_default_experiment(test_database):
     assert first.name == "Default"
 
 
-def test_default_experiment_lifecycle(test_database):
-    store = test_database.store
-    default_experiment = store.get_experiment(experiment_id=0)
+def test_default_experiment_lifecycle(test_database, tmp_path):
+    default_experiment = test_database.get_experiment(experiment_id=0)
     assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
     assert default_experiment.lifecycle_stage == entities.LifecycleStage.ACTIVE
 
-    _experiment_factory("aNothEr", store)
-    all_experiments = [e.name for e in store.search_experiments()]
+    _experiment_factory("aNothEr", test_database)
+    all_experiments = [e.name for e in test_database.search_experiments()]
     assert set(all_experiments) == {"aNothEr", "Default"}
 
-    store.delete_experiment(0)
+    test_database.delete_experiment(0)
 
-    assert [e.name for e in test_database.store.search_experiments()] == ["aNothEr"]
-    another = store.get_experiment(1)
+    assert [e.name for e in test_database.search_experiments()] == ["aNothEr"]
+    another = test_database.get_experiment(1)
     assert another.name == "aNothEr"
 
-    default_experiment = test_database.store.get_experiment(experiment_id=0)
+    default_experiment = test_database.get_experiment(experiment_id=0)
     assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
     assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
 
     # destroy SqlStore and make a new one
-    del store
-    store = _get_store(test_database.db_url)
+    del test_database
+    test_database = _get_store(tmp_path)
 
     # test that default experiment is not reactivated
-    default_experiment = store.get_experiment(experiment_id=0)
+    default_experiment = test_database.get_experiment(experiment_id=0)
     assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
     assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
 
-    assert [e.name for e in store.search_experiments()] == ["aNothEr"]
-    all_experiments = [e.name for e in store.search_experiments(ViewType.ALL)]
+    assert [e.name for e in test_database.search_experiments()] == ["aNothEr"]
+    all_experiments = [e.name for e in test_database.search_experiments(ViewType.ALL)]
     assert set(all_experiments) == {"aNothEr", "Default"}
 
     # ensure that experiment ID dor active experiment is unchanged
-    another = store.get_experiment(1)
+    another = test_database.get_experiment(1)
     assert another.name == "aNothEr"
 
 
