@@ -33,8 +33,6 @@ from mlflow.metrics import (
         ari_grade_level(),
         exact_match(),
         flesch_kincaid_grade_level(),
-        precision_at_k(3),
-        recall_at_k(3),
         rouge1(),
         rouge2(),
         rougeL(),
@@ -245,8 +243,8 @@ def test_binary_f1_score():
 
 
 def test_precision_at_k():
-    predictions = pd.Series([("a", "b"), ("c", "d"), ("e"), ("f", "g")])
-    targets = pd.Series([("a", "b"), ("c", "b"), ("e"), ("c")])
+    predictions = pd.Series([["a", "b"], ["c", "d"], ["e"], ["f", "g"]])
+    targets = pd.Series([["a", "b"], ["c", "b"], ["e"], ["c"]])
     result = precision_at_k(4).eval_fn(predictions, targets)
 
     assert result.scores == [1.0, 0.5, 1.0, 0.0]
@@ -258,8 +256,8 @@ def test_precision_at_k():
 
 
 def test_recall_at_k():
-    predictions = pd.Series([("a", "b"), ("c", "d", "e"), (), ("f", "g"), ("a", "a", "a")])
-    targets = pd.Series([("a", "b", "c", "d"), ("c", "b", "a", "d"), (), (), ("a", "c")])
+    predictions = pd.Series([["a", "b"], ["c", "d", "e"], [], ["f", "g"], ["a", "a", "a"]])
+    targets = pd.Series([["a", "b", "c", "d"], ["c", "b", "a", "d"], [], [], ["a", "c"]])
     result = recall_at_k(4).eval_fn(predictions, targets)
 
     assert result.scores == [0.5, 0.5, 1.0, 0.0, 0.5]

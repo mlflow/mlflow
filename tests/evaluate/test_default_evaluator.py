@@ -3220,8 +3220,6 @@ def validate_retriever_logged_data(logged_data, k=3):
     columns = {
         "question",
         "retrieved_context",
-        # TODO: fix the logged data to name the model output column "retrieved_context"
-        # Right now, it's hard-coded "outputs", which is not ideal
         f"precision_at_{k}/score",
         f"recall_at_{k}/score",
         "ground_truth",
@@ -3237,10 +3235,10 @@ def validate_retriever_logged_data(logged_data, k=3):
 
 
 def test_evaluate_retriever():
-    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc2")] * 3})
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [["doc1", "doc2"]] * 3})
 
     def fn(X):
-        return pd.DataFrame({"retrieved_context": [("doc1", "doc3", "doc2")] * len(X)})
+        return pd.DataFrame({"retrieved_context": [["doc1", "doc3", "doc2"]] * len(X)})
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
@@ -3310,9 +3308,9 @@ def test_evaluate_retriever():
 
     # test with multiple chunks from same doc
     def fn2(X):
-        return pd.DataFrame({"retrieved_context": [("doc1", "doc1", "doc3")] * len(X)})
+        return pd.DataFrame({"retrieved_context": [["doc1", "doc1", "doc3"]] * len(X)})
 
-    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc3")] * 3})
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [["doc1", "doc3"]] * 3})
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
@@ -3338,7 +3336,7 @@ def test_evaluate_retriever():
 
     # test with empty retrieved doc
     def fn3(X):
-        return pd.DataFrame({"output": [()] * len(X)})
+        return pd.DataFrame({"output": [[]] * len(X)})
 
     with mlflow.start_run() as run:
         mlflow.evaluate(
@@ -3364,7 +3362,7 @@ def test_evaluate_retriever():
 
     # test with single retrieved doc
     def fn4(X):
-        return pd.DataFrame({"output": [("doc1")] * len(X)})
+        return pd.DataFrame({"output": [["doc1"]] * len(X)})
 
     with mlflow.start_run() as run:
         mlflow.evaluate(
@@ -3389,7 +3387,7 @@ def test_evaluate_retriever():
     }
 
     # test with single ground truth doc
-    X_1 = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1")] * 3})
+    X_1 = pd.DataFrame({"question": [["q1?"]] * 3, "ground_truth": [["doc1"]] * 3})
 
     with mlflow.start_run() as run:
         mlflow.evaluate(
@@ -3415,10 +3413,10 @@ def test_evaluate_retriever():
 
 
 def test_evaluate_retriever_builtin_metrics_no_model_type():
-    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc2")] * 3})
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [["doc1", "doc2"]] * 3})
 
     def fn(X):
-        return {"retrieved_context": [("doc1", "doc3", "doc2")] * len(X)}
+        return {"retrieved_context": [["doc1", "doc3", "doc2"]] * len(X)}
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
