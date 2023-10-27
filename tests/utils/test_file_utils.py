@@ -368,32 +368,22 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
 
 
 def test_get_total_size_basic(tmp_path):
-    root = str(tmp_path)
-    subdir = os.path.join(root, "subdir")
-    os.mkdir(subdir)
+    subdir = tmp_path.joinpath("subdir")
+    subdir.mkdir()
 
     def generate_file(path, size_in_bytes):
-        with open(path, "wb") as fp:
+        with path.open("wb") as fp:
             fp.write(b"\0" * size_in_bytes)
 
     file_size_map = {"file1.txt": 11, "file2.txt": 23}
     for name, size in file_size_map.items():
-        path = os.path.join(root, name)
-        generate_file(path, size)
-    generate_file(os.path.join(subdir, "file3.txt"), 22)
-    assert get_total_file_size(root) == 56
+        generate_file(tmp_path.joinpath(name), size)
+    generate_file(subdir.joinpath("file3.txt"), 22)
+    assert get_total_file_size(tmp_path) == 56
     assert get_total_file_size(subdir) == 22
 
-    path_not_exists = os.path.join(root, "does_not_exist")
-    with pytest.raises(
-        MlflowException,
-        match="does not exist.",
-    ):
-        get_total_file_size(path_not_exists)
+    path_not_exists = tmp_path.joinpath("does_not_exist")
+    assert get_total_file_size(path_not_exists) is None
 
-    path_file = os.path.join(root, "file1.txt")
-    with pytest.raises(
-        MlflowException,
-        match="is not a directory.",
-    ):
-        get_total_file_size(path_file)
+    path_file = tmp_path.joinpath("file1.txt")
+    assert get_total_file_size(path_file) is None

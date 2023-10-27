@@ -3871,16 +3871,13 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     def _calculate_expected_size(path_or_dir):
         # this helper function does not consider subdirectories
         expected_size = 0
-        if os.path.isdir(path_or_dir):
-            for path in os.listdir(path_or_dir):
-                path = os.path.join(path_or_dir, path)
-                if not os.path.isfile(path):
+        if path_or_dir.is_dir():
+            for path in path_or_dir.iterdir():
+                if not path.is_file():
                     continue
-                with open(path, "rb") as fp:
-                    expected_size += len(fp.read())
-        elif os.path.isfile(path_or_dir):
-            with open(path_or_dir, "rb") as fp:
-                expected_size = len(fp.read())
+                expected_size += path.stat().st_size
+        elif path_or_dir.is_file():
+            expected_size = path_or_dir.stat().st_size
         return expected_size
 
     mlflow.transformers.save_model(
@@ -3893,11 +3890,10 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     tokenizer_dir = tmp_path.joinpath("components").joinpath("tokenizer")
     expected_size = 0
     for folder in [model_dir, tokenizer_dir]:
-        folder = str(folder)
         expected_size += _calculate_expected_size(folder)
     other_files = ["model_card.md", "model_card_data.yaml"]
     for file in other_files:
-        path = str(tmp_path.joinpath(file))
+        path = tmp_path.joinpath(file)
         expected_size += _calculate_expected_size(path)
 
     mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())

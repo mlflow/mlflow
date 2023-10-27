@@ -832,7 +832,7 @@ def test_model_size_bytes(sklearn_logreg_model, tmp_path):
 
     # expected size only counts for files saved before the MLmodel file is saved
     model_file = tmp_path.joinpath("model.pkl")
-    with open(str(model_file), "rb") as fp:
+    with model_file.open("rb") as fp:
         expected_size = len(fp.read())
 
     mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
