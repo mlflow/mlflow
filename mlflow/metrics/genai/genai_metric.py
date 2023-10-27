@@ -195,6 +195,8 @@ def make_genai_metric(
         elif isinstance(example.grading_context, dict):
             grading_context = example.grading_context
         else:
+            # The grading context is string-like. Assume that it corresponds to the first
+            # grading context column and update the example accordingly
             grading_context = {grading_context_columns[0]: example.grading_context}
             example.grading_context = grading_context
 
