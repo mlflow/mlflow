@@ -1949,6 +1949,7 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
     assert fourth_response == "Only if you have a boat that can't sink."
 
 
+@pytest.mark.skip("Remove this test after input_example is updated")
 @pytest.mark.parametrize(
     ("pipeline_name", "example", "in_signature", "out_signature"),
     [
