@@ -120,9 +120,29 @@ There are two types of LLM evaluation metrics in MLflow:
 Select Metrics to Evaluate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+There are two ways to select metrics to evaluate your model:
+
+* Use **default** metrics for pre-defined model types.
+* Use a **custom** list of metrics.
+
+Use Default Metrics for Pre-defined Model Types
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the 
-LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. 
-The default metrics for given model types are shown below:
+LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. To use
+defaults metrics for pre-selected tasks, specify the ``model_type`` argument in :py:func:`mlflow.evaluate`, as shown by the example 
+below:
+
+.. code-block:: python
+
+    results = mlflow.evaluate(
+        model,
+        eval_data,
+        targets="ground_truth",
+        model_type="question-answering",
+    )
+
+The supported LLM model types and associated metrics are listed below:
 
 * **question-answering**: ``model_type="question-answering"``:
 
@@ -153,31 +173,27 @@ The default metrics for given model types are shown below:
 :sup:`3` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
 `rouge-score <https://pypi.org/project/rouge-score>`_
 
-However, using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics 
-for LLM evaluation in MLFlow. MLflow provides two ways for selecting metrics to evluate your LLM:
+Use a Custom List of Metrics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. Specify the ``model_type`` argument in :py:func:`mlflow.evaluate` 
+Using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics 
+for LLM evaluation in MLFlow. You can specify a custom list of metrics in the `extra_metrics` argument in `mlflow.evaluate`:
 
-    * Each predefined model type comes with a standard set of metrics that are available for relevant evaluation of a model type. 
-    * The defaults are suitable if your model falls in one of the predefined categories (e.g., ``question-answering``).   
-
-    An example of using the predefined metrics for a given ``model_type`` is shown below:
-
-    .. code-block:: python
+* To add additional metrics to the default metrics list of pre-defined model type, keep the `model_type` and add your metrics to ``extra_metrics``:
+  
+  .. code-block:: python
 
         results = mlflow.evaluate(
             model,
             eval_data,
             targets="ground_truth",
             model_type="question-answering",
+            extra_metrics=[mlflow.metrics.latency()],
         )
 
-2. Specify a custom list of metrics by explicitly referencing a metric calculation function.
+  The above code will evaluate your model using all metrics for "question-answering" model plus :py:func:`mlflow.metrics.latency()`.
 
-    * To add additional metrics to the default collection from part 1 above, add the function names to the ``extra_metrics`` argument.
-    * To diable default metric calculation and only calculate explicit metrics, remove the ``model_type`` argument and define the desired metrics. 
-
-    An example of disabling the default metrics and explicitly declaring a subset of metrics to calculate is shown below:
+* To disable default metric calculation and only calculate your selected metrics, remove the ``model_type`` argument and define the desired metrics. 
 
     .. code-block:: python
 
