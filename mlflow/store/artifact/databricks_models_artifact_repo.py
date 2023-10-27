@@ -18,11 +18,11 @@ from mlflow.utils.databricks_utils import (
     warn_on_deprecated_cross_workspace_registry_uri,
 )
 from mlflow.utils.file_utils import (
+    download_chunk_retries,
     download_file_using_http_uri,
     parallelized_download_file_using_http_uri,
     remove_on_error,
 )
-from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
@@ -150,6 +150,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 thread_pool_executor=self.chunk_thread_pool,
                 http_uri=signed_uri,
                 download_path=dst_local_file_path,
+                remote_file_path=dst_run_relative_artifact_path,
                 file_size=file_size,
                 # URI type is not known in this context
                 uri_type=None,
@@ -162,18 +163,12 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                     dst_run_relative_artifact_path
                 )
                 new_headers = self._extract_headers_from_signed_url(new_headers)
-                for chunk in failed_downloads:
-                    _logger.warning(
-                        f"Retrying download of chunk {chunk.index} of "
-                        f"{dst_run_relative_artifact_path}"
-                    )
-                    download_chunk(
-                        range_start=chunk.start,
-                        range_end=chunk.end,
-                        headers=new_headers,
-                        download_path=dst_local_file_path,
-                        http_uri=new_signed_uri,
-                    )
+                download_chunk_retries(
+                    chunks=list(failed_downloads),
+                    http_uri=new_signed_uri,
+                    headers=new_headers,
+                    download_path=dst_local_file_path,
+                )
 
     def _download_file(self, remote_file_path, local_path):
         try:

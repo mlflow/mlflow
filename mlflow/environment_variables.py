@@ -444,3 +444,12 @@ MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL = _EnvironmentVariable(
 MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
     "MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING", int, None
 )
+
+# Private environment variable to specify the number of chunk download retries for multipart
+# download.
+_MLFLOW_MPD_NUM_RETRIES = _EnvironmentVariable("_MLFLOW_MPD_NUM_RETRIES", int, 3)
+# Private environment variable to specify the interval between chunk download retries for multipart
+# download.
+_MLFLOW_MPD_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
+    "_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", int, 1
+)
