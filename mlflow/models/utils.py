@@ -934,9 +934,15 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
     if not required and data is None:
         return None
     if not isinstance(data, dict):
-        raise MlflowException(f"Expected data to be dictionary, got {type(data).__name__}")
+        raise MlflowException(
+            f"Failed to enforce schema of '{data}' with type '{obj}'. "
+            f"Expected data to be dictionary, got {type(data).__name__}"
+        )
     if not isinstance(obj, Object):
-        raise MlflowException(f"Expected obj to be Object, got {type(obj).__name__}")
+        raise MlflowException(
+            f"Failed to enforce schema of '{data}' with type '{obj}'. "
+            f"Expected obj to be Object, got {type(obj).__name__}"
+        )
     properties = {prop.name: prop for prop in obj.properties}
     required_props = {k for k, prop in properties.items() if prop.required}
     missing_props = required_props - set(data.keys())
