@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
 
 from mlflow.utils.annotations import experimental
 
