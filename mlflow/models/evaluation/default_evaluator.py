@@ -1181,7 +1181,11 @@ class DefaultEvaluator(ModelEvaluator):
             for param_name, param in parameters.items():
                 column = self.col_mapping.get(param_name, param_name)
 
-                if column == "predictions" or column == self.dataset.predictions_name:
+                if (
+                    column == "predictions"
+                    or column == self.predictions
+                    or column == self.dataset.predictions_name
+                ):
                     eval_fn_args.append(eval_df_copy["prediction"])
                 elif column == "targets" or column == self.dataset.targets_name:
                     if "target" in eval_df_copy:
@@ -1465,7 +1469,9 @@ class DefaultEvaluator(ModelEvaluator):
             output_columns = (
                 [] if self.other_output_columns is None else list(self.other_output_columns.columns)
             )
-            if self.dataset.predictions_name:
+            if self.predictions:
+                output_columns.append(self.predictions)
+            elif self.dataset.predictions_name:
                 output_columns.append(self.dataset.predictions_name)
             else:
                 output_columns.append("predictions")
