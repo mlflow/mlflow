@@ -198,14 +198,11 @@ MLflow offers a few pre-canned metrics which uses LLM as the judge. Despite the 
 is the same - put these metrics in the ``extra_metrics`` argument in ``mlflow.evaluate()``. Here is the list of pre-canned
 metrics:
 
-* :py:func:`mlflow.metrics.genai.answer_similarity`: Evaluate the similarity between ground truth and your LLM outputs.
-* :py:func:`mlflow.metrics.genai.answer_correctness`: Evaluate the correctness level of your LLM outputs based on given context
-  and ground truth.
-* :py:func:`mlflow.metrics.genai.relevance`: Evaluate the appropriateness, significance and applicability of the output with 
-  respect to both the input and context. 
-* :py:func:`mlflow.metrics.genai.answer_relevance`: Evaluate the appropriateness and applicability of the output with 
-  respect to the input. 
-* :py:func:`mlflow.metrics.genai.faithfulness`: Evaluate the faithfulness of your LLM outputs. 
+* :py:func:`mlflow.metrics.genai.answer_similarity`: Use this metric when you want to evaluate how similar the model generated output is compared to the information in the ground_truth. High scores mean that your model outputs contain similar information as the ground_truth, while low scores mean that outputs may disagree with the ground_truth.
+* :py:func:`mlflow.metrics.genai.answer_correctness`: Use this metric when you want to evaluate how factually correct the model generated output is based on the information in the ground_truth. High scores mean that your model outputs contain similar information as the ground_truth and that this information is correct, while low scores mean that outputs may disagree with the ground_truth or that the information in the output is incorrect. Note that this builds onto answer_similarity.
+* :py:func:`mlflow.metrics.genai.answer_relevance`: Use this metric when you want to evaluate how relevant the model generated output is to the input (context is ignored). High scores mean that your model outputs are about the same subject as the input, while low scores mean that outputs may be non-topical.
+* :py:func:`mlflow.metrics.genai.relevance`: Use this metric when you want to evaluate how relevant the model generated output is with respect to both the input and the context. High scores mean that the model has understood the context and correct extracted relevant information from the context, while low score mean that output has completely ignored the question and the context and could be hallucinating.
+* :py:func:`mlflow.metrics.genai.faithfulness`: Use this metric when you want to evaluate how faithful the model generated output is based on the context provided. High scores mean that the outputs contain information that is in line with the context, while low scores mean that outputs may disagree with the context (input is ignored).
 
 
 Creating Custom LLM-evaluation Metrics
