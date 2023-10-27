@@ -868,13 +868,21 @@ class Schema:
         """Convenience shortcut to get the datatypes as numpy types."""
         if self.is_tensor_spec():
             return [x.type for x in self.inputs]
-        return [x.type.to_numpy() for x in self.inputs]
+        if all(isinstance(x.type, DataType) for x in self.inputs):
+            return [x.type.to_numpy() for x in self.inputs]
+        raise MlflowException(
+            "Failed to get numpy types as some of the inputs types are not DataType."
+        )
 
     def pandas_types(self) -> List[np.dtype]:
         """Convenience shortcut to get the datatypes as pandas types. Unsupported by TensorSpec."""
         if self.is_tensor_spec():
             raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
-        return [x.type.to_pandas() for x in self.inputs]
+        if all(isinstance(x.type, DataType) for x in self.inputs):
+            return [x.type.to_pandas() for x in self.inputs]
+        raise MlflowException(
+            "Failed to get pandas types as some of the inputs types are not DataType."
+        )
 
     def as_spark_schema(self):
         """Convert to Spark schema. If this schema is a single unnamed column, it is converted
