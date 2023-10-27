@@ -264,6 +264,7 @@ class Model:
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[Dict[str, Any]] = None,
+        model_size_bytes: Optional[int] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -278,7 +279,7 @@ class Model:
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.mlflow_version = mlflow_version
         self.metadata = metadata
-        self.model_size_bytes = None
+        self.model_size_bytes = model_size_bytes
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
