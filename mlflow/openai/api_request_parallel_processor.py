@@ -89,6 +89,7 @@ class APIRequest:
     token_consumption: int
     attempts_left: int
     results: list[tuple[int, OpenAIObject]]
+    timeout: int = 60
 
     def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
         """
@@ -96,7 +97,7 @@ class APIRequest:
         """
         _logger.debug(f"Request #{self.index} started")
         try:
-            response = self.task.create(**self.request_json)
+            response = self.task.create(**self.request_json, timeout=self.timeout)
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
@@ -126,6 +127,10 @@ class APIRequest:
                     f"Request #{self.index} failed because of content filtering: "
                     f"{content_filter_result}"
                 )
+                status_tracker.increment_num_api_errors()
+                status_tracker.complete_task(success=False)
+            else:
+                _logger.warning(f"Request #{self.index} failed with {e!r}")
                 status_tracker.increment_num_api_errors()
                 status_tracker.complete_task(success=False)
         except Exception as e:
