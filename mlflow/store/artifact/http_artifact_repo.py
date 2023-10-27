@@ -1,8 +1,18 @@
+import logging
+import math
 import os
 import posixpath
 
+import requests
+from requests import HTTPError
+
 from mlflow.entities import FileInfo
-from mlflow.entities.multipart_upload import CreateMultipartUploadResponse
+from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
+from mlflow.environment_variables import (
+    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
+)
+from mlflow.exceptions import UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -12,6 +22,8 @@ from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+
+_logger = logging.getLogger(__name__)
 
 
 class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
@@ -23,6 +35,15 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
+
+        # Try to perform multipart upload if the file is large.
+        # If the server does not support, or if the upload failed, revert to normal upload.
+        if os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
+            try:
+                self._try_multipart_upload(local_file, artifact_path)
+                return
+            except UnsupportedMultipartUploadException:
+                pass
 
         file_name = os.path.basename(local_file)
         mime_type = _guess_mime_type(file_name)
@@ -119,3 +140,46 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         }
         resp = http_request(host_creds, endpoint, "POST", json=params)
         augmented_raise_for_status(resp)
+
+    def _try_multipart_upload(self, local_file, artifact_path=None):
+        """
+        Attempts to perform multipart upload to log an artifact.
+        Returns if the multipart upload is successful.
+        Raises UnsupportedMultipartUploadException if multipart upload is unsupported.
+        """
+        parts = []
+        chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+        size = os.path.getsize(local_file)
+        num_parts = math.ceil(size / chunk_size)
+
+        try:
+            create = self.create_multipart_upload(local_file, num_parts, artifact_path)
+        except HTTPError as e:
+            # return False if server does not support multipart upload
+            error_message = e.response.json().get("message", "")
+            if isinstance(error_message, str) and error_message.startswith(
+                "Multipart upload is not supported for artifact repository"
+            ):
+                raise UnsupportedMultipartUploadException(error_message)
+            else:
+                raise
+
+        try:
+            with open(local_file, "rb") as f:
+                for credential in create.credentials:
+                    chunk = f.read(chunk_size)
+
+                    response = requests.put(credential.url, data=chunk)
+                    augmented_raise_for_status(response)
+                    parts.append(
+                        MultipartUploadPart(
+                            part_number=credential.part_number,
+                            etag=response.headers["ETag"],
+                        )
+                    )
+
+            self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
+        except Exception as e:
+            self.abort_multipart_upload(local_file, create.upload_id, artifact_path)
+            _logger.warning(f"Failed to upload file {local_file} using multipart upload: {e}")
+            raise
