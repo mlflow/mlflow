@@ -235,6 +235,7 @@ def onnx_custom_env(tmp_path):
     _mlflow_conda_env(conda_env, additional_pip_deps=["onnx", "pytest", "torch"])
     return conda_env
 
+
 def test_model_save_load(onnx_model, model_path):
     # New ONNX versions can optionally convert to external data
     if Version(onnx.__version__) >= Version("1.9.0"):
@@ -259,9 +260,7 @@ def test_model_log_load(onnx_model, model_path, save_as_external_data):
 
     with mlflow.start_run():
         model_info = mlflow.onnx.log_model(
-            onnx_model, 
-            artifact_path="model", 
-            save_as_external_data=save_as_external_data
+            onnx_model, artifact_path="model", save_as_external_data=save_as_external_data
         )
 
     if Version(onnx.__version__) >= Version("1.9.0"):
@@ -274,6 +273,7 @@ def test_model_log_load(onnx_model, model_path, save_as_external_data):
     onnx.checker.check_model = mock.Mock()
     mlflow.onnx.load_model(model_info.model_uri)
     assert onnx.checker.check_model.called
+
 
 def test_model_save_load_nonexternal_data(onnx_model, model_path):
     if Version(onnx.__version__) >= Version("1.9.0"):
