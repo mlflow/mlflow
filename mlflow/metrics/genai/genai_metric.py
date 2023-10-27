@@ -278,7 +278,7 @@ def make_genai_metric(
                     if e.error_code in [
                         ErrorCode.Name(BAD_REQUEST),
                         ErrorCode.Name(UNAUTHENTICATED),
-                        ErrorCode.Name(INVALID_PARAMETER_VALUE)
+                        ErrorCode.Name(INVALID_PARAMETER_VALUE),
                     ]:
                         raise MlflowException(e)
                 return None, f"Failed to score model on payload. Error: {e!s}"
