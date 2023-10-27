@@ -3387,7 +3387,8 @@ class MlflowClient:
         Set a registered model alias pointing to a model version.
 
         :param name: Registered model name.
-        :param alias: Name of the alias.
+        :param alias: Name of the alias. Note that aliases of the format ``v<number>``, such as
+                      ``v9`` and ``v42``, are reserved and cannot be set.
         :param version: Registered model version number.
         :return: None
 
