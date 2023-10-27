@@ -136,7 +136,7 @@ class APIRequest:
                 status_tracker.increment_num_api_errors()
                 status_tracker.complete_task(success=False)
         except Exception as e:
-            _logger.warning(f"Request #{self.index} failed with {e!r}")
+            _logger.debug(f"Request #{self.index} failed with {e!r}")
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
             if raise_exceptions:
