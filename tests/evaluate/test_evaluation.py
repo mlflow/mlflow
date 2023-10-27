@@ -1517,7 +1517,7 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataframe():
         with pytest.raises(
             MlflowException,
             match="The model output must be specified in the "
-            "predicitons parameter when model=None.",
+            "predictions parameter when model=None.",
         ):
             mlflow.evaluate(
                 data=X.assign(y=y, model_output=y),
