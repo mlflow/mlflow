@@ -341,10 +341,17 @@ def test_model_save_load_multiple_inputs(onnx_model_multiple_inputs_float64, mod
     assert onnx.checker.check_model.called
 
 
+@pytest.mark.parametrize("save_as_external_data", [True, False])
 def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
-    onnx_model_multiple_inputs_float64, data_multiple_inputs, predicted_multiple_inputs, model_path
+    onnx_model_multiple_inputs_float64,
+    data_multiple_inputs,
+    predicted_multiple_inputs,
+    model_path,
+    save_as_external_data,
 ):
-    mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
+    mlflow.onnx.save_model(
+        onnx_model_multiple_inputs_float64, model_path, save_as_external_data=save_as_external_data
+    )
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
