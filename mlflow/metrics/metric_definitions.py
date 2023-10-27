@@ -8,8 +8,12 @@ from mlflow.metrics.base import MetricValue
 
 _logger = logging.getLogger(__name__)
 
+
 # used to silently fail with invalid metric params
-noop = lambda *args, **kwargs: None
+def noop(*args, **kwargs):
+    return None
+
+
 targets_col_specifier = "the column specified by the `targets` parameter"
 predictions_col_specifier = (
     "the column specified by the `predictions` parameter or the model output column"
