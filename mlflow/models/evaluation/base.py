@@ -377,12 +377,15 @@ _cached_mlflow_client = None
 
 
 def _hash_uint64_ndarray_as_bytes(array):
+    print("skirm12", array)
     assert len(array.shape) == 1
     # see struct pack format string https://docs.python.org/3/library/struct.html#format-strings
     return struct.pack(f">{array.size}Q", *array)
 
 
 def _hash_ndarray_as_bytes(nd_array):
+    print("skirm11", nd_array)
+    print(type(nd_array))
     return _hash_uint64_ndarray_as_bytes(
         pd.util.hash_array(nd_array.flatten(order="C"))
     ) + _hash_uint64_ndarray_as_bytes(np.array(nd_array.shape, dtype="uint64"))
@@ -393,7 +396,9 @@ def _hash_array_like_obj_as_bytes(data):
     Helper method to convert pandas dataframe/numpy array/list into bytes for
     MD5 calculation purpose.
     """
+    print("skirm", data)
     if isinstance(data, pd.DataFrame):
+        print("skirm2", data)
         # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
         # run code not related to pyspark.
         if "pyspark" in sys.modules:
@@ -403,21 +408,31 @@ def _hash_array_like_obj_as_bytes(data):
 
         def _hash_array_like_element_as_bytes(v):
             if spark_vector_type is not None:
+                print("skirm3", data)
                 if isinstance(v, spark_vector_type):
+                    print("skirm4", data)
                     return _hash_ndarray_as_bytes(v.toArray())
             if isinstance(v, np.ndarray):
+                print("skirm5", data)
                 return _hash_ndarray_as_bytes(v)
             if isinstance(v, list):
+                print("skirm6", data)
                 return _hash_ndarray_as_bytes(np.array(v))
+            print("skirm7", data)
             return v
 
         data = data.applymap(_hash_array_like_element_as_bytes)
         return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
     elif isinstance(data, np.ndarray):
+        print("skirm8", data)
+        print(type(data))
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
+        print("skirm9", data)
         return _hash_ndarray_as_bytes(np.array(data))
     else:
+        print("skirm10", data)
+        print(type(data))
         raise ValueError("Unsupported data type.")
 
 
@@ -431,6 +446,8 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
     len_bytes = _hash_uint64_ndarray_as_bytes(np.array([len(data)], dtype="uint64"))
     md5_gen.update(len_bytes)
     if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
+        print("skirm15", data)
+        print(type(data))
         md5_gen.update(_hash_array_like_obj_as_bytes(data))
     else:
         head_rows = data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
@@ -574,12 +591,12 @@ class EvaluationDataset:
                 data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
             if has_targets:
-                self._labels_data = data[targets].to_numpy()
+                self._labels_data = self._list_to_numpy(data[targets].to_numpy())
                 self._targets_name = targets
 
             self._has_predictions = predictions is not None
             if self._has_predictions:
-                self._predictions_data = data[predictions].to_numpy()
+                self._predictions_data = self._list_to_numpy(data[predictions].to_numpy())
                 self._predictions_name = predictions
 
             if feature_names is not None:
@@ -611,6 +628,7 @@ class EvaluationDataset:
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
         if self._predictions_data is not None:
+            print("skirm 16", self._predictions_data)
             _gen_md5_for_arraylike_obj(md5_gen, self._predictions_data)
         md5_gen.update(",".join(list(map(str, self._feature_names))).encode("UTF-8"))
 
@@ -703,6 +721,11 @@ class EvaluationDataset:
         if self.path is not None:
             metadata["path"] = self.path
         return metadata
+
+    def _list_to_numpy(self, data):
+        if isinstance(data, (list, np.ndarray)):
+            return np.array([self._list_to_numpy(lst) for lst in data])
+        return data
 
     def _log_dataset_tag(self, client, run_id, model_uuid):
         """
@@ -1667,6 +1690,8 @@ def evaluate(
     '''
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
+
+    print("bbqiu2", data)
 
     if evaluator_config is not None:
         col_mapping = evaluator_config.get("col_mapping", {})
