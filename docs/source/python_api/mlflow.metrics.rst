@@ -105,12 +105,12 @@ columns:
 - Retrieved relevant doc IDs
 - Ground-truth doc IDs
 
-Alternatively, you can you can also provide a function through the ``model`` parameter to represent 
+Alternatively, you can also provide a function through the ``model`` parameter to represent 
 your retrieval model. The function should take a Pandas DataFrame containing input queries and 
 ground-truth relevant doc IDs, and return a DataFrame with a column of retrieved relevant doc IDs.
 
 A "doc ID" is a string that uniquely identifies a document. All doc IDs should be entered as a 
-list of doc ID  strings.
+list of doc ID strings.
 
 Parameters:
 
@@ -121,15 +121,23 @@ Parameters:
   each input query. ``retriever_k`` defaults to 3. You can change ``retriever_k`` by using the 
   :py:func:`mlflow.evaluate` API:
 
-    1. ``evaluator_config={"retriever_k": 5}``
+    1. .. code-block:: python
+
+        mlflow.evaluate(
+            ...,
+            evaluator_config={"retriever_k": 5}
+        )
     2. .. code-block:: python
 
-        extra_metrics = [
-            mlflow.metrics.precision_at_k(k=5),
-            mlflow.metrics.precision_at_k(6),
-            mlflow.metrics.recall_at_k(4),
-            mlflow.metrics.recall_at_k(5)
-        ]
+        mlflow.evaluate(
+            ...,
+            extra_metrics = [
+                mlflow.metrics.precision_at_k(5),
+                mlflow.metrics.precision_at_k(6),
+                mlflow.metrics.recall_at_k(4),
+                mlflow.metrics.recall_at_k(5)
+            ]   
+        )
     
     Note that the ``retriever_k`` value in the ``evaluator_config`` will be ignored in the 2nd 
     method.

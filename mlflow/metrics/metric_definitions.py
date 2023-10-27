@@ -345,9 +345,9 @@ def _precision_at_k_eval_fn(k):
             return
 
         scores = []
-        for i in range(len(predictions)):
+        for target, prediction in zip(targets, predictions):
             # only include the top k retrieved chunks
-            ground_truth, retrieved = set(targets[i]), predictions[i][:k]
+            ground_truth, retrieved = set(target), prediction[:k]
             relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
             if len(retrieved) > 0:
                 scores.append(relevant_doc_count / len(retrieved))
@@ -368,9 +368,9 @@ def _recall_at_k_eval_fn(k):
             return
 
         scores = []
-        for i in range(len(predictions)):
+        for target, prediction in zip(targets, predictions):
             # only include the top k retrieved chunks
-            ground_truth, retrieved = set(targets[i]), set(predictions[i][:k])
+            ground_truth, retrieved = set(target), set(prediction[:k])
             relevant_doc_count = len(ground_truth.intersection(retrieved))
             if len(ground_truth) > 0:
                 scores.append(relevant_doc_count / len(ground_truth))
