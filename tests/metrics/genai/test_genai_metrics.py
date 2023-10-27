@@ -546,7 +546,6 @@ def test_make_genai_metric_failure():
     ],
 )
 def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, example_context_cols):
-
     with pytest.raises(
         MlflowException, match="Example grading context does not contain required columns"
     ):
