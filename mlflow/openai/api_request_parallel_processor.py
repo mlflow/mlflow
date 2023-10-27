@@ -53,6 +53,7 @@ class StatusTracker:
     num_other_errors: int = 0
     time_of_last_rate_limit_error: int = 0  # used to cool off after hitting rate limits
     lock: threading.Lock = threading.Lock()
+    error = None
 
     def start_task(self):
         with self.lock:
@@ -92,7 +93,7 @@ class APIRequest:
     timeout: int = 60
 
     def call_api(
-        self, retry_queue: queue.Queue, status_tracker: StatusTracker, raise_exceptions=False
+        self, retry_queue: queue.Queue, status_tracker: StatusTracker
     ):
         """
         Calls the OpenAI API and stores results.
@@ -121,8 +122,7 @@ class APIRequest:
                 retry_queue.put_nowait(self)
             else:
                 status_tracker.complete_task(success=False)
-                if raise_exceptions:
-                    raise e
+                status_tracker.error = e
         # Unretryable errors
         except openai.error.InvalidRequestError as e:
             if e.error.code == "content_filter" and e.error.innererror:
@@ -133,18 +133,18 @@ class APIRequest:
                 )
                 status_tracker.increment_num_api_errors()
                 status_tracker.complete_task(success=False)
-                if raise_exceptions:
-                    raise e
+                status_tracker.error = e
             else:
                 _logger.warning(f"Request #{self.index} failed with {e!r}")
                 status_tracker.increment_num_api_errors()
                 status_tracker.complete_task(success=False)
+                status_tracker.error = e
         except Exception as e:
             _logger.debug(f"Request #{self.index} failed with {e!r}")
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
-            if raise_exceptions:
-                raise e
+            status_tracker.error = e
+
 
 
 def num_tokens_consumed_from_request(request_json: dict, task: type, token_encoding_name: str):
@@ -209,6 +209,7 @@ def process_api_requests(
     token_encoding_name: str = "cl100k_base",
     max_attempts: int = 5,
     max_workers: int = 10,
+    throw_original_error=False,
 ):
     """
     Processes API requests in parallel, throttling to stay under rate limits.
@@ -312,6 +313,8 @@ def process_api_requests(
 
     # after finishing, log final status
     if status_tracker.num_tasks_failed > 0:
+        if throw_original_error and len(requests) == 1:
+            raise status_tracker.error
         raise mlflow.MlflowException(
             f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
         )
@@ -324,33 +327,3 @@ def process_api_requests(
     return [res for _, res in sorted(results)]
 
 
-def process_one_api_request(
-    request_json: dict,
-    task: OpenAIObject,
-    api_token: _OAITokenHolder,
-    max_requests_per_minute: float = 3_500,
-    max_tokens_per_minute: float = 90_000,
-    token_encoding_name: str = "cl100k_base",
-    max_attempts: int = 5,
-):
-    """
-    Processes a single API request and throws the actual exception if encountered.
-    """
-    api_token.validate(_logger)
-
-    request = APIRequest(
-        task=task,
-        index=0,  # Since it's a single request, index is set to 0
-        request_json=request_json,
-        token_consumption=num_tokens_consumed_from_request(request_json, task, token_encoding_name),
-        attempts_left=max_attempts,
-        results=[],
-    )
-
-    # Make the API call
-    request.call_api(
-        retry_queue=queue.Queue(), status_tracker=StatusTracker(), raise_exceptions=True
-    )
-
-    # If there are results, return them, else return None
-    return request.results[0][1] if request.results else None
