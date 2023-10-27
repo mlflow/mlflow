@@ -90,7 +90,6 @@ def _cached_get_request_session(
         retry_kwargs["method_whitelist"] = None
     retry = Retry(**retry_kwargs)
     adapter = HTTPAdapter(max_retries=retry)
-
     session = requests.Session()
     session.mount("https://", adapter)
     session.mount("http://", adapter)
