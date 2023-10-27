@@ -64,7 +64,7 @@ const InteractionTracker = ({ children }: any) => children;
 
 interface AppProps {
   isDarkTheme?: boolean;
-  setIsDarkTheme: (isDarkTheme: boolean) => void;
+  setIsDarkTheme?: (isDarkTheme: boolean) => void;
 }
 
 class App extends Component<AppProps> {
