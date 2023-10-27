@@ -1529,11 +1529,9 @@ class DefaultEvaluator(ModelEvaluator):
             except Exception as e:
                 stacktrace_str = traceback.format_exc()
                 if isinstance(e, MlflowException):
-                    exceptions.append(
-                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
-                    )
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e.message}")
                 else:
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
+                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}")
 
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
