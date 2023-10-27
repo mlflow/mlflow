@@ -303,7 +303,7 @@ def make_genai_metric(
                     ErrorCode.Name(UNAUTHENTICATED),
                     ErrorCode.Name(INVALID_PARAMETER_VALUE),
                 ]:
-                    raise e
+                    raise
                 else:
                     return None, f"Failed to score model on payload. Error: {e!s}"
             except Exception as e:
