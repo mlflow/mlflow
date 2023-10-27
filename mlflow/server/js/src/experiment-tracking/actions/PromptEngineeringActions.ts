@@ -75,19 +75,23 @@ export const evaluatePromptTableValue =
       inputText: compiledPrompt,
       parameters,
     };
-    const { inputText } = modelGatewayRequestPayload;
-    const textPayload = ModelGatewayService.createEvaluationTextPayload(inputText, gatewayRoute);
-    const processed_data = {
-      ...textPayload,
-      ...modelGatewayRequestPayload.parameters,
+
+    const payload = () => {
+      const { inputText } = modelGatewayRequestPayload;
+      const textPayload = ModelGatewayService.createEvaluationTextPayload(inputText, gatewayRoute);
+      const processed_data = {
+        ...textPayload,
+        ...modelGatewayRequestPayload.parameters,
+      };
+      return MlflowService.gatewayProxyPost({
+        gateway_path: `gateway/${gatewayRoute.name}/invocations`,
+        json_data: processed_data,
+      });
     };
 
     const action = {
       type: EVALUATE_PROMPT_TABLE_VALUE,
-      payload: MlflowService.gatewayProxyPost({
-        gateway_path: `gateway/${gatewayRoute.name}/invocations`,
-        json_data: processed_data,
-      }),
+      payload: payload(),
       meta: { inputValues, run, compiledPrompt, rowKey, startTime: performance.now() },
     };
     return dispatch(action);

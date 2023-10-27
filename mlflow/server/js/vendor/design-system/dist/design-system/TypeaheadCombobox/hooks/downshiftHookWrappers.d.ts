@@ -13,12 +13,15 @@ interface MultiSelectProps<T> extends CommonComboboxStateProps<T> {
 interface CommonComboboxStateProps<T> {
     allItems: T[];
     items: T[];
-    matcher: (item: T, searchQuery: string) => boolean;
+    matcher?: (item: T, searchQuery: string) => boolean;
     itemToString?: (item: T) => string;
     onIsOpenChange?: (changes: UseComboboxStateChange<T>) => void;
+    formValue?: T;
+    formOnChange?: (value: any) => void;
+    formOnBlur?: (value: any) => void;
 }
 export type UseComboboxStateProps<T> = SingleSelectProps<T> | MultiSelectProps<T>;
-export declare function useComboboxState<T>({ allItems, items, itemToString, onIsOpenChange, ...props }: UseComboboxStateProps<T>): UseComboboxReturnValue<T>;
+export declare function useComboboxState<T>({ allItems, items, itemToString, onIsOpenChange, formValue, formOnChange, formOnBlur, ...props }: UseComboboxStateProps<T>): UseComboboxReturnValue<T>;
 export declare function useMultipleSelectionState<T>(selectedItems: T[], setSelectedItems: React.Dispatch<React.SetStateAction<T[]>>): UseMultipleSelectionReturnValue<T>;
 export {};
 //# sourceMappingURL=downshiftHookWrappers.d.ts.map

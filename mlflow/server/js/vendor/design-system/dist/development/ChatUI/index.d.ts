@@ -1,8 +1,9 @@
 /// <reference types="react" />
 export declare const ChatUI: {
     MessageActionButton: (props: import("../..").ButtonProps) => import("@emotion/react/jsx-runtime").JSX.Element;
-    MessageHeader: ({ userName, avatarURL, leftContent, rightContent }: {
+    MessageHeader: ({ userName, customHeaderIcon, avatarURL, leftContent, rightContent }: {
         userName: import("react").ReactNode;
+        customHeaderIcon?: import("react").ReactNode;
         avatarURL?: string | undefined;
         leftContent?: import("react").ReactNode;
         rightContent?: import("react").ReactNode;

@@ -1,4 +1,5 @@
-import { render as rtlRender } from '@testing-library/react';
+import { fireEvent, within, screen, render as rtlRender } from '@testing-library/react';
+import { act } from 'react-dom/test-utils';
 
 import React from 'react';
 import { IntlProvider } from 'react-intl';
@@ -61,6 +62,28 @@ function renderWithIntl(ui: React.ReactElement, renderOptions = {}, providerProp
 
   return rtlRender(ui, { wrapper, ...renderOptions });
 }
+
+export const findAntdOption = (optionText: string) => {
+  return screen.getByText((content, element) => {
+    return (
+      Boolean(element) &&
+      Boolean(
+        Array.from(element?.classList || []).some((x) => x.endsWith('-select-item-option-content')),
+      ) &&
+      content === optionText
+    );
+  });
+};
+
+export const selectAntdOption = async (container: HTMLElement, optionText: string) => {
+  await act(async () => {
+    fireEvent.mouseDown(within(container).getByRole('combobox'));
+  });
+  const optionElement = findAntdOption(optionText);
+  act(() => {
+    fireEvent.click(optionElement);
+  });
+};
 
 /**
  * A simple seedable PRNG, used e.g. to replace Math.random() for deterministic testing.

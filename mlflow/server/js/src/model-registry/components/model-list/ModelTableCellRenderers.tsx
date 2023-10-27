@@ -9,7 +9,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { getModelVersionPageRoute } from '../../routes';
+import { ModelRegistryRoutes } from '../../routes';
 import { KeyValueEntity } from '../../../experiment-tracking/types';
 import { MLFLOW_INTERNAL_PREFIX } from '../../../common/utils/TagUtils';
 
@@ -103,7 +103,9 @@ export const ModelListVersionLinkCell = ({
       description='Row entry for version columns in the registered model page'
       values={{
         versionNumber,
-        link: (text: any) => <Link to={getModelVersionPageRoute(name, versionNumber)}>{text}</Link>,
+        link: (text: any) => (
+          <Link to={ModelRegistryRoutes.getModelVersionPageRoute(name, versionNumber)}>{text}</Link>
+        ),
       }}
     />
   );

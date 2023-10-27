@@ -180,7 +180,7 @@ describe('persistSearchFacet', () => {
         '?experiments=foobar&somethingElse=abc',
       );
 
-      let expectedQuery = '?experiments=foobar';
+      let expectedQuery = '?experiments=foobar&somethingElse=abc';
       expectedQuery += `&searchFilter=${encodeURIComponent('some filter')}`;
       expectedQuery += `&orderByKey=${encodeURIComponent('order-key')}`;
       expectedQuery += `&orderByAsc=${encodeURIComponent('true')}`;

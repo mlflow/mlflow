@@ -167,7 +167,7 @@ describe('test getMaxMetrics', () => {
   });
 });
 
-export const mockMetric = (
+const mockMetric = (
   key: any,
   value: any,
   timestamp = 1234567890000,
