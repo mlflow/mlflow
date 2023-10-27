@@ -32,7 +32,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, mkdir, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -253,6 +253,8 @@ def _save_model_with_class_artifacts_params(
             saved_artifacts_dir_subpath = "artifacts"
             hf_prefix = "hf:/"
             for artifact_name, artifact_uri in artifacts.items():
+                artifact_folder = tmp_artifacts_dir.path(artifact_name)
+                mkdir(artifact_folder)
                 if artifact_uri.startswith(hf_prefix):
                     try:
                         from huggingface_hub import snapshot_download
@@ -281,7 +283,7 @@ def _save_model_with_class_artifacts_params(
                     )
                 else:
                     tmp_artifact_path = _download_artifact_from_uri(
-                        artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
+                        artifact_uri=artifact_uri, output_path=artifact_folder
                     )
 
                     relative_path = (

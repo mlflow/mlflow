@@ -413,7 +413,7 @@ class TrainStep(BaseStep):
                 # to computes metrics (the pyfunc representation of the user-facing model logged to
                 # MLflow Tracking is not currently compatible with `mlflow.evaluate()`)
                 mlflow.sklearn.save_model(trained_pipeline, sklearn_model_uri)
-                artifacts = {"model_path": sklearn_model_uri}
+                artifacts = {TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH: sklearn_model_uri}
                 with TempDir() as tmp:
                     # Saving a temp model so that the output schema (signature) of the model's
                     # pyfunc representation can be inferred and included when logging the model

@@ -17,7 +17,9 @@ class WrappedRecipeModel(PythonModel):
         self.target_column_class_labels = target_column_class_labels
 
     def load_context(self, context):
-        self._classifier = mlflow.sklearn.load_model(context.artifacts["model_path"])
+        # TODO: This should actually be TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH
+        # from train.py. However, that would create circular imports.
+        self._classifier = mlflow.sklearn.load_model(context.artifacts["sk_model"])
 
     def predict(
         self,
