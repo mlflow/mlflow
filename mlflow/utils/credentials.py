@@ -77,32 +77,6 @@ def login(backend="databricks"):
         )
 
 
-def _is_valid_databricks_host(host):
-    # Check if the host is a valid Databricks URL: 1) starts with https://. 2) has "databricks.com"
-    # in the domain. 3) No params/query/fragment in the URL.
-    if not host.startswith("https://"):
-        _logger.error(f"Host must start with 'https://', but received: {host}")
-        return False
-
-    parsed_url = urllib.parse.urlparse(host)
-    if not "databricks.com" in parsed_url.netloc:
-        # A valid Databricks host must have "databricks.com" in the domain.
-        _logger.error(
-            f"Invalid Databricks host: {host}. The host must have 'databricks.com' in the domain."
-            "A valid URL is like https://community.cloud.databricks.com"
-        )
-        return False
-    if parsed_url.params or parsed_url.query or parsed_url.fragment:
-        _logger.error(
-            f"Invalid Databricks host: {host}. The host must not contain params/query/fragment"
-            ", please remove it from the host URL. A valid URL is like "
-            "https://community.cloud.databricks.com"
-        )
-        return False
-
-    return True
-
-
 def _check_databricks_auth():
     # Check if databricks credentials are set.
     try:
@@ -188,8 +162,9 @@ def _databricks_login():
 
     while True:
         host = input("Databricks Host (should begin with https://): ")
-        if _is_valid_databricks_host(host):
-            break
+        if not host.startswith("https://"):
+            _logger.error("Invalid host: {host}, host must begin with https://, please retry.")
+        break
 
     profile = {"host": host}
     if "community" in host:
