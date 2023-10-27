@@ -91,6 +91,7 @@ class APIRequest:
     attempts_left: int
     results: list[tuple[int, OpenAIObject]]
     timeout: int = 60
+    start_time: int
 
     def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
         """
@@ -104,9 +105,14 @@ class APIRequest:
             self.results.append((self.index, response))
         except openai.error.RateLimitError as e:
             _logger.debug(f"Request #{self.index} failed with {e!r}")
-            status_tracker.time_of_last_rate_limit_error = time.time()
+            current_time = time.time()
+            status_tracker.time_of_last_rate_limit_error = current_time
             status_tracker.increment_num_rate_limit_errors()
-            retry_queue.put_nowait(self)
+            # check attempts left for rate limit
+            if current_time - self.start_time < 600:
+                retry_queue.put_nowait(self)
+            else:
+                status_tracker.complete_task(success=False)
         # Other retryable errors
         except (
             openai.error.Timeout,
@@ -238,6 +244,7 @@ def process_api_requests(
                 elif req := next(requests_iter, None):
                     # get new request
                     index, request_json = req
+                    current_time = time.time()
                     next_request = APIRequest(
                         task=task,
                         index=index,
@@ -247,6 +254,7 @@ def process_api_requests(
                         ),
                         attempts_left=max_attempts,
                         results=results,
+                        start_time=current_time,
                     )
                     status_tracker.start_task()
                     requests_exhausted = index == last_index
@@ -265,7 +273,6 @@ def process_api_requests(
             )
             last_update_time = current_time
 
-            # if enough capacity available, call API
             if next_request:
                 _logger.debug(f"Available request capacity: {available_request_capacity}")
                 _logger.debug(f"Available token capacity: {available_token_capacity}")
@@ -286,6 +293,9 @@ def process_api_requests(
                         status_tracker=status_tracker,
                     )
                     next_request = None  # reset next_request to empty
+                else:
+                    next_request = None
+                    status_tracker.complete_task(success=False)
 
             # if all tasks are finished, break
             if requests_exhausted and status_tracker.num_tasks_in_progress == 0:

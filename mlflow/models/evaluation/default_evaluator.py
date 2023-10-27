@@ -1526,6 +1526,7 @@ class DefaultEvaluator(ModelEvaluator):
         for metric in self.extra_metrics:
             try:
                 eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
+                _logger.info(f"trying this metric: {metric.name}")
                 metric.eval_fn(*eval_fn_args)
             except Exception as e:
                 stacktrace_str = traceback.format_exc()
