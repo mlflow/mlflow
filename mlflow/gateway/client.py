@@ -91,6 +91,7 @@ class MlflowGatewayClient:
             method=method,
             timeout=MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
             retry_codes=MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
+            raise_on_status=False,
             **call_kwargs,
         )
         augmented_raise_for_status(response)
