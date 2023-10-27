@@ -1710,17 +1710,10 @@ class DefaultEvaluator(ModelEvaluator):
                 elif self.model_type == _ModelType.RETRIEVER:
                     # default k to 3 if not specified
                     retriever_k = self.evaluator_config.pop("retriever_k", 3)
-                    if not (isinstance(retriever_k, int) and retriever_k > 0):
-                        _logger.warning(
-                            "Cannot calculate 'precision_at_k' and 'recall_at_k' for invalid "
-                            f"parameter 'retriever_k'. 'retriever_k' should be a positive integer; "
-                            f"found: {retriever_k}. Skipping metric logging."
-                        )
-                    else:
-                        self.builtin_metrics = [
-                            precision_at_k(retriever_k),
-                            recall_at_k(retriever_k),
-                        ]
+                    self.builtin_metrics = [
+                        precision_at_k(retriever_k),
+                        recall_at_k(retriever_k),
+                    ]
 
                 eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
                 if self.dataset.has_targets:

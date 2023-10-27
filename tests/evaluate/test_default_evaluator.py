@@ -3346,18 +3346,18 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluator_config={
                 "default": {
-                    "retriever_k": 3,
+                    "retriever_k": 4,
                 }
             },
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_3/mean": 0,
-        "precision_at_3/p90": 0,
-        "precision_at_3/variance": 0,
-        "recall_at_3/mean": 0,
-        "recall_at_3/p90": 0,
-        "recall_at_3/variance": 0,
+        "precision_at_4/mean": 0,
+        "precision_at_4/p90": 0,
+        "precision_at_4/variance": 0,
+        "recall_at_4/mean": 0,
+        "recall_at_4/p90": 0,
+        "recall_at_4/variance": 0,
     }
 
     # test with a static dataset
@@ -3374,7 +3374,32 @@ def test_evaluate_retriever():
             predictions="predictions_param",
             targets="targets_param",
             model_type="retriever",
-            extra_metrics=[mlflow.metrics.precision_at_k(3), mlflow.metrics.recall_at_k(3)],
+            extra_metrics=[mlflow.metrics.precision_at_k(4), mlflow.metrics.recall_at_k(4)],
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_3/mean": 1 / 3,
+        "precision_at_3/p90": 1 / 3,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 0.5,
+        "recall_at_3/p90": 0.5,
+        "recall_at_3/variance": 0.0,
+        "precision_at_4/mean": 1 / 3,
+        "precision_at_4/p90": 1 / 3,
+        "precision_at_4/variance": 0.0,
+        "recall_at_4/mean": 0.5,
+        "recall_at_4/p90": 0.5,
+        "recall_at_4/variance": 0.0,
+    }
+
+    # test to make sure it silently fails with invalid k
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            data=X_1,
+            predictions="predictions_param",
+            targets="targets_param",
+            model_type="retriever",
+            extra_metrics=[mlflow.metrics.precision_at_k(-1)],
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
@@ -3385,6 +3410,21 @@ def test_evaluate_retriever():
         "recall_at_3/p90": 0.5,
         "recall_at_3/variance": 0.0,
     }
+
+    # silent failure with evaluator_config method too!
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            data=X_1,
+            predictions="predictions_param",
+            targets="targets_param",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={
+                "retriever_k": -1,
+            },
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {}
 
 
 def test_evaluate_retriever_builtin_metrics_no_model_type():
@@ -3398,26 +3438,26 @@ def test_evaluate_retriever_builtin_metrics_no_model_type():
             model=fn,
             data=X,
             targets="ground_truth",
-            extra_metrics=[mlflow.metrics.precision_at_k(3), mlflow.metrics.recall_at_k(3)],
+            extra_metrics=[mlflow.metrics.precision_at_k(4), mlflow.metrics.recall_at_k(4)],
         )
     run = mlflow.get_run(run.info.run_id)
     assert (
         run.data.metrics
         == results.metrics
         == {
-            "precision_at_3/mean": 2 / 3,
-            "precision_at_3/p90": 2 / 3,
-            "precision_at_3/variance": 0.0,
-            "recall_at_3/mean": 1.0,
-            "recall_at_3/p90": 1.0,
-            "recall_at_3/variance": 0.0,
+            "precision_at_4/mean": 2 / 3,
+            "precision_at_4/p90": 2 / 3,
+            "precision_at_4/variance": 0.0,
+            "recall_at_4/mean": 1.0,
+            "recall_at_4/p90": 1.0,
+            "recall_at_4/variance": 0.0,
         }
     )
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    validate_retriever_logged_data(logged_data)
+    validate_retriever_logged_data(logged_data, 4)
 
 
 def test_evaluate_with_numpy_array():

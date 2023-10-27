@@ -123,18 +123,25 @@ Parameters:
 
     1. .. code-block:: python
 
+        # with a model and using `evaluator_config`
         mlflow.evaluate(
-            predictions="retrieved_context",
+            model=retriever_function,
+            data=data,
             targets="ground_truth",
-            ...,
+            model_type="retriever",
+            evaluators="default",
             evaluator_config={"retriever_k": 5}
         )
     2. .. code-block:: python
 
+        # with a static dataset and using `extra_metrics`
         mlflow.evaluate(
+            data=data,
             predictions="retrieved_docs",
             targets="ground_truth_docs",
-            ...,
+            predictions="predictions_param",
+            targets="targets_param",
+            model_type="retriever",
             extra_metrics = [
                 mlflow.metrics.precision_at_k(5),
                 mlflow.metrics.precision_at_k(6),
@@ -143,8 +150,9 @@ Parameters:
             ]   
         )
     
-    Note that the ``retriever_k`` value in the ``evaluator_config`` will be ignored in the 2nd 
-    method.
+    NOTE: In the 2nd method, it is recommended to omit the ``model_type`` as well, or else 
+    ``precision@3`` and ``recall@3`` will be  calculated in  addition to ``precision@5``, 
+    ``precision@6``, ``recall@4``, and ``recall@5``.
 
 .. autofunction:: mlflow.metrics.precision_at_k
 

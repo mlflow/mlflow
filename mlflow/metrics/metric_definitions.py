@@ -8,6 +8,8 @@ from mlflow.metrics.base import MetricValue
 
 _logger = logging.getLogger(__name__)
 
+# used to silently fail with invalid metric params
+noop = lambda *args, **kwargs: None
 targets_col_specifier = "the column specified by the `targets` parameter"
 predictions_col_specifier = (
     "the column specified by the `predictions` parameter or the model output column"
@@ -338,6 +340,13 @@ def _f1_score_eval_fn(
 
 
 def _precision_at_k_eval_fn(k):
+    if not (isinstance(k, int) and k > 0):
+        _logger.warning(
+            f"Cannot calculate 'precision_at_k' for invalid parameter 'k'. "
+            f"'k' should be a positive integer; found: {k}. Skipping metric logging."
+        )
+        return noop
+
     def _fn(predictions, targets):
         if not _validate_list_str_data(
             predictions, "precision_at_k", predictions_col_specifier
@@ -361,6 +370,13 @@ def _precision_at_k_eval_fn(k):
 
 
 def _recall_at_k_eval_fn(k):
+    if not (isinstance(k, int) and k > 0):
+        _logger.warning(
+            f"Cannot calculate 'precision_at_k' for invalid parameter 'k'. "
+            f"'k' should be a positive integer; found: {k}. Skipping metric logging."
+        )
+        return noop
+
     def _fn(predictions, targets):
         if not _validate_list_str_data(
             predictions, "precision_at_k", predictions_col_specifier
