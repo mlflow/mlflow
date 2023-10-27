@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from typing import Dict, List, Union, Optional
+from typing import Dict, List
 
-from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
 
