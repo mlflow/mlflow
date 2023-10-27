@@ -448,7 +448,7 @@ def log_model(
     onnx_execution_providers=None,
     onnx_session_options=None,
     metadata=None,
-    save_as_external_data=True
+    save_as_external_data=True,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
@@ -523,5 +523,5 @@ def log_model(
         onnx_execution_providers=onnx_execution_providers,
         onnx_session_options=onnx_session_options,
         metadata=metadata,
-        save_as_external_data=save_as_external_data
+        save_as_external_data=save_as_external_data,
     )
