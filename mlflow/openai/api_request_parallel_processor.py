@@ -112,7 +112,7 @@ class APIRequest:
             # check time since first request, fail at 10 minutes
             if current_time - self.start_time < 600:
                 if current_time - self.last_log_time > 60:
-                    _logger.info(f"Retrying for request failed with error {e}.")
+                    _logger.warning(f"Retrying for request failed with error {e}.")
                 retry_queue.put_nowait(self)
             else:
                 status_tracker.complete_task(success=False)
@@ -313,7 +313,7 @@ def process_api_requests(
                 remaining_seconds_to_pause = (
                     seconds_to_pause_after_rate_limit_error - seconds_since_rate_limit_error
                 )
-                _logger.warning(
+                _logger.debug(
                     "Encountered rate limit error. Pausing to cool down for "
                     f"{remaining_seconds_to_pause} seconds..."
                 )
@@ -330,7 +330,7 @@ def process_api_requests(
             f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
         )
     if status_tracker.num_rate_limit_errors > 0:
-        _logger.warning(
+        _logger.debug(
             f"{status_tracker.num_rate_limit_errors} rate limit errors received. "
             "Consider running at a lower rate."
         )
