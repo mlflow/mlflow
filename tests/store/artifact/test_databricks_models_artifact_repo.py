@@ -314,13 +314,12 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri",
         return_value=error_downloads,
     ), mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".download_chunk",
-        side_effect=Exception("Retry failed"),
+        "mlflow.utils.file_utils.download_chunk", side_effect=Exception("Retry failed")
     ) as mock_download_chunk:
         with pytest.raises(MlflowException, match="Retry failed"):
             databricks_model_artifact_repo._download_file(remote_file_path, "")
 
-        mock_download_chunk.assert_called_once_with(
+        mock_download_chunk.assert_called_with(
             range_start=2,
             range_end=3,
             headers={"header_name": "header_value"},
@@ -358,7 +357,7 @@ def test_parallelized_download_file_using_http_uri_with_failed_downloads(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri",
         return_value=failed_downloads,
     ), mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".download_chunk",
+        "mlflow.utils.file_utils.download_chunk",
         return_value=None,
     ) as download_chunk_mock:
         databricks_model_artifact_repo._download_file(remote_file_path, "")
