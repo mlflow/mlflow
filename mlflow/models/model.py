@@ -278,6 +278,7 @@ class Model:
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.mlflow_version = mlflow_version
         self.metadata = metadata
+        self.model_size_bytes = None
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -426,6 +427,21 @@ class Model:
         # pylint: disable=attribute-defined-outside-init
         self._saved_input_example_info = value
 
+    @property
+    def model_size_bytes(self) -> Optional[int]:
+        """
+        An optional integer that represents the model size in bytes
+        :getter: Retrieves the model size if it's calculated when the model is saved
+        :setter: Sets the model size to a model instance
+        :type: Optional[int]
+        """
+        return self._model_size_bytes
+
+    @model_size_bytes.setter
+    def model_size_bytes(self, value: Optional[int]):
+        # pylint: disable=attribute-defined-outside-init
+        self._model_size_bytes = value
+
     def get_model_info(self):
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -459,6 +475,8 @@ class Model:
             res.pop(_MLFLOW_VERSION_KEY)
         if self.metadata is not None:
             res["metadata"] = self.metadata
+        if self.model_size_bytes is not None:
+            res["model_size_bytes"] = self.model_size_bytes
         return res
 
     def to_yaml(self, stream=None):
@@ -677,3 +695,23 @@ def get_model_info(model_uri: str) -> ModelInfo:
         mlflow_version=model_meta.mlflow_version,
         metadata=model_meta.metadata,
     )
+
+class House:
+    @property
+    def price(self) -> Optional[float]:
+        return self._price
+
+    @price.setter
+    def price(self, new_price):
+        if new_price > 0 and isinstance(new_price, float):
+            self._price = new_price
+        else:
+            print("Please enter a valid price")
+
+    def to_yaml(self, stream=None):
+        """Write the model as yaml string."""
+        return yaml.safe_dump(self.to_dict(), stream=stream, default_flow_style=False)
+    def save(self, path):
+        """Write the model as a local YAML file."""
+        with open(path, "w") as out:
+            self.to_yaml(out)
