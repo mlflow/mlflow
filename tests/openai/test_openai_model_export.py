@@ -1,5 +1,6 @@
 import importlib
 import json
+from copy import deepcopy
 from unittest import mock
 
 import numpy as np
@@ -15,6 +16,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.openai.utils import (
+    _exclude_params_from_envs,
     _mock_chat_completion_response,
     _mock_models_retrieve_response,
     _mock_request,
@@ -666,3 +668,20 @@ def test_engine_and_deployment_id_for_azure_openai(tmp_path, monkeypatch):
         MlflowException, match=r"Either engine or deployment_id must be set for Azure OpenAI API"
     ):
         mlflow.pyfunc.load_model(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("params", "envs"),
+    [
+        ({"a": None, "b": "b"}, {"a": "a", "c": "c"}),
+        ({"a": "a", "b": "b"}, {"a": "a", "d": "d"}),
+        ({}, {"a": "a", "b": "b"}),
+        ({"a": "a"}, {"b": "b"}),
+    ],
+)
+def test_exclude_params_from_envs(params, envs):
+    original_envs = deepcopy(envs)
+    result = _exclude_params_from_envs(params, envs)
+    assert envs == original_envs
+    assert not any(key in params for key in result)
+    assert all(key in envs for key in result)
