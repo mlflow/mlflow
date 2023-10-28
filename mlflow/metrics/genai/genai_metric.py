@@ -5,8 +5,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from tqdm import tqdm
-
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
@@ -330,11 +328,20 @@ def make_genai_metric(
                 for indx, (input, output) in enumerate(zip(inputs, outputs))
             }
 
-            for future in tqdm(as_completed(futures), total=len(futures)):
-                indx = futures[future]
-                score, justification = future.result()
-                scores[indx] = score
-                justifications[indx] = justification
+            try:
+                from tqdm import tqdm
+
+                for future in tqdm(as_completed(futures), total=len(futures)):
+                    indx = futures[future]
+                    score, justification = future.result()
+                    scores[indx] = score
+                    justifications[indx] = justification
+            except ImportError:
+                for future in as_completed(futures):
+                    indx = futures[future]
+                    score, justification = future.result()
+                    scores[indx] = score
+                    justifications[indx] = justification
 
         # loop over the aggregations and compute the aggregate results on the scores
         def aggregate_function(aggregate_option, scores):
