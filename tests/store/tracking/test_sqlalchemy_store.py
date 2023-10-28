@@ -146,14 +146,16 @@ def test_fail_on_multiple_drivers():
 
 @pytest.fixture
 def test_database(tmp_path: Path) -> SqlAlchemyStore:
-    yield _get_store(tmp_path)
+    store = _get_store(tmp_path)
+    yield store
     _cleanup_database(store)
 
 
 def _get_store(tmp_path: Path):
-    db_uri = f"{DB_URI}{tmp_path / 'temp.db'}"
-    MLFLOW_TRACKING_URI.set(db_uri)
-    return SqlAlchemyStore(db_uri, str(tmp_path))
+    db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir(exist_ok=True)
+    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
 
 
 def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):
@@ -188,10 +190,8 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.query(model).delete()
 
         # Reset experiment_id to start at 1
-        reset_experiment_id = _get_query_to_reset_experiment_id(store)
-        if reset_experiment_id:
+        if reset_experiment_id := _get_query_to_reset_experiment_id(store):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
-    MLFLOW_TRACKING_URI.unset()
 
 
 def _experiment_factory(names, store: SqlAlchemyStore) -> Union[str, list]:
