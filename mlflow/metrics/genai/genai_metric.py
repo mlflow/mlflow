@@ -332,7 +332,7 @@ def make_genai_metric(
             try:
                 from tqdm.auto import tqdm
 
-                as_comp = tqdm(as_comp)
+                as_comp = tqdm(as_comp, total=len(futures))
             except ImportError:
                 pass
 
