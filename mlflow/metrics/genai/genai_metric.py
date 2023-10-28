@@ -328,7 +328,15 @@ def make_genai_metric(
                 for indx, (input, output) in enumerate(zip(inputs, outputs))
             }
 
-            for future in as_completed(futures):
+            as_comp = as_completed(futures)
+            try:
+                from tqdm.auto import tqdm
+
+                as_comp = tqdm(as_comp, total=len(futures))
+            except ImportError:
+                pass
+
+            for future in as_comp:
                 indx = futures[future]
                 score, justification = future.result()
                 scores[indx] = score
