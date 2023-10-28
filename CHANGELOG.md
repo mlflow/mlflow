@@ -8,8 +8,6 @@ MLflow 2.8.0 includes several notable new features and improvements
 - The MLflow Docs modernization effort has started. You will see a very different look and feel to the docs when visiting them, along with a batch of new tutorials and guides. More changes will be coming soon to the docs!
 - 4 new LLM providers have been added! Google PaLM 2, AWS Bedrock, AI21 Labs, and HuggingFace TGI can now be configured and used within the AI Gateway. Learn more in the new AI Gateway docs!
 
-MLflow 2.8.0 includes several major features and improvements
-
 Features:
 
 - [Gateway] Add support for AWS Bedrock as a provider in the AI Gateway (#9598, @andrew-christianson)
