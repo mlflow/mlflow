@@ -98,6 +98,8 @@ def _call_openai_api(openai_uri, payload):
         raise MlflowException(
             f"Invalid Request to OpenAI. Error response:\n {e}", error_code=BAD_REQUEST
         )
+    except MlflowException as e:
+        raise e
     except Exception as e:
         raise MlflowException(f"Error response from OpenAI:\n {e}")
 

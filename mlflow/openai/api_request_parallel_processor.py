@@ -34,7 +34,6 @@ from openai.openai_object import OpenAIObject
 
 import mlflow
 from mlflow.openai.utils import _OAITokenHolder
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 _logger = logging.getLogger(__name__)
 
