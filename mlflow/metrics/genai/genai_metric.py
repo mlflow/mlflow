@@ -328,20 +328,19 @@ def make_genai_metric(
                 for indx, (input, output) in enumerate(zip(inputs, outputs))
             }
 
+            as_comp = as_completed(futures)
             try:
                 from tqdm import tqdm
 
-                for future in tqdm(as_completed(futures), total=len(futures)):
-                    indx = futures[future]
-                    score, justification = future.result()
-                    scores[indx] = score
-                    justifications[indx] = justification
+                as_comp = tqdm(as_comp)
             except ImportError:
-                for future in as_completed(futures):
-                    indx = futures[future]
-                    score, justification = future.result()
-                    scores[indx] = score
-                    justifications[indx] = justification
+                pass
+
+            for future in as_comp:
+                indx = futures[future]
+                score, justification = future.result()
+                scores[indx] = score
+                justifications[indx] = justification
 
         # loop over the aggregations and compute the aggregate results on the scores
         def aggregate_function(aggregate_option, scores):
