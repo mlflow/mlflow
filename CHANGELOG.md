@@ -1,5 +1,87 @@
 # CHANGELOG
 
+## 2.8.0 (2023-10-28)
+
+MLflow 2.8.0 includes several major features and improvements
+
+Features:
+
+- [Gateway] Implement AWS Bedrock provider for AI Gateway (#9598, @andrew-christianson)
+- [UI] MLflow UI sync (#10163, @hubertzub-db)
+- [Models] Add param to enable/disable saving ONNX model as external data (#10152, @daniellok-db)
+- [Gateway] Add support for Huggingface Text Generation Inference (#10072, @SDonkelaarGDD)
+- [Artifacts] add xethub plugin as extra dependency and document as community plugin (#9957, @Kelton8Z)
+- [Tracking] Add support for customizing auth for outgoing http request (#10049, @lu-ohai)
+- [Model Registry] Build copy model version API for SQL and UC model registry stores (#10078, @jerrylian-db)
+- [Tracking] Introduce experimental flag "synchronous" to facilitate asynchronous logging (metrics/params/tags) in mlflow. (#9705, @sagarsumant)
+- [] Retriever model-type with precision_at_k built-in metric (#10079, @liangz1)
+- [Model Registry] Create copy model version API for local file store (#9946, @jerrylian-db)
+- [Models] OpenAI inference params (#9909, @santiagxf)
+- [Models] Evaluate input extend dataset (#9830, @liangz1)
+- [Docs / Tracking] MLflow Evaluation and Metrics (#9913, @prithvikannan)
+- [Gateway] Introduce `MLFLOW_GATEWAY_CONFIG_PATH` environment variable (#9822, @danilopeixoto)
+- [Docs / Model Registry / Models / Scoring] Ensure model traceability by providing model name and version in pyfu… (#9402, @M4nouel)
+- [Docs / Gateway] Add PaLM as a provider to MLflow AI Gateway (#9797, @arpitjasa-db)
+- [Models] Johnsnowlabs Flavor : removed pandas version constraint (#9876, @C-K-Loan)
+- [Models] Support for completions in OpenAI flavor (#9838, @santiagxf)
+- [Docs / Models] Model configuration for PyFunc flavor (#9251, @santiagxf)
+- [Gateway] Add AI21labs as a provider in  MLflow AI Gateway (#9828, @zhe-db)
+- [Tracking] Add a databricks login API for mlflow (#9665, @chenmoneygithub)
+- [] Add system prefix to system metrics (#9794, @chenmoneygithub)
+- [Tracking] [Auth] Only admins can create new user (#9700, @gabrielfu)
+- [] Extend mlflow.evaluate to support single output function (#9718, @liangz1)
+- [Models] Support for Azure AD authentication and fix embeddings on Azure OpenAI (#9704, @santiagxf)
+- [Tracking] Update max length of params to 6k (#9709, @serena-ruan)
+- [Tracking] Make spark flavor support saving / loading spark connect ML models (#9534, @WeichenXu123)
+- [Models] Support saving params in input example (#9655, @serena-ruan)
+- [Models] Add a MLflow Tensorflow callback (#9637, @chenmoneygithub)
+- [Tracking] Add system metrics logging to MLflow fluent API (#9557, @chenmoneygithub)
+- [Tracking] Add Keras Core support (callback only) (#9579, @chenmoneygithub)
+- [Tracking] Add a MLflow Tensorflow callback (#9454, @chenmoneygithub)
+
+Bug fixes:
+
+- [] Some fixes to `mlflow.login` (#10180, @chenmoneygithub)
+- [Tracking] Removing the hardcoded outputs for single output column (#10160, @sunishsheth2009)
+- [R / Tracking] Adjustments to config retrieval when schema is Databricks (#10117, @zacdav-db)
+- [Models] Disallow heterogeneous memory configuration when saving transformers model (#10087, @BenWilson2)
+- [Tracking] Remove perplexity from default evaluator (#10086, @chenmoneygithub)
+- [Tracking] [bug-fix] Fixing target and prediction mapping for renamed keys (#10114, @sunishsheth2009)
+- [Tracking] [Bug fix] Fixing support for numpy array for eval (#10048, @sunishsheth2009)
+- [Tracking] Making sure that eval_config values are passed to the eval_fn (#10024, @sunishsheth2009)
+- [Tracking] [bug-fix] Fixing target and prediction mapping for eval_fn (#10002, @sunishsheth2009)
+- [Tracking] Adding support for azure openai (#9982, @sunishsheth2009)
+- [Build / Docker] models cli: change default env-manager to virtualenv for `generate-dockerfile` (#9938, @Beramos)
+- [] replace % with %% to unblock complex passwords/hosts for authentication (#9760, @dotdothu)
+- [Tracking] Set network metrics to start from 0 (#9714, @chenmoneygithub)
+- [Tracking] Add step for system metrics logging (#9712, @chenmoneygithub)
+- [Models] add dynamic dataframe typing plus tests (#9044, @wamartin-aml)
+- [Models] support langchain chains with multiple outputs (#9497, @bbqiu)
+
+Documentation updates:
+
+- [] Improve the readability of section "Select Metrics to Evaluate" in LLM eval doc (#10199, @chenmoneygithub)
+- [Docs] Initial MLflow Docs Overhaul (#10197, @BenWilson2)
+- [Docs] Add warning to docs about onnx save and log argument (#10178, @BenWilson2)
+- [Docs / Examples] Add AI21Labs support to MLflow Gateway docs and examples (#10168, @zhe-db)
+- [Tracking] Adding docs for relevance and fixing typo (#10170, @sunishsheth2009)
+- [Docs] Add documentation for `copy_model_version` API (#10140, @jerrylian-db)
+- [] Fix incorrect docstring of mlflow evaluate (#10142, @chenmoneygithub)
+- [Artifacts] add xethub plugin as extra dependency and document as community plugin (#9957, @Kelton8Z)
+- [Tracking] Add support for customizing auth for outgoing http request (#10049, @lu-ohai)
+- [Docs] Michaelberk/add style to contributing guide (#9907, @mberk06)
+- [] Fix lightning autolog code example (#9964, @chenmoneygithub)
+- [Docs] Add guide for LLM eval (#10058, @chenmoneygithub)
+- [Tracking] Cleaning up custom metrics from docs strings (#10016, @sunishsheth2009)
+- [Docs] Add code example for `mlflow.data.from_numpy()` (#9885, @chenmoneygithub)
+- [Tracking] Improve HuggingFace dataset logging (#9845, @chenmoneygithub)
+- [R] R document update (#9835, @darshan8850)
+- [Model Registry] Update model registry documentation for aliases (#9721, @jerrylian-db)
+
+Small bug fixes and documentation updates:
+
+#10202, #10189, #10188, #10159, #10175, #10165, #10154, #10083, #10082, #10081, #10071, #10077, #10070, #10053, #10057, #10055, #10020, #9928, #9929, #9944, #9979, #9923, #9842, @annzhang-db; #10203, #10196, #10172, #10176, #10145, #10115, #10107, #10054, #10056, #10018, #9976, #9999, #9998, #9995, #9978, #9973, #9975, #9972, #9974, #9960, #9925, #9920, @prithvikannan; #10144, #10166, #10143, #10129, #10059, #10123, #9555, #9619, @bbqiu; #10187, #10191, #10181, #10179, #10151, #10148, #10126, #10119, #10099, #10100, #10097, #10089, #10096, #10091, #10085, #10068, #10065, #10064, #10060, #10023, #10030, #10028, #10022, #10007, #10006, #9988, #9961, #9963, #9954, #9953, #9937, #9932, #9931, #9910, #9901, #9852, #9851, #9848, #9847, #9841, #9844, #9825, #9820, #9806, #9802, #9800, #9799, #9790, #9787, #9791, #9788, #9785, #9786, #9784, #9754, #9768, #9770, #9753, #9697, #9749, #9747, #9748, #9751, #9750, #9729, #9745, #9735, #9728, #9725, #9716, #9694, #9681, #9666, #9643, #9641, #9621, #9607, @harupy; #10200, #10201, #10139, #10133, #10090, #9934, #9933, #9831, #9692, #9627, #9626, @chenmoneygithub; #10110, @wenfeiy-db; #10195, #9895, #9880, #9679, @BenWilson2; #10174, #10177, #10109, #9706, @jerrylian-db; #10113, #9765, @smurching; #10150, #10138, #10136, @dbczumar; #10153, #10032, #9986, #9874, #9727, #9707, @serena-ruan; #10155, @shaotong-db; #10131, #10017, #9966, #9924, @sunishsheth2009; #10121, #10116, #10102, #10098, @B-Step62; #10095, #10026, #9991, @daniellok-db; #10050, @Dennis40816; #10062, #9868, @Gekko0114; #10033, @Anushka-Bhowmick; #9983, #10004, #9958, #9926, #9690, @liangz1; #9997, #9940, #9922, #9919, #9890, #9888, #9889, #9810, @TomeHirata; #9994, #9970, #9950, @lightnessofbein; #9965, #9677, @ShorthillsAI; #9906, @jessechancy; #9942, #9771, @Sai-Suraj-27; #9902, @remyleone; #9892, #9865, #9866, #9853, @montanarograziano; #9875, @Raghavan-B; #9858, @Salz0; #9878, @maksboyarin; #9882, @lukasz-gawron; #9827, @Bncer; #9819, @gabrielfu; #9792, @harshk461; #9726, @Chiragasourabh; #9663, @Abhishek-TyRnT; #9670, @mberk06; #9755, @simonlsk; #9757, #9775, #9776, #9774, @AmirAflak; #9782, @garymm; #9756, @issamarabi; #9645, @shichengzhou-db; #9671, @zhe-db; #9660, @mingyu89; #9575, @akshaya-a; #9629, @pnacht
+
 ## 2.7.1 (2023-09-17)
 
 MLflow 2.7.1 is a patch release containing the following features, bug fixes and changes:
