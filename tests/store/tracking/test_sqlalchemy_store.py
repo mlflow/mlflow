@@ -146,8 +146,7 @@ def test_fail_on_multiple_drivers():
 
 @pytest.fixture
 def test_database(tmp_path: Path) -> SqlAlchemyStore:
-    store = _get_store(tmp_path)
-    yield store
+    yield _get_store(tmp_path)
     _cleanup_database(store)
 
 
