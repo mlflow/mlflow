@@ -116,6 +116,7 @@ class APIRequest:
                     self.last_log_time = current_time
                 retry_queue.put_nowait(self)
             else:
+                _logger.warning("Request failed after retrying for 10 minutes.")
                 status_tracker.complete_task(success=False)
         # Other retryable errors
         except (
