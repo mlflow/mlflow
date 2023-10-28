@@ -1503,6 +1503,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _test_first_row(self, eval_df):
         # test calculations on first row of eval_df
+        _logger.info("Testing metrics on first row...")
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
         for metric in self.builtin_metrics:
