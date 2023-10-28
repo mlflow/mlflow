@@ -119,7 +119,9 @@ class APIRequest:
             else:
                 _logger.warning("Request failed after retrying for 10 minutes.")
                 status_tracker.complete_task(success=False)
-                status_tracker.error = e
+                status_tracker.error = mlflow.MlflowException(
+                    "Request failed after retrying for 10 minutes."
+                )
         # Other retryable errors
         except (
             openai.error.Timeout,
@@ -305,7 +307,7 @@ def process_api_requests(
                     next_request = None
                     status_tracker.complete_task(success=False)
                     status_tracker.error = mlflow.MlflowException(
-                        "Request size exceeded max tokens.", error_code=BAD_REQUEST
+                        "Request size exceeded max tokens."
                     )
 
             # if all tasks are finished, break
