@@ -26,7 +26,7 @@ If you would like a copy of this notebook to execute in your environment, downlo
 
 .. raw:: html
 
-    <a href="question-answering-evaluation.ipynb" class="download-btn" download>Download the notebook</a><br>
+    <a href="question-answering-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br>
 
 To follow along and see the sections of the notebook guide, click below:
 
@@ -42,7 +42,7 @@ If you would like a copy of this notebook to execute in your environment, downlo
 
 .. raw:: html
 
-    <a href="rag-evaluation.ipynb" class="download-btn" download>Download the notebook</a><br>
+    <a href="rag-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br>
 
 To follow along and see the sections of the notebook guide, click below:
 

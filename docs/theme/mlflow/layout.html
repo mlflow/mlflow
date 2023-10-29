@@ -225,6 +225,25 @@
     });
   </script>
 
+  {# Notebook download functionality #}
+  <script type="text/javascript">
+    document.addEventListener("DOMContentLoaded", function() {
+        // Force download for notebook-download-btn
+        const downloadButtons = document.querySelectorAll('.notebook-download-btn');
+        downloadButtons.forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent default behavior
+                const link = document.createElement('a');
+                link.href = button.href;
+                link.download = ''; // This will prompt the user to download the content
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        });
+    });
+</script>
+
   {%- block footer %} {% endblock %}
 </body>
 </html>
