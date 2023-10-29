@@ -1,0 +1,115 @@
+name: Automerge PRs
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # Run every 10 minutes
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Automerge PRs with "automerge" label created within the last month and are mergeable
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          retries: 3
+          script: |
+            const { repo: { owner, repo } } = context;
+
+            const MERGE_INTERVAL_MS = 5000;   // 5 seconds pause after a merge
+
+            async function sleep(ms) {
+              return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            async function logRateLimit() {
+              const { data: rateLimit } = await github.rest.rateLimit.get();
+              console.log(`Rate limit remaining: ${rateLimit.resources.core.remaining}`);
+              console.log(`Rate limit resets at: ${new Date(rateLimit.resources.core.reset * 1000).toISOString()}`);
+            }
+
+            async function fetchPullRequestDetails(prNumber) {            
+              const pullRequest = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: prNumber
+              }).then(res => res.data);
+
+              if (pullRequest.mergeable !== null) {
+                return pullRequest;
+              }
+              return null;
+            }
+
+            async function isPRApproved(prNumber) {
+              const { data: reviews } = await github.rest.pulls.listReviews({
+                owner,
+                repo,
+                pull_number: prNumber
+              });
+              return reviews.some(review => review.state === 'APPROVED');
+            }
+
+            async function areAllChecksPassed(sha) {
+              const { data: checkRuns } = await github.rest.checks.listForRef({
+                owner,
+                repo,
+                ref: sha
+              });
+              return checkRuns.check_runs.every(run => run.conclusion === 'success');
+            }
+
+            // Get date from a month ago in ISO format
+            const oneMonthAgo = new Date();
+            oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            const sinceDate = oneMonthAgo.toISOString();
+
+            // List PRs with the "automerge" label created within the last month
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              labels: 'automerge',
+              since: sinceDate
+            });
+
+            // Filter for pull requests from the list of issues
+            const pullRequests = issues.filter(issue => issue.pull_request);
+
+            for (const pr of pullRequests) {
+              const pullRequest = await fetchPullRequestDetails(pr.number);
+
+              if (!pullRequest || pullRequest.mergeable !== true) {
+                console.log(`PR #${pr.number} is not mergeable or could not fetch details. Skipping this PR.`);
+                await logRateLimit();
+                continue;
+              }
+
+              if (!await isPRApproved(pr.number)) {
+                console.log(`PR #${pr.number} hasn't been approved. Skipping merge.`);
+                await logRateLimit();
+                continue;
+              }
+
+              if (await areAllChecksPassed(pullRequest.head.sha)) {
+                try {
+                  await github.rest.pulls.merge({
+                    owner,
+                    repo,
+                    pull_number: pr.number
+                  });
+                  console.log(`Merged PR #${pr.number}`);
+
+                  await sleep(MERGE_INTERVAL_MS);
+                  await logRateLimit();
+                } catch (error) {
+                  console.log(`Failed to merge PR #${pr.number}. Reason: ${error.message}`);
+                }
+              } else {
+                console.log(`Checks not ready for PR #${pr.number}. Skipping merge.`);
+                await logRateLimit();
+              }
+            }
