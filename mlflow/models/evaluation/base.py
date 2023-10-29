@@ -14,7 +14,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -413,6 +413,11 @@ def _hash_array_like_obj_as_bytes(data):
 
         data = data.applymap(_hash_array_like_element_as_bytes)
         return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
+    elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
+        # convert numpy array of lists into numpy array of numpy arrays
+        # because lists are not hashable
+        hashable = np.array(str(val) for val in data)
+        return _hash_ndarray_as_bytes(hashable)
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
@@ -1163,15 +1168,15 @@ def evaluate(
     model=None,
     data=None,
     *,
-    model_type: Optional[str] = None,
+    model_type=None,
     targets=None,
     predictions=None,
     dataset_path=None,
-    feature_names: Optional[list] = None,
+    feature_names=None,
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
-    extra_metrics: Optional[List[EvaluationMetric]] = None,
+    extra_metrics=None,
     custom_artifacts=None,
     validation_thresholds=None,
     baseline_model=None,
@@ -1179,10 +1184,13 @@ def evaluate(
     model_config=None,
     baseline_config=None,
 ):
-    '''
-    Evaluate a PyFunc model or custom callable on the specified dataset using specified
-    ``evaluators``, and log resulting metrics & artifacts to MLflow tracking server. For additional
-    overview information, see :ref:`the Model Evaluation documentation <model-evaluation>`.
+    '''Evaluate the model performance on given data and selected metrics.
+
+    This function evaluates a PyFunc model or custom callable on the specified dataset using
+    specified ``evaluators``, and logs resulting metrics & artifacts to MLflow tracking server.
+    Users can also skip setting ``model`` and put the model outputs in ``data`` directly for
+    evaluation. For detailed information, please read
+    :ref:`the Model Evaluation documentation <model-evaluation>`.
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
@@ -1305,9 +1313,9 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For retriever models, the default evaluator logs:
-        - **metrics**: ``precision_at_k``: has a default value of k = 3. To use a different
-          value for k, include ``"k"`` in the ``evaluator_config`` parameter:
-          ``evaluator_config={"k":5}``.
+        - **metrics**: :mod:`precision_at_k(k) <mlflow.metrics.precision_at_k>` and
+          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>` - both have a default value of
+          ``retriever_k`` = 3.
         - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
           of the model in tabular format.
 
@@ -1354,8 +1362,10 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
-        - **k**: The number of top-ranked retrieved documents to use when computing the built-in
-          metric ``precision_at_k`` for model_type="retriever". Default value is 3. For all other
+        - **retriever_k**: A parameter used when ``model_type="retriever"`` as the number of
+          top-ranked retrieved documents to use when computing the built-in metric
+          :mod:`precision_at_k(k) <mlflow.metrics.precision_at_k>` and
+          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>`. Default value is 3. For all other
           model types, this parameter will be ignored.
 
      - Limitations of evaluation dataset:
@@ -1490,14 +1500,14 @@ def evaluate(
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
                          tag for lineage tracking purposes.
 
-    :param feature_names: (Optional) If the ``data`` argument is a feature data numpy array or list,
+    :param feature_names: (Optional) A list. If the ``data`` argument is a numpy array or list,
                           ``feature_names`` is a list of the feature names for each feature. If
-                          ``None``, then the ``feature_names`` are generated using the format
-                          ``feature_{feature_index}``. If the ``data`` argument is a Pandas
+                          ``feature_names=None``, then the ``feature_names`` are generated using the
+                          format ``feature_{feature_index}``. If the ``data`` argument is a Pandas
                           DataFrame or a Spark DataFrame, ``feature_names`` is a list of the names
-                          of the feature columns in the DataFrame. If ``None``, then all columns
-                          except the label column and the predictions column are regarded as
-                          feature columns.
+                          of the feature columns in the DataFrame. If ``feature_names=None``, then
+                          all columns except the label column and the predictions column are
+                          regarded as feature columns.
 
     :param evaluators: The name of the evaluator to use for model evaluation, or a list of
                        evaluator names. If unspecified, all evaluators capable of evaluating the
@@ -1511,8 +1521,10 @@ def evaluate(
 
     :param extra_metrics:
         (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>` objects.
-        See the `mlflow.metrics` module for more information about the
-        builtin metrics and how to define extra metrics
+        These metrics are computed in addition to the default metrics associated with pre-defined
+        `model_type`, and setting `model_type=None` will only compute the metrics specified in
+        `extra_metrics`. See the `mlflow.metrics` module for more information about the
+        builtin metrics and how to define extra metrics.
 
         .. code-block:: python
             :caption: Example usage of extra metrics

@@ -295,14 +295,18 @@ def make_genai_metric(
             try:
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 return _extract_score_and_justification(raw_result)
+            except ImportError:
+                raise
+            except MlflowException as e:
+                if e.error_code in [
+                    ErrorCode.Name(BAD_REQUEST),
+                    ErrorCode.Name(UNAUTHENTICATED),
+                    ErrorCode.Name(INVALID_PARAMETER_VALUE),
+                ]:
+                    raise
+                else:
+                    return None, f"Failed to score model on payload. Error: {e!s}"
             except Exception as e:
-                if isinstance(e, MlflowException):
-                    if e.error_code in [
-                        ErrorCode.Name(BAD_REQUEST),
-                        ErrorCode.Name(UNAUTHENTICATED),
-                        ErrorCode.Name(INVALID_PARAMETER_VALUE),
-                    ]:
-                        raise MlflowException(e)
                 return None, f"Failed to score model on payload. Error: {e!s}"
 
         scores = [None] * len(inputs)
@@ -324,7 +328,15 @@ def make_genai_metric(
                 for indx, (input, output) in enumerate(zip(inputs, outputs))
             }
 
-            for future in as_completed(futures):
+            as_comp = as_completed(futures)
+            try:
+                from tqdm.auto import tqdm
+
+                as_comp = tqdm(as_comp, total=len(futures))
+            except ImportError:
+                pass
+
+            for future in as_comp:
                 indx = futures[future]
                 score, justification = future.result()
                 scores[indx] = score

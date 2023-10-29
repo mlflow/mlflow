@@ -41,6 +41,12 @@ const modelByName = (state = {}, action: any) => {
     }
     case fulfilled(GET_REGISTERED_MODEL): {
       const detailedModel = action.payload[getProtoField('registered_model')];
+
+      // If model retrieved from API contains no assigned aliases,
+      // the corresponding field will be excluded from the payload.
+      // We set it explicitly to make sure it works properly with the equality check below.
+      detailedModel.aliases ||= [];
+
       const { modelName } = action.meta;
       const modelWithUpdatedMetadata = {
         // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message

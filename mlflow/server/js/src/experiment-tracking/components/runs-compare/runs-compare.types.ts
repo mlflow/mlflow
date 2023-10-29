@@ -1,7 +1,7 @@
 import type {
-  CompareRunsChartAxisDef,
-  CompareChartRunData,
-} from './charts/CompareRunsCharts.common';
+  RunsChartAxisDef,
+  RunsChartsRunData,
+} from '../runs-charts/components/RunsCharts.common';
 import { getUUID } from '../../../common/utils/ActionUtils';
 import { MetricEntitiesByName } from '../../types';
 
@@ -106,9 +106,12 @@ export abstract class RunsCompareCardConfig {
       } as RunsCompareBarCardConfig);
     });
 
-    resultChartSet.push(
-      RunsCompareCardConfig.getEmptyChartCardByType(RunsCompareChartType.PARALLEL, getUUID()),
-    );
+    // If no other charts exist, show empty parallel coordinates plot
+    if (resultChartSet.length === 0) {
+      resultChartSet.push(
+        RunsCompareCardConfig.getEmptyChartCardByType(RunsCompareChartType.PARALLEL, getUUID()),
+      );
+    }
 
     return resultChartSet;
   }
@@ -117,8 +120,8 @@ export abstract class RunsCompareCardConfig {
 // TODO: add configuration fields relevant to scatter chart
 export class RunsCompareScatterCardConfig extends RunsCompareCardConfig {
   type: RunsCompareChartType.SCATTER = RunsCompareChartType.SCATTER;
-  xaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
-  yaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
+  xaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
+  yaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
   runsCountToCompare = 100;
 }
 
@@ -160,9 +163,9 @@ export class RunsCompareBarCardConfig extends RunsCompareCardConfig {
 // TODO: add configuration fields relevant to contour chart
 export class RunsCompareContourCardConfig extends RunsCompareCardConfig {
   type: RunsCompareChartType.CONTOUR = RunsCompareChartType.CONTOUR;
-  xaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
-  yaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
-  zaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
+  xaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
+  yaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
+  zaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
 }
 
 // TODO: add configuration fields relevant to parallel coords chart

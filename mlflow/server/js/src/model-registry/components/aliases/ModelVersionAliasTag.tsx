@@ -8,6 +8,7 @@ type ModelVersionAliasTagProps = { value: string; compact?: boolean } & Pick<
 
 // When displayed in compact mode (e.g. within <Select>), constrain the width to 160 pixels
 const COMPACT_MODE_MAX_WIDTH = 160;
+const REGULAR_MAX_WIDTH = 300;
 const TAG_SYMBOL = '@';
 
 export const ModelVersionAliasTag = ({
@@ -32,10 +33,9 @@ export const ModelVersionAliasTag = ({
     >
       <span
         css={{
-          textTransform: 'capitalize',
           display: 'block',
           whiteSpace: 'nowrap',
-          maxWidth: compact ? COMPACT_MODE_MAX_WIDTH : '100%',
+          maxWidth: compact ? COMPACT_MODE_MAX_WIDTH : REGULAR_MAX_WIDTH,
           textOverflow: 'ellipsis',
           overflow: 'hidden',
         }}

@@ -1,17 +1,17 @@
 import { Button, Typography } from '@databricks/design-system';
 import { useMemo } from 'react';
 import { ReactComponent as ParallelChartSvg } from '../../../../common/static/parallel-chart-placeholder.svg';
-import type { CompareChartRunData } from '../charts/CompareRunsCharts.common';
+import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 import LazyParallelCoordinatesPlot, {
   processParallelCoordinateData,
 } from '../charts/LazyParallelCoordinatesPlot';
-import { useCompareRunsTooltip } from '../hooks/useCompareRunsTooltip';
+import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsTooltip';
 import type { RunsCompareParallelCardConfig } from '../runs-compare.types';
 import { RunsCompareChartCardWrapper } from './ChartCard.common';
 
 export interface RunsCompareParallelChartCardProps {
   config: RunsCompareParallelCardConfig;
-  chartRunData: CompareChartRunData[];
+  chartRunData: RunsChartsRunData[];
 
   onDelete: () => void;
   onEdit: () => void;
@@ -61,7 +61,7 @@ export const RunsCompareParallelChartCard = ({
   }, [config, chartRunData]);
 
   const { setTooltip, resetTooltip, selectedRunUuid, closeContextMenu } =
-    useCompareRunsTooltip(config);
+    useRunsChartsTooltip(config);
 
   return (
     <RunsCompareChartCardWrapper
