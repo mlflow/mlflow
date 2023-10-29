@@ -42,7 +42,7 @@ as fast as possible, the guides below will be your best first stop.
 
 .. raw:: html
 
-    <a href="guides/index.html" class="download-btn">View the AI Gateway Getting Started Guide</a><br>
+    <a href="guides/index.html" class="download-btn" download>View the AI Gateway Getting Started Guide</a><br>
 
 .. _gateway-quickstart:
 

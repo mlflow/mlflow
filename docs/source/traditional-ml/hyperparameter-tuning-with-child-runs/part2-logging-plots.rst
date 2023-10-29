@@ -308,7 +308,7 @@ If you're interested, get a copy of the notebook by clicking on the button below
 
 .. raw:: html
 
-   <a href="notebooks/logging-plots-in-mlflow.ipynb" class="download-btn">Download the notebook</a>
+   <a href="notebooks/logging-plots-in-mlflow.ipynb" class="download-btn" download>Download the notebook</a>
 
 After downloading the notebook and opening it with Jupyter:
 

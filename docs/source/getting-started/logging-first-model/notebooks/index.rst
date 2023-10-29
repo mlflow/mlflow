@@ -14,4 +14,4 @@ clicking this link:
 
 .. raw:: html
 
-   <a href="logging-first-model.ipynb" class="download-btn">Download the notebook</a>
+   <a href="logging-first-model.ipynb" class="download-btn" download>Download the notebook</a>

@@ -326,7 +326,7 @@ code within in order to achieve this.
 
 .. raw:: html
 
-   <a href="notebooks/parent-child-runs.ipynb" class="download-btn">Download the notebook</a>
+   <a href="notebooks/parent-child-runs.ipynb" class="download-btn" download>Download the notebook</a>
 
 The notebook contains an example implementation of this, but it is
 recommended to develop your own implementation that fulfills the following requirements:

@@ -64,7 +64,7 @@ If you'd like to run a copy of the notebooks locally in your environment, you ca
 
 .. raw:: html
 
-    <a href="custom-pyfunc-advanced-llm.ipynb" class="download-btn">Download the LLM Custom Pyfunc notebook</a><br>
+    <a href="custom-pyfunc-advanced-llm.ipynb" class="download-btn" download>Download the LLM Custom Pyfunc notebook</a><br>
 
 .. note::
     To execute the notebooks, ensure you either have a local MLflow Tracking Server running or adjust the ``mlflow.set_tracking_uri()`` to point to an active MLflow Tracking Server instance. 

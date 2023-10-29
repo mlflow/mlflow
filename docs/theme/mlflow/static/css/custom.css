@@ -1151,27 +1151,6 @@ text-transform: capitalize;
 .level-3 { margin-left: 120px; }
 .level-4 { margin-left: 160px; }
 
-
-/**
- * Download button for notebooks
- */
- a.download-btn {
-  display: inline-block;
-  padding: 8px 12px;
-  border: 1px solid #007acc;
-  background-color: #007acc;
-  color: #ffffff;
-  text-decoration: none;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  font-family: "Source Sans Pro";
-}
-
-a.download-btn i.fas {
-  margin-right: 5px;  /* Add some space between the icon and the text */
-}
-
-
 /**
  * Overrides to the nbsphinx modifications to the .highlight class that strips the clippy implementation (copy of code)
  */
