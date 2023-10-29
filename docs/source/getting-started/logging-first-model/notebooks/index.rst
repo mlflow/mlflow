@@ -14,4 +14,4 @@ clicking this link:
 
 .. raw:: html
 
-   <a href="logging-first-model.ipynb" class="download-btn">Download the notebook</a>
+   <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/logging-first-model/notebooks/logging-first-model.ipynb" class="notebook-download-btn">Download the notebook</a>

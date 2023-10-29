@@ -17,7 +17,7 @@ If you would like to get started immediately by interactively running the notebo
 
 .. raw:: html
 
-    <a href="logging-first-model/notebooks/logging-first-model.ipynb" class="download-btn">
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/logging-first-model/notebooks/logging-first-model.ipynb" class="notebook-download-btn">
         <i class="fas fa-download"></i>Download the Notebook</a><br>
 
 Guide sections
