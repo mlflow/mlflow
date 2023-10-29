@@ -1257,6 +1257,30 @@ a.notebook-download-btn i.fas {
 }
 
 /**
+ * Download button specifically for notebooks
+ */
+ a.notebook-download-btn {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 1px solid #007acc;
+  background-color: #007acc;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  font-family: "Source Sans Pro";
+  transition: background-color 0.3s ease; 
+}
+
+a.notebook-download-btn:hover {
+  background-color: #005fa3; 
+}
+
+a.notebook-download-btn i.fas {
+  margin-right: 5px;  
+}
+
+/**
  * Logo cards
  */
  
