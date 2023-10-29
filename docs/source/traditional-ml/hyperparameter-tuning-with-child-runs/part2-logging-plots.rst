@@ -308,7 +308,7 @@ If you're interested, get a copy of the notebook by clicking on the button below
 
 .. raw:: html
 
-   <a href="notebooks/logging-plots-in-mlflow.ipynb" class="download-btn">Download the notebook</a>
+   <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/logging-plots-in-mlflow.ipynb" class="notebook-download-btn">Download the notebook</a>
 
 After downloading the notebook and opening it with Jupyter:
 
