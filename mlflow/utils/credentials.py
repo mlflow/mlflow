@@ -194,7 +194,7 @@ def _overwrite_or_create_databricks_profile(
 def _databricks_login():
     """Set up databricks authentication and connect MLflow to Databricks tracking server."""
     try:
-        import databricks.sdk  # noqa: F401
+        import databricks.sdk  # noqa: F401: we check the module beforehand for fast failing.
     except ImportError:
         raise ImportError(
             "Databricks SDK is not installed. To use `mlflow.login()` to connect MLflow to "
