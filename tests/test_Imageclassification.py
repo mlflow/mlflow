@@ -4,6 +4,7 @@ import os
 from mlflow import pyfunc
 from datasets import load_dataset
 from transformers import ViTImageProcessor,ViTForImageClassification
+
 def vision_model_save():
     model_name="facebook/deit-base-patch16-224"
     path= "facebook_deit_base_patch16_224"
@@ -17,6 +18,7 @@ def vision_model_save():
                 path=path,
         )
     return  path 
+    
 def load_mlmodel():
     path=vision_model_save()
     
