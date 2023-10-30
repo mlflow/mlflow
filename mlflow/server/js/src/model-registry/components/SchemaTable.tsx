@@ -15,6 +15,7 @@ import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
 import { Interpolation, Theme } from '@emotion/react';
 import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
+import { Theme as SignatureTheme } from '@databricks/design-system/dist/theme';
 
 const { Column } = Table;
 const { Text } = Typography;
@@ -84,18 +85,7 @@ function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
 function formatColumnSchema(spec: ColumnSpec | TensorSpec): React.ReactElement {
   const repr = spec.type === 'tensor' ? getTensorTypeRepr(spec) : getColumnTypeRepr(spec, 0);
 
-  return (
-    <pre
-      style={{
-        padding: 8,
-        marginTop: 8,
-        marginBottom: 8,
-        whiteSpace: 'pre-wrap',
-      }}
-    >
-      {repr}
-    </pre>
-  );
+  return <pre css={schemaTableStyles.signatureCodeBlock}>{repr}</pre>;
 }
 
 export class SchemaTableImpl extends React.PureComponent<Props> {
@@ -295,6 +285,12 @@ const getSchemaTableStyles = (theme: Theme) => ({
     lineHeight: '32px',
     cursor: 'pointer',
   },
+  signatureCodeBlock: (theme: SignatureTheme): Interpolation<SignatureTheme> => ({
+    whiteSpace: 'pre-wrap',
+    padding: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  }),
   '.ant-table-tbody>tr>td': {
     borderColor: theme.colors.borderDecorative,
   },
