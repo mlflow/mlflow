@@ -355,10 +355,10 @@ def test_schema_inference_validating_dictionary_keys():
 
 
 def test_schema_inference_on_lists_with_errors():
-    with pytest.raises(MlflowException, match="Expected all values in list to be of same type "):
+    with pytest.raises(MlflowException, match="Expected all values in list to be of same type"):
         _infer_schema(["a", 1])
 
-    with pytest.raises(MlflowException, match="Expected all values in list to be of same type "):
+    with pytest.raises(MlflowException, match="Expected all values in list to be of same type"):
         _infer_schema(["a", ["b", "c"]])
 
 
@@ -1595,8 +1595,6 @@ def test_schema_inference_on_dictionaries(data, data_type):
             [np.datetime64("2023-10-13 00:00:00"), np.datetime64("2023-10-14 00:00:00")],
             DataType.datetime,
         ),
-        ([["a", "b"], ["c"]], Array(DataType.string)),
-        ([np.array([np.int32(1), np.int32(2)]), np.array([np.int32(3)])], Array(DataType.integer)),
     ],
 )
 def test_schema_inference_on_lists(data, data_type):
@@ -1634,6 +1632,67 @@ def test_schema_inference_on_lists(data, data_type):
         ]
     )
     assert inferred_schema == expected_schema
+
+
+def test_schema_inference_with_empty_lists():
+    # If (non-nested) empty list is passed, should be inferred as string for backward compatibility
+    # with version 2.7.1: https://github.com/mlflow/mlflow/blob/v2.7.1/mlflow/types/utils.py#L150
+    data = []
+    assert _infer_schema(data) == Schema([ColSpec(DataType.string)])
+
+    # Nested list contains only an empty list is not allowed.
+    data = [[]]
+    with pytest.raises(
+        MlflowException,
+        match=r"A column of nested array type must include at least one non-empty array.",
+    ):
+        _infer_schema(data)
+
+    # This case is also considered as empty list, because None and np.nan are skipped.
+    data = [[None, np.nan]]
+    with pytest.raises(
+        MlflowException,
+        match=r"A column of nested array type must include at least one non-empty array.",
+    ):
+        _infer_schema(data)
+
+    # If at least one of sublists is not empty, we can assume other empty lists have the same type.
+    data = [
+        {
+            "data": [
+                ["a", "b", "c"],
+                [],
+                ["d", "e"],
+                [],
+            ]
+        }
+    ]
+    inferred_schema = _infer_schema(data)
+    expected_schema = Schema([ColSpec(Array(Array(DataType.string)), name="data")])
+    assert inferred_schema == expected_schema
+
+    # Complex case for deeply nested array
+    data = [
+        {
+            "data": [
+                [["a", "b", "c"], [], ["d"]],
+                [[], ["e"]],
+                [
+                    [],
+                    [],
+                    [],
+                ],
+            ]
+        }
+    ]
+    inferred_schema = _infer_schema(data)
+    expected_schema = Schema([ColSpec(Array(Array(Array(DataType.string))), name="data")])
+    assert inferred_schema == expected_schema
+
+    # Property value cannot be an empty list
+    data = [{"data": {"key": []}}]
+    with pytest.raises(MlflowException, match=r"Dictionary value must not be an empty list."):
+        _infer_schema(data)
 
 
 def test_repr_of_objects():

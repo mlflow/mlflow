@@ -139,7 +139,7 @@ def test_signature_inference_infers_input_and_output_as_expected():
 
 def test_infer_signature_on_nested_array():
     signature = infer_signature(
-        model_input=[{"queries": [["a", "b", "c"], ["d", "e"]]}],
+        model_input=[{"queries": [["a", "b", "c"], ["d", "e"], []]}],
         model_output=[{"answers": [["f", "g"], ["h"]]}],
     )
     assert signature.inputs == Schema([ColSpec(Array(Array(DataType.string)), name="queries")])
