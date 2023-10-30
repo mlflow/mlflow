@@ -3,9 +3,15 @@ import posixpath
 from unittest import mock
 
 import pytest
+from requests import HTTPError
 
-from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.entities.multipart_upload import (
+    CreateMultipartUploadResponse,
+    MultipartUploadCredential,
+    MultipartUploadPart,
+)
 from mlflow.environment_variables import (
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
     MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_PASSWORD,
@@ -76,13 +82,10 @@ def http_artifact_repo():
 def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, expected_mime_type):
     file_path = tmp_path.joinpath(filename)
     file_path.write_text("0")
-    with mock.patch(
-        "mlflow.store.artifact.http_artifact_repo.http_request",
-        return_value=MockResponse({}, 200),
-    ) as mock_put:
-        http_artifact_repo.log_artifact(file_path, artifact_path)
+
+    def assert_called_log_artifact(mock_http_request):
         paths = (artifact_path, file_path.name) if artifact_path else (file_path.name,)
-        mock_put.assert_called_once_with(
+        mock_http_request.assert_called_once_with(
             http_artifact_repo._host_creds,
             posixpath.join("/", *paths),
             "PUT",
@@ -92,10 +95,60 @@ def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, exp
 
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 200),
+    ) as mock_put:
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+        assert_called_log_artifact(mock_put)
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
         return_value=MockResponse({}, 400),
     ):
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.log_artifact(file_path, artifact_path)
+
+    # assert mpu is triggered when file size is larger than minimum file size
+    file_path.write_text("0" * MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get())
+    with mock.patch.object(
+        http_artifact_repo, "_try_multipart_upload", return_value=200
+    ) as mock_mpu:
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+        mock_mpu.assert_called_once()
+
+    # assert reverted to normal upload when mpu is not supported
+    # mock that create_multipart_upload will returns a 400 error with appropriate message
+    with mock.patch.object(
+        http_artifact_repo,
+        "create_multipart_upload",
+        side_effect=HTTPError(
+            response=MockResponse(
+                data={"message": "Multipart upload is not supported for artifact repository"},
+                status_code=400,
+            )
+        ),
+    ), mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 200),
+    ) as mock_put:
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+        assert_called_log_artifact(mock_put)
+
+    # assert if mpu is triggered but the uploads failed, mpu is aborted and exception is raised
+    with mock.patch("requests.put", side_effect=Exception("MPU_UPLOAD_FAILS")), mock.patch.object(
+        http_artifact_repo,
+        "create_multipart_upload",
+        return_value=CreateMultipartUploadResponse(
+            upload_id="upload_id",
+            credentials=[MultipartUploadCredential(url="url", part_number=1, headers={})],
+        ),
+    ), mock.patch.object(
+        http_artifact_repo,
+        "abort_multipart_upload",
+        return_value=None,
+    ) as mock_abort:
+        with pytest.raises(Exception, match="MPU_UPLOAD_FAILS"):
+            http_artifact_repo.log_artifact(file_path, artifact_path)
+        mock_abort.assert_called_once()
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])

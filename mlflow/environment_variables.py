@@ -440,3 +440,15 @@ MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL = _EnvironmentVariable(
 MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
     "MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING", int, None
 )
+
+#: Specifies the minimum file size in bytes to use multipart upload when logging artifacts
+#: (default: ``524_288_000`` (500 MB))
+MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
+)
+
+#: Specifies the chunk size in bytes to use when performing multipart upload
+#: (default: ``104_857_600`` (100 MB))
+MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", int, 100 * 1024**2
+)
