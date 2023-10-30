@@ -1454,7 +1454,10 @@ def test_validate_inferred_type(dtype):
 
 
 def test_validate_inferred_type_with_errors():
-    with pytest.raises(MlflowException, match="Inferred schema contains invalid type `None`"):
+    with pytest.raises(
+        MlflowException,
+        match="A column of nested array type must include at least one non-empty array.",
+    ):
         _validate_inferred_type(None)
 
 
@@ -1662,7 +1665,10 @@ def test_schema_inference_with_empty_lists():
 
     # Nested list contains only an empty list is not allowed.
     data = [[]]
-    with pytest.raises(MlflowException, match=r"Inferred schema contains invalid type `None`"):
+    with pytest.raises(
+        MlflowException,
+        match=r"A column of nested array type must include at least one non-empty array.",
+    ):
         _infer_schema(data)
 
     # If at least one of sublists is not empty, we can assume other empty lists have the same type.

@@ -1,7 +1,6 @@
 import logging
 import warnings
 from collections import defaultdict
-from functools import reduce
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -94,9 +93,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
 
 def _infer_datatype(data: Any) -> Union[DataType, Array, Object]:
     if isinstance(data, dict):
-        properties = []
-        for k, v in data.items():
-            properties.append(Property(name=k, dtype=_infer_datatype(v)))
+        properties = [Property(name=k, dtype=_infer_datatype(v)) for k, v in data.items()]
         return Object(properties=properties)
 
     if isinstance(data, (list, np.ndarray)):
@@ -107,39 +104,47 @@ def _infer_datatype(data: Any) -> Union[DataType, Array, Object]:
 
 def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
     """Infer schema from an array. This tries to infer type if there is at least one
-    non-null element in the list, assuming the list has a homogeneous type. However,
-    if the list is empty or all elements are null, returns None as a sign of undetermined.
+    non-null item in the list, assuming the list has a homogeneous type. However,
+    if the list is empty or all items are null, returns None as a sign of undetermined.
+
+    E.g.
+        ["a", "b"] => Array(string)
+        ["a", None] => Array(string)
+        [["a", "b"], []] => Array(Array(string))
+        [] => None
 
     :param data: data to infer from.
     :return: Array(dtype) or None if undetermined
     """
+    result = None
+    for item in data:
+        # We accept None in list to provide backward compatibility,
+        # but ignore them for type inference
+        if _is_none_or_nan(item):
+            continue
 
-    dtypes = [_infer_datatype(v) for v in data if not _is_none_or_nan(v)]
-    dtypes = [t for t in dtypes if t is not None]
+        dtype = _infer_datatype(item)
 
-    # If no element has a valid type, return None as 'undermined'.
-    if len(dtypes) == 0:
-        return None
-
-    if isinstance(dtypes[0], (Array, Object)):
-        try:
-            dtype = reduce(lambda d1, d2: d1._merge(d2), dtypes)
-            return Array(dtype)
-        except MlflowException as e:
-            raise MlflowException.invalid_parameter_value(
-                "Expected all values in list to be of same type"
-            ) from e
-
-    if isinstance(dtypes[0], DataType):
-        if any(t != dtypes[0] for t in dtypes[1:]):
-            raise MlflowException.invalid_parameter_value(
-                "Expected all values in list to be of same type"
-            )
-        return Array(dtypes[0])
-
-    raise MlflowException.invalid_parameter_value(
-        f"{dtypes[0]} is not a valid type for an element of a list or numpy array."
-    )
+        if dtype is not None:
+            if result is None:
+                result = Array(dtype)
+            elif isinstance(result.dtype, (Array, Object)):
+                try:
+                    result = Array(result.dtype._merge(dtype))
+                except MlflowException as e:
+                    raise MlflowException.invalid_parameter_value(
+                        "Expected all values in list to be of same type"
+                    ) from e
+            elif isinstance(result.dtype, DataType):
+                if dtype != result.dtype:
+                    raise MlflowException.invalid_parameter_value(
+                        "Expected all values in list to be of same type"
+                    )
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"{dtype} is not a valid type for an item of a list or numpy array."
+                )
+    return result
 
 
 def _infer_scalar_datatype(data) -> DataType:
@@ -180,6 +185,10 @@ def _validate_inferred_type(dtype: Any):
     elif isinstance(dtype, Array):
         _validate_inferred_type(dtype.dtype)
         return
+    elif dtype is None:
+        raise MlflowException.invalid_parameter_value(
+            "A column of nested array type must include at least one non-empty array."
+        )
 
     raise MlflowException.invalid_parameter_value(
         f"Inferred schema contains invalid type `{dtype}`"
@@ -238,7 +247,7 @@ def _infer_schema(data: Any) -> Schema:
     #                             Property(name='key2', dtype=DataType.string, required=False)]
     #               ), name='dict')])
 
-    # To keep backward compatibility with 2.7.1, an empty list is inferred as string.
+    # To keep backward compatibility with < 2.9.0, an empty list is inferred as string.
     #   ref: https://github.com/mlflow/mlflow/pull/10125#discussion_r1372751487
     if isinstance(data, list) and data == []:
         return Schema([ColSpec(DataType.string)])
