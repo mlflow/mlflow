@@ -6,14 +6,22 @@
  */
 
 import React from 'react';
-import { shallow, render } from 'enzyme';
+import userEvent from '@testing-library/user-event';
+
 import { SchemaTable } from './SchemaTable';
-import { Table } from 'antd';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { mountWithIntl } from '../../common/utils/TestUtils';
+import { renderWithIntl } from '../../common/utils/TestUtils';
+
+function clickHeaderRow(container: HTMLElement, rowIndex: number): void {
+  // click to render inputs table
+  const rows = container.querySelectorAll('tr.section-header-row');
+  if (rows.length < rowIndex + 1) {
+    throw new Error("Couldn't find the row to click");
+  }
+  userEvent.click(rows[rowIndex]);
+}
 
 describe('SchemaTable', () => {
-  let wrapper;
   let minimalProps: any;
   let props: any;
 
@@ -39,49 +47,50 @@ describe('SchemaTable', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = mountWithIntl(<SchemaTable {...minimalProps} />);
-    expect(wrapper.length).toBe(1);
+    const { container } = renderWithIntl(<SchemaTable {...minimalProps} />);
+    expect(container).not.toBeNull();
   });
 
   test('should nested table not be rendered by default', () => {
-    wrapper = mountWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
-    expect(wrapper.find(Table).length).toBe(1);
-    expect(wrapper.find('.outer-table').find(Table).length).toBe(1);
-    expect(wrapper.find('.inner-table').find(Table).length).toBe(0);
-    expect(wrapper.html()).toContain('Inputs');
-    expect(wrapper.html()).toContain('Outputs');
-    expect(wrapper.html()).toContain('Name');
-    expect(wrapper.html()).toContain('Type');
-    expect(wrapper.html()).not.toContain('column1');
-    expect(wrapper.html()).not.toContain('string');
-    expect(wrapper.html()).not.toContain('score1');
-    expect(wrapper.html()).not.toContain('long');
+    expect(container.querySelector('.outer-table table')).not.toBeNull();
+    expect(container.querySelector('.inner-table table')).toBeNull();
+    expect(container.innerHTML).toContain('Inputs');
+    expect(container.innerHTML).toContain('Outputs');
+    expect(container.innerHTML).toContain('Name');
+    expect(container.innerHTML).toContain('Type');
+    expect(container.innerHTML).not.toContain('column1');
+    expect(container.innerHTML).not.toContain('string');
+    expect(container.innerHTML).not.toContain('score1');
+    expect(container.innerHTML).not.toContain('long');
   });
 
   test('should inputs table render by click', () => {
-    wrapper = mountWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
-    expect(wrapper.find(Table).length).toBe(1);
+
+    expect(container.getElementsByTagName('table')).toHaveLength(1);
     // click to render inputs table
-    wrapper.find('tr.section-header-row').at(0).simulate('click');
-    expect(wrapper.find(Table).length).toBe(2);
-    expect(wrapper.find('.outer-table').find(Table).length).toBe(2);
-    expect(wrapper.find('.inner-table').find(Table).length).toBe(1);
-    expect(wrapper.html()).toContain('Inputs');
-    expect(wrapper.html()).toContain('Outputs');
-    expect(wrapper.html()).toContain('Name');
-    expect(wrapper.html()).toContain('Type');
-    expect(wrapper.html()).toContain('column1');
-    expect(wrapper.html()).toContain('string');
-    expect(wrapper.html()).not.toContain('score1');
-    expect(wrapper.html()).not.toContain('long');
+    clickHeaderRow(container, 0);
+
+    expect(container.getElementsByTagName('table')).toHaveLength(2);
+    expect(container.querySelectorAll('.outer-table table')).toHaveLength(2);
+    expect(container.querySelectorAll('.inner-table table')).toHaveLength(1);
+    expect(container.innerHTML).toContain('Inputs');
+    expect(container.innerHTML).toContain('Outputs');
+    expect(container.innerHTML).toContain('Name');
+    expect(container.innerHTML).toContain('Type');
+    expect(container.innerHTML).toContain('column1');
+    expect(container.innerHTML).toContain('string');
+    expect(container.innerHTML).not.toContain('score1');
+    expect(container.innerHTML).not.toContain('long');
   });
 
   test('Should display optional input field schema as expected', () => {
@@ -95,19 +104,19 @@ describe('SchemaTable', () => {
         outputs: [{ name: 'score1', type: 'long' }],
       },
     };
-    wrapper = mountWithIntl(
+    const wrapper = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
     // click to render input schema table
-    wrapper.find('tr.section-header-row').at(0).simulate('click');
-    expect(wrapper.html()).toContain('column1');
+    clickHeaderRow(wrapper.container, 0);
+    expect(wrapper.container.innerHTML).toContain('column1');
     // the optional input param should have (optional) after the name"
-    const col2 = wrapper.find('span').filterWhere((n: any) => n.text().includes('column2'));
-    expect(render(col2.get(0)).text()).toContain('column2 (optional)');
-    expect(wrapper.html()).toContain('string');
-    expect(wrapper.html()).toContain('float');
+    const col2 = wrapper.getByText('column2');
+    expect(col2.textContent).toEqual('column2 (optional)');
+    expect(wrapper.container.innerHTML).toContain('string');
+    expect(wrapper.container.innerHTML).toContain('float');
   });
 
   test('Should display required input field schema as expected', () => {
@@ -118,17 +127,17 @@ describe('SchemaTable', () => {
         outputs: [{ name: 'score', type: 'long', required: true }],
       },
     };
-    wrapper = mountWithIntl(
+    const wrapper = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
     // click to render input schema table
-    wrapper.find('tr.section-header-row').at(0).simulate('click');
-    expect(wrapper.html()).toContain('column');
+    clickHeaderRow(wrapper.container, 0);
+    expect(wrapper.container.innerHTML).toContain('column');
     // the optional input param should have (optional) after the name"
-    const col2 = wrapper.find('span').filterWhere((n: any) => n.text().includes('column'));
-    expect(render(col2.get(0)).text()).toContain('column (required)');
+    const col2 = wrapper.getByText('column');
+    expect(col2.textContent).toEqual('column (required)');
   });
 
   test('Should display optional output field schema as expected', () => {
@@ -139,62 +148,63 @@ describe('SchemaTable', () => {
         outputs: [{ name: 'score1', type: 'long', optional: true }],
       },
     };
-    wrapper = mountWithIntl(
+    const wrapper = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
     // click to render output schema table
-    wrapper.find('tr.section-header-row').at(1).simulate('click');
+    clickHeaderRow(wrapper.container, 1);
     // the optional output name should have (optional) after the name
-    const score1 = wrapper.find('span').filterWhere((n: any) => n.text().includes('score1'));
-    expect(render(score1).text()).toContain('score1 (optional)');
+    const score1 = wrapper.getByText('score1');
+    expect(score1.textContent).toEqual('score1 (optional)');
   });
 
   test('should outputs table render by click', () => {
-    wrapper = mountWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
     // click to render outputs table
-    expect(wrapper.find(Table).length).toBe(1);
-    wrapper.find('tr.section-header-row').at(1).simulate('click');
-    expect(wrapper.find(Table).length).toBe(2);
-    expect(wrapper.find('.outer-table').find(Table).length).toBe(2);
-    expect(wrapper.find('.inner-table').find(Table).length).toBe(1);
-    expect(wrapper.html()).toContain('Inputs');
-    expect(wrapper.html()).toContain('Outputs');
-    expect(wrapper.html()).toContain('Name');
-    expect(wrapper.html()).toContain('Type');
-    expect(wrapper.html()).not.toContain('column1');
-    expect(wrapper.html()).not.toContain('string');
-    expect(wrapper.html()).toContain('score1');
-    expect(wrapper.html()).toContain('long');
+    expect(container.getElementsByTagName('table')).toHaveLength(1);
+    clickHeaderRow(container, 1);
+
+    expect(container.getElementsByTagName('table')).toHaveLength(2);
+    expect(container.querySelectorAll('.outer-table table')).toHaveLength(2);
+    expect(container.querySelectorAll('.inner-table table')).toHaveLength(1);
+    expect(container.innerHTML).toContain('Inputs');
+    expect(container.innerHTML).toContain('Outputs');
+    expect(container.innerHTML).toContain('Name');
+    expect(container.innerHTML).toContain('Type');
+    expect(container.innerHTML).not.toContain('column1');
+    expect(container.innerHTML).not.toContain('string');
+    expect(container.innerHTML).toContain('score1');
+    expect(container.innerHTML).toContain('long');
   });
 
   test('should inputs and outputs table render by click', () => {
-    wrapper = mountWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
-    expect(wrapper.find(Table).length).toBe(1);
+    expect(container.getElementsByTagName('table')).toHaveLength(1);
     // click to render inputs and outputs table
-    wrapper.find('tr.section-header-row').at(0).simulate('click');
-    expect(wrapper.find(Table).length).toBe(2);
-    wrapper.find('tr.section-header-row').at(1).simulate('click');
-    expect(wrapper.find(Table).length).toBe(3);
-    expect(wrapper.find('.outer-table').find(Table).length).toBe(3);
-    expect(wrapper.find('.inner-table').find(Table).length).toBe(2);
-    expect(wrapper.html()).toContain('Inputs');
-    expect(wrapper.html()).toContain('Outputs');
-    expect(wrapper.html()).toContain('Name');
-    expect(wrapper.html()).toContain('Type');
-    expect(wrapper.html()).toContain('column1');
-    expect(wrapper.html()).toContain('string');
-    expect(wrapper.html()).toContain('score1');
-    expect(wrapper.html()).toContain('long');
+    clickHeaderRow(container, 0);
+    expect(container.getElementsByTagName('table')).toHaveLength(2);
+    clickHeaderRow(container, 1);
+    expect(container.getElementsByTagName('table')).toHaveLength(3);
+    expect(container.querySelectorAll('.outer-table table')).toHaveLength(3);
+    expect(container.querySelectorAll('.inner-table table')).toHaveLength(2);
+    expect(container.innerHTML).toContain('Inputs');
+    expect(container.innerHTML).toContain('Outputs');
+    expect(container.innerHTML).toContain('Name');
+    expect(container.innerHTML).toContain('Type');
+    expect(container.innerHTML).toContain('column1');
+    expect(container.innerHTML).toContain('string');
+    expect(container.innerHTML).toContain('score1');
+    expect(container.innerHTML).toContain('long');
   });
 
   test('Should display tensorSpec as expected', () => {
@@ -216,27 +226,27 @@ describe('SchemaTable', () => {
         ],
       },
     };
-    wrapper = mountWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
-    expect(wrapper.find(Table).length).toBe(1);
+    expect(container.getElementsByTagName('table')).toHaveLength(1);
     // click to render inputs and outputs table
-    wrapper.find('tr.section-header-row').at(0).simulate('click');
-    expect(wrapper.find(Table).length).toBe(2);
-    wrapper.find('tr.section-header-row').at(1).simulate('click');
-    expect(wrapper.find(Table).length).toBe(3);
-    expect(wrapper.find('.outer-table').find(Table).length).toBe(3);
-    expect(wrapper.find('.inner-table').find(Table).length).toBe(2);
-    expect(wrapper.html()).toContain('Inputs');
-    expect(wrapper.html()).toContain('Outputs');
-    expect(wrapper.html()).toContain('Name');
-    expect(wrapper.html()).toContain('Type');
-    expect(wrapper.html()).toContain('TensorInput');
-    expect(wrapper.html()).toContain('Tensor (dtype: float64, shape: [-1,28,28])');
-    expect(wrapper.html()).toContain('TensorOutput');
-    expect(wrapper.html()).toContain('Tensor (dtype: float64, shape: [-1])');
+    clickHeaderRow(container, 0);
+    expect(container.getElementsByTagName('table')).toHaveLength(2);
+    clickHeaderRow(container, 1);
+    expect(container.getElementsByTagName('table')).toHaveLength(3);
+    expect(container.querySelectorAll('.outer-table table')).toHaveLength(3);
+    expect(container.querySelectorAll('.inner-table table')).toHaveLength(2);
+    expect(container.innerHTML).toContain('Inputs');
+    expect(container.innerHTML).toContain('Outputs');
+    expect(container.innerHTML).toContain('Name');
+    expect(container.innerHTML).toContain('Type');
+    expect(container.innerHTML).toContain('TensorInput');
+    expect(container.innerHTML).toContain('Tensor (dtype: float64, shape: [-1,28,28])');
+    expect(container.innerHTML).toContain('TensorOutput');
+    expect(container.innerHTML).toContain('Tensor (dtype: float64, shape: [-1])');
   });
 
   test('should render object/array column types correctly', () => {
@@ -263,17 +273,22 @@ describe('SchemaTable', () => {
       },
     };
 
-    wrapper = mountWithIntl(
+    const { container } = renderWithIntl(
       <MemoryRouter>
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
-    // click to render input schema table
-    wrapper.find('tr.section-header-row').at(0).simulate('click');
 
-    const signatures = wrapper.find('pre');
+    // click to render input schema table
+    const row = container.querySelector('tr.section-header-row');
+    if (row === null) {
+      throw new Error("Couldn't find SchemaTable header row");
+    }
+    userEvent.click(row);
+
+    const signatures = container.getElementsByTagName('pre');
     expect(signatures).toHaveLength(2);
-    expect(shallow(signatures.get(0)).text()).toEqual('{\n  prop1: string\n}');
-    expect(shallow(signatures.get(1)).text()).toEqual('Array(binary)');
+    expect(signatures[0].textContent).toEqual('{\n  prop1: string\n}');
+    expect(signatures[1].textContent).toEqual('Array(binary)');
   });
 });
