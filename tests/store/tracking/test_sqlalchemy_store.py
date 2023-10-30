@@ -10,6 +10,7 @@ import unittest
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import List, Union
 from unittest import mock
 
 import pytest
@@ -143,6 +144,117 @@ def test_fail_on_multiple_drivers():
         extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
 
 
+@pytest.fixture
+def store(tmp_path: Path) -> SqlAlchemyStore:
+    store = _get_store(tmp_path)
+    yield store
+    _cleanup_database(store)
+
+
+def _get_store(tmp_path: Path):
+    db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir(exist_ok=True)
+    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+
+
+def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):
+    dialect = store._get_dialect()
+    if dialect == POSTGRES:
+        return "ALTER SEQUENCE experiments_experiment_id_seq RESTART WITH 1"
+    elif dialect == MYSQL:
+        return "ALTER TABLE experiments AUTO_INCREMENT = 1"
+    elif dialect == MSSQL:
+        return "DBCC CHECKIDENT (experiments, RESEED, 0)"
+    elif dialect == SQLITE:
+        # In SQLite, deleting all experiments resets experiment_id
+        return None
+    raise ValueError(f"Invalid dialect: {dialect}")
+
+
+def _cleanup_database(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        # Delete all rows in all tables
+        for model in (
+            SqlParam,
+            SqlMetric,
+            SqlLatestMetric,
+            SqlTag,
+            SqlInputTag,
+            SqlInput,
+            SqlDataset,
+            SqlRun,
+            SqlExperimentTag,
+            SqlExperiment,
+        ):
+            session.query(model).delete()
+
+        # Reset experiment_id to start at 1
+        if reset_experiment_id := _get_query_to_reset_experiment_id(store):
+            session.execute(sqlalchemy.sql.text(reset_experiment_id))
+
+
+def _experiment_factory(names, store: SqlAlchemyStore) -> Union[str, List]:
+    if isinstance(names, (list, tuple)):
+        ids = []
+        for name in names:
+            # Sleep to ensure each experiment has a unique creation_time for
+            # deterministic experiment search results
+            time.sleep(0.001)
+            ids.append(store.create_experiment(name=name))
+        return ids
+
+    time.sleep(0.001)
+    return store.create_experiment(name=names)
+
+
+def test_default_experiment(store: SqlAlchemyStore):
+    experiments = store.search_experiments()
+    assert len(experiments) == 1
+
+    first = experiments[0]
+    assert first.experiment_id == "0"
+    assert first.name == "Default"
+
+
+def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
+    default_experiment = store.get_experiment(experiment_id=0)
+    assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
+    assert default_experiment.lifecycle_stage == entities.LifecycleStage.ACTIVE
+
+    _experiment_factory("aNothEr", store)
+    all_experiments = [e.name for e in store.search_experiments()]
+    assert set(all_experiments) == {"aNothEr", "Default"}
+
+    store.delete_experiment(0)
+
+    assert [e.name for e in store.search_experiments()] == ["aNothEr"]
+    another = store.get_experiment(1)
+    assert another.name == "aNothEr"
+
+    default_experiment = store.get_experiment(experiment_id=0)
+    assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
+    assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
+
+    # destroy SqlStore and make a new one
+    del store
+    store = _get_store(tmp_path)
+
+    # test that default experiment is not reactivated
+    default_experiment = store.get_experiment(experiment_id=0)
+    assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
+    assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
+
+    assert [e.name for e in store.search_experiments()] == ["aNothEr"]
+    all_experiments = [e.name for e in store.search_experiments(ViewType.ALL)]
+    assert set(all_experiments) == {"aNothEr", "Default"}
+
+    # ensure that experiment ID dor active experiment is unchanged
+    another = store.get_experiment(1)
+    assert another.name == "aNothEr"
+
+
+# This unit test class is under refactoring. Please use pytest for new unit tests: #10042
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_store(self, db_uri=""):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
@@ -218,50 +330,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         time.sleep(0.001)
         return self.store.create_experiment(name=names)
-
-    def test_default_experiment(self):
-        experiments = self.store.search_experiments()
-        assert len(experiments) == 1
-
-        first = experiments[0]
-        assert first.experiment_id == "0"
-        assert first.name == "Default"
-
-    def test_default_experiment_lifecycle(self):
-        default_experiment = self.store.get_experiment(experiment_id=0)
-        assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
-        assert default_experiment.lifecycle_stage == entities.LifecycleStage.ACTIVE
-
-        self._experiment_factory("aNothEr")
-        all_experiments = [e.name for e in self.store.search_experiments()]
-        assert set(all_experiments) == {"aNothEr", "Default"}
-
-        self.store.delete_experiment(0)
-
-        assert [e.name for e in self.store.search_experiments()] == ["aNothEr"]
-        another = self.store.get_experiment(1)
-        assert another.name == "aNothEr"
-
-        default_experiment = self.store.get_experiment(experiment_id=0)
-        assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
-        assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
-
-        # destroy SqlStore and make a new one
-        del self.store
-        self.store = self._get_store(self.db_url)
-
-        # test that default experiment is not reactivated
-        default_experiment = self.store.get_experiment(experiment_id=0)
-        assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
-        assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
-
-        assert [e.name for e in self.store.search_experiments()] == ["aNothEr"]
-        all_experiments = [e.name for e in self.store.search_experiments(ViewType.ALL)]
-        assert set(all_experiments) == {"aNothEr", "Default"}
-
-        # ensure that experiment ID dor active experiment is unchanged
-        another = self.store.get_experiment(1)
-        assert another.name == "aNothEr"
 
     def test_raise_duplicate_experiments(self):
         with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
