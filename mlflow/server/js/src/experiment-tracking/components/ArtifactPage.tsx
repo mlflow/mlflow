@@ -30,6 +30,11 @@ type ArtifactPageImplProps = {
   listArtifactsApi: (...args: any[]) => any;
   searchModelVersionsApi: (...args: any[]) => any;
   runTags?: any;
+
+  /**
+   * If true, the artifact browser will try to use all available height
+   */
+  useAutoHeight?: boolean;
 };
 
 type ArtifactPageImplState = any;
@@ -42,7 +47,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
       <span>
         <FormattedMessage
           // eslint-disable-next-line max-len
-          defaultMessage="Unable to list artifacts stored under <code>{artifactUri}</code> for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory."
+          defaultMessage="Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory."
           // eslint-disable-next-line max-len
           description='Error message when the artifact is unable to load. This message is displayed in the open source ML flow only'
           values={{ artifactUri: this.props.artifactRootUri }}
@@ -128,11 +133,15 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     }
   }
 
+  renderErrorCondition = (shouldRenderError: any) => {
+    return shouldRenderError;
+  };
+
   renderArtifactView = (isLoading: any, shouldRenderError: any, requests: any) => {
     if (isLoading) {
       return <Spinner />;
     }
-    if (shouldRenderError) {
+    if (this.renderErrorCondition(shouldRenderError)) {
       const failedReq = requests[0];
       if (failedReq && failedReq.error) {
         console.error(failedReq.error);
@@ -159,7 +168,13 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         </div>
       );
     }
-    return <ArtifactView {...this.props} handleActiveNodeChange={this.handleActiveNodeChange} />;
+    return (
+      <ArtifactView
+        {...this.props}
+        handleActiveNodeChange={this.handleActiveNodeChange}
+        useAutoHeight={this.props.useAutoHeight}
+      />
+    );
   };
 
   render() {
@@ -187,7 +202,9 @@ const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouter
   const { runUuid, location } = ownProps;
   const currentPathname = location?.pathname || '';
 
-  const initialSelectedArtifactPathMatch = currentPathname.match(/\/artifactPath\/(.+)/);
+  const initialSelectedArtifactPathMatch = currentPathname.match(
+    /\/(?:artifactPath|artifacts)\/(.+)/,
+  );
   // The dot ("*") parameter behavior is not stable between implementations
   // so we'll extract the catch-all after /artifactPath, e.g.
   // `/experiments/123/runs/321/artifactPath/models/requirements.txt`

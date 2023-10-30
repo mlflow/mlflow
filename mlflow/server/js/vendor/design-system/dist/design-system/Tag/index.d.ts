@@ -19,6 +19,7 @@ export interface TagProps extends HTMLDataAttributes, HTMLAttributes<HTMLSpanEle
      * Function called when the close button is clicked.
      */
     onClose?: () => void;
+    closeButtonProps?: Omit<React.HTMLAttributes<HTMLButtonElement>, 'children' | 'onClick' | 'onMouseDown'>;
 }
 export type TagColors = keyof typeof colorMap;
 declare const colorMap: Record<SecondaryColorToken | 'default', TagColorToken>;

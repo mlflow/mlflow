@@ -89,13 +89,15 @@ def _check_databricks_auth():
     try:
         w = WorkspaceClient()
         # If credentials are invalid, `clusters.list()` will throw an error.
-        w.current_user.me()
-        _logger.info(
-            "Succesfully signed in Databricks! Please run `mlflow.set_tracking_uri('databricks')` "
-            "to connect MLflow to Databricks tracking server."
-        )
+        w.clusters.list()
+        _logger.info("Succesfully signed in Databricks!")
+        # Connect MLflow to Databricks tracking server.
+        from mlflow import set_tracking_uri
+
+        set_tracking_uri("databricks")
         return True
-    except Exception:
+    except Exception as e:
+        _logger.error(f"Failed to sign in Databricks: {e}")
         return False
 
 
@@ -159,9 +161,9 @@ def _databricks_login():
 
     while True:
         host = input("Databricks Host (should begin with https://): ")
-        if host.startswith("https://"):
-            break
-        _logger.error("Error: The host does not start with https://")
+        if not host.startswith("https://"):
+            _logger.error("Invalid host: {host}, host must begin with https://, please retry.")
+        break
 
     profile = {"host": host}
     if "community" in host:

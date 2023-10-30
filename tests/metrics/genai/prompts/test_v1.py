@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from mlflow.metrics.base import EvaluationExample
+from mlflow.metrics.genai import EvaluationExample
 from mlflow.metrics.genai.prompts.v1 import EvaluationModel
 
 
@@ -150,7 +150,7 @@ def test_evaluation_model_output():
         """,
     ).to_dict()
 
-    assert model2["model"] == "openai:/gpt-3.5-turbo-16k"
+    assert model2["model"] == "openai:/gpt-4"
     assert model2["parameters"] == {
         "temperature": 0.0,
         "max_tokens": 200,

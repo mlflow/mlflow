@@ -17,13 +17,13 @@ import { RunsCompareCharts } from './RunsCompareCharts';
 import { SearchExperimentRunsFacetsState } from '../experiment-page/models/SearchExperimentRunsFacetsState';
 import { RunsCompareConfigureModal } from './RunsCompareConfigureModal';
 import { getUUID } from '../../../common/utils/ActionUtils';
-import type { CompareChartRunData } from './charts/CompareRunsCharts.common';
+import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import {
   AUTOML_EVALUATION_METRIC_TAG,
   MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
 } from '../../constants';
 import { RunsCompareTooltipBody } from './RunsCompareTooltipBody';
-import { CompareRunsTooltipWrapper } from './hooks/useCompareRunsTooltip';
+import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { useMultipleChartsMetricHistory } from './hooks/useMultipleChartsMetricHistory';
 
 export interface RunsCompareProps {
@@ -89,7 +89,7 @@ export const RunsCompareImpl = ({
   /**
    * Dataset generated for all charts in a single place
    */
-  const chartRunData: CompareChartRunData[] = useMemo(
+  const chartRunData: RunsChartsRunData[] = useMemo(
     () =>
       comparedRuns
         .filter((run) => !run.hidden)
@@ -106,11 +106,7 @@ export const RunsCompareImpl = ({
   );
 
   const { isLoading: isMetricHistoryLoading, chartRunDataWithHistory } =
-    useMultipleChartsMetricHistory(
-      searchFacetsState.compareRunCharts || [],
-      chartRunData,
-      metricsByRunUuid,
-    );
+    useMultipleChartsMetricHistory(searchFacetsState.compareRunCharts || [], chartRunData);
 
   // Set chart cards to the user-facing base config if there is no other information.
   useEffect(() => {
@@ -216,7 +212,7 @@ export const RunsCompareImpl = ({
       <div css={styles.controlsWrapper}>
         <RunsCompareAddChartMenu onAddChart={addNewChartCard} />
       </div>
-      <CompareRunsTooltipWrapper
+      <RunsChartsTooltipWrapper
         contextData={tooltipContextValue}
         component={RunsCompareTooltipBody}
       >
@@ -227,7 +223,7 @@ export const RunsCompareImpl = ({
           onRemoveChart={removeChart}
           isMetricHistoryLoading={isMetricHistoryLoading}
         />
-      </CompareRunsTooltipWrapper>
+      </RunsChartsTooltipWrapper>
       {configuredCardConfig && (
         <RunsCompareConfigureModal
           chartRunData={chartRunDataWithHistory}

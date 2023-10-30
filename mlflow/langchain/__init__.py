@@ -48,7 +48,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -295,6 +295,8 @@ def save_model(
         code=code_dir_subpath,
         **flavor_conf,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -571,8 +573,14 @@ def _save_model(model, path, loader_fn, persist_dir):
 
         if model.tools:
             tools_data_path = os.path.join(path, _TOOLS_DATA_FILE_NAME)
-            with open(tools_data_path, "wb") as f:
-                cloudpickle.dump(model.tools, f)
+            try:
+                with open(tools_data_path, "wb") as f:
+                    cloudpickle.dump(model.tools, f)
+            except Exception as e:
+                raise mlflow.MlflowException(
+                    "Error when attempting to pickle the AgentExecutor tools. "
+                    "This model likely does not support serialization."
+                ) from e
             model_data_kwargs[_TOOLS_DATA_KEY] = _TOOLS_DATA_FILE_NAME
         else:
             raise mlflow.MlflowException.invalid_parameter_value(

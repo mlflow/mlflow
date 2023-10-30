@@ -13,6 +13,8 @@ const MOCK_RUNS_DATA = experimentRunsSelector(EXPERIMENT_RUNS_MOCK_STORE, {
   experiments: [MOCK_EXPERIMENT],
 });
 
+const onClearMock = jest.fn();
+
 const doStatefulMock = (additionalProps?: any) => {
   const mockUpdateSearchFacets = jest.fn();
   let currentState: any;
@@ -37,8 +39,11 @@ const doStatefulMock = (additionalProps?: any) => {
 
     const props = {
       runsData: MOCK_RUNS_DATA,
-      updateSearchFacets,
-      searchFacetsState,
+      searchFilter: searchFacetsState.searchFilter,
+      onSearchFilterChange: (newSearchFilter: string) => {
+        updateSearchFacets({ searchFilter: newSearchFilter });
+      },
+      onClear: onClearMock,
     } as any;
     return (
       <DesignSystemProvider>
@@ -217,8 +222,7 @@ describe('Input', () => {
 
     const props = {
       runsData: MOCK_RUNS_DATA,
-      updateSearchFacets: jest.fn(),
-      searchFacetsState,
+      onSearchFilterChange: jest.fn(),
       requestError: null,
     };
 
@@ -230,7 +234,7 @@ describe('Input', () => {
     // First keydown dismisses autocomplete, second will search
     searchInput.simulate('keydown', { key: 'Enter' });
 
-    expect(props.updateSearchFacets).toBeCalledWith({ searchFilter: 'test-query' });
+    expect(props.onSearchFilterChange).toBeCalledWith('test-query');
   });
 
   test('should update search facets model and properly clear filters afterwards', () => {
@@ -247,10 +251,12 @@ describe('Input', () => {
       expect.objectContaining({ searchFilter: 'test-query' }),
     );
 
+    expect(onClearMock).not.toBeCalled();
+
     wrapper.find("input[data-test-id='search-box']").simulate('click');
     wrapper.find("button[data-test-id='clear-button']").simulate('click');
 
-    expect(getCurrentState()).toMatchObject(new SearchExperimentRunsFacetsState());
+    expect(onClearMock).toBeCalled();
   });
 
   test('should pop up tooltip when search returns error', () => {

@@ -758,10 +758,10 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                 ):
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and all(
-                    isinstance(value, np.ndarray)
-                    and value.dtype.type == np.str_
-                    and value.size == 1
-                    and value.shape == ()
+                    isinstance(value, np.ndarray) and value.dtype.type == np.str_
+                    # size & shape constraint makes some data batch inference result not
+                    # consistent with serving result.
+                    and value.size == 1 and value.shape == ()
                     for value in pf_input.values()
                 ):
                     # This check is specifically to handle the serving structural cast for

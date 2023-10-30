@@ -1,40 +1,273 @@
-MLflow Documentation
-====================
+MLflow: A Tool for Managing the Machine Learning Lifecycle
+==========================================================
 
-MLflow is an open source platform for managing the end-to-end machine learning lifecycle.
-It tackles four primary functions:
+MLflow is an open-source platform, purpose-built to assist machine learning practitioners and teams in
+handling the complexities of the machine learning process. MLflow focuses on the full lifecycle for
+machine learning projects, ensuring that each phase is manageable, traceable, and reproducible.
 
-* Tracking experiments to record and compare parameters and results (:ref:`tracking`).
-* Packaging ML code in a reusable, reproducible form in order to share with other data
-  scientists or transfer to production (:ref:`projects`).
-* Managing and deploying models from a variety of ML libraries to a variety of model serving and
-  inference platforms (:ref:`models`).
-* Providing a central model store to collaboratively manage the full lifecycle of an MLflow Model,
-  including model versioning, stage transitions, and annotations (:ref:`registry`).
 
-MLflow is library-agnostic. You can use it with any machine learning library, and in any
-programming language, since all functions are accessible through a :ref:`rest-api`
-and :ref:`CLI<cli>`. For convenience, the project also includes a :ref:`python-api`, :ref:`R-api`,
-and :ref:`java_api`.
+In each of the sections below, you will find overviews, guides, and step-by-step tutorials to walk you through 
+the features of MLflow and how they can be leveraged to solve real-world MLOps problems. 
 
-Get started using the :ref:`quickstart` or by reading about the :ref:`key concepts<concepts>`.
+
+`Getting Started with MLflow <getting-started/index.html>`_
+-----------------------------------------------------------
+
+If this is your first time exploring MLflow, the tutorials and guides here are a great place to start. The emphasis in each of these is 
+getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to 
+enhance your learning in area-specific guides and tutorials. 
+
+Getting Started Guides
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="getting-started/logging-first-model/index.html" >
+                    <div class="header">
+                        Intro to MLflow Tutorial
+                    </div>
+                </a>
+                <p>
+                    Learn how to get started with the basics of MLflow in a step-by-step instructional tutorial that shows the critical 
+                    path to logging your first model
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="getting-started/quickstart-1/index.html" >
+                    <div class="header">
+                        15 minute Tracking Quickstart
+                    </div>
+                </a>
+                <p>
+                    Short on time? This is a no-frills quickstart that shows how to leverage autologging during training and how to 
+                    load a model for inference
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="getting-started/quickstart-2/index.html" >
+                    <div class="header">
+                        15 minute Deployment Quickstart
+                    </div>
+                </a>
+                <p>
+                    Learn the basics of registering a model, setting up local serving for validation, and the process of 
+                    containerization of a model for remote serving
+                </p>
+            </div>
+        </article>
+    </section>
+
+`LLMs <llms/index.html>`_
+-------------------------
+
+Explore the comprehensive LLM-focused native support in MLflow. From **MLflow AI Gateway** to the **Prompt Engineering UI** and native LLM-focused MLflow flavors like 
+**open-ai**, **transformers**, and **sentence-transformers**, the tutorials and guides here will help to get you started in leveraging the 
+benefits of these powerful natural language deep learning models.  
+You'll learn how MLflow simplifies both using LLMs and developing solutions that leverage LLMs. Important tasks such as prompt development, evaluation of prompts, comparison of  
+foundation models, fine-tuning and logging LLMs, and setting up production-grade interface servers are all covered by MLflow. 
+
+Explore the guides and tutorials below to start your journey!
+
+LLM Guides and Tutorials
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="llms/prompt-engineering/index.html" >
+                    <div class="header">
+                        Guide to the MLflow Prompt Engineering UI
+                    </div>
+                </a>
+                <p>
+                    Explore the features and functions of MLflow's Prompt Engineering UI for development, testing, evaluation, and 
+                    deployment of validated prompts for your LLM use cases.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="llms/gateway/index.html" >
+                    <div class="header">
+                        Guide for the MLflow AI Gateway
+                    </div>
+                </a>
+                <p>
+                    Learn how to configure, setup, deploy, and use the MLflow AI Gateway for testing and production use cases of both 
+                    SaaS and custom open-source LLMs.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="llms/llm-tracking/index.html" >
+                    <div class="header">
+                        LLM Tracking with MLflow
+                    </div>
+                </a>
+                <p>
+                    Dive into the intricacies of MLflow's LLM Tracking system. From capturing prompts to monitoring generated outputs, 
+                    discover how MLflow provides a holistic solution for managing LLM interactions.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="llms/llm-evaluate/index.html" >
+                    <div class="header">
+                        Evaluating LLMs with MLflow Guide
+                    </div>
+                </a>
+                <p>
+                    Learn how to evaluate LLMs and LLM-powered solutions with MLflow Evaluate.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="llms/custom-pyfunc-for-llms/index.html" >
+                    <div class="header">
+                        Using Custom PyFunc with LLMs
+                    </div>
+                </a>
+                <p>
+                    Explore the nuances of packaging and deploying advanced LLMs in MLflow using custom PyFuncs. This guide delves deep 
+                    into managing intricate model behaviors, ensuring seamless and efficient LLM deployments.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="llms/rag/index.html" >
+                    <div class="header">
+                        Question Generation for RAG
+                    </div>
+                </a>
+                <p>
+                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+`Model Evaluation <model-evaluation/index.html>`_
+-------------------------------------------------
+
+Dive into MLflow's robust framework for evaluating the performance of your ML models. 
+
+With support for traditional ML evaluation (classification and regression tasks), as well as support for evaluating large language models (LLMs), 
+this suite of APIs offers a simple but powerful automated approach to evaluating the quality of the model development work that you're doing.
+
+In particular, for LLM evaluation, the `mlflow.evaluate()` API allows you to validate not only models, but providers and prompts. 
+By leveraging your own datasets and using the provided default evaluation criteria for tasks such as text summarization and question answering, you can 
+get reliable metrics that allow you to focus on improving the quality of your solution, rather than spending time writing scoring code.
+
+Visual insights are also available through the MLflow UI, showcasing logged outputs, auto-generated plots, and model comparison artifacts. 
+
+
+
+`Deep Learning <deep-learning/index.html>`_
+-------------------------------------------
+
+See how MLflow can help manage the full lifecycle of your Deep Learning projects. Whether you're using frameworks like 
+**TensorFlow (tensorflow)**, **Keras (keras)**, **PyTorch (torch)**, **Fastai (fastai)**, or **spaCy (spacy)**, MLflow offers first-class support, 
+ensuring seamless integration and deployment. Additionally, generic packaging frameworks that have native MLflow integration such as **ONNX (onnx)** 
+grealy help to simplify the deployment of deep learning models to a wide variety of deployment providers and environments. 
+
+Paired with MLflow's streamlined APIs and comparative UI, you are equipped with everything needed to manage, track, and optimize your deep learning workflows.
+
+
+
+`Traditional ML <traditional-ml/index.html>`_
+---------------------------------------------
+
+Leverage the power of MLflow for all your Traditional Machine Learning needs. Whether you're working with supervised, unsupervised, statistical, or time series data, 
+MLflow streamlines the process by providing an integrated environment that supports a large array of widely-used libraries like **Scikit-learn (sklearn)**, 
+**SparkML (spark)**, **XGBoost (xgboost)**, **LightGBM (lightgbm)**, **CatBoost (catboost)**, **Statsmodels**, **Prophet**, and **Pmdarima**. 
+With MLflow, you not only get APIs tailored for these libraries but also a user-friendly UI to compare various runs, ensuring that your model tuning and 
+evaluation phases are both efficient and insightful.
+
+Traditional ML Guides and Tutorials 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="traditional-ml/hyperparameter-tuning-with-child-runs/index.html" >
+                    <div class="header">
+                        Hyperparameter Tuning with Optuna and MLflow
+                    </div>
+                </a>
+                <p>
+                    This in-depth guide will show you how to leverage some core functionality in MLflow to keep your tuning iterations organized and 
+                    searchable, all while covering a number of features within MLflow that cater to the needs of this common activity.
+                </p>
+            </div>
+            <div class="simple-card">
+                <a href="traditional-ml/creating-custom-pyfunc/index.html" >
+                    <div class="header">
+                        Custom PyFunc Tutorials with MLflow
+                    </div>
+                </a>
+                <p>
+                    Dive into the foundational aspects of MLflow's custom `pyfunc` to encapsulate, manage, and invoke models from any framework. 
+                    This guide elucidates the versatility of `pyfunc`, highlighting how it bridges the gap between supported named flavors and bespoke model requirements.
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+`Deployment <deployment/index.html>`_
+-------------------------------------
+
+In today's ML-driven landscape, the ability to deploy models seamlessly and reliably is crucial. MLflow offers a robust suite tailored for this 
+very purpose, ensuring that models transition from development to production without a hitch. Whether you're aiming for real-time predictions, 
+batch analyses, or interactive insights, MLflow's deployment capabilities have got you covered. From managing dependencies and packaging models 
+with their associated code to offering a large ecosystem of deployment avenues like local servers, cloud platforms, or Kubernetes clusters, 
+MLflow ensures your models are not just artifacts but actionable, decision-making tools. 
+
+Dive deep into the platform's offerings, explore the tutorials, and harness the power of MLflow for efficient model serving.
+
+Deployment Guides and Tutorials
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="deployment/kubernetes-deployment/index.html" >
+                    <div class="header">
+                        Deploying a Model to Kubernetes with MLflow
+                    </div>
+                </a>
+                <p>
+                    This guide showcases the seamless end-to-end process of training a linear regression model, packaging it in a reproducible format, 
+                    and deploying to a Kubernetes cluster using MLflow. Explore how MLflow simplifies model deployment to production environments.
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+
 
 .. toctree::
     :maxdepth: 1
+    :hidden:
 
-    what-is-mlflow
-    quickstart
-    quickstart_mlops
-    tutorials-and-examples/index
-    concepts
+    introduction/index
+    getting-started/index
+    new-features/index
+    llms/index
+    model-evaluation/index
+    deep-learning/index
+    traditional-ml/index
+    deployment/index
     tracking
-    llm-tracking
     projects
     models
     model-registry
     recipes
-    gateway/index
-    llms/prompt-engineering
     plugins
     auth/index
     cli
@@ -46,3 +279,4 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     rest-api
     docker
     community-model-flavors
+    tutorials-and-examples/index

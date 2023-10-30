@@ -8,16 +8,8 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
-import {
-  DATA_EXTENSIONS,
-  getBasename,
-  getExtension,
-  IMAGE_EXTENSIONS,
-  TEXT_EXTENSIONS,
-} from '../../common/utils/FileUtils';
+import { getBasename } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
-// @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
-import { decorators, Treebeard } from 'react-treebeard';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'byte... Remove this comment to see the full error message
 import bytes from 'bytes';
 import { RegisterModelButton } from '../../model-registry/components/RegisterModelButton';
@@ -30,20 +22,25 @@ import {
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
-import { getModelVersionPageRoute } from '../../model-registry/routes';
-import { Tooltip, Typography } from '@databricks/design-system';
+import { ModelRegistryRoutes } from '../../model-registry/routes';
+import {
+  DesignSystemHocProps,
+  Tooltip,
+  Typography,
+  WithDesignSystemThemeHoc,
+} from '@databricks/design-system';
 import './ArtifactView.css';
-// @ts-expect-error TS(2307): Cannot find module '../../common/static/mlflow-spi... Remove this comment to see the full error message
-import spinner from '../../common/static/mlflow-spinner.png';
+
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { getArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
+import { ArtifactViewTree } from './ArtifactViewTree';
 
 const { Text } = Typography;
 
-type ArtifactViewImplProps = {
+type ArtifactViewImplProps = DesignSystemHocProps & {
   runUuid: string;
   initialSelectedArtifactPath?: string;
   artifactNode: any; // TODO: PropTypes.instanceOf(ArtifactNode)
@@ -57,6 +54,11 @@ type ArtifactViewImplProps = {
     formatMessage: (...args: any[]) => any;
   };
   getCredentialsForArtifactReadApi: (...args: any[]) => any;
+
+  /**
+   * If true, the artifact browser will try to use all available height
+   */
+  useAutoHeight?: boolean;
 };
 
 type ArtifactViewImplState = any;
@@ -165,15 +167,30 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     } else {
       toRender = this.renderDownloadLink();
     }
+    const { theme } = this.props.designSystemThemeApi;
     return (
-      <div className='artifact-info'>
+      <div
+        css={{
+          height: theme.general.heightBase + theme.spacing.md,
+          backgroundColor: theme.colors.backgroundSecondary,
+          padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+          whiteSpace: 'nowrap',
+          display: 'flex',
+        }}
+      >
         {this.renderPathAndSizeInfo()}
         <div className='artifact-info-right'>{toRender}</div>
       </div>
     );
   }
 
-  onToggleTreebeard = (dataNode: any, toggled: any) => {
+  onToggleTreebeard = (
+    dataNode: {
+      id: string;
+      loading: boolean;
+    },
+    toggled: boolean,
+  ) => {
     const { id, loading } = dataNode;
     const newRequestedNodeIds = new Set(this.state.requestedNodeIds);
     // - loading indicates that this node is a directory and has not been loaded yet.
@@ -191,8 +208,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     });
   };
 
-  // @ts-expect-error TS(7024): Function implicitly has return type 'any' because ... Remove this comment to see the full error message
-  getTreebeardData = (artifactNode: any) => {
+  getTreebeardData = (artifactNode: any): any => {
     const { isRoot } = artifactNode;
     if (isRoot) {
       if (artifactNode.children) {
@@ -317,31 +333,35 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
 
   render() {
     if (ArtifactUtils.isEmpty(this.props.artifactNode)) {
-      return <NoArtifactView />;
+      return <NoArtifactView useAutoHeight={this.props.useAutoHeight} />;
     }
+    const { theme } = this.props.designSystemThemeApi;
     return (
-      <div>
-        <div className='artifact-view'>
-          <div className='artifact-left'>
-            <Treebeard
-              data={this.getTreebeardData(this.props.artifactNode)}
-              onToggle={this.onToggleTreebeard}
-              style={TREEBEARD_STYLE}
-              decorators={decorators}
-            />
-          </div>
-          <div className='artifact-right'>
-            {this.state.activeNodeId ? this.renderArtifactInfo() : null}
-            <ShowArtifactPage
-              runUuid={this.props.runUuid}
-              path={this.state.activeNodeId}
-              isDirectory={this.activeNodeIsDirectory()}
-              size={this.getActiveNodeSize()}
-              runTags={this.props.runTags}
-              artifactRootUri={this.props.artifactRootUri}
-              modelVersions={this.props.modelVersions}
-            />
-          </div>
+      <div
+        className='artifact-view'
+        css={{
+          border: `1px solid ${theme.colors.borderDecorative}`,
+          flex: this.props.useAutoHeight ? 1 : 'unset',
+          height: this.props.useAutoHeight ? 'auto' : undefined,
+        }}
+      >
+        <div className='artifact-left'>
+          <ArtifactViewTree
+            data={this.getTreebeardData(this.props.artifactNode)}
+            onToggleTreebeard={this.onToggleTreebeard}
+          />
+        </div>
+        <div className='artifact-right'>
+          {this.state.activeNodeId ? this.renderArtifactInfo() : null}
+          <ShowArtifactPage
+            runUuid={this.props.runUuid}
+            path={this.state.activeNodeId}
+            isDirectory={this.activeNodeIsDirectory()}
+            size={this.getActiveNodeSize()}
+            runTags={this.props.runTags}
+            artifactRootUri={this.props.artifactRootUri}
+            modelVersions={this.props.modelVersions}
+          />
         </div>
       </div>
     );
@@ -370,7 +390,7 @@ export const ArtifactView = connect(
   mapStateToProps,
   mapDispatchToProps,
   // @ts-expect-error TS(2769): No overload matches this call.
-)(injectIntl(ArtifactViewImpl));
+)(WithDesignSystemThemeHoc(injectIntl(ArtifactViewImpl)));
 
 type ModelVersionInfoSectionProps = {
   modelVersion: any;
@@ -381,7 +401,9 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   const { name, version, status, status_message } = modelVersion;
 
   // eslint-disable-next-line prefer-const
-  let mvPageRoute = Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version));
+  let mvPageRoute = Utils.getIframeCorrectedRoute(
+    ModelRegistryRoutes.getModelVersionPageRoute(name, version),
+  );
   const modelVersionLink = (
     <Tooltip title={`${name} version ${version}`}>
       <a href={mvPageRoute} className='model-version-link' target='_blank' rel='noreferrer'>
@@ -422,9 +444,15 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   );
 }
 
-function NoArtifactView() {
+function NoArtifactView({ useAutoHeight }: { useAutoHeight?: boolean }) {
   return (
-    <div className='empty-artifact-outer-container'>
+    <div
+      className='empty-artifact-outer-container'
+      css={{
+        flex: useAutoHeight ? 1 : 'unset',
+        height: useAutoHeight ? 'auto' : undefined,
+      }}
+    >
       <div className='empty-artifact-container'>
         <div>{/* TODO: put a nice image here */}</div>
         <div>
@@ -446,138 +474,3 @@ function NoArtifactView() {
     </div>
   );
 }
-
-const TREEBEARD_STYLE = {
-  tree: {
-    base: {
-      listStyle: 'none',
-      margin: 0,
-      padding: 0,
-      backgroundColor: '#FAFAFA',
-      fontSize: '13px',
-      maxWidth: '500px',
-      height: '100%',
-      overflow: 'scroll',
-    },
-    node: {
-      base: {
-        position: 'relative',
-      },
-      link: {
-        cursor: 'pointer',
-        position: 'relative',
-        padding: '0px 5px',
-        display: 'block',
-      },
-      activeLink: {
-        background: '#c7c2d0',
-      },
-      toggle: {
-        base: {
-          position: 'relative',
-          display: 'inline-block',
-          verticalAlign: 'top',
-          marginLeft: '-5px',
-          height: '24px',
-          width: '24px',
-        },
-        wrapper: {
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          margin: '-12px 0 0 -4px',
-          height: '14px',
-        },
-        height: 7,
-        width: 7,
-        arrow: {
-          fill: '#7a7a7a',
-          strokeWidth: 0,
-        },
-      },
-      header: {
-        base: {
-          display: 'inline-block',
-          verticalAlign: 'top',
-          color: '#333',
-        },
-        connector: {
-          width: '2px',
-          height: '12px',
-          borderLeft: 'solid 2px black',
-          borderBottom: 'solid 2px black',
-          position: 'absolute',
-          top: '0px',
-          left: '-21px',
-        },
-        title: {
-          lineHeight: '24px',
-          verticalAlign: 'middle',
-        },
-      },
-      subtree: {
-        listStyle: 'none',
-        paddingLeft: '19px',
-      },
-    },
-  },
-};
-
-// eslint-disable-next-line react/prop-types
-decorators.Header = ({ style, node }: any) => {
-  let iconType;
-  // Reported during ESLint upgrade
-  // eslint-disable-next-line react/prop-types
-  if (node.children) {
-    iconType = 'folder';
-  } else {
-    // Reported during ESLint upgrade
-    // eslint-disable-next-line react/prop-types
-    const extension = getExtension(node.name);
-    if (IMAGE_EXTENSIONS.has(extension)) {
-      iconType = 'file-image-o';
-    } else if (DATA_EXTENSIONS.has(extension)) {
-      iconType = 'file-excel-o';
-    } else if (TEXT_EXTENSIONS.has(extension)) {
-      iconType = 'file-code-o';
-    } else {
-      iconType = 'file-text-o';
-    }
-  }
-  const iconClass = `fa fa-${iconType}`;
-
-  // Add margin-left to the non-directory nodes to align the arrow, icons, and texts.
-  // Reported during ESLint upgrade
-  // eslint-disable-next-line react/prop-types
-  const iconStyle = node.children
-    ? { marginRight: '5px' }
-    : { marginRight: '5px', marginLeft: '19px' };
-
-  return (
-    // Reported during ESLint upgrade
-    // eslint-disable-next-line react/prop-types
-    <div style={style.base} data-test-id='artifact-tree-node' artifact-name={node.name}>
-      {/* Reported during ESLint upgrade */}
-      {/* eslint-disable-next-line react/prop-types */}
-      <div style={style.title}>
-        <i className={iconClass} style={iconStyle} />
-        {/* Reported during ESLint upgrade */}
-        {/* eslint-disable-next-line react/prop-types */}
-        {node.name}
-      </div>
-    </div>
-  );
-};
-
-// eslint-disable-next-line react/prop-types
-decorators.Loading = ({ style }: any) => {
-  return (
-    <div style={style}>
-      <img alt='' className='loading-spinner' src={spinner} />
-      <FormattedMessage
-        defaultMessage='loading...'
-        description='Loading spinner text to show that the artifact loading is in progress'
-      />
-    </div>
-  );
-};
