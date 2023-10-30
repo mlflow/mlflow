@@ -87,7 +87,7 @@ configuration and management of your LLM serving needs, select the provider that
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/mlflow-logo.svg" alt="Mlflow Logo">
+                    <img src="../_static/images/logos/mlflow-logo.svg" alt="MLflow Logo">
                 </div>
             </a>
             <a href="gateway/index.html#providers">

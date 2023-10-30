@@ -249,7 +249,7 @@
   },
   "4hOOuV": {
     "defaultMessage": "404: Resource not found",
-    "description": "Generic 404 user-friendly error for the MLFlow UI"
+    "description": "Generic 404 user-friendly error for the MLflow UI"
   },
   "4idqpX": {
     "defaultMessage": "Add",
@@ -281,7 +281,7 @@
   },
   "5Zui9s": {
     "defaultMessage": "500: Internal server error",
-    "description": "Generic 500 user-friendly error for the MLFlow UI"
+    "description": "Generic 500 user-friendly error for the MLflow UI"
   },
   "5yWkFd": {
     "defaultMessage": "Increase or decrease the confidence level of the language model.",

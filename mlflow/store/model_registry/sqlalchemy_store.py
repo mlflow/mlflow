@@ -84,7 +84,7 @@ class SqlAlchemyStore(AbstractStore):
         :param db_uri: The SQLAlchemy database URI string to connect to the database. See
                        the `SQLAlchemy docs
                        <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
-                       for format specifications. Mlflow supports the dialects ``mysql``,
+                       for format specifications. MLflow supports the dialects ``mysql``,
                        ``mssql``, ``sqlite``, and ``postgresql``.
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
