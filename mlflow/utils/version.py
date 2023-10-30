@@ -1,5 +1,6 @@
-import operator
 import importlib.metadata
+import operator
+
 from packaging.version import Version
 
 operators = {
