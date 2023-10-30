@@ -6,9 +6,11 @@
  */
 
 import React from 'react';
+import userEvent from '@testing-library/user-event';
+
 import { SchemaTable } from './SchemaTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { fireEvent, renderWithIntl } from '../../common/utils/TestUtils';
+import { renderWithIntl } from '../../common/utils/TestUtils';
 
 function clickHeaderRow(container: HTMLElement, rowIndex: number): void {
   // click to render inputs table
@@ -16,13 +18,7 @@ function clickHeaderRow(container: HTMLElement, rowIndex: number): void {
   if (rows.length < rowIndex + 1) {
     throw new Error("Couldn't find the row to click");
   }
-  fireEvent(
-    rows[rowIndex],
-    new MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-    }),
-  );
+  userEvent.click(rows[rowIndex]);
 }
 
 describe('SchemaTable', () => {
@@ -288,13 +284,7 @@ describe('SchemaTable', () => {
     if (row === null) {
       throw new Error("Couldn't find SchemaTable header row");
     }
-    fireEvent(
-      row,
-      new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    userEvent.click(row);
 
     const signatures = container.getElementsByTagName('pre');
     expect(signatures).toHaveLength(2);
