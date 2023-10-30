@@ -14,8 +14,10 @@ from mlflow.environment_variables import (
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
+from mlflow.exceptions import UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.utils.version import compare_package_version
 
 
 class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
@@ -148,6 +150,13 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             blob.delete()
 
     @staticmethod
+    def _validate_support_mpu():
+        if not compare_package_version(
+            "google-cloud-storage", "2.12.0", ">="
+        ) or not compare_package_version("google-resumable-media", "2.6.0", ">="):
+            raise UnsupportedMultipartUploadException()
+
+    @staticmethod
     def _gcs_mpu_arguments(filename: str, blob):
         """See :py:func:`google.cloud.storage.transfer_manager.upload_chunks_concurrently`"""
         from google.cloud.storage.transfer_manager import _headers_from_metadata
@@ -173,6 +182,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return transport, url, headers, content_type
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
+        self._validate_support_mpu()
         from google.resumable_media.requests import XMLMPUContainer
 
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -211,6 +221,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
 
     def complete_multipart_upload(self, local_file, upload_id, parts=None, artifact_path=None):
+        self._validate_support_mpu()
         from google.resumable_media.requests import XMLMPUContainer
 
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -229,6 +240,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         container.finalize(transport=transport)
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
+        self._validate_support_mpu()
         from google.resumable_media.requests import XMLMPUContainer
 
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
