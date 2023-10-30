@@ -29,7 +29,6 @@ from mlflow.types.utils import (
     _infer_colspec_type,
     _infer_param_schema,
     _infer_schema,
-    _validate_inferred_type,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
 
@@ -1437,28 +1436,6 @@ def test_infer_colspec_type():
             ]
         )
     )
-
-
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        (DataType.string),
-        (Object([Property("a", DataType.string), Property("b", DataType.boolean, required=False)])),
-        (Array(DataType.string)),
-        (Object([Property("list", Array(DataType.long))])),
-        (Array(Array(Array(DataType.integer)))),
-    ],
-)
-def test_validate_inferred_type(dtype):
-    _validate_inferred_type(dtype)
-
-
-def test_validate_inferred_type_with_errors():
-    with pytest.raises(
-        MlflowException,
-        match="A column of nested array type must include at least one non-empty array.",
-    ):
-        _validate_inferred_type(None)
 
 
 def test_infer_schema_on_objects_and_arrays_to_and_from_dict():
