@@ -1888,7 +1888,7 @@ class _TransformersWrapper:
             self.pipeline,
             (transformers.ViTForImageClassification, transformers.ImageClassificationPipeline),
         ):
-            return raw_output #pd.DataFrame(raw_output)        
+            return raw_output
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
