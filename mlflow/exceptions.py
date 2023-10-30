@@ -143,4 +143,7 @@ class InvalidUrlException(MlflowException):
 class UnsupportedMultipartUploadException(MlflowException):
     """Exception thrown when multipart upload is unsupported by an artifact repository"""
 
-    pass
+    message = "Multipart upload is not supported for the current artifact repository"
+
+    def __init__(self):
+        super().__init__(self.message, error_code=NOT_IMPLEMENTED)
