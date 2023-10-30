@@ -3,6 +3,7 @@ import datetime
 import json
 import os
 from collections import defaultdict
+from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
 from typing import Any, Dict, Optional
@@ -365,10 +366,15 @@ def parse_tf_serving_input(inp_dict, schema=None):
     import numpy as np
 
     def cast_schema_type(input_data):
+        input_data = deepcopy(input_data)
         if schema is not None:
             if schema.has_input_names():
                 input_names = schema.input_names()
-                if len(input_names) == 1 and isinstance(input_data, list):
+                if (
+                    len(input_names) == 1
+                    and isinstance(input_data, list)
+                    and not any(isinstance(x, dict) for x in input_data)
+                ):
                     # for schemas with a single column, match input with column
                     input_data = {input_names[0]: input_data}
                 if not isinstance(input_data, dict):
