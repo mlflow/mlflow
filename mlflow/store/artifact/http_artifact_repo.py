@@ -158,9 +158,9 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             # return False if server does not support multipart upload
             error_message = e.response.json().get("message", "")
             if isinstance(error_message, str) and error_message.startswith(
-                "Multipart upload is not supported for artifact repository"
+                UnsupportedMultipartUploadException.message
             ):
-                raise UnsupportedMultipartUploadException(error_message)
+                raise UnsupportedMultipartUploadException()
             else:
                 raise
 
