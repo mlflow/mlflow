@@ -252,40 +252,44 @@ def test_model_save_load(onnx_model, model_path):
     assert onnx.checker.check_model.called
 
 
+@pytest.mark.skipif(
+    Version(onnx.__version__) < Version("1.9.0"),
+    reason="The save_as_external_data param is only available in onnx version >= 1.9.0",
+)
 @pytest.mark.parametrize("save_as_external_data", [True, False])
-def test_model_log_load(onnx_model, model_path, save_as_external_data):
-    # New ONNX versions can optionally convert to external data
-    if Version(onnx.__version__) >= Version("1.9.0"):
-        onnx.convert_model_to_external_data = mock.Mock()
+def test_model_log_load(onnx_model, save_as_external_data):
+    onnx.convert_model_to_external_data = mock.Mock()
 
     with mlflow.start_run():
         model_info = mlflow.onnx.log_model(
             onnx_model, artifact_path="model", save_as_external_data=save_as_external_data
         )
 
-    if Version(onnx.__version__) >= Version("1.9.0"):
-        if save_as_external_data:
-            onnx.convert_model_to_external_data.assert_called()
-        else:
-            onnx.convert_model_to_external_data.assert_not_called()
+    if save_as_external_data:
+        onnx.convert_model_to_external_data.assert_called_once()
+    else:
+        onnx.convert_model_to_external_data.assert_not_called()
 
     # Loading ONNX model
     onnx.checker.check_model = mock.Mock()
     mlflow.onnx.load_model(model_info.model_uri)
-    assert onnx.checker.check_model.called
+    onnx.checker.check_model.assert_called_once()
 
 
+@pytest.mark.skipif(
+    Version(onnx.__version__) < Version("1.9.0"),
+    reason="The save_as_external_data param is only available in onnx version >= 1.9.0",
+)
 def test_model_save_load_nonexternal_data(onnx_model, model_path):
-    if Version(onnx.__version__) >= Version("1.9.0"):
-        onnx.convert_model_to_external_data = mock.Mock()
+    onnx.convert_model_to_external_data = mock.Mock()
 
-        mlflow.onnx.save_model(onnx_model, model_path, save_as_external_data=False)
-        onnx.convert_model_to_external_data.assert_not_called()
+    mlflow.onnx.save_model(onnx_model, model_path, save_as_external_data=False)
+    onnx.convert_model_to_external_data.assert_not_called()
 
-        # Loading ONNX model
-        onnx.checker.check_model = mock.Mock()
-        mlflow.onnx.load_model(model_path)
-        assert onnx.checker.check_model.called
+    # Loading ONNX model
+    onnx.checker.check_model = mock.Mock()
+    mlflow.onnx.load_model(model_path)
+    onnx.checker.check_model.assert_called_once()
 
 
 def test_signature_and_examples_are_saved_correctly(onnx_model, data, onnx_custom_env):
