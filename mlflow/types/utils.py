@@ -237,6 +237,13 @@ def _infer_schema(data: Any) -> Schema:
     #        ColSpec(type=Object([Property(name='key', dtype=DataType.string),
     #                             Property(name='key2', dtype=DataType.string, required=False)]
     #               ), name='dict')])
+    if isinstance(data, dict) and any(not isinstance(value, str) for value in data.values()):
+        # TODO: Add a link to docs/examples
+        _logger.warning(
+            "MLflow 2.9.0 introduces model signature with new data types for "
+            "lists and dictionaries. Lists will be inferred as Array, and dictionaries "
+            "will be inferred as Object."
+        )
 
     # To keep backward compatibility with < 2.9.0, an empty list is inferred as string.
     #   ref: https://github.com/mlflow/mlflow/pull/10125#discussion_r1372751487
