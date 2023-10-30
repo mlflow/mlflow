@@ -13,24 +13,19 @@ unnecessary, as all supported providers are abstracted from the developer.
 
         pip install 'mlflow[gateway]' 
 
-Step 2: Expose OpenAI Token
----------------------------
+Step 2: Set the OpenAI Token as an Environment Variable
+-------------------------------------------------------
 Next, set the OpenAI API key as an environment variable in your CLI. 
 
-This approach allows the MLflow AI Gateway to manage API keys centrally, reducing the risk 
-of unintended exposure across the system.
+This approach allows the MLflow AI Gateway to read the sensitive API key safely, reducing the risk 
+of leaking the token in code. The AI Gateway, when started, will read the value set by this environment 
+variable without any additional action required.
 
 .. code-section::
     .. code-block:: bash
         :name: token
 
         export OPENAI_API_KEY=your_api_key_here
-
-
-.. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/openai_api_key.gif
-   :width: 800px
-   :align: center
-   :alt: Exporting the OpenAI key in your CLI
 
 Step 3: Configure the Gateway
 -----------------------------
