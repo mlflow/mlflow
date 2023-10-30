@@ -38,26 +38,12 @@ running during the tutorial, as closing it will shut down the server.
         Remember the host and port name that your MLflow tracking server is assigned. You will need
         this information in the next section of this tutorial!
 
-Step 3: Start the MLflow UI
----------------------------
+.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/start-mlflow-server.png
+    :width: 860px
+    :align: center
+    :alt: Starting the MLflow Tracking server from the command linear
 
-With the Tracking Server operational, it's time to start the MLflow UI. Launch it from a new command
-prompt. As with the Tracking Server, ensure this window remains open.
-
-.. code-section::
-    .. code-block:: bash
-        :name: mlflow-ui-start
-
-        mlflow ui --host 127.0.0.1 --port 8090
-
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/start-servers.gif
-   :width: 1024px
-   :align: center
-   :alt: Starting the MLflow Tracking and UI servers
-
-   Starting the MLflow Tracking Server and the MLflow UI
-
-
+    Starting the MLflow server
 
 Congratulations! Your MLflow environment is now set up and ready to go. As you progress, you'll
 explore the myriad of functionalities MLflow has to offer, streamlining and enhancing your machine learning workflows.
