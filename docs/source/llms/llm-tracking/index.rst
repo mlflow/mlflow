@@ -30,7 +30,7 @@ Each run meticulously records:
   
 - **Metrics**: These are quantitative measures, often numeric, that give insights into the performance, accuracy, or any other measurable aspect of the LLM interaction. Metrics are dynamic and can be updated as the run progresses, offering a real-time or post-process insight into the model's behavior. Logging of metrics is facilitated through :py:func:`mlflow.log_metric` and :py:func:`mlflow.log_metrics`.
   
-- **Predictions**: To understand and evaluate LLM outputs, MLflow allows for the logging of predictions. This encompasses the prompts or inputs sent to the LLM and the outputs or responses received. For structured storage and easy retrieval, these predictions are stored as artifacts in CSV format, ensuring that each interaction is preserved in its entirety. This logging is achieved using the dedicated :py:func:`mlflow.llm.log_predictions`.
+- **Predictions**: To understand and evaluate LLM outputs, MLflow allows for the logging of predictions. This encompasses the prompts or inputs sent to the LLM and the outputs or responses received. For structured storage and easy retrieval, these predictions are stored as artifacts in CSV format, ensuring that each interaction is preserved in its entirety. This logging is achieved using the dedicated :py:func:`mlflow.log_table`.
   
 - **Artifacts**: Beyond predictions, MLflow's LLM Tracking can store a myriad of output files, ranging from visualization images (e.g., PNGs), serialized models (e.g., an `openai` model), to structured data files (e.g., a `Parquet <https://parquet.apache.org/>`_ file). The :py:func:`mlflow.log_artifact` function is at the heart of this, allowing users to log and organize their artifacts with ease.
 
