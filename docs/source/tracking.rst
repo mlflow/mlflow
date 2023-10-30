@@ -1035,7 +1035,7 @@ You should configure credentials for accessing the GCS container on the client a
 in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 Finally, you must run ``pip install google-cloud-storage`` (on both your client and the server)
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
-If you would like to enable multipart upload for large files, you must run the
+If you would like to enable multipart upload for large files, you must run
 ``pip install google-cloud-storage>=2.12.0`` to install the correct version.
 
 
