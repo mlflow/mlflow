@@ -2141,11 +2141,7 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model):
 
     
     image_file_path = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"  # Replace with the actual image file path
-
-    
     image_data = image = Image.open(image_file_path)
-
-   
     inference_payload = json.dumps({
         "inputs": {
             "image": image_data  # Replace with the input field name for your image classification model
