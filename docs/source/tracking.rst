@@ -1033,9 +1033,10 @@ Google Cloud Storage
 To store artifacts in Google Cloud Storage, specify a URI of the form ``gs://<bucket>/<path>``.
 You should configure credentials for accessing the GCS container on the client and server as described
 in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
-Finally, you must run ``pip install google-cloud-storage>=2.12.0`` (on both your client and the server)
+Finally, you must run ``pip install google-cloud-storage`` (on both your client and the server)
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
-
+If you would like to enable multipart upload for large files, you must run the
+``pip install google-cloud-storage>=2.12.0`` to install the correct version.
 
 
 You may set some MLflow environment variables to troubleshoot GCS read-timeouts (eg. due to slow transfer speeds) using the following variables:
