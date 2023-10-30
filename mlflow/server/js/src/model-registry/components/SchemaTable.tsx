@@ -13,6 +13,8 @@ import { gray800 } from '../../common/styles/color';
 import { spacingMedium } from '../../common/styles/spacing';
 import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
 import { FormattedMessage, injectIntl } from 'react-intl';
+import { Theme } from '@databricks/design-system/dist/theme';
+import { Interpolation } from '@emotion/react';
 
 const { Column } = Table;
 const { Text } = Typography;
@@ -84,18 +86,7 @@ function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
 function formatColumnSchema(spec: ColumnSpec | TensorSpec): React.ReactElement {
   const repr = spec.type === 'tensor' ? getTensorTypeRepr(spec) : getColumnTypeRepr(spec, 0);
 
-  return (
-    <pre
-      style={{
-        padding: 8,
-        marginTop: 8,
-        marginBottom: 8,
-        whiteSpace: 'pre-wrap',
-      }}
-    >
-      {repr}
-    </pre>
-  );
+  return <pre css={schemaTableStyles.signatureCodeBlock}>{repr}</pre>;
 }
 
 export class SchemaTableImpl extends React.PureComponent<Props> {
@@ -302,4 +293,10 @@ const schemaTableStyles = {
     lineHeight: '32px',
     cursor: 'pointer',
   },
+  signatureCodeBlock: (theme: Theme): Interpolation<Theme> => ({
+    whiteSpace: 'pre-wrap',
+    padding: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  }),
 };
