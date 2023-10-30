@@ -112,17 +112,15 @@ export function persistExperimentSearchFacetsState(
   idKey: string,
   currentLocationSearch = '',
 ) {
+  // Extract all current query params, append and persist those relevant to the runs table.
   const currentParameters = QueryString.parse(currentLocationSearch, {
     ignoreQueryPrefix: true,
     comma: true,
     arrayLimit: 500,
     decoder: urlParserDecoder,
   });
-  // Extract current query params and re-persist relevant ones.
-  // In this case, it's only "experiments" field used for comparison.
-  const { experiments } = currentParameters;
   persistLocalStorage(sortFilterModelToSave, idKey);
-  return createPersistedQueryString({ experiments, ...sortFilterModelToSave });
+  return createPersistedQueryString({ ...currentParameters, ...sortFilterModelToSave });
 }
 
 /**
@@ -133,8 +131,8 @@ export function persistExperimentSearchFacetsState(
  * @param persistCombinedToLocalStorage if true, the combined state will be re-persisted to local storage
  */
 export function restoreExperimentSearchFacetsState(locationSearch: string, idKey: string) {
-  // Step 1: prepare base value
-  let baseState = new SearchExperimentRunsFacetsState();
+  // Step 1: prepare base value as a plain object
+  let baseState = { ...new SearchExperimentRunsFacetsState() };
 
   // Step 2: extract current state from local storage
   try {

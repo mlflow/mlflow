@@ -2,7 +2,6 @@ import { mount } from 'enzyme';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
 import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 import {
-  makeCanonicalSortKey,
   useRunsColumnDefinitions,
   UseRunsColumnDefinitionsParams,
 } from './experimentPage.column-utils';
@@ -10,6 +9,7 @@ import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
   EXPERIMENT_FIELD_PREFIX_PARAM,
   EXPERIMENT_FIELD_PREFIX_TAG,
+  makeCanonicalSortKey,
 } from './experimentPage.common-utils';
 import { ColDef, ColGroupDef } from '@ag-grid-community/core';
 
@@ -40,7 +40,7 @@ describe('ExperimentViewRuns column utils', () => {
       onExpand: jest.fn(),
       onSortBy: jest.fn(),
       onTogglePin: jest.fn(),
-      searchFacetsState: new SearchExperimentRunsFacetsState(),
+      selectedColumns: new SearchExperimentRunsFacetsState().selectedColumns,
     });
   });
 
@@ -144,7 +144,7 @@ describe('ExperimentViewRuns column utils', () => {
     const wrapper = mount(<Component hookParams={hookParams} />);
 
     // Next, select some columns by changing the props of the component
-    hookParams.searchFacetsState.selectedColumns = ['metrics.`metric_1`', 'params.`param_2`'];
+    hookParams.selectedColumns = ['metrics.`metric_1`', 'params.`param_2`'];
     wrapper.setProps({
       hookParams,
     });

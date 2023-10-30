@@ -1,4 +1,5 @@
 import React from 'react';
+import { ApolloProvider } from '@apollo/client';
 import { IntlProvider } from 'react-intl';
 import './index.css';
 import '@databricks/design-system/dist/index.css';
@@ -14,6 +15,7 @@ import { shouldUsePathRouting } from './common/utils/FeatureUtils';
 import { MlflowRouter } from './MlflowRouter';
 
 export function MLFlowRoot() {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const i18n = useI18nInit();
   const [isDarkTheme, setIsDarkTheme] = React.useState(
     window.matchMedia('(prefers-color-scheme: dark)').matches || false,

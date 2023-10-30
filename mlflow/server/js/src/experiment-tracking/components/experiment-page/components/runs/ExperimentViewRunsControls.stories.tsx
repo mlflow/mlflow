@@ -116,6 +116,7 @@ export const Default = createComponentWrapper({
   previewPaneVisible: false,
   artifactViewState: {},
   viewMaximized: false,
+  runListHidden: false,
 });
 
 export const WithOneRunSelected = createComponentWrapper({
@@ -125,6 +126,7 @@ export const WithOneRunSelected = createComponentWrapper({
   previewPaneVisible: false,
   artifactViewState: {},
   viewMaximized: false,
+  runListHidden: false,
 });
 
 export const WithTwoRunSelected = createComponentWrapper({
@@ -134,4 +136,5 @@ export const WithTwoRunSelected = createComponentWrapper({
   previewPaneVisible: false,
   artifactViewState: {},
   viewMaximized: false,
+  runListHidden: false,
 });

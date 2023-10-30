@@ -258,6 +258,14 @@ describe('searchRunsPayload', () => {
     const result = await searchRunsPayload({ shouldFetchParents: true });
     expect(result.runsMatchingFilter).toEqual(expect.arrayContaining([aParent]));
   });
+  it('throws proper error when received an invalid response', async () => {
+    jest
+      .spyOn(MlflowService, 'searchRuns')
+      .mockImplementation(() => Promise.resolve('this is a non-object response'));
+    await expect(async () => searchRunsPayload({ shouldFetchParents: true })).rejects.toThrow(
+      /Invalid format of the runs search response/,
+    );
+  });
 });
 
 describe('getEvaluationArtifact', () => {

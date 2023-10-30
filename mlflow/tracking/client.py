@@ -2737,9 +2737,14 @@ class MlflowClient:
                 "only copies models stored in the 'models:/' scheme."
             )
         client = self._get_registry_client()
-        src_name, src_version = get_model_name_and_version(client, src_model_uri)
-        src_mv = client.get_model_version(src_name, src_version)
-
+        try:
+            src_name, src_version = get_model_name_and_version(client, src_model_uri)
+            src_mv = client.get_model_version(src_name, src_version)
+        except MlflowException as e:
+            raise MlflowException(
+                f"Failed to fetch model version from source model URI: '{src_model_uri}'. "
+                f"Error: {e}"
+            ) from e
         return client.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(
@@ -3387,7 +3392,8 @@ class MlflowClient:
         Set a registered model alias pointing to a model version.
 
         :param name: Registered model name.
-        :param alias: Name of the alias.
+        :param alias: Name of the alias. Note that aliases of the format ``v<number>``, such as
+                      ``v9`` and ``v42``, are reserved and cannot be set.
         :param version: Registered model version number.
         :return: None
 

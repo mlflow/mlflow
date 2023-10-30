@@ -39,7 +39,6 @@ import { useAutoExpandRunRows } from '../../hooks/useAutoExpandRunRows';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
 import { shouldEnableArtifactBasedEvaluation } from '../../../../../common/utils/FeatureUtils';
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
-import { useChartViewByDefault } from '../../hooks/useChartViewByDefault';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -125,15 +124,13 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     searchFilter,
     runsExpanded,
     runsPinned,
-    runsHidden,
     compareRunsMode,
+    runsHidden,
     datasetsFilter,
   } = searchFacetsState;
 
   const isComparingRuns = compareRunsMode !== undefined;
 
-  // Default to chart view if metrics are available
-  useChartViewByDefault(isLoadingRuns, metricKeyList, updateSearchFacets);
   // Automatically expand parent runs if necessary
   useAutoExpandRunRows(runData, visibleRuns, isPristine, updateSearchFacets, runsExpanded);
 
@@ -239,7 +236,19 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
         expandRows={expandRows}
         updateExpandRows={updateExpandRows}
       />
-      <div css={styles.createRunsTableWrapper(isComparingRuns)}>
+      <div
+        css={{
+          minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
+          height: '100%',
+          display: 'grid',
+          position: 'relative' as const,
+          gridTemplateColumns: isComparingRuns
+            ? viewState.runListHidden
+              ? '10px 1fr'
+              : '310px 1fr'
+            : '1fr',
+        }}
+      >
         <ExperimentViewRunsTable
           experiments={experiments}
           runsData={runsData}
@@ -288,24 +297,6 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     </CreateNewRunContextProvider>
   );
 });
-
-const styles = {
-  createRunsTableWrapper: (isComparingRuns: boolean) => ({
-    minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
-    height: '100%',
-    display: 'grid',
-    position: 'relative' as const,
-    // When comparing runs, we fix the table width to 310px.
-    // We can consider making it resizable by a user.
-    gridTemplateColumns: isComparingRuns ? '310px 1fr' : '1fr',
-  }),
-  loadingFooter: () => ({
-    justifyContent: 'center',
-    alignItems: 'center',
-    display: 'flex',
-    height: '72px',
-  }),
-};
 
 /**
  * Concrete actions for GetExperimentRuns context provider

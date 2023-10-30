@@ -39,3 +39,5 @@ tiktoken
 ipywidgets
 tqdm
 databricks-sdk
+# Required for LLM eval in `mlflow.evaluate`
+openai

@@ -2193,8 +2193,8 @@ def test_missing_args_raises_exception():
         r"Metric 'metric_1' requires the columns \['param_1', 'param_2'\]\n"
         r"Metric 'metric_2' requires the columns \['param_3', 'builtin_metrics'\]\n\n"
         r"Below are the existing column names for the input/output data:\n"
-        r"Input Columns: \['question'\]\n"
-        r"Output Columns: \[\]\n"
+        r"Input Columns: \['question', 'answer'\]\n"
+        r"Output Columns: \['predictions'\]\n"
         r"To resolve this issue, you may want to map the missing column to an existing column\n"
         r"using the following configuration:\n"
         r"evaluator_config=\{'col_mapping': \{<missing column name>: <existing column name>\}\}"
@@ -2466,6 +2466,7 @@ def test_evaluate_text_summarization_with_targets():
 
 def test_evaluate_text_summarization_with_targets_no_type_hints():
     def another_language_model(x):
+        x.rename(columns={"text": "outputs"}, inplace=True)
         return x
 
     with mlflow.start_run() as run:
@@ -2723,24 +2724,42 @@ def test_extracting_output_and_other_columns():
             "other": "other_b",
         },
     ]
-    data_list = ["data_a", "data_b"]
+    data_list = (["data_a", "data_b"],)
+    data_dict_text = {
+        "text": ["text_a", "text_b"],
+    }
 
-    output1, other1 = _extract_output_and_other_columns(data_dict, "target")
-    output2, other2 = _extract_output_and_other_columns(data_df, "target")
-    output3, other3 = _extract_output_and_other_columns(data_list_dict, "target")
-    output4, other4 = _extract_output_and_other_columns(data_list, "output")
-    output5, other5 = _extract_output_and_other_columns(pd.Series(data_list), "output")
+    output1, other1, prediction_col1 = _extract_output_and_other_columns(data_dict, "target")
+    output2, other2, prediction_col2 = _extract_output_and_other_columns(data_df, "target")
+    output3, other3, prediction_col3 = _extract_output_and_other_columns(data_list_dict, "target")
+    output4, other4, prediction_col4 = _extract_output_and_other_columns(data_list, None)
+    output5, other5, prediction_col5 = _extract_output_and_other_columns(pd.Series(data_list), None)
+    output6, other6, prediction_col6 = _extract_output_and_other_columns(data_dict_text, None)
+    output7, other7, prediction_col7 = _extract_output_and_other_columns(
+        pd.DataFrame(data_dict_text), None
+    )
 
     assert output1.equals(data_df["target"])
     assert other1.equals(data_df.drop(columns=["target"]))
+    assert prediction_col1 == "target"
     assert output2.equals(data_df["target"])
     assert other2.equals(data_df.drop(columns=["target"]))
+    assert prediction_col2 == "target"
     assert output3.equals(data_df["target"])
     assert other3.equals(data_df.drop(columns=["target"]))
+    assert prediction_col3 == "target"
     assert output4 == data_list
     assert other4 is None
+    assert prediction_col4 is None
     assert output5.equals(pd.Series(data_list))
     assert other5 is None
+    assert prediction_col5 is None
+    assert output6.equals(pd.Series(data_dict_text["text"]))
+    assert other6 is None
+    assert prediction_col6 == "text"
+    assert output7.equals(pd.Series(data_dict_text["text"]))
+    assert other7 is None
+    assert prediction_col7 == "text"
 
 
 def language_model_with_context(inputs: List[str]) -> List[Dict[str, str]]:
@@ -2812,7 +2831,7 @@ def test_constructing_eval_df_for_custom_metrics():
         "text",
         "truth",
         "targets",
-        "outputs",
+        "output",
         "context",
         "token_count",
         "toxicity/v1/score",
@@ -3102,7 +3121,7 @@ properly_formatted_openai_response1 = {
 
 
 def test_evaluate_with_correctness():
-    metric = mlflow.metrics.make_genai_metric(
+    metric = mlflow.metrics.genai.make_genai_metric(
         name="correctness",
         definition=(
             "Correctness refers to how well the generated output matches "
@@ -3197,28 +3216,29 @@ def test_evaluate_custom_metrics_string_values():
         assert results.metrics["cm/eval_config_value_average"] == 3
 
 
-def validate_retriever_logged_data(logged_data):
+def validate_retriever_logged_data(logged_data, k=3):
     columns = {
         "question",
-        "outputs",  # TODO: fix the logged data to name the model output column "retrieved_context"
-        # Right now, it's hard-coded "outputs", which is not ideal
-        "precision_at_k/v1/score",
+        "retrieved_context",
+        f"precision_at_{k}/score",
+        f"recall_at_{k}/score",
         "ground_truth",
     }
 
     assert set(logged_data.columns.tolist()) == columns
 
     assert logged_data["question"].tolist() == ["q1?", "q1?", "q1?"]
-    assert logged_data["outputs"].tolist() == [["doc1", "doc3", "doc2"]] * 3
-    assert (logged_data["precision_at_k/v1/score"] <= 1).all()
+    assert logged_data["retrieved_context"].tolist() == [["doc1", "doc3", "doc2"]] * 3
+    assert (logged_data[f"precision_at_{k}/score"] <= 1).all()
+    assert (logged_data[f"recall_at_{k}/score"] <= 1).all()
     assert logged_data["ground_truth"].tolist() == [["doc1", "doc2"]] * 3
 
 
 def test_evaluate_retriever():
-    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc2")] * 3})
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [["doc1", "doc2"]] * 3})
 
     def fn(X):
-        return pd.DataFrame({"retrieved_context": [("doc1", "doc3", "doc2")] * len(X)})
+        return pd.DataFrame({"retrieved_context": [["doc1", "doc3", "doc2"]] * len(X)})
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
@@ -3233,46 +3253,44 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 2 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 2 / 3,
+        "precision_at_3/mean": 2 / 3,
+        "precision_at_3/variance": 0,
+        "precision_at_3/p90": 2 / 3,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
     }
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     validate_retriever_logged_data(logged_data)
-    assert set(results.metrics.keys()) == {
-        "precision_at_k/v1/p90",
-        "precision_at_k/v1/mean",
-        "precision_at_k/v1/variance",
-    }
-    assert results.metrics["precision_at_k/v1/p90"] == 2 / 3
-    assert results.metrics["precision_at_k/v1/mean"] == 2 / 3
-    assert results.metrics["precision_at_k/v1/variance"] == 0
 
     # test with a big k to ensure we use min(k, len(retrieved_chunks))
     with mlflow.start_run() as run:
-        mlflow.evaluate(
+        results = mlflow.evaluate(
             model=fn,
             data=X,
             targets="ground_truth",
             model_type="retriever",
             evaluators="default",
             evaluator_config={
-                "k": 6,
+                "retriever_k": 6,
             },
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 2 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 2 / 3,
+        "precision_at_6/mean": 2 / 3,
+        "precision_at_6/variance": 0,
+        "precision_at_6/p90": 2 / 3,
+        "recall_at_6/mean": 1.0,
+        "recall_at_6/p90": 1.0,
+        "recall_at_6/variance": 0.0,
     }
 
     # test with default k
     with mlflow.start_run() as run:
-        mlflow.evaluate(
+        results = mlflow.evaluate(
             model=fn,
             data=X,
             targets="ground_truth",
@@ -3280,39 +3298,45 @@ def test_evaluate_retriever():
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 2 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 2 / 3,
+        "precision_at_3/mean": 2 / 3,
+        "precision_at_3/variance": 0,
+        "precision_at_3/p90": 2 / 3,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
     }
 
     # test with multiple chunks from same doc
     def fn2(X):
-        return pd.DataFrame({"retrieved_context": [("doc1", "doc1", "doc3")] * len(X)})
+        return pd.DataFrame({"retrieved_context": [["doc1", "doc1", "doc3"]] * len(X)})
 
-    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc3")] * 3})
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [["doc1", "doc3"]] * 3})
 
     with mlflow.start_run() as run:
-        mlflow.evaluate(
+        results = mlflow.evaluate(
             model=fn2,
             data=X,
             targets="ground_truth",
             model_type="retriever",
             evaluator_config={
                 "default": {
-                    "k": 3,
+                    "retriever_k": 3,
                 }
             },
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 1,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 1,
+        "precision_at_3/mean": 1,
+        "precision_at_3/p90": 1,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 1.0,
+        "recall_at_3/p90": 1.0,
+        "recall_at_3/variance": 0.0,
     }
 
     # test with empty retrieved doc
     def fn3(X):
-        return pd.DataFrame({"output": [()] * len(X)})
+        return pd.DataFrame({"output": [[]] * len(X)})
 
     with mlflow.start_run() as run:
         mlflow.evaluate(
@@ -3322,95 +3346,118 @@ def test_evaluate_retriever():
             model_type="retriever",
             evaluator_config={
                 "default": {
-                    "k": 3,
+                    "retriever_k": 4,
                 }
             },
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 1,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 1,
+        "precision_at_4/mean": 0,
+        "precision_at_4/p90": 0,
+        "precision_at_4/variance": 0,
+        "recall_at_4/mean": 0,
+        "recall_at_4/p90": 0,
+        "recall_at_4/variance": 0,
     }
 
-    # test with single retrieved doc
-    def fn4(X):
-        return pd.DataFrame({"output": [("doc1")] * len(X)})
-
+    # test with a static dataset
+    X_1 = pd.DataFrame(
+        {
+            "question": [["q1?"]] * 3,
+            "targets_param": [["doc1", "doc2"]] * 3,
+            "predictions_param": [["doc1", "doc4", "doc5"]] * 3,
+        }
+    )
     with mlflow.start_run() as run:
         mlflow.evaluate(
-            model=fn4,
-            data=X,
-            targets="ground_truth",
-            model_type="retriever",
-            evaluator_config={
-                "default": {
-                    "k": 3,
-                }
-            },
-        )
-    run = mlflow.get_run(run.info.run_id)
-    assert run.data.metrics == {
-        "precision_at_k/v1/mean": 1,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 1,
-    }
-
-    # test with single ground truth doc
-    X_1 = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1")] * 3})
-
-    with mlflow.start_run() as run:
-        mlflow.evaluate(
-            model=fn,
             data=X_1,
-            targets="ground_truth",
+            predictions="predictions_param",
+            targets="targets_param",
             model_type="retriever",
-            evaluator_config={
-                "default": {
-                    "k": 3,
-                }
-            },
+            extra_metrics=[mlflow.metrics.precision_at_k(4), mlflow.metrics.recall_at_k(4)],
         )
     run = mlflow.get_run(run.info.run_id)
     assert run.data.metrics == {
-        "precision_at_k/v1/mean": 1 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 1 / 3,
+        "precision_at_3/mean": 1 / 3,
+        "precision_at_3/p90": 1 / 3,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 0.5,
+        "recall_at_3/p90": 0.5,
+        "recall_at_3/variance": 0.0,
+        "precision_at_4/mean": 1 / 3,
+        "precision_at_4/p90": 1 / 3,
+        "precision_at_4/variance": 0.0,
+        "recall_at_4/mean": 0.5,
+        "recall_at_4/p90": 0.5,
+        "recall_at_4/variance": 0.0,
     }
 
+    # test to make sure it silently fails with invalid k
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            data=X_1,
+            predictions="predictions_param",
+            targets="targets_param",
+            model_type="retriever",
+            extra_metrics=[mlflow.metrics.precision_at_k(-1)],
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {
+        "precision_at_3/mean": 1 / 3,
+        "precision_at_3/p90": 1 / 3,
+        "precision_at_3/variance": 0.0,
+        "recall_at_3/mean": 0.5,
+        "recall_at_3/p90": 0.5,
+        "recall_at_3/variance": 0.0,
+    }
 
-def test_evaluate_precision_at_k_no_model_type():
-    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [("doc1", "doc2")] * 3})
+    # silent failure with evaluator_config method too!
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            data=X_1,
+            predictions="predictions_param",
+            targets="targets_param",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={
+                "retriever_k": -1,
+            },
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert run.data.metrics == {}
+
+
+def test_evaluate_retriever_builtin_metrics_no_model_type():
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [["doc1", "doc2"]] * 3})
 
     def fn(X):
-        return pd.DataFrame({"retrieved_context": [("doc1", "doc3", "doc2")] * len(X)})
+        return {"retrieved_context": [["doc1", "doc3", "doc2"]] * len(X)}
 
     with mlflow.start_run() as run:
         results = mlflow.evaluate(
             model=fn,
             data=X,
             targets="ground_truth",
-            extra_metrics=[mlflow.metrics.precision_at_k(3)],
+            extra_metrics=[mlflow.metrics.precision_at_k(4), mlflow.metrics.recall_at_k(4)],
         )
     run = mlflow.get_run(run.info.run_id)
-    assert run.data.metrics == {
-        "precision_at_k/v1/mean": 2 / 3,
-        "precision_at_k/v1/variance": 0,
-        "precision_at_k/v1/p90": 2 / 3,
-    }
+    assert (
+        run.data.metrics
+        == results.metrics
+        == {
+            "precision_at_4/mean": 2 / 3,
+            "precision_at_4/p90": 2 / 3,
+            "precision_at_4/variance": 0.0,
+            "recall_at_4/mean": 1.0,
+            "recall_at_4/p90": 1.0,
+            "recall_at_4/variance": 0.0,
+        }
+    )
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
-    validate_retriever_logged_data(logged_data)
-    assert set(results.metrics.keys()) == {
-        "precision_at_k/v1/p90",
-        "precision_at_k/v1/mean",
-        "precision_at_k/v1/variance",
-    }
-    assert results.metrics["precision_at_k/v1/p90"] == 2 / 3
-    assert results.metrics["precision_at_k/v1/mean"] == 2 / 3
-    assert results.metrics["precision_at_k/v1/variance"] == 0
+    validate_retriever_logged_data(logged_data, 4)
 
 
 def test_evaluate_with_numpy_array():
@@ -3448,7 +3495,7 @@ def test_evaluate_with_numpy_array():
 
 
 def test_target_prediction_col_mapping():
-    metric = mlflow.metrics.make_genai_metric(
+    metric = mlflow.metrics.genai.make_genai_metric(
         name="correctness",
         definition=(
             "Correctness refers to how well the generated output matches "

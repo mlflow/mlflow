@@ -26,11 +26,17 @@ export const EvaluationCreatePromptParameters = ({
   const { parameterDefinitions } = usePromptEvaluationParameters();
   const { theme } = useDesignSystemTheme();
   return (
-    <>
+    <div css={{ marginBottom: theme.spacing.lg }}>
+      <FormUI.Label css={{ marginBottom: theme.spacing.md }}>
+        <FormattedMessage
+          defaultMessage='Model parameters'
+          description='Experiment page > new run modal > AI gateway model parameters label'
+        />
+      </FormUI.Label>
       {parameterDefinitions.map((parameterDef) => (
         <div key={parameterDef.name} css={{ marginBottom: theme.spacing.md }}>
           <>
-            <FormUI.Label htmlFor={parameterDef.name}>
+            <FormUI.Label htmlFor={parameterDef.name} css={{ span: { fontWeight: 'normal' } }}>
               <FormattedMessage {...parameterDef.string} />
               <Tooltip title={<FormattedMessage {...parameterDef.helpString} />} placement='right'>
                 <InfoIcon
@@ -81,6 +87,6 @@ export const EvaluationCreatePromptParameters = ({
           </>
         </div>
       ))}
-    </>
+    </div>
   );
 };
