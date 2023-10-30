@@ -122,7 +122,9 @@ def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, exp
         "create_multipart_upload",
         side_effect=HTTPError(
             response=MockResponse(
-                data={"message": "Multipart upload is not supported for the current artifact repository"},
+                data={
+                    "message": "Multipart upload is not supported for the current artifact repository"
+                },
                 status_code=501,
             )
         ),
