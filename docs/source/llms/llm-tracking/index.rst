@@ -49,7 +49,7 @@ MLflow's LLM Tracking doesn't just record data — it offers structured logging 
 
 - **Metrics**: Quantitative insights are crucial. Whether it's tracking the accuracy of a fine-tuned LLM or understanding its response time, metrics provide this insight. They can be logged individually via :py:func:`mlflow.log_metric` or in bulk using :py:func:`mlflow.log_metrics`.
 
-- **Predictions**: Every interaction with an LLM yields a result — a prediction. Capturing this prediction, along with the inputs that led to it, is crucial. The :py:func:`mlflow.llm.log_predictions` function is specifically designed for this, ensuring that both inputs and outputs are logged cohesively.
+- **Predictions**: Every interaction with an LLM yields a result — a prediction. Capturing this prediction, along with the inputs that led to it, is crucial. The :py:func:`mlflow.log_table` function is specifically designed for this, ensuring that both inputs and outputs are logged cohesively.
 
 - **Artifacts**: Artifacts act as the tangible outputs of an LLM run. They can be images, models, or any other form of data. Logging them is seamless with :py:func:`mlflow.log_artifact`, which ensures that every piece of data, regardless of its format, is stored and linked to its respective run.
 
