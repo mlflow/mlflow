@@ -88,10 +88,7 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
     :return: Object
     """
     dtype = _infer_datatype(data)
-
-    if dtype is None:
-        raise MlflowException("Failed to infer schema for a column.")
-
+    _validate_inferred_type(dtype)
     return dtype
 
 
@@ -167,6 +164,26 @@ def _infer_scalar_datatype(data) -> DataType:
     if DataType.is_datetime(data):
         return DataType.datetime
     raise MlflowException.invalid_parameter_value("Data is not one of the supported DataType")
+
+
+def _validate_inferred_type(dtype: Any):
+    """
+    Validate inferred type for a column. Currently it's trivial check just to avoid unexpected
+      value like None (undermined) remains in the inferrence result.
+    """
+    if isinstance(dtype, DataType):
+        return
+    elif isinstance(dtype, Object):
+        for prop in dtype.properties:
+            _validate_inferred_type(prop.dtype)
+        return
+    elif isinstance(dtype, Array):
+        _validate_inferred_type(dtype.dtype)
+        return
+
+    raise MlflowException.invalid_parameter_value(
+        f"Inferred schema contains invalid type `{dtype}`"
+    )
 
 
 def _infer_schema(data: Any) -> Schema:

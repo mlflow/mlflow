@@ -29,6 +29,7 @@ from mlflow.types.utils import (
     _infer_colspec_type,
     _infer_param_schema,
     _infer_schema,
+    _validate_inferred_type,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
 
@@ -1438,6 +1439,25 @@ def test_infer_colspec_type():
     )
 
 
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        (DataType.string),
+        (Object([Property("a", DataType.string), Property("b", DataType.boolean, required=False)])),
+        (Array(DataType.string)),
+        (Object([Property("list", Array(DataType.long))])),
+        (Array(Array(Array(DataType.integer)))),
+    ],
+)
+def test_validate_inferred_type(dtype):
+    _validate_inferred_type(dtype)
+
+
+def test_validate_inferred_type_with_errors():
+    with pytest.raises(MlflowException, match="Inferred schema contains invalid type `None`"):
+        _validate_inferred_type(None)
+
+
 def test_infer_schema_on_objects_and_arrays_to_and_from_dict():
     data = [
         {
@@ -1642,7 +1662,7 @@ def test_schema_inference_with_empty_lists():
 
     # Nested list contains only an empty list is not allowed.
     data = [[]]
-    with pytest.raises(MlflowException, match=r"Failed to infer schema for a column."):
+    with pytest.raises(MlflowException, match=r"Inferred schema contains invalid type `None`"):
         _infer_schema(data)
 
     # If at least one of sublists is not empty, we can assume other empty lists have the same type.
