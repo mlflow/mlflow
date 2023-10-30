@@ -100,7 +100,12 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
 
 def _infer_datatype(data: Any) -> Union[DataType, Array, Object]:
     if isinstance(data, dict):
-        properties = [Property(name=k, dtype=_infer_datatype(v)) for k, v in data.items()]
+        properties = []
+        for k, v in data.items():
+            dtype = _infer_datatype(v)
+            if dtype is None:
+                raise MlflowException("Dictionary value must not be an empty list.")
+            properties.append(Property(name=k, dtype=dtype))
         return Object(properties=properties)
 
     if isinstance(data, (list, np.ndarray)):

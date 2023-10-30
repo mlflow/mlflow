@@ -1648,6 +1648,14 @@ def test_schema_inference_with_empty_lists():
     ):
         _infer_schema(data)
 
+    # This case is also considered as empty list, because None and np.nan are skipped.
+    data = [[None, np.nan]]
+    with pytest.raises(
+        MlflowException,
+        match=r"A column of nested array type must include at least one non-empty array.",
+    ):
+        _infer_schema(data)
+
     # If at least one of sublists is not empty, we can assume other empty lists have the same type.
     data = [
         {
@@ -1683,11 +1691,7 @@ def test_schema_inference_with_empty_lists():
 
     # Property value cannot be an empty list
     data = [{"data": {"key": []}}]
-    with pytest.raises(
-        MlflowException,
-        match=r"Expected mlflow.types.schema.Datatype, mlflow.types.schema.Array, "
-        "mlflow.types.schema.Object or str for the 'dtype' argument, but got <class 'NoneType'>",
-    ):
+    with pytest.raises(MlflowException, match=r"Dictionary value must not be an empty list."):
         _infer_schema(data)
 
 
