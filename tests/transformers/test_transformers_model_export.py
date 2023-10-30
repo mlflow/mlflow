@@ -2139,20 +2139,20 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model):
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    # Define the image file path or data
+    
     image_file_path = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"  # Replace with the actual image file path
 
-    # Load the image data (you may need to preprocess the image according to your model's requirements)
+    
     image_data = image = Image.open(image_file_path)
 
-    # Prepare the inference payload
+   
     inference_payload = json.dumps({
         "inputs": {
             "image": image_data  # Replace with the input field name for your image classification model
         }
     })
 
-    # Serve and score the model
+   
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_payload,
@@ -2160,13 +2160,13 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model):
         extra_args=["--env-manager", "local"],
     )
 
-    # Parse the response to get predictions
+    
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    # Define your expected class labels or values
-    expected_labels = ["tabby", "tabbycat"]  # Replace with your expected class labels
+   
+    expected_labels = ["tabby", "tabby cat"]  # Replace with your expected class labels
 
-    # Assert that the model's predictions match the expected labels
+    
     assert predictions == expected_labels
 
 def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
@@ -3573,11 +3573,11 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
 def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     artifact_path = "image_classification_model"
 
-    # Define image file paths or data for testing
+   
     image_file_paths = ["https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat_image.jpg", "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/tiger_cat.jpg"]  # Replace with actual image file paths
-    labels = ["tabby", "tabby cat", "tiger cat","egyptian cat"]  # Replace with corresponding class labels
+    labels = ["tabby", "tabby cat", "tiger cat","Egyptian cat"]  # Replace with corresponding class labels
 
-    # Prepare the inference payload
+    
     inference_payload = json.dumps({
         "inputs": {
             "images": image_file_paths,  # Replace with the input field name for image classification
@@ -3588,8 +3588,8 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
         },
     })
 
-    # Define the expected predictions for each image
-    expected_predictions = ["tabby", "tabby cat", "tiger cat","egyptian cat"]  # Replace with expected class labels
+    
+    expected_predictions = ["tabby", "tabby cat", "tiger cat","Egyptian cat"]  # Replace with expected class labels
 
     # Log the image classification model
     with mlflow.start_run():
