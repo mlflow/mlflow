@@ -3,9 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow import get_tracking_uri
+from mlflow import get_tracking_uri, set_tracking_uri
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
-from mlflow.exceptions import MlflowException
 from mlflow.utils.credentials import login, read_mlflow_creds
 
 
@@ -115,20 +114,16 @@ def test_mlflow_login(tmp_path, monkeypatch):
         monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)
         monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", profile)
 
-        class FakeWorkspaceClient:
-            class FakeClusters:
-                def list(self):
-                    return ["dummy_cluster"]
+        def fail():
+            return False
 
-            def __init__(self):
-                self.clusters = FakeWorkspaceClient.FakeClusters()
+        def success():
+            set_tracking_uri("databricks")
+            return True
 
         with patch(
-            "databricks.sdk.WorkspaceClient",
-            side_effect=[
-                MlflowException("Error"),
-                FakeWorkspaceClient(),
-            ],
+            "mlflow.utils.credentials._connect_to_databricks",
+            side_effect=[fail(), success()],
         ):
             login("databricks")
 

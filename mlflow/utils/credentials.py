@@ -1,6 +1,7 @@
 import configparser
 import getpass
 import logging
+import multiprocessing
 import os
 from typing import NamedTuple, Optional, Tuple
 
@@ -76,29 +77,66 @@ def login(backend="databricks"):
         )
 
 
-def _check_databricks_auth():
-    # Check if databricks credentials are set.
-    try:
-        from databricks.sdk import WorkspaceClient
-    except ImportError:
-        raise ImportError(
-            "Databricks SDK is not installed. To use `mlflow.login()`, please install "
-            "databricks-sdk by `pip install databricks-sdk`."
-        )
+def _validate_databricks_auth(error_queue):
+    from databricks.sdk import WorkspaceClient
 
     try:
-        w = WorkspaceClient()
+        # If no credential is set up, creating `WorkspaceClient` throws an error.
+        workspace_client = WorkspaceClient()
         # If credentials are invalid, `clusters.list()` will throw an error.
-        w.clusters.list()
-        _logger.info("Succesfully signed in Databricks!")
-        # Connect MLflow to Databricks tracking server.
-        from mlflow import set_tracking_uri
-
-        set_tracking_uri("databricks")
-        return True
+        workspace_client.clusters.list()
     except Exception as e:
-        _logger.error(f"Failed to sign in Databricks: {e}")
-        return False
+        # Child process' error is not captured by the parent process, so we need to put the error
+        # into a queue and retrieve it in the parent process.
+        error_queue.put(e)
+
+
+def _connect_to_databricks():
+    """Validate Databricks auth and connect to Databricks.
+
+    This function checks the Databricks authentication, and connects MLflow to Databricks if auth
+    is valid. This function spawns a child process to validate the Databricks auth and automatically
+    times out after 3 seconds. It allows 3 retrys before failing in case of network lagging.
+    """
+    max_trials = 3
+    for _ in range(max_trials):
+        error_queue = multiprocessing.Queue()
+        # Doing auth validation in a child process so that we can kill it after timeout.
+        process = multiprocessing.Process(target=_validate_databricks_auth, args=(error_queue,))
+        process.start()
+
+        process.join(timeout=3)
+
+        if process.is_alive():
+            _logger.error("Timeout (3s) while signing in Databricks, retrying...")
+            # Kill the process after timeout.
+            process.terminate()
+            process.join()
+        else:
+            if error_queue.empty():
+                # If no error is raised in the child process, the auth is valid.
+                _logger.info("Successfully signed in Databricks!")
+                from mlflow import set_tracking_uri
+
+                set_tracking_uri("databricks")
+                return True
+            # Retrieve the error from the queue.
+            error = error_queue.get()
+            if isinstance(error, ValueError):
+                # `ValueError` is thrown when no credentials are found.
+                _logger.info("No existing Databricks credentials found, creating a new one...")
+            else:
+                # Other errors are thrown when credentials are invalid.
+                _logger.error(f"Failed to sign in Databricks: {error}")
+            return False
+
+    _logger.error(
+        "Timeout while signing in Databricks, max retry reached. This often happens when you are "
+        "using username/password to sign in Databricks instead of personal token. Please enter "
+        "your Databricks auth following the prompt below or manually edit ~/.databrickscfg file or "
+        "environment variable 'DATABRICKS_HOST' and 'DATABRICKS_TOKEN'."
+    )
+    return False
 
 
 def _overwrite_or_create_databricks_profile(
@@ -155,8 +193,16 @@ def _overwrite_or_create_databricks_profile(
 
 def _databricks_login():
     """Set up databricks authentication and connect MLflow to Databricks tracking server."""
-    if _check_databricks_auth():
-        # Check if the auth has already been set.
+    try:
+        import databricks.sdk  # noqa: F401
+    except ImportError:
+        raise ImportError(
+            "Databricks SDK is not installed. To use `mlflow.login()` to connect MLflow to "
+            "Databricks, please install  databricks-sdk by `pip install databricks-sdk`."
+        )
+
+    if _connect_to_databricks():
+        # Check if the auth has already been set and connect to Databricks.
         return
 
     while True:
@@ -183,5 +229,5 @@ def _databricks_login():
     profile_name = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
     _overwrite_or_create_databricks_profile(file_name, profile, profile_name)
 
-    if not _check_databricks_auth():
+    if not _connect_to_databricks():
         raise MlflowException("Failed to sign in Databricks, please retry `mlflow.login()`.")
