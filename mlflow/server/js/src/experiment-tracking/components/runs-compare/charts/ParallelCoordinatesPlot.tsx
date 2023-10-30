@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { LegacySkeleton } from '@databricks/design-system';
+import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import Parcoords from 'parcoord-es';
 import 'parcoord-es/dist/parcoords.css';
 import { scaleSequential } from 'd3-scale';
-import { useDynamicPlotSize, truncateString } from './CompareRunsCharts.common';
+import { useDynamicPlotSize } from '../../runs-charts/components/RunsCharts.common';
 import './ParallelCoordinatesPlot.css';
+import { truncateChartMetricString } from '../../../utils/MetricsUtils';
 
 /**
  * Attaches custom tooltip to the axis label inside SVG
@@ -333,7 +334,7 @@ const ParallelCoordinatesPlotImpl = (props: {
         e.setAttribute('x', '20');
         const width_pre_truncation = e.getBoundingClientRect().width;
         if (width_pre_truncation > maxAxesLabelWidth) {
-          e.innerHTML = truncateString(originalLabel, axesLabelTruncationThreshold);
+          e.innerHTML = truncateChartMetricString(originalLabel, axesLabelTruncationThreshold);
           if (originalLabel !== e.innerHTML) {
             attachCustomTooltip('axis-label-tooltip', originalLabel, e);
           }
@@ -345,7 +346,7 @@ const ParallelCoordinatesPlotImpl = (props: {
         const originalLabel = e.innerHTML;
         const width_pre_truncation = e.getBoundingClientRect().width;
         if (width_pre_truncation > maxTickLabelWidth) {
-          e.innerHTML = truncateString(originalLabel, tickLabelTruncationThreshold);
+          e.innerHTML = truncateChartMetricString(originalLabel, tickLabelTruncationThreshold);
           if (originalLabel !== e.innerHTML) {
             attachCustomTooltip('tick-label-tooltip', originalLabel, e);
           }
@@ -415,6 +416,7 @@ const ParallelCoordinatesPlotImpl = (props: {
 
 export const ParallelCoordinatesPlot = (props: any) => {
   const wrapper = useRef<HTMLDivElement>(null);
+  const { theme } = useDesignSystemTheme();
 
   const { layoutHeight, layoutWidth, setContainerDiv } = useDynamicPlotSize();
 
@@ -436,7 +438,21 @@ export const ParallelCoordinatesPlot = (props: any) => {
   }, [layoutHeight, layoutWidth]);
 
   return (
-    <div ref={wrapper} css={{ overflow: 'hidden', flex: '1', paddingTop: '20px', fontSize: 0 }}>
+    <div
+      ref={wrapper}
+      css={{
+        overflow: 'hidden',
+        flex: '1',
+        paddingTop: '20px',
+        fontSize: 0,
+        '.parcoords': {
+          backgroundColor: 'transparent',
+        },
+        '.parcoords text.label': {
+          fill: theme.colors.textPrimary,
+        },
+      }}
+    >
       {isResizing ? (
         <LegacySkeleton />
       ) : (

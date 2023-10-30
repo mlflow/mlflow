@@ -14,7 +14,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal
 from types import FunctionType
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import mlflow
 from mlflow.data.dataset import Dataset
@@ -30,7 +30,7 @@ from mlflow.models.evaluation.validation import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils import _get_fully_qualified_class_name, _insecure_md5
+from mlflow.utils import _get_fully_qualified_class_name, insecure_hash
 from mlflow.utils.annotations import developer_stable, experimental
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
@@ -54,7 +54,7 @@ class _ModelType:
     QUESTION_ANSWERING = "question-answering"
     TEXT_SUMMARIZATION = "text-summarization"
     TEXT = "text"
-    # TODO: Add 'retrieval' model type
+    RETRIEVER = "retriever"
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
@@ -67,6 +67,7 @@ class _ModelType:
             cls.QUESTION_ANSWERING,
             cls.TEXT_SUMMARIZATION,
             cls.TEXT,
+            cls.RETRIEVER,
         )
 
 
@@ -412,6 +413,11 @@ def _hash_array_like_obj_as_bytes(data):
 
         data = data.applymap(_hash_array_like_element_as_bytes)
         return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
+    elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
+        # convert numpy array of lists into numpy array of numpy arrays
+        # because lists are not hashable
+        hashable = np.array(str(val) for val in data)
+        return _hash_ndarray_as_bytes(hashable)
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
@@ -605,7 +611,7 @@ class EvaluationDataset:
             )
 
         # generate dataset hash
-        md5_gen = _insecure_md5()
+        md5_gen = insecure_hash.md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         if self._labels_data is not None:
             _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
@@ -1159,18 +1165,18 @@ def _get_model_from_function(fn):
 
 
 def evaluate(
-    model: Optional[str] = None,
+    model=None,
     data=None,
     *,
-    model_type: Optional[str] = None,
+    model_type=None,
     targets=None,
     predictions=None,
     dataset_path=None,
-    feature_names: Optional[list] = None,
+    feature_names=None,
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
-    extra_metrics: Optional[List[EvaluationMetric]] = None,
+    extra_metrics=None,
     custom_artifacts=None,
     validation_thresholds=None,
     baseline_model=None,
@@ -1178,17 +1184,19 @@ def evaluate(
     model_config=None,
     baseline_config=None,
 ):
-    '''
-    Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
-    log resulting metrics & artifacts to MLflow Tracking. Set thresholds on the generated metrics to
-    validate model quality. For additional overview information, see
+    '''Evaluate the model performance on given data and selected metrics.
+
+    This function evaluates a PyFunc model or custom callable on the specified dataset using
+    specified ``evaluators``, and logs resulting metrics & artifacts to MLflow tracking server.
+    Users can also skip setting ``model`` and put the model outputs in ``data`` directly for
+    evaluation. For detailed information, please read
     :ref:`the Model Evaluation documentation <model-evaluation>`.
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
-       ``evaluators=None``, supports the ``"regressor"`` and ``"classifier"`` model types.
-       It generates a variety of model performance metrics, model performance plots, and
-       model explanations.
+       ``evaluators=None``, supports model types listed below. For each pre-defined model type, the
+       default evaluator evaluates your model on a selected set of metrics and generate artifacts
+       like plots. Please find more details below.
 
      - For both the ``"regressor"`` and ``"classifier"`` model types, the default evaluator
        generates model summary plots and feature importance plots using
@@ -1212,16 +1220,12 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: ``exact_match``, ``token_count``, `mean_perplexity`_ (requires `evaluate`_,
-          `pytorch`_, `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_,
-          `mean_flesch_kincaid_grade_level`_ (requires `textstat`_).
+        - **metrics**: ``exact_match``, ``token_count``, `toxicity`_ (requires `evaluate`_,
+          `pytorch`_, `flesch_kincaid_grade_level`_ (requires `textstat`_) and `ari_grade_level`_.
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
-        .. _mean_perplexity:
-            https://huggingface.co/spaces/evaluate-metric/perplexity
-
-        .. _toxicity_ratio:
+        .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
         .. _pytorch:
@@ -1230,10 +1234,10 @@ def evaluate(
         .. _transformers:
             https://huggingface.co/docs/transformers/installation
 
-        .. _mean_ari_grade_level:
+        .. _ari_grade_level:
             https://en.wikipedia.org/wiki/Automated_readability_index
 
-        .. _mean_flesch_kincaid_grade_level:
+        .. _flesch_kincaid_grade_level:
             https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
 
         .. _evaluate:
@@ -1244,20 +1248,16 @@ def evaluate(
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: ``token_count``, `ROUGE`_ (requires `evaluate`_, `nltk`_, and
-          `rouge_score`_ to be installed), `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
-          (requires `textstat`_).
+          `rouge_score`_ to be installed), `toxicity`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `ari_grade_level`_ (requires `textstat`_),
+          `flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in the tabular format.
 
         .. _ROUGE:
             https://huggingface.co/spaces/evaluate-metric/rouge
 
-        .. _mean_perplexity:
-            https://huggingface.co/spaces/evaluate-metric/perplexity
-
-        .. _toxicity_ratio:
+        .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
         .. _pytorch:
@@ -1266,10 +1266,10 @@ def evaluate(
         .. _transformers:
             https://huggingface.co/docs/transformers/installation
 
-        .. _mean_ari_grade_level:
+        .. _ari_grade_level:
             https://en.wikipedia.org/wiki/Automated_readability_index
 
-        .. _mean_flesch_kincaid_grade_level:
+        .. _flesch_kincaid_grade_level:
             https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
 
         .. _evaluate:
@@ -1285,20 +1285,16 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: ``token_count``, `mean_perplexity`_ (requires `evaluate`_, `pytorch`_,
-          `transformers`_), `toxicity_ratio`_ (requires `evaluate`_, `pytorch`_, `transformers`_),
-          `mean_ari_grade_level`_ (requires `textstat`_), `mean_flesch_kincaid_grade_level`_
-          (requires `textstat`_).
+        - **metrics**: ``token_count``, `toxicity`_ (requires `evaluate`_, `pytorch`_,
+          `transformers`_), `ari_grade_level`_ (requires `textstat`_),
+          `flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
         .. _evaluate:
             https://pypi.org/project/evaluate
 
-        .. _mean_perplexity:
-            https://huggingface.co/spaces/evaluate-metric/perplexity
-
-        .. _toxicity_ratio:
+        .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
         .. _pytorch:
@@ -1307,14 +1303,21 @@ def evaluate(
         .. _transformers:
             https://huggingface.co/docs/transformers/installation
 
-        .. _mean_ari_grade_level:
+        .. _ari_grade_level:
             https://en.wikipedia.org/wiki/Automated_readability_index
 
-        .. _mean_flesch_kincaid_grade_level:
+        .. _flesch_kincaid_grade_level:
             https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level
 
         .. _textstat:
             https://pypi.org/project/textstat
+
+     - For retriever models, the default evaluator logs:
+        - **metrics**: :mod:`precision_at_k(k) <mlflow.metrics.precision_at_k>` and
+          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>` - both have a default value of
+          ``retriever_k`` = 3.
+        - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
+          of the model in tabular format.
 
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
@@ -1359,6 +1362,11 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
+        - **retriever_k**: A parameter used when ``model_type="retriever"`` as the number of
+          top-ranked retrieved documents to use when computing the built-in metric
+          :mod:`precision_at_k(k) <mlflow.metrics.precision_at_k>` and
+          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>`. Default value is 3. For all other
+          model types, this parameter will be ignored.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.
@@ -1478,26 +1486,28 @@ def evaluate(
                        - ``'question-answering'``
                        - ``'text-summarization'``
                        - ``'text'``
+                       - ``'retriever'``
 
                        If no ``model_type`` is specified, then you must provide a a list of
                        metrics to compute via the ``extra_metrics`` param.
 
                        .. note::
-                            ``'question-answering'``, ``'text-summarization'``, and ``'text'``
-                            are experimental and may be changed or removed in a future release.
+                            ``'question-answering'``, ``'text-summarization'``, ``'text'``, and
+                            ``'retriever'`` are experimental and may be changed or removed in a
+                            future release.
 
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
                          tag for lineage tracking purposes.
 
-    :param feature_names: (Optional) If the ``data`` argument is a feature data numpy array or list,
+    :param feature_names: (Optional) A list. If the ``data`` argument is a numpy array or list,
                           ``feature_names`` is a list of the feature names for each feature. If
-                          ``None``, then the ``feature_names`` are generated using the format
-                          ``feature_{feature_index}``. If the ``data`` argument is a Pandas
+                          ``feature_names=None``, then the ``feature_names`` are generated using the
+                          format ``feature_{feature_index}``. If the ``data`` argument is a Pandas
                           DataFrame or a Spark DataFrame, ``feature_names`` is a list of the names
-                          of the feature columns in the DataFrame. If ``None``, then all columns
-                          except the label column and the predictions column are regarded as
-                          feature columns.
+                          of the feature columns in the DataFrame. If ``feature_names=None``, then
+                          all columns except the label column and the predictions column are
+                          regarded as feature columns.
 
     :param evaluators: The name of the evaluator to use for model evaluation, or a list of
                        evaluator names. If unspecified, all evaluators capable of evaluating the
@@ -1511,8 +1521,10 @@ def evaluate(
 
     :param extra_metrics:
         (Optional) A list of :py:class:`EvaluationMetric <mlflow.models.EvaluationMetric>` objects.
-        See the `mlflow.metrics` module for more information about the
-        builtin metrics and how to define extra metrics
+        These metrics are computed in addition to the default metrics associated with pre-defined
+        `model_type`, and setting `model_type=None` will only compute the metrics specified in
+        `extra_metrics`. See the `mlflow.metrics` module for more information about the
+        builtin metrics and how to define extra metrics.
 
         .. code-block:: python
             :caption: Example usage of extra metrics
@@ -1667,6 +1679,15 @@ def evaluate(
     from mlflow.pyfunc import PyFuncModel, _load_model_or_server, _ServedPyFuncModel
     from mlflow.utils import env_manager as _EnvManager
 
+    if evaluator_config is not None:
+        col_mapping = evaluator_config.get("col_mapping", {})
+
+        if isinstance(targets, str):
+            targets = col_mapping.get(targets, targets)
+
+        if isinstance(predictions, str):
+            predictions = col_mapping.get(predictions, predictions)
+
     if data is None:
         raise MlflowException(
             message="The data argument cannot be None.", error_code=INVALID_PARAMETER_VALUE
@@ -1755,7 +1776,7 @@ def evaluate(
             # If data is a pandas dataframe, predictions must be specified
             if predictions is None:
                 raise MlflowException(
-                    message="The model output must be specified in the predicitons "
+                    message="The model output must be specified in the predictions "
                     "parameter when model=None.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )

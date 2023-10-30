@@ -11,7 +11,7 @@ import { CreateModelForm, MODEL_NAME_FIELD } from './CreateModelForm';
 import { connect } from 'react-redux';
 import { createRegisteredModelApi } from '../actions';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { getModelPageRoute } from '../routes';
+import { ModelRegistryRoutes } from '../routes';
 import { debounce } from 'lodash';
 import { modelNameValidator } from '../../common/forms/validations';
 import { IntlShape, injectIntl } from 'react-intl';
@@ -40,7 +40,7 @@ export class CreateModelModalImpl extends React.Component<Props> {
     if (newModel) {
       // Jump to the page of newly created model. Here we are yielding to next tick to allow modal
       // and form to finish closing and cleaning up.
-      setTimeout(() => this.props.navigate(getModelPageRoute(newModel.name)));
+      setTimeout(() => this.props.navigate(ModelRegistryRoutes.getModelPageRoute(newModel.name)));
     }
   };
 

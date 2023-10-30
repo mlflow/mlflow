@@ -1,14 +1,5 @@
 from mlflow.metrics.base import (
-    EvaluationExample,
     MetricValue,
-)
-from mlflow.metrics.genai.genai_metric import (
-    make_genai_metric,
-)
-from mlflow.metrics.genai.metric_definitions import (
-    answer_similarity,
-    relevance,
-    strict_correctness,
 )
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
@@ -19,9 +10,10 @@ from mlflow.metrics.metric_definitions import (
     _mape_eval_fn,
     _max_error_eval_fn,
     _mse_eval_fn,
-    _perplexity_eval_fn,
+    _precision_at_k_eval_fn,
     _precision_eval_fn,
     _r2_score_eval_fn,
+    _recall_at_k_eval_fn,
     _recall_eval_fn,
     _rmse_eval_fn,
     _rouge1_eval_fn,
@@ -88,29 +80,6 @@ def toxicity() -> EvaluationMetric:
         greater_is_better=False,
         name="toxicity",
         long_name="toxicity/roberta-hate-speech-dynabench-r4",
-        version="v1",
-    )
-
-
-@experimental
-def perplexity() -> EvaluationMetric:
-    """
-    This function will create a metric for evaluating `perplexity`_ using the model gpt2.
-
-    The score ranges from 0 to infinity, where a lower score means that the model is better at
-    predicting the given text and a higher score means that the model is not likely to predict the
-    text.
-
-    Aggregations calculated for this metric:
-        - mean
-
-    .. _perplexity: https://huggingface.co/spaces/evaluate-metric/perplexity
-    """
-    return make_metric(
-        eval_fn=_perplexity_eval_fn,
-        greater_is_better=False,
-        name="perplexity",
-        long_name="perplexity/gpt2",
         version="v1",
     )
 
@@ -263,6 +232,46 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
+@experimental
+def precision_at_k(k) -> EvaluationMetric:
+    """
+    This function will create a metric for calculating ``precision_at_k`` for retriever models.
+
+    This metric computes a score between 0 and 1 for each row representing the precision of the
+    retriever model at the given ``k`` value. If no relevant documents are retrieved, the score is
+    0, indicating that no relevant docs were retrieved. Let ``x = min(k, # of retrieved doc IDs)``.
+    Then, in all other cases, the precision at k is calculated as follows:
+
+        ``precision_at_k`` = (# of relevant retrieved doc IDs in top-``x`` ranked docs) / ``x``.
+    """
+    return make_metric(
+        eval_fn=_precision_at_k_eval_fn(k),
+        greater_is_better=True,
+        name=f"precision_at_{k}",
+    )
+
+
+@experimental
+def recall_at_k(k) -> EvaluationMetric:
+    """
+    This function will create a metric for calculating ``recall_at_k`` for retriever models.
+
+    This metric computes a score between 0 and 1 for each row representing the recall ability of
+    the retriever model at the given ``k`` value. If no ground truth doc IDs are provided and no
+    documents were retrieved, the score is 1. However, if no ground truth doc IDs are provided and
+    documents were retrieved, the score is 0. In all other cases, the recall at k is calculated as
+    follows:
+
+        ``recall_at_k`` = (# of unique relevant retrieved doc IDs in top-``k`` ranked docs) / (# of
+        ground truth doc IDs)
+    """
+    return make_metric(
+        eval_fn=_recall_at_k_eval_fn(k),
+        greater_is_better=True,
+        name=f"recall_at_{k}",
+    )
+
+
 # General Regression Metrics
 def mae() -> EvaluationMetric:
     """
@@ -396,11 +405,9 @@ def f1_score() -> EvaluationMetric:
 
 
 __all__ = [
-    "EvaluationExample",
     "EvaluationMetric",
     "MetricValue",
     "make_metric",
-    "perplexity",
     "flesch_kincaid_grade_level",
     "ari_grade_level",
     "accuracy",
@@ -409,7 +416,6 @@ __all__ = [
     "rougeL",
     "rougeLsum",
     "toxicity",
-    "make_genai_metric",
     "mae",
     "mse",
     "rmse",
@@ -419,9 +425,6 @@ __all__ = [
     "binary_recall",
     "binary_precision",
     "binary_f1_score",
-    "answer_similarity",
-    "relevance",
-    "strict_correctness",
     "token_count",
     "latency",
 ]

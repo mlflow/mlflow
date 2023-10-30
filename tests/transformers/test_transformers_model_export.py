@@ -4013,3 +4013,36 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
     text = "Apples are delicious"
 
     assert loaded(text) == pipeline(text)
+
+def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
+    def _calculate_expected_size(path_or_dir):
+        # this helper function does not consider subdirectories
+        expected_size = 0
+        if path_or_dir.is_dir():
+            for path in path_or_dir.iterdir():
+                if not path.is_file():
+                    continue
+                expected_size += path.stat().st_size
+        elif path_or_dir.is_file():
+            expected_size = path_or_dir.stat().st_size
+        return expected_size
+
+    mlflow.transformers.save_model(
+        transformers_model=small_qa_pipeline,
+        path=tmp_path,
+    )
+
+    # expected size only counts for files saved before the MLmodel file is saved
+    model_dir = tmp_path.joinpath("model")
+    tokenizer_dir = tmp_path.joinpath("components").joinpath("tokenizer")
+    expected_size = 0
+    for folder in [model_dir, tokenizer_dir]:
+        expected_size += _calculate_expected_size(folder)
+    other_files = ["model_card.md", "model_card_data.yaml"]
+    for file in other_files:
+        path = tmp_path.joinpath(file)
+        expected_size += _calculate_expected_size(path)
+
+    mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
+    assert mlmodel["model_size_bytes"] == expected_size
+

@@ -40,6 +40,7 @@ select = [
   "RUF010",
   "RUF013",
   "S307",
+  "S324",
   "UP004",
   "UP008",
   "UP011",
@@ -69,6 +70,7 @@ ignore = [
   "E741",  # ambiguous-variable-name
   "F811",  # redefined-while-unused
 ]
+extend-include = ["*.ipynb"]
 extend-exclude = [
   "setup.py",
   "docs",

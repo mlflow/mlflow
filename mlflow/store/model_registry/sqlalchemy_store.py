@@ -1,9 +1,11 @@
 import logging
+import urllib
 
 import sqlalchemy
 from sqlalchemy.future import select
 
 import mlflow.store.db.utils
+from mlflow.entities.model_registry import ModelVersion
 from mlflow.entities.model_registry.model_version_stages import (
     ALL_STAGES,
     DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
@@ -18,6 +20,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -612,7 +615,8 @@ class SqlAlchemyStore(AbstractStore):
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
-        :param source: Source path where the MLflow model is stored.
+        :param source: Source path or model version URI (in the format
+                       ``models:/<model_name>/<version>``) where the MLflow model is stored.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
@@ -631,6 +635,18 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_name(name)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
+        storage_location = source
+        if urllib.parse.urlparse(source).scheme == "models":
+            parsed_model_uri = _parse_model_uri(source)
+            try:
+                storage_location = self.get_model_version_download_uri(
+                    parsed_model_uri.name, parsed_model_uri.version
+                )
+            except Exception as e:
+                raise MlflowException(
+                    f"Unable to fetch model from model URI source artifact location '{source}'."
+                    f"Error: {e}"
+                ) from e
         with self.ManagedSessionMaker() as session:
             creation_time = get_current_time_millis()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
@@ -644,6 +660,7 @@ class SqlAlchemyStore(AbstractStore):
                         creation_time=creation_time,
                         last_updated_time=creation_time,
                         source=source,
+                        storage_location=storage_location,
                         run_id=run_id,
                         run_link=run_link,
                         description=description,
@@ -856,7 +873,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_model_version = self._get_sql_model_version(session, name, version)
-            return sql_model_version.source
+            return sql_model_version.storage_location or sql_model_version.source
 
     def search_model_versions(
         self,
@@ -1098,6 +1115,19 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException(
                     f"Registered model alias {alias} not found.", INVALID_PARAMETER_VALUE
                 )
+
+    def copy_model_version(self, src_mv, dst_name) -> ModelVersion:
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                       the source model version.
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        return self._copy_model_version_impl(src_mv, dst_name)
 
     def _await_model_version_creation(self, mv, await_creation_for):
         """

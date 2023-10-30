@@ -15,6 +15,7 @@ describe('ExperimentRunsTableEmptyOverlay', () => {
     wrapper = mountWithIntl(
       <ExperimentViewRunsEmptyTable onClearFilters={() => {}} isFiltered={false} />,
     );
+    // eslint-disable-next-line jest/no-standalone-expect
     expect(wrapper.find(`a[href="${LoggingRunsDocUrl}"]`)).toHaveLength(1);
   });
 });

@@ -13,9 +13,10 @@ from mlflow.metrics import (
     mape,
     max_error,
     mse,
-    perplexity,
+    precision_at_k,
     precision_score,
     r2_score,
+    recall_at_k,
     recall_score,
     rmse,
     rouge1,
@@ -32,7 +33,6 @@ from mlflow.metrics import (
         ari_grade_level(),
         exact_match(),
         flesch_kincaid_grade_level(),
-        perplexity(),
         rouge1(),
         rouge2(),
         rougeL(),
@@ -44,14 +44,14 @@ def test_return_type_and_len_with_target(metric):
     predictions = pd.Series(["sentence not", "random text", "a", "c"])
     targets = pd.Series(["sentence not", "random text", "a", "c"])
 
-    result = metric.eval_fn(predictions, targets, metrics={})
+    result = metric.eval_fn(predictions, targets)
     assert isinstance(result, MetricValue)
     if result.scores:
         assert len(result.scores) == len(predictions) == len(targets)
 
     predictions = pd.Series([])
     targets = pd.Series([])
-    result = metric.eval_fn(predictions, targets, metrics={})
+    result = metric.eval_fn(predictions, targets)
     assert result is None
 
 
@@ -67,16 +67,6 @@ def test_toxicity():
     assert result.aggregate_results["ratio"] == 0.5
     assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
     assert result.scores[0] < result.aggregate_results["p90"] < result.scores[1]
-    assert "variance" in result.aggregate_results
-
-
-def test_perplexity():
-    predictions = pd.Series(["sentence not", "This is a sentence"])
-    result = perplexity().eval_fn(predictions, None, {})
-    # A properly structured sentence should have lower perplexity
-    assert result.scores[0] > result.scores[1]
-    assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
-    assert result.scores[0] > result.aggregate_results["p90"] > result.scores[1]
     assert "variance" in result.aggregate_results
 
 
@@ -250,3 +240,29 @@ def test_binary_f1_score():
     targets = pd.Series([1, 1, 1, 1, 0, 0, 0, 0])
     result = f1_score().eval_fn(predictions, targets, {})
     assert abs(result.aggregate_results["f1_score"] - 0.5713) < 1e-3
+
+
+def test_precision_at_k():
+    predictions = pd.Series([["a", "b"], ["c", "d"], ["e"], ["f", "g"]])
+    targets = pd.Series([["a", "b"], ["c", "b"], ["e"], ["c"]])
+    result = precision_at_k(4).eval_fn(predictions, targets)
+
+    assert result.scores == [1.0, 0.5, 1.0, 0.0]
+    assert result.aggregate_results == {
+        "mean": 2.5 / 4,
+        "p90": 1.0,
+        "variance": 0.171875,
+    }
+
+
+def test_recall_at_k():
+    predictions = pd.Series([["a", "b"], ["c", "d", "e"], [], ["f", "g"], ["a", "a", "a"]])
+    targets = pd.Series([["a", "b", "c", "d"], ["c", "b", "a", "d"], [], [], ["a", "c"]])
+    result = recall_at_k(4).eval_fn(predictions, targets)
+
+    assert result.scores == [0.5, 0.5, 1.0, 0.0, 0.5]
+    assert result.aggregate_results == {
+        "mean": 0.5,
+        "p90": 0.8,
+        "variance": 0.1,
+    }

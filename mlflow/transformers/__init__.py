@@ -65,7 +65,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
@@ -426,6 +426,20 @@ def save_model(
     else:
         built_pipeline = transformers_model
 
+    # Verify that the model has not been loaded to distributed memory
+    # NB: transformers does not correctly save a model whose weights have been loaded
+    # using accelerate iff the model weights have been loaded using a device_map that is
+    # heterogeneous. There is a distinct possibility for a partial write to occur, causing an
+    # invalid state of the model's weights in this scenario. Hence, we raise.
+    if _is_model_distributed_in_memory(built_pipeline.model):
+        raise MlflowException(
+            "The model that is attempting to be saved has been loaded into memory "
+            "with an incompatible configuration. If you are using the accelerate "
+            "library to load your model, please ensure that it is saved only after "
+            "loading with the default device mapping. Do not specify `device_map` "
+            "and please try again."
+        )
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -515,6 +529,8 @@ def save_model(
         code=code_dir_subpath,
         **flavor_conf,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
 
     if conda_env is None:
@@ -850,6 +866,18 @@ def load_model(
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
     return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
+
+
+def _is_model_distributed_in_memory(transformers_model):
+    """Check if the model is distributed across multiple devices in memory."""
+
+    # Check if the model attribute exists. If not, accelerate was not used and the model can
+    # be safely saved
+    if not hasattr(transformers_model, "hf_device_map"):
+        return False
+    # If the device map has more than one unique value entry, then the weights are not within
+    # a contiguous memory system (VRAM, SYS, or DISK) and thus cannot be safely saved.
+    return len(set(transformers_model.hf_device_map.values())) > 1
 
 
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
@@ -2325,8 +2353,16 @@ class _TransformersWrapper:
         Returns the first value of the `target_dict_key` that matches in the first dictionary in a
         list of dictionaries.
         """
+
+        def fetch_target_key_value(data, key):
+            if isinstance(data[0], dict):
+                return data[0][key]
+            return [item[0][key] for item in data]
+
         if isinstance(output_data[0], list):
-            return [collection[0][target_dict_key] for collection in output_data]
+            return [
+                fetch_target_key_value(collection, target_dict_key) for collection in output_data
+            ]
         else:
             return [output_data[0][target_dict_key]]
 

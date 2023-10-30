@@ -69,11 +69,11 @@ const mapStateToProps = (
   state: any,
   { location, params }: WithRouterNextProps<{ experimentId: string }>,
 ) => {
-  if (location.pathname === '/') {
+  if (location.pathname === Routes.rootRoute) {
     return {};
   }
 
-  if (location.pathname.startsWith('/experiments')) {
+  if (location.pathname.startsWith(Routes.experimentsObservatoryRoute)) {
     return { experimentIds: [params.experimentId], compareExperiments: false };
   }
 

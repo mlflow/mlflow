@@ -8,17 +8,11 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import {
-  ATTRIBUTE_COLUMN_LABELS,
-  COLUMN_TYPES,
-  MLFLOW_RUN_DATASET_CONTEXT_TAG,
-} from '../../../../../constants';
+import { MLFLOW_RUN_DATASET_CONTEXT_TAG } from '../../../../../constants';
 import type { RunDatasetWithTags } from '../../../../../types';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
-import { makeCanonicalSortKey } from '../../../utils/experimentPage.column-utils';
 import { shouldEnableExperimentDatasetTracking } from '../../../../../../common/utils/FeatureUtils';
 import { EXPERIMENT_RUNS_TABLE_ROW_HEIGHT } from '../../../utils/experimentPage.common-utils';
-import { SearchExperimentRunsFacetsState } from 'experiment-tracking/components/experiment-page/models/SearchExperimentRunsFacetsState';
 const MAX_DATASETS_VISIBLE = 3;
 
 /**
@@ -53,7 +47,10 @@ const SingleDataset = ({
       }}
     >
       <TableIcon css={{ color: theme.colors.textSecondary, marginRight: theme.spacing.xs }} />{' '}
-      <span css={{ minWidth: 32, marginRight: theme.spacing.xs, flexShrink: 0 }}>
+      <span
+        css={{ minWidth: 32, marginRight: theme.spacing.xs, flexShrink: 0 }}
+        title={`${dataset.name} (${dataset.digest})`}
+      >
         {inPopover ? (
           <Popover.Close asChild>
             <Button type='link' onClick={onDatasetSelected}>
@@ -88,11 +85,14 @@ export interface DatasetsCellRendererProps {
 }
 
 export const DatasetsCellRenderer = React.memo(
-  ({ value, data, onDatasetSelected, expandRows }: DatasetsCellRendererProps) => {
+  ({ value: datasets, data, onDatasetSelected, expandRows }: DatasetsCellRendererProps) => {
     const containerElement = useRef<HTMLDivElement>(null);
     const [datasetsVisible, setDatasetsVisible] = useState(0);
-    const clampedDatasets = useMemo(() => value.slice(0, MAX_DATASETS_VISIBLE), [value]);
+    const [ellipsisVisible, setEllipsisVisible] = useState(false);
+    const clampedDatasets = useMemo(() => datasets.slice(0, MAX_DATASETS_VISIBLE), [datasets]);
     const { theme } = useDesignSystemTheme();
+
+    const datasetsLength = datasets.length;
 
     useEffect(() => {
       if (!containerElement.current) {
@@ -112,8 +112,14 @@ export const DatasetsCellRenderer = React.memo(
             elementsFit++;
           }
           setDatasetsVisible(elementsFit);
+          setEllipsisVisible(elementsFit < datasetsLength);
         } else {
           const availableWidth = entry.contentRect.width;
+          if (availableWidth === 0 && datasetsLength) {
+            setDatasetsVisible(0);
+            setEllipsisVisible(true);
+            return;
+          }
           let elementsFit = 0;
           let stackedWidth = 0;
           for (let i = 0; i < entry.target.children.length; i++) {
@@ -124,7 +130,9 @@ export const DatasetsCellRenderer = React.memo(
             stackedWidth += item.clientWidth;
             elementsFit++;
           }
-          setDatasetsVisible(elementsFit);
+          const partiallyVisibleDatasets = Math.min(datasetsLength, elementsFit + 1);
+          setDatasetsVisible(partiallyVisibleDatasets);
+          setEllipsisVisible(elementsFit < datasetsLength);
         }
       }, 100);
 
@@ -132,14 +140,14 @@ export const DatasetsCellRenderer = React.memo(
 
       resizeObserver.observe(containerElement.current);
       return () => resizeObserver.disconnect();
-    }, [expandRows]);
+    }, [expandRows, datasetsLength]);
 
-    const moreItemsToShow = value.length - datasetsVisible;
-    if (!value || value.length < 1) {
+    const moreItemsToShow = datasetsLength - datasetsVisible;
+    if (!datasets || datasetsLength < 1) {
       return <>-</>;
     }
 
-    const datasetsToShow = expandRows ? clampedDatasets : value;
+    const datasetsToShow = expandRows ? clampedDatasets : datasets;
 
     return (
       <div css={{ display: 'flex' }}>
@@ -153,41 +161,45 @@ export const DatasetsCellRenderer = React.memo(
         >
           {datasetsToShow.map((datasetWithTags, index) => (
             <SingleDataset
-              appendComma={expandRows ? false : index < clampedDatasets.length - 1}
+              appendComma={expandRows ? false : index < datasetsToShow.length - 1}
               key={`${datasetWithTags.dataset.name}-${datasetWithTags.dataset.digest}`}
               datasetWithTags={datasetWithTags}
               onDatasetSelected={() => onDatasetSelected?.(datasetWithTags, data)}
             />
           ))}
         </div>
-        {moreItemsToShow > 0 && (
+        {(moreItemsToShow > 0 || ellipsisVisible) && (
           <div css={{ display: 'flex', alignItems: 'flex-end' }}>
-            {!expandRows && (
-              <span css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }}>
-                &hellip;
-              </span>
+            {!expandRows && ellipsisVisible && (
+              <span css={{ paddingLeft: 0, paddingRight: theme.spacing.xs }}>&hellip;</span>
             )}
-            <Popover.Root modal={false}>
-              <Popover.Trigger asChild>
-                <Button size='small' style={{ borderRadius: '8px', width: '40px' }}>
-                  <Typography.Text color='secondary'>+{moreItemsToShow}</Typography.Text>
-                </Button>
-              </Popover.Trigger>
-              <Popover.Content align='start' css={{ maxHeight: '400px', overflow: 'auto' }}>
-                {value.slice(value.length - moreItemsToShow).map((datasetWithTags) => (
-                  <div
-                    css={{ height: theme.general.heightSm, display: 'flex', alignItems: 'center' }}
-                    key={`${datasetWithTags.dataset.name}-${datasetWithTags.dataset.digest}`}
-                  >
-                    <SingleDataset
-                      datasetWithTags={datasetWithTags}
-                      onDatasetSelected={() => onDatasetSelected?.(datasetWithTags, data)}
-                      inPopover
-                    />
-                  </div>
-                ))}
-              </Popover.Content>
-            </Popover.Root>
+            {moreItemsToShow > 0 && (
+              <Popover.Root modal={false}>
+                <Popover.Trigger asChild>
+                  <Button size='small' style={{ borderRadius: '8px', width: '40px' }}>
+                    <Typography.Text color='secondary'>+{moreItemsToShow}</Typography.Text>
+                  </Button>
+                </Popover.Trigger>
+                <Popover.Content align='start' css={{ maxHeight: '400px', overflow: 'auto' }}>
+                  {datasets.slice(datasetsLength - moreItemsToShow).map((datasetWithTags) => (
+                    <div
+                      css={{
+                        height: theme.general.heightSm,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      key={`${datasetWithTags.dataset.name}-${datasetWithTags.dataset.digest}`}
+                    >
+                      <SingleDataset
+                        datasetWithTags={datasetWithTags}
+                        onDatasetSelected={() => onDatasetSelected?.(datasetWithTags, data)}
+                        inPopover
+                      />
+                    </div>
+                  ))}
+                </Popover.Content>
+              </Popover.Root>
+            )}
           </div>
         )}
       </div>
@@ -195,18 +207,8 @@ export const DatasetsCellRenderer = React.memo(
   },
 );
 
-export const getDatasetsCellHeight = (
-  searchFacetsState: SearchExperimentRunsFacetsState,
-  row: { data: RunRowType },
-) => {
-  const datasetColumnId = makeCanonicalSortKey(
-    COLUMN_TYPES.ATTRIBUTES,
-    ATTRIBUTE_COLUMN_LABELS.DATASET,
-  );
-  if (
-    shouldEnableExperimentDatasetTracking() &&
-    searchFacetsState.selectedColumns.includes(datasetColumnId)
-  ) {
+export const getDatasetsCellHeight = (datasetColumnShown: boolean, row: { data: RunRowType }) => {
+  if (shouldEnableExperimentDatasetTracking() && datasetColumnShown) {
     const { data } = row;
 
     // Display at least 1, but at most 5 text lines in the cell.
