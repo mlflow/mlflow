@@ -79,7 +79,90 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
-def _infer_datatype(data) -> DataType:
+def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
+    """
+    Infer an MLflow Colspec type from the dataset.
+
+    :param data: data to infer from.
+    :return: Object
+    """
+    dtype = _infer_datatype(data)
+
+    # Currently only input that gives None is nested list whose items are all empty e.g. [[], []],
+    # because flat empty list [] has special handlign logic in _infer_schema
+    if dtype is None:
+        raise MlflowException(
+            "A column of nested array type must include at least one non-empty array."
+        )
+
+    return dtype
+
+
+def _infer_datatype(data: Any) -> Union[DataType, Array, Object]:
+    if isinstance(data, dict):
+        properties = []
+        for k, v in data.items():
+            dtype = _infer_datatype(v)
+            if dtype is None:
+                raise MlflowException("Dictionary value must not be an empty list.")
+            properties.append(Property(name=k, dtype=dtype))
+        return Object(properties=properties)
+
+    if isinstance(data, (list, np.ndarray)):
+        return _infer_array_datatype(data)
+
+    return _infer_scalar_datatype(data)
+
+
+def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
+    """Infer schema from an array. This tries to infer type if there is at least one
+    non-null item in the list, assuming the list has a homogeneous type. However,
+    if the list is empty or all items are null, returns None as a sign of undetermined.
+
+    E.g.
+        ["a", "b"] => Array(string)
+        ["a", None] => Array(string)
+        [["a", "b"], []] => Array(Array(string))
+        [] => None
+
+    :param data: data to infer from.
+    :return: Array(dtype) or None if undetermined
+    """
+    result = None
+    for item in data:
+        # We accept None in list to provide backward compatibility,
+        # but ignore them for type inference
+        if _is_none_or_nan(item):
+            continue
+
+        dtype = _infer_datatype(item)
+
+        # Skip item with undetermined type
+        if dtype is None:
+            continue
+
+        if result is None:
+            result = Array(dtype)
+        elif isinstance(result.dtype, (Array, Object)):
+            try:
+                result = Array(result.dtype._merge(dtype))
+            except MlflowException as e:
+                raise MlflowException.invalid_parameter_value(
+                    "Expected all values in list to be of same type"
+                ) from e
+        elif isinstance(result.dtype, DataType):
+            if dtype != result.dtype:
+                raise MlflowException.invalid_parameter_value(
+                    "Expected all values in list to be of same type"
+                )
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"{dtype} is not a valid type for an item of a list or numpy array."
+            )
+    return result
+
+
+def _infer_scalar_datatype(data) -> DataType:
     if DataType.is_boolean(data):
         return DataType.boolean
     # Order of is_long & is_integer matters
@@ -101,48 +184,6 @@ def _infer_datatype(data) -> DataType:
     if DataType.is_datetime(data):
         return DataType.datetime
     raise MlflowException.invalid_parameter_value("Data is not one of the supported DataType")
-
-
-def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
-    """
-    Infer an MLflow Colspec type from the dataset.
-
-    :param data: data to infer from.
-    :return: Object
-    """
-    if isinstance(data, dict):
-        properties = []
-        for k, v in data.items():
-            properties.append(Property(name=k, dtype=_infer_colspec_type(v)))
-        return Object(properties=properties)
-    if isinstance(data, (list, np.ndarray)):
-        # We accept None in list to provide backward compatibility
-        data = [x for x in data if not _is_none_or_nan(x)]
-        if len(data) == 0:
-            raise MlflowException.invalid_parameter_value(
-                "Expected non-empty list of values to infer colspec type"
-            )
-        dtype = _infer_colspec_type(data[0])
-        if isinstance(dtype, (Array, Object)):
-            for v in data[1:]:
-                dtype2 = _infer_colspec_type(v)
-                try:
-                    dtype = dtype._merge(dtype2)
-                except MlflowException as e:
-                    raise MlflowException.invalid_parameter_value(
-                        "Expected all values in list to be of same type"
-                    ) from e
-            return Array(dtype)
-        if isinstance(dtype, DataType):
-            if any(_infer_colspec_type(v) != dtype for v in data[1:]):
-                raise MlflowException.invalid_parameter_value(
-                    f"Expected all values in list to be of same type {dtype}"
-                )
-            return Array(dtype)
-        raise MlflowException.invalid_parameter_value(
-            "Only support 1D array of DataType or dictionaries"
-        )
-    return _infer_datatype(data)
 
 
 def _infer_schema(data: Any) -> Schema:
@@ -196,6 +237,12 @@ def _infer_schema(data: Any) -> Schema:
     #        ColSpec(type=Object([Property(name='key', dtype=DataType.string),
     #                             Property(name='key2', dtype=DataType.string, required=False)]
     #               ), name='dict')])
+
+    # To keep backward compatibility with < 2.9.0, an empty list is inferred as string.
+    #   ref: https://github.com/mlflow/mlflow/pull/10125#discussion_r1372751487
+    if isinstance(data, list) and data == []:
+        return Schema([ColSpec(DataType.string)])
+
     if isinstance(data, list) and all(isinstance(value, dict) for value in data):
         col_data_mapping = defaultdict(list)
         for item in data:
@@ -207,8 +254,8 @@ def _infer_schema(data: Any) -> Schema:
 
         schema = Schema(
             [
-                ColSpec(_infer_colspec_type(value).dtype, name=name, required=requiredness[name])
-                for name, value in col_data_mapping.items()
+                ColSpec(_infer_colspec_type(values).dtype, name=name, required=requiredness[name])
+                for name, values in col_data_mapping.items()
             ]
         )
 
