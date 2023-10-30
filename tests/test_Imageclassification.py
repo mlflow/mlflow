@@ -21,7 +21,8 @@ def load_mlmodel():
     path=vision_model_save()
     
     model = mlflow.pyfunc.load_model(path)
-    url = 'http://images.cocodataset.org/val2017/000000039769.jpg'
+    
+    url = 'https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png'
     result=model.predict(url)
     
     return result
