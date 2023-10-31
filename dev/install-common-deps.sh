@@ -52,7 +52,6 @@ if [[ "$SKINNY" == "true" ]]; then
 else
   pip install .[extras] --upgrade
 fi
-export MLFLOW_HOME=$(pwd)
 
 req_files=""
 # Install Python test dependencies only if we're running Python tests
@@ -77,7 +76,6 @@ pip install --no-dependencies tests/resources/mlflow-test-plugin
 pip install aiohttp
 python dev/show_package_release_dates.py
 which mlflow
-echo $MLFLOW_HOME
 
 # Print mlflow version
 mlflow --version

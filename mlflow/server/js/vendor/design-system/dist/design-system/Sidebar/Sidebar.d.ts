@@ -1,6 +1,7 @@
 import type { Interpolation, Theme as EmotionTheme } from '@emotion/react';
 import type { EmotionJSX } from '@storybook/theming/dist/ts3.9/_modules/@emotion-react-types-jsx-namespace';
 import React from 'react';
+import { type ButtonProps } from '../Button';
 export interface SidebarProps {
     /** The layout direction */
     position?: 'left' | 'right';
@@ -15,7 +16,7 @@ export interface NavProps {
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
 }
-export interface NavButtonProps {
+export interface NavButtonProps extends ButtonProps {
     /** Check if the currrent button in nav bar is being selected */
     active?: boolean;
     /** Check if the currrent button in nav bar is being disabled */
@@ -47,6 +48,8 @@ export interface ContentProps {
     destroyInactivePanels?: boolean;
     /** The callback function when close button is clicked */
     onClose?: () => void;
+    /** This callback function is called when the content resize is started */
+    onResizeStart?: (size: number) => void;
     /** This callback function is called when the content resize is completed */
     onResizeStop?: (size: number) => void;
     /** Contents displayed in the content */
@@ -89,8 +92,8 @@ export interface PanelBodyProps {
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
 }
 export declare function Nav({ children, dangerouslyAppendEmotionCSS }: NavProps): JSX.Element;
-export declare function NavButton({ active, disabled, icon, onClick, children, dangerouslyAppendEmotionCSS, 'aria-label': ariaLabel, }: NavButtonProps): JSX.Element;
-export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, }: ContentProps): JSX.Element;
+export declare function NavButton({ active, disabled, icon, onClick, children, dangerouslyAppendEmotionCSS, 'aria-label': ariaLabel, ...restProps }: NavButtonProps): JSX.Element;
+export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStart, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, }: ContentProps): JSX.Element;
 export declare function Panel({ panelId, children, forceRender, dangerouslyAppendEmotionCSS, ...delegated }: PanelProps): JSX.Element | null;
 export declare function PanelHeader({ children, dangerouslyAppendEmotionCSS }: PanelHeaderProps): JSX.Element;
 export declare function PanelHeaderTitle({ title, dangerouslyAppendEmotionCSS }: PanelHeaderTitleProps): import("@emotion/react/jsx-runtime").JSX.Element;

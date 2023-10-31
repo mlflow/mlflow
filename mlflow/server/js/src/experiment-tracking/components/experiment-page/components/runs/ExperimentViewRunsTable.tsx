@@ -32,6 +32,7 @@ import {
   useRunsColumnDefinitions,
   getAdjustableAttributeColumns,
 } from '../../utils/experimentPage.column-utils';
+import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
 import {
   EXPERIMENT_RUNS_TABLE_ROW_HEIGHT,
   RUNS_VISIBILITY_MODE,
@@ -40,14 +41,20 @@ import { RunRowType } from '../../utils/experimentPage.row-types';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { createLoadMoreRow } from './cells/LoadMoreRowRenderer';
 import { ExperimentViewRunsEmptyTable } from './ExperimentViewRunsEmptyTable';
+import { ExperimentViewRunsTableCollapse } from './ExperimentViewRunsTableCollapse';
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
 import { ExperimentViewRunsTableStatusBar } from './ExperimentViewRunsTableStatusBar';
 import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
 import { getDatasetsCellHeight } from './cells/DatasetsCellRenderer';
 import { PreviewSidebar } from '../../../../../common/components/PreviewSidebar';
-import { isCanonicalSortKeyOfType } from '../../utils/experimentPage.column-utils';
-import { COLUMN_TYPES } from '../../../../constants';
-import { Empty } from '@databricks/design-system';
+import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
+import {
+  Button,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Empty,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 const ROW_HEIGHT = 32;
@@ -93,7 +100,7 @@ export const ExperimentViewRunsTable = React.memo(
     expandRows,
     viewState,
   }: ExperimentViewRunsTableProps) => {
-    const { compareRunsMode } = searchFacetsState;
+    const { compareRunsMode, orderByKey, selectedColumns } = searchFacetsState;
     const isComparingRuns = compareRunsMode !== undefined;
 
     const { paramKeyList, metricKeyList, tagsList } = runsData;
@@ -235,7 +242,7 @@ export const ExperimentViewRunsTable = React.memo(
             // Case #2: Hiding all runs by fully populating `runsHidden` array
             return {
               ...existingFacets,
-              runsHidden: rowsData.map((r) => r.runUuid),
+              runsHidden: runsData.runInfos.map(({ run_uuid }) => run_uuid),
             };
           }
 
@@ -249,7 +256,7 @@ export const ExperimentViewRunsTable = React.memo(
           };
         });
       },
-      [updateSearchFacets, rowsData],
+      [updateSearchFacets, runsData],
     );
 
     const gridReadyHandler = useCallback((params: GridReadyEvent) => {
@@ -257,9 +264,12 @@ export const ExperimentViewRunsTable = React.memo(
       setColumnApi(params.columnApi);
     }, []);
 
+    const allRunsHidden = runsData.runInfos.every(({ run_uuid }) =>
+      searchFacetsState.runsHidden.includes(run_uuid),
+    );
+
     const columnDefs = useRunsColumnDefinitions({
-      searchFacetsState,
-      onSortBy,
+      selectedColumns,
       onExpand: toggleRowExpanded,
       compareExperiments: experiments.length > 1,
       onTogglePin: togglePinnedRow,
@@ -271,6 +281,7 @@ export const ExperimentViewRunsTable = React.memo(
       isComparingRuns,
       onDatasetSelected,
       expandRows,
+      allRunsHidden,
     });
 
     useEffect(() => {
@@ -311,8 +322,6 @@ export const ExperimentViewRunsTable = React.memo(
       allAvailableColumnsCount - searchFacetsState.selectedColumns.length,
     );
 
-    const displayAddColumnsCTA = !hasSelectedAllColumns && !isComparingRuns && rowsData.length > 0;
-
     const allRunsCount = useMemo(
       () =>
         runsData.runInfos.filter(
@@ -348,10 +357,15 @@ export const ExperimentViewRunsTable = React.memo(
         if (isComparingRuns || !expandRows) {
           return EXPERIMENT_RUNS_TABLE_ROW_HEIGHT;
         }
+        const datasetColumnId = makeCanonicalSortKey(
+          COLUMN_TYPES.ATTRIBUTES,
+          ATTRIBUTE_COLUMN_LABELS.DATASET,
+        );
+        const datasetColumnShown = selectedColumns.includes(datasetColumnId);
         // if not comparing runs, use the datasets cell height
-        return getDatasetsCellHeight(searchFacetsState, row);
+        return getDatasetsCellHeight(datasetColumnShown, row);
       },
-      [searchFacetsState, isComparingRuns, expandRows],
+      [selectedColumns, isComparingRuns, expandRows],
     );
 
     useEffect(() => {
@@ -385,7 +399,12 @@ export const ExperimentViewRunsTable = React.memo(
       [updateViewState],
     );
 
+    const displayAddColumnsCTA = !hasSelectedAllColumns && !isComparingRuns && rowsData.length > 0;
     const displayPreviewSidebar = !isComparingRuns && viewState.previewPaneVisible;
+    const displayRunsTable = !viewState.runListHidden || !isComparingRuns;
+    const displayStatusBar = !viewState.runListHidden;
+    const displayRunListCollapse = isComparingRuns;
+    const displayEmptyState = rowsData.length < 1 && !isLoading;
 
     return (
       <div
@@ -401,9 +420,14 @@ export const ExperimentViewRunsTable = React.memo(
             className={cx('ag-theme-balham ag-grid-sticky', {
               'ag-grid-expanders-visible': expandersVisible,
             })}
-            css={styles.agGridOverrides}
+            css={[
+              styles.agGridOverrides,
+              { display: displayRunsTable ? 'block' : 'hidden', height: '100%' },
+            ]}
+            aria-hidden={!displayRunsTable}
           >
             <MLFlowAgGridLoader
+              context={{ orderByKey }}
               defaultColDef={EXPERIMENTS_DEFAULT_COLUMN_SETUP}
               columnDefs={columnDefs}
               rowSelection='multiple'
@@ -439,13 +463,21 @@ export const ExperimentViewRunsTable = React.memo(
               />
             )}
           </div>
-          {rowsData.length < 1 && !isLoading && (
+          {displayEmptyState && (
             <ExperimentViewRunsEmptyTable
               onClearFilters={() => updateSearchFacets(clearSearchExperimentsFacetsFilters)}
               isFiltered={isSearchFacetsFilterUsed(searchFacetsState)}
             />
           )}
-          <ExperimentViewRunsTableStatusBar allRunsCount={allRunsCount} isLoading={isLoading} />
+          {displayStatusBar && (
+            <ExperimentViewRunsTableStatusBar allRunsCount={allRunsCount} isLoading={isLoading} />
+          )}
+          {displayRunListCollapse && (
+            <ExperimentViewRunsTableCollapse
+              runListHidden={viewState.runListHidden}
+              updateViewState={updateViewState}
+            />
+          )}
         </div>
         {displayPreviewSidebar && (
           <PreviewSidebar
@@ -474,19 +506,21 @@ export const ExperimentViewRunsTable = React.memo(
  * Concrete named definitions for colors used in this agGrid
  */
 const getGridColors = (theme: Theme) => ({
+  rowForeground: theme.colors.textPrimary, // regular row background
   rowBackground: theme.colors.backgroundPrimary, // regular row background
-  rowBackgroundHover: `${theme.colors.grey600}0A`, // hovered row (4% opacity)
-  rowBackgroundSelected: `${theme.colors.grey600}14`, // selected row (8% opacity)
-  rowBackgroundHoverSelected: `${theme.colors.grey600}1F`, // selected and hovered row (12% opacity)
-  columnSortedBy: `${theme.colors.blue100}b3`, // selected and hovered row (12% opacity)
-  headerBackground: theme.colors.grey100,
-  headerTextColor: '#2E3840', // directly from Figma design
+  rowBackgroundHover: `${theme.colors.backgroundSecondary}0A`, // hovered row (4% opacity)
+  rowBackgroundSelected: `${theme.colors.backgroundSecondary}14`, // selected row (8% opacity)
+  rowBackgroundHoverSelected: `${theme.colors.backgroundSecondary}1F`, // selected and hovered row (12% opacity)
+  columnSortedBy: `${theme.colors.blue400}1F`,
+  headerBackground: theme.colors.backgroundSecondary,
+  headerTextColor: theme.colors.textSecondary, // directly from Figma design
   headerGroupTextColor: theme.colors.textSecondary, // directly from Figma design
-  borderColor: theme.colors.grey200, // border between header and content and scrollable areas
+  borderColor: theme.colors.borderDecorative, // border between header and content and scrollable areas
   headerBorderColor: 'transparent', // borders inside the header
   checkboxBorderColor: theme.colors.actionDefaultBorderDefault,
   checkboxBorderColorChecked: theme.colors.backgroundPrimary,
   checkboxBackgroundColorChecked: theme.colors.actionPrimaryBackgroundDefault,
+  overlayBackground: `${theme.colors.backgroundSecondary}99`, // color for the loading overlay
 });
 
 const styles = {
@@ -504,11 +538,14 @@ const styles = {
         // Set up internal variable values
         '--ag-border-color': gridColors.borderColor,
         '--ag-row-border-color': gridColors.borderColor,
+        '--ag-foreground-color': gridColors.rowForeground,
+        '--ag-background-color': gridColors.rowBackground,
         '--ag-odd-row-background-color': gridColors.rowBackground,
         '--ag-row-hover-color': gridColors.rowBackgroundHover,
         '--ag-selected-row-background-color': gridColors.rowBackgroundSelected,
         '--ag-header-foreground-color': gridColors.headerTextColor,
         '--ag-header-background-color': gridColors.headerBackground,
+        '--ag-modal-overlay-background-color': gridColors.overlayBackground,
 
         // Makes row header sticky
         '&.ag-grid-sticky .ag-header': {

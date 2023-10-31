@@ -9,6 +9,7 @@ import requests
 import mlflow
 
 TEST_CONTENT = "test"
+
 TEST_SOURCE_DOCUMENTS = [
     {
         "page_content": "We see the unity among leaders ...",
@@ -53,6 +54,17 @@ def _chat_completion_json_sample(content):
     }
 
 
+def _completion_json_sample(content):
+    return {
+        "id": "cmpl-123",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "text-davinci-003",
+        "choices": [{"text": content, "index": 0, "finish_reason": "length"}],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+    }
+
+
 def _models_retrieve_json_sample():
     # https://platform.openai.com/docs/api-reference/models/retrieve
     return {
@@ -65,6 +77,10 @@ def _models_retrieve_json_sample():
 
 def _mock_chat_completion_response(content=TEST_CONTENT):
     return _MockResponse(200, _chat_completion_json_sample(content))
+
+
+def _mock_completion_response(content=TEST_CONTENT):
+    return _MockResponse(200, _completion_json_sample(content))
 
 
 def _mock_embeddings_response(num_texts):
@@ -102,14 +118,14 @@ def _mock_openai_request():
     original = requests.Session.request
 
     def request(*args, **kwargs):
-        if len(args) > 2:
-            url = args[2]
-        else:
-            url = kwargs.get("url")
+        url = args[2] if len(args) > 2 else kwargs.get("url")
 
         if url.endswith("/chat/completions"):
             messages = json.loads(kwargs.get("data")).get("messages")
             return _mock_chat_completion_response(content=json.dumps(messages))
+        elif url.endswith("/completions"):
+            prompt = json.loads(kwargs.get("data")).get("prompt")
+            return _mock_completion_response(content=json.dumps(prompt))
         elif url.endswith("/embeddings"):
             inp = json.loads(kwargs.get("data")).get("input")
             return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)
@@ -119,6 +135,29 @@ def _mock_openai_request():
     return _mock_request(new=request)
 
 
+def _validate_model_params(task, model, params):
+    if not params:
+        return
+
+    if any(key in model for key in params):
+        raise mlflow.MlflowException.invalid_parameter_value(
+            f"Providing any of {list(model.keys())} as parameters in the signature is not "
+            "allowed because they were indicated as part of the OpenAI model. Either remove "
+            "the argument when logging the model or remove the parameter from the signature.",
+        )
+    if "batch_size" in params and task == "chat.completions":
+        raise mlflow.MlflowException.invalid_parameter_value(
+            "Parameter `batch_size` is not supported for task `chat.completions`"
+        )
+
+
+def _exclude_params_from_envs(params, envs):
+    """
+    params passed at inference time should override envs.
+    """
+    return {k: v for k, v in envs.items() if k not in params} if params else envs
+
+
 class _OAITokenHolder:
     def __init__(self, api_type):
         import openai
@@ -126,7 +165,13 @@ class _OAITokenHolder:
         self._api_token = None
         self._credential = None
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
-        self._key_configured = bool(openai.api_key) or "OPENAI_API_KEY" in os.environ
+        self._key_configured = bool(openai.api_key)
+
+        # set the api key if it's not set. this is to deal with cases where the
+        # user sets the environment variable after importing the `openai` module
+        if not bool(openai.api_key) and "OPENAI_API_KEY" in os.environ:
+            openai.api_key = os.environ["OPENAI_API_KEY"]
+            self._key_configured = True
 
         if self._is_azure_ad and not self._key_configured:
             try:

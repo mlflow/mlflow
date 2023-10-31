@@ -4,7 +4,7 @@ import pathlib
 import shutil
 import tempfile
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_RUN_CONTEXT
@@ -54,10 +54,10 @@ class TrackingConfig:
     def __init__(
         self,
         tracking_uri: str,
-        experiment_name: str = None,
-        experiment_id: str = None,
-        run_name: str = None,
-        artifact_location: str = None,
+        experiment_name: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        run_name: Optional[str] = None,
+        artifact_location: Optional[str] = None,
     ):
         """
         :param tracking_uri: The MLflow Tracking URI.
@@ -69,7 +69,7 @@ class TrackingConfig:
                               ``experiment_id`` must be specified. If both are specified, they
                               must be consistent with Tracking server state. Note that this
                               Experiment may not exist prior to recipe execution.
-        :param run_name: The MLFlow Run Name. If the run name is not specified, then a random
+        :param run_name: The MLflow Run Name. If the run name is not specified, then a random
                                 name is set for the run.
         :param artifact_location: The artifact location to use for the Experiment, if the Experiment
                                   does not already exist. If the Experiment already exists, this
@@ -263,7 +263,7 @@ def log_code_snapshot(
     recipe_root: str,
     run_id: str,
     artifact_path: str = "recipe_snapshot",
-    recipe_config: Dict[str, Any] = None,
+    recipe_config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Logs a recipe code snapshot as mlflow artifacts.

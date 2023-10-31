@@ -1,10 +1,10 @@
-import hashlib
 from typing import Any, List
 
 from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils import insecure_hash
 
 MAX_ROWS = 10000
 
@@ -159,7 +159,7 @@ def get_normalized_md5_digest(elements: List[Any]) -> str:
             INVALID_PARAMETER_VALUE,
         )
 
-    md5 = hashlib.md5()
+    md5 = insecure_hash.md5()
     for element in elements:
         md5.update(element)
 

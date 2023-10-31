@@ -88,7 +88,12 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import TempDir, shutil_copytree_without_file_permissions, write_to
+from mlflow.utils.file_utils import (
+    TempDir,
+    get_total_file_size,
+    shutil_copytree_without_file_permissions,
+    write_to,
+)
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration_from_uri,
@@ -143,9 +148,6 @@ def get_default_pip_requirements():
         f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
         _get_pinned_requirement("pyspark"),
         _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
-        # TODO remove pandas constraint when NLU supports it
-        # https://github.com/JohnSnowLabs/nlu/issues/176
-        "pandas<=1.5.3",
     ]
 
 
@@ -232,11 +234,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -414,6 +412,8 @@ def _save_model_metadata(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
+    if size := get_total_file_size(dst_dir):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(str(Path(dst_dir) / MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -530,11 +530,7 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -649,7 +645,7 @@ def load_model(
     model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
 ):  # pylint: disable=unused-argument
     """
-    Load the Johnsnowlabs MlFlow model from the path.
+    Load the Johnsnowlabs MLflow model from the path.
 
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
@@ -689,7 +685,7 @@ def load_model(
 
         # start a spark session
         nlp.start()
-        # Load you MlFlow Model
+        # Load you MLflow Model
         model = mlflow.johnsnowlabs.load_model("johnsnowlabs_model")
 
         # Make predictions on test documents

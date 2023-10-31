@@ -78,7 +78,7 @@ To train the model, run the example as a standard MLflow project:
     mlflow run examples/flower_classifier
 
 This will download the training dataset from ``tensorflow.org``, train a classifier using Keras and
-log results with Mlflow.
+log results with MLflow.
 
 To test your model, run the included scoring scripts. For example, say your model was trained with
 run_id ``101``.

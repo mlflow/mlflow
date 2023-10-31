@@ -320,6 +320,19 @@ test('formatSource & renderSource', () => {
     </a>,
   );
 
+  const gitlab_long_url = {
+    'mlflow.source.name': { value: 'git@gitlab.com:mlflow/mlflow-apps.git#tmp' },
+    'mlflow.source.type': { value: 'PROJECT' },
+    'mlflow.project.entryPoint': { value: 'entry' },
+  };
+  expect(Utils.formatSource(gitlab_long_url)).toEqual('mlflow-apps:entry');
+  // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
+  expect(Utils.renderSource(gitlab_long_url)).toEqual(
+    <a href='https://gitlab.com/mlflow/mlflow-apps/-/tree/master/tmp' target='_top'>
+      mlflow-apps:entry
+    </a>,
+  );
+
   const bitbucket_url = {
     'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps.git' },
     'mlflow.source.type': { value: 'PROJECT' },
@@ -470,6 +483,50 @@ test('getGitHubRegex', () => {
   urlAndExpected.forEach((lst) => {
     const url = lst[0];
     const match = (url as any).match(gitHubRegex);
+    if (match) {
+      match[2] = match[2].replace(/.git/, '');
+    }
+    expect([].concat(match)).toEqual(lst[1]);
+  });
+});
+
+test('getGitLabRegex', () => {
+  const gitLabRegex = Utils.getGitLabRegex();
+  const urlAndExpected = [
+    [
+      'http://gitlab.com/mlflow/mlflow-apps',
+      ['/gitlab.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', ''],
+    ],
+    [
+      'https://gitlab.com/mlflow/mlflow-apps',
+      ['/gitlab.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', ''],
+    ],
+    [
+      'http://gitlab.com/mlflow/mlflow-apps.git',
+      ['/gitlab.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
+    ],
+    [
+      'https://gitlab.com/mlflow/mlflow-apps.git',
+      ['/gitlab.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
+    ],
+    [
+      'https://gitlab.com/mlflow/mlflow#example/tutorial',
+      ['/gitlab.com/mlflow/mlflow#example/tutorial', 'mlflow', 'mlflow', 'example/tutorial'],
+    ],
+    [
+      'https://gitlab.com/username/repo.name#mlproject',
+      ['/gitlab.com/username/repo.name#mlproject', 'username', 'repo.name', 'mlproject'],
+    ],
+    [
+      'git@gitlab.com:mlflow/mlflow-apps.git',
+      ['@gitlab.com:mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
+    ],
+    ['https://some-other-site.com?q=gitlab.com/mlflow/mlflow-apps.git', [null]],
+    ['ssh@some-server:mlflow/mlflow-apps.git', [null]],
+  ];
+  urlAndExpected.forEach((lst) => {
+    const url = lst[0];
+    const match = (url as any).match(gitLabRegex);
     if (match) {
       match[2] = match[2].replace(/.git/, '');
     }

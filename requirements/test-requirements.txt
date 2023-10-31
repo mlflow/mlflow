@@ -34,6 +34,10 @@ evaluate
 nltk
 rouge_score
 textstat
+tiktoken
 # Required by progress bar tests
 ipywidgets
 tqdm
+databricks-sdk
+# Required for LLM eval in `mlflow.evaluate`
+openai

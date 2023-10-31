@@ -18,11 +18,11 @@ from mlflow.utils.databricks_utils import (
     warn_on_deprecated_cross_workspace_registry_uri,
 )
 from mlflow.utils.file_utils import (
+    download_chunk_retries,
     download_file_using_http_uri,
     parallelized_download_file_using_http_uri,
     remove_on_error,
 )
-from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
@@ -150,6 +150,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 thread_pool_executor=self.chunk_thread_pool,
                 http_uri=signed_uri,
                 download_path=dst_local_file_path,
+                remote_file_path=dst_run_relative_artifact_path,
                 file_size=file_size,
                 # URI type is not known in this context
                 uri_type=None,
@@ -157,22 +158,16 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 env=parallel_download_subproc_env,
                 headers=headers,
             )
-            if any(not e.retryable for e in failed_downloads.values()):
-                template = "===== Chunk {index} =====\n{error}"
-                failure = "\n".join(
-                    template.format(index=index, error=error)
-                    for index, error in failed_downloads.items()
-                )
-                raise MlflowException(
-                    f"Failed to download artifact {dst_run_relative_artifact_path}:\n{failure}"
-                )
             if failed_downloads:
                 new_signed_uri, new_headers = self._get_signed_download_uri(
                     dst_run_relative_artifact_path
                 )
-            for i in failed_downloads:
-                download_chunk(
-                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
+                new_headers = self._extract_headers_from_signed_url(new_headers)
+                download_chunk_retries(
+                    chunks=list(failed_downloads),
+                    http_uri=new_signed_uri,
+                    headers=new_headers,
+                    download_path=dst_local_file_path,
                 )
 
     def _download_file(self, remote_file_path, local_path):

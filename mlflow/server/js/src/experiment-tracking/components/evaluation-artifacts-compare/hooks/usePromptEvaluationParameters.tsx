@@ -23,7 +23,7 @@ const parameterDefinitions: {
       description: 'Experiment page > prompt lab > temperature parameter help text',
     }),
     max: 1,
-    min: 0.01,
+    min: 0,
     step: 0.01,
   },
   {

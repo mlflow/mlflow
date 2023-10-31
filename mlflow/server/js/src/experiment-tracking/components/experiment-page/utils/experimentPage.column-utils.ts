@@ -1,6 +1,12 @@
-import type { ColDef, ColGroupDef, ColumnApi, IsFullWidthRowParams } from '@ag-grid-community/core';
-import { Spinner } from '@databricks/design-system';
-import { useEffect, useMemo, useRef } from 'react';
+import type {
+  CellClassParams,
+  ColDef,
+  ColGroupDef,
+  ColumnApi,
+  IsFullWidthRowParams,
+} from '@ag-grid-community/core';
+import { Spinner, SpinnerProps } from '@databricks/design-system';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { isEqual } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import {
@@ -20,6 +26,7 @@ import {
   EXPERIMENT_FIELD_PREFIX_PARAM,
   EXPERIMENT_FIELD_PREFIX_TAG,
   getQualifiedEntityName,
+  makeCanonicalSortKey,
 } from './experimentPage.common-utils';
 import { RunRowType } from './experimentPage.row-types';
 import { RowActionsCellRenderer } from '../components/runs/cells/RowActionsCellRenderer';
@@ -30,6 +37,8 @@ import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/
 import { DatasetsCellRenderer } from '../components/runs/cells/DatasetsCellRenderer';
 import { RunDatasetWithTags } from '../../../types';
 
+const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) =>
+  context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
 /**
  * Width for "run name" column.
  */
@@ -43,25 +52,6 @@ const getActionsColumnWidth = (compactMode?: boolean) =>
   // 70px when checkboxes are hidden, 104px otherwise
   compactMode ? 70 : 104;
 
-/**
- * Creates canonical sort key name for metrics and params in form
- * of "keyType.`keyName`", e.g. "params.`paramName`"
- */
-export const makeCanonicalSortKey = (keyType: string, keyName: string) =>
-  keyType + '.`' + keyName + '`';
-
-/**
- * Creates canonical sort key name for metrics and params
- */
-export const isCanonicalSortKeyOfType = (canonicalKey: string, keyType: string) =>
-  canonicalKey.startsWith(keyType);
-
-/**
- * Extracts param/metric/tag name from the canonical key
- */
-export const extractCanonicalSortKey = (canonicalKey: string, keyType: string) =>
-  canonicalKey.substring(keyType.length + 2).slice(0, -1);
-
 /*
  * Functions used to generate grid field names for params, metrics and prefixes
  */
@@ -69,12 +59,20 @@ export const createParamFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_
 const createMetricFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_METRIC}-${key}`;
 const createTagFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_TAG}-${key}`;
 
+const UntrackedSpinner: React.FC<SpinnerProps> = ({ loading, ...props }) => {
+  return Spinner({ loading: false, ...props });
+};
+
 /**
  * Functions returns all framework components to be used by agGrid
  */
 export const getFrameworkComponents = () => ({
   agColumnHeader: ColumnHeaderCell,
-  loadingOverlayComponent: Spinner,
+
+  // A workaround for https://github.com/ag-grid/ag-grid/issues/7028.
+  // The page will add an interaction hold directly instead of relying on DuBois' Spinner
+  // to do it.
+  loadingOverlayComponent: UntrackedSpinner,
 
   /**
    * We're saving cell renderer component references, otherwise
@@ -117,8 +115,7 @@ export const getRowIsLoadMore = ({ rowNode }: IsFullWidthRowParams) => rowNode.d
  * Parameters used by `useRunsColumnDefinitions()` hook
  */
 export interface UseRunsColumnDefinitionsParams {
-  searchFacetsState: SearchExperimentRunsFacetsState;
-  onSortBy: (newOrderByKey: string, newOrderByAsc: boolean) => void;
+  selectedColumns: string[];
   onExpand: (parentUuid: string, childrenIds: string[]) => void;
   onTogglePin: (runUuid: string) => void;
   onToggleVisibility: (runUuidOrToggle: string) => void;
@@ -130,6 +127,7 @@ export interface UseRunsColumnDefinitionsParams {
   isComparingRuns?: boolean;
   onDatasetSelected?: (dataset: RunDatasetWithTags, run: RunRowType) => void;
   expandRows?: boolean;
+  allRunsHidden?: boolean;
 }
 
 /**
@@ -208,8 +206,7 @@ const useCumulativeColumnKeys = ({
  * @param params see UseRunsColumnDefinitionsParams
  */
 export const useRunsColumnDefinitions = ({
-  searchFacetsState,
-  onSortBy,
+  selectedColumns,
   compareExperiments,
   onTogglePin,
   onToggleVisibility,
@@ -221,9 +218,8 @@ export const useRunsColumnDefinitions = ({
   onDatasetSelected,
   isComparingRuns,
   expandRows,
+  allRunsHidden,
 }: UseRunsColumnDefinitionsParams) => {
-  const { orderByAsc, orderByKey, selectedColumns } = searchFacetsState;
-
   const cumulativeColumns = useCumulativeColumnKeys({
     metricKeyList,
     tagKeyList,
@@ -231,15 +227,6 @@ export const useRunsColumnDefinitions = ({
   });
 
   const columnSet = useMemo(() => {
-    const commonSortOrderProps = { orderByKey, orderByAsc, onSortBy };
-
-    const getOrderedByClassName = (key: string) =>
-      key === orderByKey ? 'is-ordered-by' : undefined;
-
-    const getHeaderClassName = (key: string) => getOrderedByClassName(key);
-    const getCellClassName = ({ colDef }: { colDef: ColDef }) =>
-      getOrderedByClassName(colDef.headerComponentParams.canonicalSortKey);
-
     const columns: (ColDef | ColGroupDef)[] = [];
 
     // Checkbox selection column
@@ -247,7 +234,7 @@ export const useRunsColumnDefinitions = ({
       valueGetter: ({ data: { pinned, hidden } }) => ({ pinned, hidden }),
       checkboxSelection: !isComparingRuns,
       headerComponent: 'RowActionsHeaderCellRenderer',
-      headerComponentParams: { onToggleVisibility },
+      headerComponentParams: { onToggleVisibility, allRunsHidden },
       headerCheckboxSelection: !isComparingRuns,
       headerName: '',
       cellClass: 'is-checkbox-cell',
@@ -272,11 +259,11 @@ export const useRunsColumnDefinitions = ({
       cellRendererParams: { onExpand },
       equals: (dateInfo1, dateInfo2) => isEqual(dateInfo1, dateInfo2),
       headerComponentParams: {
-        ...commonSortOrderProps,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.RUN_NAME,
-        getClassName: getHeaderClassName,
       },
-      cellClass: getCellClassName,
+      cellClassRules: {
+        'is-ordered-by': cellClassIsOrderedBy,
+      },
       initialWidth: RUN_NAME_COLUMN_WIDTH,
       resizable: !isComparingRuns,
     });
@@ -298,11 +285,11 @@ export const useRunsColumnDefinitions = ({
       cellRendererParams: { onExpand },
       equals: (dateInfo1, dateInfo2) => isEqual(dateInfo1, dateInfo2),
       headerComponentParams: {
-        ...commonSortOrderProps,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
-        getClassName: getHeaderClassName,
       },
-      cellClass: getCellClassName,
+      cellClassRules: {
+        'is-ordered-by': cellClassIsOrderedBy,
+      },
       initialWidth: 150,
     });
 
@@ -326,7 +313,6 @@ export const useRunsColumnDefinitions = ({
       headerName: ATTRIBUTE_COLUMN_LABELS.DURATION,
       field: 'duration',
       initialWidth: 80,
-      cellClass: getCellClassName,
     });
 
     // Experiment name column
@@ -341,7 +327,6 @@ export const useRunsColumnDefinitions = ({
         cellRenderer: 'ExperimentNameCellRenderer',
         equals: (experimentName1, experimentName2) => isEqual(experimentName1, experimentName2),
         initialWidth: 140,
-        cellClass: getCellClassName,
         initialHide: true,
       });
     }
@@ -354,11 +339,11 @@ export const useRunsColumnDefinitions = ({
       field: 'user',
       sortable: true,
       headerComponentParams: {
-        ...commonSortOrderProps,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.USER,
-        getClassName: getHeaderClassName,
       },
-      cellClass: getCellClassName,
+      cellClassRules: {
+        'is-ordered-by': cellClassIsOrderedBy,
+      },
       initialHide: true,
     });
 
@@ -371,11 +356,11 @@ export const useRunsColumnDefinitions = ({
       equals: (tags1, tags2) => Utils.getSourceName(tags1) === Utils.getSourceName(tags2),
       sortable: true,
       headerComponentParams: {
-        ...commonSortOrderProps,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.SOURCE,
-        getClassName: getHeaderClassName,
       },
-      cellClass: getCellClassName,
+      cellClassRules: {
+        'is-ordered-by': cellClassIsOrderedBy,
+      },
       initialHide: true,
     });
 
@@ -388,11 +373,11 @@ export const useRunsColumnDefinitions = ({
       equals: (version1, version2) => isEqual(version1, version2),
       sortable: true,
       headerComponentParams: {
-        ...commonSortOrderProps,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.VERSION,
-        getClassName: getHeaderClassName,
       },
-      cellClass: getCellClassName,
+      cellClassRules: {
+        'is-ordered-by': cellClassIsOrderedBy,
+      },
       initialHide: true,
     });
 
@@ -426,11 +411,12 @@ export const useRunsColumnDefinitions = ({
             initialHide: true,
             sortable: true,
             headerComponentParams: {
-              ...commonSortOrderProps,
               canonicalSortKey,
-              getClassName: getHeaderClassName,
             },
-            cellClass: (def) => `${getCellClassName(def)} is-previewable-cell`,
+            cellClassRules: {
+              'is-previewable-cell': () => true,
+              'is-ordered-by': cellClassIsOrderedBy,
+            },
           };
         }),
       });
@@ -453,11 +439,12 @@ export const useRunsColumnDefinitions = ({
             initialWidth: 100,
             sortable: true,
             headerComponentParams: {
-              ...commonSortOrderProps,
               canonicalSortKey,
-              getClassName: getHeaderClassName,
             },
-            cellClass: (def) => `${getCellClassName(def)} is-previewable-cell`,
+            cellClassRules: {
+              'is-previewable-cell': () => true,
+              'is-ordered-by': cellClassIsOrderedBy,
+            },
           };
         }),
       });
@@ -485,9 +472,6 @@ export const useRunsColumnDefinitions = ({
 
     return columns;
   }, [
-    orderByKey,
-    orderByAsc,
-    onSortBy,
     onTogglePin,
     onToggleVisibility,
     onExpand,
@@ -496,6 +480,7 @@ export const useRunsColumnDefinitions = ({
     isComparingRuns,
     onDatasetSelected,
     expandRows,
+    allRunsHidden,
   ]);
 
   const canonicalSortKeys = useMemo(

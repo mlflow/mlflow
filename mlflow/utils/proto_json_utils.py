@@ -3,6 +3,7 @@ import datetime
 import json
 import os
 from collections import defaultdict
+from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
 from typing import Any, Dict, Optional
@@ -257,7 +258,7 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
     cast data types according to the schema. This include base64 decoding for binary columns.
 
     :param decoded_input: Parsed json - either a list or a dictionary.
-    :param schema: Mlflow schema used when parsing the data.
+    :param schema: MLflow schema used when parsing the data.
     :param pandas_orient: pandas data frame convention used to store the data.
     :return: pandas.DataFrame.
     """
@@ -320,7 +321,7 @@ def dataframe_from_raw_json(path_or_str, schema=None, pandas_orient: str = "spli
     include base64 decoding for binary columns.
 
     :param path_or_str: Path to a json file or a json string.
-    :param schema: Mlflow schema used when parsing the data.
+    :param schema: MLflow schema used when parsing the data.
     :param pandas_orient: pandas data frame convention used to store the data.
     :return: pandas.DataFrame.
     """
@@ -360,15 +361,20 @@ def parse_tf_serving_input(inp_dict, schema=None):
     :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
                      serving API doc
                      (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
-    :param schema: Mlflow schema used when parsing the data.
+    :param schema: MLflow schema used when parsing the data.
     """
     import numpy as np
 
     def cast_schema_type(input_data):
+        input_data = deepcopy(input_data)
         if schema is not None:
             if schema.has_input_names():
                 input_names = schema.input_names()
-                if len(input_names) == 1 and isinstance(input_data, list):
+                if (
+                    len(input_names) == 1
+                    and isinstance(input_data, list)
+                    and not any(isinstance(x, dict) for x in input_data)
+                ):
                     # for schemas with a single column, match input with column
                     input_data = {input_names[0]: input_data}
                 if not isinstance(input_data, dict):

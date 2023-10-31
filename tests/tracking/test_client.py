@@ -5,8 +5,10 @@ import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities import ExperimentTag, Run, RunInfo, RunStatus, RunTag, SourceType, ViewType
+from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.param import Param
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
@@ -28,6 +30,12 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_USER,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_registry_uri():
+    yield
+    set_registry_uri(None)
 
 
 @pytest.fixture
@@ -764,4 +772,39 @@ def test_update_run(mock_store):
         run_status=RunStatus.from_string("FINISHED"),
         end_time=mock.ANY,
         run_name="my name",
+    )
+
+
+def test_client_log_metric_params_tags_overrides(mock_store):
+    experiment_id = mock.Mock()
+    start_time = mock.Mock()
+    run_name = mock.Mock()
+    run = MlflowClient().create_run(experiment_id, start_time, tags={}, run_name=run_name)
+    run_id = run.info.run_id
+
+    run_operation = MlflowClient().log_metric(run_id, "m1", 0.87, 123456789, 1, synchronous=False)
+    run_operation.wait()
+
+    run_operation = MlflowClient().log_param(run_id, "p1", "pv1", synchronous=False)
+    run_operation.wait()
+
+    run_operation = MlflowClient().set_tag(run_id, "t1", "tv1", synchronous=False)
+    run_operation.wait()
+
+    mock_store.log_metric_async.assert_called_once_with(run_id, Metric("m1", 0.87, 123456789, 1))
+    mock_store.log_param_async.assert_called_once_with(run_id, Param("p1", "pv1"))
+    mock_store.set_tag_async.assert_called_once_with(run_id, RunTag("t1", "tv1"))
+
+    mock_store.reset_mock()
+
+    # log_batch_async
+    MlflowClient().create_run(experiment_id, start_time, {})
+    metrics = [Metric("m1", 0.87, 123456789, 1), Metric("m2", 0.87, 123456789, 1)]
+    tags = [RunTag("t1", "tv1"), RunTag("t2", "tv2")]
+    params = [Param("p1", "pv1"), Param("p2", "pv2")]
+    run_operation = MlflowClient().log_batch(run_id, metrics, params, tags, synchronous=False)
+    run_operation.wait()
+
+    mock_store.log_batch_async.assert_called_once_with(
+        run_id=run_id, metrics=metrics, params=params, tags=tags
     )

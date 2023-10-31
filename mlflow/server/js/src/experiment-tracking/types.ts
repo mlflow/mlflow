@@ -56,9 +56,11 @@ export interface ModelVersionInfoEntity {
   source: string;
   run_id: string;
   status: string;
+  status_message?: string;
   permission_level: string;
   email_subscription_status: string;
   aliases?: ModelVersionAliasList;
+  tags?: KeyValueEntity[];
 }
 
 /**
