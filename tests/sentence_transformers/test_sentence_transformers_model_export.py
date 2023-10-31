@@ -463,7 +463,10 @@ def test_signature_and_examples_are_saved_correctly(
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
-        assert all((_read_example(mlflow_model, model_path) == example).all())
+        if isinstance(example, pd.DataFrame):
+            pd.testing.assert_frame_equal(_read_example(mlflow_model, model_path), example)
+        else:
+            np.testing.assert_equal(_read_example(mlflow_model, model_path), example)
 
 
 def test_model_log_with_signature_inference(basic_model):
