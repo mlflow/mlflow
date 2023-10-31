@@ -3684,7 +3684,7 @@ indicates whether this is a metric we want to maximize or minimize.
 
     mymetric = make_metric(eval_fn=my_metric_eval_fn, greater_is_better=False)
 
-The extra metric allows you to either evaluate a model directly or to evaluate an output dataframe. 
+The extra metric allows you to either evaluate a model directly, or to evaluate an output dataframe. 
 
 To evaluate the model directly, you will have to provide ``mlflow.evaluate()`` either a pyfunc model
 instance, a URI referring to a pyfunc model, or a callable function that takes in the data as input 
