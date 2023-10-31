@@ -32,6 +32,7 @@ from mlflow.metrics import (
     exact_match,
     flesch_kincaid_grade_level,
     precision_at_k,
+    recall_at_k,
     rouge1,
     rouge2,
     rougeL,
@@ -1181,7 +1182,11 @@ class DefaultEvaluator(ModelEvaluator):
             for param_name, param in parameters.items():
                 column = self.col_mapping.get(param_name, param_name)
 
-                if column == "predictions" or column == self.dataset.predictions_name:
+                if (
+                    column == "predictions"
+                    or column == self.predictions
+                    or column == self.dataset.predictions_name
+                ):
                     eval_fn_args.append(eval_df_copy["prediction"])
                 elif column == "targets" or column == self.dataset.targets_name:
                     if "target" in eval_df_copy:
@@ -1465,7 +1470,19 @@ class DefaultEvaluator(ModelEvaluator):
             output_columns = (
                 [] if self.other_output_columns is None else list(self.other_output_columns.columns)
             )
+            if self.predictions:
+                output_columns.append(self.predictions)
+            elif self.dataset.predictions_name:
+                output_columns.append(self.dataset.predictions_name)
+            else:
+                output_columns.append("predictions")
+
             input_columns = list(self.X.copy_to_avoid_mutation().columns)
+            if "target" in eval_df:
+                if self.dataset.targets_name:
+                    input_columns.append(self.dataset.targets_name)
+                else:
+                    input_columns.append("targets")
 
             error_messages = [
                 f"Metric '{metric_name}' requires the columns {param_names}"
@@ -1486,6 +1503,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _test_first_row(self, eval_df):
         # test calculations on first row of eval_df
+        _logger.info("Testing metrics on first row...")
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
         for metric in self.builtin_metrics:
@@ -1691,15 +1709,12 @@ class DefaultEvaluator(ModelEvaluator):
                 elif self.model_type == _ModelType.TEXT:
                     self.builtin_metrics = text_metrics
                 elif self.model_type == _ModelType.RETRIEVER:
-                    k = self.evaluator_config.pop("k", 3)  # default k to 3 if not specified
-                    if not (isinstance(k, int) and k > 0):
-                        _logger.warning(
-                            "Cannot calculate 'precision_at_k' for invalid parameter 'k'."
-                            f"'k' should be a positive integer; found: {k}"
-                            "Skipping metric logging."
-                        )
-                    else:
-                        self.builtin_metrics = [precision_at_k(k)]
+                    # default k to 3 if not specified
+                    retriever_k = self.evaluator_config.pop("retriever_k", 3)
+                    self.builtin_metrics = [
+                        precision_at_k(retriever_k),
+                        recall_at_k(retriever_k),
+                    ]
 
                 eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
                 if self.dataset.has_targets:

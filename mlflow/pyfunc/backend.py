@@ -140,7 +140,7 @@ class PyFuncBackend(FlavorBackend):
     def predict(self, model_uri, input_path, output_path, content_type):
         """
         Generate predictions using generic python model saved with MLflow. The expected format of
-        the input JSON is the Mlflow scoring format.
+        the input JSON is the MLflow scoring format.
         Return the prediction results as a JSON.
         """
         local_path = _download_artifact_from_uri(model_uri)

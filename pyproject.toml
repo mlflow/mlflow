@@ -16,6 +16,7 @@ target-version = "py38"
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "B006",
+  "B015",
   "E",
   "F",
   "C4",
@@ -70,6 +71,7 @@ ignore = [
   "E741",  # ambiguous-variable-name
   "F811",  # redefined-while-unused
 ]
+extend-include = ["*.ipynb"]
 extend-exclude = [
   "setup.py",
   "docs",

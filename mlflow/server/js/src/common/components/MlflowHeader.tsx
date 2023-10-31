@@ -1,8 +1,7 @@
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { Link, Location, matchPath, useLocation } from '../utils/RoutingUtils';
-// @ts-expect-error TS(2307): Cannot find module '../../common/static/home-logo.... Remove this comment to see the full error message
 import logo from '../../common/static/home-logo.png';
-import { modelListPageRoute } from '../../model-registry/routes';
+import { ModelRegistryRoutes } from '../../model-registry/routes';
 import { HomePageDocsUrl, Version } from '../constants';
 
 const colors = {
@@ -76,7 +75,7 @@ export const MlflowHeader = () => {
           Experiments
         </Link>
         <Link
-          to={modelListPageRoute}
+          to={ModelRegistryRoutes.modelListPageRoute}
           style={isModelsActive(location) ? classNames.activeNavLink : undefined}
         >
           Models

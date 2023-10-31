@@ -286,7 +286,7 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
                 output="example-output",
                 score=4,
                 justification="example-justification",
-                grading_context={"targets": "example-ground_truth"},
+                grading_context="example-ground_truth",
             )
         ],
     )
@@ -468,7 +468,7 @@ def test_make_genai_metric_multiple():
         "answers the question but is missing on one critical aspect, warranting a score of "
         "2 for correctness.",
     }
-    metric_value.aggregate_results == {
+    assert metric_value.aggregate_results == {
         "mean": 2.5,
         "variance": 0.25,
         "p90": 2.9,
@@ -489,7 +489,7 @@ def test_make_genai_metric_failure():
         MlflowException,
         match=re.escape(
             "Failed to find evaluation model for version v-latest."
-            "Please check the correctness of the version"
+            " Please check the correctness of the version"
         ),
     ):
         make_genai_metric(
@@ -532,6 +532,42 @@ def test_make_genai_metric_failure():
                 pd.Series(["What is MLflow?"]),
                 pd.Series(["truth"]),
             )
+
+
+@pytest.mark.parametrize(
+    ("grading_cols", "example_context_cols"),
+    [
+        ("good_column", "bad_column"),
+        (["good_column"], ["bad_column"]),
+        (["column_a", "column_b"], ["column_a"]),
+        (["column_a", "column_b"], ["column_a", "column_c"]),
+        (["column_a"], ["column_a", "column_b"]),
+        (None, ["column_a"]),
+    ],
+)
+def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, example_context_cols):
+    with pytest.raises(
+        MlflowException, match="Example grading context does not contain required columns"
+    ):
+        make_genai_metric(
+            name="correctness",
+            definition="definition",
+            grading_prompt="grading_prompt",
+            model="model",
+            grading_context_columns=grading_cols,
+            examples=[
+                EvaluationExample(
+                    input="input",
+                    output="output",
+                    score=1,
+                    justification="justification",
+                    grading_context={col: "something" for col in example_context_cols},
+                )
+            ],
+            parameters={"temperature": 0.0},
+            greater_is_better=True,
+            aggregations=["mean"],
+        )
 
 
 def test_format_args_string():

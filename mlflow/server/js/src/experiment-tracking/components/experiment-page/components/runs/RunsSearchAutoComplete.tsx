@@ -11,11 +11,6 @@ import {
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
-import {
-  clearSearchExperimentsFacetsFilters,
-  SearchExperimentRunsFacetsState,
-} from '../../models/SearchExperimentRunsFacetsState';
-import { UpdateExperimentSearchFacetsFn } from '../../../../types';
 import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import { RunsSearchTooltipContent } from './RunsSearchTooltipContent';
@@ -36,8 +31,9 @@ const WEEK_IN_SECONDS = 604800;
 
 export type RunsSearchAutoCompleteProps = {
   runsData: ExperimentRunsSelectorResult;
-  searchFacetsState: SearchExperimentRunsFacetsState;
-  updateSearchFacets: UpdateExperimentSearchFacetsFn;
+  searchFilter: string;
+  onSearchFilterChange: (newValue: string) => void;
+  onClear: () => void;
   requestError: ErrorWrapper | null;
 };
 
@@ -45,7 +41,7 @@ export type RunsSearchAutoCompleteProps = {
  * Autocomplete component that provides suggestions for MLflow search entity names.
  */
 export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
-  const { runsData, searchFacetsState, updateSearchFacets, requestError } = props;
+  const { runsData, searchFilter, requestError, onSearchFilterChange, onClear } = props;
 
   const [text, setText] = useState<string>('');
   const [autocompleteEnabled, setAutocompleteEnabled] = useState<boolean | undefined>(undefined);
@@ -72,8 +68,8 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
 
   // Each time we're setting search filter externally, update it here as well
   useEffect(() => {
-    setText(searchFacetsState.searchFilter);
-  }, [searchFacetsState]);
+    setText(searchFilter);
+  }, [searchFilter]);
 
   const baseOptions = useMemo<OptionGroup[]>(() => {
     const existingEntityNames = existingEntityNamesRef.current;
@@ -155,11 +151,6 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
     [text, setText, entityBeingEdited, setAutocompleteEnabled],
   );
 
-  // Callback fired when "clear" button is clicked
-  const clearSearchFiltersState = useCallback(() => {
-    updateSearchFacets(clearSearchExperimentsFacetsFilters);
-  }, [updateSearchFacets]);
-
   const localStorageInstance = useExperimentViewLocalStore(TOOLTIP_COOKIE_KEY);
 
   const [showTooltipOnError, setShowTooltipOnError] = useState(() => {
@@ -193,7 +184,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
         if (open) {
           setAutocompleteEnabled(false);
         } else {
-          updateSearchFacets({ searchFilter: text });
+          onSearchFilterChange(text);
         }
       }
       if (e.key === 'Escape') {
@@ -203,7 +194,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
         }
       }
     },
-    [open, text, updateSearchFacets],
+    [open, text, onSearchFilterChange],
   );
 
   return (
@@ -232,7 +223,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
           suffix={
             <div css={styles.searchInputSuffix}>
               {text && (
-                <Button onClick={clearSearchFiltersState} type='link' data-test-id='clear-button'>
+                <Button onClick={onClear} type='link' data-test-id='clear-button'>
                   <CloseIcon />
                 </Button>
               )}

@@ -50,6 +50,7 @@ export const useFetchedRunsNotification = (notification: NotificationInstance) =
       return formatMessage(
         {
           defaultMessage:
+            // eslint-disable-next-line formatjs/no-multiple-plurals
             'Loaded {allRuns} {allRuns, plural, =1 {run} other {runs}}, including {childRuns} child {childRuns, plural, =1 {run} other {runs}}',
           description:
             'Experiment page > loaded more runs notification > loaded both parent and child runs',

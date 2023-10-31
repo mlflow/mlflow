@@ -88,7 +88,12 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import TempDir, shutil_copytree_without_file_permissions, write_to
+from mlflow.utils.file_utils import (
+    TempDir,
+    get_total_file_size,
+    shutil_copytree_without_file_permissions,
+    write_to,
+)
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration_from_uri,
@@ -407,6 +412,8 @@ def _save_model_metadata(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
+    if size := get_total_file_size(dst_dir):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(str(Path(dst_dir) / MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -638,7 +645,7 @@ def load_model(
     model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
 ):  # pylint: disable=unused-argument
     """
-    Load the Johnsnowlabs MlFlow model from the path.
+    Load the Johnsnowlabs MLflow model from the path.
 
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
@@ -678,7 +685,7 @@ def load_model(
 
         # start a spark session
         nlp.start()
-        # Load you MlFlow Model
+        # Load you MLflow Model
         model = mlflow.johnsnowlabs.load_model("johnsnowlabs_model")
 
         # Make predictions on test documents

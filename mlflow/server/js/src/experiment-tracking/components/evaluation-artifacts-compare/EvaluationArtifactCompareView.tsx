@@ -46,6 +46,10 @@ import {
 } from '../prompt-engineering/PromptEngineering.utils';
 import { searchModelGatewayRoutesApi } from '../../actions/ModelGatewayActions';
 import { shouldEnablePromptLab } from 'common/utils/FeatureUtils';
+import {
+  EvaluationArtifactViewEmptyState,
+  shouldDisplayEvaluationArtifactEmptyState,
+} from './EvaluationArtifactViewEmptyState';
 
 const MAX_RUNS_TO_COMPARE = 10;
 
@@ -118,7 +122,7 @@ export const EvaluationArtifactCompareView = ({
       setGroupByCols((currentValue) => {
         const newValues = currentValue.includes(value)
           ? currentValue.filter((item) => item !== value)
-          : [...currentValue, value].sort();
+          : [...currentValue, value];
         setUserDeselectedAllColumns(newValues.length === 0);
         return newValues;
       }),
@@ -133,7 +137,7 @@ export const EvaluationArtifactCompareView = ({
     evaluationDraftInputValues,
   } = useSelector(({ evaluationData }: ReduxState) => evaluationData);
 
-  const { tables, tablesByRun } = useEvaluationArtifactTables(visibleRuns);
+  const { tables, tablesByRun, noEvalTablesLogged } = useEvaluationArtifactTables(visibleRuns);
 
   // Select the first table by default
   useEffect(() => {
@@ -252,7 +256,7 @@ export const EvaluationArtifactCompareView = ({
       promptLabInputVariableNames || (firstColumn ? [firstColumn] : null);
 
     if ((noColumnsSelected || columnNotAvailableAnymore) && groupByColumnCandidates) {
-      setGroupByCols(groupByColumnCandidates.sort());
+      setGroupByCols(groupByColumnCandidates);
     }
   }, [
     isLoading,
@@ -378,7 +382,7 @@ export const EvaluationArtifactCompareView = ({
               css={{ maxWidth: 300, backgroundColor: theme.colors.backgroundPrimary }}
               data-testid='dropdown-tables'
               onClear={() => setSelectedTables([])}
-              disabled={isSyncingArtifacts}
+              disabled={isSyncingArtifacts || !areRunsSelected || noEvalTablesLogged}
             />
             <DialogComboboxContent css={{ maxWidth: 300 }}>
               <DialogComboboxOptionList>
@@ -502,7 +506,28 @@ export const EvaluationArtifactCompareView = ({
               </DialogCombobox>
             </div>
 
-            {isViewConfigured && !userDeselectedAllColumns ? (
+            {shouldDisplayEvaluationArtifactEmptyState({
+              areRunsSelected,
+              areTablesSelected,
+              noEvalTablesLogged,
+              userDeselectedAllColumns,
+            }) ? (
+              <div
+                css={{
+                  height: '100%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <EvaluationArtifactViewEmptyState
+                  areRunsSelected={areRunsSelected}
+                  areTablesSelected={areTablesSelected}
+                  noEvalTablesLogged={noEvalTablesLogged}
+                  userDeselectedAllColumns={userDeselectedAllColumns}
+                />
+              </div>
+            ) : (
               <div
                 css={{
                   position: 'relative' as const,
@@ -525,47 +550,6 @@ export const EvaluationArtifactCompareView = ({
                     outputColumnName={outputColumn}
                   />
                 </PromptEngineeringContextProvider>
-              </div>
-            ) : (
-              <div css={{ marginTop: theme.spacing.lg }}>
-                <Empty
-                  title={
-                    userDeselectedAllColumns ? (
-                      <FormattedMessage
-                        defaultMessage='No group by columns selected'
-                        description='Experiment page > artifact compare view > empty state for no group by columns selected > title'
-                      />
-                    ) : areRunsSelected ? (
-                      <FormattedMessage
-                        defaultMessage='No tables selected'
-                        description='Experiment page > artifact compare view > empty state for no tables selected > title'
-                      />
-                    ) : (
-                      <FormattedMessage
-                        defaultMessage='No runs selected'
-                        description='Experiment page > artifact compare view > empty state for no runs selected > title'
-                      />
-                    )
-                  }
-                  description={
-                    userDeselectedAllColumns ? (
-                      <FormattedMessage
-                        defaultMessage='Using controls above, select at least one "group by" column.'
-                        description='Experiment page > artifact compare view > empty state for no group by columns selected > title'
-                      />
-                    ) : areRunsSelected ? (
-                      <FormattedMessage
-                        defaultMessage='Using controls above, select at least one artifact containing table.'
-                        description='Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint'
-                      />
-                    ) : (
-                      <FormattedMessage
-                        defaultMessage='Make sure that at least one experiment run is visible and available to compare'
-                        description='Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint'
-                      />
-                    )
-                  }
-                />
               </div>
             )}
             {EvaluationSyncStatusElement}

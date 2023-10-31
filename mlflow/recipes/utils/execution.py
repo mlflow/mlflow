@@ -271,7 +271,7 @@ def _get_step_output_directory_path(execution_directory_path: str, step_name: st
 
 
 class _ExecutionPlan:
-    _MSG_REGEX = r'^echo "Run MLFlow Recipe step: (\w+)"\n$'
+    _MSG_REGEX = r'^echo "Run MLflow Recipe step: (\w+)"\n$'
     _FORMAT_STEPS_CACHED = "%s: No changes. Skipping."
 
     def __init__(self, rule_name, output_lines_of_make: List[str], recipe_step_names: List[str]):
@@ -517,7 +517,7 @@ ingest:
 # ensuring that data is only ingested for downstream steps if it is not already present on the
 # local filesystem
 steps/ingest/outputs/dataset.parquet: steps/ingest/conf.yaml {path:prp/steps/ingest.py}
-	echo "Run MLFlow Recipe step: ingest"
+	echo "Run MLflow Recipe step: ingest"
 	$(MAKE) ingest
 
 split_objects = steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/split/outputs/test.parquet
@@ -525,7 +525,7 @@ split_objects = steps/split/outputs/train.parquet steps/split/outputs/validation
 split: $(split_objects)
 
 steps/%/outputs/train.parquet steps/%/outputs/validation.parquet steps/%/outputs/test.parquet: {path:prp/steps/split.py} steps/ingest/outputs/dataset.parquet steps/split/conf.yaml
-	echo "Run MLFlow Recipe step: split"
+	echo "Run MLflow Recipe step: split"
 	cd {path:prp/} && \
         python -c "from mlflow.recipes.steps.split import SplitStep; SplitStep.from_step_config_path(step_config_path='{path:exe/steps/split/conf.yaml}', recipe_root='{path:prp/}').run(output_directory='{path:exe/steps/split/outputs}')"
 
@@ -534,7 +534,7 @@ transform_objects = steps/transform/outputs/transformer.pkl steps/transform/outp
 transform: $(transform_objects)
 
 steps/%/outputs/transformer.pkl steps/%/outputs/transformed_training_data.parquet steps/%/outputs/transformed_validation_data.parquet: {path:prp/steps/transform.py} steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/transform/conf.yaml
-	echo "Run MLFlow Recipe step: transform"
+	echo "Run MLflow Recipe step: transform"
 	cd {path:prp/} && \
         python -c "from mlflow.recipes.steps.transform import TransformStep; TransformStep.from_step_config_path(step_config_path='{path:exe/steps/transform/conf.yaml}', recipe_root='{path:prp/}').run(output_directory='{path:exe/steps/transform/outputs}')"
 
@@ -543,7 +543,7 @@ train_objects = steps/train/outputs/model steps/train/outputs/run_id
 train: $(train_objects)
 
 steps/%/outputs/model steps/%/outputs/run_id: {path:prp/steps/train.py} {path:prp/steps/custom_metrics.py} steps/transform/outputs/transformed_training_data.parquet steps/transform/outputs/transformed_validation_data.parquet steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/transform/outputs/transformer.pkl steps/train/conf.yaml
-	echo "Run MLFlow Recipe step: train"
+	echo "Run MLflow Recipe step: train"
 	cd {path:prp/} && \
         python -c "from mlflow.recipes.steps.train import TrainStep; TrainStep.from_step_config_path(step_config_path='{path:exe/steps/train/conf.yaml}', recipe_root='{path:prp/}').run(output_directory='{path:exe/steps/train/outputs}')"
 
@@ -552,7 +552,7 @@ evaluate_objects = steps/evaluate/outputs/model_validation_status
 evaluate: $(evaluate_objects)
 
 steps/%/outputs/model_validation_status: {path:prp/steps/custom_metrics.py} steps/train/outputs/model steps/split/outputs/validation.parquet steps/split/outputs/test.parquet steps/train/outputs/run_id steps/evaluate/conf.yaml
-	echo "Run MLFlow Recipe step: evaluate"
+	echo "Run MLflow Recipe step: evaluate"
 	cd {path:prp/} && \
         python -c "from mlflow.recipes.steps.evaluate import EvaluateStep; EvaluateStep.from_step_config_path(step_config_path='{path:exe/steps/evaluate/conf.yaml}', recipe_root='{path:prp/}').run(output_directory='{path:exe/steps/evaluate/outputs}')"
 
@@ -561,7 +561,7 @@ register_objects = steps/register/outputs/registered_model_version.json
 register: $(register_objects)
 
 steps/%/outputs/registered_model_version.json: steps/train/outputs/run_id steps/register/conf.yaml steps/evaluate/outputs/model_validation_status
-	echo "Run MLFlow Recipe step: register"
+	echo "Run MLflow Recipe step: register"
 	cd {path:prp/} && \
         python -c "from mlflow.recipes.steps.register import RegisterStep; RegisterStep.from_step_config_path(step_config_path='{path:exe/steps/register/conf.yaml}', recipe_root='{path:prp/}').run(output_directory='{path:exe/steps/register/outputs}')"
 
@@ -576,7 +576,7 @@ ingest_scoring:
 # `ingest_scoring` target, ensuring that data is only ingested for downstream steps if it is not
 # already present on the local filesystem
 steps/ingest_scoring/outputs/scoring-dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest.py}
-	echo "Run MLFlow Recipe step: ingest_scoring"
+	echo "Run MLflow Recipe step: ingest_scoring"
 	$(MAKE) ingest_scoring
 
 predict_objects = steps/predict/outputs/scored.parquet
@@ -584,7 +584,7 @@ predict_objects = steps/predict/outputs/scored.parquet
 predict: $(predict_objects)
 
 steps/predict/outputs/scored.parquet: steps/ingest_scoring/outputs/scoring-dataset.parquet steps/predict/conf.yaml
-	echo "Run MLFlow Recipe step: predict"
+	echo "Run MLflow Recipe step: predict"
 	cd {path:prp/} && \
         python -c "from mlflow.recipes.steps.predict import PredictStep; PredictStep.from_step_config_path(step_config_path='{path:exe/steps/predict/conf.yaml}', recipe_root='{path:prp/}').run(output_directory='{path:exe/steps/predict/outputs}')"
 

@@ -284,6 +284,22 @@ var selectEvent = /*#__PURE__*/Object.freeze({
 
 // eslint-disable-next-line @databricks/no-restricted-imports-regexp
 
+function getColumnHeaderIndex(tableWrapper, columnHeaderName) {
+  const columnHeaders = findAllByRole(tableWrapper, 'columnheader');
+  const columnHeaderIndex = columnHeaders.findIndex(n => {
+    try {
+      findByText(n, columnHeaderName);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (columnHeaderIndex === -1) {
+    // eslint-disable-next-line testing-library/no-debugging-utils
+    throw new Error(`Unable to find a column with name "${columnHeaderName}"\n${tableWrapper.debug()}`);
+  }
+  return columnHeaderIndex;
+}
 
 /**
  * Returns the table row that contains the specified `cellText`. The `cellText`
@@ -301,24 +317,7 @@ function getTableRowByCellText(tableWrapper, cellText) {
   let {
     columnHeaderName
   } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-  let columnHeaderIndex;
-  if (columnHeaderName === undefined) {
-    columnHeaderIndex = 0;
-  } else {
-    const columnHeaders = findAllByRole(tableWrapper, 'columnheader');
-    columnHeaderIndex = columnHeaders.findIndex(n => {
-      try {
-        findByText(n, columnHeaderName);
-        return true;
-      } catch {
-        return false;
-      }
-    });
-    if (columnHeaderIndex === -1) {
-      // eslint-disable-next-line testing-library/no-debugging-utils
-      throw new Error(`Unable to find a column with name "${columnHeaderName}"\n${tableWrapper.debug()}`);
-    }
-  }
+  const columnHeaderIndex = columnHeaderName === undefined ? 0 : getColumnHeaderIndex(tableWrapper, columnHeaderName);
   const matchingRows = findAllByRole(tableWrapper, 'row')
   // Skip first row (table header)
   .slice(1).filter(row => {
@@ -405,6 +404,49 @@ function getTableRows(tableWrapper) {
   };
 }
 
+/**
+ * Returns the table cell in the specified table row corresponding to the given
+ * `columnHeaderName`. This is useful for checking that a row has a particular value
+ * for a given column, especially when there are duplicate values in the column.
+ *
+ * @example
+ * The HTML table:
+ * ```jsx
+ *   <Table>
+ *     <TableRow isHeader>
+ *       <TableHeader>Name</TableHeader>
+ *       <TableHeader>Age</TableHeader>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Alex</TableCell>
+ *       <TableCell>25</TableCell>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Brenda</TableCell>
+ *       <TableCell>39</TableCell>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Carlos</TableCell>
+ *       <TableCell>39</TableCell>
+ *     </TableRow>
+ *   </Table>
+ * ```
+ *
+ * ```js
+ * const result = getTableCellInRow(wrapper, { cellText: 'Carlos' }, 'Age');
+ * expect(result.textContent).toEqual('39');
+ * ```
+ */
+function getTableCellInRow(tableWrapper, row, columnHeaderName) {
+  const tableRowWrapper = getTableRowByCellText(tableWrapper, row.cellText, {
+    columnHeaderName: row.columnHeaderName
+  });
+  const columnHeaderIndex = getColumnHeaderIndex(tableWrapper, columnHeaderName);
+  const cells = findAllByRole(tableRowWrapper, 'cell');
+  const cell = cells[columnHeaderIndex];
+  return cell;
+}
+
 // eslint-disable-next-line @databricks/no-restricted-imports-regexp
 
 /**
@@ -419,5 +461,5 @@ const openDropdownMenu = dropdownButton => {
   });
 };
 
-export { getTableRowByCellText, getTableRows, openDropdownMenu, selectEvent, toMarkdownTable };
+export { getTableCellInRow, getTableRowByCellText, getTableRows, openDropdownMenu, selectEvent, toMarkdownTable };
 //# sourceMappingURL=enzyme.js.map
