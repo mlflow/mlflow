@@ -320,6 +320,8 @@ to copy model versions across registered models.
 
 .. code-block:: python
 
+    from mlflow import MlflowClient
+
     client = MlflowClient()
     client.copy_model_version(
         src_model_uri="models:/regression-model-staging@candidate",
