@@ -1,4 +1,4 @@
-"""Simple example integrating cuML with MLFlow"""
+"""Simple example integrating cuML with MLflow"""
 
 import argparse
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     experiment_id = None
 
     mlflow.set_tracking_uri(uri="sqlite:////tmp/mlflow-db.sqlite")
-    with mlflow.start_run(run_name="RAPIDS-MLFlow"):
+    with mlflow.start_run(run_name="RAPIDS-MLflow"):
         model, signature = train(args.fpath, args.max_depth, args.max_features, args.n_estimators)
 
         mlflow.sklearn.log_model(

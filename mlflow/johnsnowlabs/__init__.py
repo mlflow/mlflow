@@ -645,7 +645,7 @@ def load_model(
     model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
 ):  # pylint: disable=unused-argument
     """
-    Load the Johnsnowlabs MlFlow model from the path.
+    Load the Johnsnowlabs MLflow model from the path.
 
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
@@ -685,7 +685,7 @@ def load_model(
 
         # start a spark session
         nlp.start()
-        # Load you MlFlow Model
+        # Load you MLflow Model
         model = mlflow.johnsnowlabs.load_model("johnsnowlabs_model")
 
         # Make predictions on test documents

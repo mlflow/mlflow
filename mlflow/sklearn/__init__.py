@@ -1232,7 +1232,7 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
-    :param max_tuning_runs: The maximum number of child Mlflow runs created for hyperparameter
+    :param max_tuning_runs: The maximum number of child MLflow runs created for hyperparameter
                             search estimators. To create child runs for the best `k` results from
                             the search, set `max_tuning_runs` to `k`. The default value is to track
                             the best 5 search parameter sets. If `max_tuning_runs=None`, then

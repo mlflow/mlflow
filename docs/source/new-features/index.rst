@@ -209,7 +209,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header">
                         Introducing the MLflow AI Gateway
                     </div>
-                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="Mlflow"></img>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
                     <div class="body">
                         We're excited to announce the newest top-level component in the MLflow ecosystem: <strong>The AI Gateway</strong>. 
                     </div>

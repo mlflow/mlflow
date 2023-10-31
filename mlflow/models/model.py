@@ -196,7 +196,7 @@ class ModelInfo:
         """
         Version of MLflow used to log the model
 
-        :getter: Gets the version of Mlflow that was installed when a model was logged
+        :getter: Gets the version of MLflow that was installed when a model was logged
         :type: str
         """
         return self._mlflow_version

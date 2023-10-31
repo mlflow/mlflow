@@ -45,7 +45,7 @@ Get information from a Databricks job execution context
 
 Parses the data from a job execution context when running on Databricks
 in a non-interactive mode. This function extracts relevant data that
-Mlflow needs in order to properly utilize the MLflow APIs from this
+MLflow needs in order to properly utilize the MLflow APIs from this
 context.
 
 .. code:: r
