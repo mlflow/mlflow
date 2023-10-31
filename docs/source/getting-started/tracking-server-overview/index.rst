@@ -85,6 +85,7 @@ similar to how we connect to Databricks platform.
 Then let's try logging some dummy metrics, and view them on the local hosted UI:
 
 .. code-block:: python
+
   mlflow.set_experiment("/check-localhost-connection")
 
   with mlflow.start_run():
@@ -183,7 +184,7 @@ If you don't have an account of Databricks CE yet, you can create one
 Install Dependencies
 ^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: python
+.. code-block:: bash
 
   !pip install -q mlflow databricks-sdk
 
