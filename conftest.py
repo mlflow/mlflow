@@ -240,7 +240,10 @@ def enable_mlflow_testing():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def local_pypi_server(tmp_path_factory):
+def local_pypi_repo(tmp_path_factory):
+    """
+    A local PyPI server that serves a wheel for the current MLflow version.
+    """
     root = tmp_path_factory.mktemp("root")
     mlflow_dir = root.joinpath("mlflow")
     mlflow_dir.mkdir()
@@ -255,7 +258,8 @@ def local_pypi_server(tmp_path_factory):
             mlflow_dir,
             "--no-deps",
             ".",
-        ]
+        ],
+        check=True,
     )
     with subprocess.Popen(
         [
