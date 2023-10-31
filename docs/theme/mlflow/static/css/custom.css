@@ -1326,3 +1326,10 @@ a.notebook-download-btn i.fas {
   white-space: nowrap;
 }
 
+/**
+ * Override the stderr output coloring for notebook rendering
+ */
+
+ .nboutput .output_area.stderr .highlight {
+  background-color: hsl(120, 65%, 90%) !important;
+}
