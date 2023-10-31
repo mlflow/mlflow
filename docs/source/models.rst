@@ -3658,9 +3658,13 @@ If the default set of metrics is insufficient, you can supply ``extra_metrics`` 
 to :py:func:`mlflow.evaluate()` to produce extra metrics and artifacts for the model(s) that you're evaluating.
 
 To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions``, ``targets``,
-and ``metrics`` as inputs and outputs a ``MetricValue`` object. The ``MetricValue`` class has three attributes:
-``scores`` for per row metrics, ``aggregate_results`` a dictionary mapping metric names to their aggregate result,
-and ``justification`` is a per row justification of the values in ``scores``.
+and ``metrics`` as inputs and outputs a ``MetricValue`` object. 
+
+The ``MetricValue`` class has three attributes:
+
+* ``scores``: used for per-row metrics 
+* ``aggregate_results``: a dictionary that maps metric names to their aggregate results
+* ``justification``: a per-row justification of the values in ``scores``
 
 
 .. code-block:: python
