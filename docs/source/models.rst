@@ -3758,7 +3758,7 @@ Evaluating with a Function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
 logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
-it. The requirement to the function's input and output is the same as the requirement to a model's input and
+it. The requirements for the function's input and output are the same as the requirements for a model's input and
 output.
 
 The following example uses :py:func:`mlflow.evaluate()` to evaluate a function:
