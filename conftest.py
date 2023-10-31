@@ -248,14 +248,18 @@ def local_pypi_repo(tmp_path_factory):
     mlflow_dir = root.joinpath("mlflow")
     mlflow_dir.mkdir()
     port = get_safe_port()
-    repo_root = subprocess.check_output(
-        [
-            "git",
-            "rev-parse",
-            "--show-toplevel",
-        ],
-        text=True,
-    ).strip()
+    try:
+        repo_root = subprocess.check_output(
+            [
+                "git",
+                "rev-parse",
+                "--show-toplevel",
+            ],
+            text=True,
+        ).strip()
+    except subprocess.CalledProcessError:
+        repo_root = "."
+
     subprocess.run(
         [
             sys.executable,
