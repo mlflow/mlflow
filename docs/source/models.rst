@@ -3745,7 +3745,7 @@ parameter.
 
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
-uses :py:func:`mlflow.evaluate()` with a extra metric function to evaluate the performance of a regressor on the
+uses :py:func:`mlflow.evaluate()` with an extra metric function to evaluate the performance of a regressor on the
 `California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
 
 .. literalinclude:: ../../examples/evaluation/evaluate_with_custom_metrics.py
