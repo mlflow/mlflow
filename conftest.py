@@ -242,7 +242,7 @@ def enable_mlflow_testing():
 @pytest.fixture(scope="session", autouse=True)
 def local_pypi_repo(tmp_path_factory):
     """
-    A local PyPI server that serves a wheel for the current MLflow version.
+    A local PyPI repository that serves a wheel for the current MLflow version.
     """
     root = tmp_path_factory.mktemp("root")
     mlflow_dir = root.joinpath("mlflow")
@@ -271,6 +271,10 @@ def local_pypi_repo(tmp_path_factory):
         ],
         cwd=root,
     ) as prc:
-        os.environ["PIP_EXTRA_INDEX_URL"] = f"http://localhost:{port}"
+        url = f"http://localhost:{port}"
+        if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
+            url = f"{existing_url} {url}"
+        os.environ["PIP_EXTRA_INDEX_URL"] = url
+
         yield
         prc.terminate()
