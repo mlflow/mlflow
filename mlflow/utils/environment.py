@@ -428,6 +428,10 @@ def _is_mlflow_requirement(requirement_string):
     """
     Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
     """
+    # "/opt/mlflow" is the path where we mount the mlflow source code in the Docker container
+    if requirement_string == "/opt/mlflow":
+        return True
+
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).

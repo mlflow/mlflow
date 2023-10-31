@@ -565,7 +565,7 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
@@ -593,7 +593,7 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
@@ -639,7 +639,7 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
