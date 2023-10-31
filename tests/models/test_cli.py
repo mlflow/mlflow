@@ -618,7 +618,9 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
 
 def test_build_docker_virtualenv(iris_data, sk_model):
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(sk_model, "model")
+        model_info = mlflow.sklearn.log_model(
+            sk_model, "model", extra_pip_requirements=["/opt/mlflow"]
+        )
 
     x, _ = iris_data
     df = pd.DataFrame(iris_data[0])
@@ -642,7 +644,7 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
                 sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model")
+            mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
         model_uri = f"runs:/{active_run.info.run_id}/model"
     x, _ = iris_data
     df = pd.DataFrame(x)
