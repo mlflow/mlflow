@@ -260,21 +260,45 @@ Supported Provider Models
 The table below presents a non-exhaustive list of models and a corresponding route type within the MLflow AI Gateway.
 With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
-``N/A`` means that the provider currently doesn't support the route type.
+``N/A`` means that the provider or the AI Gateway implementation currently doesn't support the route type.
 
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+--------------------------+--------------------------+
-| Route Type         | OpenAI                   | MosaicML           | Anthropic        | Cohere                      | Azure OpenAI             | PaLM                  | MLflow                   | HuggingFace TGI          | AI21 Labs                | AWS Bedrock              |
-+====================+==========================+====================+==================+=============================+==========================+=======================+==========================+==========================+==========================+==========================+
-| llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - text-bison-001      | - MLflow served models*  | - N/A                    | - j2-ultra               | - Amazon Titan           |
-|                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                       |                          |                          | - j2-mid                 | - Third-party providers  |
-|                    |                          | - llama2-70b-chat† | - claude-2       |                             |                          |                       |                          |                          | - j2-light               |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+--------------------------+--------------------------+
-| llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - chat-bison-001      | - MLflow served models*  | - HF TGI Models          | - N/A                    | - N/A                    |
-|                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                       |                          |                          |                          |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+--------------------------+--------------------------+
-| llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - embedding-gecko-001 | - MLflow served models** | - N/A                    | - N/A                    | - Coming soon            |
-|                    |                          | - instructor-xl    |                  | - embed-multilingual-v2.0   |                          |                       |                          |                          |                          |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+--------------------------+--------------------------+
+
++--------------------------+--------------------------+--------------------------+--------------------------+
+|  Provider                | Routes                                                                         |
++--------------------------+--------------------------+--------------------------+--------------------------+
+|                          | llm/v1/completions       | llm/v1/chat              | llm/v1/embeddings        |
++==========================+==========================+==========================+==========================+
+| OpenAI                   | - gpt-3.5-turbo          | - gpt-3.5-turbo          | - text-embedding-ada-002 |
+|                          | - gpt-4                  | - gpt-4                  |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
+| MosaicML                 | - mpt-7b-instruct        | - llama2-70b-chat†       | - instructor-large       |
+|                          | - mpt-30b-instruct       |                          | - instructor-xl          |
+|                          | - llama2-70b-chat†       |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
+| Anthropic                | - claude-1               | N/A                      | N/A                      |
+|                          | - claude-1.3-100k        |                          |                          |
+|                          | - claude-2               |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
+| Cohere                   | - command                | N/A                      | - embed-english-v2.0     |
+|                          | - command-light-nightly  |                          | - embed-multilingual-v2.0|
++--------------------------+--------------------------+--------------------------+--------------------------+
+| Azure OpenAI             | - text-davinci-003       | - gpt-35-turbo           | - text-embedding-ada-002 |
+|                          | - gpt-35-turbo           | - gpt-4                  |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
+| PaLM                     | - text-bison-001         | - chat-bison-001         | - embedding-gecko-001    |
++--------------------------+--------------------------+--------------------------+--------------------------+
+| MLflow                   | - MLflow served models*  | - MLflow served models*  | - MLflow served models** |
++--------------------------+--------------------------+--------------------------+--------------------------+
+| HuggingFace TGI          | N/A                      | - HF TGI Models          | N/A                      |
++--------------------------+--------------------------+--------------------------+--------------------------+
+| AI21 Labs                | - j2-ultra               | N/A                      | N/A                      |
+|                          | - j2-mid                 |                          |                          |
+|                          | - j2-light               |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
+| AWS Bedrock              | - Amazon Titan           | N/A                      | N/A                      |
+|                          | - Third-party providers  |                          |                          |
++--------------------------+--------------------------+--------------------------+--------------------------+
+
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
