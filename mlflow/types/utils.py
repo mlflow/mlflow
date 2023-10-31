@@ -239,7 +239,7 @@ def _infer_schema(data: Any) -> Schema:
     #               ), name='dict')])
     if isinstance(data, dict) and any(not isinstance(value, str) for value in data.values()):
         # TODO: Add a link to docs/examples
-        _logger.warning(
+        _logger.info(
             "MLflow 2.9.0 introduces model signature with new data types for "
             "lists and dictionaries. Lists will be inferred as Array, and dictionaries "
             "will be inferred as Object."
