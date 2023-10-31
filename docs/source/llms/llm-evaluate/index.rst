@@ -177,7 +177,7 @@ Use a Custom List of Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics 
-for LLM evaluation in MLFlow. You can specify a custom list of metrics in the `extra_metrics` argument in `mlflow.evaluate`:
+for LLM evaluation in MLflow. You can specify a custom list of metrics in the `extra_metrics` argument in `mlflow.evaluate`:
 
 * To add additional metrics to the default metrics list of pre-defined model type, keep the `model_type` and add your metrics to ``extra_metrics``:
   

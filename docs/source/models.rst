@@ -4114,7 +4114,7 @@ Let's examine the custom flavor module in more detail. The first step is to impo
 inluding ``sktime`` library, various MLflow utilities as well as the MLflow ``pyfunc`` module which
 is required to add the ``pyfunc`` specification to the MLflow model configuration. Note also the
 import of the ``flavor`` module itself. This will be passed to the
-:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current Mlflow
+:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current MLflow
 run.
 
 .. code-block:: python

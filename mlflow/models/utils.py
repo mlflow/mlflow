@@ -74,7 +74,7 @@ class _Example:
     Storage Format:
 
     The examples are stored as json for portability and readability. Therefore, the contents of the
-    example(s) must be jsonable. Mlflow will make the following conversions automatically on behalf
+    example(s) must be jsonable. MLflow will make the following conversions automatically on behalf
     of the user:
 
         - binary values: :py:class:`bytes` or :py:class:`bytearray` are converted to base64

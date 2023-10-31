@@ -1041,11 +1041,11 @@ class Utils {
     const errorMessages = {
       404: intl.formatMessage({
         defaultMessage: '404: Resource not found',
-        description: 'Generic 404 user-friendly error for the MLFlow UI',
+        description: 'Generic 404 user-friendly error for the MLflow UI',
       }),
       500: intl.formatMessage({
         defaultMessage: '500: Internal server error',
-        description: 'Generic 500 user-friendly error for the MLFlow UI',
+        description: 'Generic 500 user-friendly error for the MLflow UI',
       }),
     };
 

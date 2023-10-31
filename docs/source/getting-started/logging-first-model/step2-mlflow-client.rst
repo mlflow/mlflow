@@ -53,7 +53,7 @@ We now have a client interface to the tracking server that can both send data to
 The Default Experiment
 ----------------------
 
-Before we get to logging anything to the Tracking Server, let's take a look at a key feature that exists at the outset of starting any Mlflow
+Before we get to logging anything to the Tracking Server, let's take a look at a key feature that exists at the outset of starting any MLflow
 Tracking Server: the Default Experiment.
 
 The Default Experiment is a placeholder that is used to encapsulate all run information if an explicit Experiment is not declared.
@@ -114,7 +114,7 @@ Running it
    :align: center
    :alt: Exploring the Default Experiment
 
-   Using the Mlflow Client's search_experiments() API to view the Default Experiment
+   Using the MLflow Client's search_experiments() API to view the Default Experiment
 
 In the next step, we'll create our first experiment and dive into the options that are available for
 providing metadata information that helps to keep track of related experiments and organize our

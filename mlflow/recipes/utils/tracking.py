@@ -69,7 +69,7 @@ class TrackingConfig:
                               ``experiment_id`` must be specified. If both are specified, they
                               must be consistent with Tracking server state. Note that this
                               Experiment may not exist prior to recipe execution.
-        :param run_name: The MLFlow Run Name. If the run name is not specified, then a random
+        :param run_name: The MLflow Run Name. If the run name is not specified, then a random
                                 name is set for the run.
         :param artifact_location: The artifact location to use for the Experiment, if the Experiment
                                   does not already exist. If the Experiment already exists, this

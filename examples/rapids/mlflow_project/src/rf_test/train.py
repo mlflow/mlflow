@@ -1,4 +1,4 @@
-"""Hyperparameter optimization with cuML, hyperopt, and MLFlow"""
+"""Hyperparameter optimization with cuML, hyperopt, and MLflow"""
 
 import argparse
 from functools import partial

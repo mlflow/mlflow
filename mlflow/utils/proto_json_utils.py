@@ -258,7 +258,7 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
     cast data types according to the schema. This include base64 decoding for binary columns.
 
     :param decoded_input: Parsed json - either a list or a dictionary.
-    :param schema: Mlflow schema used when parsing the data.
+    :param schema: MLflow schema used when parsing the data.
     :param pandas_orient: pandas data frame convention used to store the data.
     :return: pandas.DataFrame.
     """
@@ -321,7 +321,7 @@ def dataframe_from_raw_json(path_or_str, schema=None, pandas_orient: str = "spli
     include base64 decoding for binary columns.
 
     :param path_or_str: Path to a json file or a json string.
-    :param schema: Mlflow schema used when parsing the data.
+    :param schema: MLflow schema used when parsing the data.
     :param pandas_orient: pandas data frame convention used to store the data.
     :return: pandas.DataFrame.
     """
@@ -361,7 +361,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
     :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
                      serving API doc
                      (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
-    :param schema: Mlflow schema used when parsing the data.
+    :param schema: MLflow schema used when parsing the data.
     """
     import numpy as np
 
