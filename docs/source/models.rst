@@ -3676,7 +3676,7 @@ The code block below demonstrates how to define a custom metric evaluation funct
         return MetricValue(scores=scores, aggregate_results={"mymetric": mymetric})
 
 Once you have defined an ``eval_fn``, you then use ``make_metric()`` to wrap this ``eval_fn`` function into a metric.
-In addition to ``eval_fn``, ``make_metric()`` requires an additional parameter ``greater_is_better``. This parameter
+In addition to ``eval_fn``, ``make_metric()`` requires an additional parameter , ``greater_is_better``, for optimization purposes. This parameter
 indicates whether this is a metric we want to maximize or minimize.
 
 .. code-block:: python
