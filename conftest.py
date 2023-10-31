@@ -248,6 +248,7 @@ def local_pypi_repo(tmp_path_factory):
     mlflow_dir = root.joinpath("mlflow")
     mlflow_dir.mkdir()
     port = get_safe_port()
+    repo_root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
     subprocess.run(
         [
             sys.executable,
@@ -257,7 +258,7 @@ def local_pypi_repo(tmp_path_factory):
             "--wheel-dir",
             mlflow_dir,
             "--no-deps",
-            ".",
+            repo_root,
         ],
         check=True,
     )
