@@ -345,7 +345,7 @@ def _init_modules_to_packages_map():
         # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
         _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
 
-        # Add mapping for MLFlow extras
+        # Add mapping for MLflow extras
         _MODULES_TO_PACKAGES.update(MLFLOW_MODULES_TO_PACKAGES)
 
         # Multiple packages populate the `databricks` module namespace on Databricks; to avoid

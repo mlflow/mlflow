@@ -5,7 +5,7 @@ import React from 'react';
 const MLFlowAgGridImpl = React.lazy(() => import('./AgGrid'));
 
 /**
- * A simple loader that will lazily load MLFlow's ag grid implementation.
+ * A simple loader that will lazily load MLflow's ag grid implementation.
  * Extracted to a separate module for testing purposes.
  */
 export const MLFlowAgGridLoader = (props: AgGridReactProps | AgReactUiProps) => (

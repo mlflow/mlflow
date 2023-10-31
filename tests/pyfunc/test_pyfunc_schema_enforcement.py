@@ -2005,7 +2005,7 @@ def test_pyfunc_model_schema_enforcement_with_dicts_and_lists(data, schema):
         ),
     ],
 )
-# `instances` is an invalid key for schema with Mlflow < 2.9.0
+# `instances` is an invalid key for schema with MLflow < 2.9.0
 @pytest.mark.parametrize("format_key", ["inputs", "dataframe_split", "dataframe_records"])
 def test_pyfunc_model_serving_with_dicts(data, schema, format_key):
     class MyModel(mlflow.pyfunc.PythonModel):
@@ -2063,7 +2063,7 @@ def test_pyfunc_model_serving_with_dicts(data, schema, format_key):
         ),
     ],
 )
-# `inputs`` is an invalid key for schema with Mlflow < 2.9.0
+# `inputs`` is an invalid key for schema with MLflow < 2.9.0
 @pytest.mark.parametrize("format_key", ["instances", "dataframe_split", "dataframe_records"])
 def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
     class MyModel(mlflow.pyfunc.PythonModel):
