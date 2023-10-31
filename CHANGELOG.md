@@ -15,7 +15,7 @@ Features:
 - [Gateway] Add support for Google PaLM 2 as a provider in the AI Gateway (#9797, @arpitjasa-db)
 - [Gateway] Add support for AI21labs as a provider in the AI Gateway (#9828, #10168, @zhe-db)
 - [Gateway] Introduce a simplified method for setting the configuration file location for the AI Gateway via environment variable (#9822, @danilopeixoto)
-- [Evaluate] Introduce default provided LLM evaluation metrics for MLflow evaluate (#9913, @prithvikannan)
+- [Evaluate] Introduce default provided LLM evaluation metrics for MLflow evaluation (#9913, @prithvikannan)
 - [Evaluate] Add support for evaluating inference datasets in MLflow evaluate (#9830, @liangz1)
 - [Evaluate] Add support for evaluating single argument functions in MLflow evaluate (#9718, @liangz1)
 - [Evaluate] Add support for Retriever LLM model type evaluation within MLflow evaluate (#10079, @liangz1)
@@ -32,7 +32,7 @@ Features:
 - [Tracking] Add support for logging system metrics to the MLflow fluent API (#9557, #9712, #9714, @chenmoneygithub)
 - [Tracking] Add callbacks within MLflow for Keras and Tensorflow (#9454, #9637, #9579, @chenmoneygithub)
 - [Tracking] Introduce a fluent login API for Databricks within MLflow (#9665, #10180, @chenmoneygithub)
-- [Tracking] Add support for customizing auth for http requests from the MLflow client via a plugin extension (#10049, @lu-ohai)
+- [Tracking] Add support for customizing auth for HTTP requests from the MLflow client via a plugin extension (#10049, @lu-ohai)
 - [Tracking] Introduce experimental asynchronous logging support for metrics, params, and tags (#9705, @sagarsumant)
 - [Auth] Modify the behavior of user creation in MLflow Authentication so that only admins can create new users (#9700, @gabrielfu)
 - [Artifacts] Add support for using `xethub` as an artifact store via a plugin extension (#9957, @Kelton8Z)
@@ -53,7 +53,7 @@ Documentation updates:
 - [Docs] Introduce the first phase of a larger documentation overhaul (#10197, @BenWilson2)
 - [Docs] Add guide for LLM eval (#10058, #10199, @chenmoneygithub)
 - [Docs] Add instructions on how to force single file serialization within the onnx flavor's save and log functions (#10178, @BenWilson2)
-- [Docs] Add documentation for the relevance metric for MLflow evaluate (#10170, @sunishsheth2009)
+- [Docs] Add documentation for the relevance metric for MLflow evaluation (#10170, @sunishsheth2009)
 - [Docs] Add a style guide for the contributing guide for how to structure pydoc strings (#9907, @mberk06)
 - [Docs] Fix issues with the pytorch lightning autolog code example (#9964, @chenmoneygithub)
 - [Docs] Update the example for `mlflow.data.from_numpy()` (#9885, @chenmoneygithub)
@@ -66,7 +66,7 @@ Small bug fixes and documentation updates:
 
 ## 2.7.1 (2023-09-17)
 
-MLflow 2.7.1 is a patch release containing the following features, bug fixes and changes:
+MLflow 2.7.1 is a patch release containing the following features, bug fixes, and changes:
 
 Features:
 
@@ -129,7 +129,7 @@ Features:
 Bug fixes:
 
 - [Models] Fix `text_pair` functionality for transformers `TextClassification` pipelines (#9215, @BenWilson2)
-- [Models] Fix LangChain compatibility with SQLDatabase (#9192, @dbczumar)
+- [Models] Fix LangChain compatibility with SQL database (#9192, @dbczumar)
 - [Tracking] Remove patching `sklearn.metrics.get_scorer_names` in `mlflow.sklearn.autolog` to avoid duplicate logging (#9095, @WeichenXu123)
 
 Documentation updates:
@@ -164,7 +164,7 @@ Bug fixes:
   - If you are using `mlflow server` or `mlflow ui` on Windows, we recommend upgrading to MLflow 2.5.0 as soon as possible.
 - [Scoring] Support nullable array type values as spark_udf return values (#9014, @WeichenXu123)
 - [Models] Revert cache deletion of system modules when adding custom model code to the system path (#8722, @trungn1)
-- [Models] add micro version to mlflow version pinning (#8687, @C-K-Loan)
+- [Models] add a micro version to mlflow version pinning (#8687, @C-K-Loan)
 - [Artifacts] Prevent manually deleted artifacts from causing artifact garbage collection to fail (#8498, @PenHsuanWang)
 
 Documentation updates:
@@ -207,7 +207,7 @@ Small bug fixes and documentation updates:
 
 ## 2.4.1 (2023-06-09)
 
-MLflow 2.4.1 is a patch release containing the following features, bug fixes and changes:
+MLflow 2.4.1 is a patch release containing the following features, bug fixes, and changes:
 
 Features:
 
@@ -255,7 +255,7 @@ Bug fixes:
 
 - [Tracking] Terminate Spark callback server when Spark Autologging is disabled or Spark Session is shut down (#8508, @WeichenXu123)
 - [Tracking] Fix compatibility of ``mlflow server`` with ``Flask<2.0`` (#8463, @kevingreer)
-- [Models] Convert ``mlflow.transformers`` pyfunc scalar string output to list of strings during batch inference (#8546, @BenWilson2)
+- [Models] Convert ``mlflow.transformers`` pyfunc scalar string output to a list of strings during batch inference (#8546, @BenWilson2)
 - [Models] Fix a bug causing outdated pyenv versions to be installed by ``mlflow models build-docker`` (#8488, @Hellzed)
 - [Model Registry] Remove aliases from storage when a Model Version is deleted (#8459, @arpitjasa-db)
 
