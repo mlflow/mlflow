@@ -139,12 +139,14 @@ That's all about how to start your own MLflow server and view your experiments. 
 of this method below:
 
 * **Pros**
+  
   * You have full control of your data and model, which is good for privacy concerns.
   * No subscription is required.
   * Unlimited quota of experiments/runs.
   * You can even customize your UI by forking the MLflow repo and modify the UI code.
 
 * **Cons**
+  
   * Requires manual setup and maintenance.
   * Team collaboration is harder than using a hosted tracking server, e.g., Databricks CE.
   * Not suitable for cloud-based notebook, e.g., Google Colab.
@@ -275,6 +277,7 @@ That's all about how to use Databricks CE as the tracking server. Please see the
 of this method below:
 
 * **Pros**
+  
   * Effortless setup.
   * Free. 
   * Good for collaboration, e.g., you can share your MLflow experiment with your teammates easily.
@@ -282,6 +285,7 @@ of this method below:
   * Compatible for developing on cloud VM.
 
 * **Cons**
+  
   * Has quota limit of experiments/runs.
   * No model registration/serving support.
 
@@ -308,6 +312,7 @@ That's all about how to use a production platform as the tracking server. Please
 of this method below:
 
 * **Pros**
+  
   * Effortless setup.
   * Good for collaboration, e.g., you can share your MLflow experiment with your teammates easily.
   * Compatible for developing on cloud-based notebook, e.g., Google Colab.
@@ -316,5 +321,6 @@ of this method below:
   * Higher quota than Databricks CE (pay as you go).
 
 * **Cons**
+  
   * Not free.
   * Need to manage a billing account.
