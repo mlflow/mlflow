@@ -3699,7 +3699,7 @@ and outputs the predictions.
     mlflow.evaluate(model, eval_dataset, targets="targets", extra_metrics=[mymetric])
 
 To directly evaluate an output dataframe, you can **omit** the ``model`` parameter. However, you will need
- to set the ``predictions`` parameter in ``mlflow.evaluate()``. 
+ to set the ``predictions`` parameter in ``mlflow.evaluate()`` in order to evaluate an inference output dataframe. 
 
 .. code-block:: python
 
