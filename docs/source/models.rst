@@ -3792,7 +3792,7 @@ the ``predictions`` parameter in :py:func:`mlflow.data.from_pandas()`, and speci
     mlflow.evaluate(data=pandas_df, predictions=None, ...)
 
 When your model has multiple outputs, you must specify one column among the model output columns as the predictions
-column, and other output columns of the model will be treated as "input" columns. For example, if your model
+column. The other output columns of the model will be treated as "input" columns. For example, if your model
 has two outputs ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions column, and
 ``retrieved_context`` column will be treated as an "input" column when calculating the metrics.
 
