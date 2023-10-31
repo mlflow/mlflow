@@ -456,10 +456,9 @@ def _is_mlflow_requirement(requirement_string):
 
 def _generate_mlflow_version_pinning() -> str:
     """
-    Determines the current MLflow version that is installed and adds a pinned boundary version range
-    for mlflow.
+    Returns a pinned requirement for the current MLflow version (e.g., "mlflow==3.2.1").
 
-    :return: string for MLflow dependency version.
+    :return: A pinned requirement for the current MLflow version.
     """
     if _MLFLOW_TESTING.get():
         # The local PyPI server should be running. It serves a wheel for the current MLflow version.
