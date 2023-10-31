@@ -8,7 +8,7 @@ import yaml
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.environment_variables import MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS
+from mlflow.environment_variables import MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS, _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.pyfunc.model import MLMODEL_FILE_NAME, Model
@@ -17,6 +17,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
+    _generate_mlflow_version_pinning,
     _get_pip_deps,
     _mlflow_additional_pip_env,
     _overwrite_pip_deps,
@@ -212,9 +213,25 @@ class WheeledModel:
 
         pip_wheel_options = MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS.get()
 
+        # Get list of packages from requirements.txt
+        with open(pip_requirements_path, "r") as f:
+            packages = [l.strip() for l in f.readlines()]
+
+        # Create wheel for mlflow from local source code rather than downloading from pypi
+        if _MLFLOW_TESTING.get():
+            # Check if required mlflow version matches with local version
+            required_mlflow_version = next((p for p in packages if p.startswith("mlflow")), None) 
+            local_mlflow_version = _generate_mlflow_version_pinning()
+
+            if required_mlflow_version == local_mlflow_version:
+                cls._create_mlflow_wheel_and_dependencies(dst_path, pip_wheel_options)
+                
+                # Drop mlflow from requirements
+                packages = [p for p in packages if not p.startswith("mlflow")]
+
         download_command = (
-            f"{sys.executable} -m pip wheel {pip_wheel_options} --wheel-dir={dst_path} -r"
-            f"{pip_requirements_path} --no-cache-dir"
+            f"{sys.executable} -m pip wheel {pip_wheel_options} --wheel-dir={dst_path} "
+            f"{' '.join(packages)} --no-cache-dir"
         )
 
         try:
@@ -223,8 +240,29 @@ class WheeledModel:
             raise MlflowException(
                 f"An error occurred while downloading the dependency wheels: {e.stderr}"
             )
+    
+    @classmethod
+    def _create_mlflow_wheel_and_dependencies(cls, dst_path, pip_wheel_options):
+        """
+        Generate a mlflow wheel from local source and also download the dependency wheels.
+        """
+        create_mlflow_wheel_command = f"{sys.executable} setup.py bdist_wheel -d {dst_path}"
+        try:
+            subprocess.run([create_mlflow_wheel_command], check=True, shell=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            raise MlflowException(
+                f"An error occurred while creating mlflow wheel from local source: {e.stderr}"
+            )
+        
+        dependency_wheel_command = f"{sys.executable} -m pip wheel . {pip_wheel_options} --wheel-dir={dst_path}"
+        try:
+            subprocess.run([dependency_wheel_command], check=True, shell=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            raise MlflowException(
+                f"An error occurred while downloading the dependency wheels for mlflow: {e.stderr}"
+            )
 
-    def _overwrite_pip_requirements_with_wheels(self, pip_requirements_path, wheels_dir):
+    def _overwrite_pip_requirements_with_wheels(cls, pip_requirements_path, wheels_dir):
         """
         Overwrites the requirements.txt with the wheels of the required dependencies.
         :param pip_requirements_path: Path to requirements.txt in the model directory

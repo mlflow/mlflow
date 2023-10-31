@@ -455,16 +455,11 @@ def _is_mlflow_requirement(requirement_string):
 
 def _generate_mlflow_version_pinning():
     """
-    Determines the current MLflow version that is installed and adds a pinned boundary version range
-    for mlflow. The upper bound is a cap on the next major revision. The lower bound is a cap on
-    the current installed minor version(i.e., 'mlflow<3,>=2.1')
+    Determines the current MLflow version that is installed in the current environment.
     :return: string for MLflow dependency version
     """
     version = Version(VERSION)
-    # The version on master is always a micro-version ahead of the latest release and can't be
-    # installed from PyPI. We therefore subtract 1 from the micro version when running tests.
-    offset = -1 if version.is_devrelease else 0
-    return f"mlflow=={version.major}.{version.minor}.{version.micro + offset}"
+    return f"mlflow=={version.major}.{version.minor}.{version.micro}"
 
 
 def _contains_mlflow_requirement(requirements):

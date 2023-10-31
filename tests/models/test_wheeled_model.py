@@ -5,6 +5,7 @@ import re
 from collections import namedtuple
 
 import numpy as np
+from packaging.version import Version
 import pandas as pd
 import pytest
 import sklearn.neighbors as knn
@@ -24,6 +25,7 @@ from mlflow.utils.environment import (
     _is_pip_deps,
     _mlflow_conda_env,
 )
+from mlflow.version import VERSION
 
 from tests.helper_functions import (
     _is_available_on_pypi,
@@ -348,7 +350,7 @@ def test_serving_wheeled_model(sklearn_knn_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_data))
 
 
-def test_wheel_download_works(tmp_path):
+def test_wheel_download_simple_dependency(tmp_path):
     simple_dependency = "cloudpickle"
     requirements_file = os.path.join(tmp_path, "req.txt")
     wheel_dir = os.path.join(tmp_path, "wheels")
@@ -360,6 +362,38 @@ def test_wheel_download_works(tmp_path):
     assert len(wheels) == 1  # Only a single wheel is downloaded
     assert wheels[0].endswith(".whl")  # Type is wheel
     assert simple_dependency in wheels[0]  # Cloudpickle wheel downloaded
+
+
+def test_wheel_download_work_with_mlflow_local_version(tmp_path):
+    simple_dependency = "cloudpickle"
+    mlflow_version_str = _mlflow_major_version_string()
+
+    requirements_file = os.path.join(tmp_path, "req.txt")
+    wheel_dir = os.path.join(tmp_path, "wheels")
+    with open(requirements_file, "w") as req_file:
+        req_file.write("\n".join([simple_dependency, mlflow_version_str]))
+
+    WheeledModel._download_wheels(requirements_file, wheel_dir)
+    wheels = sorted(os.listdir(wheel_dir))
+    assert len(wheels) > 2 # cloudpickle, mlflow, and mlflow's dependencies
+    assert all(w.endswith(".whl") for w in wheels)
+
+
+def test_wheel_download_work_with_mlflow_remote_available_version(tmp_path):
+    simple_dependency = "cloudpickle"
+    mlflow_version = Version(VERSION)
+    # Assuming that the previous minor version is available on PyPI
+    mlflow_previos_version_str = f"mlflow=={mlflow_version.major}.{mlflow_version.minor}.{mlflow_version.micro - 1}"
+    
+    requirements_file = os.path.join(tmp_path, "req.txt")
+    wheel_dir = os.path.join(tmp_path, "wheels")
+    with open(requirements_file, "w") as req_file:
+        req_file.write("\n".join([simple_dependency, mlflow_previos_version_str]))
+
+    WheeledModel._download_wheels(requirements_file, wheel_dir)
+    wheels = sorted(os.listdir(wheel_dir))
+    assert len(wheels) > 2 # cloudpickle, mlflow, and mlflow's dependencies
+    assert all(w.endswith(".whl") for w in wheels)
 
 
 def test_wheel_download_override_option_works(tmp_path):
