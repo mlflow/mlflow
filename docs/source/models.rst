@@ -3657,7 +3657,7 @@ Evaluating with Extra Metrics
 If the default set of metrics is insufficient, you can supply ``extra_metrics`` and ``custom_artifacts``
 to :py:func:`mlflow.evaluate()` to produce extra metrics and artifacts for the model(s) that you're evaluating.
 
-To define a extra metric, you should define a ``eval_fn`` function that takes in ``predictions``, ``targets``,
+To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions``, ``targets``,
 and ``metrics`` as inputs and outputs a ``MetricValue`` object. The ``MetricValue`` class has three attributes:
 ``scores`` for per row metrics, ``aggregate_results`` a dictionary mapping metric names to their aggregate result,
 and ``justification`` is a per row justification of the values in ``scores``.
