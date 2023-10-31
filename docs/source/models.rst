@@ -3650,15 +3650,51 @@ Evaluating with Custom Metrics
 If the default set of metrics is insufficient, you can supply ``custom_metrics`` and ``custom_artifacts``
 to :py:func:`mlflow.evaluate()` to produce custom metrics and artifacts for the model(s) that you're evaluating.
 
-To define a custom metric, you should define a ``eval_fn`` function that takes ? as inputs and ? as outputs.
-You should use ``make_metric()`` to wrap this ``eval_fn`` function into a Metric.
+To define a custom metric, you should define a ``eval_fn`` function that takes in ``predictions``, ``targets``,
+and ``metrics`` as inputs and outputs a ``MetricValue`` object. The ``MetricValue`` class has three attributes:
+``scores`` for per row metrics, ``aggregate_results`` a dictionary mapping metric names to their aggregate result,
+and ``justification`` is a per row justification of the values in ``scores``.
 
-When using the custom metric, you should specify a model with output column(s) x, or a function with output y,
-or a static dataset with predictions columns z. The output column(s) x, y, or z will be passed to the ``eval_fn``.
+
+.. code-block:: python
+    from mlflow.metrics import MetricValue
+
+    def my_metric_eval_fn(predictions, targets, metrics):
+        scores = predictions
+        mymetric = np.sum(np.abs(predictions - targets))
+        return MetricValue(scores=scores, aggregate_results={"mymetric": mymetric})
+
+Once you have defined ``eval_fn``, you should use ``make_metric()`` to wrap this ``eval_fn`` function into a metric.
+In addition to ``eval_fn``, ``make_metric()`` requires an additional parameter ``greater_is_better``. This parameter
+indicates whether this is a metric we want to maximize or minimize.
+
+.. code-block:: python
+    from mlflow.metrics import make_metric
+
+    mymetric = make_metric(eval_fn=my_metric_eval_fn, greater_is_better=False)
+
+The custom metric allows you to either evaluate a model directly or to evaluate an output dataframe. 
+
+To evaluate the model directly, you will have to provide ``mlflow.evaluate()`` either a pyfunc model
+instance, a URI referring to a pyfunc model, or a callable function that takes in the data as input 
+and outputs the predictions.
+
+.. code-block:: python
+    def model(x):
+        return x["inputs"]
+
+    eval_dataset = pd.DataFrame({"targets": [1,2,3,4,5,6,7,8], "inputs": [1,2,3,4,5,6,7,8]})
+
+    mlflow.evaluate(model, eval_dataset, targets="targets", extra_metrics=[mymetric])
+
+To directly evaluate an output dataframe, you will need not need the ``model`` parameter, but you will need
+ to set the ``predictions`` parameter in ``mlflow.evaluate()``. 
 
 .. code-block:: python
 
-    # def my_metric(?):
+    eval_dataset = pd.DataFrame({"targets": [1,2,3,4,5,6,7,8], "predictions": [1,2,3,4,5,6,7,8]})
+
+    result = mlflow.evaluate(data=eval_dataset, predictions="predictions", targets="targets", extra_metrics=[mymetric])
 
 When your model has multiple outputs, the model must return a pandas DataFrame with multiple columns. You must
 specify one column among the model output columns as the predictions column using the ``predictions`` parameter,
@@ -3668,16 +3704,33 @@ column, and ``retrieved_context`` column will be accessible from the ``eval_fn``
 
 .. code-block:: python
 
-    def eval_fn(data, predictions, col_mapping):
-        retrieved_context = col_mapping["retrieved_context"]
-        # ...
+    def eval_fn(predictions, targets, metrics, retrieved_context):
+        return MetricValue(aggregate_results={"mymetric": np.sum(predictions == targets), "sum_of_retrieved_context": np.sum(retrieved_context)})
+
+    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False)
+
+    def model(x):
+        return pd.DataFrame({"retrieved_context": x["inputs"]+1, "answer": x["inputs"]})
+
+    eval_dataset = pd.DataFrame({"targets": [1,2,3,4,5,6,7,8], "inputs": [1,2,3,4,5,6,7,8]})
+
+    result = mlflow.evaluate(model, eval_dataset, predictions="answer", targets="targets", extra_metrics=[mymetric])
 
 When you want to pass additional parameters to the custom metric function, you can use the ``evaluator_config``
 parameter.
 
 .. code-block:: python
+    def eval_fn(predictions, targets, metrics, k):
+        return MetricValue(aggregate_results={"mymetric": k*np.sum((predictions == targets))})
+    weighted_mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False)
 
-    # def eval_fn()...
+    def model(x):
+        return x["inputs"]
+
+    eval_dataset = pd.DataFrame({"targets": [1,2,3,4,5,6,7,8], "inputs": [1,2,3,4,5,6,7,8]})
+
+    config = {"col_mapping": {"k": 5}}
+    mlflow.evaluate(model, eval_dataset, targets="targets", extra_metrics=[weighted_mymetric], evaluator_config=config)
 
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
