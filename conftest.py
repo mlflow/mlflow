@@ -3,11 +3,14 @@ import os
 import posixpath
 import shutil
 import subprocess
+import sys
 
 import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+
+from tests.helper_functions import get_safe_port
 
 
 def pytest_addoption(parser):
@@ -234,3 +237,35 @@ def enable_mlflow_testing():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv(_MLFLOW_TESTING.name, "TRUE")
         yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def local_pypi_server(tmp_path_factory):
+    root = tmp_path_factory.mktemp("root")
+    mlflow_dir = root.joinpath("mlflow")
+    mlflow_dir.mkdir()
+    port = get_safe_port()
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            "--wheel-dir",
+            mlflow_dir,
+            "--no-deps",
+            ".",
+        ]
+    )
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "http.server",
+            str(port),
+        ],
+        cwd=root,
+    ) as prc:
+        os.environ["PIP_EXTRA_INDEX_URL"] = f"http://localhost:{port}"
+        yield
+        prc.terminate()
