@@ -859,52 +859,6 @@ text-transform: capitalize;
   z-index: 1;
 }
 
-/* Copy to the clipboard */
-.clippy {
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  white-space: pre;
-  font-size: 12px;
-  background-color: #FFF;
-  border: 1px solid #e1e4e5;
-  padding: .25em .5em;
-  cursor: pointer;
-  text-align: center;
-  z-index: 2;
-}
-
-.clippy img {
-  width: 1em;
-  margin-right: .5em;
-}
-
-.clippy:hover {
-  background-color: #f3f3f3;
-}
-
-@keyframes flashClippy {
-  0% {
-    background-color: #FFF;
-  }
-
-  33% {
-    background-color: #ffedcc;
-  }
-
-  66% {
-    background-color: #FFF;
-  }
-}
-
-.clippy + pre {
-  position: relative;
-  z-index: 1;
-}
-.clippy.copied + pre {
-  animation: flashClippy 1s;
-}
-
 /**
  * Notebook embeds
  */
@@ -1155,6 +1109,22 @@ text-transform: capitalize;
  * Overrides to the nbsphinx modifications to the .highlight class that strips the clippy implementation (copy of code)
  */
 
+ /** disable nbsphinx copy buttons */
+ .nbinput .highlight .fa-copy,
+ .nboutput .highlight .fa-copy {
+     display: none !important;
+ }
+
+ .nbinput .highlight button {
+  pointer-events: none; 
+  cursor: default; 
+}
+
+.nbinput .highlight button:hover {
+  background-color: inherit;
+  color: inherit; 
+}
+
  .highlight {
   position: relative;
 }
@@ -1162,7 +1132,7 @@ text-transform: capitalize;
 .copy-icon {
   font-family: "Font Awesome 5 Free"; 
   font-weight: 900; 
-  position: absolute;
+  position: relative;
   top: 5px; 
   right: 5px;
   cursor: pointer;
@@ -1178,18 +1148,20 @@ text-transform: capitalize;
 
 .copy-message {
   position: absolute;
-  bottom: -2rem; 
-  left: 50%; 
-  transform: translateX(-50%); 
-  background-color: whitesmoke;
+  top: 0;
+  left: 100%;
+  margin-left: -100px;
+  background-color: transparent !important;
   font-size: 1rem;
-  padding: 0.25rem 0.5rem; 
-  border-radius: 5px;
-  white-space: nowrap; 
-  font-family: 'Source Sans Pro'; 
+  padding: 0;
+  border-radius: 0;
+  white-space: nowrap;
+  font-family: 'Source Sans Pro';
   font-weight: 400;
   color: darkslategrey;
+  transform: translateY(-10%);
 }
+
 
 /**
  * Logo scroll bar
