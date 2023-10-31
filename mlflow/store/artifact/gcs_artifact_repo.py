@@ -1,7 +1,10 @@
 import datetime
+import importlib.metadata
 import os
 import posixpath
 import urllib.parse
+
+from packaging.version import Version
 
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -17,7 +20,6 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-from mlflow.utils.version import compare_package_version
 
 
 class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
@@ -151,9 +153,9 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
     @staticmethod
     def _validate_support_mpu():
-        if not compare_package_version(
-            "google-cloud-storage", "2.12.0", ">="
-        ) or not compare_package_version("google-resumable-media", "2.6.0", ">="):
+        if Version(importlib.metadata.version("google-cloud-storage")) < Version(
+            "2.12.0"
+        ) or Version(importlib.metadata.version("google-resumable-media")) < Version("2.6.0"):
             raise UnsupportedMultipartUploadException()
 
     @staticmethod
