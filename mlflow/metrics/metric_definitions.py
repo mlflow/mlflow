@@ -345,8 +345,8 @@ def _f1_score_eval_fn(
 def _precision_at_k_eval_fn(k):
     def _fn(predictions, targets):
         if not _validate_and_fix_text_tuple_data(
-            predictions, "precision_at_k", "predictions"
-        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets"):
+            predictions, "precision_at_k", predictions_col_specifier
+        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", targets_col_specifier):
             return
 
         scores = []
@@ -359,6 +359,57 @@ def _precision_at_k_eval_fn(k):
             else:
                 # when no documents are retrieved, precision is 0
                 scores.append(0)
+
+        return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+
+    return _fn
+
+
+def _prepare_for_ndcg(predictions, targets, k):
+    """Prepare data from predictions and targets to y_score, y_true for ndcg calculation.
+
+    Args:
+        predictions: A list of tuples of strings of doc IDs.
+        targets: A list of tuples of strings of doc IDs.
+        k: The number of retrieved docs & ground truth docs to consider.
+
+    Returns:
+        y_true : ndarray of shape (n_samples, n_labels)
+        Representing the ground truth relevant docs. Each row has at most k 1s and the rest
+        of the values are 0s. If there are k matched docs, then there are k 1s in the row.
+        If there are less than k matched docs, then the matched docs are 1s and the rest
+        ground truth docs will be assigned to 1s until k 1s are assigned. The rest
+        of the values are 0s.
+        y_score : ndarray of shape (n_samples, n_labels)
+        Representing the retrieved docs, each row has k 1s and the rest of the values are 0s.
+    """
+    doc_id_to_index = _get_doc_id_to_index(targets)
+    n_samples = len(predictions)
+    n_labels = len(doc_id_to_index)
+    y_true = np.zeros((n_samples, n_labels), dtype=np.int8)
+    y_score = np.zeros((n_samples, n_labels), dtype=np.int8)
+    for i in range(n_samples):
+
+
+
+def _ndcg_at_k_eval_fn(k):
+    def _fn(predictions, targets):
+        if not _validate_and_fix_text_tuple_data(
+            predictions, "precision_at_k", predictions_col_specifier
+        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", targets_col_specifier):
+            return
+
+        y_score, y_true = _prepare_for_ndcg(predictions, targets)
+
+        scores = _ndcg_sample_scores(y_true, y_score, k=k, ignore_ties=True)
+        for i in range(len(predictions)):
+            # only include the top k retrieved chunks
+            ground_truth, retrieved = set(targets[i]), predictions[i][:k]
+            relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
+            if len(retrieved) > 0:
+                scores.append(relevant_doc_count / len(retrieved))
+            else:
+                scores.append(1)
 
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
 
