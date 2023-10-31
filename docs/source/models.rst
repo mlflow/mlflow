@@ -3644,13 +3644,13 @@ each model:
 For additional examples demonstrating the use of ``mlflow.evaluate()`` with LLMs, check out the
 `MLflow LLMs example repository <https://github.com/mlflow/mlflow/tree/master/examples/llms>`_.
 
-Evaluating with Custom Metrics
+Evaluating with Extra Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the default set of metrics is insufficient, you can supply ``custom_metrics`` and ``custom_artifacts``
-to :py:func:`mlflow.evaluate()` to produce custom metrics and artifacts for the model(s) that you're evaluating.
+If the default set of metrics is insufficient, you can supply ``extra_metrics`` and ``custom_artifacts``
+to :py:func:`mlflow.evaluate()` to produce extra metrics and artifacts for the model(s) that you're evaluating.
 
-To define a custom metric, you should define a ``eval_fn`` function that takes in ``predictions``, ``targets``,
+To define a extra metric, you should define a ``eval_fn`` function that takes in ``predictions``, ``targets``,
 and ``metrics`` as inputs and outputs a ``MetricValue`` object. The ``MetricValue`` class has three attributes:
 ``scores`` for per row metrics, ``aggregate_results`` a dictionary mapping metric names to their aggregate result,
 and ``justification`` is a per row justification of the values in ``scores``.
@@ -3673,7 +3673,7 @@ indicates whether this is a metric we want to maximize or minimize.
 
     mymetric = make_metric(eval_fn=my_metric_eval_fn, greater_is_better=False)
 
-The custom metric allows you to either evaluate a model directly or to evaluate an output dataframe. 
+The extra metric allows you to either evaluate a model directly or to evaluate an output dataframe. 
 
 To evaluate the model directly, you will have to provide ``mlflow.evaluate()`` either a pyfunc model
 instance, a URI referring to a pyfunc model, or a callable function that takes in the data as input 
@@ -3716,7 +3716,7 @@ column, and ``retrieved_context`` column will be accessible from the ``eval_fn``
 
     result = mlflow.evaluate(model, eval_dataset, predictions="answer", targets="targets", extra_metrics=[mymetric])
 
-When you want to pass additional parameters to the custom metric function, you can use the ``evaluator_config``
+When you want to pass additional parameters to the extra metric function, you can use the ``evaluator_config``
 parameter.
 
 .. code-block:: python
@@ -3734,13 +3734,13 @@ parameter.
 
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
-uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
+uses :py:func:`mlflow.evaluate()` with a extra metric function to evaluate the performance of a regressor on the
 `California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
 
 .. literalinclude:: ../../examples/evaluation/evaluate_with_custom_metrics.py
     :language: python
 
-For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
+For a more comprehensive extra metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
 
 Evaluating with a Function
