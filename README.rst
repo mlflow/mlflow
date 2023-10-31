@@ -5,7 +5,7 @@ MLflow: A Machine Learning Lifecycle Platform
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
 into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be
 used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
-currently run ML code (e.g. in notebooks, standalone applications or the cloud). MLflow's current components are:
+currently run ML code (e.g. in notebooks, standalone applications, or the cloud). MLflow's current components are:
 
 * `MLflow Tracking <https://mlflow.org/docs/latest/tracking.html>`_: An API to log parameters, code, and
   results in machine learning experiments and compare them using an interactive UI.
@@ -90,7 +90,7 @@ seeking contributions to all of our roadmap items with the ``help wanted`` label
 
 Community
 ---------
-For help or questions about MLflow usage (e.g. "how do I do X?") see the `docs <https://mlflow.org/docs/latest/index.html>`_
+For help or questions about MLflow usage (e.g. "How do I do X?") see the `docs <https://mlflow.org/docs/latest/index.html>`_
 or `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 
 To report a bug, file a documentation issue, or submit a feature request, please open a GitHub issue.
@@ -116,7 +116,7 @@ Start it with::
     mlflow ui
 
 **Note:** Running ``mlflow ui`` from within a clone of MLflow is not recommended - doing so will
-run the dev UI from source. We recommend running the UI from a different working directory,
+run the dev UI from the source. We recommend running the UI from a different working directory,
 specifying a backend store via the ``--backend-store-uri`` option. Alternatively, see
 instructions for running the dev UI in the `contributor guide <CONTRIBUTING.md>`_.
 
@@ -153,7 +153,7 @@ required dependencies (namely, ``flask``) will need to be installed for the MLfl
 Official MLflow Docker Image
 ----------------------------
 
-The official MLflow Docker image is available on GitHub Container Registry at https://ghcr.io/mlflow/mlflow.
+The official MLflow Docker image is available on the GitHub Container Registry at https://ghcr.io/mlflow/mlflow.
 
 .. code-block:: shell
 
