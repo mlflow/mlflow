@@ -1132,7 +1132,7 @@ text-transform: capitalize;
 .copy-icon {
   font-family: "Font Awesome 5 Free"; 
   font-weight: 900; 
-  position: relative;
+  position: absolute;
   top: 5px; 
   right: 5px;
   cursor: pointer;
@@ -1150,7 +1150,7 @@ text-transform: capitalize;
   position: absolute;
   top: 0;
   left: 100%;
-  margin-left: -100px;
+  margin-left: -5rem;
   background-color: transparent !important;
   font-size: 1rem;
   padding: 0;
@@ -1161,53 +1161,6 @@ text-transform: capitalize;
   color: darkslategrey;
   transform: translateY(-10%);
 }
-
-
-/**
- * Logo scroll bar
- */
-
- .logo-scroller {
-  width: 100%;
-  overflow: hidden;
-  display: flex;
-  justify-content: space-between;
-  align-items: center; 
-}
-
-.logo-box {
-  flex: 0 1 auto;  /* Fix the flex properties so they don't grow */
-  width: 16%;     /* Adjust this percentage based on the number of logos you have (e.g., for 6 logos, 100% / 6 = 16.66%). */
-  height: 6rem;
-  text-align: center;
-  display: flex; /* Use flexbox for .logo-box */
-  justify-content: center; /* Horizontally center the logo */
-  align-items: center; /* Vertically center the logo */
-
-  /* animation */
-  animation: scrollLogos 1s ease-in-out forwards; 
-}
-
-.logo {
-  max-height: 4rem;
-  max-width: 8rem;
-  vertical-align: middle;
-}
-
-@keyframes scrollLogos {
-  0% {
-      transform: translateX(-100%);
-  }
-  100% {
-      transform: translateX(0%);
-  }
-}
-
-.logo:hover {
-  filter: drop-shadow(0px 0px 10px rgba(0, 0, 0, 0.3));
-  transition: filter 0.3s ease; /* Smooth transition for the shadow effect */
-}
-
 
 /**
  * Display boxes for text breakout list structures
@@ -1301,91 +1254,6 @@ a.notebook-download-btn:hover {
 
 a.notebook-download-btn i.fas {
   margin-right: 5px;  
-}
-
-/**
- * Overrides to the nbsphinx modifications to the .highlight class that strips the clippy implementation (copy of code)
- */
-
- .highlight {
-  position: relative;
-}
-
-.copy-icon {
-  font-family: "Font Awesome 5 Free"; 
-  font-weight: 900; 
-  position: absolute;
-  top: 5px; 
-  right: 5px;
-  cursor: pointer;
-  opacity: 0.5;
-  color: rgb(129, 129, 131);  /* default color */
-  transition: color 0.3s ease, opacity 0.3s ease; /* smooth transition for color and opacity changes */
-}
-
-.copy-icon:hover {
-  color: #0194E2; /* color when hovered over */
-  opacity: 1;
-}
-
-.copy-message {
-  position: absolute;
-  bottom: -2rem; 
-  left: 50%; 
-  transform: translateX(-50%); 
-  background-color: whitesmoke;
-  font-size: 1rem;
-  padding: 0.25rem 0.5rem; 
-  border-radius: 5px;
-  white-space: nowrap; 
-  font-family: 'Source Sans Pro'; 
-  font-weight: 400;
-  color: darkslategrey;
-}
-
-/**
- * Logo scroll bar
- */
-
- .logo-scroller {
-  width: 100%;
-  overflow: hidden;
-  display: flex;
-  justify-content: space-between;
-  align-items: center; 
-}
-
-.logo-box {
-  flex: 0 1 auto;  /* Fix the flex properties so they don't grow */
-  width: 16%;     /* Adjust this percentage based on the number of logos you have (e.g., for 6 logos, 100% / 6 = 16.66%). */
-  height: 6rem;
-  text-align: center;
-  display: flex; /* Use flexbox for .logo-box */
-  justify-content: center; /* Horizontally center the logo */
-  align-items: center; /* Vertically center the logo */
-
-  /* animation */
-  animation: scrollLogos 1s ease-in-out forwards; 
-}
-
-.logo {
-  max-height: 4rem;
-  max-width: 8rem;
-  vertical-align: middle;
-}
-
-@keyframes scrollLogos {
-  0% {
-      transform: translateX(-100%);
-  }
-  100% {
-      transform: translateX(0%);
-  }
-}
-
-.logo:hover {
-  filter: drop-shadow(0px 0px 10px rgba(0, 0, 0, 0.3));
-  transition: filter 0.3s ease; /* Smooth transition for the shadow effect */
 }
 
 /**
