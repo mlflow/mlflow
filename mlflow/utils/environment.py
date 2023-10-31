@@ -429,7 +429,8 @@ def _is_mlflow_requirement(requirement_string):
     Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
     """
     # "/opt/mlflow" is the path where we mount the mlflow source code in the Docker container
-    if requirement_string == "/opt/mlflow":
+    # when running tests.
+    if _MLFLOW_TESTING.get() and requirement_string == "/opt/mlflow":
         return True
 
     try:
