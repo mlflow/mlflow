@@ -469,7 +469,7 @@ def _generate_mlflow_version_pinning() -> str:
         # mlflow is installed from PyPI.
         return f"mlflow=={VERSION}"
 
-    # We reach here when mlflow is installed from GitHub outside of the MLflow CI environment
+    # We reach here when mlflow is installed from the source outside of the MLflow CI environment
     # (e.g., Databricks notebook).
 
     # mlflow installed from the source for development purposes. A dev version (e.g., 2.8.1.dev0)
