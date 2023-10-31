@@ -14,6 +14,7 @@ import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';
 import Utils from '../../common/utils/Utils';
 import Routes from '../routes';
+import { Interpolation, Theme } from '@emotion/react';
 
 // Lazy load experiment page in order to promote bundle splitting
 const ExperimentPage = React.lazy(() => import('./experiment-page/ExperimentPage'));
@@ -63,7 +64,7 @@ class HomeView extends Component<HomeViewProps> {
       );
     }
     return (
-      <div css={{ display: 'flex', height: 'calc(100% - 60px)' }}>
+      <div css={styles.homeContainer}>
         <div css={{ height: '100%', paddingTop: 24, display: 'flex' }}>
           {/* @ts-expect-error TS(2322): Type '{ activeExperimentIds: string[]; experiments... Remove this comment to see the full error message */}
           <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
@@ -89,6 +90,15 @@ class HomeView extends Component<HomeViewProps> {
 const mapStateToProps = (state: any) => {
   const experiments = getExperiments(state);
   return { experiments };
+};
+
+const styles = {
+  homeContainer: (theme: Theme): Interpolation<Theme> => ({
+    backgroundColor: theme.colors.backgroundPrimary,
+    display: 'flex',
+    height: 'calc(100% - 60px)',
+    position: 'absolute',
+  }),
 };
 
 export default connect(mapStateToProps)(HomeView);

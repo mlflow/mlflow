@@ -72,7 +72,7 @@ class App extends Component<AppProps> {
         {/* This layer enables intercompatibility between react-router APIs v5 and v6 */}
         {/* TODO: Remove after migrating to react-router v6 */}
         <CompatRouter>
-          <div style={{ height: '100%' }}>
+          <div style={{ minHeight: '100%' }}>
             <ErrorModal />
             {/* @ts-expect-error TS(4111): Property 'HIDE_HEADER' comes from an index signatu... Remove this comment to see the full error message */}
             {process.env.HIDE_HEADER === 'true' ? null : (

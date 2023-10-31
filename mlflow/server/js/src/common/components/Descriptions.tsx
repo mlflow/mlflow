@@ -63,6 +63,7 @@ Descriptions.Item = ({
 
 const styles = {
   descriptionsArea: (columnCount: number) => (theme: Theme) => ({
+    color: theme.colors.textPrimary,
     display: 'grid',
     gridTemplateColumns: `repeat(${columnCount}, minmax(100px, 1fr))`,
     columnGap: theme.spacing.sm,
@@ -70,6 +71,7 @@ const styles = {
     marginBottom: theme.spacing.lg,
   }),
   autoFitArea: (theme: Theme) => ({
+    color: theme.colors.textPrimary,
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
     gridGap: theme.spacing.md,

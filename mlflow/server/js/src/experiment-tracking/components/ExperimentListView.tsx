@@ -6,7 +6,7 @@
  */
 
 import React, { Component } from 'react';
-import { css } from '@emotion/react';
+import { css, Theme } from '@emotion/react';
 import {
   Checkbox,
   CaretDownSquareIcon,
@@ -268,21 +268,20 @@ export class ExperimentListView extends Component<Props, State> {
           <Typography.Title level={2} style={{ margin: 0 }}>
             Experiments
           </Typography.Title>
-          <PlusCircleIcon
-            onClick={this.handleCreateExperiment}
-            css={{
-              fontSize: '24px',
-              marginLeft: 'auto',
-            }}
-            title='New Experiment'
-            data-test-id='create-experiment-button'
-          />
-          <CaretDownSquareIcon
-            onClick={this.hide}
-            rotate={90}
-            css={{ fontSize: '24px' }}
-            title='Hide experiment list'
-          />
+          <div>
+            <PlusCircleIcon
+              onClick={this.handleCreateExperiment}
+              css={classNames.icon}
+              title='New Experiment'
+              data-test-id='create-experiment-button'
+            />
+            <CaretDownSquareIcon
+              onClick={this.hide}
+              rotate={90}
+              css={classNames.icon}
+              title='Hide experiment list'
+            />
+          </div>
         </div>
         <Input
           placeholder='Search Experiments'
@@ -392,6 +391,11 @@ const classNames = {
     justifySelf: 'end',
     marginRight: '10px',
   },
+  icon: (theme: Theme) => ({
+    color: theme.colors.actionDefaultTextDefault,
+    fontSize: 24,
+    marginLeft: theme.spacing.xs,
+  }),
 };
 
 // @ts-expect-error TS(2345): Argument of type '(props: Props) => ReactElement<a... Remove this comment to see the full error message
