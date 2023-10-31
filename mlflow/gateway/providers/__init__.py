@@ -1,9 +1,11 @@
+from typing import Type
+
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Provider
 from mlflow.gateway.providers.base import BaseProvider
 
 
-def get_provider(provider: Provider) -> BaseProvider:
+def get_provider(provider: Provider) -> Type[BaseProvider]:
     from mlflow.gateway.providers.ai21labs import AI21LabsProvider
     from mlflow.gateway.providers.anthropic import AnthropicProvider
     from mlflow.gateway.providers.bedrock import AWSBedrockProvider
