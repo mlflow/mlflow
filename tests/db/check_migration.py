@@ -109,7 +109,7 @@ def post_migration():
         for table in TABLES:
             df_actual = pd.read_sql(sa.text(f"SELECT * FROM {table}"), conn)
             df_expected = pd.read_pickle(SNAPSHOTS_DIR / f"{table}.pkl")
-            pd.testing.assert_frame_equal(df_actual, df_expected)
+            pd.testing.assert_frame_equal(df_actual[df_expected.columns], df_expected)
 
 
 if __name__ == "__main__":

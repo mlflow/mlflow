@@ -225,17 +225,14 @@ class BatchMetricsLogger:
 
     def flush(self):
         """
-        The metrics accumulated by BatchMetricsLogger will be batch logged to an MLFlow run.
+        The metrics accumulated by BatchMetricsLogger will be batch logged to an MLflow run.
         """
         self._timed_log_batch()
         self.data = []
 
     def _timed_log_batch(self):
-        if self.run_id is None:
-            # Retrieving run_id from active mlflow run.
-            current_run_id = mlflow.active_run().info.run_id
-        else:
-            current_run_id = self.run_id
+        # Retrieving run_id from active mlflow run when run_id is empty.
+        current_run_id = mlflow.active_run().info.run_id if self.run_id is None else self.run_id
 
         start = time.time()
         metrics_slices = [

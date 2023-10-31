@@ -11,7 +11,7 @@ from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
-from tests.helper_functions import clear_hub_cache, get_free_disk_space_in_GiB
+from tests.helper_functions import clear_hub_cache
 from tests.integration.utils import invoke_cli_runner
 
 EXAMPLES_DIR = "examples"
@@ -26,14 +26,6 @@ def replace_mlflow_with_dev_version(yml_path: Path) -> None:
     mlflow_dir = Path(mlflow.__path__[0]).parent
     new_src = re.sub(r"- mlflow.*\n", f"- {mlflow_dir}\n", old_src)
     yml_path.write_text(new_src)
-
-
-@pytest.fixture(autouse=True)
-def report_free_disk_space(capsys):
-    yield
-
-    with capsys.disabled():
-        sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB")
 
 
 @pytest.fixture(autouse=True)

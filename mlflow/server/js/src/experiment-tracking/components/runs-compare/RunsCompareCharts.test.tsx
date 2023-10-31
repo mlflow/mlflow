@@ -1,6 +1,6 @@
 import { mount } from 'enzyme';
 import { RunsCompareBarChartCard } from './cards/RunsCompareBarChartCard';
-import { CompareChartRunData } from './charts/CompareRunsCharts.common';
+import { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import {
   RunsCompareCardConfig,
   RunsCompareChartType,
@@ -10,9 +10,9 @@ import {
 } from './runs-compare.types';
 import { RunsCompareCharts } from './RunsCompareCharts';
 import {
-  CompareRunsTooltipBodyComponent,
-  CompareRunsTooltipWrapper,
-} from './hooks/useCompareRunsTooltip';
+  RunsChartsTooltipBodyComponent,
+  RunsChartsTooltipWrapper,
+} from '../runs-charts/hooks/useRunsChartsTooltip';
 import { RunsCompareLineChartCard } from './cards/RunsCompareLineChartCard';
 import { RunsCompareScatterChartCard } from './cards/RunsCompareScatterChartCard';
 import { RunsCompareContourChartCard } from './cards/RunsCompareContourChartCard';
@@ -45,7 +45,7 @@ describe('RunsCompareCharts', () => {
     onRemoveChart = jest.fn();
   });
 
-  const defaultBodyComponent: CompareRunsTooltipBodyComponent = ({ runUuid }) => (
+  const defaultBodyComponent: RunsChartsTooltipBodyComponent = ({ runUuid }) => (
     <div data-testid='tooltip-body'>
       tooltip body
       <div data-testid='tooltip-body-run-uuid'>{runUuid}</div>
@@ -54,18 +54,18 @@ describe('RunsCompareCharts', () => {
 
   const createComponentMock = (
     cards: RunsCompareCardConfig[] = [],
-    runs: CompareChartRunData[] = [],
+    runs: RunsChartsRunData[] = [],
     contextData: string | undefined = undefined,
   ) =>
     mount(
-      <CompareRunsTooltipWrapper contextData={contextData} component={defaultBodyComponent}>
+      <RunsChartsTooltipWrapper contextData={contextData} component={defaultBodyComponent}>
         <RunsCompareCharts
           chartRunData={runs}
           onRemoveChart={onRemoveChart}
           onStartEditChart={onEditChart}
           cardsConfig={cards}
         />
-      </CompareRunsTooltipWrapper>,
+      </RunsChartsTooltipWrapper>,
     );
 
   test('should not display chart components when there is no cards configured', () => {
@@ -97,7 +97,7 @@ describe('RunsCompareCharts', () => {
         } as RunsCompareParallelCardConfig,
         { type: RunsCompareChartType.BAR },
       ],
-      runs as CompareChartRunData[],
+      runs as RunsChartsRunData[],
     );
 
     // Expect two bar charts in the set
@@ -238,5 +238,13 @@ describe('RunsCompareCharts', () => {
     expect(data.length).toBe(200);
     const filteredData = filterParallelCoordinateData(data);
     expect(filteredData.length).toBe((divisor - 1) * MAX_NUMBER_STRINGS);
+  });
+
+  test('no values shown', () => {
+    const data: any = [];
+
+    expect(data.length).toBe(0);
+    const filteredData = filterParallelCoordinateData(data);
+    expect(filteredData.length).toBe(0);
   });
 });

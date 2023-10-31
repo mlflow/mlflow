@@ -27,6 +27,18 @@ def pytest_addoption(parser):
         default=False,
         help="Ignore tests for model flavors.",
     )
+    parser.addoption(
+        "--splits",
+        default=None,
+        type=int,
+        help="The number of groups to split tests into.",
+    )
+    parser.addoption(
+        "--group",
+        default=None,
+        type=int,
+        help="The group of tests to run.",
+    )
 
 
 def pytest_configure(config):
@@ -34,6 +46,29 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_cmdline_main(config):
+    group = config.getoption("group")
+    splits = config.getoption("splits")
+
+    if splits is None and group is None:
+        return None
+
+    if splits and group is None:
+        raise pytest.UsageError("`--group` is required")
+
+    if group and splits is None:
+        raise pytest.UsageError("`--splits` is required")
+
+    if splits < 0:
+        raise pytest.UsageError("`--splits` must be >= 1")
+
+    if group < 1 or group > splits:
+        raise pytest.UsageError("`--group` must be between 1 and {splits}")
+
+    return None
 
 
 def pytest_sessionstart(session):
@@ -53,6 +88,35 @@ def pytest_runtest_setup(item):
     markers = [mark.name for mark in item.iter_markers()]
     if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
         pytest.skip("use `--requires-ssh` to run this test")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_report_teststatus(report, config):
+    outcome = yield
+    if report.when == "call":
+        try:
+            import psutil
+        except ImportError:
+            return
+
+        (*rest, result) = outcome.get_result()
+        mem = psutil.virtual_memory()
+        mem_used = mem.used / 1024**3
+        mem_total = mem.total / 1024**3
+
+        disk = psutil.disk_usage("/")
+        disk_used = disk.used / 1024**3
+        disk_total = disk.total / 1024**3
+        outcome.force_result(
+            (
+                *rest,
+                (
+                    f"{result} | "
+                    f"MEM {mem_used:.1f}/{mem_total:.1f} GB | "
+                    f"DISK {disk_used:.1f}/{disk_total:.1f} GB"
+                ),
+            )
+        )
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -118,12 +182,17 @@ def pytest_ignore_collect(path, config):
             outcome.force_result(True)
 
 
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(session, config, items):  # pylint: disable=unused-argument
     # Executing `tests.server.test_prometheus_exporter` after `tests.server.test_handlers`
     # results in an error because Flask >= 2.2.0 doesn't allow calling setup method such as
     # `before_request` on the application after the first request. To avoid this issue,
     # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
     items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
+
+    # Select the tests to run based on the group and splits
+    if (splits := config.getoption("--splits")) and (group := config.getoption("--group")):
+        items[:] = items[(group - 1) :: splits]
 
 
 @pytest.hookimpl(hookwrapper=True)

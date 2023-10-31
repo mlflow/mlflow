@@ -84,6 +84,12 @@ SageMaker as long as they support the ``python_function`` flavor:
 
     mlflow deployments create -t sagemaker -m my_model [other options]
 
+.. note::
+    When a model registered in the MLflow Model Registry is downloaded, a YAML file named
+    `registered_model_meta` is added to the model directory on the downloader's side.
+    This file contains the name and version of the model referenced in the MLflow Model Registry,
+    and will be used for deployment and other purposes.
+
 Fields in the MLmodel Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Apart from a **flavors** field listing the model flavors, the MLmodel YAML format can contain
@@ -761,7 +767,8 @@ To include an input example with your model, add it to the appropriate log_model
 model signatures in log_model calls when signatures aren't specified.
 
 Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). See examples below:
+(i.e numpy.ndarrays). We offer support for input_example with params by using tuple to combine model
+inputs and params. See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -812,6 +819,27 @@ The following example demonstrates how you can log a tensor-based input example 
         dtype=np.uint8,
     )
     mlflow.tensorflow.log_model(..., input_example=input_example)
+
+How To Log Model With Example Containing Params
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For models that require additional parameters during inference, you can include an input_example 
+containing params when saving or logging the model. To achieve this, the sample input should be 
+provided as a ``tuple``. The first element of the tuple is the input data example, and the
+second element is a ``dict`` of params. A comprehensive list of valid params is documented in
+:ref:`Model Inference Params <inference-params>` section.
+
+* Python ``tuple``: (input_data, params)
+
+The following example demonstrates how to log a model with an example containing params:
+
+.. code-block:: python
+
+    # input_example could be column-based or tensor-based example as shown above
+    # params must be a valid dictionary of params
+    input_data = "Hello, Dolly!"
+    params = {"temperature": 0.5, "top_k": 1}
+    input_example = (input_data, params)
+    mlflow.transformers.log_model(..., input_example=input_example)
 
 .. _model-api:
 
@@ -916,6 +944,39 @@ Furthermore, if you want to run model inference in the same environment used in 
 from the `conda.yaml` file, ensuring that the python UDF will execute with the exact package versions that were used
 during training.
 
+Some PyFunc models may accept model load configuration, which controls how the model is loaded and predictions
+computed. You can learn which configuration the model supports by inspecting the model's flavor metadata:
+
+.. code-block:: python
+
+    model_info = mlflow.models.get_model_info(model_uri)
+    model_info.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.MODEL_CONFIG]
+
+Alternatively, you can load the PyFunc model and inspect the `model_config` property:
+
+.. code-block:: python
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    pyfunc_model.model_config
+
+Model configuration can be changed at loading time by indicating `model_config` parameter in the 
+:py:func:`mlflow.pyfunc.load_model` method:
+
+.. code-block:: python
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri, model_config=dict(temperature=0.93))
+
+When a model configuration value is changed, those values the configuration the model was saved with. Indicating an
+invalid model configuration key for a model results in that configuration being ignored. A warning is displayed mentioning
+the ignored entries.
+
+.. note:: 
+    
+    **Model configuration vs parameters with default values in signatures:** Use model configuration when you need to provide
+    model publishers for a way to change how the model is loaded into memory and how predictions are computed for all the
+    samples. For instance, a key like `user_gpu`. Model consumers are not able to change those values at predict time. Use
+    parameters with default values in the signature to provide a users the ability to change how predictions are computed on
+    each data sample.
 
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -1052,10 +1113,10 @@ Keras (``keras``)
 
 The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
 and R clients. In R, you can save or log the model using
-`mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__.
+``mlflow_save_model`` and ``mlflow_log_model``.
 These functions serialize Keras models as HDF5 files using the Keras library's built-in
 model persistence functions. You can use
-`mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
+``mlflow_load_model`` function in R to load MLflow Models
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 Keras pyfunc usage
@@ -1121,9 +1182,8 @@ The :py:mod:`mlflow.mleap` module also
 defines :py:func:`save_model() <mlflow.mleap.save_model>` and
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format,
 but these methods do not include the ``python_function`` flavor in the models they produce.
-Similarly, ``mleap`` models can be saved in R with `mlflow_save_model <R-api.rst#mlflow-save-model>`__
-and loaded with `mlflow_load_model <R-api.rst#mlflow-load-model>`__, with
-`mlflow_save_model <R-api.rst#mlflow-save-model>`__ requiring `sample_input` to be specified as a
+Similarly, ``mleap`` models can be saved in R with ``mlflow_save_model`` and loaded with ``mlflow_load_model``, with 
+``mlflow_save_model`` requiring `sample_input` to be specified as a 
 sample Spark dataframe containing input data to the model is required by MLeap for data schema
 inference.
 
@@ -1417,6 +1477,14 @@ evaluation. Finally, you can use the :py:func:`mlflow.onnx.load_model()` method 
 Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
+
+.. warning::
+    The default behavior for saving ONNX files is to use the ONNX save option ``save_as_external_data=True``
+    in order to support model files that are **in excess of 2GB**. For edge deployments of small model files, this 
+    may create issues. If you need to save a small model as a single file for such deployment considerations, 
+    you can set the parameter ``save_as_external_data=False`` in either :py:func:`mlflow.onnx.save_model` or 
+    :py:func:`mlflow.onnx.log_model` to force the serialization of the model as a small file. Note that if the 
+    model is in excess of 2GB, **saving as a single file will not work**. 
 
 ONNX pyfunc usage example
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2490,7 +2558,7 @@ Model with the ``openai`` flavor as a dictionary of the model's attributes.
 
 Example:
 
-.. literalinclude:: ../../examples/openai/pyfunc.py
+.. literalinclude:: ../../examples/openai/chat_completions.py
     :language: python
 
 
@@ -2881,9 +2949,9 @@ to formats that are compatible with json serialization and casting to Pandas Dat
 .. note::
     Certain `TextGenerationPipeline` types, particularly instructional-based ones, may return the original
     prompt and included line-formatting carriage returns `"\n"` in their outputs. For these pipeline types,
-    if you would like to disable the prompt return, you can set the following in the `inference_config` dictionary when
+    if you would like to disable the prompt return, you can set the following in the `model_config` dictionary when
     saving or logging the model: `"include_prompt": False`. To remove the newline characters from within the body
-    of the generated text output, you can add the `"collapse_whitespace": True` option to the `inference_config` dictionary.
+    of the generated text output, you can add the `"collapse_whitespace": True` option to the `model_config` dictionary.
     If the pipeline type being saved does not inherit from `TextGenerationPipeline`, these options will not perform
     any modification to the output returned from pipeline inference.
 
@@ -2945,19 +3013,28 @@ avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
-Using inference_config and model signature params for `transformers` inference
+Using model_config and model signature params for `transformers` inference
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
 
-* Use ``inference_config`` when saving/logging the model
+* Use ``model_config`` when saving/logging the model. Optionally, specify ``model_config`` when calling ``load_model``.
 * Specify params at inference time when calling ``predict()``
 
-.. note::
-    If both ``inference_config`` and ``ModelSignature`` with schema are saved when logging model, both of them
-    will be used for inference. The default params in ``ModelSignature`` will override the params in ``inference_config``.
-    If extra ``params`` are provided at inference time, they take precedence over all params.
+Use ``model_config`` to control how the model is loaded and inference performed for all input samples. Configuration in
+``model_config`` is not overridable at ``predict()`` time unless a ``ModelSignature`` is indicated with the same parameters.
 
-* Using ``inference_config``
+Use ``ModelSignature`` with params schema, on the other hand, to allow downstream consumers to provide additional inference
+params that may be needed to compute the predictions for their specific samples.
+
+.. note::
+    If both ``model_config`` and ``ModelSignature`` with parameters are saved when logging model, both of them
+    will be used for inference. The default parameters in ``ModelSignature`` will override the params in ``model_config``.
+    If extra ``params`` are provided at inference time, they take precedence over all params. We recommend using 
+    ``model_config`` for those parameters needed to run the model in general for all the samples. Then, add 
+    ``ModelSignature`` with parameters for those extra parameters that you want downstream consumers to indicated at
+    per each of the samples.
+
+* Using ``model_config``
 
 .. code-block:: python
 
@@ -2980,26 +3057,34 @@ For `transformers` inference, there are two ways to pass in additional arguments
         generate_signature_output(model, data),
     )
 
-    # Define an inference_config
-    inference_config = {
+    # Define an model_config
+    model_config = {
         "num_beams": 5,
         "max_length": 30,
         "do_sample": True,
         "remove_invalid_values": True,
     }
 
-    # Saving inference_config with the model
+    # Saving model_config with the model
     mlflow.transformers.save_model(
         model,
         path="text2text",
-        inference_config=inference_config,
+        model_config=model_config,
         signature=signature,
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
-    # inference_config will be applied
+    # model_config will be applied
     result = pyfunc_loaded.predict(data)
 
+    # overriding some inference configuration with diferent values
+    pyfunc_loaded = mlflow.pyfunc.load_model(
+        "text2text", model_config=dict(do_sample=False)
+    )
+
+.. note::
+    Note that in the previous example, the user can't override the configuration ``do_sample``
+    when calling ``predict``.
 
 * Specifying params at inference time
 
@@ -3018,25 +3103,30 @@ For `transformers` inference, there are two ways to pass in additional arguments
     )
     data = "pencil draw paper"
 
-    # Define an inference_config
-    inference_config = {
+    # Define an model_config
+    model_config = {
         "num_beams": 5,
+        "remove_invalid_values": True,
+    }
+
+    # Define the inference parameters params
+    inference_params = {
         "max_length": 30,
         "do_sample": True,
-        "remove_invalid_values": True,
     }
 
     # Infer the signature including params
     signature_with_params = infer_signature(
         data,
         generate_signature_output(model, data),
-        params=inference_config,
+        params=inference_params,
     )
 
-    # Saving model without inference_config
+    # Saving model with signature and model config
     mlflow.transformers.save_model(
         model,
         path="text2text",
+        model_config=model_config,
         signature=signature_with_params,
     )
 
@@ -3049,7 +3139,8 @@ For `transformers` inference, there are two ways to pass in additional arguments
     }
 
     # In this case we only override max_length and do_sample,
-    # other params will use the default one saved in ModelSignature.
+    # other params will use the default one saved on ModelSignature
+    # or in the model configuration.
     # The final params used for prediction is as follows:
     # {
     #    "num_beams": 5,
@@ -3560,10 +3651,10 @@ each model:
 For additional examples demonstrating the use of ``mlflow.evaluate()`` with LLMs, check out the
 `MLflow LLMs example repository <https://github.com/mlflow/mlflow/tree/master/examples/llms>`_.
 
-Evaluating with Custom Metrics
+Evaluating with Extra Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the default set of metrics is insufficient, you can supply ``custom_metrics`` and ``custom_artifacts``
+If the default set of metrics is insufficient, you can supply ``extra_metrics`` and ``custom_artifacts``
 to :py:func:`mlflow.evaluate()` to produce custom metrics and artifacts for the model(s) that you're evaluating.
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
@@ -3575,6 +3666,43 @@ uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the 
 
 For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
+
+Evaluating with a Function
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
+logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
+it. The following example uses :py:func:`mlflow.evaluate()` to evaluate a function:
+
+
+.. literalinclude:: ../../examples/evaluation/evaluate_with_function.py
+    :language: python
+
+Evaluating with a Static Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a static dataset without specifying a model.
+This is useful when you save the model output to a column in a Pandas DataFrame or an MLflow PandasDataset, and
+want to evaluate the static dataset without re-running the model.
+
+If you are using a Pandas DataFrame, you must specify the column name that contains the model output using the
+top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
+
+.. code-block:: python
+
+    mlflow.evaluate(data=pandas_df, predictions="model_output", ...)
+
+If you are using an MLflow PandasDataset, you must specify the column name that contains the model output using
+the ``predictions`` parameter in :py:func:`mlflow.data.from_pandas()`, and specify ``None`` for the
+``predictions`` parameter in :py:func:`mlflow.evaluate()`:
+
+.. code-block:: python
+
+    dataset = mlflow.data.from_pandas(pandas_df, predictions="model_output")
+    mlflow.evaluate(data=pandas_df, predictions=None, ...)
+
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dataset:
+
+.. literalinclude:: ../../examples/evaluation/evaluate_with_static_dataset.py
+    :language: python
 
 .. _model-validation:
 
@@ -3986,7 +4114,7 @@ Let's examine the custom flavor module in more detail. The first step is to impo
 inluding ``sktime`` library, various MLflow utilities as well as the MLflow ``pyfunc`` module which
 is required to add the ``pyfunc`` specification to the MLflow model configuration. Note also the
 import of the ``flavor`` module itself. This will be passed to the
-:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current Mlflow
+:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current MLflow
 run.
 
 .. code-block:: python

@@ -50,7 +50,15 @@ Object.defineProperty(window, 'matchMedia', {
 beforeEach(() => {
   // Prevent unit tests making actual fetch calls,
   // every test should explicitly mock all the API calls for the tested component.
-  global.fetch = jest.fn(() => {
+  // Note: this needs to be mocked as a spy instead of a stub; otherwise we can't restore.
+  // We need to restore fetch when testing graphql, otherwise Apollo throws an error before msw is
+  // able to intercept the request.
+  // Also note: jsdom does not have a global fetch, so we need to manually add a stub first.
+  if (global.fetch === undefined) {
+    global.fetch = () => {};
+  }
+
+  jest.spyOn(global, 'fetch').mockImplementation(() => {
     throw new Error(
       'No API calls should be made from unit tests. Please explicitly mock all API calls.',
     );

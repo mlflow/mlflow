@@ -25,8 +25,8 @@ The MLflow Python API supports several types of plugins:
 * **Run context providers**: specify context tags to be set on runs created via the
   :py:func:`mlflow.start_run` fluent API.
 * **Model Registry Store**: override model registry backend logic, e.g. to log to a third-party storage solution
-* **MLFlow Project backend**: override the local execution backend to execute a project on your own cluster (Databricks, kubernetes, etc.)
-* **MLFlow ModelEvaluator**: Define custom model evaluator, which can be used in :py:func:`mlflow.evaluate` API.
+* **MLflow Project backend**: override the local execution backend to execute a project on your own cluster (Databricks, kubernetes, etc.)
+* **MLflow ModelEvaluator**: Define custom model evaluator, which can be used in :py:func:`mlflow.evaluate` API.
 
 .. contents:: Table of Contents
   :local:
@@ -76,6 +76,45 @@ View results at http://localhost:5000. You should see a newly-created run with a
     .. image:: ./_static/images/quickstart/quickstart_ui_screenshot.png
 
 
+Use Plugin for Client Side Authentication
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MLflow provides ``RequestAuthProvider`` plugin to customize auth header for outgoing http request.
+
+To use it, implement the ``RequestAuthProvider`` class and override the ``get_name`` and ``get_auth`` methods.
+``get_name`` should return the name of your auth provider, while ``get_auth`` should return the auth object
+that will be added to the http request.
+
+.. code-block:: python
+
+  from mlflow.tracking.request_auth.abstract_request_auth_provider import (
+      RequestAuthProvider,
+  )
+
+
+  class DummyAuthProvider(RequestAuthProvider):
+      def get_name(self):
+          return "dummy_auth_provider_name"
+
+      def get_auth(self):
+          return DummyAuth()
+
+Once you have the implemented request auth provider class, register it in the ``entry_points`` and install the plugin.
+
+.. code-block:: python
+
+  setup(
+      entry_points={
+          "mlflow.request_auth_provider": "dummy-backend=DummyAuthProvider",
+      },
+  )
+
+Then set environment variable ``MLFLOW_TRACKING_AUTH`` to enable the injection of custom auth.
+The value of this environment variable should match the name of the auth provider.
+
+.. code-block:: bash
+
+  export MLFLOW_TRACKING_AUTH=dummy_auth_provider_name
+
 
 Writing Your Own MLflow Plugins
 -------------------------------
@@ -108,13 +147,16 @@ The example package contains a ``setup.py`` that declares a number of
             # Define a RequestHeaderProvider plugin. The entry point name for request header providers
             # is not used, and so is set to the string "unused" here
             "mlflow.request_header_provider": "unused=mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider",
+            # Define a RequestAuthProvider plugin. The entry point name for request auth providers
+            # is not used, and so is set to the string "unused" here
+            "mlflow.request_auth_provider": "unused=mlflow_test_plugin.request_auth_provider:PluginRequestAuthProvider",
             # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
             "mlflow.model_registry_store": "file-plugin=mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore",
             # Define a MLflow Project Backend plugin called 'dummy-backend'
             "mlflow.project_backend": "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
             # Define a MLflow model deployment plugin for target 'faketarget'
             "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
-            # Define a Mlflow model evaluator with name "dummy_evaluator"
+            # Define a MLflow model evaluator with name "dummy_evaluator"
             "mlflow.model_evaluator": "dummy_evaluator=mlflow_test_plugin.dummy_evaluator:DummyEvaluator",
         },
     )
@@ -175,6 +217,13 @@ plugin:
        (e.g., the `PluginRequestHeaderProvider class <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/request_header_provider.py>`_
        within the ``mlflow_test_plugin`` module) to register.
      - `DatabricksRequestHeaderProvider <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/request_header/databricks_request_header_provider.py>`_
+   * - Plugins for specifying custom request auth to attach to outgoing requests.
+     - mlflow.request_auth_provider
+     - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin.request_auth_provider:PluginRequestAuthProvider``) specifies a custom subclass of
+       `mlflow.tracking.request_auth.abstract_request_auth_provider.RequestAuthProvider <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/request_auth/abstract_request_auth_provider.py#L4>`_
+       (e.g., the `PluginRequestAuthProvider class <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/request_auth_provider.py>`_
+       within the ``mlflow_test_plugin`` module) to register.
+     - N/A (will be added soon)
    * - Plugins for overriding definitions of Model Registry APIs like ``mlflow.register_model``.
      - mlflow.model_registry_store
      - The entry point value (e.g. ``mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore``) specifies a custom subclass of
@@ -237,8 +286,8 @@ reference implementations as an example:
 * `Example ArtifactRepository tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/artifact/test_local_artifact_repo.py>`_
 * `Example RunContextProvider tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/tracking/context/test_git_context.py>`_
 * `Example Model Registry Store tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/model_registry/test_sqlalchemy_store.py>`_
-* `Example Custom Mlflow Evaluator tests <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_
-* `Example Custom Mlflow server tests <https://github.com/mlflow/mlflow/blob/branch-2.2.0/tests/server/test_handlers.py>`_
+* `Example Custom MLflow Evaluator tests <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_
+* `Example Custom MLflow server tests <https://github.com/mlflow/mlflow/blob/branch-2.2.0/tests/server/test_handlers.py>`_
 
 
 Distributing Your Plugin
@@ -321,6 +370,44 @@ To use Aliyun OSS as an artifact store, an OSS URI of the form ``oss://<bucket>/
         mlflow.pyfunc.log_model("model_test", python_model=Mod())
 
 In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``oss://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
+and the conda.yaml file associated with the model.
+
+XetHub Plugin
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+The `xethub plugin <https://pypi.org/project/mlflow-xethub/>`_ allows MLflow to use XetHub storage as an artifact store.
+
+.. code-block:: bash
+
+        pip install mlflow[xethub]
+
+and then use MLflow as normal. The XetHub artifact store support will be provided automatically.
+
+The plugin implements all of the MLflow artifact store APIs.
+It expects XetHub access credentials through ``xet login`` CLI command or in the ``XET_USER_EMAIL``, ``XET_USER_NAME`` and ``XET_USER_TOKEN`` environment variables,
+so you must authenticate with XetHub for both your client application and your MLflow tracking server.
+To use XetHub as an artifact store, an XetHub URI of the form ``xet://<username>/<repo>/<branch>`` must be provided, as shown in the example below:
+
+.. code-block:: python
+
+        import mlflow
+        import mlflow.pyfunc
+
+
+        class Mod(mlflow.pyfunc.PythonModel):
+            def predict(self, ctx, inp, params=None):
+                return 7
+
+
+        exp_name = "myexp"
+        mlflow.create_experiment(
+            exp_name, artifact_location="xet://<your_username>/mlflow-test/main"
+        )
+        mlflow.set_experiment(exp_name)
+        mlflow.pyfunc.log_model("model_test", python_model=Mod())
+
+In the example provided above, the ``log_model`` operation creates three entries in the OSS storage ``xet://mlflow-test/$RUN_ID/artifacts/model_test/``, the MLmodel file
 and the conda.yaml file associated with the model.
 
 

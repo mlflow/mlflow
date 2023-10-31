@@ -48,7 +48,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -205,11 +205,7 @@ def save_model(
                         ]
                         signature = infer_signature(input_columns, predictions)
 
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -299,6 +295,8 @@ def save_model(
         code=code_dir_subpath,
         **flavor_conf,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -330,7 +328,8 @@ def save_model(
 def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.agents
     import langchain.chains
-    import langchain.llms
+    import langchain.llms.huggingface_hub
+    import langchain.llms.openai
     import langchain.schema
 
     if not isinstance(
@@ -457,11 +456,7 @@ def log_model(
                         ]
                         signature = infer_signature(input_columns, predictions)
 
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to
-                          feed the model. The given example will be converted to a
-                          Pandas DataFrame and then serialized to json using the
-                          Pandas split-oriented format. Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
 
     :param await_registration_for: Number of seconds to wait for the model version
                         to finish being created and is in ``READY`` status.
@@ -578,8 +573,14 @@ def _save_model(model, path, loader_fn, persist_dir):
 
         if model.tools:
             tools_data_path = os.path.join(path, _TOOLS_DATA_FILE_NAME)
-            with open(tools_data_path, "wb") as f:
-                cloudpickle.dump(model.tools, f)
+            try:
+                with open(tools_data_path, "wb") as f:
+                    cloudpickle.dump(model.tools, f)
+            except Exception as e:
+                raise mlflow.MlflowException(
+                    "Error when attempting to pickle the AgentExecutor tools. "
+                    "This model likely does not support serialization."
+                ) from e
             model_data_kwargs[_TOOLS_DATA_KEY] = _TOOLS_DATA_FILE_NAME
         else:
             raise mlflow.MlflowException.invalid_parameter_value(

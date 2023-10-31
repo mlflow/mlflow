@@ -29,13 +29,35 @@ module.exports = async ({ context, github }) => {
   const { user, body } = context.payload.pull_request;
   const messages = [];
 
-  const codespacesBadge = `[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/${user.login}/mlflow/pull/${issue_number}?quickstart=1)`;
-  if (body && !body.includes(codespacesBadge)) {
+  const title = "&#x1F6E0 DevTools &#x1F6E0";
+  if (body && !body.includes(title)) {
+    const codespacesBadge = `[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/${user.login}/mlflow/pull/${issue_number}?quickstart=1)`;
+    const newSection = `
+<details><summary>${title}</summary>
+<p>
+
+${codespacesBadge}
+
+#### Install mlflow from this PR
+
+\`\`\`
+pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
+\`\`\`
+
+#### Checkout with GitHub CLI
+
+\`\`\`
+gh pr checkout ${issue_number}
+\`\`\`
+
+</p>
+</details>
+`.trim();
     await github.rest.pulls.update({
       owner,
       repo,
       pull_number: issue_number,
-      body: `${codespacesBadge}\n\n${body}`,
+      body: `${newSection}\n\n${body}`,
     });
   }
 

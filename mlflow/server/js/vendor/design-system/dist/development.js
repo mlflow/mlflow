@@ -1,6 +1,6 @@
 import { css } from '@emotion/react';
 import React__default, { useState, useEffect, forwardRef } from 'react';
-import { u as useDesignSystemTheme, e as Input, B as Button, N as CursorIcon, j as Typography, Q as FaceSmileIcon, P as FaceNeutralIcon, O as FaceFrownIcon, C as CloseIcon, f as CheckIcon, o as ChevronLeftIcon, a as ChevronRightIcon, $ as dropdownItemStyles, c as useDesignSystemContext, l as dropdownContentStyles, a0 as dropdownSeparatorStyles } from './DropdownMenu-d39d9283.js';
+import { u as useDesignSystemTheme, h as Input, B as Button, P as CursorIcon, T as Typography, V as FaceSmileIcon, U as FaceNeutralIcon, Q as FaceFrownIcon, C as CloseIcon, j as CheckIcon, p as ChevronLeftIcon, b as ChevronRightIcon, $ as dropdownItemStyles, d as useDesignSystemContext, m as dropdownContentStyles, a0 as dropdownSeparatorStyles } from './DropdownMenu-d888110a.js';
 import { jsxs, jsx } from '@emotion/react/jsx-runtime';
 import * as RadixSlider from '@radix-ui/react-slider';
 import { ContextMenu as ContextMenu$1, ContextMenuTrigger, ContextMenuItemIndicator, ContextMenuGroup, ContextMenuRadioGroup, ContextMenuArrow, ContextMenuSub, ContextMenuSubTrigger, ContextMenuPortal, ContextMenuContent, ContextMenuSubContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator } from '@radix-ui/react-context-menu';
@@ -67,7 +67,7 @@ const ChatInput = _ref => {
     if (!value) {
       return;
     }
-    onSubmit === null || onSubmit === void 0 ? void 0 : onSubmit(value);
+    onSubmit === null || onSubmit === void 0 || onSubmit(value);
     setValue('');
   };
   return jsxs("div", {
@@ -319,7 +319,7 @@ const MessageActionButton = props => {
   const handleClick = e => {
     var _props$onClick;
     setShowCheck(true);
-    (_props$onClick = props.onClick) === null || _props$onClick === void 0 ? void 0 : _props$onClick.call(props, e);
+    (_props$onClick = props.onClick) === null || _props$onClick === void 0 || _props$onClick.call(props, e);
   };
   if (props.children) {
     throw new Error('MessageActionButton: Children not supported; use as icon-only button.');
@@ -421,6 +421,7 @@ const avatarDefaultBackgroundImage = 'linear-gradient(180deg, #FFD983 0%, #FFB80
 const MessageHeader = _ref => {
   let {
     userName,
+    customHeaderIcon,
     avatarURL,
     leftContent,
     rightContent
@@ -436,7 +437,7 @@ const MessageHeader = _ref => {
     },
     children: [jsxs("div", {
       css: headerStyles.leftContent,
-      children: [jsx("div", {
+      children: [customHeaderIcon ? customHeaderIcon : jsx("div", {
         css: headerStyles.avatar,
         style: {
           backgroundImage: avatarURL ? `url(${avatarURL}), ${avatarDefaultBackgroundImage}` : avatarDefaultBackgroundImage

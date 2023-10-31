@@ -218,9 +218,9 @@ class DatabricksJobRunner:
             # When running a non-release version as the client the same version will not be
             # available within Databricks.
             _logger.warning(
-                "Your client is running a non-release version of MLFlow. "
+                "Your client is running a non-release version of MLflow. "
                 "This version is not available on the databricks runtime. "
-                "MLFlow will fallback the MLFlow version provided by the runtime. "
+                "MLflow will fallback the MLflow version provided by the runtime. "
                 "This might lead to unforeseen issues. "
             )
             mlflow_lib = {"pypi": {"package": f"'mlflow<={VERSION}'"}}

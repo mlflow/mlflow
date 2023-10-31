@@ -1,4 +1,4 @@
-import type { GetTableRowByCellTextOptions, TableRows } from '../common';
+import type { GetTableRowByCellTextOptions, RowIdentifier, TableRows } from '../common';
 /**
  * Returns the table row that contains the specified `cellText`. The `cellText`
  * must be in the column with name `columnHeaderName` if it is specified. Otherwise,
@@ -60,4 +60,39 @@ export declare function toMarkdownTable(tableElement: HTMLElement): string;
  * a `<div role="table">` element, so it can be queried by `screen.getByRole('table')`.
  */
 export declare function getTableRows(tableElement: HTMLElement): TableRows<HTMLElement>;
+/**
+ * Returns the table cell in the specified table row corresponding to the given
+ * `columnHeaderName`. This is useful for checking that a row has a particular value
+ * for a given column, especially when there are duplicate values in the column.
+ *
+ * @example
+ * The HTML table:
+ * ```jsx
+ *   <Table>
+ *     <TableRow isHeader>
+ *       <TableHeader>Name</TableHeader>
+ *       <TableHeader>Age</TableHeader>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Alex</TableCell>
+ *       <TableCell>25</TableCell>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Brenda</TableCell>
+ *       <TableCell>39</TableCell>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Carlos</TableCell>
+ *       <TableCell>39</TableCell>
+ *     </TableRow>
+ *   </Table>
+ * ```
+ *
+ * ```js
+ * const table = screen.getByRole('table');
+ * const result = getTableCellInRow(table, { cellText: 'Carlos' }, 'Age');
+ * expect(result.textContent).toEqual('39');
+ * ```
+ */
+export declare function getTableCellInRow(tableElement: HTMLElement, row: RowIdentifier, columnHeaderName: string | RegExp): HTMLElement;
 //# sourceMappingURL=table.d.ts.map

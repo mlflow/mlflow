@@ -21,6 +21,7 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
@@ -31,7 +32,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/untracked
@@ -45,21 +46,21 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv ~/.venv
-          . ~/.venv/bin/activate
+          python -m venv .venv
+          source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
           pip install -r requirements/lint-requirements.txt
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |
-          . ~/.venv/bin/activate
+          source .venv/bin/activate
           pre-commit install -t pre-commit -t prepare-commit-msg
       - name: Run pre-commit
         id: pre-commit
         env:
           IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
         run: |
-          . ~/.venv/bin/activate
+          source .venv/bin/activate
           pre-commit run --all-files
 
   # python-skinny tests cover a subset of mlflow functionality
@@ -87,6 +88,12 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -99,21 +106,21 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv ~/.venv
-          . ~/.venv/bin/activate
+          python -m venv .venv
+          source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
-          # pyspark 3.5 is incompatible with delta 2.4
-          pip install 'pyspark<3.5'
       - uses: ./.github/actions/pipdeptree
       - name: Import check
         run: |
-          . ~/.venv/bin/activate
+          source .venv/bin/activate
           python tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
-          . ~/.venv/bin/activate
+          source .venv/bin/activate
           source dev/setup-ssh.sh
-          ./dev/run-python-tests.sh
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+            --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            tests
 
   database:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -160,27 +167,6 @@ jobs:
 
           test $err = 0
 
-      - name: Rebuild images with SQLAlchemy < 2.0
-        run: |
-          sed -i 's/sqlalchemy.*/sqlalchemy<2.0/g' requirements/core-requirements.txt
-          git diff
-          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
-      - name: Run tests
-        run: |
-          set +e
-          err=0
-          trap 'err=1' ERR
-
-          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
-          do
-            # Set `--no-TTY` to show container logs on GitHub Actions:
-            ./tests/db/compose.sh run --rm --no-TTY $service pytest \
-              tests/store/tracking/test_sqlalchemy_store.py \
-              tests/store/model_registry/test_sqlalchemy_store.py \
-              tests/db
-          done
-
-          test $err = 0
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
@@ -220,14 +206,18 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv ~/.venv
-          . ~/.venv/bin/activate
+          python -m venv .venv
+          source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          . ~/.venv/bin/activate
-          ./dev/run-python-flavor-tests.sh;
+          source .venv/bin/activate
+          pytest \
+            tests/utils/test_model_utils.py \
+            tests/tracking/fluent/test_fluent_autolog.py \
+            tests/autologging \
+            tests/server/auth
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
@@ -235,6 +225,12 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -251,8 +247,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          export MLFLOW_HOME=$(pwd)
-          pytest tests/models
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -277,13 +272,18 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          export MLFLOW_HOME=$(pwd)
-          pytest tests/evaluate
+          dev/pytest.sh tests/evaluate
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -296,12 +296,15 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install tensorflow pyspark
+          pip install tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          export MLFLOW_HOME=$(pwd)
-          pytest --durations=30 tests/pyfunc
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+            tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+
+          # test_spark_connect.py fails if it's run with ohter tests, so run it separately.
+          pytest tests/pyfunc/test_spark_connect.py
 
   sagemaker:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -320,12 +323,18 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          ./dev/run-python-sagemaker-tests.sh;
+          pytest tests/sagemaker
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: windows-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
     steps:
       - uses: actions/checkout@v3
         with:
@@ -334,18 +343,22 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/cache-pip
       - name: Install python dependencies
         run: |
+          python -m venv .venv
+          source .venv/Scripts/activate
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-          # pyspark 3.5 is incompatible with delta 2.4
-          pip install 'pyspark<3.5'
+          pip install pyspark
           pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
           # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
           pip install tensorflow
+          # Install torch and transformers to test metrics
+          pip install torch transformers
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
         run: |
@@ -358,11 +371,14 @@ jobs:
           # it's explicitly disposed.
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
+          source .venv/Scripts/activate
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes --ignore=tests/evaluate
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            tests
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap

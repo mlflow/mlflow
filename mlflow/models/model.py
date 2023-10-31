@@ -196,7 +196,7 @@ class ModelInfo:
         """
         Version of MLflow used to log the model
 
-        :getter: Gets the version of Mlflow that was installed when a model was logged
+        :getter: Gets the version of MLflow that was installed when a model was logged
         :type: str
         """
         return self._mlflow_version
@@ -260,10 +260,11 @@ class Model:
         utc_time_created=None,
         flavors=None,
         signature=None,  # ModelSignature
-        saved_input_example_info: Dict[str, Any] = None,
+        saved_input_example_info: Optional[Dict[str, Any]] = None,
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[Dict[str, Any]] = None,
+        model_size_bytes: Optional[int] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -278,6 +279,7 @@ class Model:
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
         self.mlflow_version = mlflow_version
         self.metadata = metadata
+        self.model_size_bytes = model_size_bytes
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -426,6 +428,21 @@ class Model:
         # pylint: disable=attribute-defined-outside-init
         self._saved_input_example_info = value
 
+    @property
+    def model_size_bytes(self) -> Optional[int]:
+        """
+        An optional integer that represents the model size in bytes
+        :getter: Retrieves the model size if it's calculated when the model is saved
+        :setter: Sets the model size to a model instance
+        :type: Optional[int]
+        """
+        return self._model_size_bytes
+
+    @model_size_bytes.setter
+    def model_size_bytes(self, value: Optional[int]):
+        # pylint: disable=attribute-defined-outside-init
+        self._model_size_bytes = value
+
     def get_model_info(self):
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -459,6 +476,8 @@ class Model:
             res.pop(_MLFLOW_VERSION_KEY)
         if self.metadata is not None:
             res["metadata"] = self.metadata
+        if self.model_size_bytes is not None:
+            res["model_size_bytes"] = self.model_size_bytes
         return res
 
     def to_yaml(self, stream=None):
@@ -557,11 +576,19 @@ class Model:
                             train = df.drop_column("target_label")
                             signature = infer_signature(train, model.predict(train))
 
-        :param input_example: Input example provides one or several examples of
-                              valid model input. The example can be used as a hint of what data to
-                              feed the model. The given example will be converted to a Pandas
-                              DataFrame and then serialized to json using the Pandas split-oriented
-                              format. Bytes are base64-encoded.
+        :param input_example: one or several instances of valid model input. The input example is
+                            used as a hint of what data to feed the model. It will be converted to
+                            a Pandas DataFrame and then serialized to json using the Pandas
+                            split-oriented format, or a numpy array where the example will be
+                            serialized to json by converting it to a list. If input example is a
+                            tuple, then the first element must be a valid model input, and the
+                            second element must be a valid params dictionary that can optionally
+                            be used during model inference. Bytes are base64-encoded. When the
+                            ``signature`` parameter is ``None``, the input example is used to infer
+                            a model's signature. If an input example containing params is provided,
+                            and signature is inferred from the input example, then params will be
+                            used as default params during model inference if no extra params are
+                            passed at inference time.
 
         :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function

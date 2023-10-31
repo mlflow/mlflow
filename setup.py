@@ -173,6 +173,7 @@ setup(
         "gateway": GATEWAY_REQUIREMENTS,
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
+        "xethub": ["mlflow-xethub"],
     },
     entry_points="""
         [console_scripts]
