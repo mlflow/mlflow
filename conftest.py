@@ -258,6 +258,8 @@ def local_pypi_repo(tmp_path_factory):
             text=True,
         ).strip()
     except subprocess.CalledProcessError:
+        # Some tests run in a Docker container where git is not installed.
+        # In this case, assume we're in the root of the repo.
         repo_root = "."
 
     subprocess.run(
