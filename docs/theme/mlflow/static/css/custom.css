@@ -1464,3 +1464,25 @@ a.notebook-download-btn i.fas {
   display: block;
   text-decoration: none; 
 }
+
+/**
+ * Overrides for notebook dataframe display header rendering 
+ * This change helps to prevent long column names from compressing and overwriting one another
+ */
+
+ /* Adjust table layout within notebook render */
+.nboutput .output_area.rendered_html table {
+  table-layout: auto !important;
+  width: 100% !important;
+}
+
+/* Adjust table cell padding within notebook render */
+.nboutput .output_area.rendered_html table th,
+.nboutput .output_area.rendered_html table td {
+  padding: 8px 12px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;  /* Adjust as needed */
+  white-space: nowrap;
+}
+
