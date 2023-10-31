@@ -3665,7 +3665,7 @@ The ``MetricValue`` class has three attributes:
 * ``scores``: used for per-row metrics 
 * ``aggregate_results``: a dictionary that maps metric names to their aggregate results
 * ``justification``: a per-row justification of the values in ``scores``
-
+The code block below demonstrates how to define a custom metric evaluation function:
 
 .. code-block:: python
     from mlflow.metrics import MetricValue
