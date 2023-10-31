@@ -2,6 +2,7 @@ import base64
 import datetime
 import decimal
 import json
+import os
 import re
 from unittest import mock
 
@@ -18,6 +19,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _enforce_params_schema, _enforce_schema
 from mlflow.pyfunc import PyFuncModel
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, Object, Property
 from mlflow.utils.proto_json_utils import dump_input_data
@@ -1985,41 +1987,79 @@ def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_a
     )
 
 
-def test_pyfunc_model_input_example_with_params(sample_params_basic, param_schema_basic):
+@pytest.mark.parametrize(
+    ("example", "schema"),
+    [
+        (["input1", "input2", "input3"], Schema([ColSpec(DataType.string)])),
+        (
+            [{"a": "a", "b": "b"}, {"a": "b"}],
+            Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b", required=False)]),
+        ),
+        (
+            {"a": ["a", "b", "c"], "b": "b"},
+            Schema([ColSpec(Array(DataType.string), "a"), ColSpec(DataType.string, "b")]),
+        ),
+        (
+            pd.DataFrame({"a": ["a", "b", "c"], "b": "b"}),
+            Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")]),
+        ),
+    ],
+)
+def test_pyfunc_model_input_example_with_params(
+    sample_params_basic, param_schema_basic, tmp_path, example, schema
+):
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
-            if isinstance(model_input, pd.DataFrame):
-                return model_input.values.tolist()[0]
-            if isinstance(model_input, list):
-                return model_input
-            return [model_input]
+            return model_input
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="test_model",
-            input_example=(["input1", "input2", "input3"], sample_params_basic),
+            input_example=(example, sample_params_basic),
         )
 
     # Test _infer_signature_from_input_example
-    assert model_info.signature.inputs == Schema([ColSpec(DataType.string)])
-    assert model_info.signature.outputs == Schema([ColSpec(DataType.string)])
+    assert model_info.signature.inputs == schema
+    assert model_info.signature.outputs == schema
     assert model_info.signature.params == param_schema_basic
 
     # Test predict
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert loaded_model.predict(["input1"]) == ["input1"]
+    prediction = loaded_model.predict(example)
+    expected_df = pd.DataFrame([example] if isinstance(example, dict) else example)
+    pd.testing.assert_frame_equal(prediction, expected_df)
+
+    # Test saved example
+    local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    mlflow_model = Model.load(os.path.join(local_path, "MLmodel"))
+    loaded_example = mlflow_model.load_input_example(local_path)
+    if isinstance(example, list) and all(np.isscalar(x) for x in example):
+        np.testing.assert_equal(loaded_example, example)
+    else:
+        if isinstance(example, list):
+            expected_example = pd.DataFrame(example)
+        elif isinstance(example, dict):
+            expected_example = pd.DataFrame([example])
+        else:
+            expected_example = example
+        pd.testing.assert_frame_equal(loaded_example, expected_example)
 
     # Test model serving
+    if isinstance(example, pd.DataFrame):
+        payload = {"dataframe_split": example.to_dict(orient="split")}
+    else:
+        payload = {"inputs": example}
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
-        data=json.dumps({"inputs": ["input1"]}),
+        data=json.dumps(payload),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert response.status_code == 200, response.content
     result = json.loads(response.content.decode("utf-8"))["predictions"]
-    assert result == ["input1"]
+    result = pd.DataFrame(result).values.tolist()[0]
+    np.testing.assert_equal(result, expected_df.values.tolist()[0])
 
 
 @pytest.mark.parametrize(
@@ -2202,6 +2242,17 @@ def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
         (
             {"query": ["sentence_1", "sentence_2"]},
             Schema([ColSpec(Array(DataType.string), name="query")]),
+        ),
+        (
+            {"query": {"a": "a", "b": 1}},
+            Schema(
+                [
+                    ColSpec(
+                        Object([Property("a", DataType.string), Property("b", DataType.long)]),
+                        "query",
+                    )
+                ]
+            ),
         ),
         (
             {"query": ["sentence_1", "sentence_2"], "table": "some_table"},
