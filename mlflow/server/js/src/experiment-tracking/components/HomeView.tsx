@@ -98,6 +98,7 @@ const styles = {
     display: 'flex',
     height: 'calc(100% - 60px)',
     position: 'absolute',
+    width: '100%',
   }),
 };
 

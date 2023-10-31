@@ -13,7 +13,8 @@ import { Provider } from 'react-redux';
 import { BrowserRouter, MemoryRouter } from '../../common/utils/RoutingUtils';
 import Fixtures from '../utils/test-utils/Fixtures';
 import HomeView, { getFirstActiveExperiment } from './HomeView';
-import { mount } from 'enzyme';
+import { screen, renderWithIntl } from '../../common/utils/TestUtils';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 const mockNavigate = jest.fn();
 
@@ -52,14 +53,16 @@ describe('HomeView', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <MemoryRouter>
-          <HomeView />
-        </MemoryRouter>
-      </Provider>,
+    renderWithIntl(
+      <DesignSystemProvider>
+        <Provider store={minimalStore}>
+          <MemoryRouter>
+            <HomeView />
+          </MemoryRouter>
+        </Provider>
+      </DesignSystemProvider>,
     );
-    expect(wrapper.length).toBe(1);
+    expect(screen.getByAltText('No experiments found.')).not.toBeNull();
   });
 
   test('getFirstActiveExperiment works', () => {
@@ -71,12 +74,14 @@ describe('HomeView', () => {
       entities: { experimentsById: experiments },
       apis: jest.fn(() => ({})),
     });
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <MemoryRouter>
-          <HomeView {...minimalProps} />
-        </MemoryRouter>
-      </Provider>,
+    wrapper = renderWithIntl(
+      <DesignSystemProvider>
+        <Provider store={minimalStore}>
+          <MemoryRouter>
+            <HomeView {...minimalProps} />
+          </MemoryRouter>
+        </Provider>
+      </DesignSystemProvider>,
     );
 
     expect(mockNavigate).toBeCalledWith({ replace: true, to: '/experiments/2' });

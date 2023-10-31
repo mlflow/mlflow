@@ -174,7 +174,7 @@ export class ExperimentListView extends Component<Props, State> {
     return (
       <div
         css={isActive ? this.activeExperimentListItem : this.inactiveExperimentListItem}
-        data-test-id={dataTestId}
+        data-testid={dataTestId}
         key={key}
         style={style}
       >
@@ -190,14 +190,14 @@ export class ExperimentListView extends Component<Props, State> {
               key={item.experiment_id}
               onChange={(isChecked) => this.handleCheck(isChecked, item.experiment_id)}
               checked={isActive}
-              data-test-id={`${dataTestId}-check-box`}
+              data-testid={`${dataTestId}-check-box`}
             ></Checkbox>,
             <Link
               className={'experiment-link'}
               to={Routes.getExperimentPageRoute(item.experiment_id)}
               onClick={() => this.setState({ checkedKeys: [item.experiment_id] })}
               title={item.name}
-              data-test-id={`${dataTestId}-link`}
+              data-testid={`${dataTestId}-link`}
             >
               {item.name}
             </Link>,
@@ -205,7 +205,7 @@ export class ExperimentListView extends Component<Props, State> {
               icon={<PencilIcon />}
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; "data-... Remove this comment to see the full error message
               onClick={this.handleRenameExperiment(item.experiment_id, item.name)}
-              data-test-id='rename-experiment-button'
+              data-testid='rename-experiment-button'
               css={classNames.renameExperiment}
             />,
             <IconButton
@@ -213,7 +213,7 @@ export class ExperimentListView extends Component<Props, State> {
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; css: {... Remove this comment to see the full error message
               onClick={this.handleDeleteExperiment(item.experiment_id, item.name)}
               css={classNames.deleteExperiment}
-              data-test-id='delete-experiment-button'
+              data-testid='delete-experiment-button'
             />,
           ]}
         ></List.Item>
@@ -273,7 +273,7 @@ export class ExperimentListView extends Component<Props, State> {
               onClick={this.handleCreateExperiment}
               css={classNames.icon}
               title='New Experiment'
-              data-test-id='create-experiment-button'
+              data-testid='create-experiment-button'
             />
             <CaretDownSquareIcon
               onClick={this.hide}
@@ -288,7 +288,7 @@ export class ExperimentListView extends Component<Props, State> {
           aria-label='search experiments'
           value={searchInput}
           onChange={this.handleSearchInputChange}
-          data-test-id='search-experiment-input'
+          data-testid='search-experiment-input'
         />
         <div>
           <AutoSizer>

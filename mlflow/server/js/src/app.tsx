@@ -1,5 +1,4 @@
 import React from 'react';
-import { ApolloProvider } from '@apollo/client';
 import { IntlProvider } from 'react-intl';
 import './index.css';
 import '@databricks/design-system/dist/index.css';
