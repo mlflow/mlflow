@@ -259,5 +259,20 @@ Find out about the details of major features, changes, and deprecations below.
                     </div>
                 </div>
             </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Chart View added to the MLflow UI
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        You can now visualize parameters and metrics across multiple runs as a chart on the runs table.
+                    </div>
+                    <div class="doc"><a href="../getting-started/quickstart-2/index.html#chart-view">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.2.0">released in 2.2.0</a>
+                    </div>
+                </div>
+            </div>
         </article>
     </section>
