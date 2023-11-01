@@ -1950,7 +1950,6 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
     assert fourth_response == "Only if you have a boat that can't sink."
 
 
-@pytest.mark.skip("Remove this test after input_example is updated")
 @pytest.mark.parametrize(
     ("pipeline_name", "example", "in_signature", "out_signature"),
     [
@@ -1999,18 +1998,18 @@ def test_infer_signature_from_input_example_only(
     assert model.signature.inputs.to_dict() == in_signature
     assert model.signature.outputs.to_dict() == out_signature
 
-    saved_example = _read_example(model, model_path).to_dict(orient="records")
-    if isinstance(example, str):
-        assert next(iter(saved_example[0].values())) == example
-    elif isinstance(example, list):
-        assert list(saved_example[0].values()) == example
-    else:
+    saved_example = _read_example(model, model_path)
+    # saved example is the same as input example if it is list of scalars
+    if isinstance(example, list):
+        assert (saved_example == example).all()
+        assert model.saved_input_example_info["type"] == "ndarray"
+    elif isinstance(example, dict):
+        saved_example = saved_example.to_dict(orient="records")
         assert set(saved_example[0].keys()).intersection(example.keys()) == set(
             saved_example[0].keys()
         )
-    assert model.saved_input_example_info["type"] == "dataframe"
-    orient = "split" if pipeline_name == "zero_shot_pipeline" else "values"
-    assert model.saved_input_example_info["pandas_orient"] == orient
+        assert model.saved_input_example_info["type"] == "dataframe"
+        assert model.saved_input_example_info["pandas_orient"] == "split"
 
 
 @pytest.mark.parametrize(
