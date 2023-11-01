@@ -5,21 +5,16 @@ In the previous section, we became familiar with the MLflow Client and its ``sea
 Before we get into creating experiments and adding metadata tags to them, let's take a brief look at the
 MLflow UI.
 
-In the first section of this tutorial, we started the MLflow UI from a command prompt, specifying the
-host as ``127.0.0.1`` and the port as ``8090``.  Let's go to the UI and see what the Default Experiment looks like.
+In the first section of this tutorial, we started the MLflow Tracking Server from a command prompt, specifying the
+host as ``127.0.0.1`` and the port as ``8080``.  Let's go to the UI and see what the Default Experiment looks like.
 
 Viewing the MLflow UI
 ---------------------
 
-In order to navigate to the MLflow UI server, we simply have to use a web browser and enter:
-
-.. code-block:: text
-
-        http://127.0.0.1:8090
-
+In order to see the MLflow UI, we simply have to use a web browser to connect to the MLflow Tracking Server and navigate to http://127.0.0.1:8080.
 Once navigating to the url for the MLflow UI, you will see the default experiment with no run data.
 
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/default-ui.gif
+.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/default-ui.png
    :width: 1024px
    :align: center
    :alt: A freshly initialized MLflow UI
