@@ -1,9 +1,11 @@
 import importlib
 import os
+import re
 import sys
 from unittest import mock
 
 import importlib_metadata
+from mlflow.exceptions import MlflowException
 import pytest
 
 import mlflow
@@ -11,6 +13,7 @@ import mlflow.utils.requirements_utils
 from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.requirements_utils import (
     _capture_imported_modules,
+    _check_mlflow_version_error_and_suggest_serve_wheel,
     _get_installed_version,
     _get_pinned_requirement,
     _infer_requirements,
@@ -432,3 +435,16 @@ def test_capture_imported_modules_includes_gateway_extra():
 
     pip_requirements = infer_pip_requirements(model_info.model_uri, "pyfunc")
     assert f"mlflow[gateway]=={mlflow.__version__}" in pip_requirements
+
+
+def test_check_mlflow_version_error_and_suggest_serve_wheel():
+    local_mlflow_version = mlflow.__version__
+    error_message = f"No matching distribution found for mlflow=={local_mlflow_version}"
+    with pytest.raises(
+        MlflowException,
+        match=rf"The version of MLflow you're attempting to install \({local_mlflow_version}\) is not found on PyPI\..*",
+    ):
+        _check_mlflow_version_error_and_suggest_serve_wheel(error_message)
+
+    unrelated_error_message = "No matching distribution found for pytorch==0.0.0"
+    _check_mlflow_version_error_and_suggest_serve_wheel(unrelated_error_message) # no-op

@@ -1,14 +1,16 @@
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 
+from packaging.version import Version
 import yaml
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.environment_variables import MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS
+from mlflow.environment_variables import MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS, _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.pyfunc.model import MLMODEL_FILE_NAME, Model
@@ -22,6 +24,7 @@ from mlflow.utils.environment import (
     _overwrite_pip_deps,
 )
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
+from mlflow.utils.requirements_utils import _check_mlflow_version_error_and_suggest_serve_wheel
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 
 _WHEELS_FOLDER_NAME = "wheels"
@@ -220,6 +223,11 @@ class WheeledModel:
         try:
             subprocess.run([download_command], check=True, shell=True, capture_output=True)
         except subprocess.CalledProcessError as e:
+            # During testing, ...
+            if _MLFLOW_TESTING.get():
+               _check_mlflow_version_error_and_suggest_serve_wheel(e.stderr.decode("utf-8")
+)
+
             raise MlflowException(
                 f"An error occurred while downloading the dependency wheels: {e.stderr}"
             )
