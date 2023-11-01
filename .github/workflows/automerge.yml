@@ -1,6 +1,17 @@
 name: Automerge
 
 on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry run"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
   schedule:
     - cron: "*/10 * * * *" # Run every 10 minutes
 
@@ -16,5 +27,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           retries: 3
           script: |
-            const script = require('./.github/workflows/auto-merge.js');
-            await script({ github, context });
+            const script = require('./.github/workflows/automerge.js');
+            const dryRun = '${{ github.event.inputs.dry-run }}' === 'true';
+            await script({ github, context, dryRun });
