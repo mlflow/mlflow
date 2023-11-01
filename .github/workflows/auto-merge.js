@@ -47,8 +47,8 @@ module.exports = async ({ github, context }) => {
       repo,
       ref: sha,
     });
-    return checkRuns.check_runs.every(
-      (run) => run.conclusion === "success" || run.conclusion === "skipped"
+    return checkRuns.check_runs.every(({ conclusion }) =>
+      ["success", "skipped"].includes(conclusion)
     );
   }
 
@@ -71,7 +71,7 @@ module.exports = async ({ github, context }) => {
   for (const pr of pullRequests) {
     const pullRequest = await fetchPullRequestDetails(pr.number);
 
-    if (!pullRequest || pullRequest.mergeable !== true) {
+    if (!pullRequest?.mergeable) {
       console.log(
         `PR #${pr.number} is not mergeable or could not fetch details. Skipping this PR.`
       );

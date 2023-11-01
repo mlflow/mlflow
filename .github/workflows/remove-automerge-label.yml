@@ -1,17 +1,17 @@
-name: Remove Auto-Merge Label on New Commit
+name: Remove automerge label
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - synchronize
 
 jobs:
   remove-label:
     runs-on: ubuntu-latest
+    if: ${{ !contains(fromJSON('["OWNER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Remove specific label
+      - uses: actions/checkout@v4
+      - name: Remove automerge label
         uses: actions/github-script@v5
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}

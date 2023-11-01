@@ -1,4 +1,4 @@
-name: Automerge PRs
+name: Automerge
 
 on:
   schedule:
@@ -9,14 +9,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Automerge PRs with "automerge" label created within the last month and are mergeable
+      - uses: actions/checkout@v4
+      - name: Automerge
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           retries: 3
           script: |
-            const script = require('..github/workflows/auto-merge.js');
+            const script = require('./.github/workflows/auto-merge.js');
             await script({github, context});
