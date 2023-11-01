@@ -7,6 +7,7 @@ import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION, insecure_hash
@@ -427,6 +428,11 @@ def _is_mlflow_requirement(requirement_string):
     """
     Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
     """
+    # "/opt/mlflow" is the path where we mount the mlflow source code in the Docker container
+    # when running tests.
+    if _MLFLOW_TESTING.get() and requirement_string == "/opt/mlflow":
+        return True
+
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
@@ -453,18 +459,29 @@ def _is_mlflow_requirement(requirement_string):
             )
 
 
-def _generate_mlflow_version_pinning():
+def _generate_mlflow_version_pinning() -> str:
     """
-    Determines the current MLflow version that is installed and adds a pinned boundary version range
-    for mlflow. The upper bound is a cap on the next major revision. The lower bound is a cap on
-    the current installed minor version(i.e., 'mlflow<3,>=2.1')
-    :return: string for MLflow dependency version
+    Returns a pinned requirement for the current MLflow version (e.g., "mlflow==3.2.1").
+
+    :return: A pinned requirement for the current MLflow version.
     """
+    if _MLFLOW_TESTING.get():
+        # The local PyPI server should be running. It serves a wheel for the current MLflow version.
+        return f"mlflow=={VERSION}"
+
     version = Version(VERSION)
-    # The version on master is always a micro-version ahead of the latest release and can't be
-    # installed from PyPI. We therefore subtract 1 from the micro version when running tests.
-    offset = -1 if version.is_devrelease else 0
-    return f"mlflow=={version.major}.{version.minor}.{version.micro + offset}"
+    if not version.is_devrelease:
+        # mlflow is installed from PyPI.
+        return f"mlflow=={VERSION}"
+
+    # We reach here when mlflow is installed from the source outside of the MLflow CI environment
+    # (e.g., Databricks notebook).
+
+    # mlflow installed from the source for development purposes. A dev version (e.g., 2.8.1.dev0)
+    # is always a micro-version ahead of the latest release (unless it's manually modified)
+    # and can't be installed from PyPI. We therefore subtract 1 from the micro version when running
+    # tests.
+    return f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"
 
 
 def _contains_mlflow_requirement(requirements):
