@@ -120,14 +120,15 @@ class APIRequest:
                 status_tracker.complete_task(success=False)
         # Unretryable errors
         except openai.error.InvalidRequestError as e:
-            if e.error.code == "content_filter" and e.error.innererror:
-                content_filter_result = e.error.innererror.content_filter_result
+            if e.error.code == "content_filter" and e.error.message:
                 _logger.debug(
                     f"Request #{self.index} failed because of content filtering: "
-                    f"{content_filter_result}"
+                    f"{e.error.message}"
                 )
-                status_tracker.increment_num_api_errors()
-                status_tracker.complete_task(success=False)
+            else:
+                _logger.debug(f"Request #{self.index} failed with {e!r}")
+            status_tracker.increment_num_api_errors()
+            status_tracker.complete_task(success=False)
         except Exception as e:
             _logger.debug(f"Request #{self.index} failed with {e!r}")
             status_tracker.increment_num_api_errors()
