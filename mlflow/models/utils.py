@@ -62,7 +62,7 @@ class _Example:
     example contains jsonable elements (see storage format section below).
 
     NOTE: If the example is 1 dimensional (e.g. dictionary of str -> scalar, or a list of scalars),
-    the assumption is that it is a single row of data (rather than a single column).
+    the assumption is that it is a single column of data.
 
     Metadata:
 
@@ -142,28 +142,26 @@ class _Example:
 
         def _coerce_to_pandas_df(input_ex):
             if isinstance(input_ex, dict):
-                if all(_is_scalar(x) for x in input_ex.values()):
-                    input_ex = pd.DataFrame([input_ex])
-                elif all(isinstance(x, (str, list)) for x in input_ex.values()):
-                    for value in input_ex.values():
-                        if isinstance(value, list) and not all(_is_scalar(x) for x in value):
-                            raise TypeError(
-                                "List values within dictionaries must be of scalar type."
-                            )
-                    input_ex = pd.DataFrame(input_ex)
-                else:
-                    raise TypeError(
-                        "Data in the dictionary must be scalar or of type numpy.ndarray"
+                # We need to be compatible with infer_schema's behavior, where
+                # it infers each value's type directly.
+                if all(
+                    isinstance(x, str) or (isinstance(x, list) and all(_is_scalar(y) for y in x))
+                    for x in input_ex.values()
+                ):
+                    # e.g.
+                    # data = {"a": "a", "b": ["a", "b", "c"]}
+                    # >>> pd.DataFrame([data])
+                    #    a          b
+                    # 0  a  [a, b, c]
+                    _logger.info(
+                        "We convert input dictionaries to pandas DataFrames such that "
+                        "each key represents a column, collectively constituting a "
+                        "single row of data. If you would like to save data as "
+                        "multiple rows, please convert your data to a pandas "
+                        "DataFrame before passing to input_example."
                     )
-            elif isinstance(input_ex, list):
-                for i, x in enumerate(input_ex):
-                    if isinstance(x, np.ndarray) and len(x.shape) > 1:
-                        raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
-                if all(_is_scalar(x) for x in input_ex):
-                    input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
-                else:
-                    input_ex = pd.DataFrame(input_ex)
-            elif isinstance(input_ex, (str, bytes)):
+                input_ex = pd.DataFrame([input_ex])
+            elif np.isscalar(input_ex):
                 input_ex = pd.DataFrame([input_ex])
             elif not isinstance(input_ex, pd.DataFrame):
                 try:
@@ -223,6 +221,44 @@ class _Example:
                     "type": example_type,
                 }
             )
+        elif isinstance(input_example, list):
+            for i, x in enumerate(input_example):
+                if isinstance(x, np.ndarray) and len(x.shape) > 1:
+                    raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
+            if all(_is_scalar(x) for x in input_example):
+                if all(isinstance(x, str) for x in input_example):
+                    _logger.info(
+                        "Lists of string values are not converted to a pandas DataFrame. "
+                        "If you expect to use pandas DataFrames for inference, please "
+                        "construct a DataFrame and pass it to input_example instead."
+                    )
+                    self._inference_data = input_example
+                    self.data = {"inputs": self._inference_data}
+                    self.info.update(
+                        {
+                            "type": "ndarray",
+                            "format": "tf-serving",
+                        }
+                    )
+                # For backwards compatibility, sklearn model for example
+                else:
+                    self._inference_data = pd.DataFrame([input_example])
+                    self.data = _handle_dataframe_input(self._inference_data)
+                    self.info.update(
+                        {
+                            "type": "dataframe",
+                            "pandas_orient": "split",
+                        }
+                    )
+            else:
+                self._inference_data = pd.DataFrame(input_example)
+                self.data = _handle_dataframe_input(self._inference_data)
+                self.info.update(
+                    {
+                        "type": "dataframe",
+                        "pandas_orient": "split",
+                    }
+                )
         else:
             self._inference_data = _coerce_to_pandas_df(input_example)
             if self._inference_data is None:
@@ -235,8 +271,7 @@ class _Example:
                     "- scipy.sparse.csc_matrix\n"
                     "- dict\n"
                     "- list\n"
-                    "- str\n"
-                    "- bytes\n"
+                    "- scalars\n"
                     f"but got '{type(input_example)}'",
                 )
             self.data = _handle_dataframe_input(self._inference_data)
