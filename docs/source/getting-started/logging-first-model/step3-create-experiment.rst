@@ -11,13 +11,7 @@ host as ``127.0.0.1`` and the port as ``8080``.  Let's go to the UI and see what
 Viewing the MLflow UI
 ---------------------
 
-In order to see the MLflow UI, we simply have to use a web browser to connect to the MLflow Tracking Server. 
-Open your browser and enter:
-
-.. code-block:: text
-
-        http://127.0.0.1:8080
-
+In order to see the MLflow UI, we simply have to use a web browser to connect to the MLflow Tracking Server and navigate to http://127.0.0.1:8080.
 Once navigating to the url for the MLflow UI, you will see the default experiment with no run data.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/default-ui.png

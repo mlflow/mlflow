@@ -35,15 +35,8 @@ running during the tutorial, as closing it will shut down the server.
 **Note**: Closing the command prompt or terminating the process will shut down the server.
 
 .. note::
-        Remember the host and port name that your MLflow tracking server is assigned. You will need
-        this information in the next section of this tutorial!
-
-.. figure:: ../../_static/images/tutorials/introductory/logging-first-model/start-mlflow-server.png
-    :width: 860px
-    :align: center
-    :alt: Starting the MLflow Tracking server from the command linear
-
-    Starting the MLflow server
+    Remember the host and port name that your MLflow tracking server is assigned. You will need
+    this information in the next section of this tutorial!
 
 Congratulations! Your MLflow environment is now set up and ready to go. As you progress, you'll
 explore the myriad of functionalities MLflow has to offer, streamlining and enhancing your machine learning workflows.
