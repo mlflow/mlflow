@@ -19,7 +19,7 @@ module.exports = async ({ github, context }) => {
     );
   }
 
-  async function fetchPullRequestDetails(prNumber) {
+  async function waitUntilMergeable(prNumber) {
     for (let i = 0; i < MAX_RETRIES; i++) {
       const pullRequest = await github.rest.pulls
         .get({
@@ -30,22 +30,13 @@ module.exports = async ({ github, context }) => {
         .then((res) => res.data);
 
       if (pullRequest.mergeable !== null) {
-        return pullRequest;
+        return pullRequest.mergeable;
       }
 
       console.log(`Waiting for mergeability calculation for PR #${prNumber}...`);
       await sleep(RETRY_INTERVAL_MS);
     }
-    return null;
-  }
-
-  async function isPRApproved(prNumber) {
-    const { data: reviews } = await github.rest.pulls.listReviews({
-      owner,
-      repo,
-      pull_number: prNumber,
-    });
-    return reviews.some((review) => review.state === "APPROVED");
+    return false;
   }
 
   async function areAllChecksPassed(sha) {
@@ -76,18 +67,8 @@ module.exports = async ({ github, context }) => {
   const pullRequests = issues.filter((issue) => issue.pull_request);
 
   for (const pr of pullRequests) {
-    const pullRequest = await fetchPullRequestDetails(pr.number);
-
-    if (!pullRequest?.mergeable) {
-      console.log(
-        `PR #${pr.number} is not mergeable or could not fetch details. Skipping this PR.`
-      );
-      await logRateLimit();
-      continue;
-    }
-
-    if (!(await isPRApproved(pr.number))) {
-      console.log(`PR #${pr.number} hasn't been approved. Skipping merge.`);
+    if (!(await waitUntilMergeable(pr.number))) {
+      console.log(`PR #${pr.number} is not mergeable. Skipping...`);
       await logRateLimit();
       continue;
     }
