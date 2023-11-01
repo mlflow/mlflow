@@ -3,6 +3,7 @@ import importlib.metadata
 import os
 import posixpath
 import urllib.parse
+from collections import namedtuple
 
 from packaging.version import Version
 
@@ -20,6 +21,8 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+
+GCSMPUArguments = namedtuple("GCSMPUArguments", ["transport", "url", "headers", "content_type"])
 
 
 class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
@@ -159,7 +162,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             raise UnsupportedMultipartUploadException()
 
     @staticmethod
-    def _gcs_mpu_arguments(filename: str, blob):
+    def _gcs_mpu_arguments(filename: str, blob) -> GCSMPUArguments:
         """See :py:func:`google.cloud.storage.transfer_manager.upload_chunks_concurrently`"""
         from google.cloud.storage.transfer_manager import _headers_from_metadata
 
@@ -181,7 +184,9 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if blob.kms_key_name is not None and "cryptoKeyVersions" not in blob.kms_key_name:
             headers["x-goog-encryption-kms-key-name"] = blob.kms_key_name
 
-        return transport, url, headers, content_type
+        return GCSMPUArguments(
+            transport=transport, url=url, headers=headers, content_type=content_type
+        )
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         self._validate_support_mpu()
@@ -194,9 +199,9 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         gcs_bucket = self._get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
-        transport, url, headers, content_type = self._gcs_mpu_arguments(local_file, blob)
-        container = XMLMPUContainer(url, local_file, headers=headers)
-        container.initiate(transport=transport, content_type=content_type)
+        args = self._gcs_mpu_arguments(local_file, blob)
+        container = XMLMPUContainer(args.url, local_file, headers=args.headers)
+        container.initiate(transport=args.transport, content_type=args.content_type)
         upload_id = container.upload_id
 
         credentials = []
@@ -233,13 +238,13 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         gcs_bucket = self._get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
-        transport, url, headers, _ = self._gcs_mpu_arguments(local_file, blob)
-        container = XMLMPUContainer(url, local_file, headers=headers)
+        args = self._gcs_mpu_arguments(local_file, blob)
+        container = XMLMPUContainer(args.url, local_file, headers=args.headers)
         container._upload_id = upload_id
         for part in parts:
             container.register_part(part.part_number, part.etag)
 
-        container.finalize(transport=transport)
+        container.finalize(transport=args.transport)
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
         self._validate_support_mpu()
@@ -252,7 +257,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         gcs_bucket = self._get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
-        transport, url, headers, _ = self._gcs_mpu_arguments(local_file, blob)
-        container = XMLMPUContainer(url, local_file, headers=headers)
+        args = self._gcs_mpu_arguments(local_file, blob)
+        container = XMLMPUContainer(args.url, local_file, headers=args.headers)
         container._upload_id = upload_id
-        container.cancel(transport=transport)
+        container.cancel(transport=args.transport)
