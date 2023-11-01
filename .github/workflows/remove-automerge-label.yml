@@ -1,0 +1,33 @@
+name: Remove Auto-Merge Label on New Commit
+
+on:
+  pull_request:
+    types:
+      - synchronize
+
+jobs:
+  remove-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Remove specific label
+        uses: actions/github-script@v5
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const { owner, repo, number: issue_number } = context.issue;
+            const labelToRemove = "automerge";
+
+            // Fetch current labels on the PR
+            const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number });
+
+            // Check if the label is present
+            const hasLabel = currentLabels.some(label => label.name === labelToRemove);
+
+            if (hasLabel) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number, name: labelToRemove });
+              console.log(`Removed label "${labelToRemove}" from PR #${issue_number}`);
+            } else {
+              console.log(`Label "${labelToRemove}" not found on PR #${issue_number}`);
+            }
