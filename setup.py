@@ -167,7 +167,7 @@ setup(
         "databricks": [
             # Required to write model artifacts to unity catalog locations
             "azure-storage-file-datalake>12",
-            "google-cloud-storage>=2.12.0",
+            "google-cloud-storage>=1.30.0",
             "boto3>1",
         ],
         "gateway": GATEWAY_REQUIREMENTS,
