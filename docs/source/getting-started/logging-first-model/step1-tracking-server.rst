@@ -35,7 +35,7 @@ running during the tutorial, as closing it will shut down the server.
 Once the server starts running, you should see the following output:
 
 .. code-block::
-    :name: tracking-server-start-output
+    :name: tracking-server-output
 
     [2023-11-01 10:28:12 +0900] [28550] [INFO] Starting gunicorn 20.1.0
     [2023-11-01 10:28:12 +0900] [28550] [INFO] Listening at: http://127.0.0.1:8080 (28550)
