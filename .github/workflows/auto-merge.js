@@ -4,6 +4,8 @@ module.exports = async ({ github, context }) => {
   } = context;
 
   const MERGE_INTERVAL_MS = 5000; // 5 seconds pause after a merge
+  const MAX_RETRIES = 3;
+  const RETRY_INTERVAL_MS = 10000; // 10 seconds
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -18,16 +20,21 @@ module.exports = async ({ github, context }) => {
   }
 
   async function fetchPullRequestDetails(prNumber) {
-    const pullRequest = await github.rest.pulls
-      .get({
-        owner,
-        repo,
-        pull_number: prNumber,
-      })
-      .then((res) => res.data);
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      const pullRequest = await github.rest.pulls
+        .get({
+          owner,
+          repo,
+          pull_number: prNumber,
+        })
+        .then((res) => res.data);
 
-    if (pullRequest.mergeable !== null) {
-      return pullRequest;
+      if (pullRequest.mergeable !== null) {
+        return pullRequest;
+      }
+
+      console.log(`Waiting for mergeability calculation for PR #${prNumber}...`);
+      await sleep(RETRY_INTERVAL_MS);
     }
     return null;
   }

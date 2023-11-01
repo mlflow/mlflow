@@ -8,7 +8,7 @@ on:
 jobs:
   remove-label:
     runs-on: ubuntu-latest
-    if: ${{ !contains(fromJSON('["OWNER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
+    if: ${{ !contains(fromJSON('["OWNER", "COLLABORATOR", "MEMBER"]'), github.event.pull_request.author_association )}}
     steps:
       - uses: actions/checkout@v4
       - name: Remove automerge label
