@@ -23,7 +23,7 @@ jobs:
 
             // Check if the automerge label is present
             const automergeLabel = "automerge";
-            const hasLabel = labels.some({ name } => name === automergeLabel);
+            const hasLabel = labels.some(({ name }) => name === automergeLabel);
 
             if (hasLabel) {
               await github.rest.issues.removeLabel({ owner, repo, issue_number, name: automergeLabel });
