@@ -4,6 +4,7 @@ import errno
 import fnmatch
 import gzip
 import json
+import logging
 import math
 import os
 import pathlib
@@ -14,6 +15,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.parse
 import urllib.request
 import uuid
@@ -21,10 +23,13 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
+from typing import Optional, Union
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
 import yaml
+
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 try:
     from yaml import CSafeDumper as YamlSafeDumper
@@ -35,6 +40,8 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
+    _MLFLOW_MPD_NUM_RETRIES,
+    _MLFLOW_MPD_RETRY_INTERVAL_SECONDS,
     MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
 )
@@ -50,6 +57,11 @@ from mlflow.utils.rest_utils import augmented_raise_for_status
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
+
+_logger = logging.getLogger(__name__)
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ArtifactProgressBar:
@@ -666,20 +678,22 @@ class _Chunk:
     index: int
     start: int
     end: int
+    path: str
 
 
-def _yield_chunks(file_size, chunk_size):
+def _yield_chunks(path, file_size, chunk_size):
     num_requests = int(math.ceil(file_size / float(chunk_size)))
     for i in range(num_requests):
         range_start = i * chunk_size
         range_end = min(range_start + chunk_size - 1, file_size - 1)
-        yield _Chunk(i, range_start, range_end)
+        yield _Chunk(i, range_start, range_end, path)
 
 
 def parallelized_download_file_using_http_uri(
     thread_pool_executor,
     http_uri,
     download_path,
+    remote_file_path,
     file_size,
     uri_type,
     chunk_size,
@@ -731,7 +745,7 @@ def parallelized_download_file_using_http_uri(
 """
             ) from e
 
-    chunks = _yield_chunks(file_size, chunk_size)
+    chunks = _yield_chunks(remote_file_path, file_size, chunk_size)
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
     # before sending to the workers so they can each individually seek to their respective positions
     # and write chunks without overwriting.
@@ -762,12 +776,38 @@ def parallelized_download_file_using_http_uri(
             chunk = futures[future]
             try:
                 future.result()
-            except Exception:
+            except Exception as e:
+                _logger.debug(
+                    f"Failed to download chunk {chunk.index} for {chunk.path}: {e}. "
+                    f"The download of this chunk will be retried later."
+                )
                 failed_downloads[chunk] = future.exception()
             else:
                 pbar.update()
 
     return failed_downloads
+
+
+def download_chunk_retries(*, chunks, http_uri, headers, download_path):
+    num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
+    interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
+    for chunk in chunks:
+        _logger.info(f"Retrying download of chunk {chunk.index} for {chunk.path}")
+        for retry in range(num_retries):
+            try:
+                download_chunk(
+                    range_start=chunk.start,
+                    range_end=chunk.end,
+                    headers=headers,
+                    download_path=download_path,
+                    http_uri=http_uri,
+                )
+                _logger.info(f"Successfully downloaded chunk {chunk.index} for {chunk.path}")
+                break
+            except Exception:
+                if retry == num_retries - 1:
+                    raise
+            time.sleep(interval)
 
 
 def _handle_readonly_on_windows(func, path, exc_info):
@@ -967,3 +1007,32 @@ def chdir(path: str) -> None:
         yield
     finally:
         os.chdir(cwd)
+
+
+def get_total_file_size(path: Union[str, pathlib.Path]) -> Optional[int]:
+    """
+    Return the size of all files under given path, including files in subdirectories.
+
+    :param path: The absolute path of a local directory.
+    :return: size in bytes.
+    """
+    try:
+        if isinstance(path, pathlib.Path):
+            path = str(path)
+        if not os.path.exists(path):
+            raise MlflowException(
+                message=f"The given {path} does not exist.", error_code=INVALID_PARAMETER_VALUE
+            )
+        if not os.path.isdir(path):
+            raise MlflowException(
+                message=f"The given {path} is not a directory.", error_code=INVALID_PARAMETER_VALUE
+            )
+
+        total_size = 0
+        for cur_path, dirs, files in os.walk(path):
+            full_paths = [os.path.join(cur_path, file) for file in files]
+            total_size += sum([os.path.getsize(file) for file in full_paths])
+        return total_size
+    except Exception as e:
+        _logger.info(f"Failed to get the total size of {path} because of error :{e}")
+        return None

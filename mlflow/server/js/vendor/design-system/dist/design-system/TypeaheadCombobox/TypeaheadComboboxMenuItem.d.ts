@@ -10,6 +10,7 @@ export interface TypeaheadComboboxMenuItemProps<T> extends React.HTMLAttributes<
     disabledReason?: React.ReactNode;
     hintContent?: React.ReactNode;
     className?: string;
+    onClick?: (e: React.MouseEvent<HTMLLIElement, MouseEvent>) => void;
     children?: React.ReactNode;
     _TYPE?: string;
 }

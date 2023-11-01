@@ -50,6 +50,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import (
     TempDir,
+    get_total_file_size,
     write_to,
 )
 from mlflow.utils.model_utils import (
@@ -548,6 +549,8 @@ def save_model(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

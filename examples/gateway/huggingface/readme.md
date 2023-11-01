@@ -97,4 +97,4 @@ See the [example script](example.py) within this directory to see how to query t
 
 ## Setting the parameters of TGI
 
-When you make a request to MLFlow gateway, the information you provide in the request body will be sent to TGI. This gives you more control over the output you receive from TGI. However, it's important to note that you cannot turn off `details` and `decoder_input_details`, as they are necessary for MLFlow Gateway to work correctly.
+When you make a request to MLflow gateway, the information you provide in the request body will be sent to TGI. This gives you more control over the output you receive from TGI. However, it's important to note that you cannot turn off `details` and `decoder_input_details`, as they are necessary for MLflow Gateway to work correctly.

@@ -39,7 +39,7 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
 
     return (
         ""
-        if args_dict is None
+        if args_dict is None or len(args_dict) == 0
         else (
             "Additional information used by the model:\n"
             + "\n".join(
@@ -96,7 +96,6 @@ def make_genai_metric(
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
     max_workers: int = 10,
-    judge_request_timeout: int = 60,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow.
@@ -123,8 +122,6 @@ def make_genai_metric(
     :param greater_is_better: (Optional) Whether the metric is better when it is greater.
     :param max_workers: (Optional) The maximum number of workers to use for judge scoring.
         Defaults to 10 workers.
-    :param judge_request_timeout: (Optional) The timeout in seconds for each judge scoring request.
-        Defaults to 60 seconds.
 
     :return: A metric object.
 
@@ -192,13 +189,35 @@ def make_genai_metric(
     if not isinstance(grading_context_columns, list):
         grading_context_columns = [grading_context_columns]
 
+    def process_example(example):
+        if example.grading_context is None and len(grading_context_columns) == 0:
+            grading_context = {}
+        elif isinstance(example.grading_context, dict):
+            grading_context = example.grading_context
+        else:
+            # The grading context is string-like. Assume that it corresponds to the first
+            # grading context column and update the example accordingly
+            grading_context = {grading_context_columns[0]: example.grading_context}
+            example.grading_context = grading_context
+
+        if set(grading_context.keys()) != set(grading_context_columns):
+            raise MlflowException.invalid_parameter_value(
+                f"Example grading context does not contain required columns.\n"
+                f" Example grading context columns: {list(grading_context.keys())}\n"
+                f" Required grading context columns: {grading_context_columns}\n"
+            )
+
+        return example
+
+    examples = [process_example(example) for example in examples]
+
     class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
     try:
         evaluation_model_class_module = _get_class_from_string(class_name)
     except ModuleNotFoundError:
         raise MlflowException(
             f"Failed to find evaluation model for version {version}."
-            f"Please check the correctness of the version",
+            f" Please check the correctness of the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:
@@ -276,13 +295,18 @@ def make_genai_metric(
             try:
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 return _extract_score_and_justification(raw_result)
+            except ImportError:
+                raise
+            except MlflowException as e:
+                if e.error_code in [
+                    ErrorCode.Name(BAD_REQUEST),
+                    ErrorCode.Name(UNAUTHENTICATED),
+                    ErrorCode.Name(INVALID_PARAMETER_VALUE),
+                ]:
+                    raise
+                else:
+                    return None, f"Failed to score model on payload. Error: {e!s}"
             except Exception as e:
-                if isinstance(e, MlflowException):
-                    if e.error_code in [
-                        ErrorCode.Name(BAD_REQUEST),
-                        ErrorCode.Name(UNAUTHENTICATED),
-                    ]:
-                        raise MlflowException(e)
                 return None, f"Failed to score model on payload. Error: {e!s}"
 
         scores = [None] * len(inputs)
@@ -304,7 +328,15 @@ def make_genai_metric(
                 for indx, (input, output) in enumerate(zip(inputs, outputs))
             }
 
-            for future in as_completed(futures, timeout=judge_request_timeout):
+            as_comp = as_completed(futures)
+            try:
+                from tqdm.auto import tqdm
+
+                as_comp = tqdm(as_comp, total=len(futures))
+            except ImportError:
+                pass
+
+            for future in as_comp:
                 indx = futures[future]
                 score, justification = future.result()
                 scores[indx] = score

@@ -47,9 +47,12 @@ export const useEvaluationArtifactTables = (comparedRunRows: RunRowType[]) =>
       comparedRunRows.every(({ runUuid }) => tablesByRun[runUuid]?.includes(tableName)),
     );
 
+    const noEvalTablesLogged = allUniqueTables.length === 0;
+
     return {
       tables: allUniqueTables,
       tablesByRun,
       tablesIntersection,
+      noEvalTablesLogged,
     };
   }, [comparedRunRows]);

@@ -1,20 +1,42 @@
 import { mount } from 'enzyme';
 import { useEffect } from 'react';
 import { MetricEntity } from '../../../types';
-import { CompareChartRunData } from '../charts/CompareRunsCharts.common';
-import { RunsCompareChartType, RunsCompareLineCardConfig } from '../runs-compare.types';
+import { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
+import {
+  RunsCompareCardConfig,
+  RunsCompareChartType,
+  RunsCompareLineCardConfig,
+} from '../runs-compare.types';
 import { useFetchCompareRunsMetricHistory } from './useFetchCompareRunsMetricHistory';
 import { useMultipleChartsMetricHistory } from './useMultipleChartsMetricHistory';
+import { Provider } from 'react-redux';
+import configureStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import promiseMiddleware from 'redux-promise-middleware';
 
 jest.mock('./useFetchCompareRunsMetricHistory', () => ({
   useFetchCompareRunsMetricHistory: jest.fn().mockReturnValue({ isLoading: false }),
 }));
 
 describe('useMultipleChartsMetricHistory', () => {
-  const mountWrappingComponent = (...params: Parameters<typeof useMultipleChartsMetricHistory>) => {
-    const resultingData: CompareChartRunData[] = [];
+  const mountWrappingComponent = (
+    cardsConfig: RunsCompareCardConfig[],
+    chartRunData: RunsChartsRunData[],
+    metricsByRunUuid: any = {},
+  ) => {
+    const MOCK_STATE = {
+      entities: {
+        metricsByRunUuid,
+      },
+    };
+
+    const mockStore = configureStore([thunk, promiseMiddleware()]);
+    const resultingData: RunsChartsRunData[] = [];
     const Component = () => {
-      const { chartRunDataWithHistory, isLoading } = useMultipleChartsMetricHistory(...params);
+      const { chartRunDataWithHistory, isLoading } = useMultipleChartsMetricHistory(
+        cardsConfig,
+        chartRunData,
+      );
 
       useEffect(() => {
         resultingData.length = 0;
@@ -25,7 +47,11 @@ describe('useMultipleChartsMetricHistory', () => {
     };
 
     return {
-      wrapper: mount(<Component />),
+      wrapper: mount(
+        <Provider store={mockStore(MOCK_STATE)}>
+          <Component />
+        </Provider>,
+      ),
       resultingData,
     };
   };
@@ -44,12 +70,11 @@ describe('useMultipleChartsMetricHistory', () => {
     const { wrapper, resultingData } = mountWrappingComponent(
       [{ type: RunsCompareChartType.SCATTER }, { type: RunsCompareChartType.CONTOUR }],
       mockRuns,
-      {},
     );
 
     // Fetch hook is called with empty metric list
     expect(useFetchCompareRunsMetricHistory).toBeCalledTimes(1);
-    expect(useFetchCompareRunsMetricHistory).toBeCalledWith([], [], {});
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith([], []);
 
     // Output data is the same as input data since there is nothing to enrich
     expect(resultingData).toEqual(mockRuns);
@@ -71,11 +96,10 @@ describe('useMultipleChartsMetricHistory', () => {
         } as RunsCompareLineCardConfig,
       ],
       mockRuns,
-      {},
     );
 
     // We expect fetch hook to be called for a single metric and a single run
-    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(['metric_name'], [mockRuns[0]], {});
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(['metric_name'], [mockRuns[0]]);
 
     // Cleanup
     wrapper.unmount();
@@ -100,15 +124,10 @@ describe('useMultipleChartsMetricHistory', () => {
         } as RunsCompareLineCardConfig,
       ],
       mockRuns,
-      {},
     );
 
     // We expect fetch hook to be called for a 6 runs (as the max runsCountToCompare value)
-    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(
-      ['metric_name'],
-      mockRuns.slice(0, 6),
-      {},
-    );
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(['metric_name'], mockRuns.slice(0, 6));
 
     // Cleanup
     wrapper.unmount();
@@ -133,14 +152,12 @@ describe('useMultipleChartsMetricHistory', () => {
         } as RunsCompareLineCardConfig,
       ],
       mockRuns,
-      {},
     );
 
     // We expect fetch hook to be called for two distinct metrics for 10 runs
     expect(useFetchCompareRunsMetricHistory).toBeCalledWith(
       ['metric_1', 'metric_2'],
       mockRuns.slice(0, 10),
-      {},
     );
 
     // Cleanup

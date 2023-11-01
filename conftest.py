@@ -3,11 +3,14 @@ import os
 import posixpath
 import shutil
 import subprocess
+import sys
 
 import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+
+from tests.helper_functions import get_safe_port
 
 
 def pytest_addoption(parser):
@@ -38,6 +41,11 @@ def pytest_addoption(parser):
         default=None,
         type=int,
         help="The group of tests to run.",
+    )
+    parser.addoption(
+        "--serve-wheel",
+        action="store_true",
+        help="Serve a wheel for the dev version of MLflow",
     )
 
 
@@ -234,3 +242,65 @@ def enable_mlflow_testing():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv(_MLFLOW_TESTING.name, "TRUE")
         yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def local_pypi_repo(request, tmp_path_factory):
+    """
+    Models logged during tests have a dependency on the dev version of MLflow built from
+    source (e.g., mlflow==1.20.0.dev0) and cannot be served because the dev version is not
+    available on PyPI. This fixture serves a wheel for the dev version from a temporary
+    PyPI repository running on localhost and appends the repository URL to the
+    `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
+    """
+    if not request.config.getoption("--serve-wheel"):
+        yield  # pytest expects a generator fixture to yield
+        return
+
+    root = tmp_path_factory.mktemp("root")
+    mlflow_dir = root.joinpath("mlflow")
+    mlflow_dir.mkdir()
+    port = get_safe_port()
+    try:
+        repo_root = subprocess.check_output(
+            [
+                "git",
+                "rev-parse",
+                "--show-toplevel",
+            ],
+            text=True,
+        ).strip()
+    except subprocess.CalledProcessError:
+        # Some tests run in a Docker container where git is not installed.
+        # In this case, assume we're in the root of the repo.
+        repo_root = "."
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            "--wheel-dir",
+            mlflow_dir,
+            "--no-deps",
+            repo_root,
+        ],
+        check=True,
+    )
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "http.server",
+            str(port),
+        ],
+        cwd=root,
+    ) as prc:
+        url = f"http://localhost:{port}"
+        if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
+            url = f"{existing_url} {url}"
+        os.environ["PIP_EXTRA_INDEX_URL"] = url
+
+        yield
+        prc.terminate()

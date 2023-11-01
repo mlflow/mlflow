@@ -4,6 +4,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 export interface TypeaheadComboboxMenuProps<T> extends HTMLAttributes<HTMLUListElement> {
     comboboxState: UseComboboxReturnValue<T>;
     loading?: boolean;
+    emptyText?: string | React.ReactNode;
     width?: number | string;
     minWidth?: number;
     maxWidth?: number | string;

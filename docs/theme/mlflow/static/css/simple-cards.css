@@ -1,0 +1,121 @@
+.simple-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    background: white;
+    font-size: 1rem;
+    color: darkslategray;
+    height: 100%;
+    width: 100%;
+    border-radius: 10px;
+    transition: all 500ms;
+    overflow: hidden;
+    padding: .5rem;
+    margin: 2rem;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.simple-card:hover {
+    box-shadow: rgba(2, 8, 20, 0.3) 0px 2.5rem 5rem, rgba(2, 8, 20, 0.24) 0.5px 1.5rem 1.65rem;
+}
+
+ .simple-grid {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    margin-right: 5rem;
+    padding-bottom: 4rem;
+ }
+
+
+ .simple-card .header {
+    text-align: left; 
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 2rem;
+    margin-top: 3rem;
+    position: relative;
+    height: calc(5rem + 1.2em); 
+    display: flex;
+    overflow: hidden; 
+}
+
+.simple-card .header:hover {
+    background: #0194E2;
+    text-shadow: none;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.simple-card a {
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+}
+
+.simple-card p {
+    color: darkslategrey;
+    font-size: 1rem;
+    margin: 1rem 2rem; 
+    text-align: left; 
+}
+
+.clickable-header {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    margin-top: 2rem;
+    position: relative;
+    cursor: pointer; 
+    color: darkslategrey; 
+}
+
+.clickable-header a {
+    text-decoration: none;
+    color: inherit; 
+    display: block; 
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.clickable-header:hover {
+    background: #0194E2;
+    text-shadow: none;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.redirect-header {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    margin-top: 2rem;
+    position: relative;
+    color: darkslategrey; 
+}
+
+.redirect-header a {
+    text-decoration: none;
+    color: inherit; 
+    display: inline; 
+    height: 100%;
+    width: 100%;
+    position: relative;
+    top: 0;
+    left: 0;
+}
+
+.redirect-header a:hover {
+    background: #0194E2;
+    text-shadow: none;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: #0194E2; 
+    cursor: pointer; 
+}

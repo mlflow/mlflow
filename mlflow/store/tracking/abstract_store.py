@@ -383,7 +383,9 @@ class AbstractStore:
         :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
         :param params: List of :py:class:`mlflow.entities.Param` instances to log
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
-        :return: None.
+
+        :return: an :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance
+            that represents future for logging operation.
         """
         if not self._async_logging_queue.is_active():
             self._async_logging_queue.activate()

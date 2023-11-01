@@ -12,6 +12,7 @@ Prophet (native) format
     https://facebook.github.io/prophet/docs/quick_start.html#python-api
 """
 import json
+import logging
 import os
 from typing import Any, Dict, Optional
 
@@ -37,7 +38,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -50,6 +51,8 @@ FLAVOR_NAME = "prophet"
 _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.pr"
 _MODEL_TYPE_KEY = "model_type"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements():
@@ -169,6 +172,8 @@ def save_model(
         code=code_dir_subpath,
         **flavor_conf,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

@@ -8,14 +8,14 @@ import { RUNS_VISIBILITY_MODE } from '../../../utils/experimentPage.common-utils
  * A component used to render "eye" icon in the table header used to hide/show all runs
  */
 export const RowActionsHeaderCellRenderer = React.memo(
-  (props: { onToggleVisibility: (runUuidOrToggle: string) => void }) => (
+  (props: { allRunsHidden?: boolean; onToggleVisibility: (runUuidOrToggle: string) => void }) => (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>
         <button
           css={styles.actionButton}
           data-testid='experiment-view-runs-visibility-column-header'
         >
-          <VisibleIcon />
+          {props.allRunsHidden ? <VisibleOffIcon /> : <VisibleIcon />}
         </button>
       </DropdownMenu.Trigger>
 

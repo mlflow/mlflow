@@ -81,27 +81,27 @@ def _call_openai_api(openai_uri, payload):
 
     api_token = _OAITokenHolder(os.environ.get("OPENAI_API_TYPE", "openai"))
 
-    resp = process_api_requests(
-        [openai_provider._add_model_to_payload_if_necessary(payload)],
-        openai.ChatCompletion,
-        api_token=api_token,
-        max_requests_per_minute=3_500,
-        max_tokens_per_minute=90_000,
-    )[0]
-
-    if "error" in resp:
-        error_type = resp["error"]["type"]
-        if error_type == "invalid_request_error":
-            raise MlflowException(
-                f"Invalid Request to OpenAI. Error response:\n {resp}", error_code=BAD_REQUEST
-            )
-        elif error_type == "authentication_error":
-            raise MlflowException(
-                f"Authentication Error for OpenAI. Error response:\n {resp}",
-                error_code=UNAUTHENTICATED,
-            )
-        else:
-            raise MlflowException(f"Error response from OpenAI:\n {resp}")
+    try:
+        resp = process_api_requests(
+            [openai_provider._add_model_to_payload_if_necessary(payload)],
+            openai.ChatCompletion,
+            api_token=api_token,
+            throw_original_error=True,
+            max_workers=1,
+        )[0]
+    except openai.error.AuthenticationError as e:
+        raise MlflowException(
+            f"Authentication Error for OpenAI. Error response:\n {e}",
+            error_code=UNAUTHENTICATED,
+        )
+    except openai.error.InvalidRequestError as e:
+        raise MlflowException(
+            f"Invalid Request to OpenAI. Error response:\n {e}", error_code=BAD_REQUEST
+        )
+    except MlflowException as e:
+        raise e
+    except Exception as e:
+        raise MlflowException(f"Error response from OpenAI:\n {e}")
 
     return json.loads(openai_provider._prepare_completion_response_payload(resp).json())
 

@@ -12,6 +12,7 @@ fastai (native) format
 .. _fastai.Learner.export:
     https://docs.fast.ai/basic_train.html#Learner.export
 """
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -46,7 +47,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -56,6 +57,8 @@ from mlflow.utils.model_utils import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "fastai"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
@@ -190,6 +193,8 @@ def save_model(
         data=model_data_subpath,
         code=code_dir_subpath,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
