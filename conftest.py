@@ -45,7 +45,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--serve-wheel",
         action="store_true",
-        help="Serve a wheel for the development version of MLflow",
+        help="Serve a wheel for the dev version of MLflow",
     )
 
 
@@ -247,8 +247,8 @@ def enable_mlflow_testing():
 @pytest.fixture(scope="session", autouse=True)
 def local_pypi_repo(request, tmp_path_factory):
     """
-    Models logged during tests have a dependency on a dev version of MLflow
-    (e.g., mlflow==1.20.0.dev0) and cannot be served because the dev version is not
+    Models logged during tests have a dependency on the dev version of MLflow built from
+    source (e.g., mlflow==1.20.0.dev0) and cannot be served because the dev version is not
     available on PyPI. This fixture serves a wheel for the dev version from a temporary
     PyPI repository running on localhost and appends the repository URL to the
     `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
