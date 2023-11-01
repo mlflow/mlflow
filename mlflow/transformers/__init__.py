@@ -2679,7 +2679,7 @@ class _TransformersWrapper:
         if not valid_uri:
             raise MlflowException(
                 "An invalid string input was provided. String inputs to "
-                "audio files/image files must be either a file location or a uri.",
+                "audio or image pipelines must be either a file location or a uri.",
                 error_code=BAD_REQUEST,
             )
     def _convert_image_input(self, data):
