@@ -149,10 +149,11 @@ class _Example:
                     for x in input_ex.values()
                 ):
                     _logger.info(
-                        "We convert input dictionaries to pandas DataFrames by assuming "
-                        "each key is a column, and in total, one row of data. If you "
-                        "would like to save data as multiple rows, please convert your "
-                        "data to a pandas DataFrame before passing to input_example."
+                        "We convert input dictionaries to pandas DataFrames such that "
+                        "each key represents a column, collectively constituting a "
+                        "single row of data. If you would like to save data as "
+                        "multiple rows, please convert your data to a pandas "
+                        "DataFrame before passing to input_example."
                     )
                 input_ex = pd.DataFrame([input_ex])
             elif np.isscalar(input_ex):
