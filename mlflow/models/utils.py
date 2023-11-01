@@ -148,11 +148,11 @@ class _Example:
                     isinstance(x, str) or (isinstance(x, list) and all(_is_scalar(y) for y in x))
                     for x in input_ex.values()
                 ):
-                    _logger.warning(
-                        "We convert dictionary to pandas DataFrame by assuming each key "
-                        "is a column, and in total one row of data. If you would like to "
-                        "save data as multiple rows, please convert your data to pandas "
-                        "DataFrame before passing to input_example."
+                    _logger.info(
+                        "We convert input dictionaries to pandas DataFrames by assuming "
+                        "each key is a column, and in total, one row of data. If you "
+                        "would like to save data as multiple rows, please convert your "
+                        "data to a pandas DataFrame before passing to input_example."
                     )
                 input_ex = pd.DataFrame([input_ex])
             elif np.isscalar(input_ex):
@@ -220,10 +220,10 @@ class _Example:
                 if isinstance(x, np.ndarray) and len(x.shape) > 1:
                     raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
             if all(_is_scalar(x) for x in input_example):
-                _logger.warning(
-                    "We do not convert list of scalar values to pandas DataFrame. "
-                    "If you expect to use pandas DataFrame, please construct it and pass "
-                    "to input_example instead."
+                _logger.info(
+                    "Lists of scalar values are not converted to a pandas DataFrame. "
+                    "If you expect to use pandas DataFrames for inference, please "
+                    "construct a DataFrame and pass it to input_example instead."
                 )
                 self._inference_data = input_example
                 self.data = {"inputs": self._inference_data}
