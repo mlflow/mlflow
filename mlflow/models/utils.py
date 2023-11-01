@@ -148,6 +148,11 @@ class _Example:
                     isinstance(x, str) or (isinstance(x, list) and all(_is_scalar(y) for y in x))
                     for x in input_ex.values()
                 ):
+                    # e.g.
+                    # data = {"a": "a", "b": ["a", "b", "c"]}
+                    # >>> pd.DataFrame([data])
+                    #    a          b
+                    # 0  a  [a, b, c]
                     _logger.info(
                         "We convert input dictionaries to pandas DataFrames such that "
                         "each key represents a column, collectively constituting a "
