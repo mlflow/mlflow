@@ -22,7 +22,7 @@ from mlflow.environment_variables import (
     MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE,
     MLFLOW_GATEWAY_URI,
 )
-from mlflow.exceptions import MlflowException, UnsupportedMultipartUploadException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
@@ -1987,7 +1987,7 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
 
 def _validate_support_multipart_upload(artifact_repo):
     if not isinstance(artifact_repo, MultipartUploadMixin):
-        raise UnsupportedMultipartUploadException()
+        raise _UnsupportedMultipartUploadException()
 
 
 @catch_mlflow_exception

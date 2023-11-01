@@ -18,7 +18,7 @@ from mlflow.environment_variables import (
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
-from mlflow.exceptions import UnsupportedMultipartUploadException
+from mlflow.exceptions import _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -159,7 +159,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if Version(importlib.metadata.version("google-cloud-storage")) < Version(
             "2.12.0"
         ) or Version(importlib.metadata.version("google-resumable-media")) < Version("2.6.0"):
-            raise UnsupportedMultipartUploadException()
+            raise _UnsupportedMultipartUploadException()
 
     @staticmethod
     def _gcs_mpu_arguments(filename: str, blob) -> GCSMPUArguments:

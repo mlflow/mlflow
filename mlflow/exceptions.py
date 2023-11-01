@@ -140,7 +140,7 @@ class InvalidUrlException(MlflowException):
     pass
 
 
-class UnsupportedMultipartUploadException(MlflowException):
+class _UnsupportedMultipartUploadException(MlflowException):
     """Exception thrown when multipart upload is unsupported by an artifact repository"""
 
     message = "Multipart upload is not supported for the current artifact repository"
