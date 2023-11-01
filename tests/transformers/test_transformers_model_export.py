@@ -1372,7 +1372,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert isinstance(pd_inference, list)
     assert all(isinstance(element, str) for element in inference)
 
-def test_Vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
+def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     signature = infer_signature(
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
