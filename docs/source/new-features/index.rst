@@ -117,6 +117,21 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
+                        LLM evaluation viewer added to MLflow UI
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        You can view your LLM evaluation results directly from the MLflow UI.
+                    </div>
+                    <div class="doc"><a class="icon bell" href="../llms/llm-evaluate/index.html#view-evaluation-results-via-the-mlflow-ui">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.7.0">released in 2.7.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
                         Introducting the Prompt Engineering UI
                     </div>
                     <img class="card-image" src="../_static/images/intro/new_features/prompt-eng-ui.png" alt="Prompt Engineering UI" style="max-height: 5rem"></img>
