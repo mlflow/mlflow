@@ -214,7 +214,7 @@ def _mlflow_conda_env(
     :return: ``None`` if ``path`` is specified. Otherwise, the a dictionary representation of the
              Conda environment.
     """
-    pip_deps = (["mlflow"] if install_mlflow else []) + (
+    pip_deps = ([f"mlflow=={VERSION}"] if install_mlflow else []) + (
         additional_pip_deps if additional_pip_deps else []
     )
     conda_deps = additional_conda_deps if additional_conda_deps else []
