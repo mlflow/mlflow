@@ -13,8 +13,8 @@ jobs:
       - name: Automerge
         uses: actions/github-script@v6
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           retries: 3
           script: |
             const script = require('./.github/workflows/auto-merge.js');
-            await script({github, context});
+            await script({ github, context });

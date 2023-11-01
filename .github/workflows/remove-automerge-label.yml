@@ -17,17 +17,17 @@ jobs:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const { owner, repo, number: issue_number } = context.issue;
-            const labelToRemove = "automerge";
 
-            // Fetch current labels on the PR
-            const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number });
+            // Fetch the labels on the PR
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({ owner, repo, issue_number });
 
-            // Check if the label is present
-            const hasLabel = currentLabels.some(label => label.name === labelToRemove);
+            // Check if the automerge label is present
+            const automergeLabel = "automerge";
+            const hasLabel = labels.some({ name } => name === automergeLabel);
 
             if (hasLabel) {
-              await github.rest.issues.removeLabel({ owner, repo, issue_number, name: labelToRemove });
-              console.log(`Removed label "${labelToRemove}" from PR #${issue_number}`);
+              await github.rest.issues.removeLabel({ owner, repo, issue_number, name: automergeLabel });
+              console.log(`Removed label "${automergeLabel}" from PR #${issue_number}`);
             } else {
-              console.log(`Label "${labelToRemove}" not found on PR #${issue_number}`);
+              console.log(`Label "${automergeLabel}" not found on PR #${issue_number}`);
             }
