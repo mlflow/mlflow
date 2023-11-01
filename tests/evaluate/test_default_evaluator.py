@@ -92,7 +92,7 @@ def evaluate_model_helper(
     eval_baseline_model_only=False,
 ):
     """
-    Helper function for testing MLflow.evaluate
+    Helper function for testing mlflow.evaluate
     To test if evaluation for baseline model does not log metrics and artifacts;
     we set "disable_candidate_model" to true for the evaluator_config so that the
     DefaultEvaluator will evaluate only the baseline_model with logging
