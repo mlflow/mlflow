@@ -345,7 +345,8 @@ def _infer_signature_from_input_example(
             params = None
         example = _Example(input_example)
         # Copy the input example so that it is not mutated by predict()
-        input_schema = _infer_schema(deepcopy(example.inference_data))
+        input_example = deepcopy(example.inference_data)
+        input_schema = _infer_schema(input_example)
         params_schema = _infer_param_schema(params) if params else None
         prediction = wrapped_model.predict(input_example, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
