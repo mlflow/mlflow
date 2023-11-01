@@ -12,11 +12,6 @@ toxicity as well as LLM-judged intelligent metrics such as answer_relevance.
     :hidden:
 
     question-answering-evaluation.ipynb
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
     rag-evaluation.ipynb
 
 QA Evaluation Notebook
