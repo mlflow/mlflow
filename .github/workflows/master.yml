@@ -247,7 +247,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --serve-wheel tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -272,7 +272,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          dev/pytest.sh tests/evaluate
+          dev/pytest.sh --serve-wheel tests/evaluate
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -301,7 +301,7 @@ jobs:
       - name: Run tests
         run: |
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-            tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
+          --serve-wheel tests/pyfunc --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with ohter tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
