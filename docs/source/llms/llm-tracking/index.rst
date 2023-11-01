@@ -17,47 +17,187 @@ lineage and quality tracking for text-generating models.
 
 .. _llm-tracking-introduction:
 
-Introduction to LLM Tracking
-----------------------------
+Parameters
+-------------
+Parameters are key-value pairs which are used typcially used to log lightweight 
+metadata. Both the keys and values are stored as strings. Use 
+:py:func:`mlflow.log_param` to log a single parameter 
+:py:func:`mlflow.log_params` to log multiple parameters.
 
-The world of Large Language Models is vast, and as these models become more intricate and sophisticated, the need for a robust 
-tracking system becomes paramount. MLflow's LLM Tracking is centered around the concept of *runs*. In essence, a run is a 
-distinct execution or interaction with the LLM — whether it's a single query, a batch of prompts, or an entire fine-tuning session. 
+.. code-section::
+    .. code-block:: python 
 
-Each run meticulously records:
+        # pip install mlflow langchain
+        import mlflow
+        from typing import Dict
+        from langchain.prompts import PromptTemplate
 
-- **Parameters**: Key-value pairs that detail the input parameters for the LLM. These could range from model-specific parameters like `top_k` and `temperature` to more generic ones. They provide context and configuration for each run. Parameters can be logged using both :py:func:`mlflow.log_param` for individual entries and :py:func:`mlflow.log_params` for bulk logging.
+
+        def log_model_run(prompt_template: str, prompt_values: Dict) -> str:
+            with mlflow.start_run() as run:
+                # Log the prompt template
+                mlflow.log_param("prompt_template", prompt_template)
+
+                # Log the prompt values
+                mlflow.log_params(prompt_values)
+
+                # Generate the prompt using the template and values
+                prompt = PromptTemplate.from_template(prompt_template).format(**prompt_values)
+
+                # Placeholder for model execution code
+                # ...
+
+                # Return the run ID for later reference
+                return run.info.run_id
+
+
+        # Example usage
+        prompt_template = "Should we send {animal} to space using a {mode_of_transportation}?"
+        prompt_values = {"animal": "squirrels", "mode_of_transportation": "weather baloon"}
+
+        # Run the model with the given prompt and values
+        run_id = log_model_run(prompt_template, prompt_values)
+
+        # Retrieve and display parameters
+        params_dict = mlflow.get_run(run_id).data.params
+        for k, v in params_dict.items():
+            print(f"Loggged parameter of type {type(v)} with key {k}: {v}")
+
+Metrics
+-------
+Metrics are quantitative measures, often numeric, that give insights into the 
+performance, accuracy, or any other measurable aspect of the LLM interaction. 
+Metrics are dynamic and can be updated as the run progresses, offering a 
+real-time or post-process insight into the model's behavior. Use 
+:py:func:`mlflow.log_metric` to log a single metric and 
+:py:func:`mlflow.log_metrics` to log multiple metrics.
+
+.. code-section::
+    .. code-block:: python 
+
+        import mlflow
+        import openai
+        import pandas as pd
+
+        # Prepare evaluation data
+        eval_data = pd.DataFrame(
+            {
+                "inputs": [
+                    "Are squirrels astronauts?",
+                    "From a logistics perspective, do you think a single weather balloon could get a squirrel to space?",
+                ],
+                "ground_truth": [
+                    "Squirrels are not astronauts as they have not been trained or equipped for space travel.",
+                    "It is unlikely that a single weather balloon could safely carry a squirrel to space due to the complexities involved in space travel.",
+                ],
+            }
+        )
+
+        # Start an MLflow run
+        with mlflow.start_run() as run:
+            system_prompt = "Answer the following question in two sentences"
+
+            # Log the OpenAI model as an MLflow model
+            logged_model = mlflow.openai.log_model(
+                model="gpt-4",
+                task=openai.ChatCompletion,
+                artifact_path="model",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": "{question}"},
+                ],
+            )
+
+            # Evaluate the logged model
+            results = mlflow.evaluate(
+                logged_model.model_uri, eval_data, targets="ground_truth", model_type="question-answering"
+            )
+
+            # Explictely log ari_grade_level (this is already logged by default)
+            ari_grade_level = results.metrics.get("ari_grade_level/v1/mean")
+            if ari_grade_level is not None:
+                mlflow.log_metric("manually logged ari grade level", ari_grade_level)
+
+            # Get the current run ID
+            run_id = run.info.run_id
+
+        # Query metrics using the run ID with the fluent API
+        metrics = mlflow.get_run(run_id).data.metrics
+
+        # Display evaluation metrics
+        print(f"\nLogged metrics of type {type(metrics)}:")
+        for k, v in metrics.items():
+            print(f"{k}: {v}")
   
-- **Metrics**: These are quantitative measures, often numeric, that give insights into the performance, accuracy, or any other measurable aspect of the LLM interaction. Metrics are dynamic and can be updated as the run progresses, offering a real-time or post-process insight into the model's behavior. Logging of metrics is facilitated through :py:func:`mlflow.log_metric` and :py:func:`mlflow.log_metrics`.
-  
-- **Predictions**: To understand and evaluate LLM outputs, MLflow allows for the logging of predictions. This encompasses the prompts or inputs sent to the LLM and the outputs or responses received. For structured storage and easy retrieval, these predictions are stored as artifacts in CSV format, ensuring that each interaction is preserved in its entirety. This logging is achieved using the dedicated :py:func:`mlflow.llm.log_predictions`.
-  
-- **Artifacts**: Beyond predictions, MLflow's LLM Tracking can store a myriad of output files, ranging from visualization images (e.g., PNGs), serialized models (e.g., an `openai` model), to structured data files (e.g., a `Parquet <https://parquet.apache.org/>`_ file). The :py:func:`mlflow.log_artifact` function is at the heart of this, allowing users to log and organize their artifacts with ease.
+Tables
+-----------
+Table logging refers to storing a set of complex information in the form of a 
+dict or pandas DataFrame as a JSON artifact. With LLMs, typically you'd use 
+log_table to store things like inputs to your model, model responses, evaluation
+metrics, and anything else associated with a given run. With everything located
+in one artifact, referencing related information becomes much easier. Use 
+:py:func:`mlflow.log_table` to log a single dict or pandas DataFrame.
 
-Furthermore, to provide structured organization and comparative analysis capabilities, runs can be grouped into *experiments*. 
-These experiments act as containers, grouping related runs, and providing a higher level of organization. This organization ensures 
-that related runs can be compared, analyzed, and managed as a cohesive unit.
+.. code-section::
+    .. code-block:: python 
 
-.. _how-llm-data-is-captured:
+        # pip install mlflow
+        import time
+        import mlflow
 
-Detailed Logging of LLM Interactions
-------------------------------------
+        ARTIFACT_NAME = "important_information.json"
 
-MLflow's LLM Tracking doesn't just record data — it offers structured logging mechanisms tailored to the needs of LLM interactions:
 
-- **Parameters**: Logging parameters is straightforward. Whether you're logging a single parameter using :py:func:`mlflow.log_param` or multiple parameters simultaneously with :py:func:`mlflow.log_params`, MLflow ensures that every detail is captured.
+        def get_current_time_str():
+            return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
-- **Metrics**: Quantitative insights are crucial. Whether it's tracking the accuracy of a fine-tuned LLM or understanding its response time, metrics provide this insight. They can be logged individually via :py:func:`mlflow.log_metric` or in bulk using :py:func:`mlflow.log_metrics`.
 
-- **Predictions**: Every interaction with an LLM yields a result — a prediction. Capturing this prediction, along with the inputs that led to it, is crucial. The :py:func:`mlflow.llm.log_predictions` function is specifically designed for this, ensuring that both inputs and outputs are logged cohesively.
+        for _ in range(3):
+            with mlflow.start_run() as run:
+                table_dict = {
+                    "Prompts": ["I am a squirrel and don't have a watch", "What time is it?"],
+                    "Response": get_current_time_str(),
+                    "We used an LLM?": False,
+                }
+                mlflow.log_table(data=table_dict, artifact_file=ARTIFACT_NAME)
 
-- **Artifacts**: Artifacts act as the tangible outputs of an LLM run. They can be images, models, or any other form of data. Logging them is seamless with :py:func:`mlflow.log_artifact`, which ensures that every piece of data, regardless of its format, is stored and linked to its respective run.
+                run_id = run.info.run_id
 
-.. _storage-of-llm-data:
+        loaded_table = mlflow.load_table(
+            artifact_file=ARTIFACT_NAME,
+            run_ids=[run_id],
+        )
 
-Structured Storage of LLM Tracking Data
----------------------------------------
+        print(f"\nLoaded table is of type: {type(loaded_table)}:")
+        print(loaded_table.to_markdown())
 
-Every piece of data, every parameter, metric, prediction, and artifact is not just logged — it's structured and stored as part of an 
-MLflow Experiment run. This organization ensures data integrity, easy retrieval, and a structured approach to analyzing and understanding 
-LLM interactions in the grand scheme of machine learning workflows.
+Artifacts
+----------
+Artifacts are files that are not supported by the above functionality. Some 
+examples that relate to LLMs are serialized models (e.g. an `openai` model),
+images, data visualizations, structured data files (e.g., a 
+`Parquet <https://parquet.apache.org/>`_ file), and much more. Use 
+:py:func:`mlflow.log_artifact` to log artifacts.
+
+.. code-section::
+    .. code-block:: python 
+
+        # pip install mlflow transformers
+        import mlflow
+        from transformers import AutoModel, AutoTokenizer
+
+        MODEL_NAME = "bert-base-uncased"
+        OUTPUT_DIR = "./local_model_directory"
+
+        with mlflow.start_run():
+            # Download the specified model and tokenizer from Hugging Face
+            model = AutoModel.from_pretrained(MODEL_NAME)
+            tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+            # Save the model and tokenizer to the specified output directory
+            model.save_pretrained(OUTPUT_DIR)
+            tokenizer.save_pretrained(OUTPUT_DIR)
+            print(f"Model and tokenizer have been saved to {OUTPUT_DIR}")
+
+            # Log model and tokenizer as artifacts
+            mlflow.log_artifacts(OUTPUT_DIR, artifact_path="model")
