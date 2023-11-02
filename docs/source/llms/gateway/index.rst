@@ -86,6 +86,8 @@ Step 3: Create a Gateway Configuration File
 Next, you need to create a Gateway configuration file. This is a YAML file where you specify the
 routes that the Gateway service should expose. Let's create a file with three routes using OpenAI as a provider: completions, chat, and embeddings.
 
+For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the :ref:`gateway_configuration_details` section below.
+
 .. code-block:: yaml
 
     routes:
@@ -495,6 +497,8 @@ environment. For example:
      export OPENAI_API_KEY="your_openai_api_key"
 
 **Note:** Replace "your_openai_api_key" with your actual OpenAI API key.
+
+.. _gateway_configuration_details:
 
 AI Gateway Configuration Details
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
