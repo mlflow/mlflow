@@ -44,7 +44,7 @@ If you don't have MLflow installed, please run the command below to install it:
 
     $ pip install mlflow
 
-Installing MLflow will also install the MLflow CLI tool, you can start a local MLflow server with UI 
+The installation of MLflow includes the MLflow CLI tool, so you can start a local MLflow server with UI 
 by running the command below in your terminal:
 
 .. code-block:: bash
