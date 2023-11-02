@@ -24,11 +24,8 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import remove_on_error
-from mlflow.utils.process import _IS_UNIX, ShellCommandException, _exec_cmd, _join_commands
-from mlflow.utils.requirements_utils import (
-    _check_mlflow_version_error_and_suggest_serve_wheel,
-    _parse_requirements,
-)
+from mlflow.utils.process import _IS_UNIX, _exec_cmd, _join_commands
+from mlflow.utils.requirements_utils import _parse_requirements
 
 _logger = logging.getLogger(__name__)
 
@@ -284,20 +281,14 @@ def _create_virtualenv(
                     activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}"
                 )
 
-                try:
-                    _exec_cmd(
-                        cmd,
-                        # Set capture_output to True while testing to propagate stderr
-                        # from the process to ShellCommandException, so that we can parse
-                        # it and show more helpful message below
-                        capture_output=capture_output or _MLFLOW_TESTING.get(),
-                        cwd=tmpdir,
-                        extra_env=extra_env,
-                    )
-                except ShellCommandException as e:
-                    if _MLFLOW_TESTING.get():
-                        _check_mlflow_version_error_and_suggest_serve_wheel(str(e))
-                    raise e
+                # Set capture_output to True while testing to propagate stderr
+                # to exception, so that we can show more helpful error message
+                _exec_cmd(
+                    cmd,
+                    capture_output=capture_output or _MLFLOW_TESTING.get(),
+                    cwd=tmpdir,
+                    extra_env=extra_env,
+                )
 
     return activate_cmd
 

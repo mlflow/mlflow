@@ -12,7 +12,6 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import insecure_hash, process
 from mlflow.utils.environment import Environment
-from mlflow.utils.requirements_utils import _check_mlflow_version_error_and_suggest_serve_wheel
 
 _logger = logging.getLogger(__name__)
 
@@ -133,19 +132,13 @@ def _create_conda_env(
             "python",
         ]
 
-    try:
-        process._exec_cmd(
-            command,
-            extra_env=conda_extra_env_vars,
-            # Set capture_output to True while testing to propagate stderr
-            # from the process to ShellCommandException, so that we can parse
-            # it and show more helpful message below
-            capture_output=capture_output or _MLFLOW_TESTING.get(),
-        )
-    except process.ShellCommandException as e:
-        if _MLFLOW_TESTING.get():
-            _check_mlflow_version_error_and_suggest_serve_wheel(str(e))
-        raise e
+    process._exec_cmd(
+        command,
+        extra_env=conda_extra_env_vars,
+        # Set capture_output to True while testing to propagate stderr
+        # to exception, so that we can show more helpful error message
+        capture_output=capture_output or _MLFLOW_TESTING.get(),
+    )
 
     return Environment(get_conda_command(project_env_name), conda_extra_env_vars)
 

@@ -567,35 +567,3 @@ def _check_requirement_satisfied(requirement_str):
         )
 
     return None
-
-
-_MLFLOW_VERSION_NOT_FOUND_ERROR_REGEX = re.compile(
-    r"No matching distribution found for mlflow==([0-9]+\.[0-9]+\.[0-9]+(\.dev[0-9]+)?)"
-)
-
-
-def _check_mlflow_version_error_and_suggest_serve_wheel(error_message: str):
-    """
-    Given an error message, check if it is because of mlflow installation failure due to
-    local dev version. This particularly happens during testing, some test cases try to
-    include mlflow via pip e.g. model loading. They determine version to install based on
-    current environment i.e. dev version ahead of the latest release, hence it cannot be
-    found on PyPI. If that is the case, we suggest using `--serve-wheel` message, which
-    starts local PyPI server and serve a wheel based on local source code, and effectively
-    bypass this issue.
-
-    Ref: https://github.com/mlflow/mlflow/pull/10247
-    """
-    if m := _MLFLOW_VERSION_NOT_FOUND_ERROR_REGEX.search(error_message):
-        mlflow_version = m.group(1)
-        # check if the attempted version matches with local dev version
-        if mlflow_version == mlflow.__version__:
-            raise MlflowException(
-                f"The version of MLflow you're attempting to install ({mlflow_version}) is"
-                " not found on PyPI. This could be due to specifying a local development"
-                " version like 2.8.1.dev0, which is one micro version ahead of the latest"
-                " official release. To resolve this issue, you can use the `--serve-wheel`"
-                " flag with your pytest command, for example: `pytest tests --serve-wheel`."
-                " This flag sets up a local PyPI server, allowing you to install MLflow"
-                " from the local source code."
-            )
