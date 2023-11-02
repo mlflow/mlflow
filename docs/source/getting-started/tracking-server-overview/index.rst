@@ -13,7 +13,7 @@ tracking server configurations. At a high level, there are 3 ways to view your M
 To choose among these 3 methods, here is our recommendation:
 
 * If you have privacy concerns (data/model/tech stack), use **Method 1 - start your own server**.
-* If you are a student/individual researcher, or if you are developing in cloud-based notebook, e.g., Google 
+* If you are a student or an individual researcher, or if you are developing in cloud-based notebooks (e.g., Google 
   Colab, use **Method 2 - free hosted tracking server**.
 * Enterprise users, or if you want to serve/productionize your model, please use 
   **Method 3 - production Databricks/AzureML**.
