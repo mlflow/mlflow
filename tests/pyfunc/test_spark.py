@@ -1303,14 +1303,21 @@ def test_spark_udf_with_model_serving(spark):
 
 
 def test_spark_df_schema_inference_for_map_type(spark):
-    data = [{"a": {"a": 1, "b": 2}, "b": ["a", "b"], "c": "c", "d": {"e": ["e", "e"]}}]
+    data = [
+        {
+            "arr": ["a", "b"],
+            "map1": {"a": 1, "b": 2},
+            "map2": {"e": ["e", "e"]},
+            "string": "c",
+        }
+    ]
     df = spark.createDataFrame(data)
     expected_schema = Schema(
         [
-            ColSpec(Object([Property("a", DataType.long), Property("b", DataType.long)]), "a"),
-            ColSpec(Array(DataType.string), "b"),
-            ColSpec(DataType.string, "c"),
-            ColSpec(Object([Property("e", Array(DataType.string))]), "d"),
+            ColSpec(Array(DataType.string), "arr"),
+            ColSpec(Object([Property("a", DataType.long), Property("b", DataType.long)]), "map1"),
+            ColSpec(Object([Property("e", Array(DataType.string))]), "map2"),
+            ColSpec(DataType.string, "string"),
         ]
     )
     inferred_schema = infer_signature(df).inputs
