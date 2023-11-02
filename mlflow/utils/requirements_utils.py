@@ -592,10 +592,10 @@ def _check_mlflow_version_error_and_suggest_serve_wheel(error_message: str):
         if mlflow_version == mlflow.__version__:
             raise MlflowException(
                 f"The version of MLflow you're attempting to install ({mlflow_version}) is"
-                "not found on PyPI. This could be due to specifying a local development"
-                "version like 2.8.1.dev0, which is one micro version ahead of the latest"
-                "official release. To resolve this issue, you can use the `--serve-wheel`"
-                "flag with your pytest command, for example: `pytest tests --serve-wheel`."
-                "This flag sets up a local PyPI server, allowing you to install MLflow "
-                "from the local source code."
+                " not found on PyPI. This could be due to specifying a local development"
+                " version like 2.8.1.dev0, which is one micro version ahead of the latest"
+                " official release. To resolve this issue, you can use the `--serve-wheel`"
+                " flag with your pytest command, for example: `pytest tests --serve-wheel`."
+                " This flag sets up a local PyPI server, allowing you to install MLflow"
+                " from the local source code."
             )

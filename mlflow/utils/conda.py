@@ -4,10 +4,15 @@ import os
 
 import yaml
 
-from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_CONDA_CREATE_ENV_CMD,
+    MLFLOW_CONDA_HOME,
+)
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import insecure_hash, process
 from mlflow.utils.environment import Environment
+from mlflow.utils.requirements_utils import _check_mlflow_version_error_and_suggest_serve_wheel
 
 _logger = logging.getLogger(__name__)
 
@@ -105,36 +110,42 @@ def _create_conda_env(
     capture_output,
 ):
     if conda_env_path:
-        process._exec_cmd(
-            [
-                conda_env_create_path,
-                "env",
-                "create",
-                "-n",
-                project_env_name,
-                "--file",
-                conda_env_path,
-                "--quiet",
-            ],
-            extra_env=conda_extra_env_vars,
-            capture_output=capture_output,
-        )
+        command = [
+            conda_env_create_path,
+            "env",
+            "create",
+            "-n",
+            project_env_name,
+            "--file",
+            conda_env_path,
+            "--quiet",
+        ]
     else:
+        command = [
+            conda_env_create_path,
+            "create",
+            "--channel",
+            "conda-forge",
+            "--yes",
+            "--override-channels",
+            "-n",
+            project_env_name,
+            "python",
+        ]
+
+    try:
         process._exec_cmd(
-            [
-                conda_env_create_path,
-                "create",
-                "--channel",
-                "conda-forge",
-                "--yes",
-                "--override-channels",
-                "-n",
-                project_env_name,
-                "python",
-            ],
+            command,
             extra_env=conda_extra_env_vars,
-            capture_output=capture_output,
+            # Set capture_output to True while testing to propagate stderr
+            # from the process to ShellCommandException, so that we can parse
+            # it and show more helpful message below
+            capture_output=capture_output or _MLFLOW_TESTING.get(),
         )
+    except process.ShellCommandException as e:
+        if _MLFLOW_TESTING.get():
+            _check_mlflow_version_error_and_suggest_serve_wheel(str(e))
+        raise e
 
     return Environment(get_conda_command(project_env_name), conda_extra_env_vars)
 

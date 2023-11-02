@@ -618,7 +618,7 @@ pytest tests --quiet --requires-ssh --ignore-flavors --serve-wheel \
 We use [pytest](https://docs.pytest.org/en/latest/contents.html) to run
 Python tests. You can run tests for one or more test directories or
 files via `pytest [file_or_dir] ... [file_or_dir]`. For example, to run
-all sklean tests, you can run:
+all pytest tests, you can run:
 
 ```bash
 pytest tests/pyfunc
