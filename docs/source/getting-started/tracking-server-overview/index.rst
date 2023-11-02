@@ -179,7 +179,7 @@ Create a Databricks CE Account
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you don't have an account of Databricks CE yet, you can create one 
-`here <https://www.databricks.com/try-databricks#account>`_, it should take no longer than 3 minutes.
+`here <https://www.databricks.com/try-databricks#account>`_. The full process should take no longer than 3 minutes.
 
 Install Dependencies
 ^^^^^^^^^^^^^^^^^^^^
