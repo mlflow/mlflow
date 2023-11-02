@@ -74,7 +74,7 @@ It's also possible to deploy your own MLflow server on cloud platforms, but it i
 Connect MLflow Session to Your Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Now the server is spinned up, let's connect our MLflow session to the local server. This is very 
+Now that the server is spun up, let's connect our MLflow session to the local server. This is very 
 similar to how we connect to Databricks platform.
 
 .. code-block:: python
