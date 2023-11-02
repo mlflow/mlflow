@@ -82,7 +82,7 @@ similar to how we connect to Databricks platform.
   mlflow.set_tracking_uri("http://localhost:5000")
 
 
-Then let's try logging some dummy metrics, and view them on the local hosted UI:
+Next, let's try logging some dummy metrics. We can view these test metrics on the local hosted UI:
 
 .. code-block:: python
 
