@@ -161,7 +161,7 @@ Method 2: Use Free Hosted Tracking Server (Databricks Community Edition)
 **Notice**: This part of guide can be directly executed in cloud-based notebook, e.g., Google Colab or 
 Databricks Notebook.
 
-`Databricks Community Edition (CE) <https://community.cloud.databricks.com/>`_ is the free version of 
+`Databricks Community Edition (CE) <https://community.cloud.databricks.com/>`_ is the free, limited-use version of the 
 cloud-based big data platform Databricks. Databricks CE users can access a micro-cluster as well as 
 a cluster manager and notebook environment. All users can share their notebooks and host them free of 
 charge with Databricks. You can use Databricks CE to store and view your MLflow experiments without 
