@@ -34,70 +34,70 @@ Interested in navigating directly to the content that you're curious about? Sele
                     <div class="header">
                         Setting up MLflow Servers
                     </div>
+                    <p>
+                        Learn how to start a MLflow Tracking Server and the MLflow UI Server locally
+                    </p>
                 </a>
-                <p>
-                    Learn how to start a MLflow Tracking Server and the MLflow UI Server locally
-                </p>
             </div>
             <div class="simple-card">
                 <a href="logging-first-model/step2-mlflow-client.html" >
                     <div class="header">
                         Using the MLflow Client
                     </div>
+                    <p>
+                        Connect to the Tracking Server with the MLflow Client and learn to search for experiments
+                    </p>
                 </a>
-                <p>
-                    Connect to the Tracking Server with the MLflow Client and learn to search for experiments
-                </p>
             </div>
             <div class="simple-card">
                 <a href="logging-first-model/step3-create-experiment.html" >
                     <div class="header">
                         Create your first Experiment
                     </div>
+                    <p>
+                        Explore the MLflow UI and create your first MLflow experiment with a unique name and identifying tags
+                    </p>
                 </a>
-                <p>
-                    Explore the MLflow UI and create your first MLflow experiment with a unique name and identifying tags
-                </p>
             </div>
             <div class="simple-card">
                 <a href="logging-first-model/step4-experiment-search.html" >
                     <div class="header">
                         Search Experiments by tags
                     </div>
+                    <p>
+                        Learn the benefits of relevant identifying tags as you execute a search for experiments containing identifying tag values
+                    </p>
                 </a>
-                <p>
-                    Learn the benefits of relevant identifying tags as you execute a search for experiments containing identifying tag values
-                </p>
             </div>
             <div class="simple-card">
                 <a href="logging-first-model/step5-synthetic-data.html" >
                     <div class="header">
                         Creating a Dataset for Testing
                     </div>
+                    <p>
+                        Build a synthetic dataset to use while exploring the features of MLflow
+                    </p>
                 </a>
-                <p>
-                    Build a synthetic dataset to use while exploring the features of MLflow
-                </p>
             </div>
             <div class="simple-card">
                 <a href="logging-first-model/step6-logging-a-run.html" >
                     <div class="header">
                         Logging your first MLflow run
                     </div>
+                    <p>
+                        Train a model using the synthetic dataset and log the trained model, metrics, and parameters
+                    </p>
                 </a>
-                <p>
-                    Train a model using the synthetic dataset and log the trained model, metrics, and parameters
-                </p>
             </div>
             <div class="simple-card">
                 <a href="logging-first-model/notebooks/logging-first-model.html" >
                     <div class="header">
                         View the full Notebook
                     </div>
+                    <p>
+                        See the tutorial notebook in its entirety. If you prefer just reading code, this is the best place to look.
+                    </p>
                 </a>
-                <p>
-                    See the tutorial notebook in its entirety. If you prefer just reading code, this is the best place to look.
-                </p>
             </div>
         </article>
     </section>
@@ -131,30 +131,30 @@ most time-efficient manner possible.
                     <div class="header">
                         Introduction to autologging
                     </div>
+                    <p>
+                        Train a model and use MLflow autologging to automatically record model artifacts, metrics, and parameters
+                    </p>
                 </a>
-                <p>
-                    Train a model and use MLflow autologging to automatically record model artifacts, metrics, and parameters
-                </p>
             </div>
             <div class="simple-card">
                 <a href="quickstart-1/index.html#view-mlflow-runs-and-experiments" >
                     <div class="header">
                         View autologged data in the MLflow UI
                     </div>
+                    <p>
+                        See what autologging will autonomously log for you during model training with only a single line of code
+                    </p>
                 </a>
-                <p>
-                    See what autologging will autonomously log for you during model training with only a single line of code
-                </p>
             </div>
             <div class="simple-card">
                 <a href="quickstart-1/index.html#load-a-model-from-a-specific-training-run-for-inference" >
                     <div class="header">
                         Loading a model for inference
                     </div>
+                    <p>
+                        Load the autologged model in its native format and use it to generate predictions
+                    </p>
                 </a>
-                <p>
-                    Load the autologged model in its native format and use it to generate predictions
-                </p>
             </div>
         </article>
     </section>
@@ -181,50 +181,50 @@ via containerizing the model via Docker is covered.
                     <div class="header">
                         Generate runs
                     </div>
+                    <p>
+                        Run an MLflow Project that will perform hyperparameter tuning to generate a large volume of runs
+                    </p>
                 </a>
-                <p>
-                    Run an MLflow Project that will perform hyperparameter tuning to generate a large volume of runs
-                </p>
             </div>
             <div class="simple-card">
                 <a href="quickstart-2/index.html#compare-the-results" >
                     <div class="header">
                         Run comparison
                     </div>
+                    <p>
+                        Use the MLflow UI Runs Compare functionality to evaluate the hyperparameter tuning run and select the best model
+                    </p>
                 </a>
-                <p>
-                    Use the MLflow UI Runs Compare functionality to evaluate the hyperparameter tuning run and select the best model
-                </p>
             </div>
             <div class="simple-card">
                 <a href="quickstart-2/index.html#register-your-best-model" >
                     <div class="header">
                         Register the best model
                     </div>
+                    <p>
+                        Learn to register models with the MLflow UI and perform stage transitions from within the UI
+                    </p>
                 </a>
-                <p>
-                    Learn to register models with the MLflow UI and perform stage transitions from within the UI
-                </p>
             </div>
             <div class="simple-card">
                 <a href="quickstart-2/index.html#serve-the-model-locally" >
                     <div class="header">
                         Start a local ML inference server
                     </div>
+                    <p>
+                        Use the integrated inference server in MLflow to serve your registered model locally
+                    </p>
                 </a>
-                <p>
-                    Use the integrated inference server in MLflow to serve your registered model locally
-                </p>
             </div>
             <div class="simple-card">
                 <a href="quickstart-2/index.html#build-a-container-image-for-your-model" >
                     <div class="header">
                         Build a deployable container for your model
                     </div>
+                    <p>
+                        Learn how to generate a docker container that houses your model for deployment to external services
+                    </p>
                 </a>
-                <p>
-                    Learn how to generate a docker container that houses your model for deployment to external services
-                </p>
             </div>
         </article>
     </section>
