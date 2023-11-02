@@ -248,11 +248,11 @@ as follows:
 
 .. _quickstart-score:
 
-Step 12: Score or deploy the best configuration programmatically
+Step 12: Generate predictions programmatically
 ----------------------------------------------------------------
 Once you have found a configuration of LLM, prompt template, and parameters that performs well, you
-can score the corresponding MLflow Model in a Python environment of your choosing, or you can
-:ref:`deploy it for real-time serving <deploy-prompt-serving>`.
+can generate predictions using the corresponding MLflow Model in a Python environment of your choosing,
+or you can :ref:`deploy it for real-time serving <deploy-prompt-serving>`.
 
 1. To load the MLflow Model in a notebook for batch inference, click on the Run's name to open the
    **Run Page** and select the *model* directory in the **Artifact Viewer**. Then, copy the first
@@ -272,7 +272,7 @@ can score the corresponding MLflow Model in a Python environment of your choosin
        # Load model as a PyFuncModel.
        loaded_model = mlflow.pyfunc.load_model(logged_model)
 
-2. Then, to score the model, call the :py:func:`predict() <mlflow.pyfunc.PyFuncModel.predict>` method
+2. Then, to generate predictions, call the :py:func:`predict() <mlflow.pyfunc.PyFuncModel.predict>` method
    and pass in a dictionary of input variables. For example:
 
    .. code-block:: python
@@ -292,6 +292,13 @@ can score the corresponding MLflow Model in a Python environment of your choosin
 
    For more information about deployment for real-time serving with MLflow,
    see the :ref:`instructions below <deploy-prompt-serving>`.
+
+Step 13: Perform metric-based evaluation of your model's outputs
+----------------------------------------------------------------
+If you'd like to assess your model's performance on specific metrics, MLflow provides the :py:func:`mlflow.evaluate()`
+API. 
+
+You can learn more about LLM evaluation at the :ref:`llm-eval` page.
 
 .. _deploy-prompt-serving:
 
