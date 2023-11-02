@@ -442,7 +442,7 @@ def test_check_mlflow_version_error_and_suggest_serve_wheel():
     with pytest.raises(
         MlflowException,
         match=rf"The version of MLflow you're attempting to install \({local_mlflow_version}\)"
-        r"is not found on PyPI\..*",
+        r" is not found on PyPI\..*",
     ):
         _check_mlflow_version_error_and_suggest_serve_wheel(error_message)
 
