@@ -1640,6 +1640,12 @@ def test_schema_inference_with_empty_lists():
     data = []
     assert _infer_schema(data) == Schema([ColSpec(DataType.string)])
 
+    data = [None, "a"]
+    assert _infer_schema(data) == Schema([ColSpec(DataType.string)])
+
+    data = [["a", "b", "c"], ["a", "b", "c", "d"], None]
+    assert _infer_schema(data) == Schema([ColSpec(Array(DataType.string))])
+
     # Nested list contains only an empty list is not allowed.
     data = [[]]
     with pytest.raises(
