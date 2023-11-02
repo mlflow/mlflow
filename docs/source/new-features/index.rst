@@ -42,6 +42,23 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
+                        Updated Model Registry UI
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        A new opt-in Model Registry UI has been built that includes alias support for self-defined model stages. See more about 
+                        <a href="../model-registry.html#model-registry-workflows">model aliases</a> and 
+                        <a href="../model-registry.html#promoting-an-mlflow-model-across-environments">model promotion across environments</a> in the docs. 
+                    </div>
+                    <div class="doc"><a class="icon bell" href="../model-registry.html">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.8.0">released in 2.8.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
                         Spark Connect support 
                     </div>
                     <img class="card-image" src="../_static/images/logos/spark-logo.svg" alt="MLflow"></img>
