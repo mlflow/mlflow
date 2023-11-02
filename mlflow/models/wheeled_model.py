@@ -221,7 +221,8 @@ class WheeledModel:
         try:
             subprocess.run([download_command], check=True, shell=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            # During testing, ...
+            # Check if exception is due to attmpting to install local dev version of MLflow,
+            # and suggest using `--serve-wheel` option if so
             if _MLFLOW_TESTING.get():
                 _check_mlflow_version_error_and_suggest_serve_wheel(e.stderr.decode("utf-8"))
 

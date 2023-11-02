@@ -91,6 +91,7 @@ def _exec_cmd(
             # `sys.stdout`, as documented in
             # https://docs.python.org/3/library/subprocess.html#subprocess.run
             kwargs["stderr"] = subprocess.STDOUT
+
     process = subprocess.Popen(
         cmd,
         env=env,
