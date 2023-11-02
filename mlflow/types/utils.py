@@ -346,12 +346,14 @@ def _infer_schema(data: Any) -> Schema:
         # List[DataType]
         # e.g. ['some sentence', 'some sentence'] -> Schema([ColSpec(type=DataType.string)])
         # The corresponding pandas DataFrame representation should be pd.DataFrame(data)
-        schema = Schema([ColSpec(_infer_colspec_type(data).dtype, required=_infer_required(data))])
+        # We set required=True as unnamed optional inputs is not allowed
+        schema = Schema([ColSpec(_infer_colspec_type(data).dtype)])
     else:
         # DataType
         # e.g. "some sentence" -> Schema([ColSpec(type=DataType.string)])
         try:
-            schema = Schema([ColSpec(_infer_colspec_type(data), required=_infer_required(data))])
+            # We set required=True as unnamed optional inputs is not allowed
+            schema = Schema([ColSpec(_infer_colspec_type(data))])
         except MlflowException as e:
             raise MlflowException.invalid_parameter_value(
                 "Failed to infer schema. Expected one of the following types:\n"
