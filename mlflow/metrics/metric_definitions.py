@@ -391,7 +391,6 @@ def _prepare_for_ndcg(predictions, targets, k):
     for i in range(n_samples):
 
 
-
 def _ndcg_at_k_eval_fn(k):
     def _fn(predictions, targets):
         if not _validate_and_fix_text_tuple_data(

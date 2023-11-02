@@ -294,17 +294,14 @@ def ndcg_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for evaluating `NDCG@k`_.
 
-    NDCG supports non-binary notions of relevance. For simplicity we use binary relevance here.
-
-    This metric only computes an aggregate score which ranges from 0 to 1.
+    NDCG supports non-binary notions of relevance. For simplicity, we use binary relevance here.
 
     .. _NDCG@k: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html
     """
     return make_metric(
         eval_fn=_ndcg_at_k_eval_fn(k),
         greater_is_better=True,
-        name="ndcg_at_k",
-        version="v1",
+        name=f"ndcg_at_{k}",
     )
 
 
