@@ -522,9 +522,8 @@ def _infer_spark_type(x, data=None, col_name=None) -> DataType:
         )
 
     else:
-        raise Exception(
-            f"Unsupported Spark Type '{type(x)}', MLflow schema is only supported for scalar "
-            "Spark types."
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported Spark Type '{type(x)}' for MLflow schema."
         )
 
 
