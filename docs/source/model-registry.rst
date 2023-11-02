@@ -305,7 +305,29 @@ After you have registered an MLflow model, you can serve the model as a service 
     export MLFLOW_TRACKING_URI=http://localhost:5000
 
     # Serve the production model from the model registry
-    mlflow models serve -m "models:/sk-learn-random-forest-reg-model/Production"
+    mlflow models serve -m "models:/sk-learn-random-forest-reg-model@champion"
+
+Promoting an MLflow Model across environments
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Over the course of a model’s lifecycle, it might progress through various separate environments like
+development, testing, staging, production, and so on. This segregation facilitates continuous integration
+and deployment for the model. In MLflow, you can use registered models to set up environments for your 
+MLflow Models, where each registered model corresponds to a specific environment. Furthermore, you can
+configure access controls for the registered models using :ref:`MLflow Authentication <auth>`. Then,
+to promote MLflow Models across environments, you can use the :meth:`~mlflow.client.MlflowClient.copy_model_version` method
+to copy model versions across registered models.
+
+.. code-block:: python
+
+    client = MlflowClient()
+    client.copy_model_version(
+        src_model_uri="models:/regression-model-staging@candidate",
+        dst_name="regression-model-production",
+    )
+
+This code snippet copies the model version with the ``candidate`` alias in the ``regression-model-staging``
+model to the ``regression-model-production`` model as the latest version.
 
 Adding or Updating an MLflow Model Descriptions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

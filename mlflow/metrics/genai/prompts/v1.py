@@ -1,12 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-from mlflow.metrics.base import (
-    EvaluationExample,
-)
-from mlflow.metrics.genai.prompt_template import (
-    PromptTemplate,
-)
+from mlflow.metrics.genai.base import EvaluationExample
+from mlflow.metrics.genai.prompt_template import PromptTemplate
 
 # TODO: Update the default_mode and default_parameters to the correct values post experimentation
 default_model = "openai:/gpt-4"
@@ -98,13 +94,13 @@ class AnswerSimilarityMetric:
 
     grading_prompt = (
         "Answer similarity: Below are the details for different scores:\n"
-        "- Score 1: the output has little to no semantic similarity to the provided targets.\n"
-        "- Score 2: the output displays partial semantic similarity to the provided targets on "
+        "- Score 1: The output has little to no semantic similarity to the provided targets.\n"
+        "- Score 2: The output displays partial semantic similarity to the provided targets on "
         "some aspects.\n"
-        "- Score 3: the output has moderate semantic similarity to the provided targets.\n"
-        "- Score 4: the output aligns with the provided targets in most aspects and has "
+        "- Score 3: The output has moderate semantic similarity to the provided targets.\n"
+        "- Score 4: The output aligns with the provided targets in most aspects and has "
         "substantial semantic similarity.\n"
-        "- Score 5: the output closely aligns with the provided targets in all significant aspects."
+        "- Score 5: The output closely aligns with the provided targets in all significant aspects."
     )
 
     grading_context_columns = ["targets"]
@@ -239,16 +235,16 @@ class AnswerCorrectnessMetric:
 
     grading_prompt = (
         "Answer Correctness: Below are the details for different scores:\n"
-        "- Score 1: the output is completely incorrect. It is completely different from or "
+        "- Score 1: The output is completely incorrect. It is completely different from or "
         "contradicts the provided targets.\n"
-        "- Score 2: the output demonstrates some degree of semantic similarity and includes "
+        "- Score 2: The output demonstrates some degree of semantic similarity and includes "
         "partially correct information. However, the output still has significant discrepancies "
         "with the provided targets or inaccuracies.\n"
-        "- Score 3: the output addresses a couple of aspects of the input accurately, aligning "
+        "- Score 3: The output addresses a couple of aspects of the input accurately, aligning "
         "with the provided targets. However, there are still omissions or minor inaccuracies.\n"
-        "- Score 4: the output is mostly correct. It provides mostly accurate information, but "
+        "- Score 4: The output is mostly correct. It provides mostly accurate information, but "
         "there may be one or more minor omissions or inaccuracies.\n"
-        "- Score 5: the output is correct. It demonstrates a high degree of accuracy and "
+        "- Score 5: The output is correct. It demonstrates a high degree of accuracy and "
         "semantic similarity to the targets."
     )
 
@@ -312,13 +308,12 @@ class AnswerRelevanceMetric:
     grading_prompt = (
         "Answer relevance: Please give a score from 1-5 based on the degree of relevance to the "
         "input, where the lowest and highest scores are defined as follows:"
-        "- Score 1: the output doesn't mention anything about the question or is completely "
+        "- Score 1: The output doesn't mention anything about the question or is completely "
         "irrelevant to the input.\n"
-        "- Score 5: the output addresses all aspects of the question and all parts of the output "
+        "- Score 5: The output addresses all aspects of the question and all parts of the output "
         "are meaningful and relevant to the question."
     )
 
-    grading_context_columns = ["context"]
     parameters = default_parameters
     default_model = default_model
 
@@ -332,13 +327,6 @@ class AnswerRelevanceMetric:
         "point of the question, which is the relationship between MLflow and Databricks. "
         "Therefore, while the output is not completely irrelevant, it does not fully answer the "
         "question, leading to a lower score.",
-        grading_context={
-            "context": "MLflow is an open-source platform for managing the end-to-end machine "
-            "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
-            "in big data and machine learning solutions. MLflow is designed to address the "
-            "challenges that data scientists and machine learning engineers face when developing, "
-            "training, and deploying machine learning models."
-        },
     )
 
     example_score_5 = EvaluationExample(
@@ -351,6 +339,46 @@ class AnswerRelevanceMetric:
         "MLflow is a product created by Databricks, and also adds relevant information about the "
         "purpose of MLflow, which is to enhance the efficiency of machine learning processes. "
         "Therefore, the output is highly relevant to the input and deserves a full score.",
+    )
+
+    default_examples = [example_score_2, example_score_5]
+
+
+@dataclass
+class RelevanceMetric:
+    definition = (
+        "Relevance encompasses the appropriateness, significance, and applicability of the output "
+        "with respect to both the input and context. Scores should reflect the extent to which the "
+        "output directly addresses the question provided in the input, given the provided context."
+    )
+
+    grading_prompt = (
+        "Relevance: Below are the details for different scores:"
+        "- Score 1: The output doesn't mention anything about the question or is completely "
+        "irrelevant to the provided context.\n"
+        "- Score 2: The output provides some relevance to the question and is somehow related "
+        "to the provided context.\n"
+        "- Score 3: The output mostly answers the question and is largely consistent with the "
+        "provided context.\n"
+        "- Score 4: The output answers the question and is consistent with the provided context.\n"
+        "- Score 5: The output answers the question comprehensively using the provided context."
+    )
+
+    grading_context_columns = ["context"]
+    parameters = default_parameters
+    default_model = default_model
+
+    example_score_2 = EvaluationExample(
+        input="How is MLflow related to Databricks?",
+        output="Databricks is a data engineering and analytics platform designed to help "
+        "organizations process and analyze large amounts of data. Databricks is a company "
+        "specializing in big data and machine learning solutions.",
+        score=2,
+        justification="The output provides relevant information about Databricks, mentioning it "
+        "as a company specializing in big data and machine learning solutions. However, it doesn't "
+        "directly address how MLflow is related to Databricks, which is the specific question "
+        "asked in the input. Therefore, the output is only somewhat related to the provided "
+        "context.",
         grading_context={
             "context": "MLflow is an open-source platform for managing the end-to-end machine "
             "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
@@ -360,4 +388,23 @@ class AnswerRelevanceMetric:
         },
     )
 
-    default_examples = [example_score_2, example_score_5]
+    example_score_4 = EvaluationExample(
+        input="How is MLflow related to Databricks?",
+        output="MLflow is a product created by Databricks to enhance the efficiency of machine "
+        "learning processes.",
+        score=4,
+        justification="The output provides a relevant and accurate statement about the "
+        "relationship between MLflow and Databricks. While it doesn't provide extensive detail, "
+        "it still offers a substantial and meaningful response. To achieve a score of 5, the "
+        "response could be further improved by providing additional context or details about "
+        "how MLflow specifically functions within the Databricks ecosystem.",
+        grading_context={
+            "context": "MLflow is an open-source platform for managing the end-to-end machine "
+            "learning (ML) lifecycle. It was developed by Databricks, a company that specializes "
+            "in big data and machine learning solutions. MLflow is designed to address the "
+            "challenges that data scientists and machine learning engineers face when developing, "
+            "training, and deploying machine learning models."
+        },
+    )
+
+    default_examples = [example_score_2, example_score_4]

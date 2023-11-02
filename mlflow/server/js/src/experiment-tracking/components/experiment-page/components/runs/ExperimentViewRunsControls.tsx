@@ -53,7 +53,7 @@ export const ExperimentViewRunsControls = React.memo(
     updateExpandRows,
   }: ExperimentViewRunsControlsProps) => {
     const { paramKeyList, metricKeyList, tagsList } = runsData;
-    const { compareRunsMode } = searchFacetsState;
+    const { compareRunsMode, orderByAsc, orderByKey } = searchFacetsState;
     const isComparingRuns = compareRunsMode !== undefined;
 
     const { theme } = useDesignSystemTheme();
@@ -146,7 +146,8 @@ export const ExperimentViewRunsControls = React.memo(
               <>
                 <ExperimentViewRunsSortSelector
                   onSortKeyChanged={sortKeyChanged}
-                  searchFacetsState={searchFacetsState}
+                  orderByAsc={orderByAsc}
+                  orderByKey={orderByKey}
                   sortOptions={sortOptions}
                 />
                 {!isComparingRuns && (

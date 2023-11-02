@@ -143,7 +143,7 @@ build_context_tags_from_databricks_notebook_info <- function(notebook_info) {
 #' Get information from a Databricks job execution context
 #'
 #' Parses the data from a job execution context when running on Databricks in a non-interactive
-#' mode. This function extracts relevant data that Mlflow needs in order to properly utilize the
+#' mode. This function extracts relevant data that MLflow needs in order to properly utilize the
 #' MLflow APIs from this context.
 #'
 #' @param job_info The job-related metadata from a running Databricks job

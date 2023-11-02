@@ -75,7 +75,7 @@ jobs:
         env:
           SPARK_LOCAL_IP: localhost
         run: |
-          pytest tests/examples --durations=30
+          pytest --serve-wheel tests/examples --durations=30
 
       - name: Remove conda environments
         run: |

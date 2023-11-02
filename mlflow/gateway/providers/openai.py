@@ -38,7 +38,7 @@ class OpenAIProvider(BaseProvider):
             )
         else:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid OpenAI API type '{self.openai_api_type}'"
+                f"Invalid OpenAI API type '{self.openai_config.openai_api_type}'"
             )
 
     @property
@@ -61,7 +61,7 @@ class OpenAIProvider(BaseProvider):
             }
         else:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid OpenAI API type '{self.openai_api_type}'"
+                f"Invalid OpenAI API type '{self.openai_config.openai_api_type}'"
             )
 
     def _add_model_to_payload_if_necessary(self, payload):
