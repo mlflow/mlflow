@@ -16,8 +16,8 @@ services:
       MINIO_ROOT_PASSWORD: "password"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 60s
+      interval: 1s
+      timeout: 10s
       retries: 5
     # Note there is no bucket by default
     command: server /data --console-address ":9001"
