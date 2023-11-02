@@ -4,7 +4,7 @@
 ======================================================================
 
 In this guide we will walk you through how to view your MLflow experiment results with different types of 
-tracking server. At a high level there are 3 ways to view your MLflow experiments:
+tracking server configurations. At a high level, there are 3 ways to view your MLflow experiments:
 
 * **[Method 1]** Start your own MLflow server.
 * **[Method 2]** Use a free hosted tracking server - Databricks Community Edition.
