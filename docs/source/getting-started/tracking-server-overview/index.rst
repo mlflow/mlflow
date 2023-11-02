@@ -75,7 +75,7 @@ Connect MLflow Session to Your Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Now that the server is spun up, let's connect our MLflow session to the local server. This is very 
-similar to how we connect to Databricks platform.
+similar to how we connect to a remote hosted tracking provider such as the Databricks platform.
 
 .. code-block:: python
 
