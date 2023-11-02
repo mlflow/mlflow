@@ -463,6 +463,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
 
 def _infer_spark_type(x, data=None, col_name=None) -> DataType:
     import pyspark.sql.types
+    from pyspark.sql.functions import col, collect_list
 
     if isinstance(x, pyspark.sql.types.NumericType):
         if isinstance(x, pyspark.sql.types.IntegralType):
@@ -510,7 +511,20 @@ def _infer_spark_type(x, data=None, col_name=None) -> DataType:
         # +-------------------+
         # |{a -> 1, b -> null}|
         # +-------------------+
-        keys = data.selectExpr(f"map_keys({col_name}) as keys").first().keys
+        if isinstance(x.valueType, pyspark.sql.types.MapType):
+            raise MlflowException(
+                "Please construct spark DataFrame with schema using StructType "
+                "for dictionary/map fields, MLflow schema inference only supports "
+                "scalar, array and struct types."
+            )
+
+        merged_keys = (
+            data.selectExpr(f"map_keys({col_name}) as keys")
+            .agg(collect_list(col("keys")).alias("merged_keys"))
+            .head()
+            .merged_keys
+        )
+        keys = {key for sublist in merged_keys for key in sublist}
         return Object(
             properties=[
                 Property(
