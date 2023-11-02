@@ -60,7 +60,7 @@ It will generate logs with the IP address, for example:
     [2023-10-25 19:39:12 -0700] [50239] [INFO] Listening at: http://127.0.0.1:5000 (50239)
 
 
-Open the URL in your browser will bring you to the MLflow UI. This is the open source version MLflow UI, 
+Opening the URL of the MLflow tracking server in your browser will bring you to the MLflow UI. The image below is from the open source version of the MLflow UI, 
 which is a bit different from the MLflow UI on Databricks CE. Below is a screenshot of the landing page:
 
 .. image:: ../../_static/images/quickstart/tracking-server-overview/mlflow-localhost-landing-page.png
