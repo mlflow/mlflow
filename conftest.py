@@ -45,7 +45,8 @@ def pytest_addoption(parser):
     parser.addoption(
         "--serve-wheel",
         action="store_true",
-        help="Serve a wheel for the dev version of MLflow",
+        default=os.getenv("CI", "false").lower() == "true",
+        help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
     )
 
 
@@ -245,7 +246,7 @@ def enable_mlflow_testing():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def local_pypi_repo(request, tmp_path_factory):
+def serve_wheel(request, tmp_path_factory):
     """
     Models logged during tests have a dependency on the dev version of MLflow built from
     source (e.g., mlflow==1.20.0.dev0) and cannot be served because the dev version is not
