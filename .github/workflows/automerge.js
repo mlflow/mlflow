@@ -106,11 +106,11 @@ module.exports = async ({ github, context, dryRun }) => {
       if (dryRun) {
         console.log(`Would merge PR #${pr.number}`);
       } else {
-        // await github.rest.pulls.merge({
-        //   owner,
-        //   repo,
-        //   pull_number: pr.number,
-        // });
+        await github.rest.pulls.merge({
+          owner,
+          repo,
+          pull_number: pr.number,
+        });
       }
       console.log(`Merged PR #${pr.number}`);
       await sleep(MERGE_INTERVAL_MS);
