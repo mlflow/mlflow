@@ -78,6 +78,8 @@ We provide the following builtin factory functions to create :py:class:`Evaluati
 
 .. autofunction:: mlflow.metrics.flesch_kincaid_grade_level
 
+.. autofunction:: mlflow.metrics.exact_match
+
 .. autofunction:: mlflow.metrics.rouge1
 
 .. autofunction:: mlflow.metrics.rouge2
@@ -167,7 +169,7 @@ Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMet
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency, precision_at_k, recall_at_k
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, exact_match, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency, precision_at_k, recall_at_k
 
 Generative AI Metrics
 ---------------------

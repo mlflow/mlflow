@@ -56,10 +56,15 @@ Open the MLflow UI in your browser at the `MLFLOW_TRACKING_URI`. You should see 
 
 Choose **Chart view**. Choose the **Parallel coordinates** graph and configure it to show the **lr** and **momentum** coordinates and the **test_rmse** metric. Each line in this graph represents a run and associates each hyperparameter evaluation run's parameters to the evaluated error metric for the run. 
 
-.. image:: ../../_static/images/quickstart_mlops/mlflow_ui_chart_view.png
-    :width: 800px
-    :align: center
-    :alt: Screenshot of MLflow tracking UI parallel coordinates graph showing runs
+.. raw:: html
+
+  <img
+    src="../../_static/images/quickstart_mlops/mlflow_ui_chart_view.png"
+    width="800px"
+    class="align-center"
+    id="chart-view"
+    alt="Screenshot of MLflow tracking UI parallel coordinates graph showing runs"
+  >
 
 The red graphs on this graph are runs that fared poorly. The lowest one is a baseline run with both **lr** and **momentum** set to 0.0. That baseline run has an RMSE of ~0.89. The other red lines show that high **momentum** can also lead to poor results with this problem and architecture. 
 

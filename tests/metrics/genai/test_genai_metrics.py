@@ -468,7 +468,7 @@ def test_make_genai_metric_multiple():
         "answers the question but is missing on one critical aspect, warranting a score of "
         "2 for correctness.",
     }
-    metric_value.aggregate_results == {
+    assert metric_value.aggregate_results == {
         "mean": 2.5,
         "variance": 0.25,
         "p90": 2.9,

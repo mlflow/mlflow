@@ -247,10 +247,6 @@
     "defaultMessage": "This version",
     "description": "Model registry > model version alias select > Indicator for alias of selected version"
   },
-  "4hOOuV": {
-    "defaultMessage": "404: Resource not found",
-    "description": "Generic 404 user-friendly error for the MLFlow UI"
-  },
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
@@ -278,10 +274,6 @@
   "5ZAXeS": {
     "defaultMessage": "{timeSince, plural, =1 {1 month} other {# months}} ago",
     "description": "Text for time in months since given date for MLflow views"
-  },
-  "5Zui9s": {
-    "defaultMessage": "500: Internal server error",
-    "description": "Generic 500 user-friendly error for the MLFlow UI"
   },
   "5yWkFd": {
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
@@ -750,6 +742,10 @@
   "IWuVOI": {
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
     "description": "Text for user visible error when adding tag in model version view"
+  },
+  "IXPpwQ": {
+    "defaultMessage": "404: Resource not found",
+    "description": "Generic 404 user-friendly error for the MLflow UI"
   },
   "IZ95jb": {
     "defaultMessage": "Datasets",
@@ -1374,6 +1370,10 @@
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
+  },
+  "ddAFCW": {
+    "defaultMessage": "500: Internal server error",
+    "description": "Generic 500 user-friendly error for the MLflow UI"
   },
   "dl3Yfr": {
     "defaultMessage": "No results match this search.",

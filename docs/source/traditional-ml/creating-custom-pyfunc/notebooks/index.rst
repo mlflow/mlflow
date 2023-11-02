@@ -177,9 +177,9 @@ clicking the respective links to each notebook in this guide:
 
 .. raw:: html
 
-    <a href="introduction.ipynb" class="download-btn">Download the Introduction notebook</a><br>
-    <a href="basic-pyfunc.ipynb" class="download-btn">Download the Basic Pyfunc notebook</a><br>
-    <a href="override-predict.ipynb" class="download-btn">Download the Predict Override notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/creating-custom-pyfunc/notebooks/introduction.ipynb" class="notebook-download-btn">Download the Introduction notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/creating-custom-pyfunc/notebooks/basic-pyfunc.ipynb" class="notebook-download-btn">Download the Basic Pyfunc notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/creating-custom-pyfunc/notebooks/override-predict.ipynb" class="notebook-download-btn">Download the Predict Override notebook</a><br>
 
 .. note::
     In order to run the notebooks, please ensure that you either have a local MLflow Tracking Server started or modify the

@@ -1,4 +1,4 @@
-"""MLFlow module for HuggingFace/transformer support."""
+"""MLflow module for HuggingFace/transformer support."""
 
 import ast
 import base64

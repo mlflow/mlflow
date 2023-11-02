@@ -235,7 +235,7 @@ Deployment Guides and Tutorials
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="deployment/kubernetes-deployment/index.html" >
+                <a href="deployment/deploy-model-to-kubernetes/index.html" >
                     <div class="header">
                         Deploying a Model to Kubernetes with MLflow
                     </div>

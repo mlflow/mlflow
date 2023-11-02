@@ -12,11 +12,6 @@ toxicity as well as LLM-judged intelligent metrics such as answer_relevance.
     :hidden:
 
     question-answering-evaluation.ipynb
-
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
     rag-evaluation.ipynb
 
 QA Evaluation Notebook
@@ -26,7 +21,7 @@ If you would like a copy of this notebook to execute in your environment, downlo
 
 .. raw:: html
 
-    <a href="question-answering-evaluation.ipynb" class="download-btn">Download the notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/llm-evaluate/notebooks/question-answering-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br>
 
 To follow along and see the sections of the notebook guide, click below:
 
@@ -42,7 +37,7 @@ If you would like a copy of this notebook to execute in your environment, downlo
 
 .. raw:: html
 
-    <a href="rag-evaluation.ipynb" class="download-btn">Download the notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/llm-evaluate/notebooks/rag-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br>
 
 To follow along and see the sections of the notebook guide, click below:
 
