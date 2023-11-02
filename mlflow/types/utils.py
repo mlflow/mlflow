@@ -332,7 +332,7 @@ def _infer_schema(data: Any) -> Schema:
         schema = Schema(
             [
                 ColSpec(
-                    type=_infer_spark_type(field.dataType),
+                    type=_infer_spark_type(field.dataType, data, field.name),
                     name=field.name,
                     # Avoid setting required field for spark dataframe
                     # as the default value for spark df nullable is True
@@ -461,7 +461,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
         return _infer_numpy_dtype(col.dtype)
 
 
-def _infer_spark_type(x) -> DataType:
+def _infer_spark_type(x, data=None, col_name=None) -> DataType:
     import pyspark.sql.types
 
     if isinstance(x, pyspark.sql.types.NumericType):
@@ -494,6 +494,30 @@ def _infer_spark_type(x) -> DataType:
                     required=not f.nullable,
                 )
                 for f in x.fields
+            ]
+        )
+    elif isinstance(x, pyspark.sql.types.MapType):
+        if data is None or col_name is None:
+            raise Exception("Cannot infer schema for MapType without data and column name.")
+        # Map MapType to StructType
+        # Note that MapType assumes all values are of same type,
+        # if they're not then spark picks the first item's type
+        # and tries to convert rest to that type.
+        # e.g.
+        # >>> spark.createDataFrame([{"col": {"a": 1, "b": "b"}}]).show()
+        # +-------------------+
+        # |                col|
+        # +-------------------+
+        # |{a -> 1, b -> null}|
+        # +-------------------+
+        keys = data.selectExpr(f"map_keys({col_name}) as keys").first().keys
+        return Object(
+            properties=[
+                Property(
+                    name=k,
+                    dtype=_infer_spark_type(x.valueType),
+                )
+                for k in keys
             ]
         )
 

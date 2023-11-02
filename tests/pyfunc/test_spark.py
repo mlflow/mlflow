@@ -41,6 +41,7 @@ import mlflow.pyfunc
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
+from mlflow.models.signature import infer_signature
 from mlflow.pyfunc import (
     PyFuncModel,
     PythonModel,
@@ -50,6 +51,7 @@ from mlflow.pyfunc import (
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.types.schema import Array, DataType, Object, Property
 
 import tests
 
@@ -1298,6 +1300,21 @@ def test_spark_udf_with_model_serving(spark):
 
         res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
         assert res["res"][0] == ("string")
+
+
+def test_spark_df_schema_inference_for_map_type(spark):
+    data = [{"a": {"a": 1, "b": 2}, "b": ["a", "b"], "c": "c", "d": {"e": ["e", "e"]}}]
+    df = spark.createDataFrame(data)
+    expected_schema = Schema(
+        [
+            ColSpec(Object([Property("a", DataType.long), Property("b", DataType.long)]), "a"),
+            ColSpec(Array(DataType.string), "b"),
+            ColSpec(DataType.string, "c"),
+            ColSpec(Object([Property("e", Array(DataType.string))]), "d"),
+        ]
+    )
+    inferred_schema = infer_signature(df).inputs
+    assert inferred_schema == expected_schema
 
 
 def test_spark_udf_structs_and_arrays(spark, tmp_path):
