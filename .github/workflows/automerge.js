@@ -85,37 +85,37 @@ module.exports = async ({ github, context, dryRun }) => {
     return;
   }
 
-  for (const { number } of prs) {
-    const pr = await waitUntilMergeable(number);
+  for (const { number: prNumber } of prs) {
+    const pr = await waitUntilMergeable(prNumber);
     if (pr === null) {
-      console.log(`PR #${number} is not mergeable. Skipping...`);
+      console.log(`PR #${prNumber} is not mergeable. Skipping...`);
       continue;
     }
 
     if (!(await allChecksPassed(pr.head.sha))) {
-      console.log(`Not all checks passed for PR #${pr.number}. Skipping...`);
+      console.log(`Not all checks passed for PR #${prNumber}. Skipping...`);
       continue;
     }
 
-    if (!(await isPrApproved(pr.number))) {
-      console.log(`PR #${pr.number} is not approved. Skipping...`);
+    if (!(await isPrApproved(prNumber))) {
+      console.log(`PR #${prNumber} is not approved. Skipping...`);
       continue;
     }
 
     try {
       if (dryRun) {
-        console.log(`Would merge PR #${pr.number}`);
+        console.log(`Would merge PR #${prNumber}`);
       } else {
         await github.rest.pulls.merge({
           owner,
           repo,
-          pull_number: pr.number,
+          pull_number: prNumber,
         });
       }
-      console.log(`Merged PR #${pr.number}`);
+      console.log(`Merged PR #${prNumber}`);
       await sleep(MERGE_INTERVAL_MS);
     } catch (error) {
-      console.log(`Failed to merge PR #${pr.number}. Reason: ${error.message}`);
+      console.log(`Failed to merge PR #${prNumber}. Reason: ${error.message}`);
     }
   }
 
