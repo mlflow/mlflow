@@ -498,7 +498,7 @@ def _infer_spark_type(x, data=None, col_name=None) -> DataType:
         )
     elif isinstance(x, pyspark.sql.types.MapType):
         if data is None or col_name is None:
-            raise Exception("Cannot infer schema for MapType without data and column name.")
+            raise MlflowException("Cannot infer schema for MapType without data and column name.")
         # Map MapType to StructType
         # Note that MapType assumes all values are of same type,
         # if they're not then spark picks the first item's type
