@@ -246,14 +246,16 @@ def pytest_exception_interact(node, call, report):
     m = _MLFLOW_VERSION_NOT_FOUND_ERROR_REGEX.search(str(exception))
     if m and m.group(1) == VERSION:
         raise MlflowException(
-            f"The version of MLflow you're attempting to install ({m.group(1)}) is"
+            # Show original exception message first, then the suggestion.
+            f"{exception}\n\n"
+            f"\033[91mThe version of MLflow you're attempting to install ({m.group(1)}) is"
             " not found on PyPI. This could be due to specifying a local development"
             " version like 2.8.1.dev0, which is one micro version ahead of the latest"
             " official release. To resolve this issue, you can use the `--serve-wheel`"
             " flag with your pytest command, for example: `pytest tests --serve-wheel`."
             " This flag sets up a local PyPI server, allowing you to install MLflow"
-            " from the local source code."
-        )
+            " from the local source code.\033[0m"
+        ).with_traceback(exception.__traceback__)
 
 
 @pytest.fixture(scope="module", autouse=True)
