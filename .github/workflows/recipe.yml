@@ -45,7 +45,7 @@ jobs:
           pip install pyspark
       - name: Run tests
         run: |
-          pytest --serve-wheel tests/recipes
+          pytest tests/recipes
 
   recipes-windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -85,4 +85,4 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           export MLFLOW_HOME=$(pwd)
-          pytest --splits ${{ matrix.splits }} --group ${{ matrix.group }} --serve-wheel tests/recipes
+          pytest --splits ${{ matrix.splits }} --group ${{ matrix.group }} tests/recipes
