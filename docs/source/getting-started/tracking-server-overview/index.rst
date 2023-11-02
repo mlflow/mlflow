@@ -119,7 +119,7 @@ View Experiment on Your MLflow Server
 
 Now let's view your experiment on the local server. Open the URL in your browser, which is `http://localhost:5000` 
 in our case. In the UI, inside the left sidebar you should see the experiment with name 
-`"check-localhost-connection"`, clicking on it should bring you to the experiment view similar as below. 
+`"check-localhost-connection"`. Clicking on this experiment name should bring you to the experiment view, similar to what is shown below. 
 
 .. image:: ../../_static/images/quickstart/tracking-server-overview/mlflow-localhost-experiment-view.png
     :width: 800px
