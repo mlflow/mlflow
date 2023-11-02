@@ -28,7 +28,7 @@ Method 1: Start Your Own MLflow Server
 Google Colab or Databricks Notebook. Please follow the guide below in your local computer.
 
 A hosted tracking server is the simplest way to store and view MLflow experiments, but it is not suitable for 
-every user. For example, you don't want to expose your data and model to cloud provider. In this case, 
+every user. For example, you may not want to expose your data and model to others in your cloud provider account. In this case, 
 you can use a local hosted MLflow server to store and view your experiments. To do so, there are two steps:
 
 * Start your MLflow server.
