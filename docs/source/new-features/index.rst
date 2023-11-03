@@ -46,9 +46,8 @@ Find out about the details of major features, changes, and deprecations below.
                     </div>
                     <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
                     <div class="body">
-                        A new opt-in Model Registry UI has been built that includes alias support for self-defined model stages. See more about 
-                        <a href="../model-registry.html#model-registry-workflows">model aliases</a> and 
-                        <a href="../model-registry.html#promoting-an-mlflow-model-across-environments">model promotion across environments</a> in the docs. 
+                        A new opt-in Model Registry UI has been built that uses Aliases and Tags for managing model development. See 
+                       more about the new <a href="../model-registry.html#ui-workflow">UI workflow</a> in the docs.
                     </div>
                     <div class="doc"><a class="icon bell" href="../model-registry.html">Learn more</a></div>
                     <div class="tag">
