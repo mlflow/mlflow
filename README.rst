@@ -7,7 +7,9 @@ MLflow is a platform designed to streamline machine learning development, offeri
 MLflow provides a set of lightweight APIs that can be used with any existing machine learning application or library (e.g., TensorFlow, PyTorch, XGBoost) and can run on various environments, such as notebooks, standalone applications, or the cloud. MLflow's current components are:
 
 * `MLflow Tracking <https://mlflow.org/docs/latest/tracking.html>`_: An API to log parameters, code, and
-   results in machine learning experiments and compare them using an interactive UI
+   results within in machine learning experiments and compare them using an interactive UI
+   * `MLflow AI Gateway <https://www.mlflow.org/docs/latest/llms/gateway/index.html>`_: A unified inference interface to SaaS LLM providers and custom self-hosted LLMs
+   * `MLflow LLM Evaluate <https://www.mlflow.org/docs/latest/llms/llm-evaluate/index.html>`_: A suite of tools that helps in the evaluation and creation of LLM prompts and models
 * `MLflow Projects <https://mlflow.org/docs/latest/projects.html>`_: A code packaging format for reproducible
   runs using Conda and Docker, enabling you to share your ML code with others.
 * `MLflow Models <https://mlflow.org/docs/latest/models.html>`_: A model packaging format and tools that let
