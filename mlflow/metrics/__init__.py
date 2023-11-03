@@ -279,6 +279,11 @@ def ndcg_at_k(k) -> EvaluationMetric:
     This function will create a metric for evaluating `NDCG@k`_.
 
     NDCG supports non-binary notions of relevance. For simplicity, we use binary relevance here.
+    The relevance score for documents in the ground truth is 1, and the relevance score for
+    documents not in the ground truth is 0.
+
+    Different from the sklearn's ndcg_score, this metric allows duplicate doc IDs in the
+    retrieved doc IDs.
 
     .. _NDCG@k: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html
     """

@@ -373,6 +373,24 @@ def _precision_at_k_eval_fn(k):
     return _fn
 
 
+def _expand_duplicate_retrieved_docs(predictions, targets):
+    counter = {}
+    expanded_predictions = []
+    expanded_targets = targets.copy()
+    for doc_id in predictions:
+        if doc_id not in counter:
+            counter[doc_id] = 1
+            expanded_predictions.append(doc_id)
+        else:
+            counter[doc_id] += 1
+            new_doc_id = (
+                f"{doc_id}_bc574ae_{counter[doc_id]}"  # adding a random string to avoid collisions
+            )
+            expanded_predictions.append(new_doc_id)
+            expanded_targets.add(new_doc_id)
+    return expanded_predictions, expanded_targets
+
+
 def _prepare_row_for_ndcg(predictions, targets):
     """Prepare data one row from predictions and targets to y_score, y_true for ndcg calculation.
 
@@ -386,19 +404,34 @@ def _prepare_row_for_ndcg(predictions, targets):
         y_score : ndarray of shape (1, n_docs) Representing the retrieved docs.
             n_docs is the number of unique docs in union of predictions and targets.
     """
-    all_docs = set(predictions + targets)
+    eps = 1e-6
+    targets = set(targets)
+
+    # support predictions contain duplicate doc ID
+    predictions, targets = _expand_duplicate_retrieved_docs(predictions, targets)
+
+    all_docs = targets.union(predictions)
     doc_id_to_index = {doc_id: i for i, doc_id in enumerate(all_docs)}
-    n_labels = min(len(doc_id_to_index), 2)  # sklearn.metrics.ndcg_score requires at least 2 labels
-    y_true = np.zeros((1, n_labels), dtype=np.int8)
-    y_score = np.zeros((1, n_labels), dtype=np.int8)
-    for doc_id in predictions:
-        y_score[0, doc_id_to_index[doc_id]] = 1
+    n_labels = max(len(doc_id_to_index), 2)  # sklearn.metrics.ndcg_score requires at least 2 labels
+    y_true = np.zeros((1, n_labels), dtype=np.float32)
+    y_score = np.zeros((1, n_labels), dtype=np.float32)
+    for i, doc_id in enumerate(predictions):
+        # "1 - i * eps" means we assign higher score to docs that are ranked higher,
+        # but all scores are still approximately 1.
+        y_score[0, doc_id_to_index[doc_id]] = 1 - i * eps
     for doc_id in targets:
         y_true[0, doc_id_to_index[doc_id]] = 1
     return y_score, y_true
 
 
 def _ndcg_at_k_eval_fn(k):
+    if not (isinstance(k, int) and k > 0):
+        _logger.warning(
+            f"Cannot calculate 'ndcg_at_k' for invalid parameter 'k'. "
+            f"'k' should be a positive integer; found: {k}. Skipping metric logging."
+        )
+        return noop
+
     def _fn(predictions, targets):
         from sklearn.metrics import ndcg_score
 
@@ -409,12 +442,23 @@ def _ndcg_at_k_eval_fn(k):
 
         scores = []
         for i in range(len(predictions)):
+            # edge cases
+            if len(predictions[i]) == 0 and len(targets[i]) == 0:
+                scores.append(1)  # no error is made
+                continue
+
+            if len(predictions[i]) == 0 or len(targets[i]) == 0:
+                scores.append(0)
+                continue
+
             # only include the top k retrieved chunks
             y_score, y_true = _prepare_row_for_ndcg(predictions[i][:k], targets[i])
             score = ndcg_score(y_true, y_score, k=len(predictions[i][:k]), ignore_ties=True)
             scores.append(score)
 
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+
+    return _fn
 
 
 def _recall_at_k_eval_fn(k):

@@ -13,6 +13,7 @@ from mlflow.metrics import (
     mape,
     max_error,
     mse,
+    ndcg_at_k,
     precision_at_k,
     precision_score,
     r2_score,
@@ -38,6 +39,9 @@ from mlflow.metrics import (
         rougeL(),
         rougeLsum(),
         toxicity(),
+        precision_at_k(3),
+        recall_at_k(3),
+        ndcg_at_k(3),
     ],
 )
 def test_return_type_and_len_with_target(metric):
@@ -266,3 +270,69 @@ def test_recall_at_k():
         "p90": 0.8,
         "variance": 0.1,
     }
+
+
+def test_ndcg_at_k():
+    # normal cases
+    data = pd.DataFrame(
+        [
+            {"target": [], "prediction": [], "k": [3], "ndcg": 1},  # no error is made
+            {"target": [], "prediction": ["1", "2"], "k": [3], "ndcg": 0},
+            {"target": ["1"], "prediction": [], "k": [3], "ndcg": 0},
+            {"target": ["1"], "prediction": ["1"], "k": [3], "ndcg": 1},
+            {"target": ["1"], "prediction": ["2"], "k": [3], "ndcg": 0},
+        ]
+    )
+    predictions = data["prediction"]
+    targets = data["target"]
+    result = ndcg_at_k(3).eval_fn(predictions, targets)
+
+    assert result.scores == data["ndcg"].to_list()
+    assert pytest.approx(result.aggregate_results["mean"]) == 0.4
+    assert pytest.approx(result.aggregate_results["p90"]) == 1.0
+    assert pytest.approx(result.aggregate_results["variance"]) == 0.24
+
+    # test different k values
+    predictions = pd.Series([["1", "2"]])
+    targets = pd.Series([["1"]])
+    ndcg = [1, 1, 1]
+    for i in range(3):
+        k = i + 1
+        result = ndcg_at_k(k).eval_fn(predictions, targets)
+        assert pytest.approx(result.scores[0]) == ndcg[i]
+
+    # test different k values and prediction orders
+    predictions = pd.Series([["2", "1", "3"]])
+    targets = pd.Series([["1", "2", "3"]])
+    ndcg = [1, 1, 1, 1]
+    for i in range(4):
+        k = i + 1
+        result = ndcg_at_k(k).eval_fn(predictions, targets)
+        assert pytest.approx(result.scores[0]) == ndcg[i]
+
+    # test different k values
+    predictions = pd.Series([["4", "5", "1"]])
+    targets = pd.Series([["1", "2", "3"]])
+    ndcg = [0, 0, 0.2346394, 0.2346394]
+    for i in range(4):
+        k = i + 1
+        result = ndcg_at_k(k).eval_fn(predictions, targets)
+        assert pytest.approx(result.scores[0]) == ndcg[i]
+
+    # test duplicate predictions
+    predictions = pd.Series([["1", "1", "2", "5", "5"], ["1_1", "1_2", "2", "5", "6"]])
+    targets = pd.Series([["1", "2", "3"], ["1_1", "1_2", "2", "3"]])
+    for i in range(4):
+        k = i + 1
+        result = ndcg_at_k(k).eval_fn(predictions, targets)
+        # row 1 and 2 have the same ndcg score
+        assert pytest.approx(result.scores[0]) == pytest.approx(result.scores[1])
+
+    # test duplicate targets
+    predictions = pd.Series([["1", "2", "3"], ["1", "2", "3"]])
+    targets = pd.Series([["1", "1", "1"], ["1"]])
+    for i in range(4):
+        k = i + 1
+        result = ndcg_at_k(k).eval_fn(predictions, targets)
+        # row 1 and 2 have the same ndcg score
+        assert pytest.approx(result.scores[0]) == pytest.approx(result.scores[1])
