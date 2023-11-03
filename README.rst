@@ -2,7 +2,9 @@
 MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
-MLflow is a platform designed to streamline machine learning development. It includes features like tracking experiments, packaging code into reproducible runs, and sharing and deploying models. MLflow provides a set of lightweight APIs that can be used with any existing machine learning application or library (e.g., TensorFlow, PyTorch, XGBoost) and can run on various environments, such as notebooks, standalone applications, or the cloud. MLflow's current components are:
+MLflow is a platform designed to streamline machine learning development, offering features for tracking experiments, packaging code into reproducible runs, and deploying models. A notable highlight of MLflow is its robust support for Large Language Models (LLMs). This includes an integrated AI Gateway, a specialized Prompt Engineering UI, and native flavors for popular LLM frameworks like open-ai, transformers, and sentence-transformers. 
+
+MLflow provides a set of lightweight APIs that can be used with any existing machine learning application or library (e.g., TensorFlow, PyTorch, XGBoost) and can run on various environments, such as notebooks, standalone applications, or the cloud. MLflow's current components are:
 
 * `MLflow Tracking <https://mlflow.org/docs/latest/tracking.html>`_: An API to log parameters, code, and
    results in machine learning experiments and compare them using an interactive UI
