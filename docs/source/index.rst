@@ -17,13 +17,23 @@ If this is your first time exploring MLflow, the tutorials and guides here are a
 getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to 
 enhance your learning in area-specific guides and tutorials. 
 
-Getting Started Guides
-^^^^^^^^^^^^^^^^^^^^^^
+Getting Started Guides and Quickstarts
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. raw:: html
 
     <section>
         <article class="simple-grid">
+            <div class="simple-card">
+                <a href="getting-started/intro-quickstart/index.html" >
+                    <div class="header">
+                        MLflow Tracking Quickstart
+                    </div>
+                </a>
+                <p>
+                    A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference. 
+                </p>
+            </div>
             <div class="simple-card">
                 <a href="getting-started/logging-first-model/index.html" >
                     <div class="header">
@@ -38,7 +48,7 @@ Getting Started Guides
             <div class="simple-card">
                 <a href="getting-started/quickstart-1/index.html" >
                     <div class="header">
-                        15 minute Tracking Quickstart
+                        Autologging Quickstart
                     </div>
                     <p>
                         Short on time? This is a no-frills quickstart that shows how to leverage autologging during training and how to 
@@ -49,7 +59,7 @@ Getting Started Guides
             <div class="simple-card">
                 <a href="getting-started/quickstart-2/index.html" >
                     <div class="header">
-                        15 minute Deployment Quickstart
+                        Deployment Quickstart
                     </div>
                     <p>
                         Learn the basics of registering a model, setting up local serving for validation, and the process of 
