@@ -120,7 +120,7 @@ def _call_openai_api(openai_uri, payload):
     except Exception as e:
         raise MlflowException(f"Error response from OpenAI:\n {e}")
 
-    temp = {
+    return {
         "candidates": [
             {
                 "text": c["message"]["content"],
@@ -129,7 +129,6 @@ def _call_openai_api(openai_uri, payload):
             for c in resp["choices"]
         ],
     }
-    return temp
 
 
 def _call_gateway_api(gateway_uri, payload):
