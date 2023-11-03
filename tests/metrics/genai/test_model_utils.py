@@ -100,6 +100,8 @@ def test_score_model_openai(set_envs):
                     "model": "gpt-3.5-turbo",
                     "temperature": 0.2,
                     "messages": [{"role": "user", "content": "my prompt"}],
+                    "api_base": "https://api.openai.com/v1",
+                    "api_type": "open_ai",
                 }
             ],
             mock.ANY,
@@ -142,6 +144,10 @@ def test_score_model_azure_openai(set_azure_envs):
                 {
                     "temperature": 0.2,
                     "messages": [{"role": "user", "content": "my prompt"}],
+                    "api_base": "https://openai-for.openai.azure.com/",
+                    "api_version": "2023-05-15",
+                    "api_type": "azure",
+                    "deployment_id": "test-openai",
                 }
             ],
             mock.ANY,
