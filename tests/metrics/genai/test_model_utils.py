@@ -32,6 +32,18 @@ def set_azure_envs(monkeypatch):
     )
 
 
+@pytest.fixture
+def set_bad_azure_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_TYPE": "azure",
+            "OPENAI_API_VERSION": "2023-05-15",
+            "OPENAI_API_BASE": "https://openai-for.openai.azure.com/",
+        }
+    )
+
+
 def test_parse_model_uri():
     prefix, suffix = _parse_model_uri("openai:/gpt-3.5-turbo")
 
@@ -100,6 +112,8 @@ def test_score_model_openai(set_envs):
                     "model": "gpt-3.5-turbo",
                     "temperature": 0.2,
                     "messages": [{"role": "user", "content": "my prompt"}],
+                    "api_base": "https://api.openai.com/v1",
+                    "api_type": "open_ai",
                 }
             ],
             mock.ANY,
@@ -142,6 +156,10 @@ def test_score_model_azure_openai(set_azure_envs):
                 {
                     "temperature": 0.2,
                     "messages": [{"role": "user", "content": "my prompt"}],
+                    "api_base": "https://openai-for.openai.azure.com/",
+                    "api_version": "2023-05-15",
+                    "api_type": "azure",
+                    "deployment_id": "test-openai",
                 }
             ],
             mock.ANY,
@@ -149,6 +167,13 @@ def test_score_model_azure_openai(set_azure_envs):
             throw_original_error=True,
             max_workers=1,
         )
+
+
+def test_score_model_azure_openai_bad_envs(set_bad_azure_envs):
+    with pytest.raises(
+        MlflowException, match="Either engine or deployment_id must be set for Azure OpenAI API"
+    ):
+        score_model_on_payload("openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1})
 
 
 def test_score_model_gateway():
