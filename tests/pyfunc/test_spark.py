@@ -41,6 +41,7 @@ import mlflow.pyfunc
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
+from mlflow.models.signature import infer_signature
 from mlflow.pyfunc import (
     PyFuncModel,
     PythonModel,
@@ -50,6 +51,7 @@ from mlflow.pyfunc import (
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.types.schema import Array, DataType, Object, Property
 
 import tests
 
@@ -1298,6 +1300,34 @@ def test_spark_udf_with_model_serving(spark):
 
         res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
         assert res["res"][0] == ("string")
+
+
+def test_spark_df_schema_inference_for_map_type(spark):
+    data = [
+        {
+            "arr": ["a", "b"],
+            "map1": {"a": 1, "b": 2},
+            "map2": {"e": ["e", "e"]},
+            "string": "c",
+        }
+    ]
+    df = spark.createDataFrame(data)
+    expected_schema = Schema(
+        [
+            ColSpec(Array(DataType.string), "arr"),
+            ColSpec(Object([Property("a", DataType.long), Property("b", DataType.long)]), "map1"),
+            ColSpec(Object([Property("e", Array(DataType.string))]), "map2"),
+            ColSpec(DataType.string, "string"),
+        ]
+    )
+    inferred_schema = infer_signature(df).inputs
+    assert inferred_schema == expected_schema
+
+    complex_df = spark.createDataFrame([{"map": {"nested_map": {"a": 1}}}])
+    with pytest.raises(
+        MlflowException, match=r"Please construct spark DataFrame with schema using StructType"
+    ):
+        infer_signature(complex_df)
 
 
 def test_spark_udf_structs_and_arrays(spark, tmp_path):
