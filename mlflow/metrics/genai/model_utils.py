@@ -76,14 +76,24 @@ def _call_openai_api(openai_uri, payload):
 
     import openai
 
+    from mlflow.openai import _get_api_config
     from mlflow.openai.api_request_parallel_processor import process_api_requests
     from mlflow.openai.utils import _OAITokenHolder
 
-    api_token = _OAITokenHolder(os.environ.get("OPENAI_API_TYPE", "openai"))
+    api_config = _get_api_config()
+    api_token = _OAITokenHolder(api_config.api_type)
+    envs = {
+        x: getattr(api_config, x)
+        for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
+        if getattr(api_config, x) is not None
+    }
+
+    payload_with_model = openai_provider._add_model_to_payload_if_necessary(payload)
+    payload_with_envs = {**payload_with_model, **envs}
 
     try:
         resp = process_api_requests(
-            [openai_provider._add_model_to_payload_if_necessary(payload)],
+            [payload_with_envs],
             openai.ChatCompletion,
             api_token=api_token,
             throw_original_error=True,
