@@ -3658,22 +3658,38 @@ If the default set of metrics is insufficient, you can supply ``extra_metrics`` 
 to :py:func:`mlflow.evaluate()` to produce extra metrics and artifacts for the model(s) that you're evaluating.
 
 To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions``, ``targets``,
-and ``metrics`` as inputs and outputs a ``MetricValue`` object. 
+and ``metrics`` as inputs and outputs a ``MetricValue`` object. ``predictions`` and ``targets`` are ``pandas.Series``
+objects. 
+
+``metrics`` is a dictionary mapping a metric name ``string`` to a ``MetricValue`` object. It contains the values
+from built-in metrics and can be used to compute your custom metric. The built-in metrics are available when
+``model_type`` is defined for ``mlflow.evaluate(... model_type="classifier")``.
+.. code-block:: python
+    {'accuracy_score': MetricValue(scores=None, justifications=None, aggregate_results={'accuracy_score': 1.0})}
 
 The ``MetricValue`` class has three attributes:
 
-* ``scores``: used for per-row metrics 
-* ``aggregate_results``: a dictionary that maps metric names to their aggregate results
-* ``justification``: a per-row justification of the values in ``scores``
+* ``scores``: contains per-row metrics 
+* ``aggregate_results``: a dictionary that maps the aggregation method names to the 
+corresponding aggregated values.
+* ``justification``: a per-row justification of the values in ``scores``. This is 
+optional, and is usually used with genai metrics.
+
 The code block below demonstrates how to define a custom metric evaluation function:
 
 .. code-block:: python
     from mlflow.metrics import MetricValue
 
     def my_metric_eval_fn(predictions, targets, metrics):
-        scores = predictions
-        mymetric = np.sum(np.abs(predictions - targets))
-        return MetricValue(scores=scores, aggregate_results={"mymetric": mymetric})
+        scores = np.abs(predictions - targets)
+        return MetricValue(
+            scores=scores, 
+            aggregate_results={
+                "mean": np.mean(scores),
+                "variance": np.var(scores),
+                "median": np.median(scores)
+            }
+        )
 
 Once you have defined an ``eval_fn``, you then use ``make_metric()`` to wrap this ``eval_fn`` function into a metric.
 In addition to ``eval_fn``, ``make_metric()`` requires an additional parameter , ``greater_is_better``, for optimization purposes. This parameter
@@ -3709,16 +3725,16 @@ To directly evaluate an output dataframe, you can **omit** the ``model`` paramet
 
 When your model has multiple outputs, the model must return a pandas DataFrame with multiple columns. You must
 specify one column among the model output columns as the predictions column using the ``predictions`` parameter,
-and other output columns of the model will be accessible from the ``eval_fn`` via col_mapping. For example, if 
+and other output columns of the model will be accessible from the ``eval_fn`` via ``col_mapping``. For example, if 
 your model has two outputs ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions
 column, and ``retrieved_context`` column will be accessible from the ``eval_fn``:
 
 .. code-block:: python
 
     def eval_fn(predictions, targets, metrics, retrieved_context):
-        return MetricValue(aggregate_results={"mymetric": np.sum(predictions == targets), "sum_of_retrieved_context": np.sum(retrieved_context)})
+        return MetricValue(aggregate_results={"equal": np.sum(predictions == targets), "sum_of_retrieved_context": np.sum(retrieved_context)})
 
-    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False)
+    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False, name="mymetric")
 
     def model(x):
         return pd.DataFrame({"retrieved_context": x["inputs"]+1, "answer": x["inputs"]})
@@ -4211,7 +4227,7 @@ Let's examine the custom flavor module in more detail. The first step is to impo
 inluding ``sktime`` library, various MLflow utilities as well as the MLflow ``pyfunc`` module which
 is required to add the ``pyfunc`` specification to the MLflow model configuration. Note also the
 import of the ``flavor`` module itself. This will be passed to the
-:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current Mlflow
+:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current MLflow
 run.
 
 .. code-block:: python
