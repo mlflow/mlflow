@@ -13,7 +13,7 @@ MLflow provides a set of lightweight APIs that can be used with any existing mac
 * `MLflow Projects <https://mlflow.org/docs/latest/projects.html>`_: A code packaging format for reproducible
   runs using Conda and Docker, enabling you to share your ML code with others.
 * `MLflow Models <https://mlflow.org/docs/latest/models.html>`_: A model packaging format and tools that let
-  you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms like Docker, Apache Spark, Azure ML, and AWS SageMaker.
+  you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms like Docker, Apache Spark, Databricks, Azure ML, and AWS SageMaker.
 
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, a set of APIs, and a user interface for collaboratively managing the full lifecycle of MLflow Models.
 
