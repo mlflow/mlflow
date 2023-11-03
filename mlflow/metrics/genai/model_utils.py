@@ -1,3 +1,4 @@
+import logging
 import os
 import urllib.parse
 
@@ -5,6 +6,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, UNAUTHENTICATED
 
 ROUTE_TYPE = "llm/v1/completions"
+
+_logger = logging.getLogger(__name__)
 
 
 # TODO: improve this name
@@ -67,13 +70,31 @@ def _call_openai_api(openai_uri, payload):
         payload,
         {"candidate_count": "n"},
     )
+    # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
     payload["temperature"] = 2 * payload["temperature"]
     payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
 
-    if api_config.api_type not in ("azure", "azure_ad", "azuread"):
-        payload = {"model": openai_uri, **payload}
-    else:
+    if api_config.api_type in ("azure", "azure_ad", "azuread"):
+        deployment_id = envs.get("deployment_id")
+        if envs.get("engine"):
+            # Avoid using both parameters as they serve the same purpose
+            # Invalid inputs:
+            #   - Wrong engine + correct/wrong deployment_id
+            #   - No engine + wrong deployment_id
+            # Valid inputs:
+            #   - Correct engine + correct/wrong deployment_id
+            #   - No engine + correct deployment_id
+            if deployment_id is not None:
+                _logger.warning(
+                    "Both engine and deployment_id are set. " "Using engine as it takes precedence."
+                )
+        elif deployment_id is None:
+            raise MlflowException(
+                "Either engine or deployment_id must be set for Azure OpenAI API",
+            )
         payload = payload
+    else:
+        payload = {"model": openai_uri, **payload}
 
     payload_with_envs = {**payload, **envs}
 
