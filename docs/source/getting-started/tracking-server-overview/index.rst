@@ -222,7 +222,7 @@ Connect MLflow Session to Databricks CE
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We have set up the credentials, now we need to tell MLflow to send the data into Databricks CE. 
-To do so, we will use :py:func:`mlflow.set_tracking_uri("databricks")` to port MLflow to Databricks CE. Basically 
+To do so, we will use ``mlflow.set_tracking_uri("databricks")`` to port MLflow to Databricks CE. Basically 
 it is the command below. Please note that you need to always use `"databricks"` as the keyword.
 
 .. code-block:: python
