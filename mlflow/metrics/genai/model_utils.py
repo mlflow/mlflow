@@ -72,8 +72,6 @@ def _call_openai_api(openai_uri, payload):
     )
     openai_provider = OpenAIProvider(route_config)
 
-    payload = openai_provider._prepare_completion_request_payload(payload)
-
     import openai
 
     from mlflow.openai import _get_api_config
@@ -88,8 +86,21 @@ def _call_openai_api(openai_uri, payload):
         if getattr(api_config, x) is not None
     }
 
-    payload_with_model = openai_provider._add_model_to_payload_if_necessary(payload)
-    payload_with_envs = {**payload_with_model, **envs}
+    from mlflow.gateway.providers.utils import rename_payload_keys
+
+    payload = rename_payload_keys(
+        payload,
+        {"candidate_count": "n"},
+    )
+    payload["temperature"] = 2 * payload["temperature"]
+    payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
+
+    if api_config.api_type not in ("azure", "azure_ad", "azuread"):
+        payload = {"model": openai_uri, **payload}
+    else:
+        payload = payload
+
+    payload_with_envs = {**payload, **envs}
 
     try:
         resp = process_api_requests(
