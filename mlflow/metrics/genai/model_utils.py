@@ -1,4 +1,3 @@
-import json
 import os
 import urllib.parse
 
@@ -42,8 +41,6 @@ def _parse_model_uri(model_uri):
 
 def _call_openai_api(openai_uri, payload):
     """Wrapper around the OpenAI API to make it compatible with the MLflow Gateway API."""
-    from mlflow.gateway.config import RouteConfig
-    from mlflow.gateway.providers.openai import OpenAIProvider
 
     if "OPENAI_API_KEY" not in os.environ:
         raise MlflowException(
@@ -51,29 +48,9 @@ def _call_openai_api(openai_uri, payload):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    config = {"openai_api_key": os.environ["OPENAI_API_KEY"]}
-    if "OPENAI_API_BASE" in os.environ:
-        config["openai_api_base"] = os.environ["OPENAI_API_BASE"]
-    if "OPENAI_API_TYPE" in os.environ:
-        config["openai_api_type"] = os.environ["OPENAI_API_TYPE"]
-    if "OPENAI_API_VERSION" in os.environ:
-        config["openai_api_version"] = os.environ["OPENAI_API_VERSION"]
-    if "OPENAI_DEPLOYMENT_NAME" in os.environ:
-        config["openai_deployment_name"] = os.environ["OPENAI_DEPLOYMENT_NAME"]
-
-    route_config = RouteConfig(
-        name="openai",
-        route_type=ROUTE_TYPE,
-        model={
-            "name": openai_uri,
-            "provider": "openai",
-            "config": config,
-        },
-    )
-    openai_provider = OpenAIProvider(route_config)
-
     import openai
 
+    from mlflow.gateway.providers.utils import rename_payload_keys
     from mlflow.openai import _get_api_config
     from mlflow.openai.api_request_parallel_processor import process_api_requests
     from mlflow.openai.utils import _OAITokenHolder
@@ -85,8 +62,6 @@ def _call_openai_api(openai_uri, payload):
         for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
         if getattr(api_config, x) is not None
     }
-
-    from mlflow.gateway.providers.utils import rename_payload_keys
 
     payload = rename_payload_keys(
         payload,
@@ -124,7 +99,16 @@ def _call_openai_api(openai_uri, payload):
     except Exception as e:
         raise MlflowException(f"Error response from OpenAI:\n {e}")
 
-    return json.loads(openai_provider._prepare_completion_response_payload(resp).json())
+    temp = {
+        "candidates": [
+            {
+                "text": c["message"]["content"],
+                "metadata": {"finish_reason": c["finish_reason"]},
+            }
+            for c in resp["choices"]
+        ],
+    }
+    return temp
 
 
 def _call_gateway_api(gateway_uri, payload):
