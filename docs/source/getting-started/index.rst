@@ -35,7 +35,7 @@ Interested in navigating directly to the content that you're curious about? Sele
                         Setting up MLflow Servers
                     </div>
                     <p>
-                        Learn how to start a MLflow Tracking Server and the MLflow UI Server locally
+                        Learn how to start an MLflow Tracking Server and the MLflow UI Server locally
                     </p>
                 </a>
             </div>
@@ -45,7 +45,7 @@ Interested in navigating directly to the content that you're curious about? Sele
                         Using the MLflow Client
                     </div>
                     <p>
-                        Connect to the Tracking Server with the MLflow Client and learn to search for experiments
+                        Connect to the Tracking Server with the MLflow Client and learn how to search for experiments
                     </p>
                 </a>
             </div>
@@ -65,7 +65,7 @@ Interested in navigating directly to the content that you're curious about? Sele
                         Search Experiments by tags
                     </div>
                     <p>
-                        Learn the benefits of relevant identifying tags as you execute a search for experiments containing identifying tag values
+                        Learn how to use tags for MLflow experiments and how to leverage them for searching
                     </p>
                 </a>
             </div>
