@@ -81,23 +81,23 @@ Tutorials and Guides
                     <div class="header">
                         Hyperparameter Tuning with MLflow and Optuna
                     </div>
+                    <p>
+                        Explore the integration of MLflow Tracking with Optuna for hyperparameter tuning. Dive into the capabilities of MLflow, 
+                        understand parent-child run relationships, and compare different tuning runs to optimize model performance.
+                    </p>
                 </a>
-                <p>
-                    Explore the integration of MLflow Tracking with Optuna for hyperparameter tuning. Dive into the capabilities of MLflow, 
-                    understand parent-child run relationships, and compare different tuning runs to optimize model performance.
-                </p>
             </div>
             <div class="simple-card">
                 <a href="creating-custom-pyfunc/index.html">
                     <div class="header">
                         Custom Pyfunc Models with MLflow
                     </div>
+                    <p>
+                        Dive deep into the world of MLflow's Custom Pyfunc. Starting with basic model definitions, embark on a journey that
+                        showcases the versatility and power of Pyfunc. From simple mathematical curves to complex machine learning integrations,
+                        discover how Pyfunc offers standardized, reproducible, and efficient workflows for a variety of use cases.
+                    </p>
                 </a>
-                <p>
-                    Dive deep into the world of MLflow's Custom Pyfunc. Starting with basic model definitions, embark on a journey that
-                    showcases the versatility and power of Pyfunc. From simple mathematical curves to complex machine learning integrations,
-                    discover how Pyfunc offers standardized, reproducible, and efficient workflows for a variety of use cases.
-                </p>
             </div>
         </article>
     </section>
