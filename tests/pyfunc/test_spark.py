@@ -1323,6 +1323,12 @@ def test_spark_df_schema_inference_for_map_type(spark):
     inferred_schema = infer_signature(df).inputs
     assert inferred_schema == expected_schema
 
+    complex_df = spark.createDataFrame([{"map": {"nested_map": {"a": 1}}}])
+    with pytest.raises(
+        MlflowException, match=r"Please construct spark DataFrame with schema using StructType"
+    ):
+        infer_signature(complex_df)
+
 
 def test_spark_udf_structs_and_arrays(spark, tmp_path):
     class MyModel(mlflow.pyfunc.PythonModel):
