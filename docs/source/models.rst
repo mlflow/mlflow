@@ -3665,6 +3665,7 @@ objects.
 from built-in metrics and can be used to compute your custom metric. The built-in metrics are available when
 ``model_type`` is defined for ``mlflow.evaluate(... model_type="classifier")``.
 .. code-block:: python
+
     {'accuracy_score': MetricValue(scores=None, justifications=None, aggregate_results={'accuracy_score': 1.0})}
 
 The ``MetricValue`` class has three attributes:
@@ -3678,6 +3679,7 @@ optional, and is usually used with genai metrics.
 The code block below demonstrates how to define a custom metric evaluation function:
 
 .. code-block:: python
+
     from mlflow.metrics import MetricValue
 
     def my_metric_eval_fn(predictions, targets, metrics):
@@ -3696,6 +3698,7 @@ In addition to ``eval_fn``, ``make_metric()`` requires an additional parameter ,
 indicates whether this is a metric we want to maximize or minimize.
 
 .. code-block:: python
+
     from mlflow.metrics import make_metric
 
     mymetric = make_metric(eval_fn=my_metric_eval_fn, greater_is_better=False)
@@ -3707,6 +3710,7 @@ instance, a URI referring to a pyfunc model, or a callable function that takes i
 and outputs the predictions.
 
 .. code-block:: python
+
     def model(x):
         return x["inputs"]
 
@@ -3747,6 +3751,7 @@ When you want to pass additional parameters to the extra metric function, you ca
 parameter.
 
 .. code-block:: python
+    
     def eval_fn(predictions, targets, metrics, k):
         return MetricValue(aggregate_results={"mymetric": k*np.sum((predictions == targets))})
     weighted_mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False)
