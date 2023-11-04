@@ -3731,7 +3731,7 @@ When your model has multiple outputs, the model must return a pandas DataFrame w
 specify one column among the model output columns as the predictions column using the ``predictions`` parameter,
 and other output columns of the model will be accessible from the ``eval_fn`` based on their column names. For example, if 
 your model has two outputs ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions
-column, and ``retrieved_context`` column will be accessible as a parameter from ``eval_fn`` via ``col_mapping``:
+column, and ``retrieved_context`` column will be accessible as the ``context`` parameter from ``eval_fn`` via ``col_mapping``:
 
 .. code-block:: python
     def eval_fn(predictions, targets, metrics, context):
