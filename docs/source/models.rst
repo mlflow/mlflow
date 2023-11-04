@@ -3670,9 +3670,9 @@ from built-in metrics and can be used to compute your custom metric. The built-i
 
 The ``MetricValue`` class has three attributes:
 
-* ``scores``: contains per-row metrics 
+* ``scores``: contains per-row metrics. Has to be a python ``list``.
 * ``aggregate_results``: a dictionary that maps the aggregation method names to the 
-corresponding aggregated values.
+corresponding aggregated values. This is intended to be used to aggregate ``scores``.
 * ``justification``: a per-row justification of the values in ``scores``. This is 
 optional, and is usually used with genai metrics.
 
@@ -3685,7 +3685,7 @@ The code block below demonstrates how to define a custom metric evaluation funct
     def my_metric_eval_fn(predictions, targets, metrics):
         scores = np.abs(predictions - targets)
         return MetricValue(
-            scores=scores, 
+            scores=list(scores), 
             aggregate_results={
                 "mean": np.mean(scores),
                 "variance": np.var(scores),
@@ -3714,7 +3714,7 @@ and outputs the predictions.
     def model(x):
         return x["inputs"]
 
-    eval_dataset = pd.DataFrame({"targets": [1,2,3,4,5,6,7,8], "inputs": [1,2,3,4,5,6,7,8]})
+    eval_dataset = pd.DataFrame({"targets": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], "inputs": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0]})
 
     mlflow.evaluate(model, eval_dataset, targets="targets", extra_metrics=[mymetric])
 
@@ -3723,7 +3723,7 @@ To directly evaluate an output dataframe, you can **omit** the ``model`` paramet
 
 .. code-block:: python
 
-    eval_dataset = pd.DataFrame({"targets": [1,2,3,4,5,6,7,8], "predictions": [1,2,3,4,5,6,7,8]})
+    eval_dataset = pd.DataFrame({"targets": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], "predictions": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0]})
 
     result = mlflow.evaluate(data=eval_dataset, predictions="predictions", targets="targets", extra_metrics=[mymetric])
 
@@ -3731,35 +3731,61 @@ When your model has multiple outputs, the model must return a pandas DataFrame w
 specify one column among the model output columns as the predictions column using the ``predictions`` parameter,
 and other output columns of the model will be accessible from the ``eval_fn`` based on their column names. For example, if 
 your model has two outputs ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions
-column, and ``retrieved_context`` column will be accessible as a parameter from ``eval_fn``:
+column, and ``retrieved_context`` column will be accessible as a parameter from ``eval_fn`` via ``col_mapping``:
 
 .. code-block:: python
-
-    def eval_fn(predictions, targets, metrics, retrieved_context):
-        return MetricValue(aggregate_results={"equal": np.sum(predictions == targets), "sum_of_retrieved_context": np.sum(retrieved_context)})
+    def eval_fn(predictions, targets, metrics, context):
+        scores = (predictions == targets) + context
+        return MetricValue(
+            scores=list(scores), 
+            aggregate_results={"mean": np.mean(scores), "sum": np.sum(scores)}
+        )
 
     mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False, name="mymetric")
 
     def model(x):
         return pd.DataFrame({"retrieved_context": x["inputs"]+1, "answer": x["inputs"]})
 
-    eval_dataset = pd.DataFrame({"targets": [1,2,3,4,5,6,7,8], "inputs": [1,2,3,4,5,6,7,8]})
+    eval_dataset = pd.DataFrame({"targets": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], "inputs": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0]})
+
+    config = {"col_mapping": {"context": "retrieved_context"}}
+
+    result = mlflow.evaluate(model, eval_dataset, predictions="answer", targets="targets", extra_metrics=[mymetric], evaluator_config=config)
+
+However, you can also avoid using ``col_mapping`` if the parameter of ``eval_fn`` is the same as the output column name of the model. 
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, metrics, retrieved_context):
+        scores = (predictions == targets) + retrieved_context
+        return MetricValue(
+            scores=list(scores), 
+            aggregate_results={"mean": np.mean(scores), "sum": np.sum(scores)}
+        )
+
+    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False, name="mymetric")
+
+    def model(x):
+        return pd.DataFrame({"retrieved_context": x["inputs"]+1, "answer": x["inputs"]})
+
+    eval_dataset = pd.DataFrame({"targets": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], "inputs": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0]})
 
     result = mlflow.evaluate(model, eval_dataset, predictions="answer", targets="targets", extra_metrics=[mymetric])
 
-When you want to pass additional parameters to the extra metric function, you can use the ``evaluator_config``
-parameter with ``col_mapping``.
+``col_mapping`` also allows you to pass additional parameters to the extra metric function, in this case passing a value ``k``.
 
 .. code-block:: python
 
     def eval_fn(predictions, targets, metrics, k):
-        return MetricValue(aggregate_results={"mymetric": k*np.sum((predictions == targets))})
+        scores = k*(predictions == targets)
+        return MetricValue(scores=list(scores), aggregate_results={"mean": np.mean(scores)})
+
     weighted_mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False)
 
     def model(x):
         return x["inputs"]
 
-    eval_dataset = pd.DataFrame({"targets": [1,2,3,4,5,6,7,8], "inputs": [1,2,3,4,5,6,7,8]})
+    eval_dataset = pd.DataFrame({"targets": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0], "inputs": [1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0]})
 
     config = {"col_mapping": {"k": 5}}
     mlflow.evaluate(model, eval_dataset, targets="targets", extra_metrics=[weighted_mymetric], evaluator_config=config)
