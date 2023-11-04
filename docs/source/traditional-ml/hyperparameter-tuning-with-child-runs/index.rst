@@ -1,6 +1,10 @@
 Hyperparameter Tuning with MLflow and Optuna
 ============================================
 
+.. raw:: html
+
+   <div class="no-toc"></div>
+
 In this guide, we venture into a frequent use case of MLflow Tracking: hyperparameter tuning.
 
 Our journey will begin with a detailed notebook that showcases hyperparameter tuning using Optuna,

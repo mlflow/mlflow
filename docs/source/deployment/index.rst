@@ -1,6 +1,10 @@
 Deployment
 ==========
 
+.. raw:: html
+
+   <div class="no-toc"></div>
+
 In the modern age of machine learning, deploying models effectively and consistently plays a pivotal role. The capability to serve predictions 
 at scale, manage dependencies, and ensure reproducibility is paramount for businesses to derive actionable insights from their ML models. 
 Whether it's for real-time predictions, batch processing, or interactive analyses, a robust model serving framework is essential.

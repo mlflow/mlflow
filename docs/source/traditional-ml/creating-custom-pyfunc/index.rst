@@ -1,6 +1,10 @@
 Building Custom Python Function Models with MLflow
 ==================================================
 
+.. raw:: html
+
+   <div class="no-toc"></div>
+
 MLflow offers a wide range of pre-defined model flavors, but there are instances where you'd want to go 
 beyond these and craft something tailored to your needs. That's where custom PyFuncs come in handy.
 

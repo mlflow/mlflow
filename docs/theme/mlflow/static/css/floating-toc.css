@@ -1,0 +1,61 @@
+/* CSS for ToC Container */
+#floating-toc-container {
+    position: fixed;
+    right: 2rem;
+    top: 12rem;
+    min-width: 250px;
+    max-width: 350px;
+    width: auto;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: #f8f9fa; 
+    padding: 10px;
+    border-radius: 10px; /* Rounded edges */
+    box-shadow: rgba(2, 8, 20, 0.3) 0.4rem 0.8rem 1.6rem, rgba(2, 8, 20, 0.1) 0rem 0.4rem 3px;
+    z-index: 99;
+    display: flex;
+}
+
+#floating-toc li {
+    list-style: none;
+    padding-top: 5px;
+    padding-left: 10px;
+    text-indent: 0px;
+}
+
+#floating-toc li a {
+    color: hsl(205, 100%, 25%); 
+    text-decoration: none;
+    transition: color 0.2s; 
+    display: inline-block;
+}
+
+#floating-toc li.toc-h1 a {
+    font-size: 1.2rem;
+}
+
+#floating-toc li.toc-h2 a {
+    color: hsl(205, 100%, 35%); 
+    font-size: 1.1rem;
+    padding-left: 20px;
+}
+
+#floating-toc li.toc-h3 a {
+    color: hsl(205, 100%, 45%); 
+    font-size: 1rem;
+    padding-left: 30px;
+}
+
+#floating-toc li a.active {
+    font-weight: bold;
+    background-color: #007bff; 
+    border-radius: 5px;
+    color: white;
+    padding-right: 10px;
+    padding-left: 5px;
+}
+
+#floating-toc li a:hover {
+    color: hsl(205, 100%, 70%);
+    font-weight: bold;
+}

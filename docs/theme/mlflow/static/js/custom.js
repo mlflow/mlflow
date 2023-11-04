@@ -227,3 +227,128 @@ fetch('https://pypi.org/pypi/mlflow/json')
   .catch((error) => {
     console.error('Failed to fetch package metadata from PyPI:', error);
   });
+
+// Floating side bar navigable table of contents with current document h1, h2, h3 content listings
+document.addEventListener("DOMContentLoaded", function() {
+
+    // disable short-circuit for pages where a ToC doesn't make sense
+    if (document.querySelector('.no-toc')) {
+        debugLog('ToC disabled on this page.');
+        return; 
+    }
+
+    var tocContainer = document.createElement('div');
+    tocContainer.id = 'floating-toc-container';
+    document.body.appendChild(tocContainer);
+
+    var toc = document.createElement('ul');
+    toc.id = 'floating-toc';
+    tocContainer.appendChild(toc);
+
+    var headings = document.querySelectorAll('[itemprop="articleBody"] h1, [itemprop="articleBody"] h2, [itemprop="articleBody"] h3');
+    headings.forEach(function(heading, index) {
+        if (!heading.id) {
+            heading.id = 'heading-' + index;
+        }
+        var listItem = document.createElement('li');
+        listItem.className = 'toc-' + heading.tagName.toLowerCase();
+        listItem.innerHTML = '<a href="#' + heading.id + '">' + heading.textContent + '</a>';
+        toc.appendChild(listItem);
+    });
+
+    // Stateful variable to store the ToC width after initial calculation
+    var tocWidth;
+    var retryCount = 0;
+    var maxRetries = 5;
+    var defaultToCWidth = 350; // Fallback width if calculation fails
+    var isDebugMode = false; // Set this to true to enable debug logging
+
+    function debugLog(...args) {
+        if (isDebugMode) {
+            console.log(...args);
+        }
+    }
+
+    function checkToCPosition() {
+        var tocContainer = document.getElementById('floating-toc-container');
+        var contentElement = document.querySelector('.wy-nav-content');
+        var sideScrollElement = document.querySelector('.wy-side-scroll');
+    
+        if (typeof tocWidth === 'undefined' || tocWidth <= 0) {
+            debugLog('Calculating ToC width.');
+            
+            // Force the otherwise lazy creation of this DOM element to get sizing information
+            tocContainer.style.visibility = 'hidden';
+            tocContainer.style.position = 'absolute';
+            tocContainer.style.display = 'block';
+            tocWidth = tocContainer.offsetWidth;
+            tocContainer.style.display = '';
+            tocContainer.style.position = '';
+            tocContainer.style.visibility = '';
+            
+            debugLog('ToC width set to:', tocWidth);
+    
+            if (tocWidth <= 0 && retryCount < maxRetries) {
+                debugLog('ToC width is 0, scheduling a retry.');
+                setTimeout(checkToCPosition, 100); 
+                retryCount++; 
+                return; 
+            } else if (tocWidth <= 0) {
+                debugLog('ToC width is 0 after retries, using default width.');
+                tocWidth = defaultToCWidth;
+            }
+        }
+    
+        var contentRect = contentElement.getBoundingClientRect();
+        var sideScrollRect = sideScrollElement.getBoundingClientRect();
+        var availableSpace = window.innerWidth - contentRect.width - sideScrollRect.right - tocWidth;
+
+        debugLog('Window width:', window.innerWidth);
+        debugLog('Content rect:', contentRect);
+        debugLog('Side scroll rect:', sideScrollRect);
+        debugLog('ToC width:', tocWidth);
+        debugLog('Available space:', availableSpace);
+    
+        var shouldDisplay = availableSpace >= 0; 
+        tocContainer.style.display = shouldDisplay ? 'block' : 'none';
+    
+        debugLog('ToC should display:', shouldDisplay);
+    }
+    
+    window.addEventListener('resize', checkToCPosition);
+    debugLog('Resize observer set up.');
+
+    checkToCPosition();
+    debugLog('DOMContentLoaded - Initial ToC check performed.');
+});
+
+// Scroll highlight functionality for the floating ToC
+document.addEventListener('DOMContentLoaded', (event) => {
+    const headings = document.querySelectorAll('[itemprop="articleBody"] h1, [itemprop="articleBody"] h2, [itemprop="articleBody"] h3');
+    const navLinks = document.querySelectorAll('#floating-toc li a');
+
+    function onScroll() {
+        let currentSectionId = '';
+
+        // Use the bounding rectangle and scroll position to determine the current section
+        headings.forEach((heading) => {
+            const rect = heading.getBoundingClientRect();
+            if (rect.top <= window.innerHeight * 0.25) { 
+                currentSectionId = heading.id;
+            }
+        });
+
+        // Update the ToC links' active state based on the current section
+        navLinks.forEach((link) => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === '#' + currentSectionId) {
+                link.classList.add('active');
+            }
+        });
+    }
+
+    window.addEventListener('scroll', onScroll);
+    onScroll();
+});
+
+

@@ -7,6 +7,8 @@ Find out about the details of major features, changes, and deprecations below.
 
 .. raw:: html
 
+    <div class="no-toc"></div>
+    
     <section>
         <article class="new-content-grid">
             <div class="grid-card">

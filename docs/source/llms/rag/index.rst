@@ -1,6 +1,10 @@
 Retrieval Augmented Generation (RAG)
 ====================================
 
+.. raw:: html
+
+   <div class="no-toc"></div>
+
 Retrieval Augmented Generation (RAG) is a powerful and efficient approach to natural 
 language processing that combines the strength of both pre-trained foundation models and 
 retrieval mechanisms. It allows the generative model to access a dataset of documents 

@@ -1,6 +1,11 @@
 Deploying Advanced LLMs with Custom PyFuncs in MLflow
 =====================================================
 
+.. raw:: html
+
+   <div class="no-toc"></div>
+
+
 Advanced Large Language Models (LLMs) such as the MPT-7B instruct transformer are intricate and have requirements that don't align with 
 traditional MLflow flavors. This demands a deeper understanding and the need for custom solutions.
 
