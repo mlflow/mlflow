@@ -1,6 +1,16 @@
+import logging
 from abc import ABCMeta, abstractmethod
+from time import sleep, time
 
+from mlflow.entities.model_registry import ModelVersionTag
+from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.annotations import developer_stable
+
+_logger = logging.getLogger(__name__)
+
+AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
 
 
 @developer_stable
@@ -312,3 +322,68 @@ class AbstractStore:
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass
+
+    def copy_model_version(self, src_mv, dst_name):
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                       the source model version.
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        raise MlflowException(
+            "Method 'copy_model_version' has not yet been implemented for the current model "
+            "registry backend. To request support for implementing this method with this backend, "
+            "please submit an issue on GitHub."
+        )
+
+    def _copy_model_version_impl(self, src_mv, dst_name):
+        try:
+            self.create_registered_model(dst_name)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                raise
+
+        return self.create_model_version(
+            name=dst_name,
+            source=f"models:/{src_mv.name}/{src_mv.version}",
+            run_id=src_mv.run_id,
+            tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
+            run_link=src_mv.run_link,
+            description=src_mv.description,
+        )
+
+    def _await_model_version_creation(self, mv, await_creation_for):
+        """
+        Await for model version to become ready after creation.
+
+        :param mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        :param await_creation_for: Number of seconds to wait for the model version to finish being
+                                    created and is in ``READY`` status.
+        """
+        self._await_model_version_creation_impl(mv, await_creation_for)
+
+    def _await_model_version_creation_impl(self, mv, await_creation_for, hint=""):
+        _logger.info(
+            f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
+            f"Model name: {mv.name}, version {mv.version}",
+        )
+        max_time = time() + await_creation_for
+        pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
+        while mv.status == pending_status:
+            if time() > max_time:
+                raise MlflowException(
+                    f"Exceeded max wait time for model name: {mv.name} version: {mv.version} "
+                    f"to become READY. Status: {mv.status} Wait Time: {await_creation_for}"
+                    f".{hint}"
+                )
+            mv = self.get_model_version(mv.name, mv.version)
+            sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS)
+        if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
+            raise MlflowException(
+                f"Model version creation failed for model name: {mv.name} version: "
+                f"{mv.version} with status: {mv.status} and message: {mv.status_message}"
+            )

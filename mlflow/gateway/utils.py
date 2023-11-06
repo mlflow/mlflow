@@ -6,8 +6,6 @@ import re
 from typing import List, Optional
 from urllib.parse import urlparse
 
-import psutil
-
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
@@ -43,6 +41,8 @@ def kill_child_processes(parent_pid):
     """
     Gracefully terminate or kill child processes from a main process
     """
+    import psutil
+
     parent = psutil.Process(parent_pid)
     for child in parent.children(recursive=True):
         try:
@@ -177,3 +177,7 @@ def is_valid_mosiacml_chat_model(model_name: str) -> bool:
         model_name.lower().startswith(supported)
         for supported in MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
     )
+
+
+def is_valid_ai21labs_model(model_name: str) -> bool:
+    return model_name in {"j2-ultra", "j2-mid", "j2-light"}

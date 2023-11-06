@@ -906,10 +906,7 @@ def test_autolog_logs_signature_and_input_example(data_type):
 
     X, y = get_iris()
     X = data_type(X)
-    if data_type in [csr_matrix, csc_matrix]:
-        y = np.array(y)
-    else:
-        y = data_type(y)
+    y = np.array(y) if data_type in [csr_matrix, csc_matrix] else data_type(y)
     model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run() as run:

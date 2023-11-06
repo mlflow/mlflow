@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ModelsNextUIPromoModal } from './ModelsNextUIPromoModal';
-import { Modal, Switch } from '@databricks/design-system';
+import { Modal, Switch, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useNextModelsUIContext } from '../hooks/useNextModelsUI';
 
 const promoModalSeenStorageKey = '_mlflow_promo_modal_dismissed';
@@ -32,14 +32,13 @@ export const ModelsNextUIToggleSwitch = () => {
       setUsingNextModelsUI(true);
     }
   };
+  const { theme } = useDesignSystemTheme();
   return (
     <>
-      <Switch
-        checked={usingNextModelsUI}
-        aria-label={label}
-        label={label}
-        onChange={switchNextUI}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        <label>{label}</label>
+        <Switch checked={usingNextModelsUI} aria-label={label} onChange={switchNextUI} />
+      </div>
       <ModelsNextUIPromoModal
         visible={promoModalVisible}
         onClose={() => {
@@ -69,8 +68,16 @@ export const ModelsNextUIToggleSwitch = () => {
       >
         <FormattedMessage
           defaultMessage='
-          In order to improve the product experience, we would love to get your feedback on the new model layout.'
+          Thank you for exploring the new Model Registry UI. We are dedicated to providing the best experience, and your feedback is invaluable.
+          Please share your thoughts with us <link>here</link>.'
           description='Model registry > Switcher for the new model registry UI containing aliases > disable confirmation modal content'
+          values={{
+            link: (chunks) => (
+              <Typography.Link href={'https://forms.gle/aMB4qDrhMeEm2r359'} openInNewTab>
+                {chunks}
+              </Typography.Link>
+            ),
+          }}
         />
       </Modal>
     </>

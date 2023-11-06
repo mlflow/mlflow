@@ -98,10 +98,10 @@ const boldedText = (wholeText: string, shouldBeBold: string) => {
     // Override this here
     <span css={{ fontWeight: 'normal' }} data-test-id={wholeText}>
       {textArray.map((item, index) => (
-        <>
+        <React.Fragment key={index}>
           {item}
           {index !== textArray.length - 1 && match && <b>{match[index]}</b>}
-        </>
+        </React.Fragment>
       ))}
     </span>
   );

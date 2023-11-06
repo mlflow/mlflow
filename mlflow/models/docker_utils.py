@@ -105,8 +105,8 @@ WORKDIR /opt/mlflow
 
 {custom_setup_steps}
 
-# granting read/write access and conditional execution authority to all child directories 
-# and files to allow for deployment to AWS Sagemaker Serverless Endpoints 
+# granting read/write access and conditional execution authority to all child directories
+# and files to allow for deployment to AWS Sagemaker Serverless Endpoints
 # (see https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html)
 RUN chmod o+rwX /opt/mlflow/
 

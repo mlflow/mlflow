@@ -487,7 +487,6 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
               </div>
               <div style={{ marginTop: 12 }}>
                 <SchemaTable
-                  // @ts-expect-error TS(2322): Type '{ schema: { inputs: undefined; outputs: unde... Remove this comment to see the full error message
                   schema={{ inputs: this.state.inputs, outputs: this.state.outputs }}
                   defaultExpandAllRows
                 />
@@ -536,11 +535,10 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
         if (parsedJson.flavors.mleap) {
           this.setState({ flavor: 'mleap' });
         } else if (parsedJson.flavors.python_function) {
-          if (parsedJson.flavors.python_function.loader_module === 'mlflow.spark') {
-            this.setState({ flavor: 'pyfunc', loader_module: 'mlflow.spark' });
-          } else {
-            this.setState({ flavor: 'pyfunc' });
-          }
+          this.setState({
+            flavor: 'pyfunc',
+            loader_module: parsedJson.flavors.python_function.loader_module,
+          });
         } else {
           this.setState({ flavor: Object.keys(parsedJson.flavors)[0] });
         }

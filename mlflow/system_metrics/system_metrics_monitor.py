@@ -26,6 +26,8 @@ class SystemMetricsMonitor:
     environment variables, e.g., run `export MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL=10` in terminal
     will set the sampling interval to 10 seconds.
 
+    System metrics are logged with a prefix "system/", e.g., "system/cpu_utilization_percentage".
+
     Args:
         run_id: string, the MLflow run ID.
         sampling_interval: float, default to 10. The interval (in seconds) at which to pull system
@@ -58,6 +60,8 @@ class SystemMetricsMonitor:
         self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
         self._process = None
+        self._logging_step = 0
+        self._metrics_prefix = "system/"
 
     def start(self):
         """Start monitoring system metrics."""
@@ -118,7 +122,11 @@ class SystemMetricsMonitor:
 
     def publish_metrics(self, metrics):
         """Log collected metrics to MLflow."""
-        self.mlflow_logger.record_metrics(metrics)
+        # Add prefix "system/" to the metrics name for grouping.
+        metrics = {self._metrics_prefix + k: v for k, v in metrics.items()}
+
+        self.mlflow_logger.record_metrics(metrics, self._logging_step)
+        self._logging_step += 1
         for monitor in self.monitors:
             monitor.clear_metrics()
 

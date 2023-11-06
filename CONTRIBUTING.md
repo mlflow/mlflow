@@ -11,6 +11,7 @@ We welcome community contributions to MLflow. This page provides useful informat
   - [Write designs for significant changes](#write-designs-for-significant-changes)
   - [Make changes backwards compatible](#make-changes-backwards-compatible)
   - [Consider introducing new features as MLflow Plugins](#consider-introducing-new-features-as-mlflow-plugins)
+  - [Python Style Guide](#python-style-guide)
 - [Setting up the repository](#setting-up-the-repository)
 - [Developing and testing MLflow](#developing-and-testing-mlflow)
   - [Environment Setup and Python configuration](#environment-setup-and-python-configuration)
@@ -179,6 +180,35 @@ base](https://github.com/mlflow/mlflow/blob/cdc6a651d5af0f29bd448d2c87a198cf5d32
 
 For more information about Plugins, see
 <https://mlflow.org/docs/latest/plugins.html>.
+
+### Python Style Guide
+
+##### Docstrings
+
+We follow [Google's Python Style Guide](https://google.github.io/styleguide/pyguide.html)
+for writing docstrings. Make sure your docstrings adhere to this style
+guide.
+
+The process for converting to a standard docstring format style is  
+ongoing. If you see a docstring in the code base that doesn't adhere
+to this formatting style and you'd like to contribute a fix, feel free
+to open a PR to correct the docstring formatting.
+
+###### Code Style
+
+We use [pylint](https://pypi.org/project/pylint/),
+[black](https://black.readthedocs.io/en/stable/the_black_code_style/index.html),
+and [ruff](https://github.com/astral-sh/ruff) in our CI via
+pre-commit Git hooks. If your code passes the CI checks, it's
+formatted correctly.
+
+To validate that your local versions of the above libraries
+match those in the mlflow CI, refer to [lint-requirements.txt](https://github.com/mlflow/mlflow/blob/master/requirements/lint-requirements.txt).
+You can compare these versions with your local using pip:
+
+```bash
+pip show pylint
+```
 
 ## Setting up the repository
 
@@ -410,6 +440,12 @@ The Javascript Dev Server will run at <http://localhost:3000> and the
 MLflow server will run at <http://localhost:5000> and show runs logged
 in `./mlruns`.
 
+#### Launching MLflow UI with MLflow AI Gateway for PromptLab
+
+```sh
+python dev/server.py
+```
+
 #### Testing a React Component
 
 Add a test file in the same directory as the newly created React
@@ -574,8 +610,9 @@ Then, verify that the unit tests & linter pass before submitting a pull
 request by running:
 
 ```bash
-./dev/lint.sh
-./dev/run-python-tests.sh
+pre-commit run --all-files
+pytest tests --quiet --requires-ssh --ignore-flavors \
+  --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
 ```
 
 We use [pytest](https://docs.pytest.org/en/latest/contents.html) to run
@@ -606,7 +643,7 @@ If you are adding new framework flavor support, you'll need to modify
 `pytest` and Github action configurations so tests for your code can run
 properly. Generally, the files you'll have to edit are:
 
-1.  `dev/run-python-tests.sh`:
+1.  `.github/workflows/master.yml`: lines where pytest runs with `--ignore-flavors` flag
 
     1. Add your tests to the ignore list, where the other frameworks are
        ignored

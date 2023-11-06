@@ -99,7 +99,9 @@ def _find_latest_installable_python_version(version_prefix):
     where 'x' represents the latest micro version in 3.8.
     """
     lines = _exec_cmd(
-        [_get_pyenv_bin_path(), "install", "--list"], capture_output=True
+        [_get_pyenv_bin_path(), "install", "--list"],
+        capture_output=True,
+        shell=not _IS_UNIX,
     ).stdout.splitlines()
     semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
@@ -293,10 +295,7 @@ def _copy_model_to_writeable_destination(model_src, dst):
         # Copy individual files and subdirectories, rather than using `shutil.copytree()`
         # because `shutil.copytree()` will apply the permissions from the source directory,
         # which may be read-only
-        if os.path.isdir(model_item):
-            copy_fn = shutil.copytree
-        else:
-            copy_fn = shutil.copy2
+        copy_fn = shutil.copytree if os.path.isdir(model_item) else shutil.copy2
 
         copy_fn(
             src=os.path.join(model_src, model_item),

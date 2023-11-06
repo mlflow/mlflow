@@ -30,6 +30,8 @@ runs:
           else
             python_version="3.8.12"
           fi
+        elif [[ "$python_version" == "3.9" ]]; then
+          python_version="3.9.13"
         else
           echo "Invalid python version: '$python_version'. Must be '3.8'"
           exit 1

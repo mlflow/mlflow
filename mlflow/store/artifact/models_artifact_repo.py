@@ -11,11 +11,14 @@ from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
 )
+from mlflow.utils.file_utils import write_yaml
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_unity_catalog_uri,
 )
+
+REGISTERED_MODEL_META_FILE_NAME = "registered_model_meta"
 
 
 class ModelsArtifactRepository(ArtifactRepository):
@@ -37,12 +40,20 @@ class ModelsArtifactRepository(ArtifactRepository):
             self.repo = UnityCatalogModelsArtifactRepository(
                 artifact_uri=artifact_uri, registry_uri=registry_uri
             )
+            self.model_name = self.repo.model_name
+            self.model_version = self.repo.model_version
         elif is_using_databricks_registry(artifact_uri):
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
+            self.model_name = self.repo.model_name
+            self.model_version = self.repo.model_version
         else:
-            uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
-            self.repo = get_artifact_repository(uri)
+            (
+                self.model_name,
+                self.model_version,
+                underlying_uri,
+            ) = ModelsArtifactRepository._get_model_uri_infos(artifact_uri)
+            self.repo = get_artifact_repository(underlying_uri)
             # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
             #  we don't get a download URI here, or fail during the download itself.
 
@@ -65,7 +76,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         return uri, ""
 
     @staticmethod
-    def get_underlying_uri(uri):
+    def _get_model_uri_infos(uri):
         # Note: to support a registry URI that is different from the tracking URI here,
         # we'll need to add setting of registry URIs via environment variables.
 
@@ -75,9 +86,20 @@ class ModelsArtifactRepository(ArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
-        (name, version) = get_model_name_and_version(client, uri)
+        name, version = get_model_name_and_version(client, uri)
         download_uri = client.get_model_version_download_uri(name, version)
-        return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)
+
+        return (
+            name,
+            version,
+            add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri),
+        )
+
+    @staticmethod
+    def get_underlying_uri(uri):
+        _, _, underlying_uri = ModelsArtifactRepository._get_model_uri_infos(uri)
+
+        return underlying_uri
 
     def log_artifact(self, local_file, artifact_path=None):
         """
@@ -117,10 +139,24 @@ class ModelsArtifactRepository(ArtifactRepository):
         """
         return self.repo.list_artifacts(path)
 
+    def _add_registered_model_meta_file(self, model_path):
+        write_yaml(
+            model_path,
+            REGISTERED_MODEL_META_FILE_NAME,
+            {
+                "model_name": self.model_name,
+                "model_version": self.model_version,
+            },
+            overwrite=True,
+            ensure_yaml_extension=False,
+        )
+
     def download_artifacts(self, artifact_path, dst_path=None):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
+        For registered models, when the artifact is downloaded, the model name and version
+        are saved in the "registered_model_meta" file on the caller's side.
         The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
         :param artifact_path: Relative source path to the desired artifacts.
@@ -132,7 +168,11 @@ class ModelsArtifactRepository(ArtifactRepository):
 
         :return: Absolute path of the local filesystem location containing the desired artifacts.
         """
-        return self.repo.download_artifacts(artifact_path, dst_path)
+
+        model_path = self.repo.download_artifacts(artifact_path, dst_path)
+        self._add_registered_model_meta_file(model_path)
+
+        return model_path
 
     def _download_file(self, remote_file_path, local_path):
         """

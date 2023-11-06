@@ -709,7 +709,7 @@ build_dependencies:
    - setuptools==56.0.0
    - wheel==0.40.0
 dependencies:
-   - -r requirements.txt    
+   - -r requirements.txt
 """
     )
     tmp_path.joinpath("requirements.txt").write_text(
@@ -825,3 +825,15 @@ def test_model_log_with_signature_inference(sklearn_knn_model, iris_signature):
 
     mlflow_model = Model.load(model_uri)
     assert mlflow_model.signature == iris_signature
+
+
+def test_model_size_bytes(sklearn_logreg_model, tmp_path):
+    mlflow.sklearn.save_model(sklearn_logreg_model.model, path=tmp_path)
+
+    # expected size only counts for files saved before the MLmodel file is saved
+    model_file = tmp_path.joinpath("model.pkl")
+    with model_file.open("rb") as fp:
+        expected_size = len(fp.read())
+
+    mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
+    assert mlmodel["model_size_bytes"] == expected_size

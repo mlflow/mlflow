@@ -206,6 +206,15 @@ var selectEvent = /*#__PURE__*/Object.freeze({
   singleSelect: singleSelect
 });
 
+function getColumnHeaderIndex(tableElement, columnHeaderName) {
+  var _columnHeader$parentE, _columnHeader$parentE2;
+  const columnHeader = within(tableElement).getByRole('columnheader', {
+    name: columnHeaderName
+  });
+  const columnHeaderIndex = Array.from((_columnHeader$parentE = (_columnHeader$parentE2 = columnHeader.parentElement) === null || _columnHeader$parentE2 === void 0 ? void 0 : _columnHeader$parentE2.children) !== null && _columnHeader$parentE !== void 0 ? _columnHeader$parentE : []).indexOf(columnHeader);
+  return columnHeaderIndex;
+}
+
 /**
  * Returns the table row that contains the specified `cellText`. The `cellText`
  * must be in the column with name `columnHeaderName` if it is specified. Otherwise,
@@ -223,16 +232,7 @@ function getTableRowByCellText(tableElement, cellText) {
   let {
     columnHeaderName
   } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-  let columnHeaderIndex;
-  if (columnHeaderName === undefined) {
-    columnHeaderIndex = 0;
-  } else {
-    var _columnHeader$parentE, _columnHeader$parentE2;
-    const columnHeader = within(tableElement).getByRole('columnheader', {
-      name: columnHeaderName
-    });
-    columnHeaderIndex = Array.from((_columnHeader$parentE = (_columnHeader$parentE2 = columnHeader.parentElement) === null || _columnHeader$parentE2 === void 0 ? void 0 : _columnHeader$parentE2.children) !== null && _columnHeader$parentE !== void 0 ? _columnHeader$parentE : []).indexOf(columnHeader);
-  }
+  const columnHeaderIndex = columnHeaderName === undefined ? 0 : getColumnHeaderIndex(tableElement, columnHeaderName);
   const matchingRows = within(tableElement).getAllByRole('row')
   // Skip first row (table header)
   .slice(1).filter(row => {
@@ -320,6 +320,50 @@ function getTableRows(tableElement) {
 }
 
 /**
+ * Returns the table cell in the specified table row corresponding to the given
+ * `columnHeaderName`. This is useful for checking that a row has a particular value
+ * for a given column, especially when there are duplicate values in the column.
+ *
+ * @example
+ * The HTML table:
+ * ```jsx
+ *   <Table>
+ *     <TableRow isHeader>
+ *       <TableHeader>Name</TableHeader>
+ *       <TableHeader>Age</TableHeader>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Alex</TableCell>
+ *       <TableCell>25</TableCell>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Brenda</TableCell>
+ *       <TableCell>39</TableCell>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Carlos</TableCell>
+ *       <TableCell>39</TableCell>
+ *     </TableRow>
+ *   </Table>
+ * ```
+ *
+ * ```js
+ * const table = screen.getByRole('table');
+ * const result = getTableCellInRow(table, { cellText: 'Carlos' }, 'Age');
+ * expect(result.textContent).toEqual('39');
+ * ```
+ */
+function getTableCellInRow(tableElement, row, columnHeaderName) {
+  const tableRowElement = getTableRowByCellText(tableElement, row.cellText, {
+    columnHeaderName: row.columnHeaderName
+  });
+  const columnHeaderIndex = getColumnHeaderIndex(tableElement, columnHeaderName);
+  const cells = within(tableRowElement).getAllByRole('cell');
+  const cell = cells[columnHeaderIndex];
+  return cell;
+}
+
+/**
  * Opens the dropdown menu by clicking on the dropdown button.
  *
  * @param dropdownButton - The Dropdown Trigger button that opens the menu when clicked.
@@ -328,5 +372,5 @@ const openDropdownMenu = async dropdownButton => {
   await userEvent.type(dropdownButton, '{arrowdown}');
 };
 
-export { getTableRowByCellText, getTableRows, openDropdownMenu, selectEvent, toMarkdownTable };
+export { getTableCellInRow, getTableRowByCellText, getTableRows, openDropdownMenu, selectEvent, toMarkdownTable };
 //# sourceMappingURL=rtl.js.map

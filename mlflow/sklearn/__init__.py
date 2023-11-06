@@ -65,7 +65,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.mlflow_tags import (
     MLFLOW_AUTOLOGGING,
     MLFLOW_DATASET_CONTEXT,
@@ -243,7 +243,8 @@ def save_model(
     code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
 
     if signature is None and input_example is not None:
-        signature = _infer_signature_from_input_example(input_example, sk_model)
+        wrapped_model = _SklearnModelWrapper(sk_model)
+        signature = _infer_signature_from_input_example(input_example, wrapped_model)
     elif signature is False:
         signature = None
 
@@ -288,6 +289,8 @@ def save_model(
         serialization_format=serialization_format,
         code=code_path_subdir,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -1229,7 +1232,7 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
-    :param max_tuning_runs: The maximum number of child Mlflow runs created for hyperparameter
+    :param max_tuning_runs: The maximum number of child MLflow runs created for hyperparameter
                             search estimators. To create child runs for the best `k` results from
                             the search, set `max_tuning_runs` to `k`. The default value is to track
                             the best 5 search parameter sets. If `max_tuning_runs=None`, then

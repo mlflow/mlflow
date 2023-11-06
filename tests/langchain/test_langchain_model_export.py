@@ -12,6 +12,7 @@ import openai
 import pytest
 import transformers
 from langchain import SQLDatabase
+from langchain.agents import AgentType, initialize_agent
 from langchain.chains import (
     APIChain,
     ConversationChain,
@@ -32,6 +33,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
 from langchain.text_splitter import CharacterTextSplitter
+from langchain.tools import Tool
 from langchain.vectorstores import FAISS
 from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
@@ -715,9 +717,13 @@ def test_saving_not_implemented_for_memory():
 
 def test_saving_not_implemented_chain_type():
     chain = FakeChain()
+    if version.parse(langchain.__version__) < version.parse("0.0.309"):
+        error_message = "Saving not supported for this chain type"
+    else:
+        error_message = f"Chain {chain} does not support saving."
     with pytest.raises(
         NotImplementedError,
-        match="Saving not supported for this chain type",
+        match=error_message,
     ):
         with mlflow.start_run():
             mlflow.langchain.log_model(chain, "fake_chain")
@@ -732,3 +738,29 @@ def test_unsupported_class():
     ):
         with mlflow.start_run():
             mlflow.langchain.log_model(llm, "fake_llm")
+
+
+def test_agent_with_unpicklable_tools(tmp_path):
+    tmp_file = tmp_path / "temp_file.txt"
+    with open(tmp_file, mode="w") as temp_file:
+        # files that aren't opened for reading cannot be pickled
+        tools = [
+            Tool.from_function(
+                func=lambda: temp_file,
+                name="Write 0",
+                description="If you need to write 0 to a file",
+            )
+        ]
+        agent = initialize_agent(
+            llm=OpenAI(temperature=0), tools=tools, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION
+        )
+
+        with pytest.raises(
+            MlflowException,
+            match=(
+                "Error when attempting to pickle the AgentExecutor tools. "
+                "This model likely does not support serialization."
+            ),
+        ):
+            with mlflow.start_run():
+                mlflow.langchain.log_model(agent, "unpicklable_tools")

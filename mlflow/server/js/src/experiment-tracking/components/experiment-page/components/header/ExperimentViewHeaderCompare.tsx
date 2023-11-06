@@ -25,12 +25,10 @@ export const ExperimentViewHeaderCompare = React.memo(
     // eslint-disable-next-line prefer-const
     let breadcrumbs: React.ReactNode[] = [];
 
-    /* eslint-disable prettier/prettier */
     return (
       <PageHeader title={pageTitle} breadcrumbs={breadcrumbs}>
         <ExperimentViewHeaderShareButton />
       </PageHeader>
     );
-    /* eslint-enable prettier/prettier */
   },
 );

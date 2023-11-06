@@ -1139,10 +1139,7 @@ def gateway_proxy_handler():
         # Pretend an empty gateway service is running
         return {"routes": []}
 
-    if request.method == "GET":
-        args = request.args
-    else:
-        args = request.json
+    args = request.args if request.method == "GET" else request.json
 
     gateway_path = args.get("gateway_path")
     if not gateway_path:
@@ -1903,7 +1900,7 @@ def _download_artifact(artifact_path):
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
 
     # Ref: https://stackoverflow.com/a/24613980/6943581
-    file_handle = open(dst, "rb")
+    file_handle = open(dst, "rb")  # noqa: SIM115
 
     def stream_and_remove_file():
         yield from file_handle

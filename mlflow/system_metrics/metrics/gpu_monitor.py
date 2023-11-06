@@ -46,3 +46,6 @@ class GPUMonitor(BaseMetricsMonitor):
 
             device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
             self._metrics[f"gpu_{i}_utilization_percentage"].append(device_utilization.gpu)
+
+    def aggregate_metrics(self):
+        return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items()}

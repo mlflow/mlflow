@@ -49,7 +49,7 @@ describe('ModelListTableAliasedVersionsCell', () => {
       <ModelsTableAliasedVersionsCell model={modelWithOneAlias} />,
     );
     expect(screen.getByText(/@ alias-version-1/)).toBeInTheDocument();
-    userEvent.click(screen.getByRole('link', { name: 'Version 1' }));
+    userEvent.click(screen.getByRole('link', { name: 'alias-version-1 : Version 1' }));
     expect(getLocation()?.pathname).toEqual('/models/test-model/versions/1');
   });
 
@@ -58,7 +58,7 @@ describe('ModelListTableAliasedVersionsCell', () => {
       <ModelsTableAliasedVersionsCell model={modelWithMultipleAliases} />,
     );
     expect(screen.getByText(/@ alias-version-10/)).toBeInTheDocument();
-    userEvent.click(screen.getByRole('link', { name: 'Version 10' }));
+    userEvent.click(screen.getByRole('link', { name: 'alias-version-10 : Version 10' }));
     expect(getLocation()?.pathname).toEqual('/models/test-model/versions/10');
 
     await act(async () => {

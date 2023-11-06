@@ -16,3 +16,6 @@ class DiskMonitor(BaseMetricsMonitor):
         self._metrics["disk_usage_percentage"].append(disk_usage.percent)
         self._metrics["disk_usage_megabytes"].append(disk_usage.used / 1e6)
         self._metrics["disk_available_megabytes"].append(disk_usage.free / 1e6)
+
+    def aggregate_metrics(self):
+        return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items()}

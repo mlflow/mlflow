@@ -55,8 +55,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._region_name = self._get_region_name()
 
     def _get_region_name(self):
+        # note: s3 client enforces path addressing style for get_bucket_location
         temp_client = _get_s3_client(
-            addressing_style=self._addressing_style,
+            addressing_style="path",
             access_key_id=self._access_key_id,
             secret_access_key=self._secret_access_key,
             session_token=self._session_token,

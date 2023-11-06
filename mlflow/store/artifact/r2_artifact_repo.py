@@ -36,9 +36,6 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
             path = path[1:]
         return bucket, path
 
-    def _get_region_name(self):
-        return None
-
     @staticmethod
     def convert_r2_uri_to_s3_endpoint_url(r2_uri):
         host = urlparse(r2_uri).netloc

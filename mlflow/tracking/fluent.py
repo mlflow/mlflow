@@ -4,6 +4,7 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 """
 import atexit
 import contextlib
+import importlib
 import inspect
 import logging
 import os
@@ -41,6 +42,7 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
+from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
     AUTOLOGGING_INTEGRATIONS,
@@ -69,6 +71,7 @@ if TYPE_CHECKING:
     import PIL
     import plotly
 
+
 _active_run_stack = []
 run_id_to_system_metrics_monitor = {}
 _active_experiment_id = None
@@ -80,7 +83,9 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
-def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Experiment:
+def set_experiment(
+    experiment_name: Optional[str] = None, experiment_id: Optional[str] = None
+) -> Experiment:
     """
     Set the given experiment as the active experiment. The experiment must either be specified by
     name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
@@ -187,7 +192,7 @@ class ActiveRun(Run):  # pylint: disable=abstract-method
 
 
 def start_run(
-    run_id: str = None,
+    run_id: Optional[str] = None,
     experiment_id: Optional[str] = None,
     run_name: Optional[str] = None,
     nested: bool = False,
@@ -346,10 +351,7 @@ def start_run(
             )
         active_run_obj = client.get_run(existing_run_id)
     else:
-        if len(_active_run_stack) > 0:
-            parent_run_id = _active_run_stack[-1].info.run_id
-        else:
-            parent_run_id = None
+        parent_run_id = _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
@@ -596,7 +598,7 @@ def get_parent_run(run_id: str) -> Optional[Run]:
     return MlflowClient().get_parent_run(run_id)
 
 
-def log_param(key: str, value: Any) -> Any:
+def log_param(key: str, value: Any, synchronous: bool = True) -> Any:
     """
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
     this method will create a new active run.
@@ -606,10 +608,15 @@ def log_param(key: str, value: Any) -> Any:
                 All backend stores support keys up to length 250, but some may
                 support larger keys.
     :param value: Parameter value (string, but will be string-ified if not).
-                  All backend stores support values up to length 500, but some
+                  All built-in backend stores support values up to length 6000, but some
                   may support larger values.
+    :param synchronous: *Experimental* If True, blocks until the parameter is logged
+                        successfully. If False, logs the parameter asynchronously and
+                        returns a future representing the logging operation.
 
-    :return: the parameter value that is logged.
+    :return: When `synchronous=True`, returns parameter value. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -619,9 +626,10 @@ def log_param(key: str, value: Any) -> Any:
         with mlflow.start_run():
             value = mlflow.log_param("learning_rate", 0.01)
             assert value == 0.01
+            value = mlflow.log_param("learning_rate", 0.02, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
-    return MlflowClient().log_param(run_id, key, value)
+    return MlflowClient().log_param(run_id, key, value, synchronous=synchronous)
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
@@ -648,7 +656,7 @@ def set_experiment_tag(key: str, value: Any) -> None:
     MlflowClient().set_experiment_tag(experiment_id, key, value)
 
 
-def set_tag(key: str, value: Any) -> None:
+def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOperations]:
     """
     Set a tag under the current run. If no run is active, this method will create a
     new active run.
@@ -660,17 +668,29 @@ def set_tag(key: str, value: Any) -> None:
     :param value: Tag value (string, but will be string-ified if not).
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
+    :param synchronous: *Experimental* If True, blocks until the tag is logged
+                        successfully. If False, logs the tag asynchronously and
+                        returns a future representing the logging operation.
+
+    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
 
         import mlflow
 
+        # Set a tag.
         with mlflow.start_run():
             mlflow.set_tag("release.version", "2.2.0")
+
+        # Set a tag in async fashion.
+        with mlflow.start_run():
+            mlflow.set_tag("release.version", "2.2.1", synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().set_tag(run_id, key, value)
+    return MlflowClient().set_tag(run_id, key, value, synchronous=synchronous)
 
 
 def delete_tag(key: str) -> None:
@@ -697,7 +717,9 @@ def delete_tag(key: str) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
-def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
+def log_metric(
+    key: str, value: float, step: Optional[int] = None, synchronous: bool = True
+) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
     a new active run.
@@ -712,20 +734,36 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
+    :param synchronous: *Experimental* If True, blocks until the metric is logged
+                        successfully. If False, logs the metric asynchronously and
+                        returns a future representing the logging operation.
+
+    :return: When `synchronous=True`, returns None.
+             When `synchronous=False`, returns `RunOperations` that represents future for
+             logging operation.
 
     .. testcode:: python
         :caption: Example
 
         import mlflow
 
+        # Log a metric
         with mlflow.start_run():
             mlflow.log_metric("mse", 2500.00)
+
+        # Log a metric in async fashion.
+        with mlflow.start_run():
+            mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_metric(run_id, key, value, get_current_time_millis(), step or 0)
+    return MlflowClient().log_metric(
+        run_id, key, value, get_current_time_millis(), step or 0, synchronous=synchronous
+    )
 
 
-def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
+def log_metrics(
+    metrics: Dict[str, float], step: Optional[int] = None, synchronous: bool = True
+) -> Optional[RunOperations]:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
@@ -737,7 +775,13 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
-    :returns: None
+    :param synchronous: *Experimental* If True, blocks until the metrics are logged
+                        successfully. If False, logs the metrics asynchronously and
+                        returns a future representing the logging operation.
+
+    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -749,21 +793,33 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
         # Log a batch of metrics
         with mlflow.start_run():
             mlflow.log_metrics(metrics)
+
+        # Log a batch of metrics in async fashion.
+        with mlflow.start_run():
+            mlflow.log_metrics(metrics, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
     timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
-    MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
+    return MlflowClient().log_batch(
+        run_id=run_id, metrics=metrics_arr, params=[], tags=[], synchronous=synchronous
+    )
 
 
-def log_params(params: Dict[str, Any]) -> None:
+def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[RunOperations]:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
     new active run.
 
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
-    :returns: None
+    :param synchronous: *Experimental* If True, blocks until the parameters are logged
+                        successfully. If False, logs the parameters asynchronously and
+                        returns a future representing the logging operation.
+
+    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -775,10 +831,16 @@ def log_params(params: Dict[str, Any]) -> None:
         # Log a batch of parameters
         with mlflow.start_run():
             mlflow.log_params(params)
+
+        # Log a batch of parameters in async fashion.
+        with mlflow.start_run():
+            mlflow.log_params(params, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
-    MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+    return MlflowClient().log_batch(
+        run_id=run_id, metrics=[], params=params_arr, tags=[], synchronous=synchronous
+    )
 
 
 @experimental
@@ -844,14 +906,20 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
         set_experiment_tag(key, value)
 
 
-def set_tags(tags: Dict[str, Any]) -> None:
+def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOperations]:
     """
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
 
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
-    :returns: None
+    :param synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+                        logs tags asynchronously and returns a future representing the logging
+                        operation.
+
+    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -867,10 +935,16 @@ def set_tags(tags: Dict[str, Any]) -> None:
         # Set a batch of tags
         with mlflow.start_run():
             mlflow.set_tags(tags)
+
+        # Set a batch of tags in async fashion.
+        with mlflow.start_run():
+            mlflow.set_tags(tags, synchronous=False)
     """
     run_id = _get_or_start_run().info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
-    MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
+    return MlflowClient().log_batch(
+        run_id=run_id, metrics=[], params=[], tags=tags_arr, synchronous=synchronous
+    )
 
 
 def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
@@ -1959,39 +2033,27 @@ def autolog(
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
     """
-    from mlflow import (
-        fastai,
-        gluon,
-        lightgbm,
-        pyspark,
-        pytorch,
-        sklearn,
-        spark,
-        statsmodels,
-        tensorflow,
-        transformers,
-        xgboost,
-    )
-
     locals_copy = locals().items()
 
-    # Mapping of library module name to specific autolog function
+    # Mapping of library name to specific autolog function name. We use string like
+    # "tensorflow.autolog" to avoid loading all flavor modules, so we only set autologging for
+    # compatible modules.
     # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
-    LIBRARY_TO_AUTOLOG_FN = {
-        "tensorflow": tensorflow.autolog,
-        "mxnet.gluon": gluon.autolog,
-        "xgboost": xgboost.autolog,
-        "lightgbm": lightgbm.autolog,
-        "statsmodels": statsmodels.autolog,
-        "sklearn": sklearn.autolog,
-        "fastai": fastai.autolog,
-        "pyspark": spark.autolog,
-        "pyspark.ml": pyspark.ml.autolog,
+    LIBRARY_TO_AUTOLOG_MODULE = {
+        "tensorflow": "mlflow.tensorflow",
+        "mxnet.gluon": "mlflow.gluon",
+        "xgboost": "mlflow.xgboost",
+        "lightgbm": "mlflow.lightgbm",
+        "statsmodels": "mlflow.statsmodels",
+        "sklearn": "mlflow.sklearn",
+        "fastai": "mlflow.fastai",
+        "pyspark": "mlflow.spark",
+        "pyspark.ml": "mlflow.pyspark.ml",
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
-        "pytorch_lightning": pytorch.autolog,
-        "setfit": transformers.autolog,
-        "transformers": transformers.autolog,
+        "pytorch_lightning": "mlflow.pytorch",
+        "setfit": "mlflow.transformers",
+        "transformers": "mlflow.transformers",
     }
 
     def get_autologging_params(autolog_fn):
@@ -2003,8 +2065,9 @@ def autolog(
 
     def setup_autologging(module):
         try:
-            autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
-
+            autologging_params = None
+            autolog_module = importlib.import_module(LIBRARY_TO_AUTOLOG_MODULE[module.__name__])
+            autolog_fn = autolog_module.autolog
             # Only call integration's autolog function with `mlflow.autolog` configs
             # if the integration's autolog function has not already been called by the user.
             # Logic is as follows:
@@ -2036,7 +2099,7 @@ def autolog(
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
                 raise
-            elif not autologging_params.get("silent", False):
+            elif autologging_params is None or not autologging_params.get("silent", False):
                 _logger.warning(
                     "Exception raised while enabling autologging for %s: %s",
                     module.__name__,
@@ -2046,7 +2109,7 @@ def autolog(
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - {"pyspark", "pyspark.ml"}):
+    for module in list(set(LIBRARY_TO_AUTOLOG_MODULE.keys()) - {"pyspark", "pyspark.ml"}):
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
     if is_in_databricks_runtime():

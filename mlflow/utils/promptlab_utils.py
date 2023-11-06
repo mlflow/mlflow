@@ -101,6 +101,7 @@ def _create_promptlab_run_impl(
         from mlflow._promptlab import save_model
         from mlflow.server.handlers import (
             _get_artifact_repo_mlflow_artifacts,
+            _get_proxied_run_artifact_destination_path,
             _is_servable_proxied_run_artifact_root,
         )
 
@@ -129,12 +130,10 @@ def _create_promptlab_run_impl(
 
             if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
                 artifact_repo = _get_artifact_repo_mlflow_artifacts()
-                artifact_repo.log_artifacts(
-                    local_dir,
-                    artifact_path=os.path.join(
-                        run.info.experiment_id, run.info.run_id, "artifacts"
-                    ),
+                artifact_path = _get_proxied_run_artifact_destination_path(
+                    proxied_artifact_root=run.info.artifact_uri,
                 )
+                artifact_repo.log_artifacts(local_dir, artifact_path=artifact_path)
             else:
                 artifact_repo = get_artifact_repository(artifact_dir)
                 artifact_repo.log_artifacts(local_dir)

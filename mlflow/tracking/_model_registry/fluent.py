@@ -27,8 +27,10 @@ def register_model(
     tracking backend.
 
     :param model_uri: URI referring to the MLmodel directory. Use a ``runs:/`` URI if you want to
-                      record the run ID with the model in model registry. ``models:/`` URIs are
-                      currently not supported.
+                      record the run ID with the model in model registry (recommended), or pass the
+                      local filesystem path of the model if registering a locally-persisted MLflow
+                      model that was previously saved using ``save_model``.
+                      ``models:/`` URIs are currently not supported.
     :param name: Name of the registered model under which to create a new model version. If a
                  registered model with the given name does not exist, it will be created
                  automatically.
@@ -231,6 +233,10 @@ def search_model_versions(
 ) -> List[ModelVersion]:
     """
     Search for model versions that satisfy the filter criteria.
+
+    .. warning:
+
+        The model version search results may not have aliases populated for performance reasons.
 
     :param filter_string: Filter query string
         (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),

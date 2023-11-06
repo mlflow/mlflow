@@ -55,9 +55,15 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r ${{ github.event.inputs.repository }}/requirements/lint-requirements.txt
-      - name: Run lint checks
+      - name: Install pre-commit hooks
         run: |
-          cd ${{ github.event.inputs.repository }} && ../../dev/lint.sh
+          cd ${{ github.event.inputs.repository }}
+          pre-commit install -t pre-commit -t prepare-commit-msg
+      - name: Run pre-commit
+        id: pre-commit
+        run: |
+          cd ${{ github.event.inputs.repository }}
+          pre-commit run --all-files
   recipe:
     runs-on: ubuntu-latest
     timeout-minutes: 120

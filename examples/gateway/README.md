@@ -44,6 +44,8 @@ For full examples of configurations and supported route types, see:
 - [MosaicML](mosaicml/config.yaml)
 - [Anthropic](anthropic/config.yaml)
 - [Cohere](cohere/config.yaml)
+- [AI21 Labs](ai21labs/config.yaml)
+- [PaLM](palm/config.yaml)
 - [AzureOpenAI](azure_openai/config.yaml)
 
 ## Step 3: Setting Access Keys
@@ -57,6 +59,9 @@ Replace `<provider>` with the actual path to the MLflow configuration file for t
 
 ```sh
 mlflow gateway start --config-path examples/gateway/<provider>/config.yaml
+
+# For example:
+mlflow gateway start --config-path examples/gateway/openai/config.yaml
 ```
 
 ## Step 5: Accessing the Interactive API Documentation

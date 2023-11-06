@@ -9,9 +9,7 @@ if TYPE_CHECKING:
 
 @experimental
 class HuggingFaceDatasetSource(DatasetSource):
-    """
-    Represents the source of a Hugging Face dataset used in MLflow Tracking.
-    """
+    """Represents the source of a Hugging Face dataset used in MLflow Tracking."""
 
     def __init__(
         self,
@@ -23,53 +21,61 @@ class HuggingFaceDatasetSource(DatasetSource):
         ] = None,
         split: Optional[Union[str, "datasets.Split"]] = None,
         revision: Optional[Union[str, "datasets.Version"]] = None,
-        task: Optional[Union[str, "datasets.TaskTemplate"]] = None,
     ):
+        """Create a `HuggingFaceDatasetSource` instance.
+
+        Arguments in `__init__` match arguments of the same name in
+        [`datasets.load_dataset()`](https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset).
+        The only exception is `config_name` matches `name` in `datasets.load_dataset()`, because
+        we need to differentiate from `mlflow.data.Dataset` `name` attribute.
+
+        Args:
+            path: The path of the Hugging Face dataset, if it is a dataset from HuggingFace hub,
+                `path` must match the hub path, e.g., "databricks/databricks-dolly-15k".
+            config_name: The name of of the Hugging Face dataset configuration.
+            data_dir: The `data_dir` of the Hugging Face dataset configuration.
+            data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
+            split: Which split of the data to load.
+            revision: Version of the dataset script to load.
         """
-        :param path: The path of the Hugging Face dataset.
-        :param config_name: The name of of the Hugging Face dataset configuration.
-        :param data_dir: The `data_dir` of the Hugging Face dataset configuration.
-        :param data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
-        :param revision: Version of the dataset script to load.
-        :param task: The task to prepare the Hugging Face dataset for during training and
-                     evaluation.
-        """
-        self._path = path
-        self._config_name = config_name
-        self._data_dir = data_dir
-        self._data_files = data_files
-        self._split = split
-        self._revision = revision
-        self._task = task
+        self.path = path
+        self.config_name = config_name
+        self.data_dir = data_dir
+        self.data_files = data_files
+        self.split = split
+        self.revision = revision
 
     @staticmethod
     def _get_source_type() -> str:
         return "hugging_face"
 
     def load(self, **kwargs):
-        """
-        Loads the dataset source as a Hugging Face Dataset.
+        """Load the Hugging Face dataset based on `HuggingFaceDatasetSource`.
 
-        :param kwargs: Additional keyword arguments used for loading the dataset with
-                       the Hugging Face ``datasets.load_dataset()`` method. The following keyword
-                       arguments are used automatically from the dataset source but may be
-                       overridden by values passed in ``**kwargs``: ``path``, ``name``,
-                       ``data_dir``, ``data_files``, ``split``, ``revision``, ``task``.
-        :return: An instance of ``datasets.Dataset``.
+        Args:
+            kwargs: Additional keyword arguments used for loading the dataset with the Hugging Face
+                `datasets.load_dataset()` method.
+
+        Returns:
+            An instance of `datasets.Dataset`.
         """
         import datasets
 
         load_kwargs = {
-            "path": self._path,
-            "name": self._config_name,
-            "data_dir": self._data_dir,
-            "data_files": self._data_files,
-            "split": self._split,
-            "revision": self._revision,
-            "task": self._task,
+            "path": self.path,
+            "name": self.config_name,
+            "data_dir": self.data_dir,
+            "data_files": self.data_files,
+            "split": self.split,
+            "revision": self.revision,
         }
-        load_kwargs.update(kwargs)
-
+        intersecting_keys = set(load_kwargs.keys()) & set(kwargs.keys())
+        if intersecting_keys:
+            raise KeyError(
+                f"Found duplicated arguments in `HuggingFaceDatasetSource` and "
+                f"`kwargs`: {intersecting_keys}. Please remove them from `kwargs`."
+            )
+            load_kwargs.update(kwargs)
         return datasets.load_dataset(**load_kwargs)
 
     @staticmethod
@@ -85,13 +91,12 @@ class HuggingFaceDatasetSource(DatasetSource):
 
     def _to_dict(self) -> Dict[Any, Any]:
         return {
-            "path": self._path,
-            "config_name": self._config_name,
-            "data_dir": self._data_dir,
-            "data_files": self._data_files,
-            "split": str(self._split),
-            "revision": self._revision,
-            "task": self._task,
+            "path": self.path,
+            "config_name": self.config_name,
+            "data_dir": self.data_dir,
+            "data_files": self.data_files,
+            "split": str(self.split),
+            "revision": self.revision,
         }
 
     @classmethod
@@ -103,5 +108,4 @@ class HuggingFaceDatasetSource(DatasetSource):
             data_files=source_dict.get("data_files"),
             split=source_dict.get("split"),
             revision=source_dict.get("revision"),
-            task=source_dict.get("task"),
         )

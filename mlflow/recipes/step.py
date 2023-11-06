@@ -5,7 +5,7 @@ import os
 import time
 import traceback
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -283,7 +283,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.step_card.save_as_html(path=output_directory)
 
     def _update_status(
-        self, status: StepStatus, output_directory: str, stack_trace: str = None
+        self, status: StepStatus, output_directory: str, stack_trace: Optional[str] = None
     ) -> None:
         execution_state = StepExecutionState(
             status=status, last_updated_timestamp=time.time(), stack_trace=stack_trace

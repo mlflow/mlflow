@@ -4,6 +4,7 @@ import os
 import random
 import sys
 from pathlib import Path
+from typing import Optional
 from unittest import mock
 from unittest.mock import MagicMock, Mock
 
@@ -169,8 +170,6 @@ def setup_train_step_with_tuning(
 
 def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         f"""
@@ -194,7 +193,7 @@ def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     m_train.estimator_fn = estimator_fn
 
     recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
-    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+    with mock.patch("steps.train.estimator_fn", estimator_fn):
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
 
@@ -204,13 +203,25 @@ def test_train_step(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     assert "training_mean_squared_error" in metrics
 
 
+@pytest.fixture(autouse=True)
+def dummy_train_step(tmp_recipe_root_path, monkeypatch):
+    # `mock.patch("steps.train.estimator_fn", ...)` would fail without this fixture
+    steps = tmp_recipe_root_path / "steps"
+    steps.mkdir(exist_ok=True)
+    steps.joinpath("train.py").write_text(
+        """
+def estimator_fn(estimator_params=None):
+    return None
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_recipe_root_path))
+
+
 @mock.patch("mlflow.recipes.steps.train._REBALANCING_CUTOFF", 50)
 def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path):
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/multiclass"
     )
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         f"""
@@ -232,9 +243,7 @@ def test_train_step_imbalanced_data(tmp_recipe_root_path: Path, tmp_recipe_exec_
                     enabled: false
         """
     )
-    m_train = Mock()
-    m_train.estimator_fn = classifier_estimator_fn
-    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+    with mock.patch("steps.train.estimator_fn", classifier_estimator_fn):
         recipe_config = read_yaml(tmp_recipe_root_path, _RECIPE_CONFIG_FILE_NAME)
         train_step = TrainStep.from_recipe_config(recipe_config, str(tmp_recipe_root_path))
         train_step.run(str(train_step_output_dir))
@@ -253,8 +262,6 @@ def test_train_step_classifier_automl(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, recipe
 ):
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path, recipe=recipe)
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         """
@@ -363,12 +370,8 @@ def test_train_steps_writes_model_pkl_and_card(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, use_tuning
 ):
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
-    m_train = Mock()
-    m_train.estimator_fn = estimator_fn
-    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+    with mock.patch("steps.train.estimator_fn", estimator_fn):
         train_step.run(str(train_step_output_dir))
 
     assert (train_step_output_dir / "model/python_model.pkl").exists()
@@ -388,12 +391,8 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
     monkeypatch.setenv("_DATABRICKS_WORKSPACE_ID", workspace_id)
 
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
-    m_train = Mock()
-    m_train.estimator_fn = estimator_fn
-    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+    with mock.patch("steps.train.estimator_fn", estimator_fn):
         train_step.run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
@@ -413,12 +412,10 @@ def test_train_steps_writes_card_with_model_and_run_links_on_databricks(
 @pytest.mark.parametrize("use_tuning", [True, False])
 def test_train_steps_autologs(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path, use_tuning):
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
     m_train = Mock()
     m_train.estimator_fn = estimator_fn
-    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+    with mock.patch("steps.train.estimator_fn", estimator_fn):
         train_step.run(str(train_step_output_dir))
 
     assert os.path.exists(train_step_output_dir / "run_id")
@@ -439,8 +436,6 @@ def test_train_steps_with_correct_tags(
 ):
     monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name, "train")
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning)
     m_train = Mock()
     m_train.estimator_fn = estimator_fn
@@ -464,12 +459,8 @@ def test_train_step_with_tuning_best_parameters(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
-    m_train = Mock()
-    m_train.estimator_fn = estimator_fn
-    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+    with mock.patch("steps.train.estimator_fn", estimator_fn):
         train_step.run(str(train_step_output_dir))
 
     assert (train_step_output_dir / "best_parameters.yaml").exists()
@@ -479,7 +470,7 @@ def test_train_step_with_tuning_best_parameters(
     assert "penalty" in best_params_yaml
     assert "eta0" in best_params_yaml
 
-    run_id = open(train_step_output_dir / "run_id").read()
+    run_id = train_step_output_dir.joinpath("run_id").read_text()
     parent_run_params = MlflowClient().get_run(run_id).data.params
     assert "alpha" in parent_run_params
     assert "penalty" in parent_run_params
@@ -499,14 +490,10 @@ def test_train_step_with_tuning_output_yaml_correct(
     num_sections,
 ):
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     train_step = setup_train_step_with_tuning(
         tmp_recipe_root_path, use_tuning=True, with_hardcoded_params=with_hardcoded_params
     )
-    m_train = Mock()
-    m_train.estimator_fn = estimator_fn
-    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+    with mock.patch("steps.train.estimator_fn", estimator_fn):
         train_step.run(str(train_step_output_dir))
     assert (train_step_output_dir / "best_parameters.yaml").exists()
 
@@ -527,12 +514,8 @@ def test_train_step_with_tuning_child_runs_and_early_stop(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     train_step = setup_train_step_with_tuning(tmp_recipe_root_path, use_tuning=True)
-    m_train = Mock()
-    m_train.estimator_fn = estimator_fn
-    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+    with mock.patch("steps.train.estimator_fn", estimator_fn):
         train_step.run(str(train_step_output_dir))
 
     with open(train_step_output_dir / "run_id") as f:
@@ -590,7 +573,7 @@ def test_automl(
     monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.name, "train")
     train_step_output_dir = setup_train_dataset(tmp_recipe_exec_path)
     recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
+    recipe_steps_dir.mkdir(exist_ok=True)
     if generate_custom_metrics:
         recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
         recipe_steps_dir.joinpath("custom_metrics.py").write_text(
@@ -617,9 +600,8 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
             use_tuning=True,
             with_hardcoded_params=False,
         )
-    m_train = Mock()
-    m_train.estimator_fn = estimator_fn
-    with mock.patch.dict("sys.modules", {"steps.train": m_train}):
+
+    with mock.patch("steps.train.estimator_fn", estimator_fn):
         train_step._validate_and_apply_step_config()
         train_step._run(str(train_step_output_dir))
 
@@ -635,8 +617,6 @@ def test_tuning_multiclass(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Pat
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/multiclass"
     )
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
 
     train_step = setup_train_step_with_tuning(
         tmp_recipe_root_path,
@@ -647,7 +627,7 @@ def test_tuning_multiclass(tmp_recipe_root_path: Path, tmp_recipe_exec_path: Pat
 
     _old_import_module = importlib.import_module
 
-    def _import_module(name: str, package: str = None):
+    def _import_module(name: str, package: Optional[str] = None):
         if "steps" in name:
             return _old_import_module("tests.recipes.test_train_step")
         else:
@@ -672,8 +652,6 @@ def test_train_step_with_predict_probability(
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/binary"
     )
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         f"""
@@ -741,8 +719,6 @@ def test_train_step_with_predict_probability_with_custom_prefix(
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/binary"
     )
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         f"""
@@ -796,8 +772,6 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/multiclass"
     )
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         f"""
@@ -842,14 +816,16 @@ def test_train_step_with_label_encoding(tmp_recipe_root_path: Path, tmp_recipe_e
     assert np.array_equal(np.unique(predicted_label), np.array(["a1", "a2", "a3", "b"]))
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="Flaky on windows, sometimes fails with `(sqlite3.OperationalError) database is locked`",
+)
 def test_train_step_with_probability_calibration(
     tmp_recipe_root_path: Path, tmp_recipe_exec_path: Path
 ):
     train_step_output_dir = setup_train_dataset(
         tmp_recipe_exec_path, recipe="classification/binary"
     )
-    recipe_steps_dir = tmp_recipe_root_path.joinpath("steps")
-    recipe_steps_dir.mkdir(parents=True)
     recipe_yaml = tmp_recipe_root_path.joinpath(_RECIPE_CONFIG_FILE_NAME)
     recipe_yaml.write_text(
         f"""

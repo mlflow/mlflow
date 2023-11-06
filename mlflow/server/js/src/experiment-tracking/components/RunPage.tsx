@@ -80,7 +80,7 @@ export class RunPageImpl extends Component<RunPageImplProps> {
   render() {
     const requestIds = [this.getRunRequestId, this.getExperimentRequestId];
     return (
-      <PageContainer>
+      <PageContainer usesFullHeight>
         <RequestStateWrapper
           requestIds={requestIds}
           // eslint-disable-next-line no-trailing-spaces
@@ -113,3 +113,4 @@ const mapDispatchToProps = {
 const RunPageWithRouter = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(RunPageImpl));
 
 export const RunPage = withErrorBoundary(ErrorUtils.mlflowServices.RUN_TRACKING, RunPageWithRouter);
+export default RunPage;

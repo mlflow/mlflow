@@ -32,7 +32,7 @@ def test_format_docstring():
 
     expected_doc = """
         :param p:
-            param doc
+                param doc
         """
     assert single_param.__doc__ == expected_doc
     assert single_param.__name__ == "single_param"
@@ -46,9 +46,9 @@ def test_format_docstring():
 
     expected_doc = """
         :param p1:
-            param1 doc
+                param1 doc
         :param p2:
-            param2 doc
+                param2 doc
         """
     assert multiple_params.__doc__ == expected_doc
     assert multiple_params.__name__ == "multiple_params"

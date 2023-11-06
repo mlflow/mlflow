@@ -136,14 +136,16 @@ class EvaluateStep(BaseStep):
             filename = frame.f_code.co_filename
             lineno = frame.f_lineno
             message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
-            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
+            with open(os.path.join(output_directory, "warning_logs.txt"), "a") as f:
+                f.write(message)
 
         original_warn = warnings.warn
         warnings.warn = my_warn
         try:
             import pandas as pd
 
-            open(os.path.join(output_directory, "warning_logs.txt"), "w")
+            with open(os.path.join(output_directory, "warning_logs.txt"), "w"):
+                pass
 
             self._validate_validation_criteria()
 
@@ -215,7 +217,7 @@ class EvaluateStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.recipe),
                         evaluators="default",
-                        custom_metrics=_load_custom_metrics(
+                        extra_metrics=_load_custom_metrics(
                             self.recipe_root,
                             self.evaluation_metrics.values(),
                         ),
@@ -423,9 +425,8 @@ class EvaluateStep(BaseStep):
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             warnings_output_tab = card.add_tab("Warning Logs", "{{ STEP_WARNINGS }}")
-            warnings_output_tab.add_html(
-                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
-            )
+            with open(warning_output_path) as f:
+                warnings_output_tab.add_html("STEP_WARNINGS", f"<pre>{f.read()}</pre>")
 
         # Tab 4: Run summary.
         run_summary_card_tab = card.add_tab(
