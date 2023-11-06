@@ -544,14 +544,14 @@ def _get_conda_and_pip_dependencies(conda_env):
     for dependency in conda_env["dependencies"]:
         if isinstance(dependency, dict) and dependency["pip"]:
             for pip_dependency in dependency["pip"]:
-                if pip_dependency != "mlflow" and pip_dependency not in pip_deps_set:
+                if pip_dependency != "mlflow":
                     pip_deps_set.add(pip_dependency)
         else:
             package_name = _get_package_name(dependency)
             if package_name is not None and package_name not in ["python", "pip"]:
                 conda_deps.append(dependency)
 
-    return conda_deps, list(pip_deps_set)
+    return conda_deps, sorted(pip_deps_set)
 
 
 def _union_lists(l1, l2):

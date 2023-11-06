@@ -221,8 +221,8 @@ def test_merge_environment():
         actual_merged_env
     )
 
-    assert sorted(expected_pip_deps) == sorted(actual_pip_deps)
-    assert sorted(expected_conda_deps) == sorted(actual_conda_deps)
+    assert sorted(expected_pip_deps) == actual_pip_deps
+    assert sorted(expected_conda_deps) == actual_conda_deps
 
 
 def test_merge_environment_with_duplicates():
@@ -289,8 +289,8 @@ def test_merge_environment_with_duplicates():
     assert len(actual_pip_deps) == len(
         set(actual_pip_deps)
     ), "There are duplicates in the pip dependencies"
-    assert sorted(expected_pip_deps) == sorted(actual_pip_deps)
-    assert sorted(expected_conda_deps) == sorted(actual_conda_deps)
+    assert sorted(expected_pip_deps) == actual_pip_deps
+    assert sorted(expected_conda_deps) == actual_conda_deps
 
 
 def test_log_model_with_pip_requirements(shap_model, tmp_path):
