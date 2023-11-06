@@ -4,11 +4,7 @@ import os
 
 import yaml
 
-from mlflow.environment_variables import (
-    _MLFLOW_TESTING,
-    MLFLOW_CONDA_CREATE_ENV_CMD,
-    MLFLOW_CONDA_HOME,
-)
+from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import insecure_hash, process
 from mlflow.utils.environment import Environment
@@ -109,36 +105,36 @@ def _create_conda_env(
     capture_output,
 ):
     if conda_env_path:
-        command = [
-            conda_env_create_path,
-            "env",
-            "create",
-            "-n",
-            project_env_name,
-            "--file",
-            conda_env_path,
-            "--quiet",
-        ]
+        process._exec_cmd(
+            [
+                conda_env_create_path,
+                "env",
+                "create",
+                "-n",
+                project_env_name,
+                "--file",
+                conda_env_path,
+                "--quiet",
+            ],
+            extra_env=conda_extra_env_vars,
+            capture_output=capture_output,
+        )
     else:
-        command = [
-            conda_env_create_path,
-            "create",
-            "--channel",
-            "conda-forge",
-            "--yes",
-            "--override-channels",
-            "-n",
-            project_env_name,
-            "python",
-        ]
-
-    process._exec_cmd(
-        command,
-        extra_env=conda_extra_env_vars,
-        # Set capture_output to True while testing to propagate stderr
-        # to exception, so that we can show more helpful error message
-        capture_output=capture_output or _MLFLOW_TESTING.get(),
-    )
+        process._exec_cmd(
+            [
+                conda_env_create_path,
+                "create",
+                "--channel",
+                "conda-forge",
+                "--yes",
+                "--override-channels",
+                "-n",
+                project_env_name,
+                "python",
+            ],
+            extra_env=conda_extra_env_vars,
+            capture_output=capture_output,
+        )
 
     return Environment(get_conda_command(project_env_name), conda_extra_env_vars)
 

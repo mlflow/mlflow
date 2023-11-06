@@ -10,7 +10,7 @@ from pathlib import Path
 from packaging.version import Version
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_ENV_ROOT
+from mlflow.environment_variables import MLFLOW_ENV_ROOT
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.utils.conda import _PIP_CACHE_DIR
@@ -280,15 +280,7 @@ def _create_virtualenv(
                 cmd = _join_commands(
                     activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}"
                 )
-
-                # Set capture_output to True while testing to propagate stderr
-                # to exception, so that we can show more helpful error message
-                _exec_cmd(
-                    cmd,
-                    capture_output=capture_output or _MLFLOW_TESTING.get(),
-                    cwd=tmpdir,
-                    extra_env=extra_env,
-                )
+                _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
 
     return activate_cmd
 
