@@ -334,27 +334,28 @@ class AbstractStore:
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                  the cloned model version.
         """
-        raise MlflowException(
-            "Method 'copy_model_version' has not yet been implemented for the current model "
-            "registry backend. To request support for implementing this method with this backend, "
-            "please submit an issue on GitHub."
-        )
-
-    def _copy_model_version_impl(self, src_mv, dst_name):
         try:
             self.create_registered_model(dst_name)
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 raise
 
-        return self.create_model_version(
-            name=dst_name,
-            source=f"models:/{src_mv.name}/{src_mv.version}",
-            run_id=src_mv.run_id,
-            tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
-            run_link=src_mv.run_link,
-            description=src_mv.description,
-        )
+        try:
+            mv_copy = self.create_model_version(
+                name=dst_name,
+                source=f"models:/{src_mv.name}/{src_mv.version}",
+                run_id=src_mv.run_id,
+                tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
+                run_link=src_mv.run_link,
+                description=src_mv.description,
+            )
+        except MlflowException as e:
+            raise MlflowException(
+                f"Failed to create model version copy. The current model registry backend "
+                f"may not yet support model version URI sources. Error: {e}"
+            ) from e
+
+        return mv_copy
 
     def _await_model_version_creation(self, mv, await_creation_for):
         """
