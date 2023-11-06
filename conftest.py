@@ -231,14 +231,14 @@ def pytest_terminal_summary(
         # Ref: https://github.com/mlflow/mlflow/pull/10247
         msg = f"No matching distribution found for mlflow=={VERSION}"
         for rep in failed_test_reports:
-            for text in (rep.longreprtext, rep.capstdout, rep.capstderr):
-                if msg in text:
-                    terminalreporter.section("HINTS", yellow=True)
-                    terminalreporter.write(
-                        f"\033[93mFound test(s) that failed with {msg!r}. Adding"
-                        " --serve-wheel` flag to your pytest command may help.\n\n\033[0m"
-                    )
-                    break
+            if any(msg in t for t in (rep.longreprtext, rep.capstdout, rep.capstderr)):
+                terminalreporter.section("HINTS", yellow=True)
+                terminalreporter.write(
+                    f"Found test(s) that failed with {msg!r}. Adding"
+                    " --serve-wheel` flag to your pytest command may help.\n\n",
+                    yellow=True,
+                )
+                break
 
 
 @pytest.fixture(scope="module", autouse=True)
