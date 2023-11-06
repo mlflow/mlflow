@@ -36,6 +36,7 @@ Features:
 - [Tracking] Introduce experimental asynchronous logging support for metrics, params, and tags (#9705, @sagarsumant)
 - [Auth] Modify the behavior of user creation in MLflow Authentication so that only admins can create new users (#9700, @gabrielfu)
 - [Artifacts] Add support for using `xethub` as an artifact store via a plugin extension (#9957, @Kelton8Z)
+- [UI] Add new opt-in Model Registry UI that supports model aliases and tags (#10163, @hubertzub-db, @jerrylian-db)
 
 Bug fixes:
 
