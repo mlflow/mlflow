@@ -3734,6 +3734,7 @@ your model has two outputs ``retrieved_context`` and ``answer``, you can specify
 column, and ``retrieved_context`` column will be accessible as the ``context`` parameter from ``eval_fn`` via ``col_mapping``:
 
 .. code-block:: python
+    
     def eval_fn(predictions, targets, metrics, context):
         scores = (predictions == targets) + context
         return MetricValue(
