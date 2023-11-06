@@ -440,7 +440,6 @@ class Array:
 
     def __init__(
         self,
-        # TODO: support nested arrays & add tests in follow-up PRs
         dtype: Union["Array", DataType, Object, str],
     ) -> None:
         try:
