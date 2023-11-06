@@ -101,7 +101,7 @@ def log_model(
     """
     Log a Promptflow model as an MLflow artifact for the current run.
 
-    :param model: A promptflow model loaded by :func:`promptflow.load_flow()`.
+    :param model: A promptflow model loaded by `promptflow.load_flow()`.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -169,7 +169,7 @@ def save_model(
     """
     Save a Promptflow model to a path on the local file system.
 
-    :param model: A promptflow model loaded by :func:`promptflow.load_flow()`.
+    :param model: A promptflow model loaded by `promptflow.load_flow()`.
     :param path: Local path where the serialized model (as YAML) is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
