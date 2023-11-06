@@ -208,7 +208,7 @@ def test_estimator(fit_func_name):
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert {TRAINING_SCORE: model.score(X, y)} == pytest.approx(metrics)
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
@@ -382,7 +382,7 @@ def test_meta_estimator():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert {TRAINING_SCORE: model.score(X, y)} == pytest.approx(metrics)
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -412,7 +412,7 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run.info.run_id)
     assert params == large_params
-    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert {TRAINING_SCORE: model.score(X, y)} == pytest.approx(metrics)
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
@@ -450,7 +450,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run.info.run_id)
     assert params == truncate_dict(long_params)
-    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert {TRAINING_SCORE: model.score(X, y)} == pytest.approx(metrics)
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
@@ -514,7 +514,7 @@ def test_call_fit_with_arguments_score_does_not_accept():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert {TRAINING_SCORE: model.score(X, y)} == pytest.approx(metrics)
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -559,7 +559,7 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert {TRAINING_SCORE: model.score(X, y)} == pytest.approx(metrics)
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -597,7 +597,7 @@ def test_only_fit_contains_sample_weight():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert {TRAINING_SCORE: model.score(X, y)} == pytest.approx(metrics)
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -636,7 +636,7 @@ def test_only_score_contains_sample_weight():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert {TRAINING_SCORE: model.score(X, y)} == pytest.approx(metrics)
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
