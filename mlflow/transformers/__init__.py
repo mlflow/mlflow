@@ -2661,7 +2661,7 @@ class _TransformersWrapper:
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
         """
-        Validation of blob references to audio  files/image files, if a string is input to the ``predict``
+        Validation of blob references for audio and image transformers pipelines; if a string is input to the ``predict``
         method, perform validation of the string contents by checking for a valid uri or
         filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
         for an invalid uri input.
