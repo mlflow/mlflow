@@ -13,24 +13,17 @@ Promptflow (native) format
 
 import logging
 import os
-import pickle
 import shutil
-import tempfile
 from typing import Union, List, Dict, Any, Optional
 
-import cloudpickle
-
 import mlflow
-import numpy as np
 import pandas as pd
 from pathlib import Path
 import yaml
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example, ModelInputExample
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, DataType, Schema
@@ -49,8 +42,6 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
-    _add_code_from_conf_to_system_path,
-    _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -63,7 +54,6 @@ FLAVOR_NAME = "promptflow"
 _MODEL_FLOW_DIRECTORY = "flow"
 _MODEL_FLOW_PIP_REQUIREMENTS = "python_requirements_txt"
 _MODEL_FLOW_BASE_IMAGE = "image"
-_SAVED_MODEL_PATH = "model.pkl"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow promptflow flavor only supports instances loaded by ~promptflow.load_flow(), "
     "found {instance_type}."
@@ -126,25 +116,10 @@ def log_model(
                       describes model input and output
                       :py:class:`Schema <mlflow.types.Schema>`.
                       If not specified, the model signature would be set according to
-                      `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
-                      `DataType.string` as the column type.
-                      Alternatively, you can explicitly specify the model signature.
-                      The model signature can be :py:func:`inferred
-                      <mlflow.models.infer_signature>` from datasets with valid model input
-                      (e.g. the training dataset with target column omitted) and valid model
-                      output (e.g. model predictions generated on the training dataset),
-                      for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        chain = LLMChain(llm=llm, prompt=prompt)
-                        prediction = chain.run(input_str)
-                        input_columns = [
-                            {"type": "string", "name": input_key} for input_key in chain.input_keys
-                        ]
-                        signature = infer_signature(input_columns, predictions)
+                      `model.inputs` and `model.outputs` as columns names, `DataType.int`,
+                      `DataType.double`and `DataType.boolean` as the column type for
+                      promptflow type `int`, `double` and `bool`, and `DataType.string`
+                      as the column type for the other promptflow types.
 
     :param input_example: {{ input_example }}
 
@@ -202,26 +177,13 @@ def save_model(
                        path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      describes model input and output
+                      :py:class:`Schema <mlflow.types.Schema>`.
                       If not specified, the model signature would be set according to
-                      `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
-                      `DataType.string` as the column type.
-                      Alternatively, you can explicitly specify the model signature.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        chain = LLMChain(llm=llm, prompt=prompt)
-                        prediction = chain.run(input_str)
-                        input_columns = [
-                            {"type": "string", "name": input_key} for input_key in chain.input_keys
-                        ]
-                        signature = infer_signature(input_columns, predictions)
+                      `model.inputs` and `model.outputs` as columns names, `DataType.int`,
+                      `DataType.double`and `DataType.boolean` as the column type for
+                      promptflow type `int`, `double` and `bool`, and `DataType.string`
+                      as the column type for the other promptflow types.
 
     :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
@@ -401,8 +363,6 @@ def _load_pyfunc(path):
     :param path: Local filesystem path to the MLflow Model with the ``promptflow`` flavor.
     """
     model_flow_path = os.path.join(path, _MODEL_FLOW_DIRECTORY)
-    # with open(os.path.join(path, _SAVED_MODEL_PATH), "rb") as _in:
-    #     model = cloudpickle.load(_in)
     return _PromptflowModelWrapper(model_flow_path)
 
 
