@@ -50,12 +50,12 @@ PyFuncInput = Union[
     "csr_matrix",
     List[Any],
     Dict[str, Any],
-    str,
-    bytes,
-    bool,
-    int,
-    float,
     dt.datetime,
+    bool,
+    bytes,
+    float,
+    int,
+    str,
 ]
 PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
 
