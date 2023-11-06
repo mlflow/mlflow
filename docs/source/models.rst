@@ -3671,10 +3671,8 @@ from built-in metrics and can be used to compute your custom metric. The built-i
 The ``MetricValue`` class has three attributes:
 
 * ``scores``: contains per-row metrics. Has to be a python ``list``.
-* ``aggregate_results``: a dictionary that maps the aggregation method names to the 
-corresponding aggregated values. This is intended to be used to aggregate ``scores``.
-* ``justification``: a per-row justification of the values in ``scores``. This is 
-optional, and is usually used with genai metrics.
+* ``aggregate_results``: a dictionary that maps the aggregation method names to the corresponding aggregated values. This is intended to be used to aggregate ``scores``.
+* ``justification``: a per-row justification of the values in ``scores``. This is optional, and is usually used with genai metrics.
 
 The code block below demonstrates how to define a custom metric evaluation function:
 
