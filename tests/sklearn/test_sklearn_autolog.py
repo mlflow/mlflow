@@ -475,7 +475,7 @@ def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert {TRAINING_SCORE: model.score(X, y)} == pytest.approx(metrics)
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
