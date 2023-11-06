@@ -3,7 +3,7 @@ MLflow Tracking Quickstart
 
 Welcome to MLflow! 
 
-The purpose of this quickstart is to provide a quick, no-nonsense, bare-bones guide to the most essential core APIs of MLflow Tracking. 
+The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking. 
 Specifically, those that enable the logging, registering, and loading of a model for inference. 
 
 .. note::
@@ -20,7 +20,7 @@ In just a few minutes of following along with this quickstart, you will learn:
 * The basics of the **MLflow fluent API**
 * How to **register** a model during logging 
 * How to navigate to a model in the **MLflow UI** 
-* How to **load** a logged model as a PyFunc for inference 
+* How to **load** a logged model for inference 
 
 If you would like to see this quickstart in a purely notebook format, we have a downloadable and viewable notebook-only version of this quickstart:
 
@@ -61,20 +61,19 @@ From a terminal, run:
 .. note::
     You can choose any port that you would like, provided that it's not already in use. 
 
-Step 3 - Log and Register a Model with MLflow
----------------------------------------------
+Step 3 - Train a model and prepare metadata for logging
+-------------------------------------------------------
 
 In this section, we're going to log a model with MLflow. A quick overview of the steps are:
 
 - Load and prepare the Iris dataset for modeling.
 - Train a Logistic Regression model and evaluate its performance.
-- **Log** model **parameters** and performance **metrics**.
-- **Tag** the run for easy retrieval.
-- **Register** the model in the MLflow Model Registry.
+- Prepare the model hyperparameters and calculate metrics for logging.
+
 
 .. code-section::
     .. code-block:: python
-        :name: log-model
+        :name: train-model
 
         import mlflow
         import mlflow.sklearn
@@ -94,14 +93,16 @@ In this section, we're going to log a model with MLflow. A quick overview of the
         X, y = iris.data, iris.target
 
         # Split the data into training and test sets
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
 
         # Define the model hyperparameters
         params = {
             "solver": "lbfgs",
             "max_iter": 1000,
             "multi_class": "auto",
-            "random_state": 42
+            "random_state": 42,
         }
 
         # Train the model
@@ -113,27 +114,45 @@ In this section, we're going to log a model with MLflow. A quick overview of the
 
         # Calculate metrics
         accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred, average='weighted')
-        recall = recall_score(y_test, y_pred, average='weighted')
-        f1 = f1_score(y_test, y_pred, average='weighted')
+        precision = precision_score(y_test, y_pred, average="weighted")
+        recall = recall_score(y_test, y_pred, average="weighted")
+        f1 = f1_score(y_test, y_pred, average="weighted")
 
         # Create a new MLflow Experiment
         mlflow.set_experiment("MLflow Quickstart")
 
+Step 4 - Log the model and its metadata to MLflow
+-------------------------------------------------
+
+In this next step, we're going to use the model that we trained, the hyperparameters that we specified for the model's fit, and the 
+loss metrics that were calculated by evaluating the model's performance on the test data to log to MLflow.
+
+The steps that we will take are:
+
+- Initiate an MLflow **run** context to start a new run that we will log the model and metadata to.
+- **Log** model **parameters** and performance **metrics**.
+- **Tag** the run for easy retrieval.
+- **Register** the model in the MLflow Model Registry while **logging** (saving) the model.
+
+.. note::
+    While it can be valid to wrap the entire code within the ``start_run`` block, this is **not recommended**. If there as in issue with the 
+    training of the model or any other portion of code that is unrelated to MLflow-related actions, an empty or partially-logged run will be 
+    created, which will necessitate manual cleanup of the invalid run. It is best to keep the training execution outside of the run context block 
+    to ensure that the loggable content (parameters, metrics, artifacts, and the model) are fully materialized prior to logging. 
+
+.. code-section::
+    .. code-block:: python
+        :name: log-model
 
         # Start an MLflow run
         with mlflow.start_run():
-
             # Log the hyperparameters
             mlflow.log_params(params)
 
             # Log the loss metrics
-            mlflow.log_metrics({
-                "accuracy": accuracy,
-                "precision": precision,
-                "recall": recall,
-                "f1_score": f1
-            })
+            mlflow.log_metrics(
+                {"accuracy": accuracy, "precision": precision, "recall": recall, "f1_score": f1}
+            )
 
             # Set a tag that we can use to remind ourselves what this run was for
             mlflow.set_tag("Training Info", "Basic LR model for iris data")
@@ -143,14 +162,14 @@ In this section, we're going to log a model with MLflow. A quick overview of the
 
             # Log the model
             model_info = mlflow.sklearn.log_model(
-                sk_model=lr, 
-                artifact_path="iris_model", 
-                signature=signature, 
-                input_example=X_train, 
-                registered_model_name="tracking-quickstart"
-                )
+                sk_model=lr,
+                artifact_path="iris_model",
+                signature=signature,
+                input_example=X_train,
+                registered_model_name="tracking-quickstart",
+            )
 
-Step 4 - Load the model as a Python Function (pyfunc) and use it for inference
+Step 5 - Load the model as a Python Function (pyfunc) and use it for inference
 ------------------------------------------------------------------------------
 
 After logging the model, we can perform inference by:
@@ -190,7 +209,7 @@ The output of this code will look something like this:
 | 6.0               | 2.9             | 4.5               | 1.5             | 1            | 1               |
 +-------------------+-----------------+-------------------+-----------------+--------------+-----------------+
 
-Step 5 - View the Run in the MLflow UI
+Step 6 - View the Run in the MLflow UI
 --------------------------------------
 
 In order to see the results of our run, we can navigate to the MLflow UI. Since we have already started the Tracking Server at 

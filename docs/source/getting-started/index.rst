@@ -9,12 +9,15 @@ how to use MLflow to solve a particular task.
 `5-minute Quickstart - MLflow Tracking <intro-quickstart/index.html>`_
 ----------------------------------------------------------------------
 
-In this brief introductory quickstart on MLflow Tracking, you will learn how to log, register, and load a model for inference. In the process of 
-learning these key concepts, you will be exposed to the MLflow fluent API, the MLflow Tracking UI, and see how to add metadata associated with 
-a model training event to an MLflow run.
+In this brief introductory quickstart on MLflow Tracking, you will learn how to leverage MLflow to:
 
-You'll be exposed to the most common patterns for using MLflow core features, forming a foundation for the other tutorials and guides in this 
-section.
+* **Log** training statistics (loss, accuracy, etc.) and hyperparameters for a model
+* **Log** (save) a model for later retrieval
+* **Register** a model to enable state transitions for deployment
+* **Load** the model and use it for inference
+
+In the process of learning these key concepts, you will be exposed to the MLflow fluent API, the MLflow Tracking UI, and learn how to add metadata associated with 
+a model training event to an MLflow run.
 
 .. toctree::
     :maxdepth: 1
@@ -32,7 +35,7 @@ If you would like to get started immediately by interactively running the notebo
 Quickstart elements
 ^^^^^^^^^^^^^^^^^^^
 
-You can read through the quickstart directly as a guide, or navigate directly to the notebook example to get started. 
+You can read through the quickstart as a guide, or navigate directly to the notebook example to get started. 
 
 .. raw:: html
 
