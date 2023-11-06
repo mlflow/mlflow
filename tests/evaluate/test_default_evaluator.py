@@ -1378,7 +1378,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         )
 
     def incorrect_return_type(*_):
-        return "stuff", 3
+        return ["stuff"], 3
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_extra_metric(
@@ -1402,15 +1402,15 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         )
 
     def non_numeric_scores(*_):
-        return MetricValue(scores=["string"])
+        return MetricValue(scores=[{"val": "string"}])
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_extra_metric(
             _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
-            f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the "
-            "`extra_metrics` parameter because it must return MetricValue with numeric scores."
+            f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the `extra_metrics`"
+            " parameter because it must return MetricValue with numeric or string scores."
         )
 
     def non_list_justifications(*_):
