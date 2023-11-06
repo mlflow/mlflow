@@ -57,7 +57,9 @@ librosa
 ffmpeg
 accelerate
 # Required by mlflow.openai
-openai
+# NOTE: This temporary pin to <1.0 for openai is due to the library refactoring
+# and the need to rewrite the flavor implementation for openai prior to 2.9.0 release.
+openai<1.0
 tiktoken
 tenacity
 # Required by mlflow.langchain
