@@ -225,6 +225,74 @@ def test_merge_environment():
     assert sorted(expected_conda_deps) == sorted(actual_conda_deps)
 
 
+def test_merge_environment_with_duplicates():
+    expected_mlflow_version = _mlflow_major_version_string()
+    duplicate_dependency = "numpy==1.19.2"
+
+    # Introduce the duplicate in both environments
+    test_shap_env = {
+        "channels": ["conda-forge"],
+        "dependencies": [
+            "python=3.8.5",
+            "pip",
+            {"pip": [expected_mlflow_version, "shap==0.38.0", duplicate_dependency]},
+        ],
+    }
+
+    test_model_env = {
+        "channels": ["conda-forge"],
+        "dependencies": [
+            "python=3.8.5",
+            "pip",
+            {
+                "pip": [
+                    expected_mlflow_version,
+                    "scikit-learn==0.24.0",
+                    "cloudpickle==1.6.0",
+                    duplicate_dependency,
+                ]
+            },
+        ],
+    }
+
+    # The expected merged environment should not have duplicates
+    expected_merged_env = {
+        "name": "mlflow-env",
+        "channels": ["conda-forge"],
+        "dependencies": [
+            f"python={PYTHON_VERSION}",
+            "pip",
+            {
+                "pip": [
+                    expected_mlflow_version,
+                    "scikit-learn==0.24.0",
+                    "cloudpickle==1.6.0",
+                    "shap==0.38.0",
+                    duplicate_dependency,
+                ]
+            },
+        ],
+    }
+
+    actual_merged_env = mlflow.shap._merge_environments(test_shap_env, test_model_env)
+
+    assert sorted(expected_merged_env["channels"]) == sorted(actual_merged_env["channels"])
+
+    expected_conda_deps, expected_pip_deps = mlflow.shap._get_conda_and_pip_dependencies(
+        expected_merged_env
+    )
+    actual_conda_deps, actual_pip_deps = mlflow.shap._get_conda_and_pip_dependencies(
+        actual_merged_env
+    )
+
+    # Check that there are no duplicates in the actual pip dependencies
+    assert len(actual_pip_deps) == len(
+        set(actual_pip_deps)
+    ), "There are duplicates in the pip dependencies"
+    assert sorted(expected_pip_deps) == sorted(actual_pip_deps)
+    assert sorted(expected_conda_deps) == sorted(actual_conda_deps)
+
+
 def test_log_model_with_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)

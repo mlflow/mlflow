@@ -536,26 +536,29 @@ def _get_conda_and_pip_dependencies(conda_env):
     """
 
     conda_deps = []
-    pip_deps = []
+    # NB: Set operations are required in case there are multiple references of MLflow as a
+    # dependency to ensure that duplicate entries are not present in the final consolidated
+    # dependency list.
+    pip_deps_set = set()
 
     for dependency in conda_env["dependencies"]:
         if isinstance(dependency, dict) and dependency["pip"]:
             for pip_dependency in dependency["pip"]:
-                if pip_dependency != "mlflow":
-                    pip_deps.append(pip_dependency)
+                if pip_dependency != "mlflow" and pip_dependency not in pip_deps_set:
+                    pip_deps_set.add(pip_dependency)
         else:
             package_name = _get_package_name(dependency)
             if package_name is not None and package_name not in ["python", "pip"]:
                 conda_deps.append(dependency)
 
-    return conda_deps, pip_deps
+    return conda_deps, list(pip_deps_set)
 
 
 def _union_lists(l1, l2):
     """
     Returns the union of two lists as a new list.
     """
-    return l1 + [x for x in l2 if x not in l1]
+    return list(dict.fromkeys(l1 + l2))
 
 
 def _merge_environments(shap_environment, model_environment):
