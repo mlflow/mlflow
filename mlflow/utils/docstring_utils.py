@@ -17,7 +17,7 @@ def _create_placeholder(key: str):
 
 
 def _replace_keys_with_placeholders(d: Dict) -> Dict:
-    return {_create_placeholder(k): v for k,v in d.items()}
+    return {_create_placeholder(k): v for k, v in d.items()}
 
 
 def _get_indentation_of_key(line: str, placeholder: str) -> str:
@@ -76,7 +76,7 @@ class ParamDocs(dict):
 
     def format(self, **kwargs):
         """
-        Formats values to be substituted in via the format_docstring() method. 
+        Formats values to be substituted in via the format_docstring() method.
 
         :param kwargs: A `dict` in the form of `{"< placeholder name >": "< value >"}`.
         :return: A new `ParamDocs` instance with the formatted param docs.
@@ -88,7 +88,7 @@ class ParamDocs(dict):
         ParamDocs({'p1': 'foo', 'p2': 'bar'})
         """
         replacements = _replace_keys_with_placeholders(kwargs)
-        return ParamDocs({k: _replace_all(v, replacements) for k,v in self.items()})
+        return ParamDocs({k: _replace_all(v, replacements) for k, v in self.items()})
 
     def format_docstring(self, docstring: str) -> str:
         """

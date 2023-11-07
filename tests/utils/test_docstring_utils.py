@@ -18,11 +18,13 @@ def test_indent_multi_line():
     b = " " * 4
     assert _indent(a, b) == "x\n    x\n        x\n    x\n        x"
 
+
 def test_param_docs_format():
     pd = ParamDocs({"x": "{{ x }}", "y": "{{ y }}", "z": "{{ x }}, {{ y }}"})
     formatted = pd.format(x="a", y="b")
     assert isinstance(formatted, ParamDocs)
     assert formatted == {"x": "a", "y": "b", "z": "a, b"}
+
 
 def test_param_docs_format_no_changes():
     @format_docstring(
