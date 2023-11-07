@@ -40,4 +40,5 @@ ipywidgets
 tqdm
 databricks-sdk
 # Required for LLM eval in `mlflow.evaluate`
-openai
+# TODO: Unpin once we support openai 1.0
+openai<1.0
