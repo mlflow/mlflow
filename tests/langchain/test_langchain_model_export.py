@@ -583,7 +583,9 @@ def load_requests_wrapper(_):
 
 def test_log_and_load_api_chain():
     llm = OpenAI(temperature=0)
-    apichain = APIChain.from_llm_and_api_docs(llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True)
+    apichain = APIChain.from_llm_and_api_docs(
+        llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True, limit_to_domains=["test.com"]
+    )
 
     # Log the APIChain
     with mlflow.start_run():
@@ -600,11 +602,12 @@ def test_log_and_load_api_chain():
 
 def test_log_and_load_subclass_of_specialized_chain():
     class APIChainSubclass(APIChain):
+        limit_to_domains: Optional[List[str]] = []
         pass
 
     llm = OpenAI(temperature=0)
     apichain_subclass = APIChainSubclass.from_llm_and_api_docs(
-        llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True
+        llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True, limit_to_domains=["test.com"]
     )
 
     with mlflow.start_run():
