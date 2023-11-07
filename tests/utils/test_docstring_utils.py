@@ -1,54 +1,139 @@
-from mlflow.utils.docstring_utils import ParamDocs, _get_minimum_indentation, format_docstring
+import pytest
+from mlflow.utils.docstring_utils import ParamDocs, format_docstring, _indent
 
 
-def test_param_docs_format():
-    pd = ParamDocs({"x": "{{ x }}", "y": "{{ y }}", "z": "{{ x }}, {{ y }}"})
-    formatted = pd.format(x="a", y="b")
-    assert isinstance(formatted, ParamDocs)
-    assert formatted == {"x": "a", "y": "b", "z": "a, b"}
+def test_indent_empty():
+    a, b = "", " " * 4
+    assert _indent(a, b) == a
 
 
-def test_get_minimum_indentation():
-    text = """
-    # 4 spaces
-      # 6 spaces
-        # 8 spaces
-"""
-    assert _get_minimum_indentation(text) == " " * 4
-
-    text = """
-# no indent
-"""
-    assert _get_minimum_indentation(text) == ""
-    assert _get_minimum_indentation("") == ""
+def test_indent_single_line():
+    a, b = "x", " " * 4
+    assert _indent(a, b) == a
 
 
-def test_format_docstring():
-    @format_docstring({"p": "param doc"})
-    def single_param(_p):
-        """
-        :param p:{{ p }}
-        """
+def test_indent_multi_line():
+    a = """x\nx
+    x\nx
+    x"""
+    b = " " * 4
+    assert _indent(a, b) == "x\n    x\n        x\n    x\n        x"
 
-    expected_doc = """
-        :param p:
-                param doc
-        """
-    assert single_param.__doc__ == expected_doc
-    assert single_param.__name__ == "single_param"
 
-    @format_docstring({"p1": "param1 doc", "p2": "param2 doc"})
-    def multiple_params(_p1, _p2):
-        """
-        :param p1:{{ p1 }}
-        :param p2:{{ p2 }}
+def test_param_docs_format_no_changes():
+    @format_docstring(
+        {
+            "multi_line": """Single line
+Another line\n    Another indented line""",
+            "single_line": "hi",
+        }
+    )
+    def f():
+        """asdf
+
+        Args:
+            p1:
+                asdf
+            p2: asdf
+            p3:
+                asdf
+            p4:
+                asdf
         """
 
-    expected_doc = """
-        :param p1:
-                param1 doc
-        :param p2:
-                param2 doc
+    expected = f"""asdf
+
+        Args:
+            p1:
+                asdf
+            p2: asdf
+            p3:
+                asdf
+            p4:
+                asdf
         """
-    assert multiple_params.__doc__ == expected_doc
-    assert multiple_params.__name__ == "multiple_params"
+
+    assert f.__doc__ == expected
+    assert f.__name__ == "f"
+
+
+def test_param_docs_format_google():
+    @format_docstring(
+        {
+            "multi_line": """Single line
+Another line\n    Another indented line""",
+            "single_line": "hi",
+        }
+    )
+    # fmt: off
+    def f():
+        """asdf
+
+        Args:
+            p1:
+                asdf
+            p2: {{ multi_line }}
+            p3:
+                {{ single_line }} 
+            p4: 
+                {{ multi_line }}
+        """
+
+    expected = f"""asdf
+
+        Args:
+            p1:
+                asdf
+            p2: Single line
+                Another line
+                    Another indented line
+            p3:
+                hi 
+            p4: 
+                Single line
+                Another line
+                    Another indented line
+        """
+    # fmt: on
+
+    assert f.__doc__ == expected
+    assert f.__name__ == "f"
+
+
+def test_param_docs_format_not_google():
+    @format_docstring(
+        {
+            "multi_line": """Single line
+Another line\n    Another indented line""",
+            "single_line": "hi",
+        }
+    )
+    # fmt: off
+    def f():
+        """
+        asdf
+
+        :param p1: asdf
+        :param p2: {{ multi_line }}
+        :param p3: {{ single_line }} 
+        :param p4: 
+                {{ multi_line }}
+        """
+
+    expected = f"""
+        asdf
+
+        :param p1: asdf
+        :param p2: Single line
+                   Another line
+                       Another indented line
+        :param p3: hi 
+        :param p4: 
+                Single line
+                Another line
+                    Another indented line
+        """
+    # fmt: on
+
+    assert f.__doc__ == expected
+    assert f.__name__ == "f"

@@ -1,7 +1,7 @@
-import re
 import textwrap
 import warnings
 from functools import wraps
+from typing import Dict
 
 import importlib_metadata
 from packaging.version import Version
@@ -12,13 +12,50 @@ from mlflow.utils.autologging_utils.versioning import (
 )
 
 
-def _create_placeholder(key):
+def _create_placeholder(key: str):
     return "{{ " + key + " }}"
 
 
-def _replace_placeholder(template, key, value):
-    placeholder = _create_placeholder(key)
-    return template.replace(placeholder, value)
+def _get_indentation_of_key(line: str, placeholder: str) -> str:
+    index = line.find(placeholder)
+    return (index * " ") if index != -1 else ""
+
+
+def _indent(text: str, indent: str) -> str:
+    """Indent everything but first line in text."""
+    lines = text.splitlines()
+    if len(lines) <= 1:
+        return text
+
+    else:
+        first_line = lines[0]
+        subsequent_lines = "\n".join(list(lines[1:]))
+        indented_subsequent_lines = textwrap.indent(subsequent_lines, indent)
+        return first_line + "\n" + indented_subsequent_lines
+
+
+def replace_all(text: str, replacements: Dict[str, str]) -> str:
+    """
+    Replace all instances of replacements.keys() with their corresponding
+    values in text. The replacements will be inserted on the line same line
+    with wrapping to the same level of indentation, for example:
+
+    Args:
+        param_1: {{ key }}
+
+    will become...
+
+    Args:
+        param_1: replaced_value_at same indentation as prior
+                 and if there are more lines they will also
+                 have the same indentation.
+    """
+    for key, value in replacements.items():
+        if key in text:
+            indent = _get_indentation_of_key(text, key)
+            indented_value = _indent(value, indent)
+            text = text.replace(key, indented_value)
+    return text
 
 
 class ParamDocs(dict):
@@ -29,28 +66,7 @@ class ParamDocs(dict):
     def __repr__(self):
         return f"ParamDocs({super().__repr__()})"
 
-    def format(self, **kwargs):
-        """
-        Formats placeholders in this instance with `kwargs`.
-
-        :param kwargs: A `dict` in the form of `{"< placeholder name >": "< value >"}`.
-        :return: A new `ParamDocs` instance with the formatted param docs.
-
-        Examples
-        --------
-        >>> pd = ParamDocs(p1="{{ doc1 }}", p2="{{ doc2 }}")
-        >>> pd.format(doc1="foo", doc2="bar")
-        ParamDocs({'p1': 'foo', 'p2': 'bar'})
-        """
-        new_param_docs = {}
-        for param_name, param_doc in self.items():
-            for key, value in kwargs.items():
-                param_doc = _replace_placeholder(param_doc, key, value)
-            new_param_docs[param_name] = param_doc
-
-        return ParamDocs(new_param_docs)
-
-    def format_docstring(self, docstring):
+    def format_docstring(self, docstring: str) -> str:
         """
         Formats placeholders in `docstring`.
 
@@ -73,25 +89,12 @@ class ParamDocs(dict):
         if docstring is None:
             return None
 
-        min_indent = _get_minimum_indentation(docstring)
-        for param_name, param_doc in self.items():
-            param_doc = textwrap.indent(param_doc, min_indent + " " * 8)
-            if not param_doc.startswith("\n"):
-                param_doc = "\n" + param_doc
-            docstring = _replace_placeholder(docstring, param_name, param_doc)
+        replacements = {_create_placeholder(k): v for k, v in self.items()}
+        lines = docstring.splitlines()
+        for i, line in enumerate(lines):
+            lines[i] = replace_all(line, replacements)
 
-        return docstring
-
-
-_leading_whitespace_re = re.compile("(^[ ]*)(?:[^ \n])", re.MULTILINE)
-
-
-def _get_minimum_indentation(text):
-    """
-    Returns the minimum indentation of all non-blank lines in `text`.
-    """
-    indents = _leading_whitespace_re.findall(text)
-    return min(indents, key=len) if indents else ""
+        return "\n".join(lines)
 
 
 def format_docstring(param_docs):
@@ -191,7 +194,7 @@ class that describes the model's inputs and outputs. If not specified but an
 based on the supplied input example and model. To disable automatic signature
 inference when providing an input example, set ``signature`` to ``False``.
 To manually infer a model signature, call
-:py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+:py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets 
 with valid model inputs, such as a training dataset with the target column
 omitted, and valid model outputs, like model predictions made on the training
 dataset, for example:
@@ -209,11 +212,8 @@ one or several instances of valid model input. The input example is used
 as a hint of what data to feed the model. It will be converted to a Pandas
 DataFrame and then serialized to json using the Pandas split-oriented
 format, or a numpy array where the example will be serialized to json
-by converting it to a list. If input example is a tuple, then the first element
-must be a valid model input, and the second element must be a valid params
-dictionary that could be used for model inference. Bytes are base64-encoded.
-When the ``signature`` parameter is ``None``, the input example is used to
-infer a model signature.
+by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
+``None``, the input example is used to infer a model signature.
 """,
     }
 )
