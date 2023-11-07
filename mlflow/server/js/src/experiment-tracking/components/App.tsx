@@ -7,7 +7,6 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Switch } from '@databricks/design-system';
 
 import {
   HashRouterV5,
@@ -36,6 +35,7 @@ import { PageNotFoundView } from '../../common/components/PageNotFoundView';
 import { RunPage } from './RunPage';
 import { DirectRunPage } from './DirectRunPage';
 import { shouldEnableDeepLearningUI } from '../../common/utils/FeatureUtils';
+import { DarkThemeSwitch } from '../../common/components/DarkThemeSwitch';
 
 const isExperimentsActive = (match: any, location: any) => {
   // eslint-disable-next-line prefer-const
@@ -109,10 +109,9 @@ class App extends Component<AppProps> {
                   </NavLinkV5>
                 </div>
                 <div className='header-links'>
-                  <div style={{ display: 'flex', alignItems: 'center' }} css={{ marginRight }}>
-                    <Switch checked={isDarkTheme} onChange={setIsDarkTheme} />
-                    {isDarkTheme ? <span>Dark theme</span> : <span>Light theme</span>}
-                  </div>
+                  <span css={{ marginRight }}>
+                    <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+                  </span>
                   <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
                     <div className='github'>
                       <span>GitHub</span>
