@@ -46,20 +46,20 @@ You can read through the quickstart as a guide, or navigate directly to the note
                     <div class="header">
                         MLflow Tracking Quickstart Guide
                     </div>
-                </a>
-                <p>
+                    <p>
                     Learn the basics of MLflow Tracking in a fast-paced guide with a focus on seeing your first model in the MLflow UI
-                </p>
+                    </p>
+                </a>
             </div>
             <div class="simple-card">
                 <a href="intro-quickstart/notebooks/tracking_quickstart.html" >
                     <div class="header">
                         MLflow Tracking Quickstart Notebook
                     </div>
+                    <p>
+                        See an example of using the MLflow fluent API to log, load, and register a model for inference. Great for code-focused learners!
+                    </p>
                 </a>
-                <p>
-                    See an example of using the MLflow fluent API to log, load, and register a model for inference. Great for code-focused learners!
-                </p>
             </div>
         </article>
     </section>
