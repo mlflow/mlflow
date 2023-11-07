@@ -44,14 +44,6 @@ def data():
 
 
 @pytest.fixture(scope="module")
-def spark_session():
-    from pyspark.sql import SparkSession
-
-    with SparkSession.builder.master("local[2]").getOrCreate() as session:
-        yield session
-
-
-@pytest.fixture(scope="module")
 def single_tensor_input_model(data):
     x, y = data
     model = Sequential()

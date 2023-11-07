@@ -27,7 +27,6 @@ from pyspark.ml.feature import HashingTF, IndexToString, StringIndexer, Tokenize
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
-from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow import MlflowClient
@@ -55,12 +54,6 @@ from tests.helper_functions import AnyStringWith
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    with SparkSession.builder.master("local[*]").getOrCreate() as session:
-        yield session
 
 
 @pytest.fixture(scope="module")

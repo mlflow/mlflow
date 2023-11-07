@@ -109,12 +109,6 @@ def get_local_artifact_path(run_id, artifact_path):
 
 
 @pytest.fixture(scope="module")
-def spark_session():
-    with SparkSession.builder.master("local[*]").getOrCreate() as session:
-        yield session
-
-
-@pytest.fixture(scope="module")
 def iris_dataset():
     X, y = get_iris()
     eval_X, eval_y = X[0::3], y[0::3]

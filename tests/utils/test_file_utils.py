@@ -32,7 +32,6 @@ from tests.helper_functions import random_file, random_int, safe_edit_yaml
 from tests.projects.utils import TEST_PROJECT_DIR
 
 
-@pytest.fixture(scope="module")
 def spark_session():
     with SparkSession.builder.master("local[*]").getOrCreate() as session:
         yield session
