@@ -54,6 +54,36 @@ from tests.store.artifact.constants import MODELS_ARTIFACT_REPOSITORY
 _logger = logging.getLogger(__name__)
 
 
+def decrement_version(version_str):
+    version = Version(version_str)
+    # Check if it's a development release
+    if version.is_devrelease:
+        # Subtract 1 from the micro version
+        new_version = f"{version.major}.{version.minor}.{max(version.micro - 1, 0)}"
+    else:
+        # If it's not a dev release, just return the same version
+        new_version = version_str
+    return new_version
+
+
+def update_yaml(yaml_path):
+    with open(yaml_path) as f:
+        env_yaml = yaml.safe_load(f)
+
+    # Look for the mlflow dependency under the 'pip' section
+    for dep in env_yaml["dependencies"]:
+        if isinstance(dep, dict) and "pip" in dep:
+            for i, package in enumerate(dep["pip"]):
+                if package.startswith("mlflow=="):
+                    current_version = package.split("==")[1]
+                    new_version = decrement_version(current_version)
+                    dep["pip"][i] = f"mlflow=={new_version}"
+                    break
+
+    with open(yaml_path, "w") as f:
+        yaml.safe_dump(env_yaml, f, default_flow_style=False)
+
+
 @pytest.fixture
 def spark_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
@@ -328,6 +358,10 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
 
 
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
+    # For the container being used in this test, it is not able to connect to the local
+    # pypi server. Therefore, we define the latest released version of MLflow.
+    update_yaml(spark_custom_env)
+
     mlflow.spark.save_model(
         spark_model_iris.model,
         path=model_path,
@@ -355,7 +389,11 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     reason="The dev version of pyspark built from the source doesn't exist on PyPI or Anaconda",
 )
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
-    mlflow.spark.save_model(spark_model_iris.model, path=model_path)
+    mlflow.spark.save_model(
+        spark_model_iris.model,
+        path=model_path,
+        extra_pip_requirements=[f"mlflow=={decrement_version(mlflow.__version__)}"],
+    )
 
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
