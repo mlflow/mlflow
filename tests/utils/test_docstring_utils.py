@@ -1,4 +1,4 @@
-from mlflow.utils.docstring_utils import ParamDocs, format_docstring, _indent
+from mlflow.utils.docstring_utils import ParamDocs, _indent, format_docstring
 
 
 def test_indent_empty():
@@ -47,7 +47,7 @@ Another line\n    Another indented line""",
                 asdf
         """
 
-    expected = f"""asdf
+    expected = """asdf
 
         Args:
             p1:
@@ -80,12 +80,12 @@ Another line\n    Another indented line""",
                 asdf
             p2: {{ multi_line }}
             p3:
-                {{ single_line }} 
-            p4: 
+                {{ single_line }}
+            p4:
                 {{ multi_line }}
         """
 
-    expected = f"""asdf
+    expected = """asdf
 
         Args:
             p1:
@@ -94,8 +94,8 @@ Another line\n    Another indented line""",
                 Another line
                     Another indented line
             p3:
-                hi 
-            p4: 
+                hi
+            p4:
                 Single line
                 Another line
                     Another indented line
@@ -121,20 +121,20 @@ Another line\n    Another indented line""",
 
         :param p1: asdf
         :param p2: {{ multi_line }}
-        :param p3: {{ single_line }} 
-        :param p4: 
+        :param p3: {{ single_line }}
+        :param p4:
                 {{ multi_line }}
         """
 
-    expected = f"""
+    expected = """
         asdf
 
         :param p1: asdf
         :param p2: Single line
                    Another line
                        Another indented line
-        :param p3: hi 
-        :param p4: 
+        :param p3: hi
+        :param p4:
                 Single line
                 Another line
                     Another indented line

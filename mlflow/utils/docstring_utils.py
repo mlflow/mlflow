@@ -127,7 +127,7 @@ def format_docstring(param_docs):
 
     Args:
         param_docs: A `ParamDocs` instance or `dict`.
-    
+
     Returns:
         A decorator to apply the formatting.
 
@@ -193,7 +193,7 @@ Both requirements and constraints are automatically parsed and written to ``requ
 written to the ``pip`` section of the model's conda environment (``conda.yaml``) file."""
         ),
         "extra_pip_requirements": (
-            """Either an iterable of pip 
+            """Either an iterable of pip
 requirement strings
 (e.g. ``["pandas", "-r requirements.txt", "-c constraints.txt"]``) or the string path to
 a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
@@ -220,7 +220,7 @@ class that describes the model's inputs and outputs. If not specified but an
 based on the supplied input example and model. To disable automatic signature
 inference when providing an input example, set ``signature`` to ``False``.
 To manually infer a model signature, call
-:py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets 
+:py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
 with valid model inputs, such as a training dataset with the target column
 omitted, and valid model outputs, like model predictions made on the training
 dataset, for example:
@@ -256,7 +256,7 @@ def get_module_min_and_max_supported_ranges(module_name):
 
     Args:
         module_name: The string name of the module as it is registered in ml_package_versions.py
-    
+
     Returns:
         tuple of minimum supported version, maximum supported version as strings.
     """
@@ -273,7 +273,7 @@ def docstring_version_compatibility_warning(integration_name):
 
     Args:
         integration_name: The name of the module as stored within ml-package-versions.yml
-    
+
     Returns:
         The wrapped function with the additional docstring header applied
     """
