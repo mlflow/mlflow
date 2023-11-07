@@ -76,7 +76,6 @@ In this section, we're going to log a model with MLflow. A quick overview of the
         :name: train-model
 
         import mlflow
-        import mlflow.sklearn
         from mlflow.models import infer_signature
 
         import pandas as pd
@@ -85,12 +84,9 @@ In this section, we're going to log a model with MLflow. A quick overview of the
         from sklearn.linear_model import LogisticRegression
         from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-        # Set our tracking server uri for logging
-        mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
 
         # Load the Iris dataset
-        iris = datasets.load_iris()
-        X, y = iris.data, iris.target
+        X, y = datasets.load_iris(return_X_y=True)
 
         # Split the data into training and test sets
         X_train, X_test, y_train, y_test = train_test_split(
@@ -102,7 +98,7 @@ In this section, we're going to log a model with MLflow. A quick overview of the
             "solver": "lbfgs",
             "max_iter": 1000,
             "multi_class": "auto",
-            "random_state": 42,
+            "random_state": 8888,
         }
 
         # Train the model
@@ -114,12 +110,7 @@ In this section, we're going to log a model with MLflow. A quick overview of the
 
         # Calculate metrics
         accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred, average="weighted")
-        recall = recall_score(y_test, y_pred, average="weighted")
-        f1 = f1_score(y_test, y_pred, average="weighted")
 
-        # Create a new MLflow Experiment
-        mlflow.set_experiment("MLflow Quickstart")
 
 Step 4 - Log the model and its metadata to MLflow
 -------------------------------------------------
@@ -144,15 +135,19 @@ The steps that we will take are:
     .. code-block:: python
         :name: log-model
 
+        # Set our tracking server uri for logging
+        mlflow.set_tracking_uri(uri="http://127.0.0.1:8080")
+
+        # Create a new MLflow Experiment
+        mlflow.set_experiment("MLflow Quickstart")
+
         # Start an MLflow run
         with mlflow.start_run():
             # Log the hyperparameters
             mlflow.log_params(params)
 
-            # Log the loss metrics
-            mlflow.log_metrics(
-                {"accuracy": accuracy, "precision": precision, "recall": recall, "f1_score": f1}
-            )
+            # Log the loss metric
+            mlflow.log_metric("accuracy", accuracy)
 
             # Set a tag that we can use to remind ourselves what this run was for
             mlflow.set_tag("Training Info", "Basic LR model for iris data")
@@ -189,7 +184,10 @@ After logging the model, we can perform inference by:
         loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
         predictions = loaded_model.predict(X_test)
-        result = pd.DataFrame(X_test, columns=iris.feature_names)
+
+        iris_feature_names = datasets.load_iris().feature_names
+
+        result = pd.DataFrame(X_test, columns=iris_feature_names)
         result["actual_class"] = y_test
         result["predicted_class"] = predictions
 
