@@ -602,7 +602,6 @@ def test_log_and_load_api_chain():
 
 def test_log_and_load_subclass_of_specialized_chain():
     class APIChainSubclass(APIChain):
-        limit_to_domains: Optional[List[str]] = []
         pass
 
     llm = OpenAI(temperature=0)
