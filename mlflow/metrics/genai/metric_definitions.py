@@ -27,7 +27,7 @@ def answer_similarity(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
         "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
@@ -91,7 +91,7 @@ def answer_correctness(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
         "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
@@ -155,7 +155,7 @@ def faithfulness(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
         "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
@@ -213,7 +213,7 @@ def answer_relevance(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
         "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
@@ -273,7 +273,7 @@ def relevance(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
         "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
