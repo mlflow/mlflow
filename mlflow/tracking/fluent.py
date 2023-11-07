@@ -376,20 +376,31 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
-        if log_system_metrics is None:
-            # if `log_system_metrics` is not specified, we will check environment variable.
-            log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
-        if log_system_metrics:
-            try:
-                from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
-                system_monitor = SystemMetricsMonitor(active_run_obj.info.run_id)
-                global run_id_to_system_metrics_monitor
+    if log_system_metrics is None:
+        # if `log_system_metrics` is not specified, we will check environment variable.
+        log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
+    if log_system_metrics:
+        if existing_run_id:
+            metrics_history = client.get_metric_history(
+                active_run_obj.info.run_id, "system/cpu_utilization_percentage"
+            )
+            initial_logging_step = metrics_history[-1].step + 1 if metrics_history else 0
+        else:
+            initial_logging_step = 0
+        try:
+            from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
-                run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
-                system_monitor.start()
-            except Exception as e:
-                _logger.error(f"Failed to start system metrics monitoring: {e}.")
+            system_monitor = SystemMetricsMonitor(
+                active_run_obj.info.run_id,
+                initial_logging_step=initial_logging_step,
+            )
+            global run_id_to_system_metrics_monitor
+
+            run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
+            system_monitor.start()
+        except Exception as e:
+            _logger.error(f"Failed to start system metrics monitoring: {e}.")
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]

@@ -36,9 +36,18 @@ class SystemMetricsMonitor:
         samples_before_logging: int, default to 1. The number of samples to aggregate before
             logging. Will be overridden by `MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING`
             evnironment variable.
+        initial_logging_step: int, default to 0. The intial logging step. `initial_logging_step`
+            should be 0 for a new run, and should be the `last step + 1` of the previous run if you
+            are resuming from an old run.
     """
 
-    def __init__(self, run_id, sampling_interval=10, samples_before_logging=1):
+    def __init__(
+        self,
+        run_id,
+        sampling_interval=10,
+        samples_before_logging=1,
+        initial_logging_step=0,
+    ):
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
         # Instantiate default monitors.
@@ -60,7 +69,7 @@ class SystemMetricsMonitor:
         self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
         self._process = None
-        self._logging_step = 0
+        self._logging_step = initial_logging_step
         self._metrics_prefix = "system/"
 
     def start(self):
@@ -134,6 +143,7 @@ class SystemMetricsMonitor:
         """Stop monitoring system metrics."""
         if self._process is None:
             return
+        self.mlflow_logger.flush()
         _logger.info("Stopping system metrics monitoring...")
         self._shutdown_event.set()
         try:
