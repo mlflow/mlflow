@@ -303,8 +303,8 @@ is only available on production Databricks workspace, and not available on Datab
 
 The method of using production Databricks is the same as using Databricks CE, you only need to 
 change the host to be the production workspace. For example, ``https://dbc-1234567-123.cloud.databricks.com``.
-For more information about how Databricks power your Machine Learning workflow, please refer to the doc 
-`here <https://docs.databricks.com/en/machine-learning/index.html>`_.
+For more information about how Databricks power your Machine Learning workflow, please refer to the `doc 
+here <https://docs.databricks.com/en/machine-learning/index.html>`_.
 
 To use AzureML as the tracking server, please read 
 `the doc here <https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-mlflow-cli-runs?view=azureml-api-2&tabs=interactive%2Ccli>`_

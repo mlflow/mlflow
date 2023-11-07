@@ -257,6 +257,7 @@ Deployment Guides and Tutorials
 
     introduction/index
     getting-started/index
+    getting-started/tracking-server-overview/index
     new-features/index
     llms/index
     model-evaluation/index
