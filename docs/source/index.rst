@@ -29,10 +29,10 @@ Getting Started Guides and Quickstarts
                     <div class="header">
                         MLflow Tracking Quickstart
                     </div>
-                </a>
-                <p>
+                    <p>
                     A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference. 
-                </p>
+                    </p>
+                </a>
             </div>
             <div class="simple-card">
                 <a href="getting-started/logging-first-model/index.html" >
