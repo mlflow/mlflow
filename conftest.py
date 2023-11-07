@@ -9,6 +9,7 @@ import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.version import VERSION
 
 from tests.helper_functions import get_safe_port
 
@@ -220,6 +221,24 @@ def pytest_terminal_summary(
             ids = list(dict.fromkeys(report.fspath for report in failed_test_reports))
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
+
+        # If some tests failed at installing mlflow, we suggest using `--serve-wheel` flag.
+        # Some test cases try to install mlflow via pip e.g. model loading. They pins
+        # mlflow version to install based on local environment i.e. dev version ahead of
+        # the latest release, hence it's not found on PyPI. `--serve-wheel` flag was
+        # introduced to resolve this issue, which starts local PyPI server and serve
+        # an mlflow wheel based on local source code.
+        # Ref: https://github.com/mlflow/mlflow/pull/10247
+        msg = f"No matching distribution found for mlflow=={VERSION}"
+        for rep in failed_test_reports:
+            if any(msg in t for t in (rep.longreprtext, rep.capstdout, rep.capstderr)):
+                terminalreporter.section("HINTS", yellow=True)
+                terminalreporter.write(
+                    f"Found test(s) that failed with {msg!r}. Adding"
+                    " --serve-wheel` flag to your pytest command may help.\n\n",
+                    yellow=True,
+                )
+                break
 
 
 @pytest.fixture(scope="module", autouse=True)
