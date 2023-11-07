@@ -3659,7 +3659,8 @@ to :py:func:`mlflow.evaluate()` to produce extra metrics and artifacts for the m
 
 To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions``, ``targets``,
 and ``metrics`` as inputs and outputs a ``MetricValue`` object. ``predictions`` and ``targets`` are ``pandas.Series``
-objects. 
+objects. If ``predictions`` or ``targets`` specified in ``mlflow.evaluate()`` is either ``numpy.array`` or ``List``,
+they will be converted to ``pandas.Series``.
 
 ``metrics`` is a dictionary mapping a metric name ``string`` to a ``MetricValue`` object. It contains the values
 from built-in metrics and can be used to compute your custom metric. The built-in metrics are available when
