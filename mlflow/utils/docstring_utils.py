@@ -78,8 +78,11 @@ class ParamDocs(dict):
         """
         Formats values to be substituted in via the format_docstring() method.
 
-        :param kwargs: A `dict` in the form of `{"< placeholder name >": "< value >"}`.
-        :return: A new `ParamDocs` instance with the formatted param docs.
+        Args:
+            kwargs: A `dict` in the form of `{"< placeholder name >": "< value >"}`.
+
+        Returns:
+            A new `ParamDocs` instance with the formatted param docs.
 
         Examples
         --------
@@ -93,9 +96,6 @@ class ParamDocs(dict):
     def format_docstring(self, docstring: str) -> str:
         """
         Formats placeholders in `docstring`.
-
-        :param docstring: Docstring to format.
-        :return: Formatted docstring.
 
         Examples
         --------
@@ -125,8 +125,11 @@ def format_docstring(param_docs):
     Returns a decorator that replaces param doc placeholders (e.g. '{{ param_name }}') in the
     docstring of the decorated function.
 
-    :param param_docs: A `ParamDocs` instance or `dict`.
-    :return: A decorator to apply the formatting.
+    Args:
+        param_docs: A `ParamDocs` instance or `dict`.
+    
+    Returns:
+        A decorator to apply the formatting.
 
     Examples
     --------
@@ -251,8 +254,11 @@ def get_module_min_and_max_supported_ranges(module_name):
     dev/update_ml_package_versions.py which writes a python file to the importable namespace of
     mlflow.ml_package_versions
 
-    :param module_name: The string name of the module as it is registered in ml_package_versions.py
-    :return: tuple of minimum supported version, maximum supported version as strings.
+    Args:
+        module_name: The string name of the module as it is registered in ml_package_versions.py
+    
+    Returns:
+        tuple of minimum supported version, maximum supported version as strings.
     """
     versions = _ML_PACKAGE_VERSIONS[module_name]["models"]
     min_version = versions["minimum"]
@@ -265,8 +271,11 @@ def docstring_version_compatibility_warning(integration_name):
     Generates a docstring that can be applied as a note stating a version compatibility range for
     a given flavor.
 
-    :param integration_name: The name of the module as stored within ml-package-versions.yml
-    :return: The wrapped function with the additional docstring header applied
+    Args:
+        integration_name: The name of the module as stored within ml-package-versions.yml
+    
+    Returns:
+        The wrapped function with the additional docstring header applied
     """
 
     def annotated_func(func):
