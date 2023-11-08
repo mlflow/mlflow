@@ -9,7 +9,6 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
-import psutil
 from tqdm.auto import tqdm
 
 import mlflow
@@ -17,19 +16,20 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
 )
+from mlflow.utils.process import cpu_count, virtual_memory
 from mlflow.utils.time import Timer
 
 GiB = 1024**3
 
 
 def show_system_info():
-    svmem = psutil.virtual_memory()
+    svmem = virtual_memory()
     info = json.dumps(
         {
             "MLflow version": mlflow.__version__,
             "MPU enabled": MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get(),
             "MPD enabled": MLFLOW_ENABLE_MULTIPART_UPLOAD.get(),
-            "CPU count": psutil.cpu_count(),
+            "CPU count": cpu_count(),
             "Memory usage (total) [GiB]": svmem.total // GiB,
             "Memory used [GiB]": svmem.used // GiB,
             "Memory available [GiB]": svmem.available // GiB,

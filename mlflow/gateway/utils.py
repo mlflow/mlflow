@@ -37,23 +37,6 @@ def check_configuration_route_name_collisions(config):
         )
 
 
-def kill_child_processes(parent_pid):
-    """
-    Gracefully terminate or kill child processes from a main process
-    """
-    import psutil
-
-    parent = psutil.Process(parent_pid)
-    for child in parent.children(recursive=True):
-        try:
-            child.terminate()
-        except psutil.NoSuchProcess:
-            pass
-    _, still_alive = psutil.wait_procs(parent.children(), timeout=3)
-    for p in still_alive:
-        p.kill()
-
-
 def _is_valid_uri(uri: str):
     """
     Evaluates the basic structure of a provided gateway uri to determine if the scheme and

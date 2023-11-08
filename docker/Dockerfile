@@ -1,12 +1,8 @@
 FROM python:3.10-slim-bullseye
 ARG VERSION
-# NB: installing gcc is required in order to build a wheel file 
-# for psutil, which is a dependency of mlflow. 
-# The binaries for psutil do not support Python 3.10, requiring 
-# a build from source. psutil has a large amount of cython within 
-# its code base, necessitating gcc being present in the image.
-RUN apt-get update && \
-    apt-get install -y gcc && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# NB: psutil doesn't have binary for Arm64 Linux so we need to build it from 
+# CPython, which causes multiple headache during build. As psutil is only 
+# required for system metrics monitoring and gateway, hence we make is optional 
+# and provide custom implementation in utils/process.py for Arm64 Linux. 
+RUN if [ "$(uname -m)" != "aarch64" ]; then pip install --no-cache psutil; fi
 RUN pip install --no-cache mlflow==$VERSION
