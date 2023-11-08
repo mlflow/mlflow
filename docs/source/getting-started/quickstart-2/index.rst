@@ -39,6 +39,8 @@ Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment va
 
   export MLFLOW_TRACKING_URI=http://localhost:5000
 
+This code defaults to 12 runs of 32 epochs apiece and should take a few minutes to finish.
+
 .. code-block:: python
 
     import numpy as np
@@ -73,33 +75,42 @@ Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment va
     def train_model(params, train_x, train_y, valid_x, valid_y, test_x, test_y, epochs):
         # Define model architecture
         model = Sequential()
-        model.add(Lambda(lambda x: (x - np.mean(train_x, axis=0)) / np.std(train_x, axis=0)))
+        model.add(
+            Lambda(lambda x: (x - np.mean(train_x, axis=0)) / np.std(train_x, axis=0))
+        )
         model.add(Dense(64, activation="relu", input_shape=(train_x.shape[1],)))
         model.add(Dense(1))
 
         # Compile model
         model.compile(
-            optimizer=SGD(lr=params["lr"], momentum=params["momentum"]), loss="mean_squared_error"
+            optimizer=SGD(lr=params["lr"], momentum=params["momentum"]),
+            loss="mean_squared_error",
         )
 
         # Train model with MLflow tracking
         with mlflow.start_run(nested=True):
             # Fit model
-            model.fit(train_x, train_y, validation_data=(valid_x, valid_y), epochs=epochs, verbose=0)
+            model.fit(
+                train_x,
+                train_y,
+                validation_data=(valid_x, valid_y),
+                epochs=epochs,
+                verbose=0,
+            )
 
             # Evaluate the model
             predicted_qualities = model.predict(test_x)
-            rmse = np.sqrt(mean_squared_error(test_y, predicted_qualities))
+            test_rmse = np.sqrt(mean_squared_error(test_y, predicted_qualities))
 
             # Log parameters and results
             mlflow.log_params(params)
-            mlflow.log_metric("rmse", rmse)
+            mlflow.log_metric("test_rmse", test_rmse)
 
             # Log model
             signature = infer_signature(train_x, train_y)
             mlflow.tensorflow.log_model(model, "model", signature=signature)
 
-            return {"loss": rmse, "status": STATUS_OK, "model": model}
+            return {"loss": test_rmse, "status": STATUS_OK, "model": model}
 
 
     def objective(params):
@@ -140,14 +151,12 @@ Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment va
 
         # Log the best parameters and corresponding minimum loss
         mlflow.log_params(best)
-        mlflow.log_metric("rmse", best_run["loss"])
+        mlflow.log_metric("test_rmse", best_run["loss"])
 
         # Print out the best parameters and corresponding loss
         print(f"Best parameters: {best}")
-        print(f"Best rmse: {best_run['loss']}")
+        print(f"Best test_rmse: {best_run['loss']}")
 
-
-The this code defaults to 12 runs of 32 epochs apiece and should take a few minutes to finish.
 
 Compare the results
 -------------------
