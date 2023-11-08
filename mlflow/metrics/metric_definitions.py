@@ -404,6 +404,8 @@ def _prepare_row_for_ndcg(predictions, targets):
         y_score : ndarray of shape (1, n_docs) Representing the retrieved docs.
             n_docs is the number of unique docs in union of predictions and targets.
     """
+    # sklearn does an internal sort of y_score, so to preserve the order of our retrieved
+    # docs, we need to modify the relevance value slightly
     eps = 1e-6
     targets = set(targets)
 
@@ -438,22 +440,26 @@ def _ndcg_at_k_eval_fn(k):
         if not _validate_list_str_data(
             predictions, "ndcg_at_k", predictions_col_specifier
         ) or not _validate_list_str_data(targets, "ndcg_at_k", targets_col_specifier):
-            return noop
+            return
 
         scores = []
-        for i in range(len(predictions)):
-            # edge cases
-            if len(predictions[i]) == 0 and len(targets[i]) == 0:
+        for ground_truth, retrieved in zip(targets, predictions):
+            # 1. If no ground truth doc IDs are provided and no documents are retrieved,
+            # the score is 1.
+            if len(retrieved) == 0 and len(ground_truth) == 0:
                 scores.append(1)  # no error is made
                 continue
-
-            if len(predictions[i]) == 0 or len(targets[i]) == 0:
+            # 2. If no ground truth doc IDs are provided and documents are retrieved,
+            # the score is 0.
+            # 3. If ground truth doc IDs are provided and no documents are retrieved,
+            # the score is 0.
+            if len(retrieved) == 0 or len(ground_truth) == 0:
                 scores.append(0)
                 continue
 
             # only include the top k retrieved chunks
-            y_score, y_true = _prepare_row_for_ndcg(predictions[i][:k], targets[i])
-            score = ndcg_score(y_true, y_score, k=len(predictions[i][:k]), ignore_ties=True)
+            y_score, y_true = _prepare_row_for_ndcg(retrieved[:k], ground_truth)
+            score = ndcg_score(y_true, y_score, k=len(retrieved[:k]), ignore_ties=True)
             scores.append(score)
 
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))

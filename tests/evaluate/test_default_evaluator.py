@@ -3461,7 +3461,11 @@ def test_evaluate_retriever_builtin_metrics_no_model_type():
             model=fn,
             data=X,
             targets="ground_truth",
-            extra_metrics=[mlflow.metrics.precision_at_k(4), mlflow.metrics.recall_at_k(4)],
+            extra_metrics=[
+                mlflow.metrics.precision_at_k(4),
+                mlflow.metrics.recall_at_k(4),
+                mlflow.metrics.ndcg_at_k(4),
+            ],
         )
     run = mlflow.get_run(run.info.run_id)
     assert (
@@ -3474,6 +3478,9 @@ def test_evaluate_retriever_builtin_metrics_no_model_type():
             "recall_at_4/mean": 1.0,
             "recall_at_4/p90": 1.0,
             "recall_at_4/variance": 0.0,
+            "ndcg_at_4/mean": 0.9197207891481877,
+            "ndcg_at_4/p90": 0.9197207891481877,
+            "ndcg_at_4/variance": 0.0,
         }
     )
     client = mlflow.MlflowClient()
