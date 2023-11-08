@@ -236,3 +236,34 @@ via containerizing the model via Docker is covered.
     :hidden:
 
     quickstart-2/index
+
+`5 Minute Tracking Server Overview <tracking-server-overview/index.html>`_
+---------------------------------------------------------------------------
+
+This quickstart tutorial walks through different types of MLflow Tracking Servers and how to use them to log 
+your MLflow experiments.
+
+.. raw:: html
+
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="tracking-server-overview/index.html" >
+                    <div class="header">
+                        5 Minute Tracking Server Overview
+                    </div>
+                </a>
+                <p>
+                    Learn how to log MLflow experiments with different tracking servers
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tracking-server-overview/index
