@@ -81,6 +81,7 @@ Now load the dataset and split it into training, validation, and test sets.
 Then, define the model architecture and train the model. The ``train_model`` function uses MLflow to track the parameters and results of each run. It also logs the model itself. 
 
 .. code-block:: python
+
     def train_model(params, train_x, train_y, valid_x, valid_y, test_x, test_y, epochs):
         # Define model architecture
         model = Sequential()
@@ -123,6 +124,7 @@ Then, define the model architecture and train the model. The ``train_model`` fun
 The ``objective`` function defines the search space for Hyperopt and calls ``train_model``. 
 
 .. code-block:: python
+
     def objective(params):
         # MLflow will track the parameters and results for each run
         result = train_model(
@@ -147,6 +149,7 @@ The ``objective`` function defines the search space for Hyperopt and calls ``tra
 Finally, run the hyperparameter sweep using the ``objective`` function and across the search space. Store the best parameters, model, and rmse in MLflow.
 
 .. code-block:: python
+
     with mlflow.start_run():
         # Conduct the hyperparameter search using Hyperopt
         trials = Trials()
