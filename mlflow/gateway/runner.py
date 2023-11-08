@@ -9,7 +9,7 @@ from watchfiles import watch
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.gateway import app
 from mlflow.gateway.config import _load_route_config
-from mlflow.gateway.utils import kill_child_processes
+from mlflow.utils.process import kill_child_processes
 
 _logger = logging.getLogger(__name__)
 
