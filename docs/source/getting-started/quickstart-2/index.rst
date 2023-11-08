@@ -51,6 +51,7 @@ Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment va
     from tensorflow.keras.optimizers import SGD
 
     import mlflow
+    from mlflow.models import infer_signature
 
     # Load dataset
     data = pd.read_csv(
@@ -95,7 +96,8 @@ Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment va
             mlflow.log_metric("rmse", rmse)
 
             # Log model
-            mlflow.tensorflow.log_model(model, "model")
+            signature = infer_signature(train_x, train_y)
+            mlflow.tensorflow.log_model(model, "model", signature=signature)
 
             return {"loss": rmse, "status": STATUS_OK, "model": model}
 
