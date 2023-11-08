@@ -3665,6 +3665,7 @@ they will be converted to ``pandas.Series``.
 ``metrics`` is a dictionary mapping a metric name ``string`` to a ``MetricValue`` object. It contains the values
 from built-in metrics and can be used to compute your custom metric. The built-in metrics are available when
 ``model_type`` is defined for ``mlflow.evaluate(... model_type="classifier")``.
+
 .. code-block:: python
 
     {
