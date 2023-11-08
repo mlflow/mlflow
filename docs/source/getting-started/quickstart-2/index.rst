@@ -24,24 +24,128 @@ Set up
 ------
 
 - Install MLflow. See the :ref:`introductory quickstart <quickstart-1>` for instructions
-- Clone the `MLflow git repo <https://github.com/mlflow/mlflow>`_
 - Run the tracking server: ``mlflow server``
 
 Run a hyperparameter sweep
 --------------------------
 
-Switch to the ``examples/hyperparam/`` directory in the MLflow git repo. This example tries to optimize the RMSE metric of a Keras deep learning model on a wine quality dataset. It has two hyperparameters that it tries to optimize: ``learning-rate`` and ``momentum``.
+This example tries to optimize the RMSE metric of a Keras deep learning model on a wine quality dataset. It has two hyperparameters that it tries to optimize: ``learning-rate`` and ``momentum``.
 
-This directory uses the :ref:`MLflow Projects format <projects>` and defines multiple entry points. You can review those by reading the **MLProject** file. The ``hyperopt`` entry point uses the `Hyperopt <https://github.com/hyperopt/hyperopt>`_ library to run a hyperparameter sweep over the ``train`` entry point. The ``hyperopt`` entry point sets different values of ``learning-rate`` and ``momentum`` and records the results in MLflow.
+We will use the `Hyperopt <https://github.com/hyperopt/hyperopt>`_ library to run a hyperparameter sweep. The ``hyperopt`` entry point sets different values of ``learning-rate`` and ``momentum`` and records the results in MLflow. 
 
 Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment variable to the URI of the MLflow tracking server:
 
 .. code-block:: bash
 
   export MLFLOW_TRACKING_URI=http://localhost:5000
-  mlflow run -e hyperopt .
 
-The ``hyperopt`` entry point defaults to 12 runs of 32 epochs apiece and should take a few minutes to finish.
+.. code-block:: python
+
+    import numpy as np
+    import pandas as pd
+    from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
+    from sklearn.metrics import mean_squared_error
+    from sklearn.model_selection import train_test_split
+    from tensorflow.keras.layers import Dense, Lambda
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.optimizers import SGD
+
+    import mlflow
+
+    # Load dataset
+    data = pd.read_csv(
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv",
+        sep=";",
+    )
+
+    # Split the data into training, validation, and test sets
+    train, test = train_test_split(data, test_size=0.25, random_state=42)
+    train_x = train.drop(["quality"], axis=1).values
+    train_y = train[["quality"]].values.ravel()
+    test_x = test.drop(["quality"], axis=1).values
+    test_y = test[["quality"]].values.ravel()
+    train_x, valid_x, train_y, valid_y = train_test_split(
+        train_x, train_y, test_size=0.2, random_state=42
+    )
+
+
+    def train_model(params, train_x, train_y, valid_x, valid_y, test_x, test_y, epochs):
+        # Define model architecture
+        model = Sequential()
+        model.add(Lambda(lambda x: (x - np.mean(train_x, axis=0)) / np.std(train_x, axis=0)))
+        model.add(Dense(64, activation="relu", input_shape=(train_x.shape[1],)))
+        model.add(Dense(1))
+
+        # Compile model
+        model.compile(
+            optimizer=SGD(lr=params["lr"], momentum=params["momentum"]), loss="mean_squared_error"
+        )
+
+        # Train model with MLflow tracking
+        with mlflow.start_run(nested=True):
+            # Fit model
+            model.fit(train_x, train_y, validation_data=(valid_x, valid_y), epochs=epochs, verbose=0)
+
+            # Evaluate the model
+            predicted_qualities = model.predict(test_x)
+            rmse = np.sqrt(mean_squared_error(test_y, predicted_qualities))
+
+            # Log parameters and results
+            mlflow.log_params(params)
+            mlflow.log_metric("rmse", rmse)
+
+            # Log model
+            mlflow.tensorflow.log_model(model, "model")
+
+            return {"loss": rmse, "status": STATUS_OK, "model": model}
+
+
+    def objective(params):
+        # MLflow will track the parameters and results for each run
+        result = train_model(
+            params,
+            train_x=train_x,
+            train_y=train_y,
+            valid_x=valid_x,
+            valid_y=valid_y,
+            test_x=test_x,
+            test_y=test_y,
+            epochs=100,  # Or any other number of epochs
+        )
+        return result
+
+
+    # Define the search space for Hyperopt
+    space = {
+        "lr": hp.loguniform("lr", np.log(1e-5), np.log(1e-1)),
+        "momentum": hp.uniform("momentum", 0.0, 1.0),
+    }
+
+
+    with mlflow.start_run():
+        # Conduct the hyperparameter search using Hyperopt
+        trials = Trials()
+        best = fmin(
+            fn=objective,
+            space=space,
+            algo=tpe.suggest,
+            max_evals=5,  # Set to a higher number to explore more hyperparameter configurations
+            trials=trials,
+        )
+
+        # Fetch the details of the best run
+        best_run = sorted(trials.results, key=lambda x: x["loss"])[0]
+
+        # Log the best parameters and corresponding minimum loss
+        mlflow.log_params(best)
+        mlflow.log_metric("rmse", best_run["loss"])
+
+        # Print out the best parameters and corresponding loss
+        print(f"Best parameters: {best}")
+        print(f"Best rmse: {best_run['loss']}")
+
+
+The this code defaults to 12 runs of 32 epochs apiece and should take a few minutes to finish.
 
 Compare the results
 -------------------
