@@ -667,3 +667,24 @@ def test_set_delete_registered_model_alias_and_get_model_version_by_alias_flow(c
     assert model.aliases == {}
     mv = client.get_model_version(name, "1")
     assert mv.aliases == []
+
+
+def test_copy_model_version_flow(client):
+    name = "CopyMVTest"
+    client.create_registered_model(name)
+    src_mv = client.create_model_version(
+        name, "runs:/run_id/model", "run_id_1", description="dummy", tags={"hello": "world"}
+    )
+    client.set_registered_model_alias(name, "test_alias", "1")
+    copy_mv = client.copy_model_version(f"models:/{name}@test_alias", name)
+    assert copy_mv.version == "2"
+    assert copy_mv.name == name
+
+    copy_mv = client.get_model_version(name, 2)
+    assert copy_mv.source == f"models:/{name}/1"
+    assert copy_mv.description == "dummy"
+    assert copy_mv.run_id == "run_id_1"
+    assert copy_mv.tags == {"hello": "world"}
+
+    copy_download_uri = client.get_model_version_download_uri(name, 2)
+    assert copy_download_uri == src_mv.source
