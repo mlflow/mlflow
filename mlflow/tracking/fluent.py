@@ -235,7 +235,7 @@ def start_run(
         If a new run is being created, the description is set on the new run.
     :param log_system_metrics: bool, defaults to None. If True, system metrics will be logged
         to MLflow, e.g., cpu/gpu utilization. If None, we will check environment variable
-        `MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL` to determine whether to log system metrics.
+        `MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING` to determine whether to log system metrics.
         System metrics logging is an experimental feature in MLflow 2.8 and subject to change.
 
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
