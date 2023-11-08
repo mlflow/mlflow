@@ -352,7 +352,7 @@ class AbstractStore:
         except MlflowException as e:
             raise MlflowException(
                 f"Failed to create model version copy. The current model registry backend "
-                f"may not yet support model version URI sources. Error: {e}"
+                f"may not yet support model version URI sources.\nError: {e}"
             ) from e
 
         return mv_copy
