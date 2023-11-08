@@ -41,6 +41,8 @@ Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment va
 
 This code defaults to 12 runs of 32 epochs apiece and should take a few minutes to finish.
 
+Import the following packages
+
 .. code-block:: python
 
     import numpy as np
@@ -54,6 +56,10 @@ This code defaults to 12 runs of 32 epochs apiece and should take a few minutes 
 
     import mlflow
     from mlflow.models import infer_signature
+
+Now load the dataset and split it into training, validation, and test sets. 
+
+.. code-block:: python
 
     # Load dataset
     data = pd.read_csv(
@@ -70,8 +76,11 @@ This code defaults to 12 runs of 32 epochs apiece and should take a few minutes 
     train_x, valid_x, train_y, valid_y = train_test_split(
         train_x, train_y, test_size=0.2, random_state=42
     )
+    signature = infer_signature(train_x, train_y)
 
+Then, define the model architecture and train the model. The ``train_model`` function uses MLflow to track the parameters and results of each run. It also logs the model itself. 
 
+.. code-block:: python
     def train_model(params, train_x, train_y, valid_x, valid_y, test_x, test_y, epochs):
         # Define model architecture
         model = Sequential()
@@ -100,19 +109,20 @@ This code defaults to 12 runs of 32 epochs apiece and should take a few minutes 
 
             # Evaluate the model
             predicted_qualities = model.predict(test_x)
-            test_rmse = np.sqrt(mean_squared_error(test_y, predicted_qualities))
+            rmse = np.sqrt(mean_squared_error(test_y, predicted_qualities))
 
             # Log parameters and results
             mlflow.log_params(params)
-            mlflow.log_metric("test_rmse", test_rmse)
+            mlflow.log_metric("rmse", rmse)
 
             # Log model
-            signature = infer_signature(train_x, train_y)
             mlflow.tensorflow.log_model(model, "model", signature=signature)
 
-            return {"loss": test_rmse, "status": STATUS_OK, "model": model}
+            return {"loss": rmse, "status": STATUS_OK, "model": model}
 
+The ``objective`` function defines the search space for Hyperopt and calls ``train_model``. 
 
+.. code-block:: python
     def objective(params):
         # MLflow will track the parameters and results for each run
         result = train_model(
@@ -134,7 +144,9 @@ This code defaults to 12 runs of 32 epochs apiece and should take a few minutes 
         "momentum": hp.uniform("momentum", 0.0, 1.0),
     }
 
+Finally, run the hyperparameter sweep using the ``objective`` function and across the search space. Store the best parameters, model, and rmse in MLflow.
 
+.. code-block:: python
     with mlflow.start_run():
         # Conduct the hyperparameter search using Hyperopt
         trials = Trials()
@@ -151,11 +163,14 @@ This code defaults to 12 runs of 32 epochs apiece and should take a few minutes 
 
         # Log the best parameters and corresponding minimum loss
         mlflow.log_params(best)
-        mlflow.log_metric("test_rmse", best_run["loss"])
+        mlflow.log_metric("rmse", best_run["loss"])
+
+        # Log the best model
+        mlflow.tensorflow.log_model(best["model"], "model", signature=signature)
 
         # Print out the best parameters and corresponding loss
         print(f"Best parameters: {best}")
-        print(f"Best test_rmse: {best_run['loss']}")
+        print(f"Best rmse: {best_run['loss']}")
 
 
 Compare the results
