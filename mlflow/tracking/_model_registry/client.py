@@ -171,7 +171,7 @@ class ModelRegistryClient:
         Create a new model version from given source.
 
         :param name: Name of the containing registered model.
-        :param source: Source path where the MLflow model is stored.
+        :param source: URI indicating the location of the model artifacts.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
