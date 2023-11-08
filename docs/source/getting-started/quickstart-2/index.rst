@@ -31,15 +31,13 @@ Run a hyperparameter sweep
 
 This example tries to optimize the RMSE metric of a Keras deep learning model on a wine quality dataset. It has two hyperparameters that it tries to optimize: ``learning-rate`` and ``momentum``.
 
-We will use the `Hyperopt <https://github.com/hyperopt/hyperopt>`_ library to run a hyperparameter sweep. The ``hyperopt`` entry point sets different values of ``learning-rate`` and ``momentum`` and records the results in MLflow. 
+We will use the `Hyperopt <https://github.com/hyperopt/hyperopt>`_ library to run a hyperparameter sweep across different values of ``learning-rate`` and ``momentum`` and record the results in MLflow. 
 
 Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment variable to the URI of the MLflow tracking server:
 
 .. code-block:: bash
 
   export MLFLOW_TRACKING_URI=http://localhost:5000
-
-This code defaults to 12 runs of 32 epochs apiece and should take a few minutes to finish.
 
 Import the following packages
 
@@ -78,7 +76,7 @@ Now load the dataset and split it into training, validation, and test sets.
     )
     signature = infer_signature(train_x, train_y)
 
-Then, define the model architecture and train the model. The ``train_model`` function uses MLflow to track the parameters and results of each run. It also logs the model itself. 
+Then, define the model architecture and train the model. The ``train_model`` function uses MLflow to track the parameters, results, and model itself of each trial as a child run. 
 
 .. code-block:: python
 
@@ -121,7 +119,7 @@ Then, define the model architecture and train the model. The ``train_model`` fun
 
             return {"loss": rmse, "status": STATUS_OK, "model": model}
 
-The ``objective`` function defines the search space for Hyperopt and calls ``train_model``. 
+The ``objective`` function takes in the hyperparameters and returns the results of the ``train_model`` function for that set of hyperparameters.
 
 .. code-block:: python
 
@@ -135,18 +133,20 @@ The ``objective`` function defines the search space for Hyperopt and calls ``tra
             valid_y=valid_y,
             test_x=test_x,
             test_y=test_y,
-            epochs=100,  # Or any other number of epochs
+            epochs=32,  # Or any other number of epochs
         )
         return result
 
+Next, we will define the search space for Hyperopt. In this case, we want to try different values of ``learning-rate`` and ``momentum``. 
 
-    # Define the search space for Hyperopt
+.. code-block:: python
+
     space = {
         "lr": hp.loguniform("lr", np.log(1e-5), np.log(1e-1)),
         "momentum": hp.uniform("momentum", 0.0, 1.0),
     }
 
-Finally, run the hyperparameter sweep using the ``objective`` function and across the search space. Store the best parameters, model, and rmse in MLflow.
+Finally, we will run the hyperparameter sweep using Hyperopt, passing in the ``objective`` function and search space. Hyperopt will try different hyperparameter combinations and return the results of the best one. We will store the best parameters, model, and rmse in MLflow.
 
 .. code-block:: python
 
@@ -157,18 +157,16 @@ Finally, run the hyperparameter sweep using the ``objective`` function and acros
             fn=objective,
             space=space,
             algo=tpe.suggest,
-            max_evals=5,  # Set to a higher number to explore more hyperparameter configurations
+            max_evals=12,  # Set to a higher number to explore more hyperparameter configurations
             trials=trials,
         )
 
         # Fetch the details of the best run
         best_run = sorted(trials.results, key=lambda x: x["loss"])[0]
 
-        # Log the best parameters and corresponding minimum loss
+        # Log the best parameters, loss, and model
         mlflow.log_params(best)
         mlflow.log_metric("rmse", best_run["loss"])
-
-        # Log the best model
         mlflow.tensorflow.log_model(best["model"], "model", signature=signature)
 
         # Print out the best parameters and corresponding loss
