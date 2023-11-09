@@ -2648,10 +2648,13 @@ class MlflowClient:
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     ) -> ModelVersion:
         """
-        Create a new model version from given source (artifact URI).
+        Create a new model version from given source.
 
         :param name: Name for the containing registered model.
-        :param source: Source path where the MLflow model is stored.
+        :param source: URI indicating the location of the model artifacts. The artifact URI can be
+                       run relative (e.g. ``runs:/<run_id>/<model_artifact_path>``), a model
+                       registry URI (e.g. ``models:/<model_name>/<version>``), or other URIs
+                       supported by the model registry backend (e.g. `"s3://my_bucket/my/model"`).
         :param run_id: Run ID from MLflow tracking server that generated the model
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
