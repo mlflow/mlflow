@@ -36,6 +36,7 @@ import { RunPage } from './RunPage';
 import { DirectRunPage } from './DirectRunPage';
 import { shouldEnableDeepLearningUI } from '../../common/utils/FeatureUtils';
 import { DarkThemeSwitch } from '../../common/components/DarkThemeSwitch';
+import { Interpolation, Theme } from '@emotion/react';
 
 const isExperimentsActive = (match: any, location: any) => {
   // eslint-disable-next-line prefer-const
@@ -72,7 +73,7 @@ class App extends Component<AppProps> {
         {/* This layer enables intercompatibility between react-router APIs v5 and v6 */}
         {/* TODO: Remove after migrating to react-router v6 */}
         <CompatRouter>
-          <div style={{ minHeight: '100%' }}>
+          <div css={styles.container}>
             <ErrorModal />
             {/* @ts-expect-error TS(4111): Property 'HIDE_HEADER' comes from an index signatu... Remove this comment to see the full error message */}
             {process.env.HIDE_HEADER === 'true' ? null : (
@@ -193,6 +194,14 @@ class App extends Component<AppProps> {
     );
   }
 }
+
+const styles = {
+  container: (): Interpolation<Theme> => ({
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: '100%',
+  }),
+};
 
 const mapStateToProps = (state: any) => {
   return {

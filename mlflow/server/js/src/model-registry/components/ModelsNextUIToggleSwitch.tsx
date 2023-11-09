@@ -3,6 +3,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ModelsNextUIPromoModal } from './ModelsNextUIPromoModal';
 import { Modal, Switch, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useNextModelsUIContext } from '../hooks/useNextModelsUI';
+import { Theme } from '@emotion/react';
 
 const promoModalSeenStorageKey = '_mlflow_promo_modal_dismissed';
 
@@ -35,7 +36,7 @@ export const ModelsNextUIToggleSwitch = () => {
   const { theme } = useDesignSystemTheme();
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+      <div css={styles.wrapper}>
         <label>{label}</label>
         <Switch checked={usingNextModelsUI} aria-label={label} onChange={switchNextUI} />
       </div>
@@ -83,3 +84,12 @@ export const ModelsNextUIToggleSwitch = () => {
     </>
   );
 };
+
+const styles = {
+  wrapper: (theme: Theme) => ({
+	color: theme.colors.textPrimary,
+	display: 'flex',
+	alignItems:'center',
+	gap: theme.spacing.xs
+  })
+}

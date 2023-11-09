@@ -331,30 +331,28 @@ export class ModelListPageImpl extends React.Component<
     } = this.state;
     const { models } = this.props;
     return (
-      <ScrollablePageWrapper>
-        <RequestStateWrapper
-          requestIds={[this.criticalInitialRequestIds]}
-          // eslint-disable-next-line no-trailing-spaces
-        >
-          <ModelListView
-            // @ts-expect-error TS(2322): Type '{ models: any[] | undefined; loading: any; e... Remove this comment to see the full error message
-            models={models}
-            // @ts-expect-error TS(4111): Property 'loading' comes from an index signature, ... Remove this comment to see the full error message
-            loading={this.state.loading}
-            searchInput={searchInput}
-            orderByKey={orderByKey}
-            orderByAsc={orderByAsc}
-            currentPage={currentPage}
-            nextPageToken={pageTokens[currentPage + 1]}
-            onSearch={this.handleSearch}
-            onClickNext={this.handleClickNext}
-            onClickPrev={this.handleClickPrev}
-            onClickSortableColumn={this.handleClickSortableColumn}
-            onSetMaxResult={this.handleMaxResultsChange}
-            getMaxResultValue={this.getMaxResultsSelection}
-          />
-        </RequestStateWrapper>
-      </ScrollablePageWrapper>
+      <RequestStateWrapper
+        requestIds={[this.criticalInitialRequestIds]}
+        // eslint-disable-next-line no-trailing-spaces
+      >
+        <ModelListView
+          // @ts-expect-error TS(2322): Type '{ models: any[] | undefined; loading: any; e... Remove this comment to see the full error message
+          models={models}
+          // @ts-expect-error TS(4111): Property 'loading' comes from an index signature, ... Remove this comment to see the full error message
+          loading={this.state.loading}
+          searchInput={searchInput}
+          orderByKey={orderByKey}
+          orderByAsc={orderByAsc}
+          currentPage={currentPage}
+          nextPageToken={pageTokens[currentPage + 1]}
+          onSearch={this.handleSearch}
+          onClickNext={this.handleClickNext}
+          onClickPrev={this.handleClickPrev}
+          onClickSortableColumn={this.handleClickSortableColumn}
+          onSetMaxResult={this.handleMaxResultsChange}
+          getMaxResultValue={this.getMaxResultsSelection}
+        />
+      </RequestStateWrapper>
     );
   }
 }

@@ -282,6 +282,7 @@ export const ModelListTable = ({
   return (
     <>
       <Table
+        style={styles.table}
         data-testid='model-list-table'
         pagination={pagination}
         scrollable
@@ -326,4 +327,10 @@ export const ModelListTable = ({
       </Table>
     </>
   );
+};
+
+const styles = {
+  table: {
+    flex: 1,
+  },
 };
