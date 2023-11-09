@@ -10,9 +10,9 @@ from mlflow.entities.param import Param
 def data():
     return pd.DataFrame(
         data=[
-            {"stock_type": "books"},
-            {"stock_type": "coffee"},
-            {"stock_type": "nothing"},
+            {"thing": "books"},
+            {"thing": "coffee"},
+            {"thing": "nothing"},
         ]
     )
 
@@ -20,7 +20,7 @@ def data():
 def test_promptlab_prompt_replacement(data):
     prompt_parameters = [Param(key="stock_type", value="books")]
     model_parameters = [Param(key="temperature", value=0.5), Param(key="max_tokens", value=10)]
-    prompt_template = "Write me a story about {{ stock_type }}."
+    prompt_template = "Write me a story about {{ thing }}."
     model_route = "completions"
 
     model = _PromptlabModel(prompt_template, prompt_parameters, model_parameters, model_route)
@@ -36,7 +36,7 @@ def test_promptlab_prompt_replacement(data):
                     "max_tokens": 10,
                 },
             )
-            for thing in data["stock_type"]
+            for thing in data["thing"]
         ]
 
         mock_query.assert_has_calls(calls, any_order=True)
