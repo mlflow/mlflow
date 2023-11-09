@@ -1,3 +1,4 @@
+import datetime as dt
 import decimal
 import json
 import logging
@@ -41,9 +42,20 @@ ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
 ]
 
-# TODO: update this
 PyFuncInput = Union[
-    pd.DataFrame, pd.Series, np.ndarray, "csc_matrix", "csr_matrix", List[Any], Dict[str, Any], str
+    pd.DataFrame,
+    pd.Series,
+    np.ndarray,
+    "csc_matrix",
+    "csr_matrix",
+    List[Any],
+    Dict[str, Any],
+    dt.datetime,
+    bool,
+    bytes,
+    float,
+    int,
+    str,
 ]
 PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
 
@@ -994,8 +1006,7 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
     missing_props = required_props - set(data.keys())
     if missing_props:
         raise MlflowException(f"Missing required properties: {missing_props}")
-    invalid_props = data.keys() - properties.keys()
-    if invalid_props:
+    if invalid_props := data.keys() - properties.keys():
         raise MlflowException(
             "Invalid properties not defined in the schema found: " f"{invalid_props}"
         )
