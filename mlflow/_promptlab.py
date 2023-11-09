@@ -28,9 +28,7 @@ class _PromptlabModel:
             # copy replacement logic from PromptEngineering.utils.ts for consistency
             prompt = self.prompt_template
             for key, value in prompt_parameters_as_dict.items():
-                prompt = re.sub(
-                    r"\{\{\s*" + key + r"\s*\}\}", value, prompt
-                )
+                prompt = re.sub(r"\{\{\s*" + key + r"\s*\}\}", value, prompt)
 
             model_parameters_as_dict = {param.key: param.value for param in self.model_parameters}
             result = query(
