@@ -1,8 +1,8 @@
 import configparser
 import getpass
 import logging
-import multiprocessing
 import os
+import subprocess
 from typing import NamedTuple, Optional, Tuple
 
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
@@ -77,66 +77,25 @@ def login(backend="databricks"):
         )
 
 
-def _validate_databricks_auth(error_queue):
-    from databricks.sdk import WorkspaceClient
-
-    try:
-        # If no credential is set up, creating `WorkspaceClient` throws an error.
-        workspace_client = WorkspaceClient()
-        # If credentials are invalid, `clusters.list()` will throw an error.
-        workspace_client.clusters.list()
-    except Exception as e:
-        # Child process' error is not captured by the parent process, so we need to put the error
-        # into a queue and retrieve it in the parent process.
-        error_queue.put(e)
-
-
-def _connect_to_databricks():
-    """Validate Databricks auth and connect to Databricks.
-
-    This function checks the Databricks authentication, and connects MLflow to Databricks if auth
-    is valid. This function spawns a child process to validate the Databricks auth and automatically
-    times out after 3 seconds. It allows 3 retrys before failing in case of network lagging.
-    """
-    max_trials = 3
+def _validate_databricks_auth():
+    """Validate Databricks authentication."""
+    max_trials = 3  # Allow 3 retrys for timeout.
+    timeout = 3
     for _ in range(max_trials):
-        error_queue = multiprocessing.Queue()
-        # Doing auth validation in a child process so that we can kill it after timeout.
-        process = multiprocessing.Process(target=_validate_databricks_auth, args=(error_queue,))
-        process.start()
-
-        process.join(timeout=3)
-
-        if process.is_alive():
+        try:
+            result = subprocess.run(
+                ["databricks", "tokens", "list"],
+                timeout=timeout,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if result.returncode != 0:
+                raise MlflowException("Invalid databricks credentials.")
+            return
+        except subprocess.TimeoutExpired:
             _logger.error("Timeout (3s) while signing in Databricks, retrying...")
-            # Kill the process after timeout.
-            process.terminate()
-            process.join()
-        else:
-            if error_queue.empty():
-                # If no error is raised in the child process, the auth is valid.
-                _logger.info("Successfully signed in Databricks!")
-                from mlflow import set_tracking_uri
 
-                set_tracking_uri("databricks")
-                return True
-            # Retrieve the error from the queue.
-            error = error_queue.get()
-            if isinstance(error, ValueError):
-                # `ValueError` is thrown when no credentials are found.
-                _logger.info("No existing Databricks credentials found, creating a new one...")
-            else:
-                # Other errors are thrown when credentials are invalid.
-                _logger.error(f"Failed to sign in Databricks: {error}")
-            return False
-
-    _logger.error(
-        "Timeout while signing in Databricks, max retry reached. This often happens when you are "
-        "using username/password to sign in Databricks instead of personal token. Please enter "
-        "your Databricks auth following the prompt below or manually edit ~/.databrickscfg file or "
-        "environment variable 'DATABRICKS_HOST' and 'DATABRICKS_TOKEN'."
-    )
-    return False
+    raise subprocess.TimeoutExpired("Timeout (3s) while signing in Databricks", timeout=timeout)
 
 
 def _overwrite_or_create_databricks_profile(
@@ -193,17 +152,20 @@ def _overwrite_or_create_databricks_profile(
 
 def _databricks_login():
     """Set up databricks authentication and connect MLflow to Databricks tracking server."""
-    try:
-        import databricks.sdk  # noqa: F401: we check the module beforehand for fast failing.
-    except ImportError:
-        raise ImportError(
-            "Databricks SDK is not installed. To use `mlflow.login()` to connect MLflow to "
-            "Databricks, please install  databricks-sdk by `pip install databricks-sdk`."
-        )
 
-    if _connect_to_databricks():
-        # Check if the auth has already been set and connect to Databricks.
+    from mlflow import set_tracking_uri
+
+    try:
+        # Failed validation will throw an error.
+        _validate_databricks_auth()
+        # Connect to Databricks if the credentials are valid.
+        set_tracking_uri("databricks")
         return
+    except Exception:
+        # If no valid auth is found, we will prompt the user to enter thepy auth.
+        pass
+
+    _logger.info("No valid Databricks credentials found, creating a new one...")
 
     while True:
         host = input("Databricks Host (should begin with https://): ")
@@ -229,5 +191,18 @@ def _databricks_login():
     profile_name = os.environ.get("DATABRICKS_CONFIG_PROFILE", "DEFAULT")
     _overwrite_or_create_databricks_profile(file_name, profile, profile_name)
 
-    if not _connect_to_databricks():
-        raise MlflowException("Failed to sign in Databricks, please retry `mlflow.login()`.")
+    try:
+        # Failed validation will throw an error.
+        _validate_databricks_auth()
+        # Connect to Databricks if the credentials are valid.
+        set_tracking_uri("databricks")
+        return
+    except subprocess.TimeoutExpired:
+        _logger.error(
+            "Timeout while signing in Databricks, max retry reached. This often happens when you "
+            "are using an invalid host. Please check your credentials and retry `mlflow.login`."
+        )
+    except Exception as e:
+        # If user entered invalid auth, we will raise an error and ask users to retry.
+        _logger.error(f"Failed to sign in Databricks: {e}")
+    raise MlflowException("Failed to sign in Databricks, please retry `mlflow.login()`.")

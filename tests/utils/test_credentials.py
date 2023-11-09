@@ -3,8 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow import get_tracking_uri, set_tracking_uri
+from mlflow import get_tracking_uri
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
+from mlflow.exceptions import MlflowException
 from mlflow.utils.credentials import login, read_mlflow_creds
 
 
@@ -114,16 +115,12 @@ def test_mlflow_login(tmp_path, monkeypatch):
         monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)
         monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", profile)
 
-        def fail():
-            return False
-
         def success():
-            set_tracking_uri("databricks")
-            return True
+            return
 
         with patch(
-            "mlflow.utils.credentials._connect_to_databricks",
-            side_effect=[fail(), success()],
+            "mlflow.utils.credentials._validate_databricks_auth",
+            side_effect=[MlflowException("Invalid databricks credentials."), success()],
         ):
             login("databricks")
 
