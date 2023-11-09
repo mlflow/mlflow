@@ -18,7 +18,7 @@ def data():
 
 
 def test_promptlab_prompt_replacement(data):
-    prompt_parameters = [Param(key="stock_type", value="books")]
+    prompt_parameters = [Param(key="thing", value="books")]
     model_parameters = [Param(key="temperature", value=0.5), Param(key="max_tokens", value=10)]
     prompt_template = "Write me a story about {{ thing }}."
     model_route = "completions"
