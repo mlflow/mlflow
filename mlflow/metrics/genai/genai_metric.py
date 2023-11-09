@@ -105,7 +105,7 @@ def make_genai_metric(
     :param grading_prompt: Grading criteria of the metric.
     :param examples: (Optional) Examples of the metric.
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
-    :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
         "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
