@@ -1,4 +1,5 @@
 import os
+import re
 from string import Template
 from typing import List
 
@@ -14,7 +15,7 @@ class _PromptlabModel:
         self.prompt_parameters = prompt_parameters
         self.model_parameters = model_parameters
         self.model_route = model_route
-        self.prompt_template = Template(prompt_template)
+        self.prompt_template = prompt_template
 
     def predict(self, inputs: pd.DataFrame) -> List[str]:
         from mlflow.gateway import query
@@ -24,7 +25,14 @@ class _PromptlabModel:
             prompt_parameters_as_dict = {
                 param.key: inputs[param.key][idx] for param in self.prompt_parameters
             }
-            prompt = self.prompt_template.substitute(prompt_parameters_as_dict)
+
+            # copy replacement logic from PromptEngineering.utils.ts for consistency
+            prompt = self.prompt_template
+            for param in prompt_parameters_as_dict:
+                prompt = re.sub(
+                    rf"\{{\{{\s*{param}\s*\}}\}}", prompt_parameters_as_dict[param], prompt
+                )
+
             model_parameters_as_dict = {param.key: param.value for param in self.model_parameters}
             result = query(
                 route=self.model_route, data={"prompt": prompt, **model_parameters_as_dict}

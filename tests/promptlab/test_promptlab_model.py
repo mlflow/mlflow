@@ -1,0 +1,42 @@
+import pandas as pd
+import pytest
+
+from unittest import mock
+from mlflow._promptlab import _PromptlabModel
+from mlflow.entities.param import Param
+
+
+@pytest.fixture
+def data():
+    return pd.DataFrame(
+        data=[
+            {"stock_type": "books"},
+            {"stock_type": "coffee"},
+            {"stock_type": "nothing"},
+        ]
+    )
+
+
+def test_promptlab_prompt_replacement(data):
+    prompt_parameters = [Param(key="stock_type", value="books")]
+    model_parameters = [Param(key="temperature", value=0.5), Param(key="max_tokens", value=10)]
+    prompt_template = "Write me a story about {{ stock_type }}."
+    model_route = "completions"
+
+    model = _PromptlabModel(prompt_template, prompt_parameters, model_parameters, model_route)
+    with mock.patch("mlflow.gateway.query") as mock_query:
+        model.predict(data)
+
+        calls = [
+            mock.call(
+                route="completions",
+                data={
+                    "prompt": f"Write me a story about {thing}.",
+                    "temperature": 0.5,
+                    "max_tokens": 10,
+                },
+            )
+            for thing in data["stock_type"]
+        ]
+
+        mock_query.assert_has_calls(calls, any_order=True)
