@@ -286,9 +286,9 @@ def test_merge_environment_with_duplicates():
     )
 
     # Check that there are no duplicates in the actual pip dependencies
-    assert len(actual_pip_deps) == len(
+    assert sorted(actual_pip_deps) == sorted(
         set(actual_pip_deps)
-    ), "There are duplicates in the pip dependencies"
+    )
     assert sorted(expected_pip_deps) == actual_pip_deps
     assert sorted(expected_conda_deps) == actual_conda_deps
 
