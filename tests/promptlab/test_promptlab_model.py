@@ -1,7 +1,8 @@
+from unittest import mock
+
 import pandas as pd
 import pytest
 
-from unittest import mock
 from mlflow._promptlab import _PromptlabModel
 from mlflow.entities.param import Param
 
