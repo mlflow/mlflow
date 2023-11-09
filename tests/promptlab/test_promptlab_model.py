@@ -1,15 +1,13 @@
 from unittest import mock
 
 import pandas as pd
-import pytest
 
 from mlflow._promptlab import _PromptlabModel
 from mlflow.entities.param import Param
 
 
-@pytest.fixture
-def data():
-    return pd.DataFrame(
+def test_promptlab_prompt_replacement():
+    data = pd.DataFrame(
         data=[
             {"thing": "books"},
             {"thing": "coffee"},
@@ -17,8 +15,6 @@ def data():
         ]
     )
 
-
-def test_promptlab_prompt_replacement(data):
     prompt_parameters = [Param(key="thing", value="books")]
     model_parameters = [Param(key="temperature", value=0.5), Param(key="max_tokens", value=10)]
     prompt_template = "Write me a story about {{ thing }}."
