@@ -381,19 +381,13 @@ def start_run(
         # if `log_system_metrics` is not specified, we will check environment variable.
         log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
     if log_system_metrics:
-        if existing_run_id:
-            metrics_history = client.get_metric_history(
-                active_run_obj.info.run_id, "system/cpu_utilization_percentage"
-            )
-            initial_logging_step = metrics_history[-1].step + 1 if metrics_history else 0
-        else:
-            initial_logging_step = 0
+        resume_logging = bool(existing_run_id)
         try:
             from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
             system_monitor = SystemMetricsMonitor(
                 active_run_obj.info.run_id,
-                initial_logging_step=initial_logging_step,
+                resume_logging=resume_logging,
             )
             global run_id_to_system_metrics_monitor
 
