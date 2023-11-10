@@ -57,7 +57,8 @@ librosa
 ffmpeg
 accelerate
 # Required by mlflow.openai
-openai
+# TODO: Unpin once we support openai 1.0
+openai<1.0
 tiktoken
 tenacity
 # Required by mlflow.langchain

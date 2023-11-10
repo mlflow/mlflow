@@ -364,30 +364,30 @@ Look in the tutorials and guides below to learn more about interesting use cases
                     <div class="header">
                         Evaluating LLMs
                     </div>
+                    <p>
+                        Learn how to evaluate LLMs with MLflow.
+                    </p>
                 </a>
-                <p>
-                    Learn how to evaluate LLMs with MLflow.
-                </p>
             </div>
             <div class="simple-card">
                 <a href="custom-pyfunc-for-llms/index.html" >
                     <div class="header">
                         Using Custom PyFunc with LLMs
                     </div>
+                    <p>
+                        Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs. 
+                    </p>
                 </a>
-                <p>
-                    Explore the nuances of packaging, customizing, and deploying advanced LLMs in MLflow using custom PyFuncs. 
-                </p>
             </div>
             <div class="simple-card">
                 <a href="rag/index.html" >
                     <div class="header">
                         Question Generation for RAG
                     </div>
+                    <p>
+                        Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                    </p>
                 </a>
-                <p>
-                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
-                </p>
             </div>
         </article>
     </section>
