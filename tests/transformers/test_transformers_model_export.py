@@ -2825,9 +2825,9 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "small_qa_pipeline",
             {"question": "Who's house?", "context": "The house is owned by Run."},
             {
-                "inputs": '[{"type": "string", "name": "question"}, {"type": "string", '
-                '"name": "context"}]',
-                "outputs": '[{"type": "string"}]',
+                "inputs": '[{"type": "string", "name": "question", "required": true}, '
+                '{"type": "string", "name": "context", "required": true}]',
+                "outputs": '[{"type": "string", "required": true}]',
                 "params": None,
             },
         ),
@@ -2839,11 +2839,12 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "hypothesis_template": "This example talks about how pipelines are {}",
             },
             {
-                "inputs": '[{"type": "string", "name": "sequences"}, {"type": "string", '
-                '"name": "candidate_labels"}, {"type": "string", "name": '
-                '"hypothesis_template"}]',
-                "outputs": '[{"type": "string", "name": "sequence"}, {"type": "string", '
-                '"name": "labels"}, {"type": "double", "name": "scores"}]',
+                "inputs": '[{"type": "string", "name": "sequences", "required": true}, '
+                '{"type": "string", "name": "candidate_labels", "required": true}, '
+                '{"type": "string", "name": "hypothesis_template", "required": true}]',
+                "outputs": '[{"type": "string", "name": "sequence", "required": true}, '
+                '{"type": "string", "name": "labels", "required": true}, '
+                '{"type": "double", "name": "scores", "required": true}]',
                 "params": None,
             },
         ),
@@ -2851,9 +2852,9 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "text_classification_pipeline",
             "We're just going to have to agree to disagree, then.",
             {
-                "inputs": '[{"type": "string"}]',
-                "outputs": '[{"type": "string", "name": "label"}, {"type": "double", "name": '
-                '"score"}]',
+                "inputs": '[{"type": "string", "required": true}]',
+                "outputs": '[{"type": "string", "name": "label", "required": true}, '
+                '{"type": "double", "name": "score", "required": true}]',
                 "params": None,
             },
         ),
@@ -2864,9 +2865,9 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "table": json.dumps({"units": ["100", "200"], "widgets": ["500", "500"]}),
             },
             {
-                "inputs": '[{"type": "string", "name": "query"}, {"type": "string", "name": '
-                '"table"}]',
-                "outputs": '[{"type": "string"}]',
+                "inputs": '[{"type": "string", "name": "query", "required": true}, '
+                '{"type": "string", "name": "table", "required": true}]',
+                "outputs": '[{"type": "string", "required": true}]',
                 "params": None,
             },
         ),
@@ -2874,8 +2875,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "summarizer_pipeline",
             "If you write enough tests, you can be sure that your code isn't broken.",
             {
-                "inputs": '[{"type": "string"}]',
-                "outputs": '[{"type": "string"}]',
+                "inputs": '[{"type": "string", "required": true}]',
+                "outputs": '[{"type": "string", "required": true}]',
                 "params": None,
             },
         ),
@@ -2883,8 +2884,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "translation_pipeline",
             "No, I am your father.",
             {
-                "inputs": '[{"type": "string"}]',
-                "outputs": '[{"type": "string"}]',
+                "inputs": '[{"type": "string", "required": true}]',
+                "outputs": '[{"type": "string", "required": true}]',
                 "params": None,
             },
         ),
@@ -2892,8 +2893,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "text_generation_pipeline",
             ["models are", "apples are"],
             {
-                "inputs": '[{"type": "string"}]',
-                "outputs": '[{"type": "string"}]',
+                "inputs": '[{"type": "string", "required": true}]',
+                "outputs": '[{"type": "string", "required": true}]',
                 "params": None,
             },
         ),
@@ -2901,8 +2902,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "text2text_generation_pipeline",
             ["man apple pie", "dog pizza eat"],
             {
-                "inputs": '[{"type": "string"}]',
-                "outputs": '[{"type": "string"}]',
+                "inputs": '[{"type": "string", "required": true}]',
+                "outputs": '[{"type": "string", "required": true}]',
                 "params": None,
             },
         ),
@@ -2910,8 +2911,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "fill_mask_pipeline",
             "Juggling <mask> is remarkably dangerous",
             {
-                "inputs": '[{"type": "string"}]',
-                "outputs": '[{"type": "string"}]',
+                "inputs": '[{"type": "string", "required": true}]',
+                "outputs": '[{"type": "string", "required": true}]',
                 "params": None,
             },
         ),
@@ -2919,8 +2920,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "conversational_pipeline",
             "What's shaking, my robot homie?",
             {
-                "inputs": '[{"type": "string"}]',
-                "outputs": '[{"type": "string"}]',
+                "inputs": '[{"type": "string", "required": true}]',
+                "outputs": '[{"type": "string", "required": true}]',
                 "params": None,
             },
         ),
@@ -2928,8 +2929,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "ner_pipeline",
             "Blue apples are not a thing",
             {
-                "inputs": '[{"type": "string"}]',
-                "outputs": '[{"type": "string"}]',
+                "inputs": '[{"type": "string", "required": true}]',
+                "outputs": '[{"type": "string", "required": true}]',
                 "params": None,
             },
         ),
@@ -2943,9 +2944,11 @@ def test_signature_inference(pipeline_name, data, result, request):
 
     assert default_signature.to_dict() == result
 
-    signature_with_input = mlflow.transformers._get_default_pipeline_signature(pipeline, data)
+    signature_from_input_example = mlflow.transformers._get_default_pipeline_signature(
+        pipeline, data
+    )
 
-    assert signature_with_input.to_dict() == result
+    assert signature_from_input_example.to_dict() == result
 
 
 @pytest.mark.parametrize(
