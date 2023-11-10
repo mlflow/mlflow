@@ -42,7 +42,7 @@ def test_promptlab_prompt_replacement():
         mock_query.assert_has_calls(calls, any_order=True)
 
 
-def test_promptlab_works_with_chat_route(Model):
+def test_promptlab_works_with_chat_route():
     mock_response = {
         "candidates": [
             {"message": {"role": "user", "content": "test"}, "metadata": {"finish_reason": "stop"}}
@@ -56,7 +56,7 @@ def test_promptlab_works_with_chat_route(Model):
         assert response == ["test"]
 
 
-def test_promptlab_works_with_completions_route(Model):
+def test_promptlab_works_with_completions_route():
     mock_response = {
         "candidates": [
             {
