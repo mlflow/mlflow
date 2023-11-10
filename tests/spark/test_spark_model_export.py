@@ -356,7 +356,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
 )
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
     mlflow.spark.save_model(
-        spark_model_iris.model, path=model_path, extra_pip_equirements=["/opt/mlflow"]
+        spark_model_iris.model, path=model_path, extra_pip_requirements=["/opt/mlflow"]
     )
 
     scoring_response = score_model_in_sagemaker_docker_container(
