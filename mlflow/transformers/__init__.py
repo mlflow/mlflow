@@ -1396,6 +1396,7 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
             params = None
             if _contains_params(example):
                 example, params = example
+            example = _format_input_example_for_special_cases(example, pipeline)
             prediction = generate_signature_output(pipeline, example, model_config, params)
             return infer_signature(example, prediction, params)
         except Exception as e:
