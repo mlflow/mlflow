@@ -130,7 +130,7 @@ if [ -z "$pyenv_exist" ]; then
       sudo apt-get update -y
       sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
       libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
-      libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+      libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev pandoc \
       # Install pyenv from source
       git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
       PYENV_ROOT="$HOME/.pyenv"
