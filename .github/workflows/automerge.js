@@ -52,10 +52,46 @@ module.exports = async ({ github, context, dryRun }) => {
     });
 
     console.log(`Check runs for ${ref}:`);
-    checkRuns.forEach(({ name, status, conclusion }) => {
-      console.log(`- name: ${name}, status: ${status}, conclusion: ${conclusion}`);
+
+    const latestRuns = {};
+    for (const run of checkRuns) {
+      const { name } = run;
+      if (!latestRuns[name] || new Date(run.started_at) > new Date(latestRuns[name].started_at)) {
+        latestRuns[name] = run;
+      }
+    }
+    Object.values(latestRuns).forEach(({ name, status, conclusion }) => {
+      console.log(`- checkrun: name: ${name}, latest status: ${status}, conclusion: ${conclusion}`);
     });
-    return checkRuns.every(({ conclusion }) => ["success", "skipped"].includes(conclusion));
+
+    return Object.values(latestRuns).every(({ conclusion }) =>
+      ["success", "skipped"].includes(conclusion)
+    );
+  }
+
+  async function allCommitStatusPassed(ref) {
+    const commitStatuses = await github.paginate(github.rest.repos.getCombinedStatusForRef, {
+      owner,
+      repo,
+      ref,
+    });
+
+    const latestStatuses = {};
+    for (const status of commitStatuses) {
+      const { context } = status;
+      if (
+        !latestStatuses[context] ||
+        new Date(status.created_at) > new Date(latestStatuses[context].created_at)
+      ) {
+        latestStatuses[context] = status;
+      }
+    }
+
+    Object.values(latestStatuses).forEach(({ context, state }) => {
+      console.log(`- commit status: context: ${context}, latest state: ${state}`);
+    });
+
+    return Object.values(latestStatuses).every(({ state }) => state === "success");
   }
 
   async function isPrApproved(prNumber) {
@@ -101,6 +137,11 @@ module.exports = async ({ github, context, dryRun }) => {
 
     if (!(await allChecksPassed(pr.head.sha))) {
       console.log(`PR #${pr.number} has failing or pending checks. Skipping...`);
+      continue;
+    }
+
+    if (!(await allCommitStatusPassed(pr.head.sha))) {
+      console.log(`PR #${pr.number} has failing commit statuses. Skipping...`);
       continue;
     }
 
