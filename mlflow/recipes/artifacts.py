@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
 import json
 import logging
 import os
+from abc import ABC, abstractmethod
 
 import mlflow
 from mlflow.recipes.utils.execution import get_step_output_path
@@ -154,7 +154,8 @@ class HyperParametersArtifact(Artifact):
 
     def load(self):
         if os.path.exists(self._path):
-            return open(self._path).read()
+            with open(self._path) as f:
+                return f.read()
 
 
 def log_artifact_not_found_warning(artifact_name, step_name):

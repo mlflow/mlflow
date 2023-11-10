@@ -61,8 +61,8 @@ def test_card_tab_fails_with_invalid_variable():
 
 
 def test_render_table():
-    import pandas as pd
     import numpy as np
+    import pandas as pd
 
     assert "</table>" in BaseCard.render_table(pd.DataFrame({"a": [1, 2], "b": [3, 4]}))
     assert "</table>" in BaseCard.render_table(pd.DataFrame({"a": [1, 2], "b": [3, 4]}).style)

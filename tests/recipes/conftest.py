@@ -1,4 +1,3 @@
-import mlflow
 import os
 import pathlib
 import shutil
@@ -7,8 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from mlflow.recipes.utils.execution import _MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR
+import mlflow
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_DIRECTORY
 from mlflow.utils.file_utils import TempDir
+
 from tests.recipes.helper_functions import (
     RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS,
     RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT,
@@ -42,7 +43,7 @@ def enter_test_recipe_directory(enter_recipe_example_directory):
 def tmp_recipe_exec_path(monkeypatch, tmp_path) -> Path:
     path = tmp_path.joinpath("recipe_execution")
     path.mkdir(parents=True)
-    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(path))
+    monkeypatch.setenv(MLFLOW_RECIPES_EXECUTION_DIRECTORY.name, str(path))
     yield path
     shutil.rmtree(path)
 
@@ -65,6 +66,6 @@ def clear_custom_metrics_module_cache():
 @pytest.fixture
 def registry_uri_path(tmp_path) -> Path:
     path = tmp_path.joinpath("registry.db")
-    db_url = "sqlite:///%s" % path
+    db_url = f"sqlite:///{path}"
     yield db_url
     mlflow.set_registry_uri("")

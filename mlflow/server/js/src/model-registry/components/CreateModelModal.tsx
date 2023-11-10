@@ -11,19 +11,21 @@ import { CreateModelForm, MODEL_NAME_FIELD } from './CreateModelForm';
 import { connect } from 'react-redux';
 import { createRegisteredModelApi } from '../actions';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { getModelPageRoute } from '../routes';
+import { ModelRegistryRoutes } from '../routes';
 import { debounce } from 'lodash';
 import { modelNameValidator } from '../../common/forms/validations';
-import { injectIntl } from 'react-intl';
+import { IntlShape, injectIntl } from 'react-intl';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
+import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
+import ErrorUtils from '../../common/utils/ErrorUtils';
 
 type Props = WithRouterNextProps & {
   createRegisteredModelApi: (...args: any[]) => any;
   modalVisible: boolean;
   hideModal: (...args: any[]) => any;
   navigateBackOnCancel?: boolean;
-  intl?: any;
+  intl: IntlShape;
 };
 
 export class CreateModelModalImpl extends React.Component<Props> {
@@ -38,7 +40,7 @@ export class CreateModelModalImpl extends React.Component<Props> {
     if (newModel) {
       // Jump to the page of newly created model. Here we are yielding to next tick to allow modal
       // and form to finish closing and cleaning up.
-      setTimeout(() => this.props.navigate(getModelPageRoute(newModel.name)));
+      setTimeout(() => this.props.navigate(ModelRegistryRoutes.getModelPageRoute(newModel.name)));
     }
   };
 
@@ -82,7 +84,11 @@ const mapDispatchToProps = {
   createRegisteredModelApi,
 };
 
-export const CreateModelModal: TODOBrokenReactRouterType = withRouterNext(
-  // @ts-expect-error TS(2345): Argument of type 'ConnectedComponent<FC<WithIntlPr... Remove this comment to see the full error message
-  connect(undefined, mapDispatchToProps)(injectIntl(CreateModelModalImpl)),
+const CreateModelModalWithRouter = withRouterNext(
+  connect(undefined, mapDispatchToProps)(injectIntl<'intl', Props>(CreateModelModalImpl)),
+);
+
+export const CreateModelModal = withErrorBoundary(
+  ErrorUtils.mlflowServices.MODEL_REGISTRY,
+  CreateModelModalWithRouter,
 );

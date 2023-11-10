@@ -1,12 +1,11 @@
+import logging
 import os
 import time
-
 from contextlib import contextmanager
-import logging
 
+import sqlalchemy
 from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.script import ScriptDirectory
-import sqlalchemy
 from sqlalchemy import sql
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
@@ -20,36 +19,35 @@ from sqlalchemy.pool import (
     StaticPool,
 )
 
-
+from mlflow.environment_variables import (
+    MLFLOW_SQLALCHEMYSTORE_ECHO,
+    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
+    MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
+    MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
+    MLFLOW_SQLALCHEMYSTORE_POOLCLASS,
+)
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.store.tracking.dbmodels.models import (
-    SqlExperiment,
-    SqlRun,
-    SqlMetric,
-    SqlParam,
-    SqlTag,
-    SqlExperimentTag,
-    SqlLatestMetric,
-    SqlDataset,
-    SqlInput,
-    SqlInputTag,
-)
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlModelVersion,
-    SqlRegisteredModelTag,
-    SqlModelVersionTag,
-    SqlRegisteredModelAlias,
-)
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
 from mlflow.store.db.db_types import SQLITE
-from mlflow.environment_variables import (
-    MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
-    MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
-    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
-    MLFLOW_SQLALCHEMYSTORE_ECHO,
-    MLFLOW_SQLALCHEMYSTORE_POOLCLASS,
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlModelVersion,
+    SqlModelVersionTag,
+    SqlRegisteredModel,
+    SqlRegisteredModelAlias,
+    SqlRegisteredModelTag,
+)
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.models import (
+    SqlDataset,
+    SqlExperiment,
+    SqlExperimentTag,
+    SqlInput,
+    SqlInputTag,
+    SqlLatestMetric,
+    SqlMetric,
+    SqlParam,
+    SqlRun,
+    SqlTag,
 )
 
 _logger = logging.getLogger(__name__)

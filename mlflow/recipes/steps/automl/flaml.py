@@ -1,6 +1,6 @@
-import logging
 import importlib
-from typing import Dict, Any, Tuple, TYPE_CHECKING
+import logging
+from typing import TYPE_CHECKING, Any, Dict, Tuple
 
 import pandas as pd
 
@@ -11,8 +11,8 @@ import mlflow
 from mlflow import MlflowException
 from mlflow.models import EvaluationMetric
 from mlflow.models.evaluation.default_evaluator import (
-    _get_regressor_metrics,
     _get_binary_classifier_metrics,
+    _get_regressor_metrics,
 )
 from mlflow.recipes.utils.metrics import RecipeMetric, _load_custom_metrics
 

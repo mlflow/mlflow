@@ -7,7 +7,7 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import type { NavigateFunction } from 'react-router-dom-v5-compat';
+import type { NavigateFunction } from '../../../common/utils/RoutingUtils';
 import debounce from 'lodash/debounce';
 
 import Routes from '../../routes';

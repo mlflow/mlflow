@@ -12,7 +12,8 @@ declare const tableStyles: {
     tableWrapper: import("@emotion/utils").SerializedStyles;
     table: import("@emotion/utils").SerializedStyles;
     headerButtonTarget: import("@emotion/utils").SerializedStyles;
-    sortHeaderIcon: import("@emotion/utils").SerializedStyles;
+    sortHeaderIconOnRight: import("@emotion/utils").SerializedStyles;
+    sortHeaderIconOnLeft: import("@emotion/utils").SerializedStyles;
     checkboxCell: import("@emotion/utils").SerializedStyles;
     resizeHandleContainer: import("@emotion/utils").SerializedStyles;
     resizeHandle: import("@emotion/utils").SerializedStyles;

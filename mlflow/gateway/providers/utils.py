@@ -1,8 +1,10 @@
-import aiohttp
-from typing import Dict, Any
-from fastapi import HTTPException
+from typing import Any, Dict
 
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
+import aiohttp
+
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
+)
 from mlflow.utils.uri import append_to_uri_path
 
 
@@ -17,11 +19,23 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
     :return: The server's response as a JSON object.
     :raise: HTTPException if the HTTP request fails.
     """
+    from fastapi import HTTPException
+
     async with aiohttp.ClientSession(headers=headers) as session:
         url = append_to_uri_path(base_url, path)
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
         async with session.post(url, json=payload, timeout=timeout) as response:
-            js = await response.json()
+            content_type = response.headers.get("Content-Type")
+            if content_type and "application/json" in content_type:
+                js = await response.json()
+            elif content_type and "text/plain" in content_type:
+                js = {"message": await response.text()}
+            else:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"The returned data type from the route service is not supported. "
+                    f"Received content type: {content_type}",
+                )
             try:
                 response.raise_for_status()
             except aiohttp.ClientResponseError as e:
@@ -32,15 +46,12 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
 
 def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dict[str, Any]:
     """
-    Transform the keys in a dictionary based on a provided mapping.
+    Rename payload keys based on the specified mapping. If a key is not present in the
+    mapping, the key and its value will remain unchanged.
 
     :param payload: The original dictionary to transform.
     :param mapping: A dictionary where each key-value pair represents a mapping from the old
                     key to the new key.
     :return: A new dictionary containing the transformed keys.
     """
-    result = payload.copy()
-    for old_key, new_key in mapping.items():
-        if old_key in result:
-            result[new_key] = result.pop(old_key)
-    return result
+    return {mapping.get(k, k): v for k, v in payload.items()}

@@ -1,24 +1,24 @@
-import pytest
-import numpy as np
 import random
 
-import mlflow
-from mlflow import MlflowException
-
-from datasets import load_dataset
+import numpy as np
 import optuna
-from sentence_transformers.losses import CosineSimilarityLoss
-from setfit import SetFitModel, SetFitTrainer, sample_dataset
+import pytest
 import sklearn
 import sklearn.cluster
 import torch
+from datasets import load_dataset
+from sentence_transformers.losses import CosineSimilarityLoss
+from setfit import SetFitModel, SetFitTrainer, sample_dataset
 from transformers import (
-    Trainer,
-    DistilBertTokenizerFast,
     DistilBertForSequenceClassification,
+    DistilBertTokenizerFast,
+    Trainer,
     TrainingArguments,
     pipeline,
 )
+
+import mlflow
+from mlflow import MlflowException
 
 
 @pytest.fixture

@@ -1,7 +1,6 @@
-import sys
 import logging
 import logging.config
-
+import sys
 
 # Logging format example:
 # 2018/11/20 12:36:37 INFO mlflow.sagemaker: Creating new SageMaker endpoint

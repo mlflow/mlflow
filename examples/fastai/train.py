@@ -1,8 +1,8 @@
 import argparse
 
+import numpy as np
 from fastai.learner import Learner
 from fastai.tabular.all import TabularDataLoaders
-import numpy as np
 from sklearn.datasets import load_iris
 from torch import nn
 

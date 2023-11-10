@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom-v5-compat';
+import { Link } from '../../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../../routes';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
 

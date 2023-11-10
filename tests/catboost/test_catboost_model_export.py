@@ -1,38 +1,38 @@
+import json
+import os
 from collections import namedtuple
 from pathlib import Path
 from unittest import mock
-from packaging.version import Version
-import os
-import pytest
-import yaml
-import json
 
 import catboost as cb
 import numpy as np
 import pandas as pd
+import pytest
+import yaml
+from packaging.version import Version
 from sklearn import datasets
 from sklearn.pipeline import Pipeline
 
 import mlflow.catboost
-from mlflow import pyfunc
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.models.utils import _read_example
+from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
+from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    _is_available_on_pypi,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (

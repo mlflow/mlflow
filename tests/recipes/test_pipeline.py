@@ -2,11 +2,11 @@ import os
 import pathlib
 import re
 import shutil
+from unittest import mock
 
 import pandas as pd
 import pytest
 import yaml
-from unittest import mock
 
 import mlflow
 from mlflow.entities import Run, SourceType
@@ -15,22 +15,22 @@ from mlflow.exceptions import MlflowException
 from mlflow.recipes.recipe import Recipe
 from mlflow.recipes.step import BaseStep
 from mlflow.recipes.utils.execution import (
-    get_step_output_path,
-    _get_execution_directory_basename,
     _MAKEFILE_FORMAT_STRING,
+    _get_execution_directory_basename,
+    get_step_output_path,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_NAME,
+    LEGACY_MLFLOW_GIT_REPO_URL,
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_REPO_URL,
-    LEGACY_MLFLOW_GIT_REPO_URL,
+    MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
 )
 
-from tests.recipes.helper_functions import list_all_artifacts, chdir
+from tests.recipes.helper_functions import chdir, list_all_artifacts
 
 # _STEP_NAMES must contain all step names that are expected to be executed when
 # `recipe.run(step=None)` is called
@@ -205,9 +205,11 @@ def test_recipes_run_throws_exception_and_produces_failure_card_when_step_fails(
 
     recipe = Recipe(profile="local")
     recipe.clean()
-    with pytest.raises(MlflowException, match="Failed to run.*test_recipe.*ingest"):
+    with pytest.raises(
+        MlflowException, match="Failed to run recipe.*test_recipe.*\n.*Step:ingest.*"
+    ):
         recipe.run()
-    with pytest.raises(MlflowException, match="Failed to run.*split.*test_recipe.*ingest"):
+    with pytest.raises(MlflowException, match="Failed to run step.*split.*\n.*Step:ingest.*"):
         recipe.run(step="split")
 
     step_card_path = get_step_output_path(
@@ -355,7 +357,7 @@ def test_make_dry_run_error_does_not_print_cached_steps_messages(capsys):
 
 @pytest.mark.usefixtures("enter_recipe_example_directory")
 def test_makefile_with_runtime_error_print_cached_steps_messages(capsys):
-    split = 'echo "Run MLFlow Recipe step: split"'
+    split = 'echo "Run MLflow Recipe step: split"'
     tokens = _MAKEFILE_FORMAT_STRING.split(split)
     assert len(tokens) == 2
     tokens[1] = "\n\tnon-existing-cmd" + tokens[1]

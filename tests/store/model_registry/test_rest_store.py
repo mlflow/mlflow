@@ -1,35 +1,39 @@
 import json
-import pytest
 import uuid
 from unittest import mock
 
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
+import pytest
+
+from mlflow.entities.model_registry import ModelVersion, ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.exceptions import MlflowException
 from mlflow.protos.model_registry_pb2 import (
-    CreateRegisteredModel,
-    UpdateRegisteredModel,
-    DeleteRegisteredModel,
-    GetRegisteredModel,
-    GetLatestVersions,
     CreateModelVersion,
-    UpdateModelVersion,
+    CreateRegisteredModel,
     DeleteModelVersion,
-    GetModelVersion,
-    GetModelVersionDownloadUri,
-    SearchModelVersions,
-    RenameRegisteredModel,
-    TransitionModelVersionStage,
-    SearchRegisteredModels,
-    SetRegisteredModelTag,
-    SetModelVersionTag,
-    DeleteRegisteredModelTag,
     DeleteModelVersionTag,
-    SetRegisteredModelAlias,
+    DeleteRegisteredModel,
     DeleteRegisteredModelAlias,
+    DeleteRegisteredModelTag,
+    GetLatestVersions,
+    GetModelVersion,
     GetModelVersionByAlias,
+    GetModelVersionDownloadUri,
+    GetRegisteredModel,
+    RenameRegisteredModel,
+    SearchModelVersions,
+    SearchRegisteredModels,
+    SetModelVersionTag,
+    SetRegisteredModelAlias,
+    SetRegisteredModelTag,
+    TransitionModelVersionStage,
+    UpdateModelVersion,
+    UpdateRegisteredModel,
 )
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
+
 from tests.helper_functions import mock_http_request_200, mock_http_request_403_200
 
 
@@ -44,7 +48,7 @@ def store(creds):
 
 
 def _args(host_creds, endpoint, method, json_body):
-    res = {"host_creds": host_creds, "endpoint": "/api/2.0/mlflow/%s" % endpoint, "method": method}
+    res = {"host_creds": host_creds, "endpoint": f"/api/2.0/mlflow/{endpoint}", "method": method}
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -420,3 +424,33 @@ def test_get_model_version_by_alias(store, creds):
         "GET",
         GetModelVersionByAlias(name=name, alias="test_alias"),
     )
+
+
+@mock.patch(
+    "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
+    1,
+)
+def test_await_model_version_creation_pending(store):
+    pending_mv = ModelVersion(
+        name="Model 1",
+        version="1",
+        creation_timestamp=123,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION),
+    )
+    with mock.patch.object(store, "get_model_version", return_value=pending_mv), pytest.raises(
+        MlflowException, match="Exceeded max wait time"
+    ):
+        store._await_model_version_creation(pending_mv, 0.5)
+
+
+def test_await_model_version_creation_failed(store):
+    pending_mv = ModelVersion(
+        name="Model 1",
+        version="1",
+        creation_timestamp=123,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.FAILED_REGISTRATION),
+    )
+    with mock.patch.object(store, "get_model_version", return_value=pending_mv), pytest.raises(
+        MlflowException, match="Model version creation failed for model name"
+    ):
+        store._await_model_version_creation(pending_mv, 0.5)

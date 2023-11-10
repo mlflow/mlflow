@@ -8,7 +8,7 @@
 import React from 'react';
 import { SchemaTable } from './SchemaTable';
 import { Table } from 'antd';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('SchemaTable', () => {
@@ -81,6 +81,51 @@ describe('SchemaTable', () => {
     expect(wrapper.html()).toContain('string');
     expect(wrapper.html()).not.toContain('score1');
     expect(wrapper.html()).not.toContain('long');
+  });
+
+  test('Should display optional input field schema as expected', () => {
+    props = {
+      schema: {
+        // column1 is required but column2 is optional
+        inputs: [
+          { name: 'column1', type: 'string' },
+          { name: 'column2', type: 'float', optional: true },
+        ],
+        outputs: [{ name: 'score1', type: 'long' }],
+      },
+    };
+    wrapper = mountWithIntl(
+      <MemoryRouter>
+        <SchemaTable {...props} />
+      </MemoryRouter>,
+    );
+    // click to render input schema table
+    wrapper.find('tr.section-header-row').at(0).simulate('click');
+    expect(wrapper.html()).toContain('column1');
+    expect(wrapper.html()).toContain('column2');
+    expect(wrapper.html()).toContain('string');
+    // the optional input param should be wrapped with "Optional[...]"
+    expect(wrapper.html()).toContain('Optional[float]');
+  });
+
+  test('Should display optional output field schema as expected', () => {
+    props = {
+      schema: {
+        inputs: [{ name: 'column1', type: 'string' }],
+        // output contains an optional parameter
+        outputs: [{ name: 'score1', type: 'long', optional: true }],
+      },
+    };
+    wrapper = mountWithIntl(
+      <MemoryRouter>
+        <SchemaTable {...props} />
+      </MemoryRouter>,
+    );
+    // click to render output schema table
+    wrapper.find('tr.section-header-row').at(1).simulate('click');
+    expect(wrapper.html()).toContain('score1');
+    // the optional output param should be wrapped with "Optional[...]"
+    expect(wrapper.html()).toContain('Optional[long]');
   });
 
   test('should outputs table render by click', () => {

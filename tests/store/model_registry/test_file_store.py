@@ -1,7 +1,7 @@
 import time
 import uuid
+from typing import List, NamedTuple
 from unittest import mock
-from typing import NamedTuple, List
 
 import pytest
 
@@ -10,7 +10,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.utils.file_utils import path_to_local_file_uri, write_yaml
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
+
 from tests.helper_functions import random_int, random_str
 
 
@@ -673,7 +674,7 @@ def test_search_model_versions(store):
         return [mvd.version for mvd in _search_model_versions(store, filter_string)]
 
     # search using name should return all 4 versions
-    assert set(search_versions("name='%s'" % name)) == {1, 2, 3, 4}
+    assert set(search_versions(f"name='{name}'")) == {1, 2, 3, 4}
 
     # search using version
     assert set(search_versions("version_number=2")) == {2}
@@ -792,7 +793,7 @@ def test_search_model_versions(store):
         name=mv1.name, version=mv1.version, description="Online prediction model!"
     )
 
-    mvds = store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
+    mvds = store.search_model_versions(f"run_id = '{run_id_1}'", max_results=10)
     assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"
@@ -1483,7 +1484,7 @@ def test_pyfunc_model_registry_with_file_store(store):
     from mlflow.pyfunc import PythonModel
 
     class MyModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return 7
 
     mlflow.set_registry_uri(path_to_local_file_uri(store.root_directory))
@@ -1511,3 +1512,70 @@ def test_pyfunc_model_registry_with_file_store(store):
         mv2 = store.search_model_versions("name = 'model2'", max_results=10)
         assert len(mv2) == 1
         assert mv2[0].name == "model2"
+
+
+@pytest.mark.parametrize("copy_to_same_model", [False, True])
+def test_copy_model_version(store, copy_to_same_model):
+    name1 = "test_for_copy_MV1"
+    store.create_registered_model(name1)
+    src_tags = [
+        ModelVersionTag("key", "value"),
+        ModelVersionTag("anotherKey", "some other value"),
+    ]
+    src_mv = _create_model_version(
+        store, name1, tags=src_tags, run_link="dummylink", description="test description"
+    )
+
+    # Make some changes to the src MV that won't be copied over
+    store.transition_model_version_stage(
+        name1, src_mv.version, "Production", archive_existing_versions=False
+    )
+
+    copy_rm_name = name1 if copy_to_same_model else "test_for_copy_MV2"
+    copy_mv_version = 2 if copy_to_same_model else 1
+    timestamp = time.time()
+    dst_mv = store.copy_model_version(src_mv, copy_rm_name)
+    assert dst_mv.name == copy_rm_name
+    assert dst_mv.version == copy_mv_version
+
+    copied_mv = store.get_model_version(dst_mv.name, dst_mv.version)
+    assert copied_mv.name == copy_rm_name
+    assert copied_mv.version == copy_mv_version
+    assert copied_mv.current_stage == "None"
+    assert copied_mv.creation_timestamp >= timestamp
+    assert copied_mv.last_updated_timestamp >= timestamp
+    assert copied_mv.description == "test description"
+    assert copied_mv.source == f"models:/{src_mv.name}/{src_mv.version}"
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+    assert copied_mv.run_link == "dummylink"
+    assert copied_mv.run_id == src_mv.run_id
+    assert copied_mv.status == "READY"
+    assert copied_mv.status_message is None
+    assert copied_mv.tags == {"key": "value", "anotherKey": "some other value"}
+
+    # Copy a model version copy
+    double_copy_mv = store.copy_model_version(copied_mv, "test_for_copy_MV3")
+    assert double_copy_mv.source == f"models:/{copied_mv.name}/{copied_mv.version}"
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+
+
+def test_writing_model_version_preserves_storage_location(store):
+    name = "test_storage_location_MV1"
+    source = "/special/source"
+    store.create_registered_model(name)
+    _create_model_version(store, name, source=source)
+    _create_model_version(store, name, source=source)
+
+    # Run through all the operations that modify model versions and make sure that the
+    # `storage_location` property is not dropped.
+    store.transition_model_version_stage(name, 1, "Production", archive_existing_versions=False)
+    assert store._fetch_file_model_version_if_exists(name, 1).storage_location == source
+    store.update_model_version(name, 1, description="test description")
+    assert store._fetch_file_model_version_if_exists(name, 1).storage_location == source
+    store.transition_model_version_stage(name, 1, "Production", archive_existing_versions=True)
+    assert store._fetch_file_model_version_if_exists(name, 1).storage_location == source
+    store.rename_registered_model(name, "test_storage_location_new")
+    assert (
+        store._fetch_file_model_version_if_exists("test_storage_location_new", 1).storage_location
+        == source
+    )

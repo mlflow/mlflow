@@ -1,5 +1,5 @@
-from mlflow.protos import service_pb2
 from mlflow.entities import ViewType
+from mlflow.protos import service_pb2
 
 
 def test_to_proto():

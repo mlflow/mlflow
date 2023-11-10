@@ -1,0 +1,52 @@
+diff --git a/es/hooks/useScrollTo.js b/es/hooks/useScrollTo.js
+index ce26ac996d809ed9869f8a8a5cca4913aba1100c..29e9522ad8b6c1c8aabb366ac7c49142b614f5cb 100644
+--- a/es/hooks/useScrollTo.js
++++ b/es/hooks/useScrollTo.js
+@@ -22,7 +22,7 @@ export default function useScrollTo(containerRef, data, heights, itemHeight, get
+       var align = arg.align;
+ 
+       if ('index' in arg) {
+-        index = arg.index;
++        index = Math.min(arg.index, data.length - 1);
+       } else {
+         index = data.findIndex(function (item) {
+           return getKey(item) === arg.key;
+@@ -46,7 +46,11 @@ export default function useScrollTo(containerRef, data, heights, itemHeight, get
+           var itemBottom = 0;
+ 
+           for (var i = 0; i <= index; i += 1) {
+-            var key = getKey(data[i]);
++            var el = data[i];
++            if (el === undefined) {
++              continue;
++	    }
++            var key = getKey(el);
+             itemTop = stackTop;
+             var cacheHeight = heights.get(key);
+             itemBottom = itemTop + (cacheHeight === undefined ? itemHeight : cacheHeight);
+diff --git a/lib/hooks/useScrollTo.js b/lib/hooks/useScrollTo.js
+index 09a013fdaa4c8f83ce0bf1f9c2f841e7994f82db..6016006354267f242550a6e21954a5c427c9ffa4 100644
+--- a/lib/hooks/useScrollTo.js
++++ b/lib/hooks/useScrollTo.js
+@@ -36,7 +36,7 @@ function useScrollTo(containerRef, data, heights, itemHeight, getKey, collectHei
+       var align = arg.align;
+ 
+       if ('index' in arg) {
+-        index = arg.index;
++        index = Math.min(arg.index, data.length - 1);
+       } else {
+         index = data.findIndex(function (item) {
+           return getKey(item) === arg.key;
+@@ -60,7 +60,11 @@ function useScrollTo(containerRef, data, heights, itemHeight, getKey, collectHei
+           var itemBottom = 0;
+ 
+           for (var i = 0; i <= index; i += 1) {
+-            var key = getKey(data[i]);
++            var el = data[i];
++            if (el === undefined) {
++              continue;
++            }
++            var key = getKey(el);
+             itemTop = stackTop;
+             var cacheHeight = heights.get(key);
+             itemBottom = itemTop + (cacheHeight === undefined ? itemHeight : cacheHeight);

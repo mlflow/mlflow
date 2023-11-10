@@ -1,8 +1,8 @@
 import os
 
-import mlflow
 from pyspark.sql import SparkSession
 
+import mlflow
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 
@@ -13,12 +13,11 @@ def _get_mlflow_spark_jar_path():
         for fname in os.listdir(jar_dir)
         if ".jar" in fname and "sources" not in fname and "javadoc" not in fname
     ]
-    res = os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
-    return res
+    return os.path.abspath(os.path.join(jar_dir, jar_filenames[0]))
 
 
 def _get_expected_table_info_row(path, data_format, version=None):
-    expected_path = "file:%s" % path
+    expected_path = f"file:{path}"
     if version is None:
         return f"path={expected_path},format={data_format}"
     return f"path={expected_path},version={version},format={data_format}"

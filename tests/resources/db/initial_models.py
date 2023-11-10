@@ -5,18 +5,18 @@
 # modifications to substitute constants from MLflow with hard-coded values (e.g. replacing
 # SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK").
 import time
-from sqlalchemy.orm import relationship, backref
+
 from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
     Column,
-    String,
     Float,
     ForeignKey,
     Integer,
-    CheckConstraint,
-    BigInteger,
     PrimaryKeyConstraint,
+    String,
 )
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import backref, declarative_base, relationship
 
 Base = declarative_base()
 

@@ -1,13 +1,14 @@
 from importlib import reload
 from unittest import mock
+
 import pytest
 
 import mlflow.tracking.context.registry
+from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
+from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
 from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
 from mlflow.tracking.context.default_context import DefaultRunContext
 from mlflow.tracking.context.git_context import GitRunContext
-from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
-from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
 from mlflow.tracking.context.registry import RunContextProviderRegistry, resolve_tags
 
 # pylint: disable=unused-argument

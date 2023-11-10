@@ -1,11 +1,12 @@
 # pylint: disable=abstract-method
 import argparse
+
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.datasets import load_iris
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+from torch import nn
 
 import mlflow.pytorch
 from mlflow.models import infer_signature
@@ -102,4 +103,4 @@ if __name__ == "__main__":
             prediction = loaded_pytorch_model(test_datapoint)
             actual = "setosa"
             predicted = target_names[torch.argmax(prediction)]
-            print("\nPREDICTION RESULT: ACTUAL: {}, PREDICTED: {}".format(actual, predicted))
+            print(f"\nPREDICTION RESULT: ACTUAL: {actual}, PREDICTED: {predicted}")

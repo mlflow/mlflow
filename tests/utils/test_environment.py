@@ -1,21 +1,23 @@
 import os
+
 import pytest
 import yaml
 
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _is_pip_deps,
+    _contains_mlflow_requirement,
+    _find_duplicate_requirements,
     _get_pip_deps,
+    _get_pip_requirement_specifier,
+    _is_mlflow_requirement,
+    _is_pip_deps,
+    _mlflow_conda_env,
     _overwrite_pip_deps,
     _parse_pip_requirements,
-    _validate_env_arguments,
-    _is_mlflow_requirement,
-    _contains_mlflow_requirement,
-    _process_pip_requirements,
     _process_conda_env,
-    _get_pip_requirement_specifier,
-    _find_duplicate_requirements,
+    _process_pip_requirements,
+    _validate_env_arguments,
 )
+
 from tests.helper_functions import _mlflow_major_version_string
 
 

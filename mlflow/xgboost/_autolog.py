@@ -1,9 +1,9 @@
-from packaging.version import Version
 import logging
+
 import xgboost
+from packaging.version import Version
 
 # Suppress a false positive pylint error: https://github.com/PyCQA/pylint/issues/1630
-# pylint: disable=unused-import
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 
 _logger = logging.getLogger(__name__)

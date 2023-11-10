@@ -12,7 +12,6 @@ import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import { RegisterModelButtonWithIntl } from './RegisterModelButton';
 import { getProtoField } from '../utils';
-
 describe('RegisterModelButton', () => {
   let wrapper;
   let minimalProps: any;

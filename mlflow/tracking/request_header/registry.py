@@ -1,6 +1,7 @@
-import entrypoints
-import warnings
 import logging
+import warnings
+
+import entrypoints
 
 from mlflow.tracking.request_header.databricks_request_header_provider import (
     DatabricksRequestHeaderProvider,

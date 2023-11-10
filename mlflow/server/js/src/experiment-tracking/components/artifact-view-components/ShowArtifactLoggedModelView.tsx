@@ -9,8 +9,7 @@ import React, { Component } from 'react';
 import yaml from 'js-yaml';
 import '../../../common/styles/CodeSnippet.css';
 import { MLMODEL_FILE_NAME } from '../../constants';
-import { getSrc } from './ShowArtifactPage';
-import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import { SchemaTable } from '../../../model-registry/components/SchemaTable';
 import {
   RegisteringModelDocUrl,
@@ -488,7 +487,6 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
               </div>
               <div style={{ marginTop: 12 }}>
                 <SchemaTable
-                  // @ts-expect-error TS(2322): Type '{ schema: { inputs: undefined; outputs: unde... Remove this comment to see the full error message
                   schema={{ inputs: this.state.inputs, outputs: this.state.outputs }}
                   defaultExpandAllRows
                 />
@@ -510,15 +508,26 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchLoggedModelMetadata() {
-    const modelFileLocation = getSrc(`${this.props.path}/${MLMODEL_FILE_NAME}`, this.props.runUuid);
+    const modelFileLocation = getArtifactLocationUrl(
+      `${this.props.path}/${MLMODEL_FILE_NAME}`,
+      this.props.runUuid,
+    );
     this.props
       .getArtifact(modelFileLocation)
       .then((response: any) => {
         const parsedJson = yaml.load(response);
         if (parsedJson.signature) {
+          const inputs = Array.isArray(parsedJson.signature.inputs)
+            ? parsedJson.signature.inputs
+            : JSON.parse(parsedJson.signature.inputs || '[]');
+
+          const outputs = Array.isArray(parsedJson.signature.outputs)
+            ? parsedJson.signature.outputs
+            : JSON.parse(parsedJson.signature.outputs || '[]');
+
           this.setState({
-            inputs: JSON.parse(parsedJson.signature.inputs || '[]'),
-            outputs: JSON.parse(parsedJson.signature.outputs || '[]'),
+            inputs,
+            outputs,
           });
         } else {
           this.setState({ inputs: '', outputs: '' });
@@ -526,11 +535,10 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
         if (parsedJson.flavors.mleap) {
           this.setState({ flavor: 'mleap' });
         } else if (parsedJson.flavors.python_function) {
-          if (parsedJson.flavors.python_function.loader_module === 'mlflow.spark') {
-            this.setState({ flavor: 'pyfunc', loader_module: 'mlflow.spark' });
-          } else {
-            this.setState({ flavor: 'pyfunc' });
-          }
+          this.setState({
+            flavor: 'pyfunc',
+            loader_module: parsedJson.flavors.python_function.loader_module,
+          });
         } else {
           this.setState({ flavor: Object.keys(parsedJson.flavors)[0] });
         }

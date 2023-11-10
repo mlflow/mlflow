@@ -7,8 +7,8 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Navigate } from 'react-router-dom-v5-compat';
-import { PageWrapper, Skeleton } from '@databricks/design-system';
+import { Navigate } from '../../common/utils/RoutingUtils';
+import { PageWrapper, LegacySkeleton } from '@databricks/design-system';
 import ExperimentListView from './ExperimentListView';
 import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';
@@ -48,7 +48,7 @@ class HomeView extends Component<HomeViewProps> {
         <>
           {hasExperiments ? (
             <PageWrapper css={{ height: `100%`, paddingTop: 16, width: '100%' }}>
-              <React.Suspense fallback={<Skeleton />}>
+              <React.Suspense fallback={<LegacySkeleton />}>
                 <ExperimentPage
                   // @ts-expect-error TS(2322): Type '{ experimentIds: string[] | undefined; compa... Remove this comment to see the full error message
                   experimentIds={experimentIds}
@@ -70,7 +70,7 @@ class HomeView extends Component<HomeViewProps> {
         </div>
         <PageWrapper css={{ height: '100%', flex: '1', paddingTop: 24 }}>
           {hasExperiments ? (
-            <React.Suspense fallback={<Skeleton />}>
+            <React.Suspense fallback={<LegacySkeleton />}>
               <ExperimentPage
                 // @ts-expect-error TS(2322): Type '{ experimentIds: string[] | undefined; compa... Remove this comment to see the full error message
                 experimentIds={experimentIds}

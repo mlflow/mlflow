@@ -1,40 +1,37 @@
+import json
 import os
-import pytest
-from unittest import mock
 from copy import deepcopy
 from pathlib import Path
+from unittest import mock
 
-import json
-import yaml
 import numpy as np
 import pandas as pd
-
-from diviner import GroupedProphet, GroupedPmdarima
+import pytest
+import yaml
+from diviner import GroupedPmdarima, GroupedProphet
 from diviner.utils.example_utils import example_data_generator
 
+import mlflow.diviner
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import infer_signature, Model
+from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _read_example
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
-import mlflow.diviner
-from mlflow import pyfunc
-
 from tests.helper_functions import (
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    pyfunc_serve_and_score_model,
-    _is_available_on_pypi,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
-
 
 DS_FORMAT = "%Y-%m-%dT%H:%M:%S"
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (

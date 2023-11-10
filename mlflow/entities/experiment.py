@@ -1,9 +1,7 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.experiment_tag import ExperimentTag
-from mlflow.protos.service_pb2 import (
-    Experiment as ProtoExperiment,
-    ExperimentTag as ProtoExperimentTag,
-)
+from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
+from mlflow.protos.service_pb2 import ExperimentTag as ProtoExperimentTag
 
 
 class Experiment(_MLflowObject):

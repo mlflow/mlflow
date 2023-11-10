@@ -1,18 +1,16 @@
-from collections import namedtuple
 import os
+from collections import namedtuple
 
-
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
 import shap
 from sklearn.datasets import load_diabetes, load_iris
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-import pandas as pd
-import pytest
 
 import mlflow
 from mlflow import MlflowClient
-
 
 ModelWithExplanation = namedtuple(
     "ModelWithExplanation", ["model", "X", "shap_values", "base_values"]

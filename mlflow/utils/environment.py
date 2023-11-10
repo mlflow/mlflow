@@ -1,22 +1,22 @@
-from collections import Counter
-import yaml
-import os
 import logging
+import os
 import re
-import hashlib
-from packaging.requirements import Requirement, InvalidRequirement
+from collections import Counter
+
+import yaml
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import PYTHON_VERSION
+from mlflow.utils import PYTHON_VERSION, insecure_hash
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
-    _parse_requirements,
     _infer_requirements,
+    _parse_requirements,
 )
 from mlflow.version import VERSION
-
 
 _logger = logging.getLogger(__name__)
 
@@ -214,9 +214,13 @@ def _mlflow_conda_env(
     :return: ``None`` if ``path`` is specified. Otherwise, the a dictionary representation of the
              Conda environment.
     """
-    pip_deps = (["mlflow"] if install_mlflow else []) + (
-        additional_pip_deps if additional_pip_deps else []
+    additional_pip_deps = additional_pip_deps or []
+    mlflow_deps = (
+        [f"mlflow=={VERSION}"]
+        if install_mlflow and not _contains_mlflow_requirement(additional_pip_deps)
+        else []
     )
+    pip_deps = mlflow_deps + additional_pip_deps
     conda_deps = additional_conda_deps if additional_conda_deps else []
     if pip_deps:
         pip_version = _get_pip_version()
@@ -428,6 +432,11 @@ def _is_mlflow_requirement(requirement_string):
     """
     Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
     """
+    # "/opt/mlflow" is the path where we mount the mlflow source code in the Docker container
+    # when running tests.
+    if _MLFLOW_TESTING.get() and requirement_string == "/opt/mlflow":
+        return True
+
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
@@ -454,18 +463,29 @@ def _is_mlflow_requirement(requirement_string):
             )
 
 
-def _generate_mlflow_version_pinning():
+def _generate_mlflow_version_pinning() -> str:
     """
-    Determines the current MLflow version that is installed and adds a pinned boundary version range
-    for mlflow. The upper bound is a cap on the next major revision. The lower bound is a cap on
-    the current installed minor version(i.e., 'mlflow<3,>=2.1')
-    :return: string for MLflow dependency version
+    Returns a pinned requirement for the current MLflow version (e.g., "mlflow==3.2.1").
+
+    :return: A pinned requirement for the current MLflow version.
     """
+    if _MLFLOW_TESTING.get():
+        # The local PyPI server should be running. It serves a wheel for the current MLflow version.
+        return f"mlflow=={VERSION}"
+
     version = Version(VERSION)
-    # The version on master is always a micro-version ahead of the latest release and can't be
-    # installed from PyPI. We therefore subtract 1 from the micro version when running tests.
-    offset = -1 if version.is_devrelease else 0
-    return f"mlflow=={version.major}.{version.minor}.{version.micro + offset}"
+    if not version.is_devrelease:
+        # mlflow is installed from PyPI.
+        return f"mlflow=={VERSION}"
+
+    # We reach here when mlflow is installed from the source outside of the MLflow CI environment
+    # (e.g., Databricks notebook).
+
+    # mlflow installed from the source for development purposes. A dev version (e.g., 2.8.1.dev0)
+    # is always a micro-version ahead of the latest release (unless it's manually modified)
+    # and can't be installed from PyPI. We therefore subtract 1 from the micro version when running
+    # tests.
+    return f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"
 
 
 def _contains_mlflow_requirement(requirements):
@@ -518,8 +538,7 @@ def _find_duplicate_requirements(requirements):
             continue
 
     package_counts = Counter(base_package_names)
-    duplicates = [package for package, count in package_counts.items() if count > 1]
-    return duplicates
+    return [package for package, count in package_counts.items() if count > 1]
 
 
 def _process_conda_env(conda_env):
@@ -533,13 +552,12 @@ def _process_conda_env(conda_env):
     elif not isinstance(conda_env, dict):
         raise TypeError(
             "Expected a string path to a conda env yaml file or a `dict` representing a conda env, "
-            "but got `{}`".format(type(conda_env).__name__)
+            f"but got `{type(conda_env).__name__}`"
         )
 
     # User-specified `conda_env` may contain requirements/constraints file references
     pip_reqs = _get_pip_deps(conda_env)
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
-
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
@@ -558,7 +576,7 @@ def _get_mlflow_env_name(s):
     :returns: String in the form of "mlflow-{hash}"
               (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
     """
-    return "mlflow-" + hashlib.sha1(s.encode("utf-8")).hexdigest()
+    return "mlflow-" + insecure_hash.sha1(s.encode("utf-8")).hexdigest()
 
 
 def _get_pip_install_mlflow():
@@ -601,16 +619,10 @@ class Environment:
         if not isinstance(command, list):
             command = [command]
 
-        if _IS_UNIX:
-            separator = " && "
-        else:
-            separator = " & "
+        separator = " && " if _IS_UNIX else " & "
 
         command = separator.join(map(str, self._activate_cmd + command))
-        if _IS_UNIX:
-            command = ["bash", "-c", command]
-        else:
-            command = ["cmd", "/c", command]
+        command = ["bash", "-c", command] if _IS_UNIX else ["cmd", "/c", command]
         _logger.info("=== Running command '%s'", command)
         return _exec_cmd(
             command,

@@ -1,27 +1,27 @@
 import json
 import logging
-from typing import Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 import requests.exceptions
 
 from mlflow import MlflowException
-from mlflow.gateway.config import Route
+from mlflow.gateway.config import LimitsConfig, Route
 from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
+    MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
+    MLFLOW_GATEWAY_LIMITS_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
-    MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
-    MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
 )
-from mlflow.gateway.utils import get_gateway_uri, assemble_uri_path, resolve_route_url
+from mlflow.gateway.utils import assemble_uri_path, get_gateway_uri, resolve_route_url
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import MlflowHostCreds, http_request, augmented_raise_for_status
+from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import get_uri_scheme
-
 
 _logger = logging.getLogger(__name__)
 
@@ -38,14 +38,21 @@ class MlflowGatewayClient:
 
     def __init__(self, gateway_uri: Optional[str] = None):
         self._gateway_uri = gateway_uri or get_gateway_uri()
-        self._host_creds = self._resolve_host_creds()
 
     def _is_databricks_host(self) -> bool:
         return (
             self._gateway_uri == "databricks" or get_uri_scheme(self._gateway_uri) == "databricks"
         )
 
-    def _resolve_host_creds(self) -> MlflowHostCreds:
+    @property
+    def _host_creds(self):
+        """
+        NB: When `MlflowGatewayClient` is used as an instance variable in a custom pyfunc model, it
+        is pickled in the environment where the custom pyfunc model is defined (e.g. a notebook).
+        When the model is moved to a different environment, e.g. model serving, new credentials
+        need to be resolved from within the new environment. Accordingly, we re-resolve host
+        credentials every time a request is made.
+        """
         if self._is_databricks_host():
             return get_databricks_host_creds(self._gateway_uri)
         else:
@@ -84,6 +91,7 @@ class MlflowGatewayClient:
             method=method,
             timeout=MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
             retry_codes=MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
+            raise_on_status=False,
             **call_kwargs,
         )
         augmented_raise_for_status(response)
@@ -122,15 +130,25 @@ class MlflowGatewayClient:
         response_json = self._call_endpoint(
             "GET", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json_body=json.dumps(request_parameters)
         ).json()
-        for route in response_json["routes"]:
-            route["route_url"] = resolve_route_url(self._gateway_uri, route["route_url"])
-
-        routes = [Route(**resp) for resp in response_json["routes"]]
+        routes = [
+            Route(
+                **{
+                    **resp,
+                    "route_url": resolve_route_url(
+                        self._gateway_uri,
+                        resp["route_url"],
+                    ),
+                }
+            )
+            for resp in response_json.get("routes", [])
+        ]
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
 
     @experimental
-    def create_route(self, name: str, route_type: str, model: Dict[str, Any]) -> Route:
+    def create_route(
+        self, name: str, route_type: Optional[str] = None, model: Optional[Dict[str, Any]] = None
+    ) -> Route:
         """
         Create a new route in the Gateway.
 
@@ -140,11 +158,12 @@ class MlflowGatewayClient:
             route configuration is handled via updates to the route configuration YAML file that
             is specified during Gateway server start.
 
-        :param name: The name of the route.
+        :param name: The name of the route. This parameter is required for all routes.
         :param route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
-                           'llm/v1/embeddings').
+                           'llm/v1/embeddings'). This parameter is required for routes that are
+                           not managed by Databricks (the provider isn't 'databricks').
         :param model: A dictionary representing the model details to be associated with the route.
-                      This dictionary should define:
+                      This parameter is required for all routes. This dictionary should define:
 
                       - The model name (e.g., "gpt-3.5-turbo")
                       - The provider (e.g., "openai", "anthropic")
@@ -173,15 +192,13 @@ class MlflowGatewayClient:
             openai_api_key = ...
 
             new_route = gateway_client.create_route(
-                "my-new-route",
-                "llm/v1/completions",
-                {
-                    "name": "question-answering-bot-1",
+                name="my-route",
+                route_type="llm/v1/completions",
+                model={
+                    "name": "question-answering-bot",
                     "provider": "openai",
-                    "config": {
+                    "openai_config": {
                         "openai_api_key": openai_api_key,
-                        "openai_api_version": "2023-05-10",
-                        "openai_api_type": "openai/v1/chat/completions",
                     },
                 },
             )
@@ -289,6 +306,25 @@ class MlflowGatewayClient:
                 {"text": ["It was the best of times", "It was the worst of times"]},
             )
 
+        Additional parameters that are valid for a given provider and route configuration can be
+        included with the request as shown below, using an openai completions route request as
+        an example:
+
+        .. code-block:: python
+
+            from mlflow.gateway import MlflowGatewayClient
+
+            gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+
+            response = gateway_client.query(
+                "my-completions-route",
+                {
+                    "prompt": "Give me an example of a properly formatted pytest unit test",
+                    "temperature": 0.3,
+                    "max_tokens": 500,
+                },
+            )
+
         """
 
         data = json.dumps(data)
@@ -310,3 +346,81 @@ class MlflowGatewayClient:
                 raise MlflowException(message=timeout_message, error_code=BAD_REQUEST)
             else:
                 raise e
+
+    @experimental
+    def set_limits(self, route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
+        """
+        Set limits on an existing route in the Gateway.
+
+        .. warning::
+
+            This API is **only available** when running within Databricks.
+
+        :param route: The name of the route to set limits on.
+        :param limits: Limits (Array of dictionary) to set on the route. Each limit is defined by a
+                       dictionary representing the limit details to be associated with the route.
+                       This dictionary should define:
+
+                       - renewal_period: a string representing the length of the window
+                         to enforce limit on (only supports "minute" for now).
+                       - calls: a non-negative integer representing the number of calls
+                         allowed per renewal_period (e.g., 10, 0, 55).
+                       - key: an optional string represents per route limit or per user
+                         limit ("user" for per user limit, "route" for per route limit, if not
+                         supplied, default to per route limit).
+
+        :return: The returned data structure is a serialized representation of the `Limit`
+            data structure, giving information about the renewal_period, key, and calls.
+
+        Example usage:
+
+        .. code-block:: python
+
+            from mlflow.gateway import MlflowGatewayClient
+
+            gateway_client = MlflowGatewayClient("databricks")
+
+            gateway_client.set_limits(
+                "my-new-route", [{"key": "user", "renewal_period": "minute", "calls": 50}]
+            )
+        """
+        payload = {
+            "route": route,
+            "limits": limits,
+        }
+
+        response = self._call_endpoint(
+            "POST", MLFLOW_GATEWAY_LIMITS_BASE, json.dumps(payload)
+        ).json()
+        return LimitsConfig(**response)
+
+    @experimental
+    def get_limits(self, route: str) -> LimitsConfig:
+        """
+        Get limits of an existing route in the Gateway.
+
+        .. warning::
+
+            This API is **only available** when connected to a Databricks-hosted AI Gateway.
+
+        :param route: The name of the route to get limits of.
+
+        :return: The returned data structure is a serialized representation of the `Limit` data
+            structure, giving information about the renewal_period, key, and calls.
+
+        Example usage:
+
+        .. code-block:: python
+
+            from mlflow.gateway import MlflowGatewayClient
+
+            gateway_client = MlflowGatewayClient("databricks")
+
+            gateway_client.get_limits("my-new-route")
+
+        """
+        if not route:
+            raise MlflowException("A non-empty string is required for the route.", BAD_REQUEST)
+        route_uri = assemble_uri_path([MLFLOW_GATEWAY_LIMITS_BASE, route])
+        response = self._call_endpoint("GET", route_uri).json()
+        return LimitsConfig(**response)

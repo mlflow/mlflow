@@ -2,17 +2,18 @@ import logging
 import os
 import shutil
 import subprocess
+from typing import Dict, Iterable, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from mlflow.recipes.cards import pandas_renderer
 
-from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import BAD_REQUEST, INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.recipes.cards import pandas_renderer
 from mlflow.utils.databricks_utils import (
-    is_running_in_ipython_environment,
-    is_in_databricks_runtime,
     get_databricks_runtime,
+    is_in_databricks_runtime,
+    is_running_in_ipython_environment,
 )
-from typing import Dict, List, Iterable, Tuple
 
 _logger = logging.getLogger(__name__)
 
@@ -21,7 +22,9 @@ _MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
 _MAX_PROFILE_COL_SIZE = 10000  # 10k Cols
 
 
-def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
+def get_merged_eval_metrics(
+    eval_metrics: Dict[str, Dict], ordered_metric_names: Optional[List[str]] = None
+):
     """Returns a merged Pandas DataFrame from a map of dataset to evaluation metrics.
     Optionally, the rows in the DataFrame are ordered by input ordered metric names.
 
@@ -58,7 +61,7 @@ def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names:
     return DataFrame.from_dict(merged_metrics).reindex(ordered_metric_names)
 
 
-def display_html(html_data: str = None, html_file_path: str = None) -> None:
+def display_html(html_data: Optional[str] = None, html_file_path: Optional[str] = None) -> None:
     if html_file_path is None and html_data is None:
         raise MlflowException(
             "At least one HTML source must be provided. html_data and html_file_path are empty.",
@@ -66,7 +69,8 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         )
 
     if is_running_in_ipython_environment():
-        from IPython.display import display as ip_display, HTML
+        from IPython.display import HTML
+        from IPython.display import display as ip_display
 
         html_file_path = html_file_path if html_data is None else None
 

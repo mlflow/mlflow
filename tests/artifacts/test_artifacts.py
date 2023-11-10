@@ -1,16 +1,15 @@
 import pathlib
 import uuid
-from unittest import mock
+from collections import namedtuple
 from typing import NamedTuple
+from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import path_to_local_file_uri, mkdir, local_file_uri_to_path
-from collections import namedtuple
+from mlflow.utils.file_utils import local_file_uri_to_path, mkdir, path_to_local_file_uri
 from mlflow.utils.os import is_windows
-
 
 Artifact = namedtuple("Artifact", ["uri", "content"])
 
@@ -235,7 +234,7 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
         "test_exp_d", experiment_test_1_artifact_location
     )
     with mlflow.start_run(experiment_id=experiment_test_1_id) as run:
-        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+        with mock.patch("shutil.copy2") as copyfile_mock, mock.patch(
             "os.path.exists", return_value=True
         ) as exists_mock:
             mlflow.log_artifact(text_artifact.artifact_path)
@@ -254,7 +253,7 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
         "test_exp_e", experiment_test_2_artifact_location
     )
     with mlflow.start_run(experiment_id=experiment_test_2_id) as run:
-        with mock.patch("shutil.copyfile") as copyfile_mock, mock.patch(
+        with mock.patch("shutil.copy2") as copyfile_mock, mock.patch(
             "os.path.exists", return_value=True
         ) as exists_mock:
             mlflow.log_artifact(text_artifact.artifact_path)

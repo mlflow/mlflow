@@ -1,17 +1,16 @@
 import os
-
 import posixpath
 import urllib.parse
 
 from mlflow.entities import FileInfo
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
     MLFLOW_GCS_DEFAULT_TIMEOUT,
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
 class GCSArtifactRepository(ArtifactRepository):
@@ -26,9 +25,9 @@ class GCSArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri, client=None):
         super().__init__(artifact_uri)
-        from google.cloud.storage.constants import _DEFAULT_TIMEOUT
         from google.auth.exceptions import DefaultCredentialsError
         from google.cloud import storage as gcs_storage
+        from google.cloud.storage.constants import _DEFAULT_TIMEOUT
 
         self._GCS_DOWNLOAD_CHUNK_SIZE = MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE.get()
         self._GCS_UPLOAD_CHUNK_SIZE = MLFLOW_GCS_UPLOAD_CHUNK_SIZE.get()

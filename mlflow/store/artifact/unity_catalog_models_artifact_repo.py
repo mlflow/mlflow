@@ -1,33 +1,32 @@
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    MODEL_VERSION_OPERATION_READ,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
-    MODEL_VERSION_OPERATION_READ,
 )
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import (
-    call_endpoint,
-    extract_api_info_for_service,
-    _REST_API_PATH_PREFIX,
-)
-from mlflow.utils.uri import (
-    get_databricks_profile_uri_from_artifact_uri,
-    get_db_info_from_uri,
-    is_databricks_unity_catalog_uri,
-    _DATABRICKS_UNITY_CATALOG_SCHEME,
-)
-from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.store.artifact.utils.models import (
-    get_model_name_and_version,
-)
-
 from mlflow.store._unity_catalog.registry.utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
+)
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.utils.models import (
+    get_model_name_and_version,
+)
+from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import (
+    _REST_API_PATH_PREFIX,
+    call_endpoint,
+    extract_api_info_for_service,
+)
+from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    get_databricks_profile_uri_from_artifact_uri,
+    get_db_info_from_uri,
+    is_databricks_unity_catalog_uri,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)

@@ -24,8 +24,11 @@ on:
         required: false
         default: ""
 
+permissions:
+  contents: read
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -36,12 +39,12 @@ jobs:
   linux-env-setup:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    if: github.event_name != 'schedule' || github.repository == 'mlflow-automation/mlflow'
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          repository: ${{ github.event.inputs.repository }}
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - name: Setup environment
         run: |

@@ -10,7 +10,7 @@ import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { mount } from 'enzyme';
 import { Experiment, Metric, Param, RunInfo } from '../sdk/MlflowMessages';
 import { CompareRunScatter, CompareRunScatterImpl } from './CompareRunScatter';

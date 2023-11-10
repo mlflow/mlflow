@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 #
 # MLflow documentation build configuration file, created by
 # cookiecutter pipproject
@@ -40,7 +39,8 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
-    "test_code_block",
+    "testcode_block",
+    "nbsphinx",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -90,7 +90,8 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = []
+# We exclude "registry.rst" because it is an orphan redirect
+exclude_patterns = ["registry.rst"]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -330,6 +331,7 @@ nitpick_ignore = [
     ("py:class", "pandas.core.series.Series"),
     ("py:class", "pandas.core.frame.DataFrame"),
     ("py:class", "pandas.DataFrame"),
+    ("py:class", "pyspark.sql.DataFrame"),
     ("py:class", "pyspark.sql.dataframe.DataFrame"),
     ("py:class", "matplotlib.figure.Figure"),
     ("py:class", "plotly.graph_objects.Figure"),
@@ -339,8 +341,12 @@ nitpick_ignore = [
     ("py:class", "mlflow.types.schema.ColSpec"),
     ("py:class", "mlflow.types.schema.TensorSpec"),
     ("py:class", "mlflow.types.schema.Schema"),
+    ("py:class", "mlflow.types.schema.ParamSchema"),
+    ("py:class", "mlflow.types.schema.ParamSpec"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
+    ("py:class", "mlflow.metrics.genai.base.EvaluationExample"),
+    ("py:class", "mlflow.models.evaluation.base.EvaluationMetric"),
     ("py:class", "MlflowInferableDataset"),
     ("py:class", "csr_matrix"),
     ("py:class", "csc_matrix"),
@@ -350,6 +356,9 @@ nitpick_ignore = [
     ("py:class", "scipy.sparse._csc.csc_matrix"),
     ("py:class", "pathlib.Path"),
     ("py:class", "pydantic.main.BaseModel"),
+    ("py:class", "ConfigDict"),
+    ("py:class", "FieldInfo"),
+    ("py:class", "keras_core.src.callbacks.callback.Callback"),
 ]
 
 

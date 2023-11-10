@@ -1,9 +1,9 @@
 import os
-import pytest
 import tempfile
 
-from pyspark.sql import SparkSession, Row
-from pyspark.sql.types import StructType, IntegerType, StringType, StructField
+import pytest
+from pyspark.sql import Row, SparkSession
+from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
 from tests.spark.autologging.utils import _get_mlflow_spark_jar_path
 
@@ -44,7 +44,7 @@ def format_to_file_path(spark_session):
     res = {}
     with tempfile.TemporaryDirectory() as tempdir:
         for data_format in ["csv", "parquet", "json"]:
-            res[data_format] = os.path.join(tempdir, "test-data-%s" % data_format)
+            res[data_format] = os.path.join(tempdir, f"test-data-{data_format}")
 
         for data_format, file_path in res.items():
             df.write.option("header", "true").format(data_format).save(file_path)

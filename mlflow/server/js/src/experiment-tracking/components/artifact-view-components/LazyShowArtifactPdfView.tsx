@@ -6,14 +6,14 @@
  */
 
 import React from 'react';
-import { Skeleton } from '@databricks/design-system';
+import { LegacySkeleton } from '@databricks/design-system';
 import { SectionErrorBoundary } from '../../../common/components/error-boundaries/SectionErrorBoundary';
 
 const ShowArtifactPdfView = React.lazy(() => import('./ShowArtifactPdfView'));
 
 export const LazyShowArtifactPdfView = (props: any) => (
   <SectionErrorBoundary>
-    <React.Suspense fallback={<Skeleton active />}>
+    <React.Suspense fallback={<LegacySkeleton active />}>
       <ShowArtifactPdfView {...props} />
     </React.Suspense>
   </SectionErrorBoundary>

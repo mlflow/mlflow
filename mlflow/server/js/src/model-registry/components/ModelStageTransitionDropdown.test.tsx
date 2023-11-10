@@ -67,6 +67,7 @@ describe('ModelStageTransitionDropdown', () => {
       };
       instance.handleMenuItemClick(activity);
       instance.state.handleConfirm();
+      // eslint-disable-next-line jest/no-standalone-expect
       expect(mockOnSelect).toHaveBeenCalledWith(activity, expectArchiveFieldValue);
     });
   });

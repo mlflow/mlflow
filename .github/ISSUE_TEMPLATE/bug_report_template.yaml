@@ -18,6 +18,16 @@ body:
         - label: I have read and agree to submit bug reports in accordance with the [issues policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
           required: true
   - type: dropdown
+    attributes:
+      label: Where did you encounter this bug?
+      options:
+        - Local machine
+        - Databricks
+        - Azure Machine Learning
+        - Other
+    validations:
+      required: true
+  - type: dropdown
     id: contribution
     attributes:
       label: Willingness to contribute

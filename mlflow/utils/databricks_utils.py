@@ -5,12 +5,13 @@ import subprocess
 from typing import Optional, TypeVar
 
 from databricks_cli.configure import provider
-from mlflow.exceptions import MlflowException
+
 import mlflow.utils
-from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
+from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -190,7 +191,8 @@ def is_in_cluster():
         spark_session = _get_active_spark_session()
         return (
             spark_session is not None
-            and spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId") is not None
+            and spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId", None)
+            is not None
         )
     except Exception:
         return False
@@ -236,7 +238,7 @@ def get_cluster_id():
     spark_session = _get_active_spark_session()
     if spark_session is None:
         return None
-    return spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId")
+    return spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId", None)
 
 
 @_use_repl_context_if_available("jobGroupId")
@@ -366,7 +368,8 @@ def get_workspace_url():
     try:
         spark_session = _get_active_spark_session()
         if spark_session is not None:
-            return "https://" + spark_session.conf.get("spark.databricks.workspaceUrl")
+            if workspace_url := spark_session.conf.get("spark.databricks.workspaceUrl", None):
+                return f"https://{workspace_url}"
     except Exception:
         return None
 

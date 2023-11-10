@@ -1,4 +1,5 @@
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
+
 from mlflow.utils.annotations import developer_stable
 
 

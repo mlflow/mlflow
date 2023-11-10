@@ -1,22 +1,18 @@
-from packaging.version import Version
-
 import pytest
-
-import torch
-
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from pytorch_lightning.callbacks import ModelCheckpoint
-
+import torch
 from iris import IrisClassification, IrisClassificationWithoutValidation
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
+from packaging.version import Version
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 import mlflow
-from mlflow import MlflowClient
 import mlflow.pytorch
+from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import TempDir
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
+from mlflow.utils.file_utils import TempDir
 
 NUM_EPOCHS = 20
 
@@ -85,6 +81,19 @@ def test_pytorch_autolog_logs_default_params(pytorch_model):
     assert "optimizer_name" in data.params
     assert "weight_decay" in data.params
     assert "betas" in data.params
+
+
+def test_extra_tags_pytorch_autolog():
+    mlflow.pytorch.autolog(extra_tags={"test_tag": "pytorch_autolog"})
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+    trainer.fit(model, dm)
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "pytorch_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "pytorch"
 
 
 def test_pytorch_autolog_logs_expected_data(pytorch_model):

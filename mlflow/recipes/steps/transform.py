@@ -7,14 +7,13 @@ import time
 import cloudpickle
 from packaging.version import Version
 
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.recipes.artifacts import DataframeArtifact, TransformerArtifact
 from mlflow.recipes.cards import BaseCard
-from mlflow.recipes.step import BaseStep
-from mlflow.recipes.step import StepClass
+from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
-from mlflow.recipes.utils.tracking import get_recipe_tracking_config, TrackingConfig
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.recipes.utils.tracking import TrackingConfig, get_recipe_tracking_config
 
 _logger = logging.getLogger(__name__)
 
@@ -177,8 +176,8 @@ class TransformStep(BaseStep):
             )
 
         # Tab 3: transformer diagram
-        from sklearn.utils import estimator_html_repr
         from sklearn import set_config
+        from sklearn.utils import estimator_html_repr
 
         set_config(display="diagram")
         transformer_repr = estimator_html_repr(transformer)

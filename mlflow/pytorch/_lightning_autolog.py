@@ -1,16 +1,17 @@
-from packaging.version import Version
 import logging
-import mlflow.pytorch
 import os
 import tempfile
 import warnings
 
+from packaging.version import Version
+
+import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.pytorch import _pytorch_autolog
 from mlflow.utils.autologging_utils import (
-    ExceptionSafeAbstractClass,
     BatchMetricsLogger,
+    ExceptionSafeAbstractClass,
     MlflowAutologgingQueueingClient,
     get_autologging_config,
 )
@@ -21,7 +22,6 @@ MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import rank_zero_only
-
 
 # The following are the downsides of using PyTorch Lightning's built-in MlflowLogger.
 # 1. MlflowLogger doesn't provide a mechanism to store an entire model into mlflow.

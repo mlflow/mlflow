@@ -1,8 +1,8 @@
 import random
-from packaging.version import Version
 
 import spacy
-from spacy.util import minibatch, compounding
+from packaging.version import Version
+from spacy.util import compounding, minibatch
 
 import mlflow.spacy
 

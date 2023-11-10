@@ -61,7 +61,7 @@ mlflow run . -P max_epochs=5 -P learning_rate=0.01 -P use_pretrained_model=True
 
 Or to run the training script directly with custom parameters:
 
-```
+```sh
 python Titanic_Captum_Interpret.py \
     --max_epochs 50 \
     --lr 0.1

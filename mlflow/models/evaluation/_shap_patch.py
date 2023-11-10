@@ -1,7 +1,8 @@
-import shap
-import numpy as np
 import pickle
-from shap._serializable import Serializer, Deserializer, Serializable
+
+import numpy as np
+import shap
+from shap._serializable import Deserializer, Serializable, Serializer
 
 
 class _PatchedKernelExplainer(shap.KernelExplainer):

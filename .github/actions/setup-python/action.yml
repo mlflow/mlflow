@@ -5,9 +5,9 @@ inputs:
     description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
     required: false
 outputs:
-  installed-python-version:
+  python-version:
     description: "The installed python version"
-    value: ${{ steps.fetch-python-version.outputs.version }}
+    value: ${{ steps.get-python-version.outputs.version }}
 runs:
   using: "composite"
   steps:
@@ -30,6 +30,8 @@ runs:
           else
             python_version="3.8.12"
           fi
+        elif [[ "$python_version" == "3.9" ]]; then
+          python_version="3.9.13"
         else
           echo "Invalid python version: '$python_version'. Must be '3.8'"
           exit 1

@@ -1,72 +1,75 @@
+import json
+import math
 import os
 import pathlib
+import re
 import shutil
 import tempfile
-import unittest
-import re
-from pathlib import Path
-
-import math
-import pytest
-import sqlalchemy
 import time
-import mlflow
+import unittest
 import uuid
-import json
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import List, Union
 from unittest import mock
 
+import pytest
+import sqlalchemy
+from packaging.version import Version
+
+import mlflow
 import mlflow.db
 import mlflow.store.db.base_sql_model
+from mlflow import entities
 from mlflow.entities import (
-    ViewType,
-    RunTag,
-    SourceType,
-    RunStatus,
     Experiment,
+    ExperimentTag,
     Metric,
     Param,
-    ExperimentTag,
+    RunStatus,
+    RunTag,
+    SourceType,
+    ViewType,
     _DatasetSummary,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
     BAD_REQUEST,
-    RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
     TEMPORARILY_UNAVAILABLE,
+    ErrorCode,
+)
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.store.db.utils import (
+    _get_latest_schema_revision,
+    _get_schema_version,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.db.utils import (
-    _get_schema_version,
-    _get_latest_schema_revision,
-)
 from mlflow.store.tracking.dbmodels import models
-from mlflow.store.db.db_types import SQLITE, POSTGRES, MYSQL, MSSQL
-from mlflow import entities
-from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.models import (
+    SqlDataset,
+    SqlExperiment,
+    SqlExperimentTag,
+    SqlInput,
+    SqlInputTag,
+    SqlLatestMetric,
+    SqlMetric,
+    SqlParam,
+    SqlRun,
+    SqlTag,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
-from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.os import is_windows
-from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.store.tracking.dbmodels.models import (
-    SqlParam,
-    SqlTag,
-    SqlMetric,
-    SqlLatestMetric,
-    SqlRun,
-    SqlExperimentTag,
-    SqlExperiment,
-    SqlInputTag,
-    SqlInput,
-    SqlDataset,
-)
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.uri import extract_db_type_from_uri
+
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -141,6 +144,117 @@ def test_fail_on_multiple_drivers():
         extract_db_type_from_uri("mysql+pymsql+pyodbc://...")
 
 
+@pytest.fixture
+def store(tmp_path: Path) -> SqlAlchemyStore:
+    store = _get_store(tmp_path)
+    yield store
+    _cleanup_database(store)
+
+
+def _get_store(tmp_path: Path):
+    db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir(exist_ok=True)
+    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+
+
+def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):
+    dialect = store._get_dialect()
+    if dialect == POSTGRES:
+        return "ALTER SEQUENCE experiments_experiment_id_seq RESTART WITH 1"
+    elif dialect == MYSQL:
+        return "ALTER TABLE experiments AUTO_INCREMENT = 1"
+    elif dialect == MSSQL:
+        return "DBCC CHECKIDENT (experiments, RESEED, 0)"
+    elif dialect == SQLITE:
+        # In SQLite, deleting all experiments resets experiment_id
+        return None
+    raise ValueError(f"Invalid dialect: {dialect}")
+
+
+def _cleanup_database(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        # Delete all rows in all tables
+        for model in (
+            SqlParam,
+            SqlMetric,
+            SqlLatestMetric,
+            SqlTag,
+            SqlInputTag,
+            SqlInput,
+            SqlDataset,
+            SqlRun,
+            SqlExperimentTag,
+            SqlExperiment,
+        ):
+            session.query(model).delete()
+
+        # Reset experiment_id to start at 1
+        if reset_experiment_id := _get_query_to_reset_experiment_id(store):
+            session.execute(sqlalchemy.sql.text(reset_experiment_id))
+
+
+def _experiment_factory(names, store: SqlAlchemyStore) -> Union[str, List]:
+    if isinstance(names, (list, tuple)):
+        ids = []
+        for name in names:
+            # Sleep to ensure each experiment has a unique creation_time for
+            # deterministic experiment search results
+            time.sleep(0.001)
+            ids.append(store.create_experiment(name=name))
+        return ids
+
+    time.sleep(0.001)
+    return store.create_experiment(name=names)
+
+
+def test_default_experiment(store: SqlAlchemyStore):
+    experiments = store.search_experiments()
+    assert len(experiments) == 1
+
+    first = experiments[0]
+    assert first.experiment_id == "0"
+    assert first.name == "Default"
+
+
+def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
+    default_experiment = store.get_experiment(experiment_id=0)
+    assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
+    assert default_experiment.lifecycle_stage == entities.LifecycleStage.ACTIVE
+
+    _experiment_factory("aNothEr", store)
+    all_experiments = [e.name for e in store.search_experiments()]
+    assert set(all_experiments) == {"aNothEr", "Default"}
+
+    store.delete_experiment(0)
+
+    assert [e.name for e in store.search_experiments()] == ["aNothEr"]
+    another = store.get_experiment(1)
+    assert another.name == "aNothEr"
+
+    default_experiment = store.get_experiment(experiment_id=0)
+    assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
+    assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
+
+    # destroy SqlStore and make a new one
+    del store
+    store = _get_store(tmp_path)
+
+    # test that default experiment is not reactivated
+    default_experiment = store.get_experiment(experiment_id=0)
+    assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
+    assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
+
+    assert [e.name for e in store.search_experiments()] == ["aNothEr"]
+    all_experiments = [e.name for e in store.search_experiments(ViewType.ALL)]
+    assert set(all_experiments) == {"aNothEr", "Default"}
+
+    # ensure that experiment ID dor active experiment is unchanged
+    another = store.get_experiment(1)
+    assert another.name == "aNothEr"
+
+
+# This unit test class is under refactoring. Please use pytest for new unit tests: #10042
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_store(self, db_uri=""):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
@@ -216,50 +330,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         time.sleep(0.001)
         return self.store.create_experiment(name=names)
-
-    def test_default_experiment(self):
-        experiments = self.store.search_experiments()
-        assert len(experiments) == 1
-
-        first = experiments[0]
-        assert first.experiment_id == "0"
-        assert first.name == "Default"
-
-    def test_default_experiment_lifecycle(self):
-        default_experiment = self.store.get_experiment(experiment_id=0)
-        assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
-        assert default_experiment.lifecycle_stage == entities.LifecycleStage.ACTIVE
-
-        self._experiment_factory("aNothEr")
-        all_experiments = [e.name for e in self.store.search_experiments()]
-        assert set(all_experiments) == {"aNothEr", "Default"}
-
-        self.store.delete_experiment(0)
-
-        assert [e.name for e in self.store.search_experiments()] == ["aNothEr"]
-        another = self.store.get_experiment(1)
-        assert another.name == "aNothEr"
-
-        default_experiment = self.store.get_experiment(experiment_id=0)
-        assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
-        assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
-
-        # destroy SqlStore and make a new one
-        del self.store
-        self.store = self._get_store(self.db_url)
-
-        # test that default experiment is not reactivated
-        default_experiment = self.store.get_experiment(experiment_id=0)
-        assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
-        assert default_experiment.lifecycle_stage == entities.LifecycleStage.DELETED
-
-        assert [e.name for e in self.store.search_experiments()] == ["aNothEr"]
-        all_experiments = [e.name for e in self.store.search_experiments(ViewType.ALL)]
-        assert set(all_experiments) == {"aNothEr", "Default"}
-
-        # ensure that experiment ID dor active experiment is unchanged
-        another = self.store.get_experiment(1)
-        assert another.name == "aNothEr"
 
     def test_raise_duplicate_experiments(self):
         with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
@@ -443,6 +513,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             ("exp3", [ExperimentTag("k e y 1", "value")]),
         ]
         for name, tags in experiments:
+            time.sleep(0.001)
             self.store.create_experiment(name, tags=tags)
 
         experiments = self.store.search_experiments(filter_string="tag.key1 = 'value'")
@@ -668,8 +739,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # Therefore, we check for the more generic 'SQLAlchemyError'
         with pytest.raises(MlflowException, match=regex) as exception_context:
             with self.store.ManagedSessionMaker() as session:
-                run = models.SqlRun()
-                session.add(run)
+                session.add(models.SqlRun())
         assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_run_data_model(self):
@@ -1106,16 +1176,22 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 BAD_REQUEST
             ) or exception_context.value.error_code == ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
 
+    @pytest.mark.skipif(
+        Version(sqlalchemy.__version__) < Version("2.0")
+        and mlflow.get_tracking_uri().startswith("mssql"),
+        reason="large string parameters are sent as TEXT/NTEXT; "
+        "see tests/db/compose.yml for details",
+    )
     def test_log_param_max_length_value(self):
         run = self._run_factory()
         tkey = "blahmetric"
-        tval = "x" * 500
+        tval = "x" * 6000
         param = entities.Param(tkey, tval)
         self.store.log_param(run.info.run_id, param)
         run = self.store.get_run(run.info.run_id)
         assert run.data.params[tkey] == str(tval)
         with pytest.raises(MlflowException, match="exceeded length"):
-            self.store.log_param(run.info.run_id, entities.Param(tkey, "x" * 1000))
+            self.store.log_param(run.info.run_id, entities.Param(tkey, "x" * 6001))
 
     def test_set_experiment_tag(self):
         exp_id = self._experiment_factory("setExperimentTagExp")
@@ -1706,7 +1782,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == [r2]
         assert self._search(
             experiment_id,
-            filter_string="tags.generic_2 ILIKE '%Other%' and " "tags.generic_tag ILIKE 'p_val'",
+            filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag ILIKE 'p_val'",
         ) == [r2]
 
     def test_search_metrics(self):
@@ -2487,7 +2563,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # SQL limitations, etc)
         experiment_id = self._experiment_factory("log_batch_limits")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        metric_tuples = [("m%s" % i, i, 12345, i * 2) for i in range(1000)]
+        metric_tuples = [(f"m{i}", i, 12345, i * 2) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
         self.store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])
         run = self.store.get_run(run_id)
@@ -2720,11 +2796,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_log_batch_params_max_length_value(self):
         run = self._run_factory()
-        param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
-        expected_param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
+        param_entities = [Param("long param", "x" * 6000), Param("short param", "xyz")]
+        expected_param_entities = [Param("long param", "x" * 6000), Param("short param", "xyz")]
         self.store.log_batch(run.info.run_id, [], param_entities, [])
         self._verify_logged(self.store, run.info.run_id, [], expected_param_entities, [])
-        param_entities = [Param("long param", "x" * 1000)]
+        param_entities = [Param("long param", "x" * 6001)]
         with pytest.raises(MlflowException, match="exceeded length"):
             self.store.log_batch(run.info.run_id, [], param_entities, [])
 
@@ -2789,7 +2865,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with TempDir() as tmp_db_dir:
             db_path = tmp_db_dir.path("tmp_db.sql")
             db_url = "sqlite:///" + db_path
-            shutil.copyfile(
+            shutil.copy2(
                 src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
                 dst=db_path,
             )
@@ -2827,7 +2903,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
             for i in range(100):
                 metric = {
-                    "key": "mkey_%s" % i,
+                    "key": f"mkey_{i}",
                     "value": i,
                     "timestamp": i * 2,
                     "step": i * 3,
@@ -2836,13 +2912,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 }
                 metrics_list.append(metric)
                 tag = {
-                    "key": "tkey_%s" % i,
+                    "key": f"tkey_{i}",
                     "value": "tval_%s" % (current_run % 10),
                     "run_uuid": run_id,
                 }
                 tags_list.append(tag)
                 param = {
-                    "key": "pkey_%s" % i,
+                    "key": f"pkey_{i}",
                     "value": "pval_%s" % ((current_run + 1) % 11),
                     "run_uuid": run_id,
                 }
@@ -2961,23 +3037,23 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             conn.execute(
                 sqlalchemy.sql.text(
                     f"""
-                INSERT INTO datasets 
-                    (dataset_uuid, 
-                    experiment_id, 
-                    name, 
-                    digest, 
-                    dataset_source_type, 
-                    dataset_source, 
-                    dataset_schema, 
+                INSERT INTO datasets
+                    (dataset_uuid,
+                    experiment_id,
+                    name,
+                    digest,
+                    dataset_source_type,
+                    dataset_source,
+                    dataset_schema,
                     dataset_profile)
-                VALUES 
-                    ('test_uuid', 
-                    0, 
-                    'test_name', 
-                    'test_digest', 
-                    'test_source_type', 
+                VALUES
+                    ('test_uuid',
+                    0,
+                    'test_name',
+                    'test_digest',
+                    'test_source_type',
                     '{dataset_source}', '
-                    test_schema', 
+                    test_schema',
                     '{dataset_profile}')
                 """
                 )
@@ -3474,40 +3550,41 @@ class TextClauseMatcher:
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)
-class TestZeroValueInsertion(unittest.TestCase):
-    def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
-        )
+def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+    )
 
-    def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
-        )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
+    )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
-        )
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
+    )
 
 
 def test_get_attribute_name():
@@ -3601,7 +3678,6 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}?param=value#fragment",
@@ -3627,7 +3703,6 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly_on_
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}?param=value",
         ),
-        ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
         (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///path/to/local/folder/{e}?param=value#fragment",
@@ -3712,10 +3787,6 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
         ),
         (
-            "file:///path/to/local/folder",
-            "file:///{drive}path/to/local/folder/{e}/{r}/artifacts",
-        ),
-        (
             "file:///path/to/local/folder?param=value#fragment",
             "file:///{drive}path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
         ),
@@ -3742,10 +3813,6 @@ def test_create_run_appends_to_artifact_local_path_file_uri_correctly_on_windows
         (
             "file:path/to/local/folder?param=value",
             "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts?param=value",
-        ),
-        (
-            "file:///path/to/local/folder",
-            "file:///path/to/local/folder/{e}/{r}/artifacts",
         ),
         (
             "file:///path/to/local/folder?param=value#fragment",

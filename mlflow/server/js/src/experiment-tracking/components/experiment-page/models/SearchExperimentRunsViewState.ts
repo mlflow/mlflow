@@ -25,6 +25,16 @@ export class SearchExperimentRunsViewState {
   previewPaneVisible = false;
 
   /**
+   * Determines if the experiment table is maximized
+   */
+  viewMaximized = false;
+
+  /**
+   * Determines if the run list on the left is hidden (chart and evaluation views only)
+   */
+  runListHidden = false;
+
+  /**
    * Persists controls state in the evaluation artifact compare mode
    */
   artifactViewState: {

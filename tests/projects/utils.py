@@ -1,16 +1,13 @@
 import filecmp
+import logging
 import os
 import shutil
 
-
 import pytest
-import logging
-
-from mlflow.utils.file_utils import TempDir, _copy_project
 
 from mlflow.entities import RunStatus
 from mlflow.projects import _project_spec
-
+from mlflow.utils.file_utils import TempDir, _copy_project
 
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.abspath(os.path.join(TEST_DIR, "resources", "example_project"))
@@ -51,7 +48,7 @@ def assert_dirs_equal(expected, actual):
 @pytest.fixture(scope="package")
 def docker_example_base_image():
     import docker
-    from docker.errors import BuildError, APIError
+    from docker.errors import APIError, BuildError
 
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     if not mlflow_home:

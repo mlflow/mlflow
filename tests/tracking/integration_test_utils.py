@@ -1,14 +1,14 @@
+import contextlib
+import logging
+import os
+import socket
+import sys
+import time
 from subprocess import Popen
 
-import sys
-import os
-import logging
-import socket
-import time
-import contextlib
-
 import mlflow
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
+
 from tests.helper_functions import LOCALHOST, get_safe_port
 
 _logger = logging.getLogger(__name__)
@@ -77,5 +77,4 @@ def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload
     import requests
 
     url = tracking_server_uri + api_path
-    response = requests.post(url, json=json_payload, auth=auth)
-    return response
+    return requests.post(url, json=json_payload, auth=auth)

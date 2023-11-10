@@ -1,20 +1,21 @@
 # pylint: disable=redefined-outer-name
 import os
 import posixpath
-import pytest
 from unittest import mock
 
-from google.cloud.storage import client as gcs_client
+import pytest
 from google.auth.exceptions import DefaultCredentialsError
+from google.cloud.storage import client as gcs_client
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+
 from tests.helper_functions import mock_method_chain
 
 
 @pytest.fixture
 def mock_client():
-    yield mock.MagicMock(autospec=gcs_client.Client)
+    return mock.MagicMock(autospec=gcs_client.Client)
 
 
 def test_artifact_uri_factory():
@@ -181,9 +182,9 @@ def test_log_artifacts(mock_client, tmp_path):
     mock_client.bucket.assert_called_with("test_bucket")
     mock_client.bucket().blob().upload_from_filename.assert_has_calls(
         [
-            mock.call(os.path.normpath("%s/a.txt" % subd), timeout=repo._GCS_DEFAULT_TIMEOUT),
-            mock.call(os.path.normpath("%s/b.txt" % subd), timeout=repo._GCS_DEFAULT_TIMEOUT),
-            mock.call(os.path.normpath("%s/c.txt" % subd), timeout=repo._GCS_DEFAULT_TIMEOUT),
+            mock.call(os.path.normpath(f"{subd}/a.txt"), timeout=repo._GCS_DEFAULT_TIMEOUT),
+            mock.call(os.path.normpath(f"{subd}/b.txt"), timeout=repo._GCS_DEFAULT_TIMEOUT),
+            mock.call(os.path.normpath(f"{subd}/c.txt"), timeout=repo._GCS_DEFAULT_TIMEOUT),
         ],
         any_order=True,
     )

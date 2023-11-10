@@ -1,18 +1,18 @@
-from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
+from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
 from mlflow.server.auth.routes import (
-    CREATE_USER,
-    GET_USER,
-    UPDATE_USER_PASSWORD,
-    UPDATE_USER_ADMIN,
-    DELETE_USER,
     CREATE_EXPERIMENT_PERMISSION,
-    GET_EXPERIMENT_PERMISSION,
-    UPDATE_EXPERIMENT_PERMISSION,
-    DELETE_EXPERIMENT_PERMISSION,
     CREATE_REGISTERED_MODEL_PERMISSION,
-    GET_REGISTERED_MODEL_PERMISSION,
-    UPDATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_USER,
+    DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_USER,
+    GET_EXPERIMENT_PERMISSION,
+    GET_REGISTERED_MODEL_PERMISSION,
+    GET_USER,
+    UPDATE_EXPERIMENT_PERMISSION,
+    UPDATE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_USER_ADMIN,
+    UPDATE_USER_PASSWORD,
 )
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.rest_utils import http_request_safe
@@ -53,10 +53,10 @@ class AuthServiceClient:
 
             client = AuthServiceClient("tracking_uri")
             user = client.create_user("newuser", "newpassword")
-            print("user_id: {}".format(user.id))
-            print("username: {}".format(user.username))
-            print("password_hash: {}".format(user.password_hash))
-            print("is_admin: {}".format(user.is_admin))
+            print(f"user_id: {user.id}")
+            print(f"username: {user.username}")
+            print(f"password_hash: {user.password_hash}")
+            print(f"is_admin: {user.is_admin}")
 
         .. code-block:: text
             :caption: Output
@@ -96,10 +96,10 @@ class AuthServiceClient:
             client.create_user("newuser", "newpassword")
 
             user = client.get_user("newuser")
-            print("user_id: {}".format(user.id))
-            print("username: {}".format(user.username))
-            print("password_hash: {}".format(user.password_hash))
-            print("is_admin: {}".format(user.is_admin))
+            print(f"user_id: {user.id}")
+            print(f"username: {user.username}")
+            print(f"password_hash: {user.password_hash}")
+            print(f"is_admin: {user.is_admin}")
 
         .. code-block:: text
             :caption: Output
@@ -233,9 +233,9 @@ class AuthServiceClient:
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
             ep = client.create_experiment_permission("myexperiment", "newuser", "READ")
-            print("experiment_id: {}".format(ep.experiment_id))
-            print("user_id: {}".format(ep.user_id))
-            print("permission: {}".format(ep.permission))
+            print(f"experiment_id: {ep.experiment_id}")
+            print(f"user_id: {ep.user_id}")
+            print(f"permission: {ep.permission}")
 
         .. code-block:: text
             :caption: Output
@@ -278,9 +278,9 @@ class AuthServiceClient:
             client.create_user("newuser", "newpassword")
             client.create_experiment_permission("myexperiment", "newuser", "READ")
             ep = client.get_experiment_permission("myexperiment", "newuser")
-            print("experiment_id: {}".format(ep.experiment_id))
-            print("user_id: {}".format(ep.user_id))
-            print("permission: {}".format(ep.permission))
+            print(f"experiment_id: {ep.experiment_id}")
+            print(f"user_id: {ep.user_id}")
+            print(f"permission: {ep.permission}")
 
         .. code-block:: text
             :caption: Output
@@ -392,9 +392,9 @@ class AuthServiceClient:
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
             rmp = client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
-            print("name: {}".format(rmp.name))
-            print("user_id: {}".format(rmp.user_id))
-            print("permission: {}".format(rmp.permission))
+            print(f"name: {rmp.name}")
+            print(f"user_id: {rmp.user_id}")
+            print(f"permission: {rmp.permission}")
 
         .. code-block:: text
             :caption: Output
@@ -437,9 +437,9 @@ class AuthServiceClient:
             client.create_user("newuser", "newpassword")
             client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
             rmp = client.get_registered_model_permission("myregisteredmodel", "newuser")
-            print("name: {}".format(rmp.name))
-            print("user_id: {}".format(rmp.user_id))
-            print("permission: {}".format(rmp.permission))
+            print(f"name: {rmp.name}")
+            print(f"user_id: {rmp.user_id}")
+            print(f"permission: {rmp.permission}")
 
         .. code-block:: text
             :caption: Output

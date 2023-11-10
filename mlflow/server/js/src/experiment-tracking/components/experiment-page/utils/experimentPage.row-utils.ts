@@ -3,7 +3,7 @@ import Utils from '../../../../common/utils/Utils';
 import type {
   ExperimentEntity,
   KeyValueEntity,
-  ModelInfoEntity,
+  ModelVersionInfoEntity,
   RunInfoEntity,
   RunDatasetWithTags,
 } from '../../../types';
@@ -21,6 +21,7 @@ import {
   EXPERIMENT_FIELD_PREFIX_TAG,
   EXPERIMENT_PARENT_ID_TAG,
 } from './experimentPage.common-utils';
+import { getStableColorForRun } from '../../../utils/RunNameUtils';
 
 /**
  * A simple tree-like interface used in nested rows calculations.
@@ -215,49 +216,6 @@ const createKeyValueDataForRunRow = (
 };
 
 /**
- * Temporary function that assigns randomized, yet stable color
- * from the static palette basing on an input string. Used for coloring runs.
- *
- * TODO: make a decision on the final color hashing per run
- */
-const getStableColorByStringHash = (data: string) => {
-  // Taken from Figma design
-  const colors = [
-    '#077A9D',
-    '#8BCAE7',
-    '#FFAB00',
-    '#FFDB96',
-    '#00A972',
-    '#99DDB4',
-    '#BA7B23',
-    '#FF3621',
-    '#FCA4A1',
-    '#919191',
-    '#00875C',
-    '#1B5162',
-    '#914B9F',
-    '#D01F0B',
-    '#BD89C7',
-    '#AB4057',
-    '#5F5F5F',
-    '#BF7080',
-    '#C2C2C2',
-    '#7F1035',
-  ];
-  let a = 0,
-    b = 0;
-
-  // Let's use super simple hashing method
-  for (let i = 0; i < data.length; i++) {
-    a = (a + data.charCodeAt(i)) % 255;
-    b = (b + a) % 255;
-  }
-
-  // eslint-disable-next-line no-bitwise
-  return colors[(a | (b << 8)) % colors.length];
-};
-
-/**
  * Creates ag-grid compatible row dataset for all given runs basing on
  * the data retrieved from the API and from the refux store.
  * Please refer to PrepareRunsGridDataParams type for type reference.
@@ -305,11 +263,6 @@ export const prepareRunsGridData = ({
       metrics,
       datasets,
     } = runInfoMetadata;
-
-    const formattedMetrics = (metrics || []).map(({ key, value }) => ({
-      key,
-      value: Utils.formatMetric(value),
-    }));
 
     // Extract necessary basic info
     const runUuid = runInfo.run_uuid;
@@ -376,17 +329,14 @@ export const prepareRunsGridData = ({
       runName,
       tags,
       models,
+      params,
       version,
       pinnable: isPinnable,
-      color: getStableColorByStringHash(runUuid),
+      color: getStableColorForRun(runUuid),
       hidden: isCurrentRowHidden,
       pinned: isCurrentRowPinned || isParentPinned,
       ...createKeyValueDataForRunRow(params, paramKeyList, EXPERIMENT_FIELD_PREFIX_PARAM),
-      ...createKeyValueDataForRunRow(
-        formattedMetrics,
-        metricKeyList,
-        EXPERIMENT_FIELD_PREFIX_METRIC,
-      ),
+      ...createKeyValueDataForRunRow(metrics, metricKeyList, EXPERIMENT_FIELD_PREFIX_METRIC),
       datasets,
       ...createKeyValueDataForRunRow(visibleTags, tagKeyList, EXPERIMENT_FIELD_PREFIX_TAG),
     };
@@ -427,7 +377,7 @@ type PrepareRunsGridDataParams = Pick<
     /**
      * Registered model versions arrays per run uuid
      */
-    modelVersionsByRunUuid: Record<string, ModelInfoEntity[]>;
+    modelVersionsByRunUuid: Record<string, ModelVersionInfoEntity[]>;
 
     /**
      * Boolean flag indicating if hierarchical runs should be generated
@@ -455,3 +405,32 @@ type PrepareRunsGridDataParams = Pick<
      */
     runUuidsMatchingFilter: string[];
   };
+
+export const extractRunRowParamFloat = (
+  run: RunRowType,
+  paramName: string,
+  fallback = undefined,
+) => {
+  const paramEntity = extractRunRowParam(run, paramName);
+  if (!paramEntity) {
+    return fallback;
+  }
+  return parseFloat(paramEntity) || fallback;
+};
+
+export const extractRunRowParamInteger = (
+  run: RunRowType,
+  paramName: string,
+  fallback = undefined,
+) => {
+  const paramEntity = extractRunRowParam(run, paramName);
+  if (!paramEntity) {
+    return fallback;
+  }
+  return parseInt(paramEntity, 10) || fallback;
+};
+
+export const extractRunRowParam = (run: RunRowType, paramName: string, fallback = undefined) => {
+  const paramEntity = run.params.find(({ key }) => paramName === key);
+  return paramEntity?.value || fallback;
+};

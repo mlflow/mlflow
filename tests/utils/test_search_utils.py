@@ -1,21 +1,22 @@
 import base64
 import json
-import pytest
 import re
 
+import pytest
+
 from mlflow.entities import (
-    RunInfo,
-    RunData,
-    RunInputs,
     Dataset,
-    Run,
-    LifecycleStage,
-    RunStatus,
-    Metric,
-    Param,
-    RunTag,
     DatasetInput,
     InputTag,
+    LifecycleStage,
+    Metric,
+    Param,
+    Run,
+    RunData,
+    RunInfo,
+    RunInputs,
+    RunStatus,
+    RunTag,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
@@ -116,7 +117,6 @@ def test_filter(filter_string, parsed_filter):
     ("filter_string", "parsed_filter"),
     [
         ("params.m = 'LR'", [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
-        ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
         ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
         (
             'params.m = "L\'Hosp"',

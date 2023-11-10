@@ -1,13 +1,11 @@
-import time
 import json
+import time
 from collections import namedtuple
 from datetime import datetime
 
-from moto.core import DEFAULT_ACCOUNT_ID
-from moto.core import BaseBackend, BaseModel
-from moto.core.responses import BaseResponse
+from moto.core import DEFAULT_ACCOUNT_ID, BackendDict, BaseBackend, BaseModel
 from moto.core.models import base_decorator
-from moto.core import BackendDict
+from moto.core.responses import BaseResponse
 
 SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
 
@@ -313,8 +311,7 @@ class SageMakerBackend(BaseBackend):
         specified SageMaker URLs to the mocked SageMaker backend.
         """
         urls_module_name = "tests.sagemaker.mock.mock_sagemaker_urls"
-        urls_module = __import__(urls_module_name, fromlist=["url_bases", "url_paths"])
-        return urls_module
+        return __import__(urls_module_name, fromlist=["url_bases", "url_paths"])
 
     def _get_base_arn(self, region_name):
         """

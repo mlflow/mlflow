@@ -15,9 +15,9 @@ your own plugin for deployment to a custom serving tool, see
 """
 import json
 
-from mlflow.exceptions import MlflowException
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.interface import get_deploy_client, run_local
+from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
@@ -40,11 +40,16 @@ class PredictionsResponse(dict):
         """
         import numpy as np
         import pandas as pd
+        from pandas.core.dtypes.common import is_list_like
 
         if predictions_format == "dataframe":
             predictions = self["predictions"]
             if isinstance(predictions, str):
                 return pd.DataFrame(data=[predictions])
+            if isinstance(predictions, dict) and not any(
+                is_list_like(p) and getattr(p, "ndim", 1) == 1 for p in predictions.values()
+            ):
+                return pd.DataFrame(data=predictions, index=[0])
             return pd.DataFrame(data=predictions)
         elif predictions_format == "ndarray":
             return np.array(self["predictions"], dtype)

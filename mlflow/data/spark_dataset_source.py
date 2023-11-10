@@ -1,4 +1,4 @@
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException

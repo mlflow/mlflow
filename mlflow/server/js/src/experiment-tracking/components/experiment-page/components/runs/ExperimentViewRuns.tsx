@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { connect } from 'react-redux';
-import { Skeleton, useLegacyNotification } from '@databricks/design-system';
+import { LegacySkeleton, useLegacyNotification } from '@databricks/design-system';
 import {
+  DatasetSummary,
   ExperimentEntity,
   ExperimentStoreEntities,
   LIFECYCLE_FILTER,
@@ -37,12 +38,15 @@ import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalS
 import { useAutoExpandRunRows } from '../../hooks/useAutoExpandRunRows';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
 import { shouldEnableArtifactBasedEvaluation } from '../../../../../common/utils/FeatureUtils';
+import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
   experiments: ExperimentEntity[];
   modelVersionFilter?: MODEL_VERSION_FILTER;
   lifecycleFilter?: LIFECYCLE_FILTER;
+  datasetsFilter?: DatasetSummary[];
+  onMaximizedChange?: (newIsMaximized: boolean) => void;
 }
 
 export interface ExperimentViewRunsProps extends ExperimentViewRunsOwnProps {
@@ -60,7 +64,7 @@ const createCurrentTime = () => {
 };
 
 export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps) => {
-  const { experiments, runsData } = props;
+  const { experiments, runsData, onMaximizedChange } = props;
 
   // Persistable sort/filter model state is taken from the context
   const {
@@ -86,7 +90,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
 
   useEffect(() => {
     expandRowsStore.setItem('expandRows', expandRows);
-  }, [expandRows]);
+  }, [expandRows, expandRowsStore]);
 
   const {
     paramKeyList,
@@ -115,8 +119,15 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     [datasetsList, metricsList, paramsList, runInfos, tagsList],
   );
 
-  const { orderByKey, searchFilter, runsExpanded, runsPinned, compareRunsMode, runsHidden } =
-    searchFacetsState;
+  const {
+    orderByKey,
+    searchFilter,
+    runsExpanded,
+    runsPinned,
+    compareRunsMode,
+    runsHidden,
+    datasetsFilter,
+  } = searchFacetsState;
 
   const isComparingRuns = compareRunsMode !== undefined;
 
@@ -203,24 +214,41 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     }
   }, [moreRunsAvailable, isLoadingRuns, loadMoreRuns, runInfos, showFetchedRunsNotifications]);
 
+  useEffect(() => {
+    onMaximizedChange?.(viewState.viewMaximized);
+  }, [viewState.viewMaximized, onMaximizedChange]);
+
   const datasetSelected = useCallback((dataset: RunDatasetWithTags, run: RunRowType) => {
     setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: run });
     setIsDrawerOpen(true);
   }, []);
 
   return (
-    <>
+    <CreateNewRunContextProvider visibleRuns={visibleRuns}>
       <ExperimentViewRunsControls
         viewState={viewState}
         updateViewState={updateViewState}
         runsData={runsData}
         searchFacetsState={searchFacetsState}
         updateSearchFacets={updateSearchFacets}
+        experimentId={experiment_id}
         requestError={requestError}
         expandRows={expandRows}
         updateExpandRows={updateExpandRows}
       />
-      <div css={styles.createRunsTableWrapper(isComparingRuns)}>
+      <div
+        css={{
+          minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
+          height: '100%',
+          display: 'grid',
+          position: 'relative' as const,
+          gridTemplateColumns: isComparingRuns
+            ? viewState.runListHidden
+              ? '10px 1fr'
+              : '310px 1fr'
+            : '1fr',
+        }}
+      >
         <ExperimentViewRunsTable
           experiments={experiments}
           runsData={runsData}
@@ -249,7 +277,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
         )}
         {compareRunsMode === 'ARTIFACT' && shouldEnableArtifactBasedEvaluation() && (
           <EvaluationArtifactCompareView
-            visibleRuns={visibleRuns.filter(({ hidden }) => !hidden)}
+            comparedRuns={visibleRuns}
             viewState={viewState}
             updateViewState={updateViewState}
             updateSearchFacets={updateSearchFacets}
@@ -266,27 +294,9 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
           />
         )}
       </div>
-    </>
+    </CreateNewRunContextProvider>
   );
 });
-
-const styles = {
-  createRunsTableWrapper: (isComparingRuns: boolean) => ({
-    minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
-    height: '100%',
-    display: 'grid',
-    position: 'relative' as const,
-    // When comparing runs, we fix the table width to 310px.
-    // We can consider making it resizable by a user.
-    gridTemplateColumns: isComparingRuns ? '310px 1fr' : '1fr',
-  }),
-  loadingFooter: () => ({
-    justifyContent: 'center',
-    alignItems: 'center',
-    display: 'flex',
-    height: '72px',
-  }),
-};
 
 /**
  * Concrete actions for GetExperimentRuns context provider
@@ -340,13 +350,14 @@ export const ExperimentViewRunsConnect: React.ComponentType<ExperimentViewRunsOw
 export const ExperimentViewRunsInjectFilters = (props: ExperimentViewRunsOwnProps) => {
   const { searchFacetsState } = useFetchExperimentRuns();
   if (props.isLoading) {
-    return <Skeleton active />;
+    return <LegacySkeleton active />;
   }
   return (
     <ExperimentViewRunsConnect
       {...props}
       modelVersionFilter={searchFacetsState.modelVersionFilter as MODEL_VERSION_FILTER}
       lifecycleFilter={searchFacetsState.lifecycleFilter as LIFECYCLE_FILTER}
+      datasetsFilter={searchFacetsState.datasetsFilter as DatasetSummary[]}
     />
   );
 };
@@ -364,4 +375,4 @@ export const ExperimentViewRunsInjectContext = (props: ExperimentViewRunsOwnProp
 /**
  * Export context injection layer as a main entry point
  */
-export const ExperimentViewRuns = ExperimentViewRunsInjectContext;
+export const ExperimentViewRuns = React.memo(ExperimentViewRunsInjectContext);

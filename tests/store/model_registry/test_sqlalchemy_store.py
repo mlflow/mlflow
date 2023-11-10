@@ -1,28 +1,30 @@
-from unittest import mock
 import time
 import uuid
+from unittest import mock
+
 import pytest
 
 from mlflow.entities.model_registry import (
     ModelVersion,
-    RegisteredModelTag,
     ModelVersionTag,
+    RegisteredModelTag,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlRegisteredModelTag,
-    SqlModelVersion,
-    SqlModelVersionTag,
-)
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlModelVersion,
+    SqlModelVersionTag,
+    SqlRegisteredModel,
+    SqlRegisteredModelTag,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
+
 from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock
@@ -746,17 +748,17 @@ def test_search_model_versions(store):
         ]
 
     # search using name should return all 4 versions
-    assert set(search_versions("name='%s'" % name)) == {1, 2, 3, 4}
+    assert set(search_versions(f"name='{name}'")) == {1, 2, 3, 4}
 
     # search using version
     assert set(search_versions("version_number=2")) == {2}
     assert set(search_versions("version_number<=3")) == {1, 2, 3}
 
     # search using run_id_1 should return version 1
-    assert set(search_versions("run_id='%s'" % run_id_1)) == {1}
+    assert set(search_versions(f"run_id='{run_id_1}'")) == {1}
 
     # search using run_id_2 should return versions 2 and 3
-    assert set(search_versions("run_id='%s'" % run_id_2)) == {2, 3}
+    assert set(search_versions(f"run_id='{run_id_2}'")) == {2, 3}
 
     # search using the IN operator should return all versions
     assert set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")) == {1, 2, 3}
@@ -855,7 +857,7 @@ def test_search_model_versions(store):
 
     assert set(search_versions(None)) == {1, 2, 3}
 
-    assert set(search_versions("name='%s'" % name)) == {1, 2, 3}
+    assert set(search_versions(f"name='{name}'")) == {1, 2, 3}
 
     assert set(search_versions("source_path = 'A/D'")) == {3}
 
@@ -867,7 +869,7 @@ def test_search_model_versions(store):
         name=mv1.name, version=mv1.version, description="Online prediction model!"
     )
 
-    mvds = store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
+    mvds = store.search_model_versions(f"run_id = '{run_id_1}'", max_results=10)
     assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"
@@ -1637,3 +1639,48 @@ def test_delete_model_deletes_alias(store):
         match=r"Registered model alias test_alias not found.",
     ):
         store.get_model_version_by_alias(model_name, "test_alias")
+
+
+@pytest.mark.parametrize("copy_to_same_model", [False, True])
+def test_copy_model_version(store, copy_to_same_model):
+    name1 = "test_for_copy_MV1"
+    store.create_registered_model(name1)
+    src_tags = [
+        ModelVersionTag("key", "value"),
+        ModelVersionTag("anotherKey", "some other value"),
+    ]
+    src_mv = _mv_maker(
+        store, name1, tags=src_tags, run_link="dummylink", description="test description"
+    )
+
+    # Make some changes to the src MV that won't be copied over
+    store.transition_model_version_stage(
+        name1, src_mv.version, "Production", archive_existing_versions=False
+    )
+
+    copy_rm_name = name1 if copy_to_same_model else "test_for_copy_MV2"
+    copy_mv_version = 2 if copy_to_same_model else 1
+    timestamp = time.time()
+    dst_mv = store.copy_model_version(src_mv, copy_rm_name)
+    assert dst_mv.name == copy_rm_name
+    assert dst_mv.version == copy_mv_version
+
+    copied_mv = store.get_model_version(dst_mv.name, dst_mv.version)
+    assert copied_mv.name == copy_rm_name
+    assert copied_mv.version == copy_mv_version
+    assert copied_mv.current_stage == "None"
+    assert copied_mv.creation_timestamp >= timestamp
+    assert copied_mv.last_updated_timestamp >= timestamp
+    assert copied_mv.description == "test description"
+    assert copied_mv.source == f"models:/{src_mv.name}/{src_mv.version}"
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+    assert copied_mv.run_link == "dummylink"
+    assert copied_mv.run_id == src_mv.run_id
+    assert copied_mv.status == "READY"
+    assert copied_mv.status_message is None
+    assert copied_mv.tags == {"key": "value", "anotherKey": "some other value"}
+
+    # Copy a model version copy
+    double_copy_mv = store.copy_model_version(copied_mv, "test_for_copy_MV3")
+    assert double_copy_mv.source == f"models:/{copied_mv.name}/{copied_mv.version}"
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source

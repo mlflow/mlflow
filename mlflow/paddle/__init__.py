@@ -11,8 +11,10 @@ Paddle (native) format
     since `predict()` is required for pyfunc model inference.
 """
 
-import os
 import logging
+import os
+from typing import Any, Dict, Optional
+
 import yaml
 
 import mlflow
@@ -21,29 +23,29 @@ from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
     _PythonEnv,
+    _validate_env_arguments,
 )
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "paddle"
 
@@ -179,11 +181,7 @@ def save_model(
                 loss = F.square_error_cost(predicts, label=prices)
                 avg_loss = paddle.mean(loss)
                 if iter_id % 20 == 0:
-                    print(
-                        "epoch: {}, iter: {}, loss is: {}".format(
-                            epoch_id, iter_id, avg_loss.numpy()
-                        )
-                    )
+                    print(f"epoch: {epoch_id}, iter: {iter_id}, loss is: {avg_loss.numpy()}")
 
                 avg_loss.backward()
                 opt.step()
@@ -447,9 +445,20 @@ class _PaddleWrapper:
     def __init__(self, pd_model):
         self.pd_model = pd_model
 
-    def predict(self, data):
-        import pandas as pd
+    def predict(
+        self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
+    ):
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         import numpy as np
+        import pandas as pd
 
         if isinstance(data, pd.DataFrame):
             inp_data = data.values.astype(np.float32)
@@ -483,6 +492,7 @@ def autolog(
     exclusive=False,
     silent=False,
     registered_model_name=None,
+    extra_tags=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from PaddlePaddle to MLflow.
@@ -507,6 +517,7 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
         :caption: Example
@@ -518,11 +529,11 @@ def autolog(
 
         def show_run_data(run_id):
             run = mlflow.get_run(run_id)
-            print("params: {}".format(run.data.params))
-            print("metrics: {}".format(run.data.metrics))
+            print(f"params: {run.data.params}")
+            print(f"metrics: {run.data.metrics}")
             client = MlflowClient()
             artifacts = [f.path for f in client.list_artifacts(run.info.run_id, "model")]
-            print("artifacts: {}".format(artifacts))
+            print(f"artifacts: {artifacts}")
 
 
         class LinearRegression(paddle.nn.Layer):
@@ -575,6 +586,9 @@ def autolog(
         ]
     """
     import paddle
+
     from mlflow.paddle._paddle_autolog import patched_fit
 
-    safe_patch(FLAVOR_NAME, paddle.Model, "fit", patched_fit, manage_run=True)
+    safe_patch(
+        FLAVOR_NAME, paddle.Model, "fit", patched_fit, manage_run=True, extra_tags=extra_tags
+    )

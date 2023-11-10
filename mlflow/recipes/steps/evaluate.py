@@ -1,37 +1,36 @@
+import datetime
 import logging
 import operator
 import os
-from pathlib import Path
-from typing import Dict, Any
-from collections import namedtuple
-import warnings
 import sys
-import datetime
+import warnings
+from collections import namedtuple
+from pathlib import Path
+from typing import Any, Dict
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.recipes.cards import BaseCard
-from mlflow.recipes.step import BaseStep
-from mlflow.recipes.step import StepClass
+from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.steps.train import TrainStep
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.metrics import (
     _get_builtin_metrics,
     _get_custom_metrics,
-    _get_primary_metric,
-    _get_model_type_from_template,
-    _load_custom_metrics,
     _get_extended_task,
+    _get_model_type_from_template,
+    _get_primary_metric,
+    _load_custom_metrics,
     transform_multiclass_metric,
 )
 from mlflow.recipes.utils.step import get_merged_eval_metrics, validate_classification_config
 from mlflow.recipes.utils.tracking import (
-    get_recipe_tracking_config,
-    apply_recipe_tracking_config,
     TrackingConfig,
+    apply_recipe_tracking_config,
+    get_recipe_tracking_config,
     get_run_tags_env_vars,
 )
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.fluent import _get_experiment_id, _set_experiment_primary_metric
 from mlflow.utils.databricks_utils import get_databricks_env_vars, get_databricks_run_url
 from mlflow.utils.string_utils import strip_prefix
@@ -137,14 +136,16 @@ class EvaluateStep(BaseStep):
             filename = frame.f_code.co_filename
             lineno = frame.f_lineno
             message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
-            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
+            with open(os.path.join(output_directory, "warning_logs.txt"), "a") as f:
+                f.write(message)
 
         original_warn = warnings.warn
         warnings.warn = my_warn
         try:
             import pandas as pd
 
-            open(os.path.join(output_directory, "warning_logs.txt"), "w")
+            with open(os.path.join(output_directory, "warning_logs.txt"), "w"):
+                pass
 
             self._validate_validation_criteria()
 
@@ -216,7 +217,7 @@ class EvaluateStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.recipe),
                         evaluators="default",
-                        custom_metrics=_load_custom_metrics(
+                        extra_metrics=_load_custom_metrics(
                             self.recipe_root,
                             self.evaluation_metrics.values(),
                         ),
@@ -411,8 +412,8 @@ class EvaluateStep(BaseStep):
             shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
 
         try:
-            import shap  # pylint: disable=unused-import
-            from matplotlib import pyplot  # pylint: disable=unused-import
+            import shap  # noqa: F401
+            from matplotlib import pyplot  # noqa: F401
 
             _add_shap_plots(card)
         except ImportError:
@@ -424,9 +425,8 @@ class EvaluateStep(BaseStep):
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             warnings_output_tab = card.add_tab("Warning Logs", "{{ STEP_WARNINGS }}")
-            warnings_output_tab.add_html(
-                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
-            )
+            with open(warning_output_path) as f:
+                warnings_output_tab.add_html("STEP_WARNINGS", f"<pre>{f.read()}</pre>")
 
         # Tab 4: Run summary.
         run_summary_card_tab = card.add_tab(

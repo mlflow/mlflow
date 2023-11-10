@@ -1,6 +1,7 @@
-import mlflow.paddle
-import paddle
 import numpy as np
+import paddle
+
+import mlflow.paddle
 
 train_dataset = paddle.text.datasets.UCIHousing(mode="train")
 eval_dataset = paddle.text.datasets.UCIHousing(mode="test")

@@ -1,42 +1,41 @@
-from collections import namedtuple
-import pytest
-import numpy as np
-from packaging.version import Version
-import pandas as pd
-import os
-from unittest import mock
 import json
-import yaml
+import os
+from collections import namedtuple
+from unittest import mock
 
+import numpy as np
 import paddle
-from paddle.nn import Linear
 import paddle.nn.functional as F
+import pandas as pd
+import pytest
+import yaml
+from packaging.version import Version
+from paddle.nn import Linear
+from sklearn import preprocessing
 from sklearn.datasets import load_diabetes
 from sklearn.model_selection import train_test_split
-from sklearn import preprocessing
 
-from mlflow import pyfunc
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.paddle
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
+    PROTOBUF_REQUIREMENT,
     _assert_pip_requirements,
     _compare_logged_code_paths,
-    PROTOBUF_REQUIREMENT,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
-
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 

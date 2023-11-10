@@ -1,28 +1,27 @@
 import logging
 import os
 import time
-from typing import Dict, Any
+from typing import Any, Dict
 
 import mlflow
-from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import BAD_REQUEST, INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.recipes.artifacts import DataframeArtifact, RegisteredModelVersionInfo
 from mlflow.recipes.cards import BaseCard
-from mlflow.recipes.step import BaseStep
-from mlflow.recipes.step import StepClass
+from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.steps.register import _REGISTERED_MV_INFO_FILE
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.step import get_pandas_data_profiles
 from mlflow.recipes.utils.tracking import (
-    get_recipe_tracking_config,
-    apply_recipe_tracking_config,
     TrackingConfig,
+    apply_recipe_tracking_config,
+    get_recipe_tracking_config,
+)
+from mlflow.utils._spark_utils import (
+    _create_local_spark_session_for_recipes,
+    _get_active_spark_session,
 )
 from mlflow.utils.databricks_utils import get_databricks_env_vars
 from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
-from mlflow.utils._spark_utils import (
-    _get_active_spark_session,
-    _create_local_spark_session_for_recipes,
-)
 
 _logger = logging.getLogger(__name__)
 

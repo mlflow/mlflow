@@ -1,12 +1,10 @@
-from mlflow.entities.model_registry.registered_model_alias import RegisteredModelAlias
-from mlflow.entities.model_registry.model_version import ModelVersion
-from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
-from mlflow.protos.model_registry_pb2 import (
-    RegisteredModel as ProtoRegisteredModel,
-    RegisteredModelAlias as ProtoRegisteredModelAlias,
-    RegisteredModelTag as ProtoRegisteredModelTag,
-)
+from mlflow.entities.model_registry.model_version import ModelVersion
+from mlflow.entities.model_registry.registered_model_alias import RegisteredModelAlias
+from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
+from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
+from mlflow.protos.model_registry_pb2 import RegisteredModelAlias as ProtoRegisteredModelAlias
+from mlflow.protos.model_registry_pb2 import RegisteredModelTag as ProtoRegisteredModelTag
 
 
 class RegisteredModel(_ModelRegistryEntity):

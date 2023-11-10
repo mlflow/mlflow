@@ -1,13 +1,14 @@
 from sqlalchemy import (
+    Boolean,
     Column,
-    String,
     ForeignKey,
     Integer,
-    Boolean,
+    String,
     UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship
-from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
+
+from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
 
 Base = declarative_base()
 

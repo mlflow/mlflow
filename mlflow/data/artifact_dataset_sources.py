@@ -1,7 +1,7 @@
 import re
 import warnings
 from pathlib import Path
-from typing import TypeVar, Any, Dict
+from typing import Any, Dict, TypeVar
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts

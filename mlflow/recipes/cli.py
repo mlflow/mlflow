@@ -1,12 +1,12 @@
 import click
 
-from mlflow.recipes.utils import _RECIPE_PROFILE_ENV_VAR
+from mlflow.environment_variables import MLFLOW_RECIPES_PROFILE
 from mlflow.recipes import Recipe
 
 _CLI_ARG_RECIPE_PROFILE = click.option(
     "--profile",
     "-p",
-    envvar=_RECIPE_PROFILE_ENV_VAR,
+    envvar=MLFLOW_RECIPES_PROFILE.name,
     type=click.STRING,
     default=None,
     required=True,

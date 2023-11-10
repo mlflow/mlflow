@@ -1,35 +1,35 @@
-#!/usr/bin/env python
 import codecs
 import filecmp
 import hashlib
+import json
 import os
 import shutil
-import json
+import stat
+import tarfile
 
 import jinja2.exceptions
-import pytest
-import tarfile
-import stat
 import pandas as pd
+import pytest
 from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow.exceptions import MissingConfigException
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
-    get_parent_dir,
+    TempDir,
     _copy_file_or_tree,
+    _handle_readonly_on_windows,
+    get_parent_dir,
+    get_total_file_size,
+    local_file_uri_to_path,
     read_parquet_as_pandas_df,
     write_pandas_df_as_parquet,
     write_spark_dataframe_to_parquet_on_local_disk,
-    TempDir,
-    _handle_readonly_on_windows,
-    local_file_uri_to_path,
 )
 from mlflow.utils.os import is_windows
-from tests.projects.utils import TEST_PROJECT_DIR
 
-from tests.helper_functions import random_int, random_file, safe_edit_yaml
+from tests.helper_functions import random_file, random_int, safe_edit_yaml
+from tests.projects.utils import TEST_PROJECT_DIR
 
 
 @pytest.fixture(scope="module")
@@ -202,7 +202,7 @@ b: 3
 
 def test_mkdir(tmp_path):
     temp_dir = str(tmp_path)
-    new_dir_name = "mkdir_test_%d" % random_int()
+    new_dir_name = f"mkdir_test_{random_int()}"
     file_utils.mkdir(temp_dir, new_dir_name)
     assert os.listdir(temp_dir) == [new_dir_name]
 
@@ -214,7 +214,9 @@ def test_mkdir(tmp_path):
 
     # raises if it exists already but is a file
     dummy_file_path = str(tmp_path.joinpath("dummy_file"))
-    open(dummy_file_path, "a").close()
+    with open(dummy_file_path, "a"):
+        pass
+
     with pytest.raises(OSError, match="exists"):
         file_utils.mkdir(dummy_file_path)
 
@@ -363,3 +365,25 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
     assert set(os.listdir(dst_dir.joinpath("subdir"))) == {"subdir-file.txt"}
     assert dst_dir.joinpath("subdir/subdir-file.txt").read_text() == "testing 123"
     assert dst_dir.joinpath("top-level-file.txt").read_text() == "hi"
+
+
+def test_get_total_size_basic(tmp_path):
+    subdir = tmp_path.joinpath("subdir")
+    subdir.mkdir()
+
+    def generate_file(path, size_in_bytes):
+        with path.open("wb") as fp:
+            fp.write(b"\0" * size_in_bytes)
+
+    file_size_map = {"file1.txt": 11, "file2.txt": 23}
+    for name, size in file_size_map.items():
+        generate_file(tmp_path.joinpath(name), size)
+    generate_file(subdir.joinpath("file3.txt"), 22)
+    assert get_total_file_size(tmp_path) == 56
+    assert get_total_file_size(subdir) == 22
+
+    path_not_exists = tmp_path.joinpath("does_not_exist")
+    assert get_total_file_size(path_not_exists) is None
+
+    path_file = tmp_path.joinpath("file1.txt")
+    assert get_total_file_size(path_file) is None

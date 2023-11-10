@@ -10,16 +10,17 @@
 #
 import argparse
 import os
-import mlflow
-import mlflow.pytorch
 import pickle
 import tempfile
+
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-from torchvision import datasets, transforms
 from tensorboardX import SummaryWriter
+from torch import nn, optim
+from torchvision import datasets, transforms
+
+import mlflow
+import mlflow.pytorch
 
 # Command-line arguments
 parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
@@ -63,7 +64,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-enable_cuda_flag = True if args.enable_cuda == "True" else False
+enable_cuda_flag = args.enable_cuda == "True"
 
 args.cuda = enable_cuda_flag and torch.cuda.is_available()
 

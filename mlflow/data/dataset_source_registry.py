@@ -1,6 +1,7 @@
-import entrypoints
 import warnings
-from typing import Any, List
+from typing import Any, List, Optional
+
+import entrypoints
 
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
 from mlflow.data.dataset_source import DatasetSource
@@ -37,7 +38,7 @@ class DatasetSourceRegistry:
                 )
 
     def resolve(
-        self, raw_source: Any, candidate_sources: List[DatasetSource] = None
+        self, raw_source: Any, candidate_sources: Optional[List[DatasetSource]] = None
     ) -> DatasetSource:
         """
         Resolves a raw source object, such as a string URI, to a DatasetSource for use with
@@ -124,7 +125,7 @@ def register_dataset_source(source: DatasetSource):
 
 
 def resolve_dataset_source(
-    raw_source: Any, candidate_sources: List[DatasetSource] = None
+    raw_source: Any, candidate_sources: Optional[List[DatasetSource]] = None
 ) -> DatasetSource:
     """
     Resolves a raw source object, such as a string URI, to a DatasetSource for use with

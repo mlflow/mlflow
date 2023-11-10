@@ -1,31 +1,34 @@
 import json
+import os
+import random
+import re
 from collections import namedtuple
 
+import numpy as np
+import pandas as pd
 import pytest
-from sklearn import datasets
 import sklearn.neighbors as knn
 import yaml
+from sklearn import datasets
+
 import mlflow
-import random
-import os
-import re
-import pandas as pd
-import numpy as np
-from mlflow.models.wheeled_model import WheeledModel, _WHEELS_FOLDER_NAME
-from mlflow.pyfunc.model import Model, MLMODEL_FILE_NAME
-from mlflow.exceptions import MlflowException
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _is_pip_deps, _mlflow_conda_env
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow.exceptions import MlflowException
+from mlflow.models.wheeled_model import _WHEELS_FOLDER_NAME, WheeledModel
+from mlflow.pyfunc.model import MLMODEL_FILE_NAME, Model
 from mlflow.store.artifact.utils.models import _improper_model_uri_msg
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
+    _is_pip_deps,
+    _mlflow_conda_env,
 )
+
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
     _is_available_on_pypi,
     _mlflow_major_version_string,
+    pyfunc_serve_and_score_model,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (

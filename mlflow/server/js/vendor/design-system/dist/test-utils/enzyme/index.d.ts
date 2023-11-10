@@ -6,5 +6,5 @@ export * from './table';
  *
  * @param dropdownButton - The Dropdown Trigger button that opens the menu when clicked.
  */
-export declare const openDropdownMenu: (dropdownButton: ReactWrapper) => void;
+export declare const openDropdownMenu: <P, S, C>(dropdownButton: ReactWrapper<P, S, C>) => void;
 //# sourceMappingURL=index.d.ts.map

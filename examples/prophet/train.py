@@ -1,10 +1,12 @@
-import mlflow
-from mlflow.models import infer_signature
 import json
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from prophet import Prophet, serialize
 from prophet.diagnostics import cross_validation, performance_metrics
+
+import mlflow
+from mlflow.models import infer_signature
 
 SOURCE_DATA = (
     "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"

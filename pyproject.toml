@@ -15,43 +15,67 @@ line-length = 100
 target-version = "py38"
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
+  "B006",
+  "B015",
   "E",
   "F",
   "C4",
+  "I",
+  "PLR0402",
   "PT001",
+  "PT002",
+  "PT003",
   "PT006",
-  # TODO: Enable commented-out rules.
   "PT007",
   "PT009",
   "PT010",
-  # "PT012",
+  "PT011",
+  "PT012",
+  "PT013",
+  "PT014",
   "PT018",
+  "PT022",
   "PT023",
   "PT026",
+  "PT027",
+  "RUF010",
+  "RUF013",
+  "S307",
+  "S324",
   "UP004",
   "UP008",
   "UP011",
   "UP012",
   "UP015",
+  "UP030",
   "UP031",
   "UP032",
   "UP034",
+  "SIM101",
+  "SIM103",
+  "SIM114",
+  "SIM115",
+  "SIM108",
+  "SIM210",
+  "SIM910",
   "T20",
+  "TID252",
+  "TID251",
+  "W",
 ]
 force-exclude = true
 ignore = [
+  "E721",  # type-comparison
   "E402",  # module-import-not-at-top-of-file
   "E501",  # line-too-long
   "E741",  # ambiguous-variable-name
-  "F401",  # unused-import
-  "F402",  # import-shadowed-by-loop-var
-  "F403",  # undefined-local-with-import-star
   "F811",  # redefined-while-unused
 ]
+extend-include = ["*.ipynb"]
 extend-exclude = [
   "setup.py",
   "docs",
-  "examples",
+  "examples/recipes",
   "mlflow/protos",
   "mlflow/ml_package_versions.py",
   "mlflow/server/js",
@@ -62,8 +86,19 @@ extend-exclude = [
 
 [tool.ruff.per-file-ignores]
 "dev/*" = ["T201", "PT018"]
+"examples/*" = ["T20"]
 "mlflow/*" = ["PT018"]
 
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false
 fixture-parentheses = false
+raises-require-match-for = ["*"]
+
+[tool.ruff.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.isort]
+forced-separate = ["tests"]
+
+[tool.ruff.flake8-tidy-imports.banned-api]
+"pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."

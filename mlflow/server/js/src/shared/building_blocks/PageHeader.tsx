@@ -14,11 +14,9 @@ import {
   Menu,
   Header,
   OverflowIcon,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import { PreviewIcon } from './PreviewIcon';
-
-// Note: this button has a different size from normal AntD buttons.
-export { Button as HeaderButton };
 
 type OverflowMenuProps = {
   menu?: {
@@ -74,6 +72,7 @@ export function PageHeader(props: PageHeaderProps) {
     preview,
     children,
   } = props;
+  const { theme } = useDesignSystemTheme();
   return (
     <>
       <Header
@@ -86,13 +85,12 @@ export function PageHeader(props: PageHeaderProps) {
             </Breadcrumb>
           )
         }
-        // @ts-expect-error TS(2322): Type 'ReactNode' is not assignable to type 'ReactN... Remove this comment to see the full error message
         buttons={children}
         title={title}
         // prettier-ignore
         titleAddOns={
           <>
-            {preview && <PreviewIcon />}
+            {preview && <PreviewIcon css={{ marginRight: theme.spacing.sm }}/>}
           </>
         }
       />

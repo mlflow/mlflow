@@ -1,21 +1,21 @@
+import json
 import os
-from pathlib import Path
-import pytest
-import yaml
 from collections import namedtuple
+from pathlib import Path
 from unittest import mock
 
-import json
 import numpy as np
 import pandas as pd
-from sklearn import datasets
-from fastai.tabular.all import tabular_learner, TabularDataLoaders
+import pytest
+import yaml
 from fastai.metrics import accuracy
+from fastai.tabular.all import TabularDataLoaders, tabular_learner
+from sklearn import datasets
 
 import mlflow.fastai
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.utils
 from mlflow import pyfunc
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -25,12 +25,12 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])

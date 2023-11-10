@@ -1,15 +1,16 @@
 from unittest import mock
 
+from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_DATABRICKS_GIT_REPO_URL,
-    MLFLOW_DATABRICKS_GIT_REPO_PROVIDER,
     MLFLOW_DATABRICKS_GIT_REPO_COMMIT,
-    MLFLOW_DATABRICKS_GIT_REPO_RELATIVE_PATH,
+    MLFLOW_DATABRICKS_GIT_REPO_PROVIDER,
     MLFLOW_DATABRICKS_GIT_REPO_REFERENCE,
     MLFLOW_DATABRICKS_GIT_REPO_REFERENCE_TYPE,
+    MLFLOW_DATABRICKS_GIT_REPO_RELATIVE_PATH,
     MLFLOW_DATABRICKS_GIT_REPO_STATUS,
+    MLFLOW_DATABRICKS_GIT_REPO_URL,
 )
-from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
+
 from tests.helper_functions import multi_context
 
 

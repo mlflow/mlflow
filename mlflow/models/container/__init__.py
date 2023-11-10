@@ -4,32 +4,30 @@ Initialize the environment and start model serving in a Docker container.
 To be executed only during the model deployment.
 
 """
+import logging
 import multiprocessing
 import os
-import signal
 import shutil
-from subprocess import check_call, Popen
+import signal
 import sys
-import logging
-
-from pkg_resources import resource_filename
+from pathlib import Path
+from subprocess import Popen, check_call
 
 import mlflow
 import mlflow.version
-
-from mlflow import pyfunc, mleap
+from mlflow import mleap, pyfunc
+from mlflow.environment_variables import MLFLOW_DEPLOYMENT_FLAVOR_NAME, MLFLOW_DISABLE_ENV_CREATION
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.docker_utils import DISABLE_ENV_CREATION
-from mlflow.pyfunc import scoring_server, mlserver, _extract_conda_env
-from mlflow.version import VERSION as MLFLOW_VERSION
+from mlflow.pyfunc import _extract_conda_env, mlserver, scoring_server
+from mlflow.store.artifact.models_artifact_repo import REGISTERED_MODEL_META_FILE_NAME
 from mlflow.utils import env_manager as em
+from mlflow.utils.file_utils import read_yaml
 from mlflow.utils.virtualenv import _get_or_create_virtualenv
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 
-
-DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
 
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
 DEFAULT_INFERENCE_SERVER_PORT = 8000
@@ -70,11 +68,8 @@ def _serve(env_manager):
     model_config_path = os.path.join(MODEL_PATH, MLMODEL_FILE_NAME)
     m = Model.load(model_config_path)
 
-    if DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME in os.environ:
-        serving_flavor = os.environ[DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME]
-    else:
-        # Older versions of mlflow may not specify a deployment configuration
-        serving_flavor = pyfunc.FLAVOR_NAME
+    # Older versions of mlflow may not specify a deployment configuration
+    serving_flavor = MLFLOW_DEPLOYMENT_FLAVOR_NAME.get() or pyfunc.FLAVOR_NAME
 
     if serving_flavor == mleap.FLAVOR_NAME:
         _serve_mleap()
@@ -108,7 +103,7 @@ def _install_pyfunc_deps(
             env_path_dst_dir = os.path.dirname(env_path_dst)
             if not os.path.exists(env_path_dst_dir):
                 os.makedirs(env_path_dst_dir)
-            shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
+            shutil.copy2(os.path.join(MODEL_PATH, env), env_path_dst)
             if env_manager == em.CONDA:
                 conda_create_model_env = f"conda env create -n custom_env -f {env_path_dst}"
                 if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
@@ -145,7 +140,7 @@ def _serve_pyfunc(model, env_manager):
     # option to disable manually nginx. The default behavior is to enable nginx.
     disable_nginx = os.getenv(DISABLE_NGINX, "false").lower() == "true"
     enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
-    disable_env_creation = os.environ.get(DISABLE_ENV_CREATION) == "true"
+    disable_env_creation = MLFLOW_DISABLE_ENV_CREATION.get()
 
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
@@ -168,8 +163,8 @@ def _serve_pyfunc(model, env_manager):
         start_nginx = False
 
     if start_nginx:
-        nginx_conf = resource_filename(
-            mlflow.models.__name__, "container/scoring_server/nginx.conf"
+        nginx_conf = Path(mlflow.models.__file__).parent.joinpath(
+            "container", "scoring_server", "nginx.conf"
         )
 
         nginx = Popen(["nginx", "-c", nginx_conf]) if start_nginx else None
@@ -183,6 +178,7 @@ def _serve_pyfunc(model, env_manager):
         procs.append(nginx)
 
     cpu_count = multiprocessing.cpu_count()
+    inference_server_kwargs = {}
     if enable_mlserver:
         inference_server = mlserver
         # Allows users to choose the number of workers using MLServer var env settings.
@@ -191,13 +187,24 @@ def _serve_pyfunc(model, env_manager):
         # Since MLServer will run without NGINX, expose the server in the `8080`
         # port, which is the assumed "public" port.
         port = DEFAULT_MLSERVER_PORT
+
+        model_meta = _read_registered_model_meta(MODEL_PATH)
+        model_dict = model.to_dict()
+        inference_server_kwargs = {
+            "model_name": model_meta.get("model_name"),
+            "model_version": model_meta.get(
+                "model_version", model_dict.get("run_id", model_dict.get("model_uuid"))
+            ),
+        }
     else:
         inference_server = scoring_server
         # users can use GUNICORN_CMD_ARGS="--workers=3" var env to override the number of workers
         nworkers = cpu_count
         port = DEFAULT_INFERENCE_SERVER_PORT
 
-    cmd, cmd_env = inference_server.get_cmd(model_uri=MODEL_PATH, nworkers=nworkers, port=port)
+    cmd, cmd_env = inference_server.get_cmd(
+        model_uri=MODEL_PATH, nworkers=nworkers, port=port, **inference_server_kwargs
+    )
 
     bash_cmds.append(cmd)
     inference_server_process = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
@@ -207,6 +214,14 @@ def _serve_pyfunc(model, env_manager):
     # If either subprocess exits, so do we.
     awaited_pids = _await_subprocess_exit_any(procs=procs)
     _sigterm_handler(awaited_pids)
+
+
+def _read_registered_model_meta(model_path):
+    model_meta = {}
+    if os.path.isfile(os.path.join(model_path, REGISTERED_MODEL_META_FILE_NAME)):
+        model_meta = read_yaml(model_path, REGISTERED_MODEL_META_FILE_NAME)
+
+    return model_meta
 
 
 def _serve_mleap():

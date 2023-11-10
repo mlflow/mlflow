@@ -1,6 +1,6 @@
 from mlflow.tracking.request_header.default_request_header_provider import (
-    DefaultRequestHeaderProvider,
     _DEFAULT_HEADERS,
+    DefaultRequestHeaderProvider,
 )
 
 

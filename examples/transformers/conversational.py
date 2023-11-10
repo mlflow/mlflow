@@ -1,6 +1,6 @@
 import transformers
-import mlflow
 
+import mlflow
 
 conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
 

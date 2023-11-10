@@ -1,6 +1,5 @@
 import os
 import pathlib
-
 from mimetypes import guess_type
 
 

@@ -13,14 +13,14 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelVersionPage, ModelVersionPageImpl } from './ModelVersionPage';
 import { ErrorView } from '../../common/components/ErrorView';
 import { Spinner } from '../../common/components/Spinner';
 import Utils from '../../common/utils/Utils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { ErrorCodes } from '../../common/constants';
-import { getModelPageRoute } from '../routes';
+import { ModelRegistryRoutes } from '../routes';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 import { getUUID } from '../../common/utils/ActionUtils';
 
@@ -135,7 +135,7 @@ describe('ModelVersionPage', () => {
     instance.loadData = jest.fn(() => Promise.reject(mockError));
     expect(instance.props.modelName).toEqual('Model A');
     await instance.pollData();
-    expect(navigate).toHaveBeenCalledWith(getModelPageRoute('Model A'));
+    expect(navigate).toHaveBeenCalledWith(ModelRegistryRoutes.getModelPageRoute('Model A'));
   });
   test('should show ErrorView when resource is not found', () => {
     (getUUID as any).mockImplementation(() => 'resource_not_found_error');

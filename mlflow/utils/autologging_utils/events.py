@@ -220,8 +220,3 @@ class AutologgingEventLogger:
             call_kwargs,
             exception,
         )
-
-
-__all__ = [
-    "AutologgingEventLogger",
-]

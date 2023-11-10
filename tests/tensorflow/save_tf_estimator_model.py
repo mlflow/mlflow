@@ -1,18 +1,18 @@
+import argparse
 import collections
-import os
 import copy
+import os
+import pickle
 
+import iris_data_utils
 import numpy as np
 import pandas as pd
 import pandas.testing
 import tensorflow as tf
 from tensorflow import estimator as tf_estimator
-import iris_data_utils
 
 import mlflow
 from mlflow.utils.file_utils import TempDir
-import pickle
-import argparse
 
 assert mlflow.__version__ == "1.28.0"
 

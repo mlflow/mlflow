@@ -1,37 +1,37 @@
 import logging
 
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.protos.model_registry_pb2 import (
-    ModelRegistryService,
-    CreateRegisteredModel,
-    UpdateRegisteredModel,
-    DeleteRegisteredModel,
-    GetLatestVersions,
     CreateModelVersion,
-    UpdateModelVersion,
+    CreateRegisteredModel,
     DeleteModelVersion,
-    GetModelVersionDownloadUri,
-    SearchModelVersions,
-    RenameRegisteredModel,
-    GetRegisteredModel,
-    GetModelVersion,
-    TransitionModelVersionStage,
-    SearchRegisteredModels,
-    SetRegisteredModelTag,
-    SetModelVersionTag,
-    DeleteRegisteredModelTag,
     DeleteModelVersionTag,
-    SetRegisteredModelAlias,
+    DeleteRegisteredModel,
     DeleteRegisteredModelAlias,
+    DeleteRegisteredModelTag,
+    GetLatestVersions,
+    GetModelVersion,
     GetModelVersionByAlias,
+    GetModelVersionDownloadUri,
+    GetRegisteredModel,
+    ModelRegistryService,
+    RenameRegisteredModel,
+    SearchModelVersions,
+    SearchRegisteredModels,
+    SetModelVersionTag,
+    SetRegisteredModelAlias,
+    SetRegisteredModelTag,
+    TransitionModelVersionStage,
+    UpdateModelVersion,
+    UpdateRegisteredModel,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.base_rest_store import BaseRestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
-    extract_api_info_for_service,
-    extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
+    extract_all_api_info_for_service,
+    extract_api_info_for_service,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(ModelRegistryService, _REST_API_PATH_PREFIX)
@@ -210,7 +210,7 @@ class RestStore(BaseRestStore):
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
-        :param source: Source path where the MLflow model is stored.
+        :param source: URI indicating the location of the model artifacts.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.

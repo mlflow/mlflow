@@ -14,3 +14,21 @@ export const shouldEnableExperimentDatasetTracking = () => true;
  * UI feature preview: enables artifact-based ML experiment output data analysis, used for evaluating LLM prediction data
  */
 export const shouldEnableArtifactBasedEvaluation = () => true;
+
+export const shouldEnableDatasetsDropdown = () => false;
+
+export const shouldEnableDeepLearningUI = () => false;
+
+/**
+ * UI feature preview: enables prompt lab
+ */
+export const shouldEnablePromptLab = () => true;
+
+export const shouldUsePathRouting = () => false;
+
+/**
+ * A flag determining if we should display "New model registry UI" toggle switch.
+ */
+export const shouldUseToggleModelsNextUI = () => {
+  return true;
+};

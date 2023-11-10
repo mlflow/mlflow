@@ -1,5 +1,7 @@
-import entrypoints
 import warnings
+
+import entrypoints
+
 from mlflow.exceptions import MlflowException
 from mlflow.utils.import_hooks import register_post_import_hook
 
@@ -36,10 +38,8 @@ class ModelEvaluatorRegistry:
         evaluator_cls = self._registry.get(evaluator_name)
         if evaluator_cls is None:
             raise MlflowException(
-                "Could not find a registered model evaluator for: {}. "
-                "Currently registered evaluator names are: {}".format(
-                    evaluator_name, list(self._registry.keys())
-                )
+                f"Could not find a registered model evaluator for: {evaluator_name}. "
+                f"Currently registered evaluator names are: {list(self._registry.keys())}"
             )
         return evaluator_cls()
 

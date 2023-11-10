@@ -1,9 +1,9 @@
 import os
 import pathlib
-import yaml
 from unittest import mock
 
 import pytest
+import yaml
 
 import mlflow
 from mlflow.recipes.utils import get_recipe_config

@@ -1,6 +1,7 @@
 from mlflow.entities import Experiment, LifecycleStage
-from mlflow.utils.time_utils import get_current_time_millis
-from tests.helper_functions import random_int, random_file
+from mlflow.utils.time import get_current_time_millis
+
+from tests.helper_functions import random_file, random_int
 
 
 def _check(exp, exp_id, name, location, lifecyle_stage, creation_time, last_update_time):
@@ -15,7 +16,7 @@ def _check(exp, exp_id, name, location, lifecyle_stage, creation_time, last_upda
 
 def test_creation_and_hydration():
     exp_id = str(random_int())
-    name = "exp_%d_%d" % (random_int(), random_int())
+    name = f"exp_{random_int()}_{random_int()}"
     lifecycle_stage = LifecycleStage.ACTIVE
     location = random_file(".json")
     creation_time = get_current_time_millis()

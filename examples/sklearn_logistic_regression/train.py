@@ -2,8 +2,8 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
-from mlflow.models import infer_signature
 import mlflow.sklearn
+from mlflow.models import infer_signature
 
 if __name__ == "__main__":
     X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)

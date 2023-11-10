@@ -12,13 +12,12 @@ Several runs can be run in parallel.
 from concurrent.futures import ThreadPoolExecutor
 
 import click
-
 import numpy as np
 
 import mlflow
+import mlflow.projects
 import mlflow.sklearn
 import mlflow.tracking
-import mlflow.projects
 from mlflow.tracking import MlflowClient
 
 _inf = np.finfo(np.float64).max
@@ -32,9 +31,9 @@ _inf = np.finfo(np.float64).max
 @click.option("--seed", type=click.INT, default=97531, help="Seed for the random generator")
 @click.argument("training_data")
 def run(training_data, max_runs, max_p, epochs, metric, seed):
-    train_metric = "train_{}".format(metric)
-    val_metric = "val_{}".format(metric)
-    test_metric = "test_{}".format(metric)
+    train_metric = f"train_{metric}"
+    val_metric = f"val_{metric}"
+    test_metric = f"test_{metric}"
     np.random.seed(seed)
     tracking_client = MlflowClient()
 
@@ -75,9 +74,9 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
                 test_loss = null_test_loss
             mlflow.log_metrics(
                 {
-                    "train_{}".format(metric): train_loss,
-                    "val_{}".format(metric): val_loss,
-                    "test_{}".format(metric): test_loss,
+                    f"train_{metric}": train_loss,
+                    f"val_{metric}": val_loss,
+                    f"test_{metric}": test_loss,
                 }
             )
             return p.run_id, train_loss, val_loss, test_loss
@@ -97,7 +96,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
         # find the best run, log its metrics as the final metrics of this run.
         client = MlflowClient()
         runs = client.search_runs(
-            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
+            [experiment_id], f"tags.mlflow.parentRunId = '{run.info.run_id}' "
         )
         best_val_train = _inf
         best_val_valid = _inf
@@ -112,9 +111,9 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
         mlflow.set_tag("best_run", best_run.info.run_id)
         mlflow.log_metrics(
             {
-                "train_{}".format(metric): best_val_train,
-                "val_{}".format(metric): best_val_valid,
-                "test_{}".format(metric): best_val_test,
+                f"train_{metric}": best_val_train,
+                f"val_{metric}": best_val_valid,
+                f"test_{metric}": best_val_test,
             }
         )
 

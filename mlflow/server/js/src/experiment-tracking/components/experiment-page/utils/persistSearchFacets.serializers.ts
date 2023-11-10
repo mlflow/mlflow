@@ -1,6 +1,7 @@
 import { isArray } from 'lodash';
 import { atobUtf8, btoaUtf8 } from '../../../../common/utils/StringUtils';
 import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
+import { DatasetSummary } from '../../../types';
 
 type PersistSearchSerializeFunctions<Serialized = any, Unserialized = any> = {
   serializeLocalStorage?(input: Unserialized): Serialized;
@@ -26,6 +27,28 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
   searchFilter: {
     deserializeLocalStorage: flattenString,
     deserializeQueryString: flattenString,
+  },
+  datasetsFilter: {
+    serializeQueryString(inputs: SearchExperimentRunsFacetsState['datasetsFilter']) {
+      const inputsWithoutExperimentId = inputs.map(({ name, digest, context }) => ({
+        name,
+        digest,
+        context,
+      }));
+      return btoaUtf8(JSON.stringify(inputsWithoutExperimentId));
+    },
+    deserializeQueryString(input: string): SearchExperimentRunsFacetsState['datasetsFilter'] {
+      try {
+        // Process the URL defensively against intended and unintended malformation
+        const parsedResult = JSON.parse(atobUtf8(input));
+        if (!Array.isArray(parsedResult)) {
+          return [];
+        }
+        return parsedResult;
+      } catch {
+        return [];
+      }
+    },
   },
   /**
    * Array of visible configured charts are serialized into base64-encoded JSON when put into query string

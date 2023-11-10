@@ -1,31 +1,31 @@
-import os
 import logging
-import shutil
-import uuid
+import os
 import re
+import shutil
 import sys
 import tempfile
+import uuid
 from pathlib import Path
+
 from packaging.version import Version
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_ENV_ROOT
 from mlflow.exceptions import MlflowException
-from mlflow.models.model import Model, MLMODEL_FILE_NAME
-from mlflow.utils.file_utils import remove_on_error
-from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
-from mlflow.utils.requirements_utils import _parse_requirements
+from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.utils.conda import _PIP_CACHE_DIR
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.environment import (
-    _PythonEnv,
-    _PYTHON_ENV_FILE_NAME,
     _CONDA_ENV_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _get_mlflow_env_name,
     _get_pip_install_mlflow,
+    _PythonEnv,
 )
-from mlflow.utils.conda import _PIP_CACHE_DIR
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.environment_variables import MLFLOW_ENV_ROOT
-
+from mlflow.utils.file_utils import remove_on_error
+from mlflow.utils.process import _IS_UNIX, _exec_cmd, _join_commands
+from mlflow.utils.requirements_utils import _parse_requirements
 
 _logger = logging.getLogger(__name__)
 
@@ -99,7 +99,9 @@ def _find_latest_installable_python_version(version_prefix):
     where 'x' represents the latest micro version in 3.8.
     """
     lines = _exec_cmd(
-        [_get_pyenv_bin_path(), "install", "--list"], capture_output=True
+        [_get_pyenv_bin_path(), "install", "--list"],
+        capture_output=True,
+        shell=not _IS_UNIX,
     ).stdout.splitlines()
     semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
@@ -293,10 +295,7 @@ def _copy_model_to_writeable_destination(model_src, dst):
         # Copy individual files and subdirectories, rather than using `shutil.copytree()`
         # because `shutil.copytree()` will apply the permissions from the source directory,
         # which may be read-only
-        if os.path.isdir(model_item):
-            copy_fn = shutil.copytree
-        else:
-            copy_fn = shutil.copy2
+        copy_fn = shutil.copytree if os.path.isdir(model_item) else shutil.copy2
 
         copy_fn(
             src=os.path.join(model_src, model_item),

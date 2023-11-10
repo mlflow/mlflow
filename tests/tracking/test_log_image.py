@@ -1,8 +1,8 @@
 import os
 import posixpath
+from unittest import mock
 
 import pytest
-from unittest import mock
 
 import mlflow
 from mlflow.utils.file_utils import local_file_uri_to_path
@@ -33,8 +33,7 @@ def test_log_image_numpy(subdir):
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_image_pillow(subdir):
-    from PIL import Image
-    from PIL import ImageChops
+    from PIL import Image, ImageChops
 
     filename = "image.png"
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)

@@ -1,9 +1,11 @@
-import click
-import sys
 import json
+import sys
 from inspect import signature
-from mlflow.utils import cli_args
+
+import click
+
 from mlflow.deployments import interface
+from mlflow.utils import cli_args
 from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
 
 

@@ -1,52 +1,53 @@
+import json
+import os
+import pickle
+import tempfile
+from collections import namedtuple
 from pathlib import Path
 from unittest import mock
-import os
-import pytest
-import yaml
-import json
-from collections import namedtuple
-import tempfile
 
 import numpy as np
 import pandas as pd
-from sklearn import datasets
+import pytest
+import sklearn
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
+import yaml
+from packaging.version import Version
+from sklearn import datasets
 from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 import mlflow.utils
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.entities.model_registry.model_version import ModelVersion, ModelVersionStatus
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _read_example
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.models import Model, ModelSignature
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.models.utils import _read_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec
-
-# pylint: disable=unused-import
-from tests.store._unity_catalog.conftest import (
-    mock_databricks_uc_host_creds,
-    configure_client_for_uc,
-)
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    _is_available_on_pypi,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
+)
+from tests.store._unity_catalog.conftest import (
+    configure_client_for_uc,  # noqa: F401
+    mock_databricks_uc_host_creds,  # noqa: F401
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -668,6 +669,92 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
+@pytest.mark.skipif(
+    Version(sklearn.__version__) != Version("1.2.2"),
+    reason="'sklearn.metrics._dist_metrics' doesn't have attribute 'EuclideanDistance'",
+)
+def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
+    model, inference_dataframe = sklearn_knn_model
+    model_predict = model.predict(inference_dataframe)
+
+    # save test model
+    tmp_path.joinpath("MLmodel").write_text(
+        f"""
+artifact_path: model
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.8.16
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: {sklearn.__version__}
+mlflow_version: 2.4.0
+model_uuid: c9833d74b1ff4013a1c9eff05d39eeef
+run_id: 8146a2ae86104f5b853351e600fc9d7b
+utc_time_created: '2023-07-04 07:19:43.561797'
+"""
+    )
+    tmp_path.joinpath("python_env.yaml").write_text(
+        """
+python: 3.8.16
+build_dependencies:
+   - pip==23.1.2
+   - setuptools==56.0.0
+   - wheel==0.40.0
+dependencies:
+   - -r requirements.txt
+"""
+    )
+    tmp_path.joinpath("requirements.txt").write_text(
+        f"""
+mlflow==2.4.0
+cloudpickle
+numpy
+psutil
+scikit-learn=={sklearn.__version__}
+scipy
+"""
+    )
+    with open(tmp_path / "model.pkl", "wb") as out:
+        pickle.dump(model, out, protocol=pickle.DEFAULT_PROTOCOL)
+
+    assert Version(mlflow.__version__) > Version("2.4.0")
+    model_uri = str(tmp_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
+
+    # predict is compatible
+    local_predict = pyfunc_loaded.predict(inference_dataframe)
+    np.testing.assert_array_almost_equal(local_predict, model_predict)
+
+    # model serving is compatible
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        data=pd.DataFrame(inference_dataframe),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    scores = pd.DataFrame(
+        data=json.loads(resp.content.decode("utf-8"))["predictions"]
+    ).values.squeeze()
+    np.testing.assert_array_almost_equal(scores, model_predict)
+
+    # Issues a warning if params are specified prior to MLflow support in 2.5.0
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        pyfunc_loaded.predict(inference_dataframe, params={"top_k": 2})
+    mock_warning.assert_called_with(
+        "`params` can only be specified at inference time if the model signature defines a params "
+        "schema. This model does not define a params schema. Ignoring provided params: "
+        "['top_k']"
+    )
+
+
 def test_log_model_with_code_paths(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
@@ -738,3 +825,15 @@ def test_model_log_with_signature_inference(sklearn_knn_model, iris_signature):
 
     mlflow_model = Model.load(model_uri)
     assert mlflow_model.signature == iris_signature
+
+
+def test_model_size_bytes(sklearn_logreg_model, tmp_path):
+    mlflow.sklearn.save_model(sklearn_logreg_model.model, path=tmp_path)
+
+    # expected size only counts for files saved before the MLmodel file is saved
+    model_file = tmp_path.joinpath("model.pkl")
+    with model_file.open("rb") as fp:
+        expected_size = len(fp.read())
+
+    mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
+    assert mlmodel["model_size_bytes"] == expected_size

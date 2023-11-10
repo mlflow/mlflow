@@ -19,7 +19,7 @@ import {
 import { List } from 'antd';
 import { List as VList, AutoSizer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
-import { Link, NavigateFunction } from 'react-router-dom-v5-compat';
+import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';

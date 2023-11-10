@@ -11,10 +11,11 @@ https://www.mlflow.org/docs/latest/rest-api.html
 
 import argparse
 import os
-import requests
 import pwd
 
-from mlflow.utils.time_utils import get_current_time_millis
+import requests
+
+from mlflow.utils.time import get_current_time_millis
 
 _DEFAULT_USER_ID = "unknown"
 

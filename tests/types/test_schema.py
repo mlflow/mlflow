@@ -1,19 +1,22 @@
+import datetime
 import json
 import math
 import re
+
 import numpy as np
 import pandas as pd
 import pytest
-from scipy.sparse import csr_matrix, csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 
-from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_tensor_spec
+from mlflow.pyfunc import _parse_spark_datatype
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, Schema, TensorSpec
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.utils import (
-    _infer_schema,
     _get_tensor_shape,
+    _infer_param_schema,
+    _infer_schema,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
 
@@ -138,6 +141,14 @@ def test_schema_creation():
         MlflowException, match="Creating Schema with multiple unnamed TensorSpecs is not supported"
     ):
         Schema([TensorSpec(np.dtype("double"), (-1,)), TensorSpec(np.dtype("double"), (-1,))])
+
+
+def test_schema_creation_errors():
+    with pytest.raises(MlflowException, match=r"Creating Schema with empty inputs is not allowed."):
+        Schema([])
+
+    with pytest.raises(MlflowException, match=r"Inputs of Schema must be a list, got type dict"):
+        Schema({"col1": ColSpec(DataType.string)})
 
 
 def test_get_schema_type(dict_of_ndarrays):
@@ -592,16 +603,17 @@ def test_spark_schema_inference(pandas_df_with_all_types):
 def test_spark_type_mapping(pandas_df_with_all_types):
     import pyspark
     from pyspark.sql.types import (
+        BinaryType,
         BooleanType,
+        DoubleType,
+        FloatType,
         IntegerType,
         LongType,
-        FloatType,
-        DoubleType,
         StringType,
-        BinaryType,
+        StructField,
+        StructType,
         TimestampType,
     )
-    from pyspark.sql.types import StructField, StructType
 
     assert isinstance(DataType.boolean.to_spark(), BooleanType)
     assert isinstance(DataType.integer.to_spark(), IntegerType)
@@ -620,10 +632,12 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     )
     actual_spark_schema = schema.as_spark_schema()
     assert expected_spark_schema.jsonValue() == actual_spark_schema.jsonValue()
-    spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
-    sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=actual_spark_schema)
-    schema2 = _infer_schema(sparkdf)
-    assert schema == schema2
+    with pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate()) as spark_session:
+        sparkdf = spark_session.createDataFrame(
+            pandas_df_with_all_types, schema=actual_spark_schema
+        )
+        schema2 = _infer_schema(sparkdf)
+        assert schema == schema2
 
     # test unnamed columns
     schema = Schema([ColSpec(col.type) for col in schema.inputs])
@@ -668,3 +682,310 @@ def test_enforce_tensor_spec_variable_signature():
         match=re.escape(r"Shape of input (2,) does not match expected shape (-1, 2, 3)."),
     ):
         _enforce_tensor_spec(ragged_array, standard_spec)
+
+
+def test_datatype_type_check():
+    assert DataType.is_string("string")
+
+    assert DataType.is_integer(1)
+    assert DataType.is_integer(np.int32(1))
+    assert not DataType.is_integer(np.int64(1))
+    # Note that isinstance(True, int) returns True
+    assert not DataType.is_integer(True)
+
+    assert DataType.is_long(1)
+    assert DataType.is_long(np.int64(1))
+    assert not DataType.is_long(np.int32(1))
+
+    assert DataType.is_boolean(True)
+    assert DataType.is_boolean(np.bool_(True))
+    assert not DataType.is_boolean(1)
+
+    assert DataType.is_double(1.0)
+    assert DataType.is_double(np.float64(1.0))
+    assert not DataType.is_double(np.float32(1.0))
+
+    assert DataType.is_float(1.0)
+    assert DataType.is_float(np.float32(1.0))
+    assert not DataType.is_float(np.float64(1.0))
+
+    assert DataType.is_datetime(datetime.date(2023, 6, 26))
+    assert DataType.is_datetime(np.datetime64("2023-06-26 00:00:00"))
+    assert not DataType.is_datetime("2023-06-26 00:00:00")
+
+
+def test_param_schema_find_duplicates():
+    with pytest.raises(
+        MlflowException, match=re.escape("Duplicated parameters found in schema: ['param1']")
+    ):
+        ParamSchema(
+            [
+                ParamSpec("param1", DataType.string, "default1", None),
+                ParamSpec("param1", DataType.string, "default1", None),
+                ParamSpec("param2", DataType.string, "default2", None),
+            ]
+        )
+
+    with pytest.raises(
+        MlflowException, match=re.escape("Duplicated parameters found in schema: ['param1']")
+    ):
+        ParamSchema(
+            [
+                ParamSpec("param1", DataType.string, "default1", None),
+                ParamSpec("param2", DataType.string, "default2", None),
+                ParamSpec("param1", DataType.string, "default1", None),
+            ]
+        )
+
+    with pytest.raises(
+        MlflowException, match=re.escape("Duplicated parameters found in schema: ['param3']")
+    ):
+        ParamSchema(
+            [
+                ParamSpec("param1", DataType.string, "default1", None),
+                ParamSpec("param2", DataType.string, "default2", None),
+                ParamSpec("param3", DataType.string, "default3", None),
+                ParamSpec("param3", DataType.string, "default3", None),
+            ]
+        )
+
+
+def test_param_spec_to_and_from_dict():
+    spec = ParamSpec("str_param", DataType.string, "str_a", None)
+    assert spec.to_dict() == {
+        "name": "str_param",
+        "type": "string",
+        "default": "str_a",
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("str_array", DataType.string, ["str_a", "str_b"], (-1,))
+    assert spec.to_dict() == {
+        "name": "str_array",
+        "type": "string",
+        "default": ["str_a", "str_b"],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("int_param", DataType.integer, np.int32(1), None)
+    assert spec.to_dict() == {
+        "name": "int_param",
+        "type": "integer",
+        "default": 1,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("int_array", DataType.integer, [np.int32(1), np.int32(2)], (-1,))
+    assert spec.to_dict() == {
+        "name": "int_array",
+        "type": "integer",
+        "default": [1, 2],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("bool_param", DataType.boolean, True, None)
+    assert spec.to_dict() == {
+        "name": "bool_param",
+        "type": "boolean",
+        "default": True,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("bool_array", DataType.boolean, [True, False], (-1,))
+    assert spec.to_dict() == {
+        "name": "bool_array",
+        "type": "boolean",
+        "default": [True, False],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("double_param", DataType.double, 1.0, None)
+    assert spec.to_dict() == {
+        "name": "double_param",
+        "type": "double",
+        "default": 1.0,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,))
+    assert spec.to_dict() == {
+        "name": "double_array",
+        "type": "double",
+        "default": [1.0, 2.0],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("float_param", DataType.float, np.float32(0.1), None)
+    assert spec.to_dict() == {
+        "name": "float_param",
+        "type": "float",
+        "default": float(np.float32(0.1)),
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("float_array", DataType.float, [np.float32(0.1), np.float32(0.2)], (-1,))
+    assert spec.to_dict() == {
+        "name": "float_array",
+        "type": "float",
+        "default": [float(np.float32(0.1)), float(np.float32(0.2))],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("long_param", DataType.long, 100, None)
+    assert spec.to_dict() == {
+        "name": "long_param",
+        "type": "long",
+        "default": 100,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("long_array", DataType.long, [100, 200], (-1,))
+    assert spec.to_dict() == {
+        "name": "long_array",
+        "type": "long",
+        "default": [100, 200],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec(
+        "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
+    )
+    assert spec.to_dict() == {
+        "name": "datetime_param",
+        "type": "datetime",
+        "default": "2023-06-26T00:00:00",
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec(
+        "datetime_array",
+        DataType.datetime,
+        [np.datetime64("2023-06-26 00:00:00"), np.datetime64("2023-06-27 00:00:00")],
+        (-1,),
+    )
+    assert spec.to_dict() == {
+        "name": "datetime_array",
+        "type": "datetime",
+        "default": ["2023-06-26T00:00:00", "2023-06-27T00:00:00"],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+
+def test_param_spec_from_dict_backward_compatibility():
+    spec = ParamSpec("str_param", DataType.string, "str_a", None)
+    spec_json = json.dumps(
+        {
+            "name": "str_param",
+            "dtype": "string",
+            "default": "str_a",
+            "shape": None,
+        }
+    )
+    assert ParamSpec.from_json_dict(**json.loads(spec_json)) == spec
+
+
+def test_infer_param_schema():
+    test_params = {
+        "str_param": "str_a",
+        "int_param": np.int32(1),
+        "bool_param": True,
+        "double_param": 1.0,
+        "float_param": np.float32(0.1),
+        "long_param": np.int64(100),
+        "datetime_param": np.datetime64("2023-06-26 00:00:00"),
+        "str_list": ["a", "b", "c"],
+        "bool_list": [True, False],
+        "double_array": np.array([1.0, 2.0]),
+        "float_array": np.array([np.float32(0.1), np.float32(0.2)]),
+        "long_array": np.array([np.int64(100), np.int64(200)]),
+        "datetime_array": np.array([datetime.date(2023, 6, 26)]),
+        "str_array": np.array(["a", "b", "c"]),
+        "bool_array": np.array([True, False]),
+        "int_array": np.array([np.int32(1), np.int32(2)]),
+    }
+    test_schema = ParamSchema(
+        [
+            ParamSpec("str_param", DataType.string, "str_a", None),
+            ParamSpec("int_param", DataType.integer, np.int32(1), None),
+            ParamSpec("bool_param", DataType.boolean, True, None),
+            ParamSpec("double_param", DataType.double, 1.0, None),
+            ParamSpec("float_param", DataType.float, np.float32(0.1), None),
+            ParamSpec("long_param", DataType.long, 100, None),
+            ParamSpec(
+                "datetime_param", DataType.datetime, np.datetime64("2023-06-26 00:00:00"), None
+            ),
+            ParamSpec("str_list", DataType.string, ["a", "b", "c"], (-1,)),
+            ParamSpec("bool_list", DataType.boolean, [True, False], (-1,)),
+            ParamSpec("double_array", DataType.double, [1.0, 2.0], (-1,)),
+            ParamSpec("float_array", DataType.float, [np.float32(0.1), np.float32(0.2)], (-1,)),
+            ParamSpec("long_array", DataType.long, [100, 200], (-1,)),
+            ParamSpec("datetime_array", DataType.datetime, [datetime.date(2023, 6, 26)], (-1,)),
+            ParamSpec("str_array", DataType.string, ["a", "b", "c"], (-1,)),
+            ParamSpec("bool_array", DataType.boolean, [True, False], (-1,)),
+            ParamSpec("int_array", DataType.integer, [1, 2], (-1,)),
+        ]
+    )
+    assert _infer_param_schema(test_params) == test_schema
+
+    assert _infer_param_schema({"datetime_param": datetime.date(2023, 6, 26)}) == ParamSchema(
+        [ParamSpec("datetime_param", DataType.datetime, datetime.date(2023, 6, 26), None)]
+    )
+
+    # Raise error if parameters is not dictionary
+    with pytest.raises(MlflowException, match=r"Expected parameters to be dict, got list"):
+        _infer_param_schema(["a", "str_a", "b", 1])
+
+    # Raise error if parameter is bytes
+    with pytest.raises(MlflowException, match=r"Binary type is not supported for parameters"):
+        _infer_param_schema({"a": b"str_a"})
+
+    # Raise error for invalid parameters types - tuple, 2D array, dictionary
+    test_parameters = {
+        "a": "str_a",
+        "b": (1, 2, 3),
+        "c": True,
+        "d": [[1, 2], [3, 4]],
+        "e": {"a": 1, "b": 2},
+    }
+    with pytest.raises(MlflowException, match=r".*") as e:
+        _infer_param_schema(test_parameters)
+    assert e.match(r"Failed to infer schema for parameters: ")
+    assert e.match(
+        re.escape(
+            "('b', (1, 2, 3), MlflowException('Expected parameters "
+            "to be 1D array or scalar, got tuple'))"
+        )
+    )
+    assert e.match(
+        re.escape(
+            "('d', [[1, 2], [3, 4]], MlflowException('Expected parameters "
+            "to be 1D array or scalar, got 2D array'))"
+        )
+    )
+    assert e.match(
+        re.escape(
+            "('e', {'a': 1, 'b': 2}, MlflowException('Expected parameters "
+            "to be 1D array or scalar, got dict'))"
+        )
+    )
+
+
+def test_infer_param_schema_with_errors():
+    with pytest.raises(
+        MlflowException, match=r"Expected parameters to be 1D array or scalar, got Series"
+    ):
+        _infer_param_schema({"a": pd.Series([1, 2, 3])})

@@ -5,7 +5,6 @@ import argparse
 import importlib.util
 import json
 import os
-import requests
 import sys
 
 
@@ -16,7 +15,6 @@ def parse_args():
     parser.add_argument("--headers", required=True, type=str)
     parser.add_argument("--download-path", required=True, type=str)
     parser.add_argument("--http-uri", required=True, type=str)
-    parser.add_argument("--temp-file", required=True, type=str)
     return parser.parse_args()
 
 
@@ -31,25 +29,13 @@ def main():
     download_chunk = module.download_chunk
 
     args = parse_args()
-
-    try:
-        download_chunk(
-            range_start=args.range_start,
-            range_end=args.range_end,
-            headers=json.loads(args.headers),
-            download_path=args.download_path,
-            http_uri=args.http_uri,
-        )
-    except requests.HTTPError as e:
-        temp_file = args.temp_file
-        with open(temp_file, "w") as f:
-            json.dump(
-                {
-                    "error_status_code": e.response.status_code,
-                    "error_text": str(e),
-                },
-                f,
-            )
+    download_chunk(
+        range_start=args.range_start,
+        range_end=args.range_end,
+        headers=json.loads(args.headers),
+        download_path=args.download_path,
+        http_uri=args.http_uri,
+    )
 
 
 if __name__ == "__main__":

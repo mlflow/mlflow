@@ -3,10 +3,10 @@ import shutil
 
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, verify_artifact_path
 from mlflow.utils.file_utils import (
-    mkdir,
-    list_all,
     get_file_info,
+    list_all,
     local_file_uri_to_path,
+    mkdir,
     relative_path_to_artifact_path,
 )
 
@@ -35,7 +35,7 @@ class LocalArtifactRepository(ArtifactRepository):
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
         try:
-            shutil.copyfile(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
+            shutil.copy2(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
         except shutil.SameFileError:
             pass
 
@@ -103,7 +103,7 @@ class LocalArtifactRepository(ArtifactRepository):
         # NOTE: The remote_file_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
-        shutil.copyfile(remote_file_path, local_path)
+        shutil.copy2(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
         artifact_path = local_file_uri_to_path(

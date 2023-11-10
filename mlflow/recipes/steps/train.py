@@ -1,39 +1,37 @@
+import datetime
 import importlib
 import logging
 import os
 import re
-import sys
-import datetime
-import yaml
-import warnings
 import shutil
+import sys
+import warnings
 
 import cloudpickle
+import yaml
 
 import mlflow
 from mlflow.entities import SourceType, ViewType
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.environment_variables import MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME
+from mlflow.exceptions import BAD_REQUEST, INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.models import Model
 from mlflow.recipes.artifacts import (
+    DataframeArtifact,
+    HyperParametersArtifact,
     ModelArtifact,
     RunArtifact,
-    HyperParametersArtifact,
-    DataframeArtifact,
 )
 from mlflow.recipes.cards import BaseCard
-from mlflow.recipes.step import BaseStep
-from mlflow.recipes.step import StepClass
-from mlflow.recipes.utils.execution import (
-    get_step_output_path,
-    _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR,
-)
+from mlflow.recipes.step import BaseStep, StepClass
+from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.metrics import (
-    _get_error_fn,
     _get_builtin_metrics,
-    _get_primary_metric,
     _get_custom_metrics,
-    _get_model_type_from_template,
-    _load_custom_metrics,
+    _get_error_fn,
     _get_extended_task,
+    _get_model_type_from_template,
+    _get_primary_metric,
+    _load_custom_metrics,
     transform_multiclass_metrics_dict,
 )
 from mlflow.recipes.utils.step import (
@@ -42,25 +40,24 @@ from mlflow.recipes.utils.step import (
     validate_classification_config,
 )
 from mlflow.recipes.utils.tracking import (
-    get_recipe_tracking_config,
-    apply_recipe_tracking_config,
     TrackingConfig,
+    apply_recipe_tracking_config,
+    get_recipe_tracking_config,
     get_run_tags_env_vars,
     log_code_snapshot,
 )
+from mlflow.recipes.utils.wrapped_recipe_model import WrappedRecipeModel
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_env_vars, get_databricks_run_url
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_SOURCE_TYPE,
-    MLFLOW_RECIPE_TEMPLATE_NAME,
     MLFLOW_RECIPE_PROFILE_NAME,
     MLFLOW_RECIPE_STEP_NAME,
+    MLFLOW_RECIPE_TEMPLATE_NAME,
+    MLFLOW_SOURCE_TYPE,
 )
 from mlflow.utils.string_utils import strip_prefix
-from mlflow.recipes.utils.wrapped_recipe_model import WrappedRecipeModel
-from mlflow.models import Model
-from mlflow.utils.file_utils import TempDir
 
 _REBALANCING_CUTOFF = 5000
 _REBALANCING_DEFAULT_RATIO = 0.3
@@ -105,7 +102,7 @@ class TrainStep(BaseStep):
             if self.step_config["tuning_enabled"]:
                 if "sample_fraction" in self.step_config["tuning"]:
                     sample_fraction = float(self.step_config["tuning"]["sample_fraction"])
-                    if sample_fraction > 0 and sample_fraction <= 1.0:
+                    if 0 < sample_fraction <= 1.0:
                         self.step_config["sample_fraction"] = sample_fraction
                     else:
                         raise MlflowException(
@@ -281,19 +278,22 @@ class TrainStep(BaseStep):
             filename = frame.f_code.co_filename
             lineno = frame.f_lineno
             message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
-            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
+            with open(os.path.join(output_directory, "warning_logs.txt"), "a") as f:
+                f.write(message)
 
         original_warn = warnings.warn
         warnings.warn = my_warn
         try:
-            import pandas as pd
             import numpy as np
+            import pandas as pd
             import sklearn
             from sklearn.pipeline import make_pipeline
             from sklearn.utils.class_weight import compute_class_weight
+
             from mlflow.models import infer_signature
 
-            open(os.path.join(output_directory, "warning_logs.txt"), "w")
+            with open(os.path.join(output_directory, "warning_logs.txt"), "w"):
+                pass
 
             apply_recipe_tracking_config(self.tracking_config)
 
@@ -359,9 +359,7 @@ class TrainStep(BaseStep):
                 MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
                 MLFLOW_RECIPE_TEMPLATE_NAME: self.step_config["recipe"],
                 MLFLOW_RECIPE_PROFILE_NAME: self.step_config["profile"],
-                MLFLOW_RECIPE_STEP_NAME: os.getenv(
-                    _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
-                ),
+                MLFLOW_RECIPE_STEP_NAME: MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME.get(),
             }
 
             run_name = self.tracking_config.run_name
@@ -490,7 +488,7 @@ class TrainStep(BaseStep):
                         targets=self.target_col,
                         model_type=_get_model_type_from_template(self.recipe),
                         evaluators="default",
-                        custom_metrics=_load_custom_metrics(
+                        extra_metrics=_load_custom_metrics(
                             self.recipe_root,
                             self.evaluation_metrics.values(),
                         ),
@@ -782,7 +780,7 @@ class TrainStep(BaseStep):
 
         metric_columns = sorted(metric_names, key=sorter)
 
-        leaderboard_df = (
+        return (
             pd.DataFrame.from_records(
                 [latest_model_item, *top_leaderboard_items],
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
@@ -796,7 +794,6 @@ class TrainStep(BaseStep):
             .set_axis(["Latest"] + top_leaderboard_item_index_values, axis="index")
             .transpose()
         )
-        return leaderboard_df
 
     def _get_tuning_df(self, run, params=None):
         exp_id = _get_experiment_id()
@@ -835,8 +832,8 @@ class TrainStep(BaseStep):
         calibrated_plot=None,
     ):
         import pandas as pd
-        from sklearn.utils import estimator_html_repr
         from sklearn import set_config
+        from sklearn.utils import estimator_html_repr
 
         card = BaseCard(self.recipe_name, self.name)
         # Tab 0: model performance summary.
@@ -971,7 +968,8 @@ class TrainStep(BaseStep):
             else:
                 automl_estimator_str = ""
 
-            best_parameters = open(best_parameters_yaml).read()
+            with open(best_parameters_yaml) as f:
+                best_parameters = f.read()
             best_parameters_card_tab.add_html(
                 "BEST_PARAMETERS",
                 f"{automl_estimator_str}<b>Best parameters:</b><br>"
@@ -1006,9 +1004,8 @@ class TrainStep(BaseStep):
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             warnings_output_tab = card.add_tab("Warning Logs", "{{ STEP_WARNINGS }}")
-            warnings_output_tab.add_html(
-                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
-            )
+            with open(warning_output_path) as f:
+                warnings_output_tab.add_html("STEP_WARNINGS", f"<pre>{f.read()}</pre>")
 
         # Tab 11: Run summary.
         run_card_tab = card.add_tab(
@@ -1101,7 +1098,7 @@ class TrainStep(BaseStep):
     ):
         tuning_params = self.step_config["tuning"]
         try:
-            from hyperopt import fmin, Trials, SparkTrials, space_eval
+            from hyperopt import SparkTrials, Trials, fmin, space_eval
         except ModuleNotFoundError:
             raise MlflowException(
                 "Hyperopt not installed and is required if tuning is enabled",
@@ -1151,7 +1148,7 @@ class TrainStep(BaseStep):
                     targets=self.target_col,
                     model_type=_get_model_type_from_template(self.recipe),
                     evaluators="default",
-                    custom_metrics=_load_custom_metrics(
+                    extra_metrics=_load_custom_metrics(
                         self.recipe_root,
                         self.evaluation_metrics.values(),
                     ),
@@ -1272,13 +1269,12 @@ class TrainStep(BaseStep):
         estimator_schema = infer_signature(
             X_train_sampled, estimator.predict(X_train_sampled.copy())
         )
-        logged_estimator = mlflow.sklearn.log_model(
+        return mlflow.sklearn.log_model(
             estimator,
             f"{self.name}/estimator",
             signature=estimator_schema,
             code_paths=self.code_paths,
         )
-        return logged_estimator
 
     def _write_best_parameters_outputs(
         self,
@@ -1361,6 +1357,4 @@ class TrainStep(BaseStep):
         _logger.info(
             f"After downsampling: minority class percentage is {resampling_minority_percentage:.2f}"
         )
-        train_df = pd.concat([df_minority_class, df_majority_downsampled], axis=0).sample(frac=1)
-
-        return train_df
+        return pd.concat([df_minority_class, df_majority_downsampled], axis=0).sample(frac=1)

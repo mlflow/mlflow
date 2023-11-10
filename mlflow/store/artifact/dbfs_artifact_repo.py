@@ -2,17 +2,19 @@ import json
 import os
 import posixpath
 
+import mlflow.utils.databricks_utils
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.rest_utils import RESOURCE_DOES_NOT_EXIST, http_request, http_request_safe
 from mlflow.utils.string_utils import strip_prefix
 from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
@@ -21,13 +23,11 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
 )
-import mlflow.utils.databricks_utils
 
 # The following constants are defined as @developer_stable
 LIST_API_ENDPOINT = "/api/2.0/dbfs/list"
 GET_STATUS_ENDPOINT = "/api/2.0/dbfs/get-status"
 DOWNLOAD_CHUNK_SIZE = 1024
-USE_FUSE_ENV_VAR = "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO"
 
 
 class DbfsRestArtifactRepository(ArtifactRepository):
@@ -77,10 +77,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
                 response.close()
 
     def _is_directory(self, artifact_path):
-        if artifact_path:
-            dbfs_path = self._get_dbfs_path(artifact_path)
-        else:
-            dbfs_path = self._get_dbfs_path("")
+        dbfs_path = self._get_dbfs_path(artifact_path) if artifact_path else self._get_dbfs_path("")
         return self._dbfs_is_dir(dbfs_path)
 
     def _dbfs_is_dir(self, dbfs_path):
@@ -134,10 +131,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
                 self.log_artifact(file_path, artifact_subdir)
 
     def list_artifacts(self, path=None):
-        if path:
-            dbfs_path = self._get_dbfs_path(path)
-        else:
-            dbfs_path = self._get_dbfs_path("")
+        dbfs_path = self._get_dbfs_path(path) if path else self._get_dbfs_path("")
         dbfs_list_json = {"path": dbfs_path}
         response = self._dbfs_list_api(dbfs_list_json)
         try:
@@ -213,7 +207,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
         return DatabricksArtifactRepository(cleaned_artifact_uri)
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
-        and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false"
+        and MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO.get()
         and not is_databricks_model_registry_artifacts_uri(artifact_uri)
         and (db_profile_uri is None or db_profile_uri == "databricks")
     ):

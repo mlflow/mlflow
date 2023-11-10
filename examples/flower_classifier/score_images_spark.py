@@ -7,21 +7,17 @@ returned as a column with predicted class label, class id and probabilities for 
 as an array of strings.
 
 """
-import os
 import base64
+import os
 
 import click
-
+import pandas as pd
 import pyspark
+from pyspark.sql.types import ArrayType, Row, StringType, StructField, StructType
 
 import mlflow
 import mlflow.pyfunc
 from mlflow.utils import cli_args
-
-from pyspark.sql.types import *
-from pyspark.sql.types import Row
-
-import pandas as pd
 
 
 def read_image_bytes_base64(path):

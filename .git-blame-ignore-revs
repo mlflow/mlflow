@@ -17,3 +17,9 @@ d743a40426d5dedbde395a4e6bbdeebadbccd4dc
 # Commit: https://github.com/mlflow/mlflow/commit/43c15f7aea7ca737ce41c02d1d5e996006aa3006
 # Upgrade Black version to 22.3.0
 43c15f7aea7ca737ce41c02d1d5e996006aa3006
+
+# https://github.com/mlflow/mlflow/pull/9409
+5ed36a0f88def458496382777620e9a5ebcf0f2a
+
+# https://github.com/mlflow/mlflow/pull/9424
+9df7c92567c22b00374396ec5a18cb66ea9b8a0c

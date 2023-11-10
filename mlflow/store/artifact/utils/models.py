@@ -1,5 +1,5 @@
-from typing import NamedTuple, Optional
 import urllib.parse
+from typing import NamedTuple, Optional
 
 import mlflow.tracking
 from mlflow.exceptions import MlflowException

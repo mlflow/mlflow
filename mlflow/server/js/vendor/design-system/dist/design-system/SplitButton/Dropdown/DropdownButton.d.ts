@@ -63,6 +63,7 @@ export interface DropdownButtonProps extends ButtonGroupProps, DropdownProps {
     menuButtonLabel?: string;
     menu?: React.ReactElement;
     dropdownMenuRootProps?: DropdownMenuProps;
+    'aria-label'?: string;
 }
 export declare const DropdownButton: React.FC<DropdownButtonProps>;
 export {};

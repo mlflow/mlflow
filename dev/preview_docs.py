@@ -1,8 +1,9 @@
-import os
-import requests
 import argparse
+import os
 import time
 from urllib.parse import urlparse
+
+import requests
 
 
 class Session(requests.Session):

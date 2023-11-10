@@ -1,6 +1,6 @@
-from pyspark.ml.classification import LogisticRegression
-from pyspark.ml.feature import VectorAssembler, StandardScaler
 from pyspark.ml import Pipeline
+from pyspark.ml.classification import LogisticRegression
+from pyspark.ml.feature import StandardScaler, VectorAssembler
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_iris
 

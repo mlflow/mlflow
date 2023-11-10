@@ -1,5 +1,6 @@
 import { defineMessages, MessageDescriptor } from 'react-intl';
 import Utils from '../../common/utils/Utils';
+import { MLFLOW_SYSTEM_METRIC_PREFIX } from '../constants';
 
 interface MetricHistoryEntry {
   key: string;
@@ -339,3 +340,35 @@ export const generateInfinityAnnotations = ({
     annotations: [...nanAnnotations, ...posInfAnnotations, ...negInfAnnotations],
   };
 };
+
+export const truncateChartMetricString = (fullStr: string, strLen: number) => {
+  if (fullStr.length <= strLen) return fullStr;
+
+  const separator = '...';
+
+  const sepLen = separator.length,
+    charsToShow = strLen - sepLen,
+    frontChars = Math.ceil(charsToShow / 2),
+    backChars = Math.floor(charsToShow / 2);
+
+  return fullStr.substr(0, frontChars) + separator + fullStr.substr(fullStr.length - backChars);
+};
+
+export const normalizeMetricChartTooltipValue = (value: string | number, decimalPlaces = 6) => {
+  if (typeof value === 'number') {
+    return value.toFixed(decimalPlaces);
+  }
+  // cast to numbers that have for values that have been previously stringified
+  const castToNumber = Number(value);
+  if (!isNaN(castToNumber)) {
+    return castToNumber.toFixed(decimalPlaces);
+  }
+  // truncate strings that are too long
+  return truncateChartMetricString(value, 8);
+};
+
+const systemMetricPrefix = new RegExp(`^${MLFLOW_SYSTEM_METRIC_PREFIX}`);
+export const normalizeChartMetricKey = (metricKey: string) =>
+  metricKey.replace(systemMetricPrefix, '');
+
+export const isSystemMetricKey = (metricKey: string) => metricKey.match(systemMetricPrefix);

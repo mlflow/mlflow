@@ -53,19 +53,22 @@ Index  predict_method    coverage     fh
 import logging
 import os
 import pickle
+from typing import Any, Dict, Optional
 
 import flavor
-import mlflow
 import numpy as np
 import pandas as pd
 import sktime
 import yaml
+from sktime.utils.multiindex import flatten_multiindex
+
+import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
@@ -87,7 +90,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from sktime.utils.multiindex import flatten_multiindex
 
 FLAVOR_NAME = "sktime"
 
@@ -468,7 +470,9 @@ class _SktimeModelWrapper:
     def __init__(self, sktime_model):
         self.sktime_model = sktime_model
 
-    def predict(self, dataframe) -> pd.DataFrame:
+    def predict(
+        self, dataframe, params: Optional[Dict[str, Any]] = None
+    ) -> pd.DataFrame:  # pylint: disable=unused-argument
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:

@@ -280,7 +280,7 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
 
     mlflow server --artifacts-destination s3://bucket_name --artifacts-only --host remote_host
 
-Running an MLFlow server in ``--artifacts-only`` mode:
+Running an MLflow server in ``--artifacts-only`` mode:
 
  * **Part 1a and b**:
 
@@ -444,7 +444,7 @@ Java and Scala
 Visualizing Metrics
 -------------------
 
-Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the step x-axis and two timestamp axes:
+Here is an example plot of the :ref:`quick start tutorial <quickstart-1>` with the step x-axis and two timestamp axes:
 
 .. figure:: _static/images/metrics-step.png
 
@@ -865,6 +865,11 @@ Use ``--backend-store-uri`` to configure the type of backend store. You specify:
     take a backup of your database prior to running ``mlflow db upgrade`` - consult your database's
     documentation for instructions on taking a backup.
 
+.. note::
+    ``2d6e25af4d3e_increase_max_param_val_length`` is a non-invertible migration script that increases 
+    the param value length to 8k (but we limit param value max length to 6000 internally). Please be careful
+    if you want to upgrade and backup your database before upgrading.
+
 
 By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (the same as when
 running ``mlflow run`` locally), but when running a server, make sure that this points to a
@@ -904,7 +909,7 @@ This simplifies access requirements for users of the MLflow client, eliminating 
 configure access tokens or username and password environment variables for the underlying object store when writing or retrieving artifacts.
 To disable proxied access for artifacts, specify ``--no-serve-artifacts``.
 
-Provided an Mlflow server configuration where the ``--default-artifact-root`` is ``s3://my-root-bucket``,
+Provided an MLflow server configuration where the ``--default-artifact-root`` is ``s3://my-root-bucket``,
 the following patterns will all resolve to the configured proxied object store location of ``s3://my-root-bucket/mlartifacts``:
 
  * ``https://<host>:<port>/mlartifacts``

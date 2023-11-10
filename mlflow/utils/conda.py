@@ -1,32 +1,22 @@
-import hashlib
 import json
 import logging
 import os
 
 import yaml
 
+from mlflow.environment_variables import MLFLOW_CONDA_CREATE_ENV_CMD, MLFLOW_CONDA_HOME
 from mlflow.exceptions import ExecutionException
-from mlflow.utils import process
+from mlflow.utils import insecure_hash, process
 from mlflow.utils.environment import Environment
 
-# Environment variable indicating a path to a conda installation. MLflow will default to running
-# "conda" if unset
-MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
-# Environment variable indicated the name of the command that should be used to create environments.
-# If it is unset, it will default to "conda". This command must be in the $PATH when the user runs,
-# or within MLFLOW_CONDA_HOME if that is set. For example, let's say we want to use mamba
-# (https://github.com/mamba-org/mamba) instead of conda to create environments. Then:
-# > conda install mamba -n base -c conda-forge
-# > MLFLOW_CONDA_CREATE_ENV_CMD="mamba"
-# > mlflow run ...
-MLFLOW_CONDA_CREATE_ENV_CMD = "MLFLOW_CONDA_CREATE_ENV_CMD"
-
 _logger = logging.getLogger(__name__)
+
+CONDA_EXE = "CONDA_EXE"
 
 
 def get_conda_command(conda_env_name):
     #  Checking for newer conda versions
-    if os.name != "nt" and ("CONDA_EXE" in os.environ or "MLFLOW_CONDA_HOME" in os.environ):
+    if os.name != "nt" and (CONDA_EXE in os.environ or MLFLOW_CONDA_HOME.defined):
         conda_path = get_conda_bin_executable("conda")
         activate_conda_env = [f"source {os.path.dirname(conda_path)}/../etc/profile.d/conda.sh"]
         activate_conda_env += [f"conda activate {conda_env_name} 1>&2"]
@@ -51,12 +41,11 @@ def get_conda_bin_executable(executable_name):
     ``mlflow.projects.MLFLOW_CONDA_HOME`` is unspecified, this method simply returns the passed-in
     executable name.
     """
-    conda_home = os.environ.get(MLFLOW_CONDA_HOME)
-    if conda_home:
-        return os.path.join(conda_home, "bin/%s" % executable_name)
+    if conda_home := MLFLOW_CONDA_HOME.get():
+        return os.path.join(conda_home, f"bin/{executable_name}")
     # Use CONDA_EXE as per https://github.com/conda/conda/issues/7126
-    if "CONDA_EXE" in os.environ:
-        conda_bin_dir = os.path.dirname(os.environ["CONDA_EXE"])
+    if conda_exe := os.getenv(CONDA_EXE):
+        conda_bin_dir = os.path.dirname(conda_exe)
         return os.path.join(conda_bin_dir, executable_name)
     return executable_name
 
@@ -71,12 +60,12 @@ def _get_conda_env_name(conda_env_path, env_id=None, env_root_dir=None):
     if env_id:
         conda_env_contents += env_id
 
-    env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    env_name = "mlflow-%s" % insecure_hash.sha1(conda_env_contents.encode("utf-8")).hexdigest()
     if env_root_dir:
         env_root_dir = os.path.normpath(env_root_dir)
         # Generate env name with format "mlflow-{conda_env_contents_hash}-{env_root_dir_hash}"
         # hashing `conda_env_contents` and `env_root_dir` separately helps debugging
-        env_name += "-%s" % hashlib.sha1(env_root_dir.encode("utf-8")).hexdigest()
+        env_name += "-%s" % insecure_hash.sha1(env_root_dir.encode("utf-8")).hexdigest()
 
     return env_name
 
@@ -87,14 +76,8 @@ def _get_conda_executable_for_create_env():
     by default, but it can be set to something else by setting the environment variable
 
     """
-    conda_env_create_cmd = os.environ.get(MLFLOW_CONDA_CREATE_ENV_CMD)
-    if conda_env_create_cmd is not None:
-        conda_env_create_path = get_conda_bin_executable(conda_env_create_cmd)
-    else:
-        # Use the same as conda_path
-        conda_env_create_path = get_conda_bin_executable("conda")
 
-    return conda_env_create_path
+    return get_conda_bin_executable(MLFLOW_CONDA_CREATE_ENV_CMD.get())
 
 
 def _list_conda_environments(extra_env=None):

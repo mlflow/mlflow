@@ -1,60 +1,62 @@
-import hashlib
-import os
 import io
 import json
-import uuid
+import os
+import re
 import signal
+import uuid
 from collections import namedtuple
 from unittest import mock
-import pytest
 
 import numpy as np
 import pandas as pd
-from PIL import ImageChops, Image
-
+import pytest
 import sklearn
 import sklearn.compose
 import sklearn.datasets
 import sklearn.impute
 import sklearn.linear_model
+import sklearn.pipeline
+import sklearn.preprocessing
+from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
+from PIL import Image, ImageChops
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.regression import LinearRegression as SparkLinearRegression
+from pyspark.sql import SparkSession
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
     mean_absolute_error,
     mean_squared_error,
 )
-import sklearn.pipeline
-import sklearn.preprocessing
-
-from pyspark.sql import SparkSession
-from pyspark.ml.linalg import Vectors
-from pyspark.ml.regression import LinearRegression as SparkLinearRegression
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
-    evaluate,
+    EvaluationArtifact,
     EvaluationResult,
     ModelEvaluator,
-    EvaluationArtifact,
+    evaluate,
 )
 from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
-    _logger as _base_logger,
+    EvaluationDataset,
     _gen_md5_for_arraylike_obj,
     _start_run_or_reuse_active_run,
-    EvaluationDataset,
+)
+from mlflow.models.evaluation.base import (
+    _logger as _base_logger,
+)
+from mlflow.models.evaluation.base import (
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
 )
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 from mlflow.tracking.artifact_utils import get_artifact_uri
+from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import TempDir
-
-from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 
 
 def get_iris():
@@ -93,8 +95,7 @@ def get_run_data(run_id):
 
 def get_run_datasets(run_id):
     client = MlflowClient()
-    datasets = client.get_run(run_id).inputs.dataset_inputs
-    return datasets
+    return client.get_run(run_id).inputs.dataset_inputs
 
 
 def get_raw_tag(run_id, tag_name):
@@ -549,16 +550,37 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseli
     assert eval_result.metrics == expected_metrics
 
 
-def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
+def _load_diabetes_dataset_in_required_format(format):
     data = sklearn.datasets.load_diabetes()
-    df = pd.DataFrame(data.data, columns=data.feature_names)
-    df["y"] = data.target
+    if format == "numpy":
+        return data.data, data.target
+    elif format == "pandas":
+        df = pd.DataFrame(data.data, columns=data.feature_names)
+        df["label"] = data.target
+        return df, "label"
+    elif format == "spark":
+        spark = SparkSession.builder.master("local[*]").getOrCreate()
+        panda_df = pd.DataFrame(data.data, columns=data.feature_names)
+        panda_df["label"] = data.target
+        spark_df = spark.createDataFrame(panda_df)
+        return spark_df, "label"
+    elif format == "list":
+        return data.data.tolist(), data.target.tolist()
+    else:
+        raise TypeError(
+            f"`format` must be one of 'numpy', 'pandas', 'spark' or 'list', but received {format}."
+        )
+
+
+@pytest.mark.parametrize("data_format", ["list", "numpy", "pandas", "spark"])
+def test_regressor_evaluation(linear_regressor_model_uri, data_format):
+    data, target = _load_diabetes_dataset_in_required_format(data_format)
 
     with mlflow.start_run() as run:
         eval_result = evaluate(
             linear_regressor_model_uri,
-            data=df,
-            targets="y",
+            data=data,
+            targets=target,
             model_type="regressor",
             evaluators=["default"],
         )
@@ -566,6 +588,11 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
 
     for k, v in eval_result.metrics.items():
         assert v == saved_metrics[k]
+
+    datasets = get_run_datasets(run.info.run_id)
+    assert len(datasets) == 1
+    assert len(datasets[0].tags) == 0
+    assert datasets[0].dataset.source_type == "code"
 
 
 def test_pandas_df_regressor_evaluation_mlflow_dataset_with_metric_prefix(
@@ -579,7 +606,6 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset_with_metric_prefix(
         eval_result = evaluate(
             linear_regressor_model_uri,
             data=mlflow_df,
-            targets="y",
             model_type="regressor",
             evaluators=["default"],
             evaluator_config={
@@ -607,7 +633,6 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_ur
         eval_result = evaluate(
             linear_regressor_model_uri,
             data=mlflow_df,
-            targets="y",
             model_type="regressor",
             evaluators=["default"],
         )
@@ -645,25 +670,6 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset_with_targets_from_dataset
     assert len(datasets[0].tags) == 0
 
 
-def test_pandas_df_regressor_evaluation_mlflow_dataset_without_targets(linear_regressor_model_uri):
-    data = sklearn.datasets.load_diabetes()
-    df = pd.DataFrame(data.data, columns=data.feature_names)
-    df["y"] = data.target
-    mlflow_df = from_pandas(df=df, source="my_src")
-    with mlflow.start_run():
-        with pytest.raises(
-            MlflowException,
-            match="The targets argument is required when data is a Dataset and does not define "
-            "targets.",
-        ):
-            evaluate(
-                linear_regressor_model_uri,
-                data=mlflow_df,
-                model_type="regressor",
-                evaluators=["default"],
-            )
-
-
 def test_dataset_name():
     X, y = get_iris()
     d1 = EvaluationDataset(data=X, targets=y, name="a1")
@@ -684,7 +690,7 @@ def test_dataset_metadata():
 
 def test_gen_md5_for_arraylike_obj():
     def get_md5(data):
-        md5_gen = hashlib.md5()
+        md5_gen = insecure_hash.md5()
         _gen_md5_for_arraylike_obj(md5_gen, data)
         return md5_gen.hexdigest()
 
@@ -738,7 +744,7 @@ def test_dataset_with_array_data():
         data=input_data, targets=labels, feature_names=["a", "b"]
     ).feature_names == ["a", "b"]
 
-    with pytest.raises(MlflowException, match="all element must has the same length"):
+    with pytest.raises(MlflowException, match="all elements must have the same length"):
         EvaluationDataset(data=[[1, 2], [3, 4, 5]], targets=labels)
 
 
@@ -885,7 +891,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     targets=iris_dataset._constructor_args["targets"],
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
-                    custom_metrics=None,
+                    extra_metrics=None,
                     baseline_model=None,
                 )
                 assert eval1_result.metrics == evaluator1_return_value.metrics
@@ -901,8 +907,10 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
                     custom_metrics=None,
+                    extra_metrics=None,
                     custom_artifacts=None,
                     baseline_model=None,
+                    predictions=None,
                 )
 
 
@@ -941,7 +949,7 @@ def test_model_validation_interface_invalid_baseline_model_should_throw(
                 targets=iris_dataset._constructor_args["targets"],
                 evaluators="test_evaluator1",
                 evaluator_config=evaluator1_config,
-                custom_metrics=None,
+                extra_metrics=None,
                 baseline_model=baseline_model_uri,
             )
 
@@ -980,9 +988,11 @@ def test_evaluate_with_multi_evaluators(
                 "dataset": iris_dataset,
                 "run_id": run.info.run_id,
                 "evaluator_config": evaluator_config,
+                "extra_metrics": None,
                 "custom_metrics": None,
                 "custom_artifacts": None,
                 "baseline_model": baseline_model,
+                "predictions": None,
             }
 
         # evaluators = None is the case evaluators unspecified, it should fetch all registered
@@ -1138,11 +1148,8 @@ def test_evaluate_restores_env(tmp_path, env_manager, iris_dataset):
         def __init__(self):
             pass
 
-        def predict(self, context, model_input):
-            if sklearn.__version__ == "0.22.1":
-                pred_value = 1
-            else:
-                pred_value = 0
+        def predict(self, context, model_input, params=None):
+            pred_value = 1 if sklearn.__version__ == "0.22.1" else 0
 
             return model_input.apply(lambda row: pred_value, axis=1)
 
@@ -1241,3 +1248,340 @@ def test_targets_is_required_for_regressor_and_classifier_models(model_type):
             data=pd.DataFrame(),
             model_type=model_type,
         )
+
+
+def test_evaluate_xgboost_classifier():
+    import xgboost as xgb
+
+    X, y = sklearn.datasets.load_iris(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = xgb.DMatrix(X, label=y)
+    model = xgb.train({"objective": "multi:softmax", "num_class": 3}, data, num_boost_round=5)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.xgboost.log_model(model, "model")
+        mlflow.evaluate(
+            model_info.model_uri,
+            X.assign(y=y),
+            targets="y",
+            model_type="classifier",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "accuracy_score" in run.data.metrics
+    assert "recall_score" in run.data.metrics
+    assert "precision_score" in run.data.metrics
+    assert "f1_score" in run.data.metrics
+
+
+def test_evaluate_lightgbm_regressor():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.lightgbm.log_model(model, "model")
+        mlflow.evaluate(
+            model_info.model_uri,
+            X.assign(y=y),
+            targets="y",
+            model_type="regressor",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_targets_error_handling():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    lgb_data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, lgb_data, num_boost_round=5)
+    ERROR_TYPE_1 = (
+        "The top-level targets parameter should not be specified since a Dataset "
+        "is used. Please only specify the targets column name in the Dataset. For example: "
+        "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`. "
+        "Meanwhile, please specify `mlflow.evaluate(..., targets=None, ...)`."
+    )
+    ERROR_TYPE_2 = (
+        "The targets column name must be specified in the provided Dataset "
+        "for regressor models. For example: "
+        "`data = mlflow.data.from_pandas(df=X.assign(y=y), targets='y')`"
+    )
+    ERROR_TYPE_3 = "The targets argument must be specified for regressor models."
+
+    pandas_dataset_no_targets = X
+    mlflow_dataset_no_targets = mlflow.data.from_pandas(df=X.assign(y=y))
+    mlflow_dataset_with_targets = mlflow.data.from_pandas(df=X.assign(y=y), targets="y")
+
+    with mlflow.start_run():
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_1)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_with_targets,
+                model_type="regressor",
+                targets="y",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_1)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_no_targets,
+                model_type="regressor",
+                targets="y",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_1)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_with_targets,
+                model_type="question-answering",
+                targets="y",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_1)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_no_targets,
+                model_type="question-answering",
+                targets="y",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_2)):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_no_targets,
+                model_type="regressor",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_TYPE_3)):
+            mlflow.evaluate(
+                model=model,
+                data=pandas_dataset_no_targets,
+                model_type="regressor",
+            )
+
+
+def test_evaluate_with_predictions_error_handling():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    lgb_data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, lgb_data, num_boost_round=5)
+    mlflow_dataset_with_predictions = mlflow.data.from_pandas(
+        df=X.assign(y=y, model_output=y),
+        targets="y",
+        predictions="model_output",
+    )
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match="The predictions parameter should not be specified in the Dataset since a model "
+            "is specified. Please remove the predictions column from the Dataset.",
+        ):
+            mlflow.evaluate(
+                model=model,
+                data=mlflow_dataset_with_predictions,
+                model_type="regressor",
+            )
+
+
+def test_evaluate_with_function_input_single_output():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
+
+    def fn(X):
+        return model.predict(X)
+
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            fn,
+            X.assign(y=y),
+            targets="y",
+            model_type="regressor",
+        )
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_loaded_pyfunc_model():
+    import lightgbm as lgb
+
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = lgb.Dataset(X, label=y)
+    model = lgb.train({"objective": "regression"}, data, num_boost_round=5)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.lightgbm.log_model(model, "model")
+        loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        mlflow.evaluate(
+            loaded_model,
+            X.assign(y=y),
+            targets="y",
+            model_type="regressor",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_static_dataset_input_single_output():
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            data=X.assign(y=y, model_output=y),
+            targets="y",
+            predictions="model_output",
+            model_type="regressor",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_static_mlflow_dataset_input():
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    data = mlflow.data.from_pandas(
+        df=X.assign(y=y, model_output=y), targets="y", predictions="model_output"
+    )
+    with mlflow.start_run() as run:
+        mlflow.evaluate(
+            data=data,
+            model_type="regressor",
+        )
+
+    run = mlflow.get_run(run.info.run_id)
+    assert "mean_absolute_error" in run.data.metrics
+    assert "mean_squared_error" in run.data.metrics
+    assert "root_mean_squared_error" in run.data.metrics
+
+
+def test_evaluate_with_static_spark_dataset_unsupported():
+    data = sklearn.datasets.load_diabetes()
+    spark = SparkSession.builder.master("local[*]").getOrCreate()
+    rows = [
+        (Vectors.dense(features), float(label), float(label))
+        for features, label in zip(data.data, data.target)
+    ]
+    spark_dataframe = spark.createDataFrame(
+        spark.sparkContext.parallelize(rows, 1), ["features", "label", "model_output"]
+    )
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match="The data must be a pandas dataframe or mlflow.data."
+            "pandas_dataset.PandasDataset when model=None.",
+        ):
+            mlflow.evaluate(
+                data=spark_dataframe,
+                targets="label",
+                predictions="model_output",
+                model_type="regressor",
+            )
+
+
+def test_evaluate_with_static_dataset_error_handling_pandas_dataframe():
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    with mlflow.start_run():
+        with pytest.raises(
+            MlflowException,
+            match="The model output must be specified in the "
+            "predictions parameter when model=None.",
+        ):
+            mlflow.evaluate(
+                data=X.assign(y=y, model_output=y),
+                targets="y",
+                model_type="regressor",
+            )
+
+        with pytest.raises(
+            MlflowException,
+            match="The data must be a pandas dataframe or "
+            "mlflow.data.pandas_dataset.PandasDataset when model=None.",
+        ):
+            mlflow.evaluate(
+                data=X.assign(y=y, model_output=y).to_numpy(),
+                targets="y",
+                predictions="model_output",
+                model_type="regressor",
+            )
+
+        with pytest.raises(MlflowException, match="The data argument cannot be None."):
+            mlflow.evaluate(
+                data=None,
+                targets="y",
+                model_type="regressor",
+            )
+
+        with pytest.raises(
+            MlflowException,
+            match="The specified pandas DataFrame does not contain the specified predictions"
+            " column 'prediction'.",
+        ):
+            mlflow.evaluate(
+                data=X.assign(y=y, model_output=y),
+                targets="y",
+                predictions="prediction",
+                model_type="regressor",
+            )
+
+
+def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
+    X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    dataset_with_predictions = mlflow.data.from_pandas(
+        df=X.assign(y=y, model_output=y), targets="y", predictions="model_output"
+    )
+    dataset_no_predictions = mlflow.data.from_pandas(df=X.assign(y=y, model_output=y), targets="y")
+    ERROR_MESSAGE = (
+        "The top-level predictions parameter should not be specified since a Dataset is "
+        "used. Please only specify the predictions column name in the Dataset. For example: "
+        "`data = mlflow.data.from_pandas(df=X.assign(y=y), predictions='y')`"
+        "Meanwhile, please specify `mlflow.evaluate(..., predictions=None, ...)`."
+    )
+    with mlflow.start_run():
+        with pytest.raises(MlflowException, match=re.escape(ERROR_MESSAGE)):
+            mlflow.evaluate(
+                data=dataset_with_predictions,
+                model_type="regressor",
+                predictions="model_output",
+            )
+
+        with pytest.raises(MlflowException, match=re.escape(ERROR_MESSAGE)):
+            mlflow.evaluate(
+                data=dataset_no_predictions,
+                model_type="regressor",
+                predictions="model_output",
+            )

@@ -1,9 +1,11 @@
-import numpy as np
 import argparse
-import mlflow
+
+import numpy as np
 import statsmodels.api as sm
-import mlflow.statsmodels
 from sklearn.metrics import mean_squared_error
+
+import mlflow
+import mlflow.statsmodels
 
 
 def parse_args():

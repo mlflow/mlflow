@@ -4,8 +4,8 @@ on the Reuters newswire topic classification task.
 import numpy as np
 from tensorflow import keras
 from tensorflow.keras.datasets import reuters
+from tensorflow.keras.layers import Activation, Dense, Dropout
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, Activation
 from tensorflow.keras.preprocessing.text import Tokenizer
 
 # The following import and function call are the only additions to code required

@@ -27,6 +27,14 @@ export interface TooltipProps extends HTMLDataAttributes {
      * Prop that forces the tooltip's arrow to be centered on the target element
      */
     arrowPointAtCenter?: boolean;
+    /**
+     * Toggle wrapper live region off
+     */
+    silenceScreenReader?: boolean;
+    /**
+     * Toggles screen readers reading the tooltip content as the label for the hovered/focused element
+     */
+    useAsLabel?: boolean;
 }
 export declare const Tooltip: React.FC<TooltipProps>;
 //# sourceMappingURL=Tooltip.d.ts.map

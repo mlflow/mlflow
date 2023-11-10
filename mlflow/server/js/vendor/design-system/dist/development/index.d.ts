@@ -1,4 +1,4 @@
 export * from './ChatUI';
-export * from './SkeletonV2';
 export * from './Slider';
+export * from './ContextMenu';
 //# sourceMappingURL=index.d.ts.map

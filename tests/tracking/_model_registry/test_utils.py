@@ -1,16 +1,16 @@
 import io
 import pickle
-import pytest
 from unittest import mock
 
-from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.model_registry.rest_store import RestStore
+import pytest
+
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._model_registry.utils import _get_store, get_registry_uri, set_registry_uri
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
-
 
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
 # environment variable. See

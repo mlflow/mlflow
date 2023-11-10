@@ -1,41 +1,41 @@
-from pathlib import Path
-import sys
 import os
-import pytest
+import sys
+from pathlib import Path
 from unittest import mock
 
+import numpy as np
 import onnx
 import onnxruntime as ort
-import torch
-from torch import nn
-import torch.onnx
-from torch.utils.data import DataLoader
-from sklearn import datasets
-from packaging.version import Version
 import pandas as pd
-import numpy as np
+import pytest
+import torch
+import torch.onnx
 import yaml
+from packaging.version import Version
+from sklearn import datasets
+from torch import nn
+from torch.utils.data import DataLoader
 
 import mlflow.onnx
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.models import infer_signature, Model
+from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
     _assert_pip_requirements,
-    _is_available_on_pypi,
+    _compare_conda_env_requirements,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
+    pyfunc_serve_and_score_model,
 )
 
 TEST_DIR = "tests"
@@ -62,8 +62,7 @@ def data():
 @pytest.fixture(scope="module")
 def dataset(data):
     x, y = data
-    dataset = [(xi.astype(np.float32), yi.astype(np.float32)) for xi, yi in zip(x.values, y.values)]
-    return dataset
+    return [(xi.astype(np.float32), yi.astype(np.float32)) for xi, yi in zip(x.values, y.values)]
 
 
 @pytest.fixture(scope="module")
@@ -253,22 +252,44 @@ def test_model_save_load(onnx_model, model_path):
     assert onnx.checker.check_model.called
 
 
+@pytest.mark.skipif(
+    Version(onnx.__version__) < Version("1.9.0"),
+    reason="The save_as_external_data param is only available in onnx version >= 1.9.0",
+)
+@pytest.mark.parametrize("save_as_external_data", [True, False])
+def test_model_log_load(onnx_model, save_as_external_data):
+    onnx.convert_model_to_external_data = mock.Mock()
+
+    with mlflow.start_run():
+        model_info = mlflow.onnx.log_model(
+            onnx_model, artifact_path="model", save_as_external_data=save_as_external_data
+        )
+
+    if save_as_external_data:
+        onnx.convert_model_to_external_data.assert_called_once()
+    else:
+        onnx.convert_model_to_external_data.assert_not_called()
+
+    # Loading ONNX model
+    onnx.checker.check_model = mock.Mock()
+    mlflow.onnx.load_model(model_info.model_uri)
+    onnx.checker.check_model.assert_called_once()
+
+
+@pytest.mark.skipif(
+    Version(onnx.__version__) < Version("1.9.0"),
+    reason="The save_as_external_data param is only available in onnx version >= 1.9.0",
+)
 def test_model_save_load_nonexternal_data(onnx_model, model_path):
-    original_save_model = onnx.save_model
-    if Version(onnx.__version__) >= Version("1.9.0"):
+    onnx.convert_model_to_external_data = mock.Mock()
 
-        def onnx_save_nonexternal(
-            model, path, save_as_external_data
-        ):  # pylint: disable=unused-argument
-            original_save_model(model, path, save_as_external_data=False)
+    mlflow.onnx.save_model(onnx_model, model_path, save_as_external_data=False)
+    onnx.convert_model_to_external_data.assert_not_called()
 
-        with mock.patch("onnx.save_model", wraps=onnx_save_nonexternal):
-            mlflow.onnx.save_model(onnx_model, model_path)
-
-        # Loading ONNX model
-        onnx.checker.check_model = mock.Mock()
-        mlflow.onnx.load_model(model_path)
-        assert onnx.checker.check_model.called
+    # Loading ONNX model
+    onnx.checker.check_model = mock.Mock()
+    mlflow.onnx.load_model(model_path)
+    onnx.checker.check_model.assert_called_once()
 
 
 def test_signature_and_examples_are_saved_correctly(onnx_model, data, onnx_custom_env):
@@ -347,10 +368,17 @@ def test_model_save_load_multiple_inputs(onnx_model_multiple_inputs_float64, mod
     assert onnx.checker.check_model.called
 
 
+@pytest.mark.parametrize("save_as_external_data", [True, False])
 def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
-    onnx_model_multiple_inputs_float64, data_multiple_inputs, predicted_multiple_inputs, model_path
+    onnx_model_multiple_inputs_float64,
+    data_multiple_inputs,
+    predicted_multiple_inputs,
+    model_path,
+    save_as_external_data,
 ):
-    mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
+    mlflow.onnx.save_model(
+        onnx_model_multiple_inputs_float64, model_path, save_as_external_data=save_as_external_data
+    )
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)

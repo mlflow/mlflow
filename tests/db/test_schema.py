@@ -1,13 +1,13 @@
-import re
 import difflib
-from pathlib import Path
+import re
 from collections import namedtuple
+from pathlib import Path
 
 import pytest
-from packaging.version import Version
 import sqlalchemy
-from sqlalchemy.schema import MetaData, CreateTable
+from packaging.version import Version
 from sqlalchemy import create_engine
+from sqlalchemy.schema import CreateTable, MetaData
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
@@ -162,7 +162,7 @@ Manually copy & paste the expected schema in {rel_path} or run the following com
 
 def main():
     tracking_uri = get_tracking_uri()
-    assert tracking_uri, f"Environment variable {MLFLOW_TRACKING_URI.name} must be set"
+    assert tracking_uri, f"Environment variable {MLFLOW_TRACKING_URI} must be set"
     get_database_dialect(tracking_uri)  # Ensure `tracking_uri` is a database URI
     mlflow.set_tracking_uri(tracking_uri)
     initialize_database()

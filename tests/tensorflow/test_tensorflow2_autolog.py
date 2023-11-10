@@ -1,28 +1,29 @@
 # pep8: disable=E501
 
 import collections
+import functools
+import json
 import os
 import pickle
 import sys
-from unittest.mock import patch
-import json
-import functools
 from pathlib import Path
-from threading import Thread
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 import tensorflow as tf
-from packaging.version import Version
-from mlflow.types.utils import _infer_schema
-from tensorflow.keras import layers
 import yaml
+from packaging.version import Version
+from tensorflow.keras import layers
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
+from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
+from mlflow.tensorflow.callback import MLflowCallback
+from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     BatchMetricsLogger,
@@ -63,13 +64,12 @@ def random_train_dict_mapping(random_train_data):
     def _generate_features(pos):
         return [v[pos] for v in random_train_data]
 
-    features = {
+    return {
         "a": np.array(_generate_features(0)),
         "b": np.array(_generate_features(1)),
         "c": np.array(_generate_features(2)),
         "d": np.array(_generate_features(3)),
     }
-    return features
 
 
 def _create_model_for_dict_mapping():
@@ -100,8 +100,7 @@ def fashion_mnist_tf_dataset():
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
-    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
-    return fmnist_train_ds
+    return fmnist_train_ds.shuffle(5000).batch(32)
 
 
 @pytest.fixture
@@ -111,8 +110,7 @@ def fashion_mnist_tf_dataset_eval():
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
-    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
-    return fmnist_train_ds
+    return fmnist_train_ds.shuffle(5000).batch(32)
 
 
 def _create_fashion_mnist_model():
@@ -180,6 +178,20 @@ def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_ho
     model.fit(data, labels, epochs=10)
 
     assert mlflow.active_run() is None
+
+
+def test_extra_tags_tensorflow_autolog(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(extra_tags={"test_tag": "tf_autolog"})
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+    model.fit(data, labels, epochs=10)
+
+    run = mlflow.last_active_run()
+    assert run.data.tags["test_tag"] == "tf_autolog"
+    assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "tensorflow"
 
 
 @pytest.mark.parametrize("log_models", [True, False])
@@ -393,8 +405,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "opt_name" in data.params
     assert data.params["opt_name"] == "Adam"
     assert "opt_learning_rate" in data.params
-    decay_opt = "opt_weight_decay" if Version(tf.__version__) >= Version("2.11") else "opt_decay"
-    assert decay_opt in data.params
     assert "opt_beta_1" in data.params
     assert "opt_beta_2" in data.params
     assert "opt_epsilon" in data.params
@@ -417,14 +427,20 @@ def __example_tf_dataset(batch_size):
 
 
 class __ExampleSequence(tf.keras.utils.Sequence):
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, with_sample_weights=False):
         self.batch_size = batch_size
+        self.with_sample_weights = with_sample_weights
 
     def __len__(self):
         return 10
 
     def __getitem__(self, idx):
-        return np.array([idx] * self.batch_size), np.array([-idx] * self.batch_size)
+        x = np.array([idx] * self.batch_size)
+        y = np.array([-idx] * self.batch_size)
+        if self.with_sample_weights:
+            w = np.array([1] * self.batch_size)
+            return x, y, w
+        return x, y
 
 
 def __generator(data, target, batch_size):
@@ -456,6 +472,7 @@ class __GeneratorClass:
     [
         __example_tf_dataset,
         __ExampleSequence,
+        functools.partial(__ExampleSequence, with_sample_weights=True),
         functools.partial(__generator, np.array([[1]] * 10), np.array([[1]] * 10)),
         functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
     ],
@@ -565,8 +582,8 @@ def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side
     generator,
     batch_size,
 ):
-    from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Dense
+    from tensorflow.keras.models import Sequential
 
     data = np.array([[1, 2, 3], [3, 2, 1], [2, 2, 2], [10, 20, 30], [30, 20, 10], [20, 20, 20]])
     target = np.array([[1], [3], [2], [11], [13], [12]])
@@ -986,39 +1003,6 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         assert not os.path.exists(mock_log_dir_inst.location)
 
 
-def test_flush_queue_is_thread_safe():
-    """
-    Autologging augments TensorBoard event logging hooks with MLflow `log_metric` API
-    calls. To prevent these API calls from blocking TensorBoard event logs, `log_metric`
-    API calls are scheduled via `_flush_queue` on a background thread. Accordingly, this test
-    verifies that `_flush_queue` is thread safe.
-    """
-    from mlflow.entities import Metric
-    from mlflow.tensorflow import _flush_queue, _metric_queue_lock
-
-    client = MlflowClient()
-    run = client.create_run(experiment_id="0")
-    metric_queue_item = (run.info.run_id, Metric("foo", 0.1, 100, 1))
-    mlflow.tensorflow._metric_queue.append(metric_queue_item)
-
-    # Verify that, if another thread holds a lock on the metric queue leveraged by
-    # _flush_queue, _flush_queue terminates and does not modify the queue
-    _metric_queue_lock.acquire()
-    flush_thread1 = Thread(target=_flush_queue)
-    flush_thread1.start()
-    flush_thread1.join()
-    assert len(mlflow.tensorflow._metric_queue) == 1
-    assert mlflow.tensorflow._metric_queue[0] == metric_queue_item
-    _metric_queue_lock.release()
-
-    # Verify that, if no other thread holds a lock on the metric queue leveraged by
-    # _flush_queue, _flush_queue flushes the queue as expected
-    flush_thread2 = Thread(target=_flush_queue)
-    flush_thread2.start()
-    flush_thread2.join()
-    assert len(mlflow.tensorflow._metric_queue) == 0
-
-
 def get_text_vec_model(train_samples):
     # Taken from: https://github.com/mlflow/mlflow/issues/3910
 
@@ -1168,7 +1152,7 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
 def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
-    import tensorflow  # pylint: disable=unused-import,reimported
+    import tensorflow  # pylint: disable=reimported  # noqa: F401
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
@@ -1333,7 +1317,8 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
     mlmodel_path = mlflow.artifacts.download_artifacts(
         f"runs:/{mlflow.last_active_run().info.run_id}/model/MLmodel"
     )
-    mlmodel_contents = yaml.safe_load(open(mlmodel_path))
+    with open(mlmodel_path) as f:
+        mlmodel_contents = yaml.safe_load(f)
     assert "signature" in mlmodel_contents.keys()
     signature = mlmodel_contents["signature"]
     assert signature is not None
@@ -1385,3 +1370,12 @@ def test_import_keras_model_trigger_import_tensorflow():
             "from keras import Model; import sys; assert 'tensorflow' in sys.modules",
         ]
     )
+
+
+def test_autolog_throw_error_on_explicit_mlflow_callback(keras_data_gen_sequence):
+    mlflow.tensorflow.autolog()
+
+    model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        with pytest.raises(MlflowException, match="MLflow autologging must be turned off*"):
+            model.fit(keras_data_gen_sequence, callbacks=[MLflowCallback(run)])

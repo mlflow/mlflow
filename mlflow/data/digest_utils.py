@@ -1,9 +1,10 @@
+from typing import Any, List
+
 from packaging.version import Version
-import hashlib
-from typing import List, Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils import insecure_hash
 
 MAX_ROWS = 10000
 
@@ -133,8 +134,8 @@ def compute_spark_df_digest(df) -> str:
     :return: A string digest.
     """
 
-    import pyspark
     import numpy as np
+    import pyspark
 
     # Spark 3.1.0+ has a semanticHash() method on DataFrame
     if Version(pyspark.__version__) >= Version("3.1.0"):
@@ -158,7 +159,7 @@ def get_normalized_md5_digest(elements: List[Any]) -> str:
             INVALID_PARAMETER_VALUE,
         )
 
-    md5 = hashlib.md5()
+    md5 = insecure_hash.md5()
     for element in elements:
         md5.update(element)
 

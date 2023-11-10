@@ -1,18 +1,18 @@
-import mlflow
 import os
 import random
 import shutil
 import string
-from typing import Generator
-
 from contextlib import contextmanager
-from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
-from mlflow.recipes.step import BaseStep
 from pathlib import Path
+from typing import Generator, Optional
+
 from sklearn.datasets import load_diabetes, load_iris
-from sklearn.dummy import DummyRegressor, DummyClassifier
+from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
+import mlflow
+from mlflow.recipes.step import BaseStep
+from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
 
 RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_RECIPE_EXAMPLE_PATH"
 RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/recipes/regression"
@@ -53,10 +53,7 @@ def train_and_log_model(is_dummy=False):
     mlflow.set_experiment("demo")
     with mlflow.start_run() as run:
         X, y = load_diabetes(as_frame=True, return_X_y=True)
-        if is_dummy:
-            model = DummyRegressor(strategy="constant", constant=42)
-        else:
-            model = LinearRegression()
+        model = DummyRegressor(strategy="constant", constant=42) if is_dummy else LinearRegression()
         fitted_model = model.fit(X, y)
         mlflow.sklearn.log_model(fitted_model, artifact_path="train/model")
         return run.info.run_id, fitted_model
@@ -118,7 +115,7 @@ class BaseStepImplemented(BaseStep):
 
 
 def list_all_artifacts(
-    tracking_uri: str, run_id: str, path: str = None
+    tracking_uri: str, run_id: str, path: Optional[str] = None
 ) -> Generator[str, None, None]:
     artifacts = mlflow.tracking.MlflowClient(tracking_uri).list_artifacts(run_id, path)
     for artifact in artifacts:

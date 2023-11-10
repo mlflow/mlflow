@@ -1,13 +1,16 @@
 import pathlib
 import posixpath
+
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.utils.os import is_windows
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     append_to_uri_path,
     append_to_uri_query_params,
+    dbfs_hdfs_uri_to_fuse_path,
     extract_and_normalize_path,
     extract_db_type_from_uri,
     get_databricks_profile_uri_from_artifact_uri,
@@ -15,14 +18,13 @@ from mlflow.utils.uri import (
     get_uri_scheme,
     is_databricks_acled_artifacts_uri,
     is_databricks_uri,
+    is_fuse_or_uc_volumes_uri,
     is_http_uri,
     is_local_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
-    dbfs_hdfs_uri_to_fuse_path,
     resolve_uri_if_local,
 )
-from mlflow.utils.os import is_windows
 
 
 def test_extract_db_type_from_uri():
@@ -689,3 +691,34 @@ def test_resolve_uri_if_local(input_uri, expected_uri):
 )
 def test_resolve_uri_if_local_on_windows(input_uri, expected_uri):
     _assert_resolve_uri_if_local(input_uri, expected_uri)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "/dbfs/my_path",
+        "dbfs:/my_path",
+        "/Volumes/my_path",
+        "/.fuse-mounts/my_path",
+        "//dbfs////my_path",
+        "///Volumes/",
+        "dbfs://my///path",
+    ],
+)
+def test_correctly_detect_fuse_and_uc_uris(uri):
+    assert is_fuse_or_uc_volumes_uri(uri)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "/My_Volumes/my_path",
+        "s3a:/my_path",
+        "Volumes/my_path",
+        "Volume:/my_path",
+        "dbfs/my_path",
+        "/fuse-mounts/my_path",
+    ],
+)
+def test_negative_detection(uri):
+    assert not is_fuse_or_uc_volumes_uri(uri)

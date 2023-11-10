@@ -1,13 +1,14 @@
 """
 Downloads the MovieLens dataset and saves it as an artifact
 """
-import requests
-import tempfile
 import os
+import tempfile
 import zipfile
-import pyspark
-import mlflow
+
 import click
+import requests
+
+import mlflow
 
 
 @click.command(
@@ -16,10 +17,10 @@ import click
 )
 @click.option("--url", default="http://files.grouplens.org/datasets/movielens/ml-20m.zip")
 def load_raw_data(url):
-    with mlflow.start_run() as mlrun:
+    with mlflow.start_run():
         local_dir = tempfile.mkdtemp()
         local_filename = os.path.join(local_dir, "ml-20m.zip")
-        print("Downloading {} to {}".format(url, local_filename))
+        print(f"Downloading {url} to {local_filename}")
         r = requests.get(url, stream=True)
         with open(local_filename, "wb") as f:
             for chunk in r.iter_content(chunk_size=1024):
@@ -27,7 +28,7 @@ def load_raw_data(url):
                     f.write(chunk)
 
         extracted_dir = os.path.join(local_dir, "ml-20m")
-        print("Extracting {} into {}".format(local_filename, extracted_dir))
+        print(f"Extracting {local_filename} into {extracted_dir}")
         with zipfile.ZipFile(local_filename, "r") as zip_ref:
             zip_ref.extractall(local_dir)
 

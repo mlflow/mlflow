@@ -1,11 +1,11 @@
+from typing import Any, Dict, Optional
+
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_inputs import RunInputs
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Run as ProtoRun
-
-from typing import Any, Dict, Optional
 
 
 class Run(_MLflowObject):
@@ -45,7 +45,7 @@ class Run(_MLflowObject):
         """
         The run inputs, including dataset inputs
 
-        :rtype: :py:class:`mlflow.entities.RunData`
+        :rtype: :py:class:`mlflow.entities.RunInputs`
         """
         return self._inputs
 

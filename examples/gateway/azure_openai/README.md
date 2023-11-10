@@ -23,4 +23,4 @@ export OPENAI_API_KEY=...
 
 ## Validating the Azure OpenAI route
 
-See the [OpenAI Example](../openai/openai_example.py) for testing the Azure OpenAI routes. The usage is identical to the standard OpenAI integration from an API perspective.
+See the [OpenAI Example](../openai/example.py) for testing the Azure OpenAI routes. The usage is identical to the standard OpenAI integration from an API perspective.

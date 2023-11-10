@@ -1,5 +1,6 @@
-import os
 import importlib
+import os
+import sys
 from unittest import mock
 
 import importlib_metadata
@@ -7,20 +8,22 @@ import pytest
 
 import mlflow
 import mlflow.utils.requirements_utils
+from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.requirements_utils import (
-    _is_comment,
-    _is_empty,
-    _is_requirements_file,
-    _strip_inline_comment,
-    _join_continued_lines,
-    _parse_requirements,
-    _prune_packages,
-    _strip_local_version_label,
+    _capture_imported_modules,
     _get_installed_version,
     _get_pinned_requirement,
     _infer_requirements,
+    _is_comment,
+    _is_empty,
+    _is_requirements_file,
+    _join_continued_lines,
     _normalize_package_name,
+    _parse_requirements,
+    _prune_packages,
     _PyPIPackageIndex,
+    _strip_inline_comment,
+    _strip_local_version_label,
 )
 
 
@@ -75,8 +78,8 @@ def test_parse_requirements(tmp_path, monkeypatch):
     """
     Ensures `_parse_requirements` returns the same result as `pip._internal.req.parse_requirements`
     """
-    from pip._internal.req import parse_requirements as pip_parse_requirements
     from pip._internal.network.session import PipSession
+    from pip._internal.req import parse_requirements as pip_parse_requirements
 
     root_req_src = """
 # No version specifier
@@ -203,7 +206,7 @@ def test_capture_imported_modules():
     from mlflow.utils._capture_modules import _CaptureImportedModules
 
     with _CaptureImportedModules() as cap:
-        import math  # pylint: disable=lazy-builtin-import,unused-import
+        import math  # pylint: disable=lazy-builtin-import  # noqa: F401
 
         __import__("pandas")
         importlib.import_module("numpy")
@@ -332,7 +335,9 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
             pass
 
     with _CaptureImportedModules() as cap:
-        # pylint: disable=unused-import
+        # Delete `databricks` from the cache to ensure we load from the dummy module created above.
+        if "databricks" in sys.modules:
+            del sys.modules["databricks"]
         import databricks
         import databricks.automl
         import databricks.automl_foo
@@ -345,12 +350,11 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
     assert "databricks.automl_foo" not in cap.imported_modules
 
     with _CaptureImportedModules() as cap:
-        # pylint: disable=unused-import
         import databricks.automl
         import databricks.automl_foo
         import databricks.automl_runtime
         import databricks.model_monitoring
-        import databricks.other
+        import databricks.other  # noqa: F401
 
     assert "databricks.automl" in cap.imported_modules
     assert "databricks.model_monitoring" in cap.imported_modules
@@ -383,3 +387,48 @@ def test_infer_pip_requirements_scopes_databricks_imports():
             "databricks-model-monitoring==1.0",
         ]
         assert mlflow.utils.requirements_utils._MODULES_TO_PACKAGES["databricks"] == ["koalas"]
+
+
+def test_capture_imported_modules_include_deps_by_params():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            if params is not None:
+                import pandas as pd
+                import sklearn  # noqa: F401
+
+                return pd.DataFrame([params])
+            return model_input
+
+    params = {"a": 1, "b": "string", "c": True}
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=(["input1"], params),
+        )
+
+    captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")
+    assert "pandas" in captured_modules
+    assert "sklearn" in captured_modules
+
+
+def test_capture_imported_modules_includes_gateway_extra():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, _, inputs, params=None):
+            import mlflow.gateway  # noqa: F401
+
+            return inputs
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=([1, 2, 3]),
+        )
+
+    captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")
+    assert "mlflow.gateway" in captured_modules
+
+    pip_requirements = infer_pip_requirements(model_info.model_uri, "pyfunc")
+    assert f"mlflow[gateway]=={mlflow.__version__}" in pip_requirements

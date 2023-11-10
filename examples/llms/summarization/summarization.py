@@ -1,11 +1,11 @@
 import os
+
 import pandas as pd
+from langchain.chains import LLMChain
+from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
 
 import mlflow
-
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain.llms import OpenAI
 
 assert (
     "OPENAI_API_KEY" in os.environ

@@ -1,15 +1,15 @@
 import json
 import logging
-from typing import Optional, Any, Dict, Union
+from functools import cached_property
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
-from functools import cached_property
 
 from mlflow.data.dataset import Dataset
-from mlflow.data.schema import TensorDatasetSchema
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_numpy_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.data.schema import TensorDatasetSchema
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.annotations import experimental
@@ -180,6 +180,29 @@ def from_numpy(
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: The dataset digest (hash). If unspecified, a digest is computed
                    automatically.
+
+    .. testcode:: python
+        :caption: Basic Example
+
+        import mlflow
+        import numpy as np
+
+        x = np.random.uniform(size=[2, 5, 4])
+        y = np.random.randint(2, size=[2])
+        dataset = mlflow.data.from_numpy(x, targets=y)
+
+    .. testcode:: python
+        :caption: Dict Example
+
+        import mlflow
+        import numpy as np
+
+        x = {
+            "feature_1": np.random.uniform(size=[2, 5, 4]),
+            "feature_2": np.random.uniform(size=[2, 5, 4]),
+        }
+        y = np.random.randint(2, size=[2])
+        dataset = mlflow.data.from_numpy(x, targets=y)
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source

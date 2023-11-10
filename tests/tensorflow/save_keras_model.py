@@ -1,10 +1,11 @@
-import tensorflow as tf
-import numpy as np
+import argparse
 import pickle
+
+import numpy as np
+import tensorflow as tf
 
 import mlflow.tensorflow
 from mlflow.utils.file_utils import TempDir
-import argparse
 
 parser = argparse.ArgumentParser()
 

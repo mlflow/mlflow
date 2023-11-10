@@ -19,7 +19,7 @@ type Props = {
 
 type State = any;
 
-class AppErrorBoundary extends Component<Props, State> {
+class AppErrorBoundary extends Component<React.PropsWithChildren<Props>, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };

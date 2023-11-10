@@ -1,6 +1,6 @@
 /// <reference types="react" />
 import type { HTMLDataAttributes } from '../types';
-interface TableRowSelectCellProps extends HTMLDataAttributes {
+interface TableRowSelectCellProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement> {
     /** Called when the checkbox is clicked */
     onChange?: (event: unknown) => void;
     /** Whether the checkbox is checked */
@@ -11,6 +11,7 @@ interface TableRowSelectCellProps extends HTMLDataAttributes {
     noCheckbox?: boolean;
     /** Whether the checkbox is disabled */
     isDisabled?: boolean;
+    checkboxLabel?: string;
 }
 export declare const TableRowSelectCell: import("react").ForwardRefExoticComponent<TableRowSelectCellProps & import("react").RefAttributes<HTMLDivElement>>;
 export {};

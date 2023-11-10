@@ -1,26 +1,29 @@
+import importlib
+import importlib.metadata
 import os
 import shlex
 import sys
 import textwrap
-import importlib.metadata
-import importlib
 import types
 
+from flask import Flask, Response, send_from_directory
 from packaging.version import Version
-from flask import __version__ as flask_version
-from flask import Flask, send_from_directory, Response
+
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
-    get_artifact_handler,
-    get_metric_history_bulk_handler,
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
+    create_promptlab_run_handler,
+    gateway_proxy_handler,
+    get_artifact_handler,
+    get_metric_history_bulk_handler,
     get_model_version_artifact_handler,
     search_datasets_handler,
+    upload_artifact_handler,
 )
-from mlflow.utils.process import _exec_cmd
 from mlflow.utils.os import is_windows
+from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
 
 # NB: These are internal environment variables used for communication between
@@ -36,7 +39,7 @@ ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
-IS_FLASK_V1 = Version(flask_version) < Version("2.0")
+IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
 
 
 for http_path, handler, methods in handlers.get_endpoints():
@@ -82,9 +85,25 @@ def serve_get_metric_history_bulk():
 
 
 # Serve the "experiments/search-datasets" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"))
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
 def serve_search_datasets():
     return search_datasets_handler()
+
+
+# Serve the "runs/create-promptlab-run" route.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"), methods=["POST"])
+def serve_create_promptlab_run():
+    return create_promptlab_run_handler()
+
+
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
+def serve_gateway_proxy():
+    return gateway_proxy_handler()
+
+
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact"), methods=["POST"])
+def serve_upload_artifact():
+    return upload_artifact_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
@@ -168,7 +187,9 @@ def get_app_client(app_name: str, *args, **kwargs):
 def _build_waitress_command(waitress_opts, host, port, app_name, is_factory):
     opts = shlex.split(waitress_opts) if waitress_opts else []
     return [
-        "waitress-serve",
+        sys.executable,
+        "-m",
+        "waitress",
         *opts,
         f"--host={host}",
         f"--port={port}",
@@ -182,6 +203,8 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     bind_address = f"{host}:{port}"
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
     return [
+        sys.executable,
+        "-m",
         "gunicorn",
         *opts,
         "-b",

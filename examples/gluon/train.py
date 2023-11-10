@@ -3,7 +3,7 @@ from mxnet.gluon import Trainer
 from mxnet.gluon.contrib import estimator
 from mxnet.gluon.data.vision import datasets, transforms
 from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
-from mxnet.gluon.nn import HybridSequential, Dense, Flatten, MaxPool2D, Conv2D
+from mxnet.gluon.nn import Conv2D, Dense, Flatten, HybridSequential, MaxPool2D
 from mxnet.metric import Accuracy
 
 # The following import and function call are the only additions to code required

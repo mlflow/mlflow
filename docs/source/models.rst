@@ -84,6 +84,12 @@ SageMaker as long as they support the ``python_function`` flavor:
 
     mlflow deployments create -t sagemaker -m my_model [other options]
 
+.. note::
+    When a model registered in the MLflow Model Registry is downloaded, a YAML file named
+    `registered_model_meta` is added to the model directory on the downloader's side.
+    This file contains the name and version of the model referenced in the MLflow Model Registry,
+    and will be used for deployment and other purposes.
+
 Fields in the MLmodel Format
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Apart from a **flavors** field listing the model flavors, the MLmodel YAML format can contain
@@ -204,19 +210,90 @@ Model Signature And Input Example
 ---------------------------------
 When working with ML models you often need to know some basic functional properties of the model
 at hand, such as "What inputs does it expect?" and "What output does it produce?". MLflow models can
-include the following additional metadata about model inputs and outputs that can be used by
+include the following additional metadata about model inputs, outputs and params that can be used by
 downstream tooling:
 
-* :ref:`Model Signature <model-signature>` - description of a model's inputs and outputs.
+* :ref:`Model Inference Params <inference-params>` - description of params used for model inference.
+* :ref:`Model Signature <model-signature>` - description of a model's inputs, outputs and parameters.
 * :ref:`Model Input Example <input-example>` - example of a valid model input.
+
+.. _inference-params:
+
+Model Inference Params
+^^^^^^^^^^^^^^^^^^^^^^
+Inference params are parameters that are passed to the model at inference time. These parameters
+do not need to be specified when training the model, but could be useful for inference. With the 
+advances in foundational models, more often "inference configuration" is used to modify the behavior 
+of a model. In some cases, especially popular LLMs, the same model may require different parameter 
+configurations for different samples at inference time. 
+
+With this newly introduced feature, you can now specify a dictionary of inference params during 
+model inference, providing a broader utility and improved control over the generated inference 
+results, particularly for LLM use cases. By passing different params such as ``temperature``, 
+``max_length``, etc. to the model at inference time, you can easily control the output of the model.
+
+In order to use params at inference time, a valid :ref:`Model Signature <model-signature>` with 
+``params`` must be defined. The params are passed to the model at inference time as a dictionary 
+and each param value will be validated against the corresponding param type defined in the model
+signature. Valid param types are ``DataType`` or ``a list of DataType`` as listed below.
+
+* DataType.string or an array of DataType.string
+* DataType.integer or an array of DataType.integer
+* DataType.boolean or an array of DataType.boolean
+* DataType.double or an array of DataType.double
+* DataType.float or an array of DataType.float
+* DataType.long or an array of DataType.long
+* DataType.datetime or an array of DataType.datetime
+
+.. note::
+    When validating param values, the values will be converted to python native types.
+    For example, ``np.float32(0.1)`` will be converted to ``float(0.1)``.
+
+A simple example of using params for model inference:
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import infer_signature
+
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, ctx, model_input, params):
+            return list(params.values())
+
+
+    params = {"str_param": "string", "int_array": [1, 2, 3]}
+    # params' default values are saved with ModelSignature
+    signature = infer_signature(["input"], params=params)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(), artifact_path="my_model", signature=signature
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # Not passing params -- predict with default values
+    loaded_predict = loaded_model.predict(["input"])
+    assert loaded_predict == ["string", [1, 2, 3]]
+
+    # Passing some params -- add default values
+    loaded_predict = loaded_model.predict(["input"], params={"str_param": "new_string"})
+    assert loaded_predict == ["new_string", [1, 2, 3]]
+
+    # Passing all params -- override
+    loaded_predict = loaded_model.predict(
+        ["input"], params={"str_param": "new_string", "int_array": [4, 5, 6]}
+    )
+    assert loaded_predict == ["new_string", [4, 5, 6]]
 
 .. _model-signature:
 
 Model Signature
 ^^^^^^^^^^^^^^^
-Model signatures define input and output schemas for MLflow models, providing a standard 
+Model signatures define input, output and parameters schemas for MLflow models, providing a standard 
 interface to codify and enforce the correct use of your models. Signatures are fetched by the MLflow Tracking
-UI and Model Registry UI to display model inputs and outputs. They are also utilized by
+UI and Model Registry UI to display model inputs, outputs and params. They are also utilized by
 :ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
 the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
 for more details).
@@ -236,7 +313,11 @@ A model signature consists on inputs and outputs schemas, each of which can be e
 Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`.
 Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. 
+Params schema is a sequence of ParamSpec, each of which contains ``name``, ``type``, ``default`` and ``shape`` fields.
+``type`` field must be specified as one of the :py:class:`MLflow data types <mlflow.types.DataType>`, and ``shape`` 
+field should be ``None`` for scalar parameters, or ``(-1,)`` for list parameters.
+See some examples of constructing them below.
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
@@ -255,6 +336,7 @@ The output is an unnamed integer specifying the predicted class.
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
         "petal width (cm)", "type": "double"}, {"name": "class", "type": "string", "optional": "true"}]'
       outputs: '[{"type": "integer"}]'
+      params: null
 
 Tensor-based Signature Example
 """"""""""""""""""""""""""""""
@@ -274,14 +356,33 @@ and the output is the batch size and is thus set to -1 to allow for variable bat
   signature:
       inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
       outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
+      params: null
+
+Signature with params Example
+"""""""""""""""""""""""""""""
+The params field is optional and is used to specify parameters that can be used for model inference.
+Params accept scalar values of type :py:class:`MLflow data types <mlflow.types.DataType>`, or a list
+of such values. The default value of a parameter is specified by setting the ``default`` field, and the value
+should be of the type specified by ``type`` field. The ``shape`` field can be used to specify the shape 
+of the value, it should be ``None`` for scalar values and ``(-1,)`` for a list.
+
+.. code-block:: yaml
+
+    signature:
+        inputs: '[{"name": "text", "type": "string"}]'
+        outputs: '[{"name": "output", "type": "string"}]'
+        params: '[{"name": "temperature", "type": "float", "default": 0.5, "shape": null},
+                  {"name": "top_k", "type": "integer", "default": 1, "shape": null},
+                  {"name": "suppress_tokens", "type": "integer", "default": [101, 102], "shape": [-1]}]'
 
 .. _signature-enforcement:
 
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
-Schema enforcement checks the provided input against the model's signature
-and raises an exception if the input is not compatible. This enforcement is applied in MLflow before
-calling the underlying model implementation. Note that this enforcement only applies when using :ref:`MLflow
+Schema enforcement checks the provided input and params against the model's signature and 
+raises an exception if the input is not compatible and will issue a warning or raise an exception if the params are incompatible. This enforcement is applied in MLflow before
+calling the underlying model implementation, and during model inference process.
+Note that this enforcement only applies when using :ref:`MLflow
 model deployment tools <built-in-deployment>` or when loading models as ``python_function``. In
 particular, it is not applied to models that are loaded in their native format (e.g. by calling
 :py:func:`mlflow.sklearn.load_model() <mlflow.sklearn.load_model>`).
@@ -307,17 +408,30 @@ be made compatible, MLflow will raise an error.
 For models with tensor-based signatures, type checking is strict (i.e an exception will be thrown if
 the input type does not match the type specified by the schema).
 
+Params Type and Shape Enforcement
+"""""""""""""""""""""""""""""""""
+The params types and shapes are checked against the signature.
+
+MLflow verifies the compatibility of each parameter provided during inference by comparing its type and shape 
+with those specified in the signature. Scalar values should have a shape of ``None``, while list values should have 
+a shape of ``(-1,)``. If the parameter's type or shape is incompatible, an exception will be raised. 
+Additionally, the value of the parameter is validated against the specified type in the signature. We attempt 
+to convert the value to the specified type, and if this conversion fails, an MlflowException will be raised.
+A valid list of params is documented in :ref:`Model Inference Params <inference-params>` section.
+Models that have signatures and are used for inference with declared params not part of the logged signature will
+have a warning issued with each request and the invalid params ignored during inference.
+
 Handling Integers With Missing Values
 """""""""""""""""""""""""""""""""""""
 Integer data with missing values is typically represented as floats in Python. Therefore, data
-types of integer columns in Python can vary depending on the data sample. This type variance can
+types of integer columns in Python can vary depending on the data sample. This type of variance can
 cause schema enforcement errors at runtime since integer and float are not compatible types. For
 example, if your training data did not have any missing values for integer column c, its type will
 be integer. However, when you attempt to score a sample of the data that does include a missing
 value in column c, its type will be float. If your model signature specified c to have integer type,
 MLflow will raise an error since it can not convert float to int. Note that MLflow uses python to
 serve models and to deploy models to Spark, so this can affect most model deployments. The best way
-to avoid this problem is to declare integer columns as doubles (float64) whenever there can be
+to avoid this problem is to declare integer columns as doubles (float64) whenever there are
 missing values.
 
 Handling Date and Timestamp
@@ -343,14 +457,16 @@ How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To include a signature with your model, pass a :ref:`model input example <input-example>` to the 
 appropriate log_model or save_model call, e.g. :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`,
-and the model signature will be automatically inferred from from the input example and the model's
+and the model signature will be automatically inferred from the input example and the model's
 predicted output of the input example.
 
 You may also include a signature object with your model by passing a :py:class:`signature object
 <mlflow.models.ModelSignature>` as an argument to your log_model or save_model call. The model signature
 object can be created by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with
-valid model inputs (e.g. the training dataset with target column omitted) and valid model outputs
-(e.g. model predictions generated on the training dataset).
+valid model inputs (e.g. the training dataset with target column omitted), valid model outputs
+(e.g. model predictions generated on the training dataset), and valid model parameters (a dictionary of 
+parameters passed to model for inference; e.g. `Generation Configs for transformers 
+<https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig>`_).
 
 .. note::
     Model signatures are utilized in :ref:`MLflow model deployment tools <built-in-deployment>`, which
@@ -464,6 +580,78 @@ The same signature can be explicitly created and logged as follows:
     with mlflow.start_run():
         mlflow.tensorflow.log_model(model, "mnist_cnn", signature=signature)
 
+
+Signature with params Example
+"""""""""""""""""""""""""""""
+The following example demonstrates how to store a model signature with params
+for a simple transformers model:
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import infer_signature
+    import transformers
+
+    architecture = "mrm8488/t5-base-finetuned-common_gen"
+    model = transformers.pipeline(
+        task="text2text-generation",
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(architecture),
+        model=transformers.T5ForConditionalGeneration.from_pretrained(architecture),
+    )
+    data = "pencil draw paper"
+
+    params = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+        "begin_suppress_tokens": [1, 2, 3],
+    }
+
+    # infer signature with params
+    signature = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(model, data),
+        params,
+    )
+
+    # save model with signature
+    mlflow.transformers.save_model(
+        model,
+        "text2text",
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
+
+    # predict with params
+    result = pyfunc_loaded.predict(data, params=params)
+
+The same signature can be created explicitly as follows:
+
+.. code-block:: python
+
+    from mlflow.models import ModelSignature
+    from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema
+
+    input_schema = Schema([ColSpec(type="string")])
+    output_schema = Schema([ColSpec(type="string")])
+    params_schema = ParamSchema(
+        [
+            ParamSpec("top_k", "long", 2),
+            ParamSpec("num_beams", "long", 5),
+            ParamSpec("max_length", "long", 30),
+            ParamSpec("temperature", "double", 0.62),
+            ParamSpec("top_p", "double", 0.85),
+            ParamSpec("repetition_penalty", "double", 1.15),
+            ParamSpec("begin_suppress_tokens", "long", [1, 2, 3], (-1,)),
+        ]
+    )
+    signature = ModelSignature(
+        inputs=input_schema, outputs=output_schema, params=params_schema
+    )
+
 .. _how-to-set-signatures-on-models:
 
 How To Set Signatures on Models
@@ -558,7 +746,7 @@ as follows:
     model_version = 1
     mv = client.get_model_version(name=model_name, version=model_version)
 
-    # set a dummy signature on the model vesion source
+    # set a dummy signature on the model version source
     signature = infer_signature(np.array([1]))
     set_signature(mv.source, signature)
 
@@ -579,7 +767,8 @@ To include an input example with your model, add it to the appropriate log_model
 model signatures in log_model calls when signatures aren't specified.
 
 Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). See examples below:
+(i.e numpy.ndarrays). We offer support for input_example with params by using tuple to combine model
+inputs and params. See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -630,6 +819,27 @@ The following example demonstrates how you can log a tensor-based input example 
         dtype=np.uint8,
     )
     mlflow.tensorflow.log_model(..., input_example=input_example)
+
+How To Log Model With Example Containing Params
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For models that require additional parameters during inference, you can include an input_example 
+containing params when saving or logging the model. To achieve this, the sample input should be 
+provided as a ``tuple``. The first element of the tuple is the input data example, and the
+second element is a ``dict`` of params. A comprehensive list of valid params is documented in
+:ref:`Model Inference Params <inference-params>` section.
+
+* Python ``tuple``: (input_data, params)
+
+The following example demonstrates how to log a model with an example containing params:
+
+.. code-block:: python
+
+    # input_example could be column-based or tensor-based example as shown above
+    # params must be a valid dictionary of params
+    input_data = "Hello, Dolly!"
+    params = {"temperature": 0.5, "top_k": 1}
+    input_example = (input_data, params)
+    mlflow.transformers.log_model(..., input_example=input_example)
 
 .. _model-api:
 
@@ -703,7 +913,8 @@ automatic dependency management).
 Once loaded, you can score the model by calling the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
 method, which has the following signature::
 
-  predict(model_input: [pandas.DataFrame, numpy.ndarray, Dict[str, np.ndarray]]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+  predict(data: Union[pandas.(Series | DataFrame), numpy.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any], str],
+          params: Optional[Dict[str, Any]] = None) → Union[pandas.(Series | DataFrame), numpy.ndarray, list, str]
 
 All PyFunc models will support `pandas.DataFrame` as an input. In addition to `pandas.DataFrame`,
 DL PyFunc models will also support tensor inputs in the form of `numpy.ndarrays`. To verify
@@ -733,6 +944,39 @@ Furthermore, if you want to run model inference in the same environment used in 
 from the `conda.yaml` file, ensuring that the python UDF will execute with the exact package versions that were used
 during training.
 
+Some PyFunc models may accept model load configuration, which controls how the model is loaded and predictions
+computed. You can learn which configuration the model supports by inspecting the model's flavor metadata:
+
+.. code-block:: python
+
+    model_info = mlflow.models.get_model_info(model_uri)
+    model_info.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.MODEL_CONFIG]
+
+Alternatively, you can load the PyFunc model and inspect the `model_config` property:
+
+.. code-block:: python
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    pyfunc_model.model_config
+
+Model configuration can be changed at loading time by indicating `model_config` parameter in the 
+:py:func:`mlflow.pyfunc.load_model` method:
+
+.. code-block:: python
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri, model_config=dict(temperature=0.93))
+
+When a model configuration value is changed, those values the configuration the model was saved with. Indicating an
+invalid model configuration key for a model results in that configuration being ignored. A warning is displayed mentioning
+the ignored entries.
+
+.. note:: 
+    
+    **Model configuration vs parameters with default values in signatures:** Use model configuration when you need to provide
+    model publishers for a way to change how the model is loaded into memory and how predictions are computed for all the
+    samples. For instance, a key like `user_gpu`. Model consumers are not able to change those values at predict time. Use
+    parameters with default values in the signature to provide a users the ability to change how predictions are computed on
+    each data sample.
 
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -869,10 +1113,10 @@ Keras (``keras``)
 
 The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
 and R clients. In R, you can save or log the model using
-`mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__.
-These functions serialize Keras models models as HDF5 files using the Keras library's built-in
+``mlflow_save_model`` and ``mlflow_log_model``.
+These functions serialize Keras models as HDF5 files using the Keras library's built-in
 model persistence functions. You can use
-`mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
+``mlflow_load_model`` function in R to load MLflow Models
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 Keras pyfunc usage
@@ -918,6 +1162,10 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
 MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
 
+.. warning::
+
+    The ``mleap`` model flavor is deprecated as of MLflow 2.6.0 and will be removed in a future release.
+
 The ``mleap`` model flavor supports saving Spark models in MLflow format using the
 `MLeap <https://combust.github.io/mleap-docs/>`_ persistence mechanism. MLeap is an inference-optimized
 format and execution engine for Spark models that does not depend on
@@ -934,9 +1182,8 @@ The :py:mod:`mlflow.mleap` module also
 defines :py:func:`save_model() <mlflow.mleap.save_model>` and
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format,
 but these methods do not include the ``python_function`` flavor in the models they produce.
-Similarly, ``mleap`` models can be saved in R with `mlflow_save_model <R-api.rst#mlflow-save-model>`__
-and loaded with `mlflow_load_model <R-api.rst#mlflow-load-model>`__, with
-`mlflow_save_model <R-api.rst#mlflow-save-model>`__ requiring `sample_input` to be specified as a
+Similarly, ``mleap`` models can be saved in R with ``mlflow_save_model`` and loaded with ``mlflow_load_model``, with 
+``mlflow_save_model`` requiring `sample_input` to be specified as a 
 sample Spark dataframe containing input data to the model is required by MLeap for data schema
 inference.
 
@@ -1230,6 +1477,14 @@ evaluation. Finally, you can use the :py:func:`mlflow.onnx.load_model()` method 
 Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
+
+.. warning::
+    The default behavior for saving ONNX files is to use the ONNX save option ``save_as_external_data=True``
+    in order to support model files that are **in excess of 2GB**. For edge deployments of small model files, this 
+    may create issues. If you need to save a small model as a single file for such deployment considerations, 
+    you can set the parameter ``save_as_external_data=False`` in either :py:func:`mlflow.onnx.save_model` or 
+    :py:func:`mlflow.onnx.log_model` to force the serialization of the model as a small file. Note that if the 
+    model is in excess of 2GB, **saving as a single file will not work**. 
 
 ONNX pyfunc usage example
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1845,11 +2100,11 @@ using a ``fastai`` data loader:
         artifacts = [
             f.path for f in mlflow.MlflowClient().list_artifacts(r.info.run_id, "model")
         ]
-        print("run_id: {}".format(r.info.run_id))
-        print("artifacts: {}".format(artifacts))
-        print("params: {}".format(r.data.params))
-        print("metrics: {}".format(r.data.metrics))
-        print("tags: {}".format(tags))
+        print(f"run_id: {r.info.run_id}")
+        print(f"artifacts: {artifacts}")
+        print(f"params: {r.data.params}")
+        print(f"metrics: {r.data.metrics}")
+        print(f"tags: {tags}")
 
 
     def main(epochs=5, learning_rate=0.01):
@@ -1904,7 +2159,7 @@ using a ``fastai`` data loader:
 
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
 
-        model_uri = "runs:/{}/model".format(run.info.run_id)
+        model_uri = f"runs:/{run.info.run_id}/model"
         loaded_model = mlflow.fastai.load_model(model_uri)
 
         test_df = df.copy()
@@ -2303,7 +2558,7 @@ Model with the ``openai`` flavor as a dictionary of the model's attributes.
 
 Example:
 
-.. literalinclude:: ../../examples/openai/pyfunc.py
+.. literalinclude:: ../../examples/openai/chat_completions.py
     :language: python
 
 
@@ -2326,15 +2581,81 @@ Example: Log a LangChain LLMChain
 .. literalinclude:: ../../examples/langchain/simple_chain.py
     :language: python
 
+.. code-block:: python
+    :caption: Output
+
+    ["\n\nColorful Cozy Creations."]
+
 Example: Log a LangChain Agent
 
 .. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
+.. code-block:: python
+    :caption: Output
+
+    ["1.1044000282035853"]
+
+
+Logging RetrievalQA Chains
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In MLflow, you can use the ``langchain`` flavor to save a ``RetrievalQA`` chain, including the retriever object.
+
+Native LangChain requires the user to handle the serialization and deserialization of the retriever object, but MLflow's ``langchain`` flavor handles that for you.
+
+Here are the two things you need to tell MLflow:
+
+1. Where the retriever object is stored (``persist_dir``).
+2. How to load the retriever object from that location (``loader_fn``).
+
+After you define these, MLflow takes care of the rest, saving both the content in the ``persist_dir`` and pickling the ``loader_fn`` function.
+
 Example: Log a LangChain RetrievalQA Chain
 
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
+
+.. code-block:: python
+    :caption: Output (truncated)
+
+    [" The president said..."]
+
+.. _log-retriever-chain:
+
+Logging a retriever and evaluate it individually
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``langchain`` flavor provides the functionality to log a retriever object and evaluate it individually. This is useful if
+you want to evaluate the quality of the relevant documents returned by a retriever object without directing these documents
+through a large language model (LLM) to yield a summarized response.
+
+In order to log the retriever object in the ``langchain`` flavor, it is also required to specify ``persist_dir``
+and ``loader_fn``, the same as logging the RetrievalQA chain. See the previous section for details about these parameters.
+
+See the following example for more details.
+
+Example: Log a LangChain Retriever
+
+.. literalinclude:: ../../examples/langchain/retriever_chain.py
+    :language: python
+
+.. code-block:: python
+    :caption: Output (truncated)
+
+    [
+        [
+            {
+                "page_content": "Tonight. I call...",
+                "metadata": {"source": "/state.txt"},
+            },
+            {
+                "page_content": "A former top...",
+                "metadata": {"source": "/state.txt"},
+            },
+        ]
+    ]
+
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -2628,9 +2949,9 @@ to formats that are compatible with json serialization and casting to Pandas Dat
 .. note::
     Certain `TextGenerationPipeline` types, particularly instructional-based ones, may return the original
     prompt and included line-formatting carriage returns `"\n"` in their outputs. For these pipeline types,
-    if you would like to disable the prompt return, you can set the following in the `inference_config` dictionary when
+    if you would like to disable the prompt return, you can set the following in the `model_config` dictionary when
     saving or logging the model: `"include_prompt": False`. To remove the newline characters from within the body
-    of the generated text output, you can add the `"collapse_whitespace": True` option to the `inference_config` dictionary.
+    of the generated text output, you can add the `"collapse_whitespace": True` option to the `model_config` dictionary.
     If the pipeline type being saved does not inherit from `TextGenerationPipeline`, these options will not perform
     any modification to the output returned from pipeline inference.
 
@@ -2691,6 +3012,144 @@ expected input to the model to ensure your inference request can be read properl
 avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
+
+Using model_config and model signature params for `transformers` inference
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
+
+* Use ``model_config`` when saving/logging the model. Optionally, specify ``model_config`` when calling ``load_model``.
+* Specify params at inference time when calling ``predict()``
+
+Use ``model_config`` to control how the model is loaded and inference performed for all input samples. Configuration in
+``model_config`` is not overridable at ``predict()`` time unless a ``ModelSignature`` is indicated with the same parameters.
+
+Use ``ModelSignature`` with params schema, on the other hand, to allow downstream consumers to provide additional inference
+params that may be needed to compute the predictions for their specific samples.
+
+.. note::
+    If both ``model_config`` and ``ModelSignature`` with parameters are saved when logging model, both of them
+    will be used for inference. The default parameters in ``ModelSignature`` will override the params in ``model_config``.
+    If extra ``params`` are provided at inference time, they take precedence over all params. We recommend using 
+    ``model_config`` for those parameters needed to run the model in general for all the samples. Then, add 
+    ``ModelSignature`` with parameters for those extra parameters that you want downstream consumers to indicated at
+    per each of the samples.
+
+* Using ``model_config``
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import infer_signature
+    from mlflow.transformers import generate_signature_output
+    import transformers
+
+    architecture = "mrm8488/t5-base-finetuned-common_gen"
+    model = transformers.pipeline(
+        task="text2text-generation",
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(architecture),
+        model=transformers.T5ForConditionalGeneration.from_pretrained(architecture),
+    )
+    data = "pencil draw paper"
+
+    # Infer the signature
+    signature = infer_signature(
+        data,
+        generate_signature_output(model, data),
+    )
+
+    # Define an model_config
+    model_config = {
+        "num_beams": 5,
+        "max_length": 30,
+        "do_sample": True,
+        "remove_invalid_values": True,
+    }
+
+    # Saving model_config with the model
+    mlflow.transformers.save_model(
+        model,
+        path="text2text",
+        model_config=model_config,
+        signature=signature,
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
+    # model_config will be applied
+    result = pyfunc_loaded.predict(data)
+
+    # overriding some inference configuration with diferent values
+    pyfunc_loaded = mlflow.pyfunc.load_model(
+        "text2text", model_config=dict(do_sample=False)
+    )
+
+.. note::
+    Note that in the previous example, the user can't override the configuration ``do_sample``
+    when calling ``predict``.
+
+* Specifying params at inference time
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import infer_signature
+    from mlflow.transformers import generate_signature_output
+    import transformers
+
+    architecture = "mrm8488/t5-base-finetuned-common_gen"
+    model = transformers.pipeline(
+        task="text2text-generation",
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(architecture),
+        model=transformers.T5ForConditionalGeneration.from_pretrained(architecture),
+    )
+    data = "pencil draw paper"
+
+    # Define an model_config
+    model_config = {
+        "num_beams": 5,
+        "remove_invalid_values": True,
+    }
+
+    # Define the inference parameters params
+    inference_params = {
+        "max_length": 30,
+        "do_sample": True,
+    }
+
+    # Infer the signature including params
+    signature_with_params = infer_signature(
+        data,
+        generate_signature_output(model, data),
+        params=inference_params,
+    )
+
+    # Saving model with signature and model config
+    mlflow.transformers.save_model(
+        model,
+        path="text2text",
+        model_config=model_config,
+        signature=signature_with_params,
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model("text2text")
+
+    # Pass params at inference time
+    params = {
+        "max_length": 20,
+        "do_sample": False,
+    }
+
+    # In this case we only override max_length and do_sample,
+    # other params will use the default one saved on ModelSignature
+    # or in the model configuration.
+    # The final params used for prediction is as follows:
+    # {
+    #    "num_beams": 5,
+    #    "max_length": 20,
+    #    "do_sample": False,
+    #    "remove_invalid_values": True,
+    # }
+    result = pyfunc_loaded.predict(data, params=params)
+
 
 Example of loading a transformers model as a python function
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -3181,7 +3640,7 @@ in your current system environment in order to run the example):
 MLflow also provides an Artifact View UI for comparing inputs and outputs across multiple models
 built with LLMs. For example, after evaluating multiple prompts for question answering
 (see the
-`MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/openai>`_), you can navigate to the Artifact View to view the questions and compare the answers for
+`MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/question_answering/question_answering.py>`_), you can navigate to the Artifact View to view the questions and compare the answers for
 each model:
 
 .. image:: _static/images/artifact-view-ui.png
@@ -3192,21 +3651,267 @@ each model:
 For additional examples demonstrating the use of ``mlflow.evaluate()`` with LLMs, check out the
 `MLflow LLMs example repository <https://github.com/mlflow/mlflow/tree/master/examples/llms>`_.
 
-Evaluating with Custom Metrics
+Evaluating with Extra Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the default set of metrics is insufficient, you can supply ``custom_metrics`` and ``custom_artifacts``
-to :py:func:`mlflow.evaluate()` to produce custom metrics and artifacts for the model(s) that you're evaluating.
+If the default set of metrics is insufficient, you can supply ``extra_metrics`` and ``custom_artifacts``
+to :py:func:`mlflow.evaluate()` to produce extra metrics and artifacts for the model(s) that you're evaluating.
+
+To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions``, ``targets``,
+and ``metrics`` as inputs and outputs a ``MetricValue`` object. ``predictions`` and ``targets`` are ``pandas.Series``
+objects. If ``predictions`` or ``targets`` specified in ``mlflow.evaluate()`` is either ``numpy.array`` or ``List``,
+they will be converted to ``pandas.Series``.
+
+``metrics`` is a dictionary mapping a metric name ``string`` to a ``MetricValue`` object. It contains the values
+from built-in metrics and can be used to compute your custom metric. The built-in metrics are available when
+``model_type`` is defined for ``mlflow.evaluate(... model_type="classifier")``.
+
+.. code-block:: python
+
+    {
+        "accuracy_score": MetricValue(
+            scores=None, justifications=None, aggregate_results={"accuracy_score": 1.0}
+        )
+    }
+
+The ``MetricValue`` class has three attributes:
+
+* ``scores``: a list that contains per-row metrics.
+* ``aggregate_results``: a dictionary that maps the aggregation method names to the corresponding aggregated values. This is intended to be used to aggregate ``scores``.
+* ``justification``: a per-row justification of the values in ``scores``. This is optional, and is usually used with genai metrics.
+
+The code block below demonstrates how to define a custom metric evaluation function:
+
+.. code-block:: python
+
+    from mlflow.metrics import MetricValue
+
+
+    def my_metric_eval_fn(predictions, targets, metrics):
+        scores = np.abs(predictions - targets)
+        return MetricValue(
+            scores=list(scores),
+            aggregate_results={
+                "mean": np.mean(scores),
+                "variance": np.var(scores),
+                "median": np.median(scores),
+            },
+        )
+
+Once you have defined an ``eval_fn``, you then use ``make_metric()`` to wrap this ``eval_fn`` function into a metric.
+In addition to ``eval_fn``, ``make_metric()`` requires an additional parameter , ``greater_is_better``, for optimization purposes. This parameter
+indicates whether this is a metric we want to maximize or minimize.
+
+.. code-block:: python
+
+    from mlflow.metrics import make_metric
+
+    mymetric = make_metric(eval_fn=my_metric_eval_fn, greater_is_better=False)
+
+The extra metric allows you to either evaluate a model directly, or to evaluate an output dataframe. 
+
+To evaluate the model directly, you will have to provide ``mlflow.evaluate()`` either a pyfunc model
+instance, a URI referring to a pyfunc model, or a callable function that takes in the data as input 
+and outputs the predictions.
+
+.. code-block:: python
+
+    def model(x):
+        return x["inputs"]
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    mlflow.evaluate(model, eval_dataset, targets="targets", extra_metrics=[mymetric])
+
+To directly evaluate an output dataframe, you can **omit** the ``model`` parameter. However, you will need
+ to set the ``predictions`` parameter in ``mlflow.evaluate()`` in order to evaluate an inference output dataframe. 
+
+.. code-block:: python
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "predictions": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    result = mlflow.evaluate(
+        data=eval_dataset,
+        predictions="predictions",
+        targets="targets",
+        extra_metrics=[mymetric],
+    )
+
+When your model has multiple outputs, the model must return a pandas DataFrame with multiple columns. You must
+specify one column among the model output columns as the predictions column using the ``predictions`` parameter,
+and other output columns of the model will be accessible from the ``eval_fn`` based on their column names. For example, if 
+your model has two outputs ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions
+column, and ``retrieved_context`` column will be accessible as the ``context`` parameter from ``eval_fn`` via ``col_mapping``:
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, metrics, context):
+        scores = (predictions == targets) + context
+        return MetricValue(
+            scores=list(scores),
+            aggregate_results={"mean": np.mean(scores), "sum": np.sum(scores)},
+        )
+
+
+    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False, name="mymetric")
+
+
+    def model(x):
+        return pd.DataFrame({"retrieved_context": x["inputs"] + 1, "answer": x["inputs"]})
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    config = {"col_mapping": {"context": "retrieved_context"}}
+
+    result = mlflow.evaluate(
+        model,
+        eval_dataset,
+        predictions="answer",
+        targets="targets",
+        extra_metrics=[mymetric],
+        evaluator_config=config,
+    )
+
+However, you can also avoid using ``col_mapping`` if the parameter of ``eval_fn`` is the same as the output column name of the model. 
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, metrics, retrieved_context):
+        scores = (predictions == targets) + retrieved_context
+        return MetricValue(
+            scores=list(scores),
+            aggregate_results={"mean": np.mean(scores), "sum": np.sum(scores)},
+        )
+
+
+    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False, name="mymetric")
+
+
+    def model(x):
+        return pd.DataFrame({"retrieved_context": x["inputs"] + 1, "answer": x["inputs"]})
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    result = mlflow.evaluate(
+        model,
+        eval_dataset,
+        predictions="answer",
+        targets="targets",
+        extra_metrics=[mymetric],
+    )
+
+``col_mapping`` also allows you to pass additional parameters to the extra metric function, in this case passing a value ``k``.
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, metrics, k):
+        scores = k * (predictions == targets)
+        return MetricValue(scores=list(scores), aggregate_results={"mean": np.mean(scores)})
+
+
+    weighted_mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False)
+
+
+    def model(x):
+        return x["inputs"]
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    config = {"col_mapping": {"k": 5}}
+    mlflow.evaluate(
+        model,
+        eval_dataset,
+        targets="targets",
+        extra_metrics=[weighted_mymetric],
+        evaluator_config=config,
+    )
+
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
-uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
+uses :py:func:`mlflow.evaluate()` with an extra metric function to evaluate the performance of a regressor on the
 `California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
 
 .. literalinclude:: ../../examples/evaluation/evaluate_with_custom_metrics.py
     :language: python
 
-For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
+For a more comprehensive extra metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
+
+Evaluating with a Function
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
+logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
+it. The requirements for the function's input and output are the same as the requirements for a model's input and
+output.
+
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a function:
+
+
+.. literalinclude:: ../../examples/evaluation/evaluate_with_function.py
+    :language: python
+
+Evaluating with a Static Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a static dataset without specifying a model.
+This is useful when you save the model output to a column in a Pandas DataFrame or an MLflow PandasDataset, and
+want to evaluate the static dataset without re-running the model.
+
+If you are using a Pandas DataFrame, you must specify the column name that contains the model output using the
+top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
+
+.. code-block:: python
+
+    # Assume that the model output is saved to the pandas_df["model_output"] column
+    mlflow.evaluate(data=pandas_df, predictions="model_output", ...)
+
+If you are using an MLflow PandasDataset, you must specify the column name that contains the model output using
+the ``predictions`` parameter in :py:func:`mlflow.data.from_pandas()`, and specify ``None`` for the
+``predictions`` parameter in :py:func:`mlflow.evaluate()`:
+
+.. code-block:: python
+
+    # Assume that the model output is saved to the pandas_df["model_output"] column
+    dataset = mlflow.data.from_pandas(pandas_df, predictions="model_output")
+    mlflow.evaluate(data=pandas_df, predictions=None, ...)
+
+When your model has multiple outputs, you must specify one column among the model output columns as the predictions
+column. The other output columns of the model will be treated as "input" columns. For example, if your model
+has two outputs named ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions column. The 
+``retrieved_context`` column will be treated as an "input" column when calculating the metrics.
+
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dataset:
+
+.. literalinclude:: ../../examples/evaluation/evaluate_with_static_dataset.py
+    :language: python
 
 .. _model-validation:
 
@@ -3292,11 +3997,17 @@ been logged: 'baseline_model' and 'candidate_model' for comparison purposes in t
 
 .. note:: Limitations (when the default evaluator is used):
 
-    - Model validation results are not included in the active MLflow run. See `below <models.html#model-validation-with-trubrics>`_ to see how to log validation results with Trubrics.
+    - Model validation results are not included in the active MLflow run.
     - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
 
 Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
+
+.. note:: There are plugins that support in-depth model validation with features that are not supported
+    directly in MLflow. To learn more, see:
+
+    - :ref:`giskard_plugin`
+    - :ref:`trubrics_plugin`.
 
 .. note:: Differences in the computation of Area under Curve Precision Recall score (metric name
     ``precision_recall_auc``) between multi and binary classifiers:
@@ -3320,6 +4031,34 @@ Additional information about model evaluation behaviors and outputs is available
 
     For simplicity purposes, both methodologies evaluation metric results (whether for multi-class
     or binary classification) are unified in the single metric: ``precision_recall_auc``.
+
+.. _giskard_plugin:
+
+Model Validation with Giskard's plugin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To extend the validation capabilities of MLflow and anticipate issues before they go to production, a plugin has been built by `Giskard <https://docs.giskard.ai/en/latest/integrations/mlflow/index.html>`__ allowing users to:
+
+    - scan a model in order to detect hidden vulnerabilities such as
+      `Performance bias <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/performance_bias/index.html>`_,
+      `Unrobustness <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/robustness/index.html>`_,
+      `Overconfidence <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/overconfidence/index.html>`_,
+      `Underconfidence <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/underconfidence/index.html>`_,
+      `Ethical bias <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/ethics/index.html>`_,
+      `Data leakage <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/data_leakage/index.html>`_,
+      `Stochasticity <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/stochasticity/index.html>`_,
+      `Spurious correlation <https://docs.giskard.ai/en/latest/getting-started/key_vulnerabilities/spurious/index.html>`_, and others
+    - explore samples in the data that highlight the vulnerabilities found
+    - log the vulnerabilities as well-defined and quantified metrics
+    - compare the metrics across different models
+
+See the following plugin example notebooks for a demo:
+
+    - `Tabular ML models <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-tabular-example.html>`__
+    - `Text ML models (LLMs) <https://docs.giskard.ai/en/latest/integrations/mlflow/mlflow-llm-example.html>`__
+
+For more information on the plugin, see the `giskard-mlflow docs <https://docs.giskard.ai/en/latest/integrations/mlflow/index.html>`__.
+
+.. _trubrics_plugin:
 
 Model Validation with Trubrics' plugin
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3384,7 +4123,7 @@ instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads 
         def __init__(self, n):
             self.n = n
 
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             return model_input.apply(lambda column: column + self.n)
 
 
@@ -3421,9 +4160,7 @@ evaluate test data.
     from sklearn import datasets
     from sklearn.model_selection import train_test_split
 
-    PYTHON_VERSION = "{major}.{minor}.{micro}".format(
-        major=version_info.major, minor=version_info.minor, micro=version_info.micro
-    )
+    PYTHON_VERSION = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
     iris = datasets.load_iris()
     x = iris.data[:, 2:]
     y = iris.target
@@ -3451,7 +4188,7 @@ evaluate test data.
             self.xgb_model = xgb.Booster()
             self.xgb_model.load_model(context.artifacts["xgb_model"])
 
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, params=None):
             input_matrix = xgb.DMatrix(model_input.values)
             return self.xgb_model.predict(input_matrix)
 
@@ -3462,13 +4199,13 @@ evaluate test data.
     conda_env = {
         "channels": ["defaults"],
         "dependencies": [
-            "python={}".format(PYTHON_VERSION),
+            f"python={PYTHON_VERSION}",
             "pip",
             {
                 "pip": [
-                    "mlflow=={}".format(mlflow.__version__),
-                    "xgboost=={}".format(xgb.__version__),
-                    "cloudpickle=={}".format(cloudpickle.__version__),
+                    f"mlflow=={mlflow.__version__}",
+                    f"xgboost=={xgb.__version__}",
+                    f"cloudpickle=={cloudpickle.__version__}",
                 ],
             },
         ],
@@ -3492,6 +4229,60 @@ evaluate test data.
 
     test_predictions = loaded_model.predict(pd.DataFrame(x_test))
     print(test_predictions)
+
+Example: Logging a transformers model with hf:/ schema to avoid copying large files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example shows how to use a special schema ``hf:/`` to log a transformers model from huggingface
+hub directly. This is useful when the model is too large and especially when you want to serve the 
+model directly, but it doesn't save extra space if you want to download and test the model locally.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.models import infer_signature
+    import numpy as np
+    import transformers
+
+
+    # Define a custom PythonModel
+    class QAModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            """
+            This method initializes the tokenizer and language model
+            using the specified snapshot location from model context.
+            """
+            snapshot_location = context.artifacts["bert-tiny-model"]
+            # Initialize tokenizer and language model
+            tokenizer = transformers.AutoTokenizer.from_pretrained(snapshot_location)
+            model = transformers.BertForQuestionAnswering.from_pretrained(snapshot_location)
+            self.pipeline = transformers.pipeline(
+                task="question-answering", model=model, tokenizer=tokenizer
+            )
+
+        def predict(self, context, model_input, params=None):
+            question = model_input["question"][0]
+            if isinstance(question, np.ndarray):
+                question = question.item()
+            ctx = model_input["context"][0]
+            if isinstance(ctx, np.ndarray):
+                ctx = ctx.item()
+            return self.pipeline(question=question, context=ctx)
+
+
+    # Log the model
+    data = {"question": "Who's house?", "context": "The house is owned by Run."}
+    pyfunc_artifact_path = "question_answering_model"
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            python_model=QAModel(),
+            artifacts={"bert-tiny-model": "hf:/prajjwal1/bert-tiny"},
+            input_example=data,
+            signature=infer_signature(data, ["Run"]),
+            extra_pip_requirements=["torch", "accelerate", "transformers", "numpy"],
+        )
+
 
 .. _custom-flavors:
 
@@ -3532,7 +4323,7 @@ Let's examine the custom flavor module in more detail. The first step is to impo
 inluding ``sktime`` library, various MLflow utilities as well as the MLflow ``pyfunc`` module which
 is required to add the ``pyfunc`` specification to the MLflow model configuration. Note also the
 import of the ``flavor`` module itself. This will be passed to the
-:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current Mlflow
+:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current MLflow
 run.
 
 .. code-block:: python
@@ -3901,7 +4692,7 @@ docstrings.
         def __init__(self, sktime_model):
             self.sktime_model = sktime_model
 
-        def predict(self, dataframe) -> pd.DataFrame:
+        def predict(self, dataframe, params=None) -> pd.DataFrame:
             df_schema = dataframe.columns.values.tolist()
 
             if len(dataframe) > 1:
@@ -4175,6 +4966,11 @@ the type and encoding of the input data
   <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
   will be cast to Numpy arrays.
 
+The json input also has an optional field ``params`` that can be used to pass additional parameters.
+Valid parameters types are ``Union[DataType, List[DataType], None]`` where DataType is 
+:py:class:`MLflow data types <mlflow.types.DataType>`. In order to pass params, a valid 
+:ref:`Model Signature <model-signature>` with ``params`` must be defined.
+
 .. note:: Since JSON loses type information, MLflow will cast the JSON input to the input type specified
     in the model's schema if available. If your model is sensitive to input types, it is recommended that
     a schema is provided for the model to ensure that type mismatch errors do not occur at inference time.
@@ -4213,6 +5009,13 @@ Example requests:
     # numpy/tensor input using TF serving's "inputs" format
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]}
+    }'
+
+    # inference with params
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+        "inputs": {"question": ["What color is it?"],
+                   "context": ["Some people said it was green but I know that it is pink."]},
+        "params": {"max_answer_len": 10}
     }'
 
 

@@ -1,5 +1,9 @@
-import type { CompareRunsChartAxisDef } from './charts/CompareRunsCharts.common';
+import type {
+  RunsChartAxisDef,
+  RunsChartsRunData,
+} from '../runs-charts/components/RunsCharts.common';
 import { getUUID } from '../../../common/utils/ActionUtils';
+import { MetricEntitiesByName } from '../../types';
 
 /**
  * Enum for all recognized chart types used in compare runs
@@ -63,17 +67,50 @@ export abstract class RunsCompareCardConfig {
     }
   }
 
-  static getBaseChartConfigs(primaryMetricKey: string) {
-    const resultChartSet: RunsCompareCardConfig[] = [
-      RunsCompareCardConfig.getEmptyChartCardByType(RunsCompareChartType.PARALLEL, getUUID()),
-    ];
+  static getBaseChartConfigs(primaryMetricKey: string, primary_metric_data: MetricEntitiesByName) {
+    const resultChartSet: RunsCompareCardConfig[] = [];
+    const MAX_NUMBER_OF_METRICS_TO_RENDER = 30;
+    const MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON = 2;
 
-    // Add a bar metric chart only if at least one metric key is detected
+    const metricsToRender: Set<string> = new Set();
+    // Add primary_metric to render first
     if (primaryMetricKey) {
+      metricsToRender.add(primaryMetricKey);
+    }
+
+    // Adding other metrics to render
+    for (const metricsKey of Object.keys(primary_metric_data)) {
+      metricsToRender.add(metricsKey);
+    }
+
+    // Render only first N metrics
+    const renderFirstNMetrics: string[] = [...metricsToRender].slice(
+      0,
+      MAX_NUMBER_OF_METRICS_TO_RENDER,
+    );
+
+    renderFirstNMetrics.forEach((metricsKey) => {
+      let chartType = RunsCompareChartType.BAR;
+      // If the metric has multiple epochs, add a line chart or else add a bar chart
+      if (
+        primary_metric_data[metricsKey]?.step !== undefined &&
+        primary_metric_data[metricsKey]?.step >= MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON
+      ) {
+        chartType = RunsCompareChartType.LINE;
+      }
+
+      // Add a bar metric chart only if at least one metric key is detected
       resultChartSet.push({
-        ...RunsCompareCardConfig.getEmptyChartCardByType(RunsCompareChartType.BAR, getUUID()),
-        metricKey: primaryMetricKey,
+        ...RunsCompareCardConfig.getEmptyChartCardByType(chartType, getUUID()),
+        metricKey: metricsKey,
       } as RunsCompareBarCardConfig);
+    });
+
+    // If no other charts exist, show empty parallel coordinates plot
+    if (resultChartSet.length === 0) {
+      resultChartSet.push(
+        RunsCompareCardConfig.getEmptyChartCardByType(RunsCompareChartType.PARALLEL, getUUID()),
+      );
     }
 
     return resultChartSet;
@@ -83,8 +120,8 @@ export abstract class RunsCompareCardConfig {
 // TODO: add configuration fields relevant to scatter chart
 export class RunsCompareScatterCardConfig extends RunsCompareCardConfig {
   type: RunsCompareChartType.SCATTER = RunsCompareChartType.SCATTER;
-  xaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
-  yaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
+  xaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
+  yaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
   runsCountToCompare = 100;
 }
 
@@ -96,6 +133,11 @@ export class RunsCompareLineCardConfig extends RunsCompareCardConfig {
    * A metric key used for chart's X axis
    */
   metricKey = '';
+
+  /**
+   * Smoothness
+   */
+  lineSmoothness = 0;
 
   /**
    * Y axis mode
@@ -121,9 +163,9 @@ export class RunsCompareBarCardConfig extends RunsCompareCardConfig {
 // TODO: add configuration fields relevant to contour chart
 export class RunsCompareContourCardConfig extends RunsCompareCardConfig {
   type: RunsCompareChartType.CONTOUR = RunsCompareChartType.CONTOUR;
-  xaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
-  yaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
-  zaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
+  xaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
+  yaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
+  zaxis: RunsChartAxisDef = { key: '', type: 'METRIC' };
 }
 
 // TODO: add configuration fields relevant to parallel coords chart

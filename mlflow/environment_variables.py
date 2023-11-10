@@ -16,14 +16,14 @@ class _EnvironmentVariable:
         self.default = default
 
     @property
-    def is_defined(self):
+    def defined(self):
         return self.name in os.environ
 
     def get_raw(self):
         return os.getenv(self.name)
 
     def set(self, value):
-        os.environ[self.name] = value
+        os.environ[self.name] = str(value)
 
     def unset(self):
         os.environ.pop(self.name, None)
@@ -46,6 +46,9 @@ class _EnvironmentVariable:
     def __repr__(self):
         return repr(self.name)
 
+    def __format__(self, format_spec: str) -> str:
+        return self.name.__format__(format_spec)
+
 
 class _BooleanEnvironmentVariable(_EnvironmentVariable):
     """
@@ -60,7 +63,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         super().__init__(name, bool, default)
 
     def get(self):
-        if not self.is_defined:
+        if not self.defined:
             return self.default
 
         val = os.getenv(self.name)
@@ -102,10 +105,14 @@ MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
-#: Specifies whether MLFlow HTTP requests should be signed using AWS signature V4. It will overwrite
+#: Specifies whether MLflow HTTP requests should be signed using AWS signature V4. It will overwrite
 #: (default: ``False``). When set, it will overwrite the "Authorization" HTTP header.
 #: See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
 MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIGV4", False)
+
+#: Specifies the auth provider to sign the MLflow HTTP request
+#: (default: ``None``). When set, it will overwrite the "Authorization" HTTP header.
+MLFLOW_TRACKING_AUTH = _EnvironmentVariable("MLFLOW_TRACKING_AUTH", str, None)
 
 #: Specifies the chunk size to use when downloading a file from GCS
 #: (default: ``None``). If None, the chunk size is automatically determined by the
@@ -282,6 +289,9 @@ MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_MULTIPART_DOWNLOAD", True
 )
 
+# Specifies whether or not to use multipart upload when uploading large artifacts.
+MLFLOW_ENABLE_MULTIPART_UPLOAD = _BooleanEnvironmentVariable("MLFLOW_ENABLE_MULTIPART_UPLOAD", True)
+
 #: Private environment variable that's set to ``True`` while running tests.
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
 
@@ -346,11 +356,100 @@ MLFLOW_ENV_ROOT = _EnvironmentVariable(
     "MLFLOW_ENV_ROOT", str, str(Path.home().joinpath(".mlflow", "envs"))
 )
 
+#: Specifies whether or not to use DBFS FUSE mount to store artifacts on Databricks
+#: (default: ``False``)
+MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", True
+)
+
 #: Private environment variable that should be set to ``True`` when running autologging tests.
 #: (default: ``False``)
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
 
 #: (Experimental, may be changed or removed)
-#: Specifies the uri of a Mlflow Gateway Server instance to be used with the Gateway Client APIs
+#: Specifies the uri of a MLflow Gateway Server instance to be used with the Gateway Client APIs
 #: (default: ``None``)
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
+
+
+#: Specifies the path of the config file for MLflow AI Gateway.
+#: (default: ``None``)
+MLFLOW_GATEWAY_CONFIG = _EnvironmentVariable("MLFLOW_GATEWAY_CONFIG", str, None)
+
+#: Specifies whether to display the progress bar when uploading/downloading artifacts.
+#: (default: ``True``)
+MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", True
+)
+
+#: Specifies the conda home directory to use.
+#: (default: ``conda``)
+MLFLOW_CONDA_HOME = _EnvironmentVariable("MLFLOW_CONDA_HOME", str, None)
+
+#: Specifies the name of the command to use when creating the environments.
+#: For example, let's say we want to use mamba (https://github.com/mamba-org/mamba)
+#: instead of conda to create environments.
+#: Then: > conda install mamba -n base -c conda-forge
+#: If not set, use the same as conda_path
+#: (default: ``conda``)
+MLFLOW_CONDA_CREATE_ENV_CMD = _EnvironmentVariable("MLFLOW_CONDA_CREATE_ENV_CMD", str, "conda")
+
+#: Specifies the execution directory for recipes.
+#: (default: ``None``)
+MLFLOW_RECIPES_EXECUTION_DIRECTORY = _EnvironmentVariable(
+    "MLFLOW_RECIPES_EXECUTION_DIRECTORY", str, None
+)
+
+#: Specifies the target step to execute for recipes.
+#: (default: ``None``)
+MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME = _EnvironmentVariable(
+    "MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME", str, None
+)
+
+#: Specifies the flavor to serve in the scoring server.
+#: (default ``None``)
+MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_NAME", str, None)
+
+#: Specifies the profile to use for recipes.
+#: (default: ``None``)
+MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, None)
+
+#: Specifies the MLflow Run context
+#: (default: ``None``)
+MLFLOW_RUN_CONTEXT = _EnvironmentVariable("MLFLOW_RUN_CONTEXT", str, None)
+
+#: Specifies the URL of the ECR-hosted Docker image a model is deployed into for SageMaker.
+# (default: ``None``)
+MLFLOW_SAGEMAKER_DEPLOY_IMG_URL = _EnvironmentVariable("MLFLOW_SAGEMAKER_DEPLOY_IMG_URL", str, None)
+
+#: Specifies whether to disable creating a new conda environment for `mlflow models build-docker`.
+#: (default: ``False``)
+MLFLOW_DISABLE_ENV_CREATION = _BooleanEnvironmentVariable("MLFLOW_DISABLE_ENV_CREATION", False)
+
+#: Specifies the timeout value for downloading chunks of mlflow artifacts.
+#: (default: ``300``)
+MLFLOW_DOWNLOAD_CHUNK_TIMEOUT = _EnvironmentVariable("MLFLOW_DOWNLOAD_CHUNK_TIMEOUT", int, 300)
+
+#: Specifies if system metrics logging should be enabled.
+MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING", False
+)
+
+#: Specifies the sampling interval for system metrics logging.
+MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL", float, None
+)
+
+#: Specifies the number of samples before logging system metrics.
+MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
+    "MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING", int, None
+)
+
+# Private environment variable to specify the number of chunk download retries for multipart
+# download.
+_MLFLOW_MPD_NUM_RETRIES = _EnvironmentVariable("_MLFLOW_MPD_NUM_RETRIES", int, 3)
+# Private environment variable to specify the interval between chunk download retries for multipart
+# download.
+_MLFLOW_MPD_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
+    "_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", int, 1
+)

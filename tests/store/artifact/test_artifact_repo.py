@@ -1,7 +1,8 @@
 import posixpath
-from unittest import mock
-import pytest
 import time
+from unittest import mock
+
+import pytest
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException

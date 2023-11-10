@@ -9,7 +9,7 @@ import React from 'react';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 
@@ -34,10 +34,7 @@ describe('MetricPage', () => {
     minimalProps = {
       dispatch: jest.fn(),
       location: {
-        search: '?runs=[]',
-      },
-      params: {
-        metricKey: 'metricKey',
+        search: '?runs=[]&metric="metricKey"',
       },
     };
     commonProps = {
@@ -81,7 +78,8 @@ describe('MetricPage', () => {
     const props = {
       ...commonProps,
       location: {
-        search: '?runs=["a"]&experiment=0&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
+        search:
+          '?runs=["a"]&metric="primary_metric_key"&experiment=0&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
       },
     };
     wrapper = mount(

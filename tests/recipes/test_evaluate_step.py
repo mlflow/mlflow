@@ -1,20 +1,20 @@
-from unittest import mock
-from pathlib import Path
-
 import os
-import pytest
 import shutil
+from pathlib import Path
+from unittest import mock
+
+import pytest
 from sklearn.datasets import load_diabetes, load_iris
 
 import mlflow
-from mlflow.utils.file_utils import read_yaml
-from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
-from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
-from mlflow.recipes.steps.evaluate import EvaluateStep
-from mlflow.recipes.steps.train import TrainStep
 from mlflow.exceptions import MlflowException
+from mlflow.recipes.steps.evaluate import EvaluateStep
+from mlflow.recipes.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
+from mlflow.recipes.steps.train import TrainStep
+from mlflow.recipes.utils import _RECIPE_CONFIG_FILE_NAME
+from mlflow.utils.file_utils import read_yaml
 
-from tests.recipes.helper_functions import train_and_log_model, train_and_log_classification_model
+from tests.recipes.helper_functions import train_and_log_classification_model, train_and_log_model
 
 
 @pytest.fixture(autouse=True)

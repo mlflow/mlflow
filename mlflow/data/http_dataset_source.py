@@ -2,14 +2,13 @@ import os
 import posixpath
 import re
 import tempfile
-
 from typing import Any, Dict
 from urllib.parse import urlparse
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
+from mlflow.utils.rest_utils import augmented_raise_for_status, cloud_storage_http_request
 
 
 class HTTPDatasetSource(DatasetSource):

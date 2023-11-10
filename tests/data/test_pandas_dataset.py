@@ -1,20 +1,21 @@
 import json
+
 import pandas as pd
 import pytest
-from mlflow.data.code_dataset_source import CodeDatasetSource
-from mlflow.models.evaluation.base import EvaluationDataset
-
-from tests.resources.data.dataset_source import TestDatasetSource
 
 import mlflow.data
+from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.pandas_dataset import PandasDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
-from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.spark_dataset_source import SparkDatasetSource
-from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
+
+from tests.resources.data.dataset_source import TestDatasetSource
 
 
 @pytest.fixture(scope="module")
@@ -23,7 +24,7 @@ def spark_session():
 
     with (
         SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
+        .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"

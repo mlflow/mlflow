@@ -1,11 +1,13 @@
 import abc
 import logging
 import os
+from typing import List, Optional
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.recipes import dag_help_strings
 from mlflow.recipes.artifacts import Artifact
-from mlflow.recipes.step import BaseStep, StepStatus, StepClass
+from mlflow.recipes.step import BaseStep, StepClass, StepStatus
 from mlflow.recipes.utils import (
     get_recipe_config,
     get_recipe_name,
@@ -13,14 +15,12 @@ from mlflow.recipes.utils import (
 )
 from mlflow.recipes.utils.execution import (
     clean_execution_state,
-    run_recipe_step,
     get_or_create_base_execution_directory,
     get_step_output_path,
+    run_recipe_step,
 )
 from mlflow.recipes.utils.step import display_html
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, BAD_REQUEST
 from mlflow.utils.class_utils import _get_class_from_string
-from typing import List
 
 _logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class BaseRecipe:
         """
         return self._profile
 
-    def run(self, step: str = None) -> None:
+    def run(self, step: Optional[str] = None) -> None:
         """
         Runs a step in the recipe, or the entire recipe if a step is not specified.
 
@@ -94,22 +94,23 @@ class BaseRecipe:
             last_executed_step_output_directory
         )
         if last_executed_step_state.status != StepStatus.SUCCEEDED:
+            last_step_error_mesg = (
+                f"The following error occurred while running step '{last_executed_step}':\n"
+                f"{last_executed_step_state.stack_trace}\n"
+                f"Last step status: '{last_executed_step_state.status}'\n"
+            )
             if step is not None:
                 raise MlflowException(
-                    f"Failed to run step '{step}' of recipe '{self.name}'."
-                    f" An error was encountered while running step '{last_executed_step.name}':"
-                    f" {last_executed_step_state.stack_trace}",
+                    f"Failed to run step '{step}' of recipe '{self.name}':\n{last_step_error_mesg}",
                     error_code=BAD_REQUEST,
                 )
             else:
                 raise MlflowException(
-                    f"Failed to run recipe '{self.name}'."
-                    f" An error was encountered while running step '{last_executed_step.name}':"
-                    f" {last_executed_step_state.stack_trace}",
+                    f"Failed to run recipe '{self.name}':\n{last_step_error_mesg}",
                     error_code=BAD_REQUEST,
                 )
 
-    def inspect(self, step: str = None) -> None:
+    def inspect(self, step: Optional[str] = None) -> None:
         """
         Displays main output from a step, or a recipe DAG if no step is specified.
 
@@ -124,7 +125,7 @@ class BaseRecipe:
             output_directory = get_step_output_path(self._recipe_root_path, step, "")
             self._get_step(step).inspect(output_directory)
 
-    def clean(self, step: str = None) -> None:
+    def clean(self, step: Optional[str] = None) -> None:
         """
         Removes the outputs of the specified step from the cache, or removes the cached outputs
         of all steps if no particular step is specified. After cached outputs are cleaned

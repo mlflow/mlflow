@@ -11,16 +11,16 @@ import { LogModelWithSignatureUrl } from '../../common/constants';
 import { gray800 } from '../../common/styles/color';
 import { spacingMedium } from '../../common/styles/spacing';
 import { MODEL_SCHEMA_TENSOR_TYPE } from '../constants';
-import { FormattedMessage, injectIntl } from 'react-intl';
+import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
+import { Interpolation, Theme } from '@emotion/react';
+import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
 
 const { Column } = Table;
 
-type Props = {
+type Props = DesignSystemHocProps & {
   schema?: any;
   defaultExpandAllRows?: boolean;
-  intl: {
-    formatMessage: (...args: any[]) => any;
-  };
+  intl: IntlShape;
 };
 
 export class SchemaTableImpl extends React.PureComponent<Props> {
@@ -55,14 +55,16 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
   };
 
   getSchemaTypeRepr = (schemaTypeSpec: any) => {
+    let { type } = schemaTypeSpec;
     if (schemaTypeSpec.type === MODEL_SCHEMA_TENSOR_TYPE) {
-      return (
-        `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype},` +
-        ` shape: [${schemaTypeSpec['tensor-spec'].shape}])`
-      );
-    } else {
-      return schemaTypeSpec.type;
+      type = `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype}, shape: [${schemaTypeSpec['tensor-spec'].shape}])`;
     }
+
+    // If the "optional" property is present and true, wrap the type around an "Optional[]"
+    if (schemaTypeSpec.optional) {
+      type = `Optional[${type}]`;
+    }
+    return type;
   };
 
   getSchemaRowData = (schemaData: any) => {
@@ -117,9 +119,11 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
         ]
       : [];
 
+    const { theme } = this.props.designSystemThemeApi;
+
     return (
       // @ts-expect-error TS(2322): Type '{ [x: string]: { padding: string; width: str... Remove this comment to see the full error message
-      <div css={schemaTableStyles}>
+      <div css={getSchemaTableStyles(theme)}>
         <Table
           key='schema-table'
           className='outer-table'
@@ -189,11 +193,10 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
   }
 }
 
-// @ts-expect-error TS(2769): No overload matches this call.
-export const SchemaTable = injectIntl(SchemaTableImpl);
+export const SchemaTable = injectIntl(WithDesignSystemThemeHoc(SchemaTableImpl));
 
 const antTable = '.ant-table-middle>.ant-table-content>.ant-table-scroll>.ant-table-body>table';
-const schemaTableStyles = {
+const getSchemaTableStyles = (theme: Theme) => ({
   [`${antTable}>.ant-table-thead>tr>th.ant-table-expand-icon-th`]: {
     padding: `${spacingMedium}px 0`,
     width: '32px',
@@ -206,12 +209,10 @@ const schemaTableStyles = {
   },
   [`${antTable}>.ant-table-tbody>tr.section-header-row>td.ant-table-row-cell-break-word`]: {
     padding: '0',
-    backgroundColor: '#EEEEEE',
     width: '32px',
   },
   [`${antTable}>.ant-table-tbody>tr.section-header-row>td.ant-table-row-expand-icon-cell`]: {
     padding: '0',
-    backgroundColor: '#EEEEEE',
   },
   '.outer-table .ant-table-body': {
     // !important to override inline style of overflowX: scroll
@@ -222,20 +223,29 @@ const schemaTableStyles = {
     // !important to override inline style of overflowY: scroll
     overflowY: 'auto !important',
   },
-  '.ant-table-expanded-row td': {
-    backgroundColor: 'white',
-  },
   '.inner-table': {
     maxWidth: 800,
   },
   '.outer-table': {
     maxWidth: 800,
   },
-  '.primary-text': {
-    color: gray800,
-  },
   '.section-header-row': {
     lineHeight: '32px',
     cursor: 'pointer',
   },
-};
+  '.ant-table-tbody>tr>td': {
+    borderColor: theme.colors.borderDecorative,
+  },
+  '.ant-table-thead>tr>th': {
+    backgroundColor: theme.colors.backgroundSecondary,
+    color: theme.colors.textPrimary,
+    borderColor: theme.colors.borderDecorative,
+  },
+  '.ant-table-tbody>tr.ant-table-row:hover td': {
+    backgroundColor: theme.colors.backgroundSecondary,
+  },
+  '.ant-table-cell': {
+    backgroundColor: theme.colors.backgroundPrimary,
+    color: theme.colors.textPrimary,
+  },
+});

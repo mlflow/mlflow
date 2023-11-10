@@ -1,12 +1,14 @@
 import json
 import os
-import pytest
+
 import pandas as pd
+import pytest
+
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.spark_dataset import SparkDataset
 from mlflow.data.spark_dataset_source import SparkDatasetSource
-from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
@@ -19,7 +21,7 @@ def spark_session(tmp_path):
 
     with (
         SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
+        .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"

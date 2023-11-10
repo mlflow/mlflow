@@ -17,7 +17,7 @@ import { ArtifactNode } from '../utils/ArtifactUtils';
 import { mockModelVersionDetailed } from '../../model-registry/test-utils';
 import { ModelVersionStatus, Stages } from '../../model-registry/constants';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom-v5-compat';
+import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
@@ -266,7 +266,8 @@ describe('ArtifactView', () => {
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
     expect(wrapper.find('.model-version-info')).toHaveLength(1);
     expect(wrapper.find('.model-version-link')).toHaveLength(1);
-    expect(wrapper.find('.model-version-link').props().title).toEqual('Model A, v1');
+    expect(wrapper.find('.model-version-link').html()).toContain('Model A');
+    expect(wrapper.find('.model-version-link').html()).toContain('v1');
   });
   /**
    * A model version's source may be semantically equivalent to a run artifact path
@@ -306,7 +307,8 @@ describe('ArtifactView', () => {
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
     expect(wrapper.find('.model-version-info')).toHaveLength(1);
     expect(wrapper.find('.model-version-link')).toHaveLength(1);
-    expect(wrapper.find('.model-version-link').props().title).toEqual('Model A, v1');
+    expect(wrapper.find('.model-version-link').html()).toContain('Model A');
+    expect(wrapper.find('.model-version-link').html()).toContain('v1');
   });
   test('should not render model version link for file under valid model version directory', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);

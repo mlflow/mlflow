@@ -1,12 +1,13 @@
-import pandas as pd
 import pathlib
-import pytest
 import shutil
 import time
 
+import pandas as pd
+import pytest
+
 import mlflow
-from mlflow.recipes.utils.execution import get_or_create_base_execution_directory
 from mlflow.recipes.regression.v1.recipe import RegressionRecipe
+from mlflow.recipes.utils.execution import get_or_create_base_execution_directory
 
 from tests.recipes.helper_functions import RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT, chdir
 

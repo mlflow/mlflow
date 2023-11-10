@@ -130,17 +130,17 @@ The recipe steps are defined as follows:
 """
 
 import logging
+from typing import Any, Optional
 
 from mlflow.recipes.recipe import BaseRecipe
-from mlflow.recipes.steps.ingest import IngestStep, IngestScoringStep
-from mlflow.recipes.steps.split import SplitStep
-from mlflow.recipes.steps.transform import TransformStep
-from mlflow.recipes.steps.train import TrainStep
+from mlflow.recipes.step import BaseStep
 from mlflow.recipes.steps.evaluate import EvaluateStep
+from mlflow.recipes.steps.ingest import IngestScoringStep, IngestStep
 from mlflow.recipes.steps.predict import PredictStep
 from mlflow.recipes.steps.register import RegisterStep
-from mlflow.recipes.step import BaseStep
-from typing import Any, Optional
+from mlflow.recipes.steps.split import SplitStep
+from mlflow.recipes.steps.train import TrainStep
+from mlflow.recipes.steps.transform import TransformStep
 
 _logger = logging.getLogger(__name__)
 
@@ -201,7 +201,7 @@ class RegressionRecipe(BaseRecipe):
     def _get_default_step(self) -> BaseStep:
         return self._steps[self._DEFAULT_STEP_INDEX]
 
-    def run(self, step: str = None) -> None:
+    def run(self, step: Optional[str] = None) -> None:
         """
         Runs the full recipe or a particular recipe step, producing outputs and displaying a
         summary of results upon completion. Step outputs are cached from previous executions, and
@@ -345,7 +345,7 @@ class RegressionRecipe(BaseRecipe):
 
         return super().get_artifact(artifact_name=artifact_name)
 
-    def clean(self, step: str = None) -> None:
+    def clean(self, step: Optional[str] = None) -> None:
         """
         Removes all recipe outputs from the cache, or removes the cached outputs of a particular
         recipe step if specified. After cached outputs are cleaned for a particular step, the
@@ -377,7 +377,7 @@ class RegressionRecipe(BaseRecipe):
         """
         super().clean(step=step)
 
-    def inspect(self, step: str = None) -> None:
+    def inspect(self, step: Optional[str] = None) -> None:
         """
         Displays a visual overview of the recipe graph, or displays a summary of results from
         a particular recipe step if specified. If the specified step has not been executed,

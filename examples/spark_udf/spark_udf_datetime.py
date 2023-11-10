@@ -1,13 +1,14 @@
-import random
 import datetime
+import random
 
-import mlflow
 from pyspark.sql import SparkSession
+from sklearn.compose import ColumnTransformer
 from sklearn.datasets import load_iris
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
+
+import mlflow
 
 
 def print_with_title(title, *args):

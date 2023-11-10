@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.utils.string_utils import strip_prefix, strip_suffix, is_string_type, mslex_quote
+from mlflow.utils.string_utils import is_string_type, mslex_quote, strip_prefix, strip_suffix
 
 
 @pytest.mark.parametrize(

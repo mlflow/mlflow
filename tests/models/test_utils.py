@@ -1,12 +1,12 @@
+import random
 from collections import namedtuple
 from unittest import mock
 
 import pytest
-from sklearn import datasets
 import sklearn.neighbors as knn
-import mlflow
-import random
+from sklearn import datasets
 
+import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.models import add_libraries_to_model
