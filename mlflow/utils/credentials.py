@@ -82,9 +82,9 @@ def login(backend="databricks"):
 
 def _validate_databricks_auth():
     """Validate Databricks authentication."""
-    max_trials = 3  # Allow 3 retrys for timeout.
+    max_attempts = 3  # Allow 3 attempts for timeout.
     timeout = 3
-    for i in range(max_trials):
+    for i in range(max_attempts):
         try:
             # If the host name is invalid, the command will hang.
             # If the credential is invalid, the command will return non-zero exit code.
@@ -97,15 +97,14 @@ def _validate_databricks_auth():
             )
             if result.returncode != 0:
                 raise MlflowException("Failed to validate databricks credentials.")
-            return True
         except subprocess.TimeoutExpired:
-            if i == max_trials - 1:
+            if i == max_attempts - 1:
                 raise subprocess.TimeoutExpired(
-                    "Timeout (3s) while signing in Databricks",
+                    "Timeout while signing in Databricks",
                     timeout=timeout,
                 )
 
-            _logger.error("Timeout (3s) while signing in Databricks, retrying...")
+            _logger.error("Timeout while signing in Databricks, retrying...")
 
 
 def _overwrite_or_create_databricks_profile(
@@ -170,7 +169,7 @@ def _databricks_login():
         # If no valid auth is found, we will prompt the user to enter thepy auth.
         pass
 
-    _logger.info("No valid Databricks credentials found, creating a new one...")
+    _logger.info("No valid Databricks credentials found, please enter your credentials...")
 
     while True:
         host = input("Databricks Host (should begin with https://): ")
@@ -201,12 +200,10 @@ def _databricks_login():
         _validate_databricks_auth()
         return
     except subprocess.TimeoutExpired:
-        _logger.error(
+        raise MlflowException(
             "Timeout while signing in Databricks, max retry reached. This often happens when you "
             "are using an invalid host. Please check your credentials and retry `mlflow.login`."
         )
     except Exception as e:
         # If user entered invalid auth, we will raise an error and ask users to retry.
-        _logger.error(f"Failed to sign in Databricks: {e}")
-
-    raise MlflowException("Failed to sign in Databricks, please retry `mlflow.login()`.")
+        raise MlflowException(f"Failed to sign in Databricks, please retry `mlflow.login()`: {e}")
