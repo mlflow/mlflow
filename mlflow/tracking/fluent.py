@@ -381,7 +381,7 @@ def start_run(
         # if `log_system_metrics` is not specified, we will check environment variable.
         log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
     if log_system_metrics:
-        resume_logging = existing_run_id is None
+        resume_logging = bool(existing_run_id)
         try:
             from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
