@@ -53,7 +53,6 @@ def _call_openai_api(openai_uri, payload):
 
     import openai
 
-    from mlflow.gateway.providers.utils import rename_payload_keys
     from mlflow.openai import _get_api_config
     from mlflow.openai.api_request_parallel_processor import process_api_requests
     from mlflow.openai.utils import _OAITokenHolder
@@ -66,10 +65,7 @@ def _call_openai_api(openai_uri, payload):
         if getattr(api_config, x) is not None
     }
 
-    payload = rename_payload_keys(
-        payload,
-        {"candidate_count": "n"},
-    )
+    payload = {{"candidate_count": "n"}.get(k, k): v for k, v in payload.items()}
     # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
     payload["temperature"] = 2 * payload["temperature"]
     payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
