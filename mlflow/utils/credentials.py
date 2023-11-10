@@ -86,6 +86,9 @@ def _validate_databricks_auth():
     timeout = 3
     for i in range(max_trials):
         try:
+            # If the host name is invalid, the command will hang.
+            # If the credential is invalid, the command will return non-zero exit code.
+            # If both host and credential are valid, it will return zero exit code.
             result = subprocess.run(
                 ["databricks", "tokens", "list"],
                 timeout=timeout,
