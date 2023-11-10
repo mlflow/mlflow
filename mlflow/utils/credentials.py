@@ -90,7 +90,7 @@ def _validate_databricks_auth():
                 stderr=subprocess.DEVNULL,
             )
             if result.returncode != 0:
-                raise MlflowException("Invalid databricks credentials.")
+                raise MlflowException("Failed to validate databricks credentials.")
             return
         except subprocess.TimeoutExpired:
             _logger.error("Timeout (3s) while signing in Databricks, retrying...")
