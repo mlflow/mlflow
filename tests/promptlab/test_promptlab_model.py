@@ -1,25 +1,20 @@
 from unittest import mock
 
 import pandas as pd
-import pytest
 
 from mlflow._promptlab import _PromptlabModel
 from mlflow.entities.param import Param
 
 
-@pytest.fixture
-def Model():
-    def construct_model(route):
-        prompt_parameters = [Param(key="thing", value="books")]
-        model_parameters = [Param(key="temperature", value=0.5), Param(key="max_tokens", value=10)]
-        prompt_template = "Write me a story about {{ thing }}."
+def construct_model(route):
+    prompt_parameters = [Param(key="thing", value="books")]
+    model_parameters = [Param(key="temperature", value=0.5), Param(key="max_tokens", value=10)]
+    prompt_template = "Write me a story about {{ thing }}."
 
-        return _PromptlabModel(prompt_template, prompt_parameters, model_parameters, route)
-
-    return construct_model
+    return _PromptlabModel(prompt_template, prompt_parameters, model_parameters, route)
 
 
-def test_promptlab_prompt_replacement(Model):
+def test_promptlab_prompt_replacement():
     data = pd.DataFrame(
         data=[
             {"thing": "books"},
@@ -28,7 +23,7 @@ def test_promptlab_prompt_replacement(Model):
         ]
     )
 
-    model = Model("completions")
+    model = construct_model("completions")
     with mock.patch("mlflow.gateway.query") as mock_query:
         model.predict(data)
 
@@ -53,7 +48,7 @@ def test_promptlab_works_with_chat_route(Model):
             {"message": {"role": "user", "content": "test"}, "metadata": {"finish_reason": "stop"}}
         ]
     }
-    model = Model("chat")
+    model = construct_model("chat")
 
     with mock.patch("mlflow.gateway.query", return_value=mock_response):
         response = model.predict(pd.DataFrame(data=[{"thing": "books"}]))
@@ -70,7 +65,7 @@ def test_promptlab_works_with_completions_route(Model):
             }
         ]
     }
-    model = Model("completions")
+    model = construct_model("completions")
 
     with mock.patch("mlflow.gateway.query", return_value=mock_response):
         response = model.predict(pd.DataFrame(data=[{"thing": "books"}]))
