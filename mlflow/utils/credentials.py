@@ -69,8 +69,11 @@ def login(backend="databricks"):
         with mlflow.start_run():
             mlflow.log_param("p", 0)
     """
+    from mlflow.tracking import set_tracking_uri
+
     if backend == "databricks":
         _databricks_login()
+        set_tracking_uri("databricks")
     else:
         raise MlflowException(
             f"Currently only 'databricks' backend is supported, received `backend={backend}`."
@@ -81,7 +84,7 @@ def _validate_databricks_auth():
     """Validate Databricks authentication."""
     max_trials = 3  # Allow 3 retrys for timeout.
     timeout = 3
-    for _ in range(max_trials):
+    for i in range(max_trials):
         try:
             result = subprocess.run(
                 ["databricks", "tokens", "list"],
@@ -91,11 +94,15 @@ def _validate_databricks_auth():
             )
             if result.returncode != 0:
                 raise MlflowException("Failed to validate databricks credentials.")
-            return
+            return True
         except subprocess.TimeoutExpired:
-            _logger.error("Timeout (3s) while signing in Databricks, retrying...")
+            if i == max_trials - 1:
+                raise subprocess.TimeoutExpired(
+                    "Timeout (3s) while signing in Databricks",
+                    timeout=timeout,
+                )
 
-    raise subprocess.TimeoutExpired("Timeout (3s) while signing in Databricks", timeout=timeout)
+            _logger.error("Timeout (3s) while signing in Databricks, retrying...")
 
 
 def _overwrite_or_create_databricks_profile(
@@ -151,15 +158,10 @@ def _overwrite_or_create_databricks_profile(
 
 
 def _databricks_login():
-    """Set up databricks authentication and connect MLflow to Databricks tracking server."""
-
-    from mlflow import set_tracking_uri
-
+    """Set up databricks authentication."""
     try:
         # Failed validation will throw an error.
         _validate_databricks_auth()
-        # Connect to Databricks if the credentials are valid.
-        set_tracking_uri("databricks")
         return
     except Exception:
         # If no valid auth is found, we will prompt the user to enter thepy auth.
@@ -194,8 +196,6 @@ def _databricks_login():
     try:
         # Failed validation will throw an error.
         _validate_databricks_auth()
-        # Connect to Databricks if the credentials are valid.
-        set_tracking_uri("databricks")
         return
     except subprocess.TimeoutExpired:
         _logger.error(
@@ -205,4 +205,5 @@ def _databricks_login():
     except Exception as e:
         # If user entered invalid auth, we will raise an error and ask users to retry.
         _logger.error(f"Failed to sign in Databricks: {e}")
+
     raise MlflowException("Failed to sign in Databricks, please retry `mlflow.login()`.")
