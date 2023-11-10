@@ -214,9 +214,13 @@ def _mlflow_conda_env(
     :return: ``None`` if ``path`` is specified. Otherwise, the a dictionary representation of the
              Conda environment.
     """
-    pip_deps = ([f"mlflow=={VERSION}"] if install_mlflow else []) + (
-        additional_pip_deps if additional_pip_deps else []
+    additional_pip_deps = additional_pip_deps or []
+    mlflow_deps = (
+        [f"mlflow=={VERSION}"]
+        if install_mlflow and not _contains_mlflow_requirement(additional_pip_deps)
+        else []
     )
+    pip_deps = mlflow_deps + additional_pip_deps
     conda_deps = additional_conda_deps if additional_conda_deps else []
     if pip_deps:
         pip_version = _get_pip_version()
@@ -554,7 +558,6 @@ def _process_conda_env(conda_env):
     # User-specified `conda_env` may contain requirements/constraints file references
     pip_reqs = _get_pip_deps(conda_env)
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
-
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
