@@ -75,6 +75,7 @@ gateway-api-docs:
 # Builds only the RST-based documentation (i.e., everything but Java & R docs)
 .PHONY: rsthtml
 rsthtml: gateway-api-docs
+	sphinx-autogen source/python_api/mlflow.rst
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
