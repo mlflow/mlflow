@@ -1,3 +1,5 @@
+import os
+import shutil
 from unittest import mock
 from unittest.mock import Mock
 
@@ -133,13 +135,15 @@ def test_models_artifact_repo_add_registered_model_meta_file():
     artifact_path = "artifact_path"
     dst_path = "dst_path"
     artifact_location = f"s3://blah_bucket/{artifact_path}"
-    artifact_dst_path = f"{dst_path}/{artifact_path}"
+    artifact_dst_path = f"{dst_path}/{artifact_path}/"
     model_name = "MyModel"
     model_version = "12"
 
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    ), mock.patch("mlflow.store.artifact.models_artifact_repo.write_yaml") as write_yaml_mock:
+    ), mock.patch("os.path.isdir", return_value=True), mock.patch(
+        "mlflow.store.artifact.models_artifact_repo.write_yaml"
+    ) as write_yaml_mock:
         models_repo = ModelsArtifactRepository(f"models:/{model_name}/{model_version}")
         models_repo.repo = Mock(**{"download_artifacts.return_value": artifact_dst_path})
 
@@ -155,6 +159,34 @@ def test_models_artifact_repo_add_registered_model_meta_file():
             overwrite=True,
             ensure_yaml_extension=False,
         )
+    # Calling the download_artifacts method on local FileStore will create an ./mlruns directory
+    # which is a test side effect. Clean this up.
+    mlruns_dir = "./mlruns"
+    if os.path.exists(mlruns_dir):
+        shutil.rmtree(mlruns_dir)
+
+
+def test_models_artifact_repo_add_registered_model_meta_file_to_file_dest():
+    artifact_path = "artifact_path"
+    dst_path = "dst_path"
+    artifact_location = f"s3://blah_bucket/{artifact_path}"
+    artifact_dst_file_path = f"{dst_path}/{artifact_path}/MLModel.yaml"
+
+    with mock.patch.object(
+        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
+    ), mock.patch(
+        "mlflow.store.artifact.models_artifact_repo.write_yaml"
+    ) as write_yaml_mock, mock.patch(
+        "os.path.isdir", return_value=False
+    ), mock.patch(
+        "mlflow.store.artifact.models_artifact_repo.ModelsArtifactRepository"
+    ) as mock_repo:
+        mock_repo.repo = Mock(**{"download_artifacts.return_value": artifact_dst_file_path})
+
+        mock_repo.download_artifacts(artifact_path, dst_path)
+
+        # Assert that write_yaml is not called since the destination is a file
+        write_yaml_mock.assert_not_called()
 
 
 def test_split_models_uri():

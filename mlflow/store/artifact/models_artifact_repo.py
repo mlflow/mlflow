@@ -1,3 +1,5 @@
+import logging
+import os
 import urllib.parse
 
 import mlflow
@@ -19,6 +21,8 @@ from mlflow.utils.uri import (
 )
 
 REGISTERED_MODEL_META_FILE_NAME = "registered_model_meta"
+
+_logger = logging.getLogger(__name__)
 
 
 class ModelsArtifactRepository(ArtifactRepository):
@@ -140,16 +144,22 @@ class ModelsArtifactRepository(ArtifactRepository):
         return self.repo.list_artifacts(path)
 
     def _add_registered_model_meta_file(self, model_path):
-        write_yaml(
-            model_path,
-            REGISTERED_MODEL_META_FILE_NAME,
-            {
-                "model_name": self.model_name,
-                "model_version": self.model_version,
-            },
-            overwrite=True,
-            ensure_yaml_extension=False,
-        )
+        if os.path.isdir(model_path):
+            write_yaml(
+                model_path,
+                REGISTERED_MODEL_META_FILE_NAME,
+                {
+                    "model_name": self.model_name,
+                    "model_version": self.model_version,
+                },
+                overwrite=True,
+                ensure_yaml_extension=False,
+            )
+        else:
+            _logger.warning(
+                "Registered Model Metadata file not able to be written. Destination path "
+                f"'{model_path}' is not a directory."
+            )
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
