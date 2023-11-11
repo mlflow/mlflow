@@ -270,6 +270,34 @@ Select the integration below to read the documentation on how to leverage MLflow
     </div>
  </section>
 
+Native Integration Guides and Tutorials
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="transformers/index.html">
+                    <div class="header">
+                        🤗 Transformers
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the Transformers library and see example notebooks that leverage 
+                        MLflow and Transformers to build Open-Source LLM powered solutions.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    transformers/index
+
+
 Native Integration Examples
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
