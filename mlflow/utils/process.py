@@ -3,7 +3,9 @@ import os
 import subprocess
 import sys
 
-_IS_UNIX = os.name != "nt"
+from mlflow.utils.os import is_windows
+
+_IS_UNIX = not is_windows()
 
 
 class ShellCommandException(Exception):

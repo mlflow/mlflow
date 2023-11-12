@@ -11,13 +11,10 @@ import requests
 import mlflow
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
+from mlflow.utils.os import is_windows
 
 from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
-
-
-def is_windows():
-    return os.name == "nt"
 
 
 def _launch_server(host, port, backend_store_uri, default_artifact_root, artifacts_destination):

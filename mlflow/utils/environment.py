@@ -11,6 +11,7 @@ from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION, insecure_hash
+from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _infer_requirements,
@@ -39,7 +40,7 @@ _CONDA_DEPENDENCY_REGEX = re.compile(
     r"(?P<version>[\d.]+)?$"
 )
 
-_IS_UNIX = os.name != "nt"
+_IS_UNIX = not is_windows()
 
 
 class _PythonEnv:

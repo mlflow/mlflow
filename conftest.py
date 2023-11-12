@@ -246,10 +246,11 @@ def clean_up_envs():
     yield
 
     if "GITHUB_ACTIONS" in os.environ:
+        from mlflow.utils.os import is_windows
         from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
         shutil.rmtree(_get_mlflow_virtualenv_root(), ignore_errors=True)
-        if os.name != "nt":
+        if not is_windows():
             conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
             root_prefix = conda_info["root_prefix"]
             for env in conda_info["envs"]:

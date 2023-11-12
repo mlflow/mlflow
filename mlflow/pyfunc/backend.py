@@ -37,6 +37,7 @@ from mlflow.utils.file_utils import (
     path_to_local_file_uri,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.utils.os import is_windows
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,
@@ -46,7 +47,7 @@ from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
-_IS_UNIX = os.name != "nt"
+_IS_UNIX = not is_windows()
 _STDIN_SERVER_SCRIPT = Path(__file__).parent.joinpath("stdin_server.py")
 
 
@@ -242,7 +243,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             _logger.info("=== Running command '%s'", command)
 
-            if os.name != "nt":
+            if _IS_UNIX:
                 command = ["bash", "-c", command]
 
             child_proc = subprocess.Popen(
