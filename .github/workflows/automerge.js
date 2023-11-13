@@ -72,6 +72,8 @@ module.exports = async ({ github, context }) => {
       ({ state }) => state === "success"
     );
 
+    console.log(`- checksPassed: ${checksPassed}`);
+    console.log(`- statusesPassed: ${statusesPassed}`);
     return checksPassed && statusesPassed;
   }
 
