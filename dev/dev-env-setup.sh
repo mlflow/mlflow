@@ -113,7 +113,6 @@ check_and_install_brew() {
     echo "Homebrew is required to install $1 on MacOS. Installing in your home directory."
     bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   fi
-  echo "Homebrew is required to install $1 on MacOS. Installing in your home directory."
   echo "Updating brew and installing pyenv..."
   echo "Note: this will probably take a considerable amount of time."
   brew update
@@ -158,12 +157,12 @@ if [ -z "$pyenv_exist" ]; then
     if [[ "$machine" == mac ]]; then
       check_and_install_brew "pyenv"
       brew install pyenv
-      brew install openssl readline sqlite3 xz zlib 
+      brew install openssl readline sqlite3 xz zlib
     elif [[ "$machine" == linux ]]; then
       sudo apt-get update -y
       sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
       libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
-      libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev \
+      libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
       # Install pyenv from source
       git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
       PYENV_ROOT="$HOME/.pyenv"
@@ -302,8 +301,6 @@ if [[ -z "$pandoc_version" ]] || ! version_gt "$pandoc_version" "2.2.1"; then
   fi
 fi
 
-echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)source $VENV_DIR$(tput sgr0)"
-
 
 # Setup git environment configuration for proper signing of commits
 git_user=$(git config user.name)
@@ -327,3 +324,5 @@ fi
 
 # setup pre-commit hooks
 pre-commit install -t pre-commit -t prepare-commit-msg
+
+echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)source $VENV_DIR$(tput sgr0)"
