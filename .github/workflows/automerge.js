@@ -52,6 +52,7 @@ module.exports = async ({ github, context }) => {
 
     const latestStatuses = {};
     for (const status of commitStatuses) {
+      console.log(status);
       const { context } = status;
       if (
         !latestStatuses[context] ||
