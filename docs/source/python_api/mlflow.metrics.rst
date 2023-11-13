@@ -146,6 +146,7 @@ Parameters:
             model_type="retriever",
             extra_metrics = [
                 mlflow.metrics.precision_at_k(5),
+                mlflow.metrics.precision_at_k(6),
                 mlflow.metrics.recall_at_k(5),
                 mlflow.metrics.ndcg_at_k(5)
             ]   
@@ -153,7 +154,7 @@ Parameters:
     
     NOTE: In the 2nd method, it is recommended to omit the ``model_type`` as well, or else 
     ``precision@3`` and ``recall@3`` will be  calculated in  addition to ``precision@5``, 
-    ``recall@5``, and ``ndcg_at_k@5``.
+    ``precision@6``, ``recall@5``, and ``ndcg_at_k@5``.
 
 .. autofunction:: mlflow.metrics.precision_at_k
 

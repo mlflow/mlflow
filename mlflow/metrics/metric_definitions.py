@@ -407,9 +407,8 @@ def _prepare_row_for_ndcg(predictions, targets):
     # sklearn does an internal sort of y_score, so to preserve the order of our retrieved
     # docs, we need to modify the relevance value slightly
     eps = 1e-6
-    targets = set(targets)
 
-    # support predictions contain duplicate doc ID
+    # support predictions containing duplicate doc ID
     predictions, targets = _expand_duplicate_retrieved_docs(predictions, targets)
 
     all_docs = targets.union(predictions)
