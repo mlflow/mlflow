@@ -24,17 +24,12 @@ module.exports = async ({ github, context }) => {
     const latestRuns = {};
     for (const run of checkRuns) {
       const { name } = run;
-      if (
-        !latestRuns[name] ||
-        new Date(run.started_at) > new Date(latestRuns[name].started_at)
-      ) {
+      if (!latestRuns[name] || new Date(run.started_at) > new Date(latestRuns[name].started_at)) {
         latestRuns[name] = run;
       }
     }
     Object.values(latestRuns).forEach(({ name, status, conclusion }) => {
-      console.log(
-        `- checkrun: name: ${name}, latest status: ${status}, conclusion: ${conclusion}`
-      );
+      console.log(`- checkrun: name: ${name}, latest status: ${status}, conclusion: ${conclusion}`);
     });
 
     const checksPassed = Object.values(latestRuns).every(({ conclusion }) =>
@@ -42,36 +37,28 @@ module.exports = async ({ github, context }) => {
     );
 
     // Commit statues (e.g., CircleCI checks)
-    const commitStatuses = await github.paginate(
-      github.rest.repos.listCommitStatusesForRef,
-      {
-        owner,
-        repo,
-        ref,
-      }
-    );
+    const commitStatuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
+      owner,
+      repo,
+      ref,
+    });
 
     const latestStatuses = {};
     for (const status of commitStatuses) {
       const { context } = status;
       if (
         !latestStatuses[context] ||
-        new Date(status.created_at) >
-          new Date(latestStatuses[context].created_at)
+        new Date(status.created_at) > new Date(latestStatuses[context].created_at)
       ) {
         latestStatuses[context] = status;
       }
     }
 
     Object.values(latestStatuses).forEach(({ context, state }) => {
-      console.log(
-        `- commit status: context: ${context}, latest state: ${state}`
-      );
+      console.log(`- commit status: context: ${context}, latest state: ${state}`);
     });
 
-    const statusesPassed = Object.values(latestStatuses).every(
-      ({ state }) => state === "success"
-    );
+    const statusesPassed = Object.values(latestStatuses).every(({ state }) => state === "success");
 
     return checksPassed && statusesPassed;
   }
