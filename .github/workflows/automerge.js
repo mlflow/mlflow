@@ -80,7 +80,9 @@ module.exports = async ({ github, context }) => {
   const start = new Date();
   const MINUTE = 1000 * 60;
   while (true) {
-    if (allChecksPassed(ref)) {
+    const res = await allChecksPassed(ref);
+    console.log(`- allChecksPassed: ${res}`);
+    if (res) {
       break;
     }
 
