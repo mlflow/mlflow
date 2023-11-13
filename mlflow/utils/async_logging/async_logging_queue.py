@@ -47,9 +47,8 @@ class AsyncLoggingQueue:
         try:
             # Stop the data processing thread
             self._stop_data_logging_thread_event.set()
-            # Waits till queue is drained.
-            self._run_data_logging_thread.result()
-            self._batch_logging_threadpool.shutdown(wait=False)
+            # Waits till logging queue is drained.
+            self._batch_logging_thread.join()
             self._batch_status_check_threadpool.shutdown(wait=False)
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
@@ -193,7 +192,6 @@ class AsyncLoggingQueue:
         )
 
         self._queue.put(batch)
-
         operation_future = self._batch_status_check_threadpool.submit(self._wait_for_batch, batch)
         return RunOperations(operation_futures=[operation_future])
 
@@ -217,14 +215,17 @@ class AsyncLoggingQueue:
             self._stop_data_logging_thread_event = threading.Event()
 
             # Keeping max_workers=1 so that there are no two threads
-            self._batch_logging_threadpool = ThreadPoolExecutor(max_workers=1)
+            self._batch_logging_thread = threading.Thread(
+                target=self._logging_loop,
+                name="MLflowAsyncLoggingLoop",
+                daemon=True,
+            )
 
-            self._batch_status_check_threadpool = ThreadPoolExecutor(max_workers=10)
-
-            self._run_data_logging_thread = self._batch_logging_threadpool.submit(
-                self._logging_loop
-            )  # concurrent.futures.Future[self._logging_loop]
-
+            self._batch_status_check_threadpool = ThreadPoolExecutor(
+                max_workers=10,
+                thread_name_prefix="MLflowAsyncLoggingStatusCheck",
+            )
+            self._batch_logging_thread.start()
             atexit.register(self._at_exit_callback)
 
             self._is_activated = True
