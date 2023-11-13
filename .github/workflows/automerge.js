@@ -2,7 +2,7 @@ module.exports = async ({ github, context }) => {
   const {
     repo: { owner, repo },
   } = context;
-  const { sha: ref } = context.payload.pull_request.head;
+  const { sha } = context.payload.pull_request.head;
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -14,6 +14,7 @@ module.exports = async ({ github, context }) => {
   }
 
   async function allChecksPassed(ref) {
+    // Check runs (e.g., GitHub Actions)
     const checkRuns = await github.paginate(github.rest.checks.listForRef, {
       owner,
       repo,
@@ -52,7 +53,6 @@ module.exports = async ({ github, context }) => {
 
     const latestStatuses = {};
     for (const status of commitStatuses) {
-      console.log(status);
       const { context } = status;
       if (
         !latestStatuses[context] ||
@@ -73,21 +73,20 @@ module.exports = async ({ github, context }) => {
       ({ state }) => state === "success"
     );
 
-    console.log(`- checksPassed: ${checksPassed}`);
-    console.log(`- statusesPassed: ${statusesPassed}`);
     return checksPassed && statusesPassed;
   }
 
   const start = new Date();
   const MINUTE = 1000 * 60;
+  const TIMEOUT = 180 * MINUTE; // 3 hours
   while (true) {
-    const res = await allChecksPassed(ref);
+    const res = await allChecksPassed(sha);
     console.log(`- allChecksPassed: ${res}`);
     if (res) {
       break;
     }
 
-    if (new Date() - start > 180 * MINUTE) {
+    if (new Date() - start > TIMEOUT) {
       throw new Error("Timeout");
     }
 
