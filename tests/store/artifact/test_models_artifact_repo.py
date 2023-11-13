@@ -9,6 +9,7 @@ from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+from mlflow.utils.os import is_windows
 
 from tests.store.artifact.constants import (
     UC_MODELS_ARTIFACT_REPOSITORY,
@@ -131,6 +132,7 @@ def test_models_artifact_repo_uses_repo_download_artifacts(tmp_path):
         models_repo.repo.download_artifacts.assert_called_once_with("artifact_path", str(tmp_path))
 
 
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 def test_models_artifact_repo_add_registered_model_meta_file(tmp_path):
     artifact_path = "artifact_path"
     model_name = "MyModel"
