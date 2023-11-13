@@ -67,9 +67,7 @@ module.exports = async ({ github, context }) => {
   const MINUTE = 1000 * 60;
   const TIMEOUT = 180 * MINUTE; // 3 hours
   while (true) {
-    const res = await allChecksPassed(sha);
-    console.log(`- allChecksPassed: ${res}`);
-    if (res) {
+    if (await allChecksPassed(sha)) {
       break;
     }
 
