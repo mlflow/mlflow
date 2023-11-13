@@ -42,7 +42,7 @@ module.exports = async ({ github, context }) => {
 
     // Commit statues (e.g., CircleCI checks)
     const commitStatuses = await github.paginate(
-      github.rest.repos.getCombinedStatusForRef,
+      github.rest.repos.listCommitStatusesForRef,
       {
         owner,
         repo,
