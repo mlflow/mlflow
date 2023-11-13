@@ -2,7 +2,7 @@ module.exports = async ({ github, context }) => {
   const {
     repo: { owner, repo },
   } = context;
-  const { ref } = context.payload.pull_request.head;
+  const { sha: ref } = context.payload.pull_request.head;
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
