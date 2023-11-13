@@ -829,18 +829,13 @@ python setup.py bdist_wheel
 
 First, install dependencies for building docs as described in [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
 
-Building documentation requires [pandoc](https://pandoc.org/index.html), and both
-the pip package and the standalone haskel project are required. Both should have been
-already installed if you used the automated env setup script
+Building documentation requires [Pandoc](https://pandoc.org/index.html). It should have already been
+installed if you used the automated env setup script
 ([dev-env-setup.sh](https://github.com/mlflow/mlflow/blob/master/dev/dev-env-setup.sh)),
-but if you manually installing dependencies,
+but if you are manually installing dependencies, please follow [the official instruction](https://pandoc.org/installing.html).
 
-- Pip package: run `pip install pandoc --upgrade`
-- Haskel project: please follow [official instruction](https://pandoc.org/installing.html).
-
-Also check you are the version of your installation via `pandoc --version`. If using Mac
-OSX, note that the homebrew installation of pandoc may be out of date -
-you can find newer pandoc versions at
+Also, check the version of your installation via `pandoc --version` and verify it is 2.2.1 or above.
+If you are using Mac OSX, note that the Homebrew installation of Pandoc may be outdated - you can find newer versions at
 <https://github.com/jgm/pandoc/releases>.
 
 To generate a live preview of Python & other rst documentation, run the
