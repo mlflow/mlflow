@@ -834,9 +834,10 @@ installed if you used the automated env setup script
 ([dev-env-setup.sh](https://github.com/mlflow/mlflow/blob/master/dev/dev-env-setup.sh)),
 but if you are manually installing dependencies, please follow [the official instruction](https://pandoc.org/installing.html).
 
-Also, check the version of your installation via `pandoc --version` and verify it is 2.2.1 or above.
-If you are using Mac OSX, note that the Homebrew installation of Pandoc may be outdated - you can find newer versions at
-<https://github.com/jgm/pandoc/releases>.
+Also, check the version of your installation via `pandoc --version` and ensure it is 2.2.1 or above.
+If you are using Mac OSX, be aware that the Homebrew installation of Pandoc may be outdated. If you are using Linux,
+you should use a deb installer or install from the source, instead of running `apt` / `apt-get` commands. Pandoc package available on official
+repositories is an older version and contains several bugs. You can find newer versions at <https://github.com/jgm/pandoc/releases>.
 
 To generate a live preview of Python & other rst documentation, run the
 following snippet. Note that R & Java API docs must be regenerated
