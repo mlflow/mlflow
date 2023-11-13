@@ -113,8 +113,7 @@ check_and_install_brew() {
     echo "Homebrew is required to install $1 on MacOS. Installing in your home directory."
     bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   fi
-  echo "Updating brew and installing pyenv..."
-  echo "Note: this will probably take a considerable amount of time."
+  echo "Updating brew..."
   brew update
 }
 
@@ -156,6 +155,8 @@ if [ -z "$pyenv_exist" ]; then
   if [[ $REPLY =~ ^[Yy]$ || -n "$GITHUB_ACTIONS" ]]; then
     if [[ "$machine" == mac ]]; then
       check_and_install_brew "pyenv"
+      echo "Installing pyenv..."
+      echo "Note: this will probably take a considerable amount of time."
       brew install pyenv
       brew install openssl readline sqlite3 xz zlib
     elif [[ "$machine" == linux ]]; then
