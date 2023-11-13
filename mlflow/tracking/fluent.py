@@ -378,16 +378,23 @@ def start_run(
         )
 
     if log_system_metrics is None:
-        # if `log_system_metrics` is not specified, we will check environment variable.
+        # If `log_system_metrics` is not specified, we will check environment variable.
         log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
+
     if log_system_metrics:
-        resume_logging = bool(existing_run_id)
+        if importlib.util.find_spec("psutil") is None:
+            raise MlflowException(
+                "Failed to start system metrics monitoring as package `psutil` is not installed."
+                "Please run `pip install psutil` to resolve the issue, otherwise you can disable "
+                "system metrics logging by passing `log_system_metrics=False` to "
+                "`mlflow.start_run()` or calling `mlflow.disable_system_metrics_logging`."
+            )
         try:
             from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
             system_monitor = SystemMetricsMonitor(
                 active_run_obj.info.run_id,
-                resume_logging=resume_logging,
+                resume_logging=existing_run_id is not None,
             )
             global run_id_to_system_metrics_monitor
 
