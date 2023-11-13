@@ -4,6 +4,12 @@ module.exports = async ({ github, context }) => {
   } = context;
   const { sha } = context.payload.pull_request.head;
 
+  const STATE = {
+    pending: "pending",
+    success: "success",
+    failure: "failure",
+  };
+
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -13,7 +19,7 @@ module.exports = async ({ github, context }) => {
     console.log(`Rate limit remaining: ${rateLimit.resources.core.remaining}`);
   }
 
-  async function allChecksPassed(ref) {
+  async function fetchChecks(ref) {
     // Check runs (e.g., GitHub Actions)
     const checkRuns = await github
       .paginate(github.rest.checks.listForRef, {
@@ -30,13 +36,17 @@ module.exports = async ({ github, context }) => {
         latestRuns[name] = run;
       }
     }
-    Object.values(latestRuns).forEach(({ name, status, conclusion }) => {
-      console.log(`- checkrun: name: ${name}, latest status: ${status}, conclusion: ${conclusion}`);
+    const runs = Object.values(latestRuns).forEach(({ name, status, conclusion }) => {
+      return {
+        name,
+        status:
+          status !== "completed"
+            ? STATE.pending
+            : conclusion === "success" || conclusion === "skipped"
+            ? STATE.success
+            : STATE.failure,
+      };
     });
-
-    const checksPassed = Object.values(latestRuns).every(({ conclusion }) =>
-      ["success", "skipped"].includes(conclusion)
-    );
 
     // Commit statues (e.g., CircleCI checks)
     const commitStatuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
@@ -56,28 +66,39 @@ module.exports = async ({ github, context }) => {
       }
     }
 
-    Object.values(latestStatuses).forEach(({ context, state }) => {
+    const statues = Object.values(latestStatuses).forEach(({ context, state }) => {
       console.log(`- commit status: context: ${context}, latest state: ${state}`);
+      return {
+        name: context,
+        status:
+          state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
+      };
     });
 
-    const statusesPassed = Object.values(latestStatuses).every(({ state }) => state === "success");
-
-    return checksPassed && statusesPassed;
+    return [...runs, ...statues];
   }
 
   const start = new Date();
   const MINUTE = 1000 * 60;
   const TIMEOUT = 180 * MINUTE; // 3 hours
-  while (true) {
-    if (await allChecksPassed(sha)) {
-      break;
+  while (new Date() - start < TIMEOUT) {
+    const checks = await fetchChecks(sha);
+    checks.forEach(({ name, status }) => {
+      console.log(`- name: ${name}, status: ${status}`);
+    });
+
+    if (checks.some(({ status }) => status === STATE.failure)) {
+      throw new Error("Found failed job(s)");
     }
 
-    if (new Date() - start > TIMEOUT) {
-      throw new Error("Timeout");
+    if (checks.every(({ status }) => status === STATE.success)) {
+      console.log("All checks passed");
+      break;
     }
 
     await logRateLimit();
     await sleep(3 * MINUTE);
   }
+
+  throw new Error("Timeout");
 };
