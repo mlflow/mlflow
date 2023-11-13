@@ -386,7 +386,7 @@ jobs:
   guard:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # needs: python
+    needs: python
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v3
