@@ -17,6 +17,9 @@ import { MlflowRouter } from './MlflowRouter';
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const i18n = useI18nInit();
+  const [isDarkTheme, setIsDarkTheme] = React.useState(
+    window.matchMedia('(prefers-color-scheme: dark)').matches || false,
+  );
 
   if (!i18n) {
     return (
@@ -31,9 +34,13 @@ export function MLFlowRoot() {
   return (
     <IntlProvider locale={locale} messages={messages}>
       <Provider store={store}>
-        <DesignSystemContainer>
+        <DesignSystemContainer isDarkTheme={isDarkTheme}>
           <ConfigProvider prefixCls='ant'>
-            {shouldUsePathRouting() ? <MlflowRouter /> : <App />}
+            {shouldUsePathRouting() ? (
+              <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+            ) : (
+              <App isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+            )}
           </ConfigProvider>
         </DesignSystemContainer>
       </Provider>
