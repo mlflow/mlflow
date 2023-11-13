@@ -384,6 +384,8 @@ jobs:
           # pytest tests/mleap
 
   guard:
+    # Prevents PRs from being automerged accidentally when condtionally-triggered jobs
+    # (such as `js.yml`) are still running or have failed.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: python
