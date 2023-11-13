@@ -394,5 +394,5 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const script = require('./.github/workflows/automerge.js');
+            const script = require('./.github/workflows/guard.js');
             await script({ github, context });
