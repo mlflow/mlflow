@@ -388,7 +388,7 @@ def start_run(
                     "Failed to start system metrics monitoring as package `psutil` is not "
                     "installed. Run `pip install psutil` to resolve the issue, "
                     "otherwise you can disable system metrics logging by passing "
-                    "`log_system_metrics=False` to start_run() or setting environment "
+                    "`log_system_metrics=False` to `start_run()` or setting environment "
                     f"variable {MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING} to False."
                 )
 
