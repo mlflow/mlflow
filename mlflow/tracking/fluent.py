@@ -381,7 +381,7 @@ def start_run(
             log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
         if log_system_metrics:
             # Ensure psutil is installed. It was moved to an optional dependency, as it doesn't
-            # have binary for Arm64 Linux and requires build from CPython which was a headache.
+            # have binary for Arm64 Linux and requires build from CPython which is a headache.
             # https://github.com/giampaolo/psutil/issues/1972
             if importlib.util.find_spec("psutil") is None:
                 raise MlflowException(
