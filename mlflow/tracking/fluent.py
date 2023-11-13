@@ -382,10 +382,11 @@ def start_run(
         if log_system_metrics:
             # Ensure psutil is installed. It was moved to an optional dependency, as it doesn't
             # have binary for Arm64 Linux and requires build from CPython which was a headache.
+            # https://github.com/giampaolo/psutil/issues/1972
             if importlib.util.find_spec("psutil") is None:
                 raise MlflowException(
                     "Failed to start system metrics monitoring as package `psutil` is not "
-                    "installed. Run `pip install psutil --upgrade` to resolve the issue, "
+                    "installed. Run `pip install psutil` to resolve the issue, "
                     "otherwise you can disable system metrics logging by passing "
                     "`log_system_metrics=False` to start_run() or setting environment "
                     "variable MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING to False."

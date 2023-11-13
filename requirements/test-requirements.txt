@@ -43,4 +43,4 @@ databricks-sdk
 # TODO: Unpin once we support openai 1.0
 openai<1.0
 # Required for showing pytest stats
-psutil<6
+psutil
