@@ -81,6 +81,7 @@ enable=signature-differs,
        # Custom rules
        lazy-builtin-import,
        useless-assignment,
+       illegal-direct-import,
 
 [REPORTS]
 
