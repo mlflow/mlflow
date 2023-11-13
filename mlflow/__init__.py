@@ -209,7 +209,7 @@ __all__ = [
 ]
 
 
-# `mlflow.gateway` depends on optional dependencies such as pydantic and has version
+# `mlflow.gateway` depends on optional dependencies such as pydantic, psutil, and has version
 # restrictions for dependencies. Importing this module fails if they are not installed or
 # if invalid versions of these required packages are installed.
 with contextlib.suppress(Exception):

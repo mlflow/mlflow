@@ -100,6 +100,27 @@ def pytest_runtest_setup(item):
         pytest.skip("use `--requires-ssh` to run this test")
 
 
+def fetch_pr_labels():
+    """
+    Returns the labels associated with the current pull request.
+    """
+    if "GITHUB_ACTIONS" not in os.environ:
+        return None
+
+    if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
+        return None
+
+    with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+        pr_data = json.load(f)
+        return [label["name"] for label in pr_data["pull_request"]["labels"]]
+
+
+def pytest_configure(config):
+    labels = fetch_pr_labels() or []
+    if "fail-fast" in labels:
+        config.option.maxfail = 1
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_report_teststatus(report, config):
     outcome = yield
