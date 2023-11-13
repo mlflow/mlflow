@@ -29,12 +29,3 @@ USELESS_ASSIGNMENT = Message(
     message="Useless assignment. Use immediate return instead.",
     reason="For simplicity and readability",
 )
-
-ILLEGAL_DIRECT_IMPORT = Message(
-    id="W0009",
-    name="illegal-direct-import",
-    message="Direct import of the package `%s` is not allowed. "
-            "Use the wrapper module `%s` instead.",
-    reason="For some packages, we provide wrapper module to enforce some pre/post conditions."
-           "Direct import of the package is not allowed as it bypasses these conditions.",
-)

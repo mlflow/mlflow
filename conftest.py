@@ -1,4 +1,3 @@
-import importlib
 import json
 import os
 import posixpath
@@ -10,7 +9,6 @@ import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
-from mlflow.utils.process import disk_usage, virtual_memory
 from mlflow.version import VERSION
 
 from tests.helper_functions import get_safe_port
@@ -106,16 +104,17 @@ def pytest_runtest_setup(item):
 def pytest_report_teststatus(report, config):
     outcome = yield
     if report.when == "call":
-        # SKip showing stats at all if psutil is not installed
-        if importlib.util.find_spec("psutil") is None:
+        try:
+            import psutil
+        except ImportError:
             return
 
         (*rest, result) = outcome.get_result()
-        mem = virtual_memory()
+        mem = psutil.virtual_memory()
         mem_used = mem.used / 1024**3
         mem_total = mem.total / 1024**3
 
-        disk = disk_usage("/")
+        disk = psutil.disk_usage("/")
         disk_used = disk.used / 1024**3
         disk_total = disk.total / 1024**3
         outcome.force_result(

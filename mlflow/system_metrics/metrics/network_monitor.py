@@ -1,8 +1,9 @@
 """Class for monitoring network stats."""
 
 
+import psutil
+
 from mlflow.system_metrics.metrics.base_metrics_monitor import BaseMetricsMonitor
-from mlflow.utils.process import net_io_counters
 
 
 class NetworkMonitor(BaseMetricsMonitor):
@@ -14,13 +15,13 @@ class NetworkMonitor(BaseMetricsMonitor):
         # Set initial network usage metrics. `psutil.net_io_counters()` counts the stats since the
         # system boot, so to set network usage metrics as 0 when we start logging, we need to keep
         # the initial network usage metrics.
-        network_usage = net_io_counters()
+        network_usage = psutil.net_io_counters()
         self._initial_receive_megabytes = network_usage.bytes_recv / 1e6
         self._initial_transmit_megabytes = network_usage.bytes_sent / 1e6
 
     def collect_metrics(self):
         # Get network usage metrics.
-        network_usage = net_io_counters()
+        network_usage = psutil.net_io_counters()
         # Usage metrics will be the diff between current and initial metrics.
         self._metrics["network_receive_megabytes"] = (
             network_usage.bytes_recv / 1e6 - self._initial_receive_megabytes
