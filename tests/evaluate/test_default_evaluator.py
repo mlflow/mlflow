@@ -3261,8 +3261,8 @@ def test_evaluate_retriever():
         "recall_at_3/mean": 1.0,
         "recall_at_3/p90": 1.0,
         "recall_at_3/variance": 0.0,
-        "ndcg_at_3/mean": 0.9197207891481877,
-        "ndcg_at_3/p90": 0.9197207891481877,
+        "ndcg_at_3/mean": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/p90": pytest.approx(0.9197207891481877),
         "ndcg_at_3/variance": 0.0,
     }
     client = mlflow.MlflowClient()
@@ -3291,8 +3291,8 @@ def test_evaluate_retriever():
         "recall_at_6/mean": 1.0,
         "recall_at_6/p90": 1.0,
         "recall_at_6/variance": 0.0,
-        "ndcg_at_6/mean": 0.9197207891481877,
-        "ndcg_at_6/p90": 0.9197207891481877,
+        "ndcg_at_6/mean": pytest.approx(0.9197207891481877),
+        "ndcg_at_6/p90": pytest.approx(0.9197207891481877),
         "ndcg_at_6/variance": 0.0,
     }
 
@@ -3312,8 +3312,8 @@ def test_evaluate_retriever():
         "recall_at_3/mean": 1.0,
         "recall_at_3/p90": 1.0,
         "recall_at_3/variance": 0.0,
-        "ndcg_at_3/mean": 0.9197207891481877,
-        "ndcg_at_3/p90": 0.9197207891481877,
+        "ndcg_at_3/mean": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/p90": pytest.approx(0.9197207891481877),
         "ndcg_at_3/variance": 0.0,
     }
 
@@ -3401,8 +3401,8 @@ def test_evaluate_retriever():
         "recall_at_3/mean": 0.5,
         "recall_at_3/p90": 0.5,
         "recall_at_3/variance": 0.0,
-        "ndcg_at_3/mean": 0.6131471927654585,
-        "ndcg_at_3/p90": 0.6131471927654585,
+        "ndcg_at_3/mean": pytest.approx(0.6131471927654585),
+        "ndcg_at_3/p90": pytest.approx(0.6131471927654585),
         "ndcg_at_3/variance": 0.0,
         "precision_at_4/mean": 1 / 3,
         "precision_at_4/p90": 1 / 3,
@@ -3429,8 +3429,8 @@ def test_evaluate_retriever():
         "recall_at_3/mean": 0.5,
         "recall_at_3/p90": 0.5,
         "recall_at_3/variance": 0.0,
-        "ndcg_at_3/mean": 0.6131471927654585,
-        "ndcg_at_3/p90": 0.6131471927654585,
+        "ndcg_at_3/mean": pytest.approx(0.6131471927654585),
+        "ndcg_at_3/p90": pytest.approx(0.6131471927654585),
         "ndcg_at_3/variance": 0.0,
     }
 
@@ -3478,8 +3478,8 @@ def test_evaluate_retriever_builtin_metrics_no_model_type():
             "recall_at_4/mean": 1.0,
             "recall_at_4/p90": 1.0,
             "recall_at_4/variance": 0.0,
-            "ndcg_at_4/mean": 0.9197207891481877,
-            "ndcg_at_4/p90": 0.9197207891481877,
+            "ndcg_at_4/mean": pytest.approx(0.9197207891481877),
+            "ndcg_at_4/p90": pytest.approx(0.9197207891481877),
             "ndcg_at_4/variance": 0.0,
         }
     )

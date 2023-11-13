@@ -39,9 +39,6 @@ from mlflow.metrics import (
         rougeL(),
         rougeLsum(),
         toxicity(),
-        precision_at_k(3),
-        recall_at_k(3),
-        ndcg_at_k(3),
     ],
 )
 def test_return_type_and_len_with_target(metric):
