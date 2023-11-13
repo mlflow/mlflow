@@ -855,7 +855,7 @@ def test_model_registration_metadata_handling(sklearn_knn_model, tmp_path):
     dst_full = tmp_path.joinpath("full")
     dst_full.mkdir()
 
-    artifact_repository.download_artifacts("MLModel", dst_full)
+    artifact_repository.download_artifacts("MLmodel", dst_full)
     # This validates that the models artifact repo will not attempt to create a
     # "registered model metadata" file if the source of an artifact download is a file.
-    assert os.listdir(dst_full) == ["MLModel"]
+    assert os.listdir(dst_full) == ["MLmodel"]
