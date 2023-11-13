@@ -389,7 +389,7 @@ def start_run(
                     "installed. Run `pip install psutil` to resolve the issue, "
                     "otherwise you can disable system metrics logging by passing "
                     "`log_system_metrics=False` to start_run() or setting environment "
-                    "variable MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING to False."
+                    f"variable {MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING} to False."
                 )
 
             try:
