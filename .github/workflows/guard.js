@@ -88,7 +88,7 @@ module.exports = async ({ github, context }) => {
 
     if (checks.every(({ status }) => status === STATE.success)) {
       console.log("All checks passed");
-      break;
+      return;
     }
 
     await logRateLimit();
