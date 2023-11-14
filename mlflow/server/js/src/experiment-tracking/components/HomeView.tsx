@@ -69,7 +69,7 @@ class HomeView extends Component<HomeViewProps> {
           {/* @ts-expect-error TS(2322): Type '{ activeExperimentIds: string[]; experiments... Remove this comment to see the full error message */}
           <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
         </div>
-        <PageWrapper css={{ flex: '1', paddingTop: 24 }}>
+        <PageWrapper css={{ height: '100%', flex: '1', paddingTop: 24 }}>
           {hasExperiments ? (
             <React.Suspense fallback={<LegacySkeleton />}>
               <ExperimentPage
