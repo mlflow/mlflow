@@ -31,6 +31,7 @@ from mlflow.metrics import (
     ari_grade_level,
     exact_match,
     flesch_kincaid_grade_level,
+    ndcg_at_k,
     precision_at_k,
     recall_at_k,
     rouge1,
@@ -1714,6 +1715,7 @@ class DefaultEvaluator(ModelEvaluator):
                     self.builtin_metrics = [
                         precision_at_k(retriever_k),
                         recall_at_k(retriever_k),
+                        ndcg_at_k(retriever_k),
                     ]
 
                 eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
