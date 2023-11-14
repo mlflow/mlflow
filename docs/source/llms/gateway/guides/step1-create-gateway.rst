@@ -8,6 +8,7 @@ dependencies, including ``uvicorn`` and ``fastapi``. Note that direct dependenci
 unnecessary, as all supported providers are abstracted from the developer.
 
 .. code-section::
+
     .. code-block:: bash 
         :name: install-gateway
 
@@ -22,6 +23,7 @@ of leaking the token in code. The AI Gateway, when started, will read the value 
 variable without any additional action required.
 
 .. code-section::
+
     .. code-block:: bash
         :name: token
 
@@ -37,6 +39,7 @@ service restart is not required for changes to take effect and can instead be do
 configuration file that is defined at server start, permitting dynamic route creation without downtime of the service.
 
 .. code-section::
+
     .. code-block:: yaml 
         :name: configure-gateway
 
@@ -85,6 +88,7 @@ the URL: ``http://localhost:5000``. To modify these default settings, use the
 ``mlflow gateway --help`` command to view additional configuration options.
 
 .. code-section::
+
     .. code-block:: bash 
         :name: start-gateway
 

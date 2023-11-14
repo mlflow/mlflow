@@ -27,7 +27,7 @@ Explore the Tutorial
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the Custom Pyfunc for LLMs Tutorial</a><br>
+    <a href="notebooks/index.html" class="download-btn">View the Custom Pyfunc for LLMs Tutorial</a><br/>
 
 .. toctree::
     :maxdepth: 1
