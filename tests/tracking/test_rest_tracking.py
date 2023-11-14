@@ -531,9 +531,6 @@ def test_validate_path_is_safe_good(path):
     "path",
     [
         # relative path from current directory of C: drive
-        "C:path",
-        "C:path/",
-        "C:path/to/file",
         ".../...//",
     ],
 )
@@ -579,7 +576,11 @@ def test_validate_path_is_safe_bad(path):
         r".\..\path",
         r"path\..\to\file",
         r"path\..\..\to\file",
-        # Drive-relative absolute paths
+        # Drive-relative paths
+        r"C:path",
+        r"C:path/",
+        r"C:path/to/file",
+        r"C:../path/to/file",
         r"C:\path",
         r"C:/path",
         r"C:\path\to\file",
