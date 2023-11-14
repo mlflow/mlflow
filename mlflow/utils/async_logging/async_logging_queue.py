@@ -131,14 +131,10 @@ class AsyncLoggingQueue:
             del state["_run_data_logging_thread"]
         if "_stop_data_logging_thread_event" in state:
             del state["_stop_data_logging_thread_event"]
-        if "_batch_logging_threadpool" in state:
-            del state["_batch_logging_threadpool"]
+        if "_batch_logging_thread" in state:
+            del state["_batch_logging_thread"]
         if "_batch_status_check_threadpool" in state:
             del state["_batch_status_check_threadpool"]
-        if "_run_data_logging_thread" in state:
-            del state["_run_data_logging_thread"]
-        if "_stop_data_logging_thread_event" in state:
-            del state["_stop_data_logging_thread_event"]
 
         return state
 
@@ -157,7 +153,7 @@ class AsyncLoggingQueue:
         self._queue = Queue()
         self._lock = threading.RLock()
         self._is_activated = False
-        self._batch_logging_threadpool = None
+        self._batch_logging_thread = None
         self._batch_status_check_threadpool = None
         self._stop_data_logging_thread_event = None
 
