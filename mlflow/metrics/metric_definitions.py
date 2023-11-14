@@ -376,7 +376,7 @@ def _precision_at_k_eval_fn(k):
 def _expand_duplicate_retrieved_docs(predictions, targets):
     counter = {}
     expanded_predictions = []
-    expanded_targets = targets.copy()
+    expanded_targets = targets
     for doc_id in predictions:
         if doc_id not in counter:
             counter[doc_id] = 1
@@ -409,6 +409,7 @@ def _prepare_row_for_ndcg(predictions, targets):
     eps = 1e-6
 
     # support predictions containing duplicate doc ID
+    targets = set(targets)
     predictions, targets = _expand_duplicate_retrieved_docs(predictions, targets)
 
     all_docs = targets.union(predictions)
