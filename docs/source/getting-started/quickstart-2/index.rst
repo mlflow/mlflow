@@ -146,8 +146,12 @@ function for that set of hyperparameters.
         )
         return result
 
-Next, we will define the search space for Hyperopt. In this case, we want to try different values of 
-``learning-rate`` and ``momentum``. Hyperopt randomly picks a value from the range we define for ``lr`` and ``momentum``.
+Next, we will define the search space for Hyperopt. In this case, we want to try different values of
+``learning-rate`` and ``momentum``. Hyperopt begins its optimization process by selecting an initial
+set of hyperparameters, typically chosen at random or based on a specified domain space. This domain
+space defines the range and distribution of possible values for each hyperparameter. After evaluating
+the initial set, Hyperopt uses the results to update its probabilistic model, guiding the selection
+of subsequent hyperparameter sets in a more informed manner, aiming to converge towards the optimal solution.
 
 .. code-block:: python
 
@@ -247,8 +251,8 @@ Transition the model to **Staging** by choosing the **Stage** dropdown:
 Serve the model locally
 ----------------------------
 
-MLflow allows you to easily serve models produced by any run or model version. You can serve the model
-you just registered by running:
+MLflow allows you to easily serve models produced by any run or model version.
+You can serve the model you just registered by running:
 
 .. code-block:: bash
 
@@ -257,13 +261,16 @@ you just registered by running:
 (Note that specifying the port as above will be necessary if you are running the tracking server on the
 same machine at the default port of **5000**.)
 
-You could also have used a ``runs:/<run_id>`` URI to serve a model, or any supported URI described in :ref:`artifact-stores`. 
+You could also have used a ``runs:/<run_id>`` URI to serve a model, or any supported URI described in :ref:`artifact-stores`.
+
+Please note that for production, we do not recommend deploying your model in the same VM as the tracking server
+because of resource limitation, within this guide we just run everything from the same machine for simplicity.
 
 To test the model, you can send a request to the REST API using the ``curl`` command:
 
 .. code-block:: bash
 
-  curl -d '{"dataframe_split": { 
+  curl -d '{"dataframe_split": {
   "columns": ["fixed acidity","volatile acidity","citric acid","residual sugar","chlorides","free sulfur dioxide","total sulfur dioxide","density","pH","sulphates","alcohol"], 
   "data": [[7,0.27,0.36,20.7,0.045,45,170,1.001,3,0.45,8.8]]}}' \
   -H 'Content-Type: application/json' -X POST localhost:5002/invocations
@@ -281,7 +288,7 @@ predictions, one for each row of data. In this case, the response is:
 The schema for input and output is available in the MLflow UI in the **Artifacts | Model** description. The schema
 is available because the ``train.py`` script used the ``mlflow.infer_signature`` method and passed the result to
 the ``mlflow.log_model`` method. Passing the signature to the ``log_model`` method is highly recommended, as it
-provides clear error messages if the input request is malformed. 
+provides clear error messages if the input request is malformed.
 
 Build a container image for your model
 ---------------------------------------
