@@ -118,7 +118,7 @@ def test_models_artifact_repo_uses_repo_download_artifacts(tmp_path):
     """
     artifact_location = "s3://blah_bucket/"
     dummy_file = tmp_path / "dummy_file.txt"
-    dummy_file.write_text("dummy content")
+    dummy_file.touch()
 
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
@@ -139,7 +139,7 @@ def test_models_artifact_repo_download_with_real_files(tmp_path):
     model_dir = temp_remote_storage / "model_dir"
     model_dir.mkdir(parents=True)
     mlmodel_path = model_dir / "MLmodel"
-    mlmodel_path.write_text("dummy content")
+    mlmodel_path.touch()
 
     # Mock get_model_version_download_uri to return the path to the temp_remote_storage location
     with mock.patch.object(
@@ -171,7 +171,7 @@ def test_models_artifact_repo_does_not_add_meta_for_file(tmp_path):
     artifact_location = f"s3://blah_bucket/{artifact_path}"
 
     dummy_file = tmp_path / artifact_path
-    dummy_file.write_text("dummy content")
+    dummy_file.touch()
 
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
