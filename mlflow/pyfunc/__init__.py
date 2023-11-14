@@ -998,9 +998,13 @@ def _infer_spark_udf_return_type(model_output_schema):
 
 def _parse_spark_datatype(datatype: str):
     from pyspark.sql.functions import udf
+    from pyspark.sql.session import SparkSession
 
-    return_type = "boolean" if datatype == "bool" else datatype
-    return udf(lambda x: x, returnType=return_type).returnType
+    returnType = "boolean" if datatype == "bool" else datatype
+    schema = (
+        SparkSession.active().range(0).select(udf(lambda x: x, returnType=returnType)("id")).schema
+    )
+    return schema[0].dataType
 
 
 def _is_none_or_nan(value):
