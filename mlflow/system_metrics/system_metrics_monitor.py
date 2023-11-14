@@ -7,6 +7,7 @@ from mlflow.environment_variables import (
     MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING,
     MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.system_metrics.metrics.cpu_monitor import CPUMonitor
 from mlflow.system_metrics.metrics.disk_monitor import DiskMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
@@ -78,7 +79,7 @@ class SystemMetricsMonitor:
         client = MlflowClient()
         try:
             run = client.get_run(run_id)
-        except Exception:
+        except MlflowException:
             return 0
         system_metric_name = None
         for metric_name in run.data.metrics.keys():

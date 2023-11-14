@@ -384,7 +384,7 @@ def start_run(
     if log_system_metrics:
         if importlib.util.find_spec("psutil") is None:
             raise MlflowException(
-                "Failed to start system metrics monitoring as package `psutil` is not installed."
+                "Failed to start system metrics monitoring as package `psutil` is not installed. "
                 "Please run `pip install psutil` to resolve the issue, otherwise you can disable "
                 "system metrics logging by passing `log_system_metrics=False` to "
                 "`mlflow.start_run()` or calling `mlflow.disable_system_metrics_logging`."

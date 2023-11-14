@@ -1,8 +1,19 @@
 import threading
 import time
 
+import pytest
+
 import mlflow
 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
+
+
+@pytest.fixture(scope="module", autouse=True)
+def clean_mlruns_dir():
+    yield
+    # Unset the environment variables to avoid affecting other test cases.
+    mlflow.disable_system_metrics_logging()
+    mlflow.set_system_metrics_sampling_interval(None)
+    mlflow.set_system_metrics_samples_before_logging(None)
 
 
 def test_manual_system_metrics_monitor():
@@ -41,7 +52,7 @@ def test_manual_system_metrics_monitor():
         assert name in metrics
 
     # Check the step is correctly logged.
-    metrics_history = mlflow.tracking.MlflowClient().get_metric_history(
+    metrics_history = mlflow.MlflowClient().get_metric_history(
         run.info.run_id, "system/cpu_utilization_percentage"
     )
     assert metrics_history[-1].step > 0
@@ -82,15 +93,10 @@ def test_automatic_system_metrics_monitor():
         assert name in metrics
 
     # Check the step is correctly logged.
-    metrics_history = mlflow.tracking.MlflowClient().get_metric_history(
+    metrics_history = mlflow.MlflowClient().get_metric_history(
         run.info.run_id, "system/cpu_utilization_percentage"
     )
     assert metrics_history[-1].step > 0
-
-    # Unset the environment variables to avoid affecting other test cases.
-    mlflow.disable_system_metrics_logging()
-    mlflow.set_system_metrics_sampling_interval(None)
-    mlflow.set_system_metrics_samples_before_logging(None)
 
 
 def test_automatic_system_metrics_monitor_resume_existing_run():
@@ -107,7 +113,7 @@ def test_automatic_system_metrics_monitor_resume_existing_run():
     assert "SystemMetricsMonitor" not in thread_names
 
     # Get the last step.
-    metrics_history = mlflow.tracking.MlflowClient().get_metric_history(
+    metrics_history = mlflow.MlflowClient().get_metric_history(
         run.info.run_id, "system/cpu_utilization_percentage"
     )
     last_step = metrics_history[-1].step
@@ -131,12 +137,7 @@ def test_automatic_system_metrics_monitor_resume_existing_run():
         assert name in metrics
 
     # Check the step is correctly resumed.
-    metrics_history = mlflow.tracking.MlflowClient().get_metric_history(
+    metrics_history = mlflow.MlflowClient().get_metric_history(
         run.info.run_id, "system/cpu_utilization_percentage"
     )
     assert metrics_history[-1].step > last_step
-
-    # Unset the environment variables to avoid affecting other test cases.
-    mlflow.disable_system_metrics_logging()
-    mlflow.set_system_metrics_sampling_interval(None)
-    mlflow.set_system_metrics_samples_before_logging(None)
