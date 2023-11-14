@@ -133,30 +133,35 @@ def test_models_artifact_repo_uses_repo_download_artifacts(tmp_path):
 
 
 @pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
-def test_models_artifact_repo_add_registered_model_meta_file(tmp_path):
-    artifact_path = "artifact_path"
-    model_name = "MyModel"
-    model_version = "12"
-    artifact_location = str(tmp_path.joinpath(artifact_path))
+def test_models_artifact_repo_download_with_real_files(tmp_path):
+    # Simulate an artifact repository
+    temp_remote_storage = tmp_path / "remote_storage"
+    model_dir = temp_remote_storage / "model_dir"
+    model_dir.mkdir(parents=True)
+    mlmodel_path = model_dir / "MLmodel"
+    mlmodel_path.write_text("dummy content")
 
-    # Create a directory and MLmodel file in tmp_path. These are the two conditions required
-    # to initiate the creation of the registered_model_meta_file
-    model_dir = tmp_path / "model_dir"
-    model_dir.mkdir()
-    mlmodel_file = model_dir / "MLmodel"
-    mlmodel_file.write_text("dummy content")
-
+    # Mock get_model_version_download_uri to return the path to the temp_remote_storage location
     with mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    ), mock.patch.object(
-        ModelsArtifactRepository, "_add_registered_model_meta_file"
-    ) as add_meta_mock:
-        models_repo = ModelsArtifactRepository(f"models:/{model_name}/{model_version}")
-        models_repo.repo = mock.Mock(**{"download_artifacts.return_value": str(model_dir)})
+        MlflowClient, "get_model_version_download_uri", return_value=str(model_dir)
+    ):
+        # Create ModelsArtifactRepository instance
+        models_repo = ModelsArtifactRepository("models:/MyModel/1")
 
-        models_repo.download_artifacts(artifact_location, str(tmp_path))
+        # Use another temporary directory as the download destination
+        temp_local_storage = tmp_path / "local_storage"
+        temp_local_storage.mkdir()
 
-        add_meta_mock.assert_called_once()
+        # Download artifacts
+        models_repo.download_artifacts("", str(temp_local_storage))
+
+        # Check if the files are downloaded correctly
+        downloaded_mlmodel_path = temp_local_storage / "MLmodel"
+        assert downloaded_mlmodel_path.exists()
+
+        # Check if the metadata file is created
+        metadata_file_path = temp_local_storage / "registered_model_meta"
+        assert metadata_file_path.exists()
 
 
 def test_models_artifact_repo_does_not_add_meta_for_file(tmp_path):
@@ -191,7 +196,7 @@ def test_models_artifact_repo_does_not_add_meta_for_directory_without_mlmodel(tm
     dummy_dir = tmp_path / artifact_path
     dummy_dir.mkdir()
     dummy_file = dummy_dir / "dummy_file.txt"
-    dummy_file.write_text("dummy content")
+    dummy_file.touch()
 
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
