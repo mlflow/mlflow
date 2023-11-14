@@ -547,7 +547,15 @@ def _is_spark_df(x) -> bool:
     try:
         import pyspark.sql.dataframe
 
-        return isinstance(x, pyspark.sql.dataframe.DataFrame)
+        if isinstance(x, pyspark.sql.dataframe.DataFrame):
+            return True
+    except ImportError:
+        return False
+    # For spark 4.0
+    try:
+        import pyspark.sql.connect.dataframe
+
+        return isinstance(x, pyspark.sql.connect.dataframe.DataFrame)
     except ImportError:
         return False
 
