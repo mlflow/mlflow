@@ -228,21 +228,21 @@ export class ExperimentListView extends Component<Props, State> {
 
   render() {
     const { hidden } = this.state;
+    const { activeExperimentIds, designSystemThemeApi } = this.props;
+    const { theme } = designSystemThemeApi;
 
     if (hidden) {
       return (
         <CaretDownSquareIcon
           rotate={-90}
           onClick={this.unHide}
-          css={classNames.icon}
+          css={classNames.icon(theme)}
           title='Show experiment list'
         />
       );
     }
 
     const { searchInput } = this.state;
-    const { activeExperimentIds, designSystemThemeApi } = this.props;
-    const { theme } = designSystemThemeApi;
     const filteredExperiments = this.filterExperiments(searchInput);
 
     return (
