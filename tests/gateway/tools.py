@@ -54,7 +54,7 @@ class Gateway:
 
     def wait_until_ready(self) -> None:
         s = time.time()
-        while time.time() - s < 10:
+        while time.time() - s < 20:
             try:
                 if self.get("health").ok:
                     return
