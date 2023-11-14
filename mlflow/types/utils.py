@@ -241,8 +241,9 @@ def _infer_schema(data: Any) -> Schema:
         # TODO: Add a link to docs/examples
         _logger.info(
             "MLflow 2.9.0 introduces model signature with new data types for "
-            "lists and dictionaries. Lists will be inferred as Array, and dictionaries "
-            "will be inferred as Object."
+            "lists and dictionaries. For input such as "
+            "Dict[str, Union[scalars, List, Dict]], we infer dictionary values "
+            "types as `List -> Array` and `Dict -> Object`. "
         )
 
     # To keep backward compatibility with < 2.9.0, an empty list is inferred as string.
