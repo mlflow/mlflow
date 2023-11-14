@@ -47,7 +47,7 @@ CREATE TABLE datasets (
 	dataset_uuid VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	experiment_id INTEGER NOT NULL,
 	name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	digest VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	digest VARCHAR(44) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	dataset_source_type VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	dataset_source VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	dataset_schema VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",

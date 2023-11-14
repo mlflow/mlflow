@@ -493,7 +493,7 @@ class SqlDataset(Base):
     Param name: `String` (limit 500 characters). Defined as *Non-null* in schema.
     Part of *Primary Key* for ``datasets`` table.
     """
-    digest = Column(String(36), nullable=False)
+    digest = Column(String(44), nullable=False)
     """
     Param digest: `String` (limit 500 characters). Defined as *Non-null* in schema.
     Part of *Primary Key* for ``datasets`` table.
