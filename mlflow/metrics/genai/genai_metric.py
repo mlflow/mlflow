@@ -238,7 +238,6 @@ def make_genai_metric(
 
     def eval_fn(
         predictions: "pd.Series",
-        metrics: Dict[str, MetricValue],
         inputs: "pd.Series",
         *args,
     ) -> MetricValue:
