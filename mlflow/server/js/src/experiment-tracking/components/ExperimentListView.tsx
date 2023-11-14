@@ -235,7 +235,7 @@ export class ExperimentListView extends Component<Props, State> {
         <CaretDownSquareIcon
           rotate={-90}
           onClick={this.unHide}
-          css={{ fontSize: '24px' }}
+          css={classNames.icon}
           title='Show experiment list'
         />
       );
