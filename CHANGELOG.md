@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2.8.1 (2023-11-14)
+
+MLflow 2.8.1 includes several major features and improvements
+
+Features:
+
+- [Tracking] Add timeout for mlflow login (#10239, @chenmoneygithub)
+
+Bug fixes:
+
+- [Artifacts] Fix regression in downloading single files from models artifact store (#10362, @BenWilson2)
+- [] Fix the problem that async logging has hanging thread (#10374, @chenmoneygithub)
+- [Gateway] Fix the Gateway config validator pre-check for OpenAI to perform instance type validation (#10379, @BenWilson2)
+- [Tracking] Fix fastapi dependency by not importing gateway provider (#10354, @prithvikannan)
+- [Tracking] Examples should be optional in make_genai_metric (#10353, @prithvikannan)
+- [Models] Fix PromptLab templating (#10341, @daniellok-db)
+- [Models] Fix dependency duplicate issue in shap (#10305, @BenWilson2)
+- [] Flush the Mlflow client when system metrics logging finishes (#10320, @chenmoneygithub)
+- [Tracking] Fix Azure OpenAI for LLM judge metrics (#10291, @prithvikannan)
+
+Documentation updates:
+
+- [Docs] Add MLflow Tracking Quickstart (#10285, @BenWilson2)
+- [] Add a guide on using different types of tracking server (#10241, @chenmoneygithub)
+- [Docs] Inline hyperparameter tuning code for quickstart 2 (#10322, @prithvikannan)
+- [] Include system metrics in the API doc (#10261, @chenmoneygithub)
+- [Docs] Fixing a typo in docs (#10232, @sunishsheth2009)
+- [Docs] Fixing a typo in docs (#10232, @sunishsheth2009)
+
+Small bug fixes and documentation updates:
+
+#10367, #10358, #10340, #10310, #10276, #10277, #10247, #10260, #10220, #10263, #10259, #10219, @harupy; #10313, #10303, #10213, #10272, #10282, #10283, #10231, #10256, #10242, #10237, #10238, #10233, #10229, #10211, #10231, #10256, #10242, #10238, #10237, #10229, #10233, #10211, @BenWilson2; #10375, @serena-ruan; #10330, @Haxatron; #10342, #10249, #10249, @B-Step62; #10355, #10301, #10286, #10257, #10236, #10270, #10236, @prithvikannan; #10321, #10258, @jerrylian-db; #10245, @jessechancy; #10278, @daniellok-db; #10244, @gabrielfu; #10226, @milinddethe15
+
 ## 2.8.0 (2023-10-28)
 
 MLflow 2.8.0 includes several notable new features and improvements
