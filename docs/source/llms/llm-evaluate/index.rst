@@ -23,7 +23,7 @@ functionality for LLMs, please navigate to the notebook collection below:
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the Notebook Guides</a><br>
+    <a href="notebooks/index.html" class="download-btn">View the Notebook Guides</a><br/>
 
 Quickstart
 ----------
@@ -165,7 +165,7 @@ The supported LLM model types and associated metrics are listed below:
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
 
-:sup:`1` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `pytorch <https://pytorch.org/get-started/locally/>`_, and 
+:sup:`1` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `torch <https://pytorch.org/get-started/locally/>`_, and 
 `transformers <https://huggingface.co/docs/transformers/installation>`_
 
 :sup:`2` Requires package `textstat <https://pypi.org/project/textstat>`_

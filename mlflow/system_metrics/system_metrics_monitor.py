@@ -138,6 +138,7 @@ class SystemMetricsMonitor:
         self._shutdown_event.set()
         try:
             self._process.join()
+            self.mlflow_logger.flush()
             _logger.info("Successfully terminated system metrics monitoring!")
         except Exception as e:
             _logger.error(f"Error terminating system metrics monitoring process: {e}.")

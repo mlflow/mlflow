@@ -1221,14 +1221,14 @@ def evaluate(
 
      - For question-answering models, the default evaluator logs:
         - **metrics**: ``exact_match``, ``token_count``, `toxicity`_ (requires `evaluate`_,
-          `pytorch`_, `flesch_kincaid_grade_level`_ (requires `textstat`_) and `ari_grade_level`_.
+          `torch`_, `flesch_kincaid_grade_level`_ (requires `textstat`_) and `ari_grade_level`_.
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
         .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
-        .. _pytorch:
+        .. _torch:
             https://pytorch.org/get-started/locally/
 
         .. _transformers:
@@ -1248,7 +1248,7 @@ def evaluate(
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: ``token_count``, `ROUGE`_ (requires `evaluate`_, `nltk`_, and
-          `rouge_score`_ to be installed), `toxicity`_ (requires `evaluate`_, `pytorch`_,
+          `rouge_score`_ to be installed), `toxicity`_ (requires `evaluate`_, `torch`_,
           `transformers`_), `ari_grade_level`_ (requires `textstat`_),
           `flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
@@ -1260,7 +1260,7 @@ def evaluate(
         .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
-        .. _pytorch:
+        .. _torch:
             https://pytorch.org/get-started/locally/
 
         .. _transformers:
@@ -1285,7 +1285,7 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: ``token_count``, `toxicity`_ (requires `evaluate`_, `pytorch`_,
+        - **metrics**: ``token_count``, `toxicity`_ (requires `evaluate`_, `torch`_,
           `transformers`_), `ari_grade_level`_ (requires `textstat`_),
           `flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
@@ -1297,7 +1297,7 @@ def evaluate(
         .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
-        .. _pytorch:
+        .. _torch:
             https://pytorch.org/get-started/locally/
 
         .. _transformers:

@@ -15,6 +15,7 @@ Step 1: Install MLflow from PyPI
 MLflow is conveniently available on PyPI. Installing it is as simple as running a pip command.
 
 .. code-section::
+
     .. code-block:: bash
         :name: download-mlflow
 
@@ -27,6 +28,7 @@ To begin, you'll need to initiate the MLflow Tracking Server. Remember to keep t
 running during the tutorial, as closing it will shut down the server.
 
 .. code-section::
+
     .. code-block:: bash
         :name: tracking-server-start
 
