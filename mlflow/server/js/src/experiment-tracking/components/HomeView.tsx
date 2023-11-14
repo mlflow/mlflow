@@ -8,7 +8,12 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Navigate } from '../../common/utils/RoutingUtils';
-import { PageWrapper, LegacySkeleton } from '@databricks/design-system';
+import {
+  PageWrapper,
+  LegacySkeleton,
+  WithDesignSystemThemeHoc,
+  DesignSystemHocProps,
+} from '@databricks/design-system';
 import ExperimentListView from './ExperimentListView';
 import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';
@@ -28,11 +33,12 @@ type HomeViewProps = {
   experiments?: any[];
   experimentIds?: string[];
   compareExperiments?: boolean;
-};
+} & DesignSystemHocProps;
 
 class HomeView extends Component<HomeViewProps> {
   render() {
-    const { experimentIds, experiments, compareExperiments } = this.props;
+    const { experimentIds, experiments, compareExperiments, designSystemThemeApi } = this.props;
+    const { theme } = designSystemThemeApi;
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const hasExperiments = experimentIds?.length > 0;
 
@@ -64,7 +70,7 @@ class HomeView extends Component<HomeViewProps> {
       );
     }
     return (
-      <div css={styles.homeContainer}>
+      <div css={styles.homeContainer(theme)}>
         <div css={styles.experimentList}>
           {/* @ts-expect-error TS(2322): Type '{ activeExperimentIds: string[]; experiments... Remove this comment to see the full error message */}
           <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
@@ -105,4 +111,4 @@ const mapStateToProps = (state: any) => {
   return { experiments };
 };
 
-export default connect(mapStateToProps)(HomeView);
+export default connect(mapStateToProps)(WithDesignSystemThemeHoc(HomeView));

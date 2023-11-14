@@ -15,6 +15,7 @@ import {
   PencilIcon,
   Typography,
   WithDesignSystemThemeHoc,
+  DesignSystemHocProps,
 } from '@databricks/design-system';
 import { List } from 'antd';
 import { List as VList, AutoSizer } from 'react-virtualized';
@@ -30,13 +31,10 @@ import { withRouterNext } from '../../common/utils/withRouterNext';
 
 type Props = {
   activeExperimentIds: string[];
-  designSystemThemeApi: {
-    theme?: any;
-  };
   // @ts-expect-error TS(2749): 'Experiment' refers to a value, but is being used ... Remove this comment to see the full error message
   experiments: Experiment[];
   navigate: NavigateFunction;
-};
+} & DesignSystemHocProps;
 
 type State = any;
 
@@ -230,6 +228,7 @@ export class ExperimentListView extends Component<Props, State> {
 
   render() {
     const { hidden } = this.state;
+
     if (hidden) {
       return (
         <CaretDownSquareIcon
@@ -242,7 +241,8 @@ export class ExperimentListView extends Component<Props, State> {
     }
 
     const { searchInput } = this.state;
-    const { activeExperimentIds } = this.props;
+    const { activeExperimentIds, designSystemThemeApi } = this.props;
+    const { theme } = designSystemThemeApi;
     const filteredExperiments = this.filterExperiments(searchInput);
 
     return (
@@ -271,14 +271,14 @@ export class ExperimentListView extends Component<Props, State> {
           <div>
             <PlusCircleIcon
               onClick={this.handleCreateExperiment}
-              css={classNames.icon}
+              css={classNames.icon(theme)}
               title='New Experiment'
               data-testid='create-experiment-button'
             />
             <CaretDownSquareIcon
               onClick={this.hide}
               rotate={90}
-              css={classNames.icon}
+              css={classNames.icon(theme)}
               title='Hide experiment list'
             />
           </div>
@@ -393,10 +393,9 @@ const classNames = {
   },
   icon: (theme: Theme) => ({
     color: theme.colors.actionDefaultTextDefault,
-    fontSize: 24,
+    fontSize: theme.general.iconSize,
     marginLeft: theme.spacing.xs,
   }),
 };
 
-// @ts-expect-error TS(2345): Argument of type '(props: Props) => ReactElement<a... Remove this comment to see the full error message
 export default withRouterNext(WithDesignSystemThemeHoc(ExperimentListView));

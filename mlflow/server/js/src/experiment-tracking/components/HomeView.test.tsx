@@ -62,7 +62,7 @@ describe('HomeView', () => {
         </Provider>
       </DesignSystemProvider>,
     );
-    expect(screen.getByAltText('No experiments found.')).not.toBeNull();
+    expect(screen.getByAltText('No experiments found.')).toBeInTheDocument();
   });
 
   test('getFirstActiveExperiment works', () => {

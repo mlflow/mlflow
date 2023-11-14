@@ -46,6 +46,8 @@ afterAll(() => {
 const designSystemThemeApi = {
   theme: {
     colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
+    general: { iconSize: 24 },
+    spacing: { xs: 4 },
   },
 };
 
@@ -92,19 +94,21 @@ test('If searchInput is set to "Test" and default experiment is active then no a
 test('If button to create experiment is pressed then open CreateExperimentModal', () => {
   mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   userEvent.click(screen.getByTestId('create-experiment-button'));
-  expect(screen.getByText('Create Experiment')).not.toBeNull();
+  expect(screen.getByText('Create Experiment')).toBeInTheDocument();
 });
 
 test('If button to delete experiment is pressed then open DeleteExperimentModal', () => {
   mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   userEvent.click(screen.getAllByTestId('delete-experiment-button')[0]);
-  expect(screen.getByText(`Delete Experiment "${Fixtures.experiments[0].name}"`)).not.toBeNull();
+  expect(
+    screen.getByText(`Delete Experiment "${Fixtures.experiments[0].name}"`),
+  ).toBeInTheDocument();
 });
 
 test('If button to edit experiment is pressed then open RenameExperimentModal', () => {
   mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   userEvent.click(screen.getAllByTestId('rename-experiment-button')[0]);
-  expect(screen.getByText('Rename Experiment')).not.toBeNull();
+  expect(screen.getByText('Rename Experiment')).toBeInTheDocument();
 });
 
 test('If activeExperimentIds is defined then choose all the corresponding experiments', () => {
@@ -131,7 +135,7 @@ test('should render when both experiments and activeExperimentIds are empty', ()
   });
 
   // Get the sidebar header as proof that the component rendered
-  expect(screen.getByText('Experiments')).not.toBeNull();
+  expect(screen.getByText('Experiments')).toBeInTheDocument();
 });
 
 test('virtual list should not render everything when there are many experiments', () => {
