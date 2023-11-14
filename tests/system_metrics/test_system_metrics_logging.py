@@ -7,8 +7,8 @@ import mlflow
 from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
 
-@pytest.fixture(scope="module", autouse=True)
-def clean_mlruns_dir():
+@pytest.fixture(autouse=True)
+def disable_system_metrics_logging():
     yield
     # Unset the environment variables to avoid affecting other test cases.
     mlflow.disable_system_metrics_logging()
