@@ -27,7 +27,7 @@ module.exports = async ({ github, context }) => {
         repo,
         ref,
       })
-    ).filter(({ name }) => name !== "guard");
+    ).filter(({ name }) => name !== "protect");
 
     const latestRuns = {};
     for (const run of checkRuns) {
@@ -64,13 +64,13 @@ module.exports = async ({ github, context }) => {
       }
     }
 
-    const statues = Object.values(latestStatuses).map(({ context, state }) => ({
+    const statuses = Object.values(latestStatuses).map(({ context, state }) => ({
       name: context,
       status:
         state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
     }));
 
-    return [...runs, ...statues];
+    return [...runs, ...statuses];
   }
 
   const start = new Date();
