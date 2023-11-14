@@ -268,20 +268,18 @@ export class ExperimentListView extends Component<Props, State> {
           <Typography.Title level={2} style={{ margin: 0 }}>
             Experiments
           </Typography.Title>
-          <div>
-            <PlusCircleIcon
-              onClick={this.handleCreateExperiment}
-              css={classNames.icon}
-              title='New Experiment'
-              data-testid='create-experiment-button'
-            />
-            <CaretDownSquareIcon
-              onClick={this.hide}
-              rotate={90}
-              css={classNames.icon}
-              title='Hide experiment list'
-            />
-          </div>
+          <PlusCircleIcon
+            onClick={this.handleCreateExperiment}
+            css={classNames.icon}
+            title='New Experiment'
+            data-testid='create-experiment-button'
+          />
+          <CaretDownSquareIcon
+            onClick={this.hide}
+            rotate={90}
+            css={classNames.icon}
+            title='Hide experiment list'
+          />
         </div>
         <Input
           placeholder='Search Experiments'
