@@ -36,17 +36,15 @@ module.exports = async ({ github, context }) => {
         latestRuns[name] = run;
       }
     }
-    const runs = Object.values(latestRuns).forEach(({ name, status, conclusion }) => {
-      return {
-        name,
-        status:
-          status !== "completed"
-            ? STATE.pending
-            : conclusion === "success" || conclusion === "skipped"
-            ? STATE.success
-            : STATE.failure,
-      };
-    });
+    const runs = Object.values(latestRuns).map(({ name, status, conclusion }) => ({
+      name,
+      status:
+        status !== "completed"
+          ? STATE.pending
+          : conclusion === "success" || conclusion === "skipped"
+          ? STATE.success
+          : STATE.failure,
+    }));
 
     // Commit statues (e.g., CircleCI checks)
     const commitStatuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
@@ -66,14 +64,11 @@ module.exports = async ({ github, context }) => {
       }
     }
 
-    const statues = Object.values(latestStatuses).forEach(({ context, state }) => {
-      console.log(`- commit status: context: ${context}, latest state: ${state}`);
-      return {
-        name: context,
-        status:
-          state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
-      };
-    });
+    const statues = Object.values(latestStatuses).map(({ context, state }) => ({
+      name: context,
+      status:
+        state === "pending" ? STATE.pending : state === "success" ? STATE.success : STATE.failure,
+    }));
 
     return [...runs, ...statues];
   }
