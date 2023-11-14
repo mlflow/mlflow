@@ -21,13 +21,13 @@ module.exports = async ({ github, context }) => {
 
   async function fetchChecks(ref) {
     // Check runs (e.g., GitHub Actions)
-    const checkRuns = await github
-      .paginate(github.rest.checks.listForRef, {
+    const checkRuns = (
+      await github.paginate(github.rest.checks.listForRef, {
         owner,
         repo,
         ref,
       })
-      .filter(({ name }) => name !== "guard");
+    ).filter(({ name }) => name !== "guard");
 
     const latestRuns = {};
     for (const run of checkRuns) {
