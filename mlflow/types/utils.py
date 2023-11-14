@@ -714,9 +714,17 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
         return None
 
 
+def _get_array_depth(l: Any) -> int:
+    if isinstance(l, np.ndarray):
+        return l.ndim
+    if isinstance(l, list):
+        return max(_get_array_depth(item) for item in l) + 1 if l else 1
+    return 0
+
+
 def _infer_type_and_shape(value):
     if isinstance(value, (list, np.ndarray)):
-        ndim = np.array(value).ndim
+        ndim = _get_array_depth(value)
         if ndim != 1:
             raise MlflowException.invalid_parameter_value(
                 f"Expected parameters to be 1D array or scalar, got {ndim}D array",
