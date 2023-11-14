@@ -209,7 +209,8 @@ def make_genai_metric(
 
         return example
 
-    examples = [process_example(example) for example in examples]
+    if examples is not None:
+        examples = [process_example(example) for example in examples]
 
     class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
     try:
