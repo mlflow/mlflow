@@ -31,7 +31,10 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
+        # The pydantic pin below is temporary until FastAPI releases a compatible build for the
+        # changes introduced in the 2.5.0 pydantic release.
         run: |
+          pip install 'pydantic<2.5' \
           pip install .[gateway] \
             pytest pytest-timeout pytest-asyncio \
             httpx psutil sentence-transformers transformers
