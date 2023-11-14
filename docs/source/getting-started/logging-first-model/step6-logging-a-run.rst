@@ -76,6 +76,7 @@ using MLflow to tracking a training iteration.
 To start with, we will need to import our required modules.
 
 .. code-section::
+
     .. code-block:: python
 
         import mlflow
@@ -94,6 +95,7 @@ In order to use the ``fluent`` API, we'll need to set the global reference to th
 address. We do this via the following command:
 
 .. code-section::
+
     .. code-block:: python
 
         mlflow.set_tracking_uri("http://127.0.0.1:8080")
@@ -104,6 +106,7 @@ to log runs to. The parent-child relationship of Experiments to Runs and its uti
 clear once we start iterating over some ideas and need to compare the results of our tests.
 
 .. code-section::
+
     .. code-block:: python
 
         # Sets the current active experiment to the "Apple_Models" experiment and
@@ -123,6 +126,7 @@ Firstly, let's look at what we're going to be running. Following the code displa
 an annotated version of the code.
 
 .. code-section::
+
     .. code-block:: python
 
         # Split the data into features and target and drop irrelevant date field and target field
