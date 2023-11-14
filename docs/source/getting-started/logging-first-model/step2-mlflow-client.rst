@@ -18,6 +18,7 @@ Importing Dependencies
 In order to use the MLflowClient API, the initial step involves importing the necessary modules.
 
 .. code-section::
+
     .. code-block:: python
         :name: imports
         :emphasize-lines: 1
@@ -43,6 +44,7 @@ assigned the server when we started it. The two components that we submitted as 
 ``host`` and the ``port``. Combined, these form the ``tracking_uri`` argument that we will specify to start an instance of the client.
 
 .. code-section::
+
     .. code-block:: python
         :name: client
 
@@ -70,6 +72,7 @@ The first thing that we're going to do is to view the metadata associated with t
 use of the :py:func:`mlflow.client.MlflowClient.search_experiments` API. Let's issue a search query to see what the results are.
 
 .. code-section::
+
     .. code-block:: python
 
         all_experiments = client.search_experiments()
@@ -91,6 +94,7 @@ To get familiar with accessing elements from returned collections from MLflow AP
 query and extract these attributes into a dict.
 
 .. code-section::
+
     .. code-block:: python
 
         default_experiment = [
