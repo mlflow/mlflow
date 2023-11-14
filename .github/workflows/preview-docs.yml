@@ -15,7 +15,7 @@ jobs:
       pull-requests: write # preview_docs.py comments on PRs
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Install dependencies
         run: |
           pip install requests

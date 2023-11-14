@@ -30,10 +30,10 @@ jobs:
       base_repo: ${{ fromJSON(steps.judge.outputs.result).base_repo }}
       pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: judge
         id: judge
-        uses: actions/github-script@v6
+        uses: actions/github-script@e69ef5462fd455e02edcaf4dd7708eda96b9eda0 # v7.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -62,7 +62,7 @@ jobs:
     outputs:
       reformatted: ${{ steps.patch.outputs.reformatted }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
@@ -123,7 +123,7 @@ jobs:
       # js
       # ************************************************************************
       - if: steps.diff.outputs.js == 'true'
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.0.0
         with:
           node-version: "16"
       - if: steps.diff.outputs.js == 'true'
@@ -156,7 +156,7 @@ jobs:
           echo "reformatted=$reformatted" >> $GITHUB_OUTPUT
 
       - name: Upload patch
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: ${{ github.run_id }}.diff
           path: ${{ github.run_id }}.diff
@@ -167,7 +167,7 @@ jobs:
     needs: [check-comment, format]
     if: ${{ needs.format.outputs.reformatted == 'true' }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
@@ -184,7 +184,7 @@ jobs:
           git merge base/${{ needs.check-comment.outputs.base_ref }}
 
       - name: Download patch
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           name: ${{ github.run_id }}.diff
           path: /tmp
@@ -203,9 +203,9 @@ jobs:
     permissions:
       statuses: write # autoformat.updateStatus
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Update status
-        uses: actions/github-script@v6
+        uses: actions/github-script@e69ef5462fd455e02edcaf4dd7708eda96b9eda0 # v7.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
