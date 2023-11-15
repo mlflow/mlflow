@@ -14,10 +14,10 @@ def test_evaluation_example_str():
         )
     )
     example1_expected = """
-        Input:
+        Example Input:
         This is an input
 
-        Output:
+        Example Output:
         This is an output
 
         Additional information used by the model:
@@ -25,8 +25,8 @@ def test_evaluation_example_str():
         value:
         bar
 
-        score: 5
-        justification: This is a justification
+        Example score: 5
+        Example justification: This is a justification
         """
     assert re.sub(r"\s+", "", example1_expected) == re.sub(r"\s+", "", example1)
 
@@ -36,14 +36,14 @@ def test_evaluation_example_str():
         )
     )
     example2_expected = """
-        Input:
+        Example Input:
         This is an input
 
-        Output:
+        Example Output:
         This is an output
 
-        score: 5
-        justification: It works
+        Example score: 5
+        Example justification: It works
         """
     assert re.sub(r"\s+", "", example2_expected) == re.sub(r"\s+", "", example2)
 
@@ -57,16 +57,16 @@ def test_evaluation_example_str():
         )
     )
     example3_expected = """
-        Input:
+        Example Input:
         This is an input
 
-        Output:
+        Example Output:
         This is an output
 
         Additional information used by the model:
         Baz baz
 
-        score: 5
-        justification: This is a justification
+        Example score: 5
+        Example justification: This is a justification
         """
     assert re.sub(r"\s+", "", example3_expected) == re.sub(r"\s+", "", example3)
