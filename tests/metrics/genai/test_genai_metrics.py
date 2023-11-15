@@ -468,7 +468,7 @@ def test_make_genai_metric_multiple():
         "answers the question but is missing on one critical aspect, warranting a score of "
         "2 for correctness.",
     }
-    metric_value.aggregate_results == {
+    assert metric_value.aggregate_results == {
         "mean": 2.5,
         "variance": 0.25,
         "p90": 2.9,
@@ -990,3 +990,17 @@ def test_make_genai_metric_metric_details():
         == f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, version=v1, metric_details={expected_metric_details})"
     )
     # pylint: enable=line-too-long
+
+
+def test_make_genai_metric_without_example():
+    make_genai_metric(
+        name="correctness",
+        version="v1",
+        definition=example_definition,
+        grading_prompt=example_grading_prompt,
+        model="gateway:/gpt-3.5-turbo",
+        grading_context_columns=["targets"],
+        parameters={"temperature": 0.0},
+        greater_is_better=True,
+        aggregations=["mean", "variance", "p90"],
+    )

@@ -17,45 +17,55 @@ If this is your first time exploring MLflow, the tutorials and guides here are a
 getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to 
 enhance your learning in area-specific guides and tutorials. 
 
-Getting Started Guides
-^^^^^^^^^^^^^^^^^^^^^^
+Getting Started Guides and Quickstarts
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. raw:: html
 
     <section>
         <article class="simple-grid">
             <div class="simple-card">
+                <a href="getting-started/intro-quickstart/index.html" >
+                    <div class="header">
+                        MLflow Tracking Quickstart
+                    </div>
+                    <p>
+                    A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference. 
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="getting-started/logging-first-model/index.html" >
                     <div class="header">
                         Intro to MLflow Tutorial
                     </div>
+                    <p>
+                        Learn how to get started with the basics of MLflow in a step-by-step instructional tutorial that shows the critical 
+                        path to logging your first model
+                    </p>
                 </a>
-                <p>
-                    Learn how to get started with the basics of MLflow in a step-by-step instructional tutorial that shows the critical 
-                    path to logging your first model
-                </p>
             </div>
             <div class="simple-card">
                 <a href="getting-started/quickstart-1/index.html" >
                     <div class="header">
-                        15 minute Tracking Quickstart
+                        Autologging Quickstart
                     </div>
+                    <p>
+                        Short on time? This is a no-frills quickstart that shows how to leverage autologging during training and how to 
+                        load a model for inference
+                    </p>
                 </a>
-                <p>
-                    Short on time? This is a no-frills quickstart that shows how to leverage autologging during training and how to 
-                    load a model for inference
-                </p>
             </div>
             <div class="simple-card">
                 <a href="getting-started/quickstart-2/index.html" >
                     <div class="header">
-                        15 minute Deployment Quickstart
+                        Deployment Quickstart
                     </div>
+                    <p>
+                        Learn the basics of registering a model, setting up local serving for validation, and the process of 
+                        containerization of a model for remote serving
+                    </p>
                 </a>
-                <p>
-                    Learn the basics of registering a model, setting up local serving for validation, and the process of 
-                    containerization of a model for remote serving
-                </p>
             </div>
         </article>
     </section>
@@ -83,64 +93,64 @@ LLM Guides and Tutorials
                     <div class="header">
                         Guide to the MLflow Prompt Engineering UI
                     </div>
+                    <p>
+                        Explore the features and functions of MLflow's Prompt Engineering UI for development, testing, evaluation, and 
+                        deployment of validated prompts for your LLM use cases.
+                    </p>
                 </a>
-                <p>
-                    Explore the features and functions of MLflow's Prompt Engineering UI for development, testing, evaluation, and 
-                    deployment of validated prompts for your LLM use cases.
-                </p>
             </div>
             <div class="simple-card">
                 <a href="llms/gateway/index.html" >
                     <div class="header">
                         Guide for the MLflow AI Gateway
                     </div>
+                    <p>
+                        Learn how to configure, setup, deploy, and use the MLflow AI Gateway for testing and production use cases of both 
+                        SaaS and custom open-source LLMs.
+                    </p>
                 </a>
-                <p>
-                    Learn how to configure, setup, deploy, and use the MLflow AI Gateway for testing and production use cases of both 
-                    SaaS and custom open-source LLMs.
-                </p>
             </div>
             <div class="simple-card">
                 <a href="llms/llm-tracking/index.html" >
                     <div class="header">
                         LLM Tracking with MLflow
                     </div>
+                    <p>
+                        Dive into the intricacies of MLflow's LLM Tracking system. From capturing prompts to monitoring generated outputs, 
+                        discover how MLflow provides a holistic solution for managing LLM interactions.
+                    </p>
                 </a>
-                <p>
-                    Dive into the intricacies of MLflow's LLM Tracking system. From capturing prompts to monitoring generated outputs, 
-                    discover how MLflow provides a holistic solution for managing LLM interactions.
-                </p>
             </div>
             <div class="simple-card">
                 <a href="llms/llm-evaluate/index.html" >
                     <div class="header">
                         Evaluating LLMs with MLflow Guide
                     </div>
+                    <p>
+                        Learn how to evaluate LLMs and LLM-powered solutions with MLflow Evaluate.
+                    </p>
                 </a>
-                <p>
-                    Learn how to evaluate LLMs and LLM-powered solutions with MLflow Evaluate.
-                </p>
             </div>
             <div class="simple-card">
                 <a href="llms/custom-pyfunc-for-llms/index.html" >
                     <div class="header">
                         Using Custom PyFunc with LLMs
                     </div>
+                    <p>
+                        Explore the nuances of packaging and deploying advanced LLMs in MLflow using custom PyFuncs. This guide delves deep 
+                        into managing intricate model behaviors, ensuring seamless and efficient LLM deployments.
+                    </p>
                 </a>
-                <p>
-                    Explore the nuances of packaging and deploying advanced LLMs in MLflow using custom PyFuncs. This guide delves deep 
-                    into managing intricate model behaviors, ensuring seamless and efficient LLM deployments.
-                </p>
             </div>
             <div class="simple-card">
                 <a href="llms/rag/index.html" >
                     <div class="header">
                         Question Generation for RAG
                     </div>
+                    <p>
+                        Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                    </p>
                 </a>
-                <p>
-                    Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
-                </p>
             </div>
         </article>
     </section>
@@ -195,22 +205,22 @@ Traditional ML Guides and Tutorials
                     <div class="header">
                         Hyperparameter Tuning with Optuna and MLflow
                     </div>
+                    <p>
+                        This in-depth guide will show you how to leverage some core functionality in MLflow to keep your tuning iterations organized and 
+                        searchable, all while covering a number of features within MLflow that cater to the needs of this common activity.
+                    </p>
                 </a>
-                <p>
-                    This in-depth guide will show you how to leverage some core functionality in MLflow to keep your tuning iterations organized and 
-                    searchable, all while covering a number of features within MLflow that cater to the needs of this common activity.
-                </p>
             </div>
             <div class="simple-card">
                 <a href="traditional-ml/creating-custom-pyfunc/index.html" >
                     <div class="header">
                         Custom PyFunc Tutorials with MLflow
                     </div>
+                    <p>
+                        Dive into the foundational aspects of MLflow's custom `pyfunc` to encapsulate, manage, and invoke models from any framework. 
+                        This guide elucidates the versatility of `pyfunc`, highlighting how it bridges the gap between supported named flavors and bespoke model requirements.
+                    </p>
                 </a>
-                <p>
-                    Dive into the foundational aspects of MLflow's custom `pyfunc` to encapsulate, manage, and invoke models from any framework. 
-                    This guide elucidates the versatility of `pyfunc`, highlighting how it bridges the gap between supported named flavors and bespoke model requirements.
-                </p>
             </div>
         </article>
     </section>
@@ -235,15 +245,15 @@ Deployment Guides and Tutorials
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="deployment/kubernetes-deployment/index.html" >
+                <a href="deployment/deploy-model-to-kubernetes/index.html" >
                     <div class="header">
                         Deploying a Model to Kubernetes with MLflow
                     </div>
+                    <p>
+                        This guide showcases the seamless end-to-end process of training a linear regression model, packaging it in a reproducible format, 
+                        and deploying to a Kubernetes cluster using MLflow. Explore how MLflow simplifies model deployment to production environments.
+                    </p>
                 </a>
-                <p>
-                    This guide showcases the seamless end-to-end process of training a linear regression model, packaging it in a reproducible format, 
-                    and deploying to a Kubernetes cluster using MLflow. Explore how MLflow simplifies model deployment to production environments.
-                </p>
             </div>
         </article>
     </section>

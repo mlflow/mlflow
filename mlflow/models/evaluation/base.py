@@ -413,6 +413,11 @@ def _hash_array_like_obj_as_bytes(data):
 
         data = data.applymap(_hash_array_like_element_as_bytes)
         return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
+    elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
+        # convert numpy array of lists into numpy array of numpy arrays
+        # because lists are not hashable
+        hashable = np.array(str(val) for val in data)
+        return _hash_ndarray_as_bytes(hashable)
     elif isinstance(data, np.ndarray):
         return _hash_ndarray_as_bytes(data)
     elif isinstance(data, list):
@@ -1216,14 +1221,14 @@ def evaluate(
 
      - For question-answering models, the default evaluator logs:
         - **metrics**: ``exact_match``, ``token_count``, `toxicity`_ (requires `evaluate`_,
-          `pytorch`_, `flesch_kincaid_grade_level`_ (requires `textstat`_) and `ari_grade_level`_.
+          `torch`_, `flesch_kincaid_grade_level`_ (requires `textstat`_) and `ari_grade_level`_.
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
           argument is supplied), and per-row metrics of the model in tabular format.
 
         .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
-        .. _pytorch:
+        .. _torch:
             https://pytorch.org/get-started/locally/
 
         .. _transformers:
@@ -1243,7 +1248,7 @@ def evaluate(
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: ``token_count``, `ROUGE`_ (requires `evaluate`_, `nltk`_, and
-          `rouge_score`_ to be installed), `toxicity`_ (requires `evaluate`_, `pytorch`_,
+          `rouge_score`_ to be installed), `toxicity`_ (requires `evaluate`_, `torch`_,
           `transformers`_), `ari_grade_level`_ (requires `textstat`_),
           `flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
@@ -1255,7 +1260,7 @@ def evaluate(
         .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
-        .. _pytorch:
+        .. _torch:
             https://pytorch.org/get-started/locally/
 
         .. _transformers:
@@ -1280,7 +1285,7 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For text models, the default evaluator logs:
-        - **metrics**: ``token_count``, `toxicity`_ (requires `evaluate`_, `pytorch`_,
+        - **metrics**: ``token_count``, `toxicity`_ (requires `evaluate`_, `torch`_,
           `transformers`_), `ari_grade_level`_ (requires `textstat`_),
           `flesch_kincaid_grade_level`_ (requires `textstat`_).
         - **artifacts**: A JSON file containing the inputs, outputs, targets (if the ``targets``
@@ -1292,7 +1297,7 @@ def evaluate(
         .. _toxicity:
             https://huggingface.co/spaces/evaluate-measurement/toxicity
 
-        .. _pytorch:
+        .. _torch:
             https://pytorch.org/get-started/locally/
 
         .. _transformers:
@@ -1308,9 +1313,10 @@ def evaluate(
             https://pypi.org/project/textstat
 
      - For retriever models, the default evaluator logs:
-        - **metrics**: ``precision_at_k``: has a default value of k = 3. To use a different
-          value for k, include ``"k"`` in the ``evaluator_config`` parameter:
-          ``evaluator_config={"k":5}``.
+        - **metrics**: :mod:`precision_at_k(k) <mlflow.metrics.precision_at_k>`,
+          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>` and
+          :mod:`ndcg_at_k(k) <mlflow.metrics.ndcg_at_k>` - all have a default value of
+          ``retriever_k`` = 3.
         - **artifacts**: A JSON file containing the inputs, outputs, targets, and per-row metrics
           of the model in tabular format.
 
@@ -1357,8 +1363,11 @@ def evaluate(
           metrics.
         - **col_mapping**: A dictionary mapping column names in the input dataset or output
           predictions to column names used when invoking the evaluation functions.
-        - **k**: The number of top-ranked retrieved documents to use when computing the built-in
-          metric ``precision_at_k`` for model_type="retriever". Default value is 3. For all other
+        - **retriever_k**: A parameter used when ``model_type="retriever"`` as the number of
+          top-ranked retrieved documents to use when computing the built-in metric
+          :mod:`precision_at_k(k) <mlflow.metrics.precision_at_k>`,
+          :mod:`recall_at_k(k) <mlflow.metrics.recall_at_k>` and
+          :mod:`ndcg_at_k(k) <mlflow.metrics.ndcg_at_k>`. Default value is 3. For all other
           model types, this parameter will be ignored.
 
      - Limitations of evaluation dataset:

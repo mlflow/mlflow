@@ -57,7 +57,7 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture
 def spark_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
-    additional_pip_deps = ["pyspark", "pytest"]
+    additional_pip_deps = ["/opt/mlflow", "pyspark", "pytest"]
     if Version(pyspark.__version__) <= Version("3.3.2"):
         # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
         additional_pip_deps.append("pandas<2")
@@ -355,7 +355,9 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     reason="The dev version of pyspark built from the source doesn't exist on PyPI or Anaconda",
 )
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
-    mlflow.spark.save_model(spark_model_iris.model, path=model_path)
+    mlflow.spark.save_model(
+        spark_model_iris.model, path=model_path, extra_pip_requirements=["/opt/mlflow"]
+    )
 
     scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,

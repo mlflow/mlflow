@@ -8,6 +8,12 @@ from mlflow.metrics.base import MetricValue
 
 _logger = logging.getLogger(__name__)
 
+
+# used to silently fail with invalid metric params
+def noop(*args, **kwargs):
+    return None
+
+
 targets_col_specifier = "the column specified by the `targets` parameter"
 predictions_col_specifier = (
     "the column specified by the `predictions` parameter or the model output column"
@@ -38,24 +44,19 @@ def _validate_text_data(data, metric_name, col_specifier):
     return True
 
 
-def _validate_and_fix_text_tuple_data(data, metric_name, column_name):
-    """Validates that the data is a pandas Series of a tuple of strings and is non-empty"""
+def _validate_list_str_data(data, metric_name, col_specifier):
+    """Validates that the data is a list of lists of strings and is non-empty"""
     if data is None or len(data) == 0:
         return False
 
     for index, value in data.items():
-        if not isinstance(value, tuple) or not all(isinstance(val, str) for val in value):
-            # Single entry tuples are automatically unpacked by Pandas.
-            # So if the entry is a string, put it back into a tuple.
-            if isinstance(value, str):
-                data[index] = (value,)
-            else:
-                _logger.warning(
-                    f"Cannot calculate metric '{metric_name}' for non-tuple[str] inputs. "
-                    f"Row #{index} of column '{column_name}' has a non-tuple[str] value of:"
-                    f"{value}. Skipping metric logging."
-                )
-                return False
+        if not isinstance(value, list) or not all(isinstance(val, str) for val in value):
+            _logger.warning(
+                f"Cannot calculate metric '{metric_name}' for non-list of string inputs. "
+                f"Non-list of strings found for {col_specifier} on row {index}. Skipping metric "
+                f"logging."
+            )
+            return False
 
     return True
 
@@ -343,21 +344,155 @@ def _f1_score_eval_fn(
 
 
 def _precision_at_k_eval_fn(k):
+    if not (isinstance(k, int) and k > 0):
+        _logger.warning(
+            f"Cannot calculate 'precision_at_k' for invalid parameter 'k'. "
+            f"'k' should be a positive integer; found: {k}. Skipping metric logging."
+        )
+        return noop
+
     def _fn(predictions, targets):
-        if not _validate_and_fix_text_tuple_data(
-            predictions, "precision_at_k", "predictions"
-        ) or not _validate_and_fix_text_tuple_data(targets, "precision_at_k", "targets"):
+        if not _validate_list_str_data(
+            predictions, "precision_at_k", predictions_col_specifier
+        ) or not _validate_list_str_data(targets, "precision_at_k", targets_col_specifier):
             return
 
         scores = []
-        for i in range(len(predictions)):
+        for target, prediction in zip(targets, predictions):
             # only include the top k retrieved chunks
-            ground_truth, retrieved = set(targets[i]), predictions[i][:k]
+            ground_truth, retrieved = set(target), prediction[:k]
             relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
             if len(retrieved) > 0:
                 scores.append(relevant_doc_count / len(retrieved))
             else:
                 # when no documents are retrieved, precision is 0
+                scores.append(0)
+
+        return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+
+    return _fn
+
+
+def _expand_duplicate_retrieved_docs(predictions, targets):
+    counter = {}
+    expanded_predictions = []
+    expanded_targets = targets
+    for doc_id in predictions:
+        if doc_id not in counter:
+            counter[doc_id] = 1
+            expanded_predictions.append(doc_id)
+        else:
+            counter[doc_id] += 1
+            new_doc_id = (
+                f"{doc_id}_bc574ae_{counter[doc_id]}"  # adding a random string to avoid collisions
+            )
+            expanded_predictions.append(new_doc_id)
+            expanded_targets.add(new_doc_id)
+    return expanded_predictions, expanded_targets
+
+
+def _prepare_row_for_ndcg(predictions, targets):
+    """Prepare data one row from predictions and targets to y_score, y_true for ndcg calculation.
+
+    Args:
+        predictions: A list of strings of at most k doc IDs retrieved.
+        targets: A list of strings of ground-truth doc IDs.
+
+    Returns:
+        y_true : ndarray of shape (1, n_docs) Representing the ground-truth relevant docs.
+            n_docs is the number of unique docs in union of predictions and targets.
+        y_score : ndarray of shape (1, n_docs) Representing the retrieved docs.
+            n_docs is the number of unique docs in union of predictions and targets.
+    """
+    # sklearn does an internal sort of y_score, so to preserve the order of our retrieved
+    # docs, we need to modify the relevance value slightly
+    eps = 1e-6
+
+    # support predictions containing duplicate doc ID
+    targets = set(targets)
+    predictions, targets = _expand_duplicate_retrieved_docs(predictions, targets)
+
+    all_docs = targets.union(predictions)
+    doc_id_to_index = {doc_id: i for i, doc_id in enumerate(all_docs)}
+    n_labels = max(len(doc_id_to_index), 2)  # sklearn.metrics.ndcg_score requires at least 2 labels
+    y_true = np.zeros((1, n_labels), dtype=np.float32)
+    y_score = np.zeros((1, n_labels), dtype=np.float32)
+    for i, doc_id in enumerate(predictions):
+        # "1 - i * eps" means we assign higher score to docs that are ranked higher,
+        # but all scores are still approximately 1.
+        y_score[0, doc_id_to_index[doc_id]] = 1 - i * eps
+    for doc_id in targets:
+        y_true[0, doc_id_to_index[doc_id]] = 1
+    return y_score, y_true
+
+
+def _ndcg_at_k_eval_fn(k):
+    if not (isinstance(k, int) and k > 0):
+        _logger.warning(
+            f"Cannot calculate 'ndcg_at_k' for invalid parameter 'k'. "
+            f"'k' should be a positive integer; found: {k}. Skipping metric logging."
+        )
+        return noop
+
+    def _fn(predictions, targets):
+        from sklearn.metrics import ndcg_score
+
+        if not _validate_list_str_data(
+            predictions, "ndcg_at_k", predictions_col_specifier
+        ) or not _validate_list_str_data(targets, "ndcg_at_k", targets_col_specifier):
+            return
+
+        scores = []
+        for ground_truth, retrieved in zip(targets, predictions):
+            # 1. If no ground truth doc IDs are provided and no documents are retrieved,
+            # the score is 1.
+            if len(retrieved) == 0 and len(ground_truth) == 0:
+                scores.append(1)  # no error is made
+                continue
+            # 2. If no ground truth doc IDs are provided and documents are retrieved,
+            # the score is 0.
+            # 3. If ground truth doc IDs are provided and no documents are retrieved,
+            # the score is 0.
+            if len(retrieved) == 0 or len(ground_truth) == 0:
+                scores.append(0)
+                continue
+
+            # only include the top k retrieved chunks
+            y_score, y_true = _prepare_row_for_ndcg(retrieved[:k], ground_truth)
+            score = ndcg_score(y_true, y_score, k=len(retrieved[:k]), ignore_ties=True)
+            scores.append(score)
+
+        return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))
+
+    return _fn
+
+
+def _recall_at_k_eval_fn(k):
+    if not (isinstance(k, int) and k > 0):
+        _logger.warning(
+            f"Cannot calculate 'precision_at_k' for invalid parameter 'k'. "
+            f"'k' should be a positive integer; found: {k}. Skipping metric logging."
+        )
+        return noop
+
+    def _fn(predictions, targets):
+        if not _validate_list_str_data(
+            predictions, "precision_at_k", predictions_col_specifier
+        ) or not _validate_list_str_data(targets, "precision_at_k", targets_col_specifier):
+            return
+
+        scores = []
+        for target, prediction in zip(targets, predictions):
+            # only include the top k retrieved chunks
+            ground_truth, retrieved = set(target), set(prediction[:k])
+            relevant_doc_count = len(ground_truth.intersection(retrieved))
+            if len(ground_truth) > 0:
+                scores.append(relevant_doc_count / len(ground_truth))
+            elif len(retrieved) == 0:
+                # there are 0 retrieved and ground truth docs, so reward for the match
+                scores.append(1)
+            else:
+                # there are > 0 retrieved, but 0 ground truth, so penalize
                 scores.append(0)
 
         return MetricValue(scores=scores, aggregate_results=standard_aggregations(scores))

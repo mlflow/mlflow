@@ -53,6 +53,11 @@ jobs:
             make rsthtml
             make javadocs
       - run:
+          name: Check for broken links
+          working_directory: docs
+          command: |
+            python broken_links.py
+      - run:
           name: Test examples
           working_directory: docs
           command: |

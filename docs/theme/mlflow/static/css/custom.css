@@ -859,52 +859,6 @@ text-transform: capitalize;
   z-index: 1;
 }
 
-/* Copy to the clipboard */
-.clippy {
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  white-space: pre;
-  font-size: 12px;
-  background-color: #FFF;
-  border: 1px solid #e1e4e5;
-  padding: .25em .5em;
-  cursor: pointer;
-  text-align: center;
-  z-index: 2;
-}
-
-.clippy img {
-  width: 1em;
-  margin-right: .5em;
-}
-
-.clippy:hover {
-  background-color: #f3f3f3;
-}
-
-@keyframes flashClippy {
-  0% {
-    background-color: #FFF;
-  }
-
-  33% {
-    background-color: #ffedcc;
-  }
-
-  66% {
-    background-color: #FFF;
-  }
-}
-
-.clippy + pre {
-  position: relative;
-  z-index: 1;
-}
-.clippy.copied + pre {
-  animation: flashClippy 1s;
-}
-
 /**
  * Notebook embeds
  */
@@ -1151,30 +1105,25 @@ text-transform: capitalize;
 .level-3 { margin-left: 120px; }
 .level-4 { margin-left: 160px; }
 
-
-/**
- * Download button for notebooks
- */
- a.download-btn {
-  display: inline-block;
-  padding: 8px 12px;
-  border: 1px solid #007acc;
-  background-color: #007acc;
-  color: #ffffff;
-  text-decoration: none;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  font-family: "Source Sans Pro";
-}
-
-a.download-btn i.fas {
-  margin-right: 5px;  /* Add some space between the icon and the text */
-}
-
-
 /**
  * Overrides to the nbsphinx modifications to the .highlight class that strips the clippy implementation (copy of code)
  */
+
+ /** disable nbsphinx copy buttons */
+ .nbinput .highlight .fa-copy,
+ .nboutput .highlight .fa-copy {
+     display: none !important;
+ }
+
+ .nbinput .highlight button {
+  pointer-events: none; 
+  cursor: default; 
+}
+
+.nbinput .highlight button:hover {
+  background-color: inherit;
+  color: inherit; 
+}
 
  .highlight {
   position: relative;
@@ -1199,64 +1148,19 @@ a.download-btn i.fas {
 
 .copy-message {
   position: absolute;
-  bottom: -2rem; 
-  left: 50%; 
-  transform: translateX(-50%); 
-  background-color: whitesmoke;
+  top: 0;
+  left: 100%;
+  margin-left: -5rem;
+  background-color: transparent !important;
   font-size: 1rem;
-  padding: 0.25rem 0.5rem; 
-  border-radius: 5px;
-  white-space: nowrap; 
-  font-family: 'Source Sans Pro'; 
+  padding: 0;
+  border-radius: 0;
+  white-space: nowrap;
+  font-family: 'Source Sans Pro';
   font-weight: 400;
   color: darkslategrey;
+  transform: translateY(-10%);
 }
-
-/**
- * Logo scroll bar
- */
-
- .logo-scroller {
-  width: 100%;
-  overflow: hidden;
-  display: flex;
-  justify-content: space-between;
-  align-items: center; 
-}
-
-.logo-box {
-  flex: 0 1 auto;  /* Fix the flex properties so they don't grow */
-  width: 16%;     /* Adjust this percentage based on the number of logos you have (e.g., for 6 logos, 100% / 6 = 16.66%). */
-  height: 6rem;
-  text-align: center;
-  display: flex; /* Use flexbox for .logo-box */
-  justify-content: center; /* Horizontally center the logo */
-  align-items: center; /* Vertically center the logo */
-
-  /* animation */
-  animation: scrollLogos 1s ease-in-out forwards; 
-}
-
-.logo {
-  max-height: 4rem;
-  max-width: 8rem;
-  vertical-align: middle;
-}
-
-@keyframes scrollLogos {
-  0% {
-      transform: translateX(-100%);
-  }
-  100% {
-      transform: translateX(0%);
-  }
-}
-
-.logo:hover {
-  filter: drop-shadow(0px 0px 10px rgba(0, 0, 0, 0.3));
-  transition: filter 0.3s ease; /* Smooth transition for the shadow effect */
-}
-
 
 /**
  * Display boxes for text breakout list structures
@@ -1310,7 +1214,7 @@ a.download-btn i.fas {
 
 
 /**
- * Download button for notebooks
+ * Download button
  */
  a.download-btn {
   display: inline-block;
@@ -1328,90 +1232,28 @@ a.download-btn i.fas {
   margin-right: 5px;  /* Add some space between the icon and the text */
 }
 
-
 /**
- * Overrides to the nbsphinx modifications to the .highlight class that strips the clippy implementation (copy of code)
+ * Download button specifically for notebooks
  */
-
- .highlight {
-  position: relative;
+ a.notebook-download-btn {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 1px solid #007acc;
+  background-color: #007acc;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  font-family: "Source Sans Pro";
+  transition: background-color 0.3s ease; 
 }
 
-.copy-icon {
-  font-family: "Font Awesome 5 Free"; 
-  font-weight: 900; 
-  position: absolute;
-  top: 5px; 
-  right: 5px;
-  cursor: pointer;
-  opacity: 0.5;
-  color: rgb(129, 129, 131);  /* default color */
-  transition: color 0.3s ease, opacity 0.3s ease; /* smooth transition for color and opacity changes */
+a.notebook-download-btn:hover {
+  background-color: #005fa3; 
 }
 
-.copy-icon:hover {
-  color: #0194E2; /* color when hovered over */
-  opacity: 1;
-}
-
-.copy-message {
-  position: absolute;
-  bottom: -2rem; 
-  left: 50%; 
-  transform: translateX(-50%); 
-  background-color: whitesmoke;
-  font-size: 1rem;
-  padding: 0.25rem 0.5rem; 
-  border-radius: 5px;
-  white-space: nowrap; 
-  font-family: 'Source Sans Pro'; 
-  font-weight: 400;
-  color: darkslategrey;
-}
-
-/**
- * Logo scroll bar
- */
-
- .logo-scroller {
-  width: 100%;
-  overflow: hidden;
-  display: flex;
-  justify-content: space-between;
-  align-items: center; 
-}
-
-.logo-box {
-  flex: 0 1 auto;  /* Fix the flex properties so they don't grow */
-  width: 16%;     /* Adjust this percentage based on the number of logos you have (e.g., for 6 logos, 100% / 6 = 16.66%). */
-  height: 6rem;
-  text-align: center;
-  display: flex; /* Use flexbox for .logo-box */
-  justify-content: center; /* Horizontally center the logo */
-  align-items: center; /* Vertically center the logo */
-
-  /* animation */
-  animation: scrollLogos 1s ease-in-out forwards; 
-}
-
-.logo {
-  max-height: 4rem;
-  max-width: 8rem;
-  vertical-align: middle;
-}
-
-@keyframes scrollLogos {
-  0% {
-      transform: translateX(-100%);
-  }
-  100% {
-      transform: translateX(0%);
-  }
-}
-
-.logo:hover {
-  filter: drop-shadow(0px 0px 10px rgba(0, 0, 0, 0.3));
-  transition: filter 0.3s ease; /* Smooth transition for the shadow effect */
+a.notebook-download-btn i.fas {
+  margin-right: 5px;  
 }
 
 /**
@@ -1461,4 +1303,33 @@ a.download-btn i.fas {
 .logo-link {
   display: block;
   text-decoration: none; 
+}
+
+/**
+ * Overrides for notebook dataframe display header rendering 
+ * This change helps to prevent long column names from compressing and overwriting one another
+ */
+
+ /* Adjust table layout within notebook render */
+.nboutput .output_area.rendered_html table {
+  table-layout: auto !important;
+  width: 100% !important;
+}
+
+/* Adjust table cell padding within notebook render */
+.nboutput .output_area.rendered_html table th,
+.nboutput .output_area.rendered_html table td {
+  padding: 8px 12px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;  /* Adjust as needed */
+  white-space: nowrap;
+}
+
+/**
+ * Override the stderr output coloring for notebook rendering
+ */
+
+ .nboutput .output_area.stderr .highlight {
+  background-color: hsl(120, 65%, 90%) !important;
 }

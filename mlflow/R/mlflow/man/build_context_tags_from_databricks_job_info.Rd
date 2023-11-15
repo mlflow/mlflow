@@ -15,6 +15,6 @@ current Databricks Job environment
 }
 \description{
 Parses the data from a job execution context when running on Databricks in a non-interactive
-mode. This function extracts relevant data that Mlflow needs in order to properly utilize the
+mode. This function extracts relevant data that MLflow needs in order to properly utilize the
 MLflow APIs from this context.
 }

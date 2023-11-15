@@ -32,37 +32,37 @@ The officially supported integrations for traditional ML libraries include:
         <div class="logo-grid">
             <a href="../models.html#scikit-learn-sklearn">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/scikit-learn-logo.svg" alt="scikit learn">
+                    <img src="../_static/images/logos/scikit-learn-logo.svg" alt="scikit learn"/>
                 </div>
             </a>
             <a href="../models.html#xgboost-xgboost">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/xgboost-logo.svg" alt="XGBoost Logo">
+                    <img src="../_static/images/logos/xgboost-logo.svg" alt="XGBoost Logo"/>
                 </div>
             </a>
             <a href="../models.html#spark-mllib-spark">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/spark-logo.svg" alt="Spark Logo">
+                    <img src="../_static/images/logos/spark-logo.svg" alt="Spark Logo"/>
                 </div>
             </a>
             <a href="../models.html#lightgbm-lightgbm">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/lightgbm-logo.png" alt="LightGBM Logo">
+                    <img src="../_static/images/logos/lightgbm-logo.png" alt="LightGBM Logo"/>
                 </div>
             </a>
             <a href="../models.html#catboost-catboost">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/catboost-logo.png" alt="CatBoost Logo">
+                    <img src="../_static/images/logos/catboost-logo.png" alt="CatBoost Logo"/>
                 </div>
             </a>
             <a href="../models.html#statsmodels-statsmodels">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/statsmodels-logo.svg" alt="Statsmodels Logo">
+                    <img src="../_static/images/logos/statsmodels-logo.svg" alt="Statsmodels Logo"/>
                 </div>
             </a>
             <a href="../models.html#prophet-prophet">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/prophet-logo.png" alt="Prophet Logo">
+                    <img src="../_static/images/logos/prophet-logo.png" alt="Prophet Logo"/>
                 </div>
             </a>
         </div>
@@ -81,23 +81,23 @@ Tutorials and Guides
                     <div class="header">
                         Hyperparameter Tuning with MLflow and Optuna
                     </div>
+                    <p>
+                        Explore the integration of MLflow Tracking with Optuna for hyperparameter tuning. Dive into the capabilities of MLflow, 
+                        understand parent-child run relationships, and compare different tuning runs to optimize model performance.
+                    </p>
                 </a>
-                <p>
-                    Explore the integration of MLflow Tracking with Optuna for hyperparameter tuning. Dive into the capabilities of MLflow, 
-                    understand parent-child run relationships, and compare different tuning runs to optimize model performance.
-                </p>
             </div>
             <div class="simple-card">
                 <a href="creating-custom-pyfunc/index.html">
                     <div class="header">
                         Custom Pyfunc Models with MLflow
                     </div>
+                    <p>
+                        Dive deep into the world of MLflow's Custom Pyfunc. Starting with basic model definitions, embark on a journey that
+                        showcases the versatility and power of Pyfunc. From simple mathematical curves to complex machine learning integrations,
+                        discover how Pyfunc offers standardized, reproducible, and efficient workflows for a variety of use cases.
+                    </p>
                 </a>
-                <p>
-                    Dive deep into the world of MLflow's Custom Pyfunc. Starting with basic model definitions, embark on a journey that
-                    showcases the versatility and power of Pyfunc. From simple mathematical curves to complex machine learning integrations,
-                    discover how Pyfunc offers standardized, reproducible, and efficient workflows for a variety of use cases.
-                </p>
             </div>
         </article>
     </section>

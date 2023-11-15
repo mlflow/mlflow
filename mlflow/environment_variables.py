@@ -105,12 +105,12 @@ MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
-#: Specifies whether MLFlow HTTP requests should be signed using AWS signature V4. It will overwrite
+#: Specifies whether MLflow HTTP requests should be signed using AWS signature V4. It will overwrite
 #: (default: ``False``). When set, it will overwrite the "Authorization" HTTP header.
 #: See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
 MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIGV4", False)
 
-#: Specifies the auth provider to sign the MLFlow HTTP request
+#: Specifies the auth provider to sign the MLflow HTTP request
 #: (default: ``None``). When set, it will overwrite the "Authorization" HTTP header.
 MLFLOW_TRACKING_AUTH = _EnvironmentVariable("MLFLOW_TRACKING_AUTH", str, None)
 
@@ -367,7 +367,7 @@ MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
 
 #: (Experimental, may be changed or removed)
-#: Specifies the uri of a Mlflow Gateway Server instance to be used with the Gateway Client APIs
+#: Specifies the uri of a MLflow Gateway Server instance to be used with the Gateway Client APIs
 #: (default: ``None``)
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
 

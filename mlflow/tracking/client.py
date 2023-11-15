@@ -2648,10 +2648,13 @@ class MlflowClient:
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     ) -> ModelVersion:
         """
-        Create a new model version from given source (artifact URI).
+        Create a new model version from given source.
 
         :param name: Name for the containing registered model.
-        :param source: Source path where the MLflow model is stored.
+        :param source: URI indicating the location of the model artifacts. The artifact URI can be
+                       run relative (e.g. ``runs:/<run_id>/<model_artifact_path>``), a model
+                       registry URI (e.g. ``models:/<model_name>/<version>``), or other URIs
+                       supported by the model registry backend (e.g. `"s3://my_bucket/my/model"`).
         :param run_id: Run ID from MLflow tracking server that generated the model
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
@@ -2730,6 +2733,59 @@ class MlflowClient:
                          registered model with this name does not exist, it will be created.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
                  the copied model version.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow import MlflowClient
+            from mlflow.models import infer_signature
+            from sklearn.datasets import make_regression
+            from sklearn.ensemble import RandomForestRegressor
+
+
+            def print_model_version_info(mv):
+                print(f"Name: {mv.name}")
+                print(f"Version: {mv.version}")
+                print(f"Source: {mv.source}")
+
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+
+            # Log a model
+            with mlflow.start_run() as run:
+                params = {"n_estimators": 3, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+
+            # Create source model version
+            client = MlflowClient()
+            src_name = "RandomForestRegression-staging"
+            client.create_registered_model(src_name)
+            src_uri = f"runs:/{run.info.run_id}/sklearn-model"
+            mv_src = client.create_model_version(src_name, src_uri, run.info.run_id)
+            print_model_version_info(mv_src)
+            print("--")
+
+            # Copy the source model version into a new registered model
+            dst_name = "RandomForestRegression-production"
+            src_model_uri = f"models:/{mv_src.name}/{mv_src.version}"
+            mv_copy = client.copy_model_version(src_model_uri, dst_name)
+            print_model_version_info(mv_copy)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression-staging
+            Version: 1
+            Source: runs:/53e08bb38f0c487fa36c5872515ed998/sklearn-model
+            --
+            Name: RandomForestRegression-production
+            Version: 1
+            Source: models:/RandomForestRegression-staging/1
         """
         if urllib.parse.urlparse(src_model_uri).scheme != "models":
             raise MlflowException(
@@ -3528,7 +3584,7 @@ class MlflowClient:
             print_model_version_info(mv)
 
             # Delete registered model alias
-            client.set_registered_model_alias(name, "test-alias")
+            client.delete_registered_model_alias(name, "test-alias")
             print()
             print_model_info(model)
             print_model_version_info(mv)
