@@ -266,7 +266,6 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
     :param pandas_orient: pandas data frame convention used to store the data.
     :return: pandas.DataFrame.
     """
-    import numpy as np
     import pandas as pd
 
     if pandas_orient == "records":
