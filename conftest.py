@@ -322,6 +322,7 @@ def serve_wheel(request, tmp_path_factory):
             "-m",
             "pip",
             "wheel",
+            "-v",
             "--wheel-dir",
             mlflow_dir,
             "--no-deps",
