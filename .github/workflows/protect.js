@@ -79,7 +79,8 @@ module.exports = async ({ github, context }) => {
   while (new Date() - start < TIMEOUT) {
     const checks = await fetchChecks(sha);
     checks.forEach(({ name, status }) => {
-      console.log(`- name: ${name}, status: ${status}`);
+      const icon = status === STATE.success ? "✅" : status === STATE.failure ? "❌" : "🕒";
+      console.log(`- ${name}: ${icon} ${status}`);
     });
 
     if (checks.some(({ status }) => status === STATE.failure)) {
