@@ -14,6 +14,10 @@ default_parameters = {
 grading_system_prompt_template = PromptTemplate(
     """
 Task:
+You must return the following fields in your response one below the other:
+score: Your numerical score for the model's {name} based on the rubric
+justification: Your step-by-step reasoning about the model's {name} score
+
 You are an impartial judge. You will be given an input that was sent to a machine
 learning model, and you will be given an output that the model produced. You
 may also be given additional information that was used by the model to generate the output.
