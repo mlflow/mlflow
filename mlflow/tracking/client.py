@@ -7,7 +7,7 @@ import contextlib
 import json
 import logging
 import os
-import posixpath
+import posixpathip
 import sys
 import tempfile
 import urllib
@@ -37,7 +37,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental, deprecated
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
@@ -61,6 +61,11 @@ if TYPE_CHECKING:
     import plotly
 
 _logger = logging.getLogger(__name__)
+
+_STAGES_DEPRECATION_WARNING = (
+    "Model registry stages will be removed in a future major release. To learn more about the "
+    "deprecation of model registry stages, see https://github.com/mlflow/mlflow/issues/10336"
+)
 
 
 class MlflowClient:
@@ -2406,6 +2411,7 @@ class MlflowClient:
         """
         return self._get_registry_client().get_registered_model(name)
 
+    @deprecated(since="2.9.0")
     def get_latest_versions(
         self, name: str, stages: Optional[List[str]] = None
     ) -> List[ModelVersion]:
@@ -2480,6 +2486,9 @@ class MlflowClient:
             run_id: 31165664be034dc698c52a4bdeb71663
             current_stage: None
         """
+        _logger.warning(
+            "The `get_latest_versions` API is deprecated. " + _STAGES_DEPRECATION_WARNING
+        )
         return self._get_registry_client().get_latest_versions(name, stages)
 
     def set_registered_model_tag(self, name, key, value) -> None:
@@ -2876,6 +2885,7 @@ class MlflowClient:
             name=name, version=version, description=description
         )
 
+    @deprecated(since="2.9.0")
     def transition_model_version_stage(
         self, name: str, version: str, stage: str, archive_existing_versions: bool = False
     ) -> ModelVersion:
@@ -2948,6 +2958,9 @@ class MlflowClient:
             Description: A new version of the model using ensemble trees
             Stage: Staging
         """
+        _logger.warning(
+            "The `transition_model_version_stage` API is deprecated. " + _STAGES_DEPRECATION_WARNING
+        )
         return self._get_registry_client().transition_model_version_stage(
             name, version, stage, archive_existing_versions
         )
@@ -3226,6 +3239,7 @@ class MlflowClient:
             filter_string, max_results, order_by, page_token
         )
 
+    @deprecated(since="2.9.0")
     def get_model_version_stages(
         self, name: str, version: str
     ) -> List[str]:  # pylint: disable=unused-argument
@@ -3269,6 +3283,9 @@ class MlflowClient:
 
             Model list of valid stages: ['None', 'Staging', 'Production', 'Archived']
         """
+        _logger.warning(
+            "The `get_model_version_stages` API is deprecated. " + _STAGES_DEPRECATION_WARNING
+        )
         return ALL_STAGES
 
     def set_model_version_tag(
@@ -3352,6 +3369,10 @@ class MlflowClient:
         """
         _validate_model_version_or_stage_exists(version, stage)
         if stage:
+            _logger.warning(
+                "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
+                + _STAGES_DEPRECATION_WARNING
+            )
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
                 raise MlflowException(f"Could not find any model version for {stage} stage")
@@ -3437,6 +3458,10 @@ class MlflowClient:
         """
         _validate_model_version_or_stage_exists(version, stage)
         if stage:
+            _logger.warning(
+                "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
+                + _STAGES_DEPRECATION_WARNING
+            )
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
                 raise MlflowException("Could not find any model version for {stage} stage")
