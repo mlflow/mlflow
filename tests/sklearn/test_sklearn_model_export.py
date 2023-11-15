@@ -122,6 +122,7 @@ def sklearn_custom_env(tmp_path):
 
 
 def test_model_save_load(sklearn_knn_model, model_path):
+    assert False
     knn_model = sklearn_knn_model.model
 
     mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
