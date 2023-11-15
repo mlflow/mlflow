@@ -33,7 +33,7 @@ def server(port):
             else:
                 raise RuntimeError("Server did not start")
 
-            yield port
+            yield
         finally:
             prc.terminate()
 
