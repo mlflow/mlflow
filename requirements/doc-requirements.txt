@@ -10,3 +10,4 @@ keras-core
 torch>=1.11.0
 torchvision>=0.12.0
 lightning>=1.8.1
+scrapy
