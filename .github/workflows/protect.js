@@ -75,7 +75,7 @@ module.exports = async ({ github, context }) => {
 
   const start = new Date();
   const MINUTE = 1000 * 60;
-  const TIMEOUT = 180 * MINUTE; // 3 hours
+  const TIMEOUT = 60 * MINUTE; // 1 hours
   while (new Date() - start < TIMEOUT) {
     const checks = await fetchChecks(sha);
     checks.forEach(({ name, status }) => {
