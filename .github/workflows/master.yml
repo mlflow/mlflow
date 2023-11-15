@@ -348,6 +348,7 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/Scripts/activate
+          pip install -U pip
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
