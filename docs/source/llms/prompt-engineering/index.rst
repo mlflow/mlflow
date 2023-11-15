@@ -248,11 +248,11 @@ as follows:
 
 .. _quickstart-score:
 
-Step 12: Score or deploy the best configuration programmatically
+Step 12: Generate predictions programmatically
 ----------------------------------------------------------------
 Once you have found a configuration of LLM, prompt template, and parameters that performs well, you
-can score the corresponding MLflow Model in a Python environment of your choosing, or you can
-:ref:`deploy it for real-time serving <deploy-prompt-serving>`.
+can generate predictions using the corresponding MLflow Model in a Python environment of your choosing,
+or you can :ref:`deploy it for real-time serving <deploy-prompt-serving>`.
 
 1. To load the MLflow Model in a notebook for batch inference, click on the Run's name to open the
    **Run Page** and select the *model* directory in the **Artifact Viewer**. Then, copy the first
@@ -272,7 +272,7 @@ can score the corresponding MLflow Model in a Python environment of your choosin
        # Load model as a PyFuncModel.
        loaded_model = mlflow.pyfunc.load_model(logged_model)
 
-2. Then, to score the model, call the :py:func:`predict() <mlflow.pyfunc.PyFuncModel.predict>` method
+2. Then, to generate predictions, call the :py:func:`predict() <mlflow.pyfunc.PyFuncModel.predict>` method
    and pass in a dictionary of input variables. For example:
 
    .. code-block:: python
@@ -292,6 +292,61 @@ can score the corresponding MLflow Model in a Python environment of your choosin
 
    For more information about deployment for real-time serving with MLflow,
    see the :ref:`instructions below <deploy-prompt-serving>`.
+
+Step 13: Perform metric-based evaluation of your model's outputs
+----------------------------------------------------------------
+If you'd like to assess your model's performance on specific metrics, MLflow provides the :py:func:`mlflow.evaluate()`
+API. Let's evaluate our model on some :ref:`pre-defined metrics <llm-eval-default-metrics>` 
+for text summarization:
+
+  .. code-block:: python
+
+   import mlflow
+   import pandas as pd
+
+   logged_model = "runs:/840a5c43f3fb46f2a2059b761557c1d0/model"
+
+   article_text = """
+   An MLflow Project is a format for packaging data science code in a reusable and reproducible way.
+   The MLflow Projects component includes an API and command-line tools for running projects, which
+   also integrate with the Tracking component to automatically record the parameters and git commit
+   of your source code for reproducibility.
+
+   This article describes the format of an MLflow Project and how to run an MLflow project remotely
+   using the MLflow CLI, which makes it easy to vertically scale your data science code.
+   """
+   question = "What is an MLflow project?"
+
+   data = pd.DataFrame(
+       {
+           "article": [article_text],
+           "question": [question],
+           "ground_truth": [
+               article_text
+           ],  # used for certain evaluation metrics, such as ROUGE score
+       }
+   )
+
+   with mlflow.start_run():
+       results = mlflow.evaluate(
+           model=logged_model,
+           data=data,
+           targets="ground_truth",
+           model_type="text-summarization",
+       )
+
+   eval_table = results.tables["eval_results_table"]
+   print(f"See evaluation table below: \n{eval_table}")
+
+The evaluation results can also be viewed in the MLflow Evaluation UI:
+
+   .. figure:: ../../_static/images/evaluate_metrics.png
+      :scale: 40%
+      :align: center
+
+The :py:func:`mlflow.evaluate()` API also supports :ref:`custom metrics <llm-eval-custom-metrics>`,
+:ref:`static dataset evaluation <llm-eval-static-dataset>`, and much more. For a
+more in-depth guide, see :ref:`llm-eval`.
 
 .. _deploy-prompt-serving:
 
