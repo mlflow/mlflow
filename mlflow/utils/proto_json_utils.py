@@ -303,18 +303,11 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
                 f"and 'index' fields. Got {keys}.'"
             )
         try:
-            if schema is None:
-                pdf = pd.DataFrame(
-                    index=decoded_input.get("index"),
-                    columns=decoded_input.get("columns"),
-                    data=np.array(decoded_input["data"]),
-                )
-            else:
-                pdf = pd.DataFrame(
-                    index=decoded_input.get("index"),
-                    columns=decoded_input.get("columns"),
-                    data=decoded_input["data"],
-                )
+            pdf = pd.DataFrame(
+                index=decoded_input.get("index"),
+                columns=decoded_input.get("columns"),
+                data=decoded_input["data"],
+            )
         except Exception as ex:
             raise MlflowInvalidInputException(
                 f"Provided dataframe_split field is not a valid dataframe representation in "
