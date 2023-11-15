@@ -246,7 +246,7 @@ This signature is typically used for traditional machine learning models that ta
 DataFrame. Column-based schemas are a sequence of (optionally) named columns with data type. Each column-based input and 
 output is represented by a type corresponding to one of :ref:`supported data types <supported-data-types-column>` and an 
 optional name. Input columns can also be marked as ``optional``, indicating whether they are required as input to the 
-model or can be omitted (:ref:`Optional Column <ptional-column>`). 
+model or can be omitted (:ref:`Optional Column <optional-column>`). 
 
 .. _supported-data-types-column:
 
