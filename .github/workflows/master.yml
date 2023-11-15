@@ -3,13 +3,13 @@ name: MLflow tests
 on:
   pull_request:
     paths-ignore:
-        - 'docs/**'
+      - "docs/**"
   push:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
     paths-ignore:
-      - 'docs/**'
+      - "docs/**"
 
 permissions:
   contents: read

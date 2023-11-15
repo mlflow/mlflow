@@ -6,10 +6,10 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
     paths-ignore:
-      - 'docs/**'
+      - "docs/**"
   pull_request:
     paths-ignore:
-      - 'docs/**'
+      - "docs/**"
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
