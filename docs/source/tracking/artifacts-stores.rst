@@ -1,0 +1,219 @@
+===============
+Artifact Stores
+===============
+
+.. contents:: In this section:
+  :local:
+  :depth: 1
+
+The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
+file system) and is where clients log their artifact output (for example, models).
+``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
+default location to store artifacts for all runs in this experiment. Additionally, ``artifact_uri``
+is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
+this run are stored.
+
+The MLflow client caches artifact location information on a per-run basis.
+It is therefore not recommended to alter a run's artifact location before it has terminated.
+
+In addition to local file paths, MLflow supports the following storage systems as artifact
+stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
+
+Use ``--default-artifact-root`` (defaults to local ``./mlruns`` directory) to configure default
+location to server's artifact store. This will be used as artifact location for newly-created
+experiments that do not specify one. Once you create an experiment, ``--default-artifact-root``
+is no longer relevant to that experiment.
+
+By default, a server is launched with the ``--serve-artifacts`` flag to enable proxied access for artifacts.
+The uri ``mlflow-artifacts:/`` replaces an otherwise explicit object store destination (e.g., "s3:/my_bucket/mlartifacts")
+for interfacing with artifacts. The client can access artifacts via HTTP requests to the MLflow Tracking Server.
+This simplifies access requirements for users of the MLflow client, eliminating the need to
+configure access tokens or username and password environment variables for the underlying object store when writing or retrieving artifacts.
+To disable proxied access for artifacts, specify ``--no-serve-artifacts``.
+
+Provided an MLflow server configuration where the ``--default-artifact-root`` is ``s3://my-root-bucket``,
+the following patterns will all resolve to the configured proxied object store location of ``s3://my-root-bucket/mlartifacts``:
+
+ * ``https://<host>:<port>/mlartifacts``
+ * ``http://<host>/mlartifacts``
+ * ``mlflow-artifacts://<host>/mlartifacts``
+ * ``mlflow-artifacts://<host>:<port>/mlartifacts``
+ * ``mlflow-artifacts:/mlartifacts``
+
+If the ``host`` or ``host:port`` declaration is absent in client artifact requests to the MLflow server, the client API
+will assume that the host is the same as the MLflow Tracking uri.
+
+.. note::
+    If an MLflow server is running with the ``--artifact-only`` flag, the client should interact with this server explicitly by
+    including either a ``host`` or ``host:port`` definition for uri location references for artifacts.
+    Otherwise, all artifact requests will route to the MLflow Tracking server, defeating the purpose of running a distinct artifact server.
+
+.. important::
+    Access credentials and configuration for the artifact storage location are configured *once during server initialization* in the place
+    of having users handle access credentials for artifact-based operations. Note that *all users who have access to the
+    Tracking Server in this mode will have access to artifacts served through this assumed role*.
+
+To allow the server and clients to access the artifact location, you should configure your cloud
+provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
+and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
+profile in ``~/.aws/credentials``.
+See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
+
+.. important::
+
+  If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment
+  (for example, ``mlflow experiments create --artifact-location s3://<my-bucket>``), the artifact root
+  is a path inside the file store. Typically this is not an appropriate location, as the client and
+  server probably refer to different physical locations (that is, the same path on different disks).
+
+You may set an MLflow environment variable to configure the timeout for artifact uploads and downloads:
+
+- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the timeout for artifact upload/download in seconds (Default set by individual artifact stores).
+
+Amazon S3 and S3-compatible storage
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as
+`MinIO <https://min.io/>`_ or `Digital Ocean Spaces <https://www.digitalocean.com/products/spaces>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
+credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
+the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
+these are available. For more information on how to set credentials, see
+`Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
+
+To add S3 file upload extra arguments, set ``MLFLOW_S3_UPLOAD_EXTRA_ARGS`` to a JSON object of key/value pairs.
+For example, if you want to upload to a KMS Encrypted bucket using the KMS Key 1234:
+
+.. code-block:: bash
+
+  export MLFLOW_S3_UPLOAD_EXTRA_ARGS='{"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "1234"}'
+
+For a list of available extra args see `Boto3 ExtraArgs Documentation <https://github.com/boto/boto3/blob/develop/docs/source/guide/s3-uploading-files.rst#the-extraargs-parameter>`_.
+
+To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL. For example, if you are using Digital Ocean Spaces:
+
+.. code-block:: bash
+
+  export MLFLOW_S3_ENDPOINT_URL=https://<region>.digitaloceanspaces.com
+
+If you have a MinIO server at 1.2.3.4 on port 9000:
+
+.. code-block:: bash
+
+  export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
+
+If the MinIO server is configured with using SSL self-signed or signed using some internal-only CA certificate, you could set ``MLFLOW_S3_IGNORE_TLS`` or ``AWS_CA_BUNDLE`` variables (not both at the same time!) to disable certificate signature check, or add a custom CA bundle to perform this check, respectively:
+
+.. code-block:: bash
+
+  export MLFLOW_S3_IGNORE_TLS=true
+  #or
+  export AWS_CA_BUNDLE=/some/ca/bundle.pem
+
+Additionally, if MinIO server is configured with non-default region, you should set ``AWS_DEFAULT_REGION`` variable:
+
+.. code-block:: bash
+
+  export AWS_DEFAULT_REGION=my_region
+
+.. warning::
+
+        The MLflow tracking server utilizes specific reserved keywords to generate a qualified path. These environment configurations, if present in the client environment, can create path resolution issues.
+        For example, providing ``--default-artifact-root $MLFLOW_S3_ENDPOINT_URL`` on the server side **and** ``MLFLOW_S3_ENDPOINT_URL`` on the client side will create a client path resolution issue for the artifact storage location.
+        Upon resolving the artifact storage location, the MLflow client will use the value provided by ``--default-artifact-root`` and suffixes the location with the values provided in the environment variable  ``MLFLOW_S3_ENDPOINT_URL``.
+        Depending on the value set for the environment variable ``MLFLOW_S3_ENDPOINT_URL``, the resulting artifact storage path for this scenario would be one of the following invalid object store paths:  ``https://<bucketname>.s3.<region>.amazonaws.com/<key>/<bucketname>/<key>`` or  ``s3://<bucketname>/<key>/<bucketname>/<key>``.
+        To prevent path parsing issues, ensure that reserved environment variables are removed (``unset``) from client environments.
+
+Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
+
+Azure Blob Storage
+^^^^^^^^^^^^^^^^^^
+
+To store artifacts in Azure Blob Storage, specify a URI of the form
+``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
+MLflow expects Azure Storage access credentials in the
+``AZURE_STORAGE_CONNECTION_STRING``, ``AZURE_STORAGE_ACCESS_KEY`` environment variables
+or having your credentials configured such that the `DefaultAzureCredential()
+<https://docs.microsoft.com/en-us/python/api/overview/azure/identity-readme?view=azure-python>`_. class can pick them up.
+The order of precedence is:
+
+#. ``AZURE_STORAGE_CONNECTION_STRING``
+#. ``AZURE_STORAGE_ACCESS_KEY``
+#. ``DefaultAzureCredential()``
+
+You must set one of these options on both your client application and your MLflow tracking server.
+Also, you must run ``pip install azure-storage-blob`` separately (on both your client and the server) to access Azure Blob Storage.
+Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity``;
+MLflow does not declare a dependency on these packages by default.
+
+You may set an MLflow environment variable to configure the timeout for artifact uploads and downloads:
+
+- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the timeout for artifact upload/download in seconds (Default: 600 for Azure blob).
+
+Google Cloud Storage
+^^^^^^^^^^^^^^^^^^^^
+
+To store artifacts in Google Cloud Storage, specify a URI of the form ``gs://<bucket>/<path>``.
+You should configure credentials for accessing the GCS container on the client and server as described
+in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
+Finally, you must run ``pip install google-cloud-storage`` (on both your client and the server)
+to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
+
+
+
+You may set some MLflow environment variables to troubleshoot GCS read-timeouts (eg. due to slow transfer speeds) using the following variables:
+
+- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the standard timeout for transfer operations in seconds (Default: 60 for GCS). Use -1 for indefinite timeout.
+- ``MLFLOW_GCS_DEFAULT_TIMEOUT`` - (Deprecated, please use ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT``) Sets the standard timeout for transfer operations in seconds (Default: 60). Use -1 for indefinite timeout.
+- ``MLFLOW_GCS_UPLOAD_CHUNK_SIZE`` - Sets the standard upload chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB.
+- ``MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE`` - Sets the standard download chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB
+
+FTP server
+^^^^^^^^^^^
+
+To store artifacts in a FTP server, specify a URI of the form ftp://user@host/path/to/directory .
+The URI may optionally include a password for logging into the server, e.g. ``ftp://user:pass@host/path/to/directory``
+
+SFTP Server
+^^^^^^^^^^^
+
+To store artifacts in an SFTP server, specify a URI of the form ``sftp://user@host/path/to/directory``.
+You should configure the client to be able to log in to the SFTP server without a password over SSH (e.g. public key, identity file in ssh_config, etc.).
+
+The format ``sftp://user:pass@host/`` is supported for logging in. However, for safety reasons this is not recommended.
+
+When using this store, ``pysftp`` must be installed on both the server and the client. Run ``pip install pysftp`` to install the required package.
+
+NFS
+^^^
+
+To store artifacts in an NFS mount, specify a URI as a normal file system path, e.g., ``/mnt/nfs``.
+This path must be the same on both the server and the client -- you may need to use symlinks or remount
+the client in order to enforce this property.
+
+
+HDFS
+^^^^
+
+To store artifacts in HDFS, specify a ``hdfs:`` URI. It can contain host and port: ``hdfs://<host>:<port>/<path>`` or just the path: ``hdfs://<path>``.
+
+There are also two ways to authenticate to HDFS:
+
+- Use current UNIX account authorization
+- Kerberos credentials using following environment variables:
+
+.. code-block:: bash
+
+  export MLFLOW_KERBEROS_TICKET_CACHE=/tmp/krb5cc_22222222
+  export MLFLOW_KERBEROS_USER=user_name_to_use
+
+Most of the cluster contest settings are read from ``hdfs-site.xml`` accessed by the HDFS native
+driver using the ``CLASSPATH`` environment variable.
+
+The used HDFS driver is ``libhdfs``.
+
+
+Deletion Behavior
+~~~~~~~~~~~~~~~~~
+In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
+from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
+for permanently removing Run metadata and artifacts for deleted runs.

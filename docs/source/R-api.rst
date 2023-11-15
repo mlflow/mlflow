@@ -4,7 +4,7 @@
 R API
 ========
 
-The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
+The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow :doc:`Tracking <tracking/index>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
 Prerequisites
 =============

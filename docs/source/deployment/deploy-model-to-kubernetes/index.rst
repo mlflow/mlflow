@@ -63,7 +63,7 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
     .. literalinclude:: ../../../../examples/sklearn_elasticnet_wine/train.py
 
     This example uses the familiar pandas, numpy, and sklearn APIs to create a simple machine learning
-    model. The :doc:`MLflow tracking APIs<../../../tracking/>` log information about each
+    model. The :doc:`MLflow tracking APIs<../../../tracking/index>` log information about each
     training run, like the hyperparameters ``alpha`` and ``l1_ratio``, used to train the model and metrics, like
     the root mean square error, used to evaluate the model. The example also serializes the
     model in a format that MLflow knows how to deploy.
@@ -94,7 +94,7 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
     .. literalinclude:: ../../../../examples/r_wine/train.R
 
     This example uses the familiar ``glmnet`` package to create a simple machine learning
-    model. The :doc:`MLflow tracking APIs<../../../tracking/>` log information about each
+    model. The :doc:`MLflow tracking APIs<../../../tracking/index>` log information about each
     training run, like the hyperparameters ``alpha`` and ``lambda``, used to train the model and metrics, like
     the root mean square error, used to evaluate the model. The example also serializes the
     model in a format that MLflow knows how to deploy.
