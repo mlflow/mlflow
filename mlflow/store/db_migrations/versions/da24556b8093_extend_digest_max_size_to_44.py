@@ -17,11 +17,21 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("datasets", sa.Column("new_digest", sa.String(44)))
-    op.execute("UPDATE datasets SET new_digest = digest")
-    op.drop_column("datasets", "digest")
-    op.alter_column("datasets", "new_digest", new_column_name="digest")
-
+    op.create_table('new_datasets',
+                    sa.Column('dataset_uuid', sa.String(36), nullable=False),
+                    sa.Column('experiment_id', sa.Integer, nullable=False),
+                    sa.Column('name', sa.String(500), nullable=False),
+                    sa.Column('digest', sa.String(44), nullable=False),
+                    sa.Column('dataset_source_type', sa.String(36), nullable=False),
+                    sa.Column('dataset_source', sa.Text, nullable=False),
+                    sa.Column('dataset_schema', sa.Text),
+                    sa.Column('dataset_profile', sa.Text),
+                    sa.PrimaryKeyConstraint('experiment_id', 'name', 'digest'),
+                    sa.ForeignKeyConstraint(['experiment_id'], ['experiments.experiment_id'])
+                    )
+    op.execute('INSERT INTO new_datasets SELECT * FROM datasets')
+    op.drop_table('datasets')
+    op.rename_table('new_datasets', 'datasets')
 
 def downgrade():
     pass
