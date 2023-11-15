@@ -1675,6 +1675,18 @@ def _validate_function_python_model(python_model):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    # validate best practices for __init__ method
+    if isinstance(python_model, PythonModel):
+        try:
+            init_has_model_param = "model" in inspect.signature(python_model.__init__).parameters
+            init_has_model_assignment = 'self.model =' in inspect.getsource(python_model.__init__)
+            if init_has_model_param or init_has_model_assignment:
+                _logger.warning(
+                    "It looks like you're trying to save a model as an instance attribute "
+                    "on your PythonModel. "
+                )
+                
+
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def save_model(
