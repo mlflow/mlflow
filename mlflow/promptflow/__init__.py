@@ -54,9 +54,13 @@ FLAVOR_NAME = "promptflow"
 _MODEL_FLOW_DIRECTORY = "flow"
 _MODEL_FLOW_PIP_REQUIREMENTS = "python_requirements_txt"
 _MODEL_FLOW_BASE_IMAGE = "image"
+_MODEL_CONFIG_CONNECTION_PROVIDER = "connection.provider"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow promptflow flavor only supports instances loaded by ~promptflow.load_flow(), "
     "found {instance_type}."
+)
+_INVALID_PREDICT_INPUT_ERROR_MESSAGE = (
+    "Input must be a pandas DataFrame with only 1 row or a dictionary contains flow inputs key-value pairs."
 )
 
 
@@ -97,6 +101,8 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    model_config: Optional[Dict[str, Any]] = None,
+    **kwargs,
 ):
     """
     Log a Promptflow model as an MLflow artifact for the current run.
@@ -133,6 +139,38 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param model_config:
+        A dict of valid overrides that can be applied to a flow instance during inference.
+        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+        Model.
+        These values are not applied to a returned flow from a call to
+        ``mlflow.promptflow.load_model()``.
+        To override configs for a loaded flow with promptflow flavor,
+        please update the ``pf_model.context`` directly.
+
+
+        Configs that can be overridden includes:
+        ``connection.provider`` - The connection provider to use for the flow. Reach
+        https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
+        for more details on how to set connection provider.
+
+
+        An example of providing overrides for a model to use azure machine learning workspace connection:
+
+        .. code-block:: python
+
+            flow_folder = Path(__file__).parent / "basic"
+            flow = load_flow(flow_folder)
+
+            workspace_resource_id = \
+                "azureml://subscriptions/<your-subscription>/resourceGroups/<your-resourcegroup>"
+                "/providers/Microsoft.MachineLearningServices/workspaces/<your-workspace>"
+            model_config = {"connection.provider": workspace_resource_id}
+
+            with mlflow.start_run():
+                logged_model = mlflow.promptflow.log_model(
+                    flow, artifact_path="promptflow_model", model_config=model_config
+                )
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -150,6 +188,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        model_config=model_config,
     )
 
 
@@ -165,7 +204,10 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    metadata=None):
+    metadata=None,
+    model_config: Optional[Dict[str, Any]] = None,
+    **kwargs,  # pylint: disable=unused-argument
+):
     """
     Save a Promptflow model to a path on the local file system.
 
@@ -192,9 +234,40 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param model_config:
+        A dict of valid overrides that can be applied to a flow instance during inference.
+        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+        Model.
+        These values are not applied to a returned flow from a call to
+        ``mlflow.promptflow.load_model()``.
+        To override configs for a loaded flow with promptflow flavor,
+        please update the ``pf_model.context`` directly.
+
+
+        Configs that can be overridden includes:
+        ``connection.provider`` - The connection provider to use for the flow. Reach
+        https://microsoft.github.io/promptflow/how-to-guides/set-global-configs.html#connection-provider
+        for more details on how to set connection provider.
+
+
+        An example of providing overrides for a model to use azure machine learning workspace connection:
+
+        .. code-block:: python
+
+            flow_folder = Path(__file__).parent / "basic"
+            flow = load_flow(flow_folder)
+
+            workspace_resource_id = \
+                "azureml://subscriptions/<your-subscription>/resourceGroups/<your-resourcegroup>"
+                "/providers/Microsoft.MachineLearningServices/workspaces/<your-workspace>"
+            model_config = {"connection.provider": workspace_resource_id}
+
+            with mlflow.start_run():
+                logged_model = mlflow.promptflow.log_model(
+                    flow, artifact_path="promptflow_model", model_config=model_config
+                )
     """
     import promptflow
-    from promptflow import load_flow
     from promptflow.contracts.tool import ValueType
     from promptflow._sdk.entities._flow import Flow
     from promptflow._sdk._utils import _merge_local_code_and_additional_includes
@@ -272,6 +345,7 @@ def save_model(
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
+        model_config=model_config,
     )
 
     # save mlflow_model to path/MLmodel
@@ -317,53 +391,61 @@ def _resolve_env_from_flow(flow_dag_path):
 
 
 class _PromptflowModelWrapper:
-    def __init__(self, model):
+    def __init__(self, model, model_config: Dict[str, Any] = None):
+        from promptflow._sdk._serving.flow_invoker import FlowInvoker
+
         self.model = model
-        self.model_invoker = None
+        # TODO: Improve this if we have more configs afterwards
+        model_config = model_config or {}
+        connection_provider = model_config.get(_MODEL_CONFIG_CONNECTION_PROVIDER, "local")
+        self.model_invoker = FlowInvoker(self.model, connection_provider=connection_provider)
 
     def predict(  # pylint: disable=unused-argument
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
-    ):
+    ) -> dict:
         """
-        :param data: Model input data.
+        :param data: Model input data. Either a pandas DataFrame with only 1 row or a dictionary.
+
+                     .. code-block:: python
+                        loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+                        # Predict on a flow input dictionary.
+                        print(loaded_model.predict({"text": "Python Hello World!"}))
+
         :param params: Additional parameters to pass to the model for inference.
 
                        .. Note:: Experimental: This parameter may change or be removed in a future
                                                release without warning.
 
-        :return: Model predictions.
+        :return: Model predictions. Dict type, example ``{"output": "\n\nprint('Hello World!')"}``
         """
-        from promptflow._sdk._serving.flow_invoker import FlowInvoker
-        if self.model_invoker is None:
-            # TODO: Support more choice in model config?
-            self.model_invoker = FlowInvoker(self.model, connection_provider="local")
-
         if isinstance(data, pd.DataFrame):
             messages = data.to_dict(orient="records")
-        elif isinstance(data, list) and (
-            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
-        ):
+            if len(messages) > 1:
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    _INVALID_PREDICT_INPUT_ERROR_MESSAGE
+                )
+            messages = messages[0]
+        elif isinstance(data, dict):
             messages = data
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
-                "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
+                _INVALID_PREDICT_INPUT_ERROR_MESSAGE
             )
-
-        results = []
-        for message in messages:
-            results.append(self.model_invoker.invoke(message))
-        return results
+        return self.model_invoker.invoke(messages)
 
 
-def _load_pyfunc(path):
+def _load_pyfunc(path, model_config: Dict[str, Any] = None):
     """
     Load PyFunc implementation for Promptflow. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``promptflow`` flavor.
     """
+    from promptflow import load_flow
+
     model_flow_path = os.path.join(path, _MODEL_FLOW_DIRECTORY)
-    return _PromptflowModelWrapper(model_flow_path)
+    model = load_flow(model_flow_path)
+    return _PromptflowModelWrapper(model=model, model_config=model_config)
 
 
 @experimental

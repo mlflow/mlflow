@@ -16,4 +16,4 @@ with mlflow.start_run():
     logged_model = mlflow.promptflow.log_model(flow, artifact_path="promptflow_model")
 
 loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-print(loaded_model.predict([{"text": "Python Hello World!"}]))
+print(loaded_model.predict({"text": "Python Hello World!"}))
