@@ -30,6 +30,8 @@ def server(port):
                     break
                 except requests.exceptions.ConnectionError:
                     time.sleep(0.5)
+            else:
+                raise RuntimeError("Server did not start")
 
             yield port
         finally:
