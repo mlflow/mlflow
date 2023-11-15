@@ -56,6 +56,9 @@ Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricVa
 
 We provide the following builtin factory functions to create :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating models. These metrics are computed automatically depending on the ``model_type``. For more information on the ``model_type`` parameter, see :py:func:`mlflow.evaluate()` API.
 
+Regressor Metrics
+-----------------
+
 .. autofunction:: mlflow.metrics.mae
 
 .. autofunction:: mlflow.metrics.mape
@@ -68,15 +71,26 @@ We provide the following builtin factory functions to create :py:class:`Evaluati
 
 .. autofunction:: mlflow.metrics.r2_score
 
+Classifier Metrics
+------------------
+
 .. autofunction:: mlflow.metrics.precision_score
 
 .. autofunction:: mlflow.metrics.recall_score
 
 .. autofunction:: mlflow.metrics.f1_score
 
+Text Metrics
+------------
+
 .. autofunction:: mlflow.metrics.ari_grade_level
 
 .. autofunction:: mlflow.metrics.flesch_kincaid_grade_level
+
+Question Answering Metrics
+---------------------------
+
+Includes all of the above **Text Metrics** as well as the following:
 
 .. autofunction:: mlflow.metrics.exact_match
 
@@ -95,7 +109,7 @@ We provide the following builtin factory functions to create :py:class:`Evaluati
 .. autofunction:: mlflow.metrics.latency
 
 Retriever Metrics
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------
 
 The following metrics are built-in metrics for the ``'retriever'`` model type, meaning they will be 
 automatically calculated with a default ``retriever_k`` value of 3. 
