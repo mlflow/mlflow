@@ -307,7 +307,7 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
                 pdf = pd.DataFrame(
                     index=decoded_input.get("index"),
                     columns=decoded_input.get("columns"),
-                    data=np.array(decoded_input["data"], dtype="object"),
+                    data=np.array(decoded_input["data"]),
                 )
             else:
                 pdf = pd.DataFrame(
