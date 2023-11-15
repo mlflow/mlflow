@@ -1,3 +1,6 @@
+from typing import List
+
+
 class RunOperations:
     """Class that helps manage the futures of MLflow async logging."""
 
@@ -22,7 +25,7 @@ class RunOperations:
             )
 
 
-def get_combined_run_operations(run_operations_list: [RunOperations]) -> RunOperations:
+def get_combined_run_operations(run_operations_list: List[RunOperations]) -> RunOperations:
     """Combine a list of RunOperations objects into a single RunOperations object.
 
     Given a list of `RunOperations`, returns a single `RunOperations` object that represents the

@@ -29,6 +29,7 @@ class RunBatch:
         self.tags = tags or []
         self.metrics = metrics or []
         self.completion_event = completion_event
+        self._exception = None
 
     @property
     def exception(self):
