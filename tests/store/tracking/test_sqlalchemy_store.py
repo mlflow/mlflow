@@ -3397,9 +3397,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 ],
             )
 
-        # Test dataset digest too large (limit is 36)
+        # Test dataset digest too large (limit is 44)
         with pytest.raises(
-            MlflowException, match="Dataset digest exceeds the maximum length of 36"
+            MlflowException, match="Dataset digest exceeds the maximum length of 44"
         ):
             self.store.log_inputs(
                 run.info.run_id,
@@ -3407,7 +3407,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     entities.DatasetInput(
                         tags=tags,
                         dataset=entities.Dataset(
-                            name="name", digest="a" * 37, source_type="type", source="source"
+                            name="name", digest="a" * 45, source_type="type", source="source"
                         ),
                     )
                 ],
