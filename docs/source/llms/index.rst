@@ -67,47 +67,47 @@ configuration and management of your LLM serving needs, select the provider that
         <div class="logo-grid">
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
+                    <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo">
                 </div>
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/mosaicml-logo.svg" alt="MosaicML Logo"/>
+                    <img src="../_static/images/logos/mosaicml-logo.svg" alt="MosaicML Logo">
                 </div>
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo"/>
+                    <img src="../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo">
                 </div>
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/cohere-logo.png" alt="Cohere Logo"/>
+                    <img src="../_static/images/logos/cohere-logo.png" alt="Cohere Logo">
                 </div>
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/mlflow-logo.svg" alt="MLflow Logo"/>
+                    <img src="../_static/images/logos/mlflow-logo.svg" alt="MLflow Logo">
                 </div>
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/aws-logo.svg" alt="AWS Logo" style="max-height: 3rem;"/>
+                    <img src="../_static/images/logos/aws-logo.svg" alt="AWS Logo" style="max-height: 3rem;">
                 </div>
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/PaLM-logo.png" alt="PaLM Logo"/>
+                    <img src="../_static/images/logos/PaLM-logo.png" alt="PaLM Logo">
                 </div>
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/ai21labs-logo.svg" alt="ai21Labs Logo"/>
+                    <img src="../_static/images/logos/ai21labs-logo.svg" alt="ai21Labs Logo">
                 </div>
             </a>
             <a href="gateway/index.html#providers">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/huggingface-logo.svg" alt="Hugging Face Logo"/>
+                    <img src="../_static/images/logos/huggingface-logo.svg" alt="Hugging Face Logo">
                 </div>
             </a>
         </div>
@@ -246,25 +246,25 @@ Select the integration below to read the documentation on how to leverage MLflow
         
         <a href="../models.html#transformers-transformers-experimental">
             <div class="logo-card">
-                <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"/>
+                <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo">
             </div>
         </a>
         
         <a href="../models.html#sentencetransformers-sentence-transformers-experimental">
             <div class="logo-card">
-                <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo"/>
+                <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo">
             </div>
         </a>
         
         <a href="../models.html#langchain-langchain-experimental">
             <div class="logo-card">
-                <img src="../_static/images/logos/langchain-logo.png" alt="LangChain Logo"/>
+                <img src="../_static/images/logos/langchain-logo.png" alt="LangChain Logo">
             </div>
         </a>
         
         <a href="../models.html#openai-openai-experimental">
             <div class="logo-card">
-                <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
+                <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo">
             </div>
         </a>
     </div>

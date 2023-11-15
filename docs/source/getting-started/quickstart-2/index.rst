@@ -195,7 +195,7 @@ Choose **Chart view**. Choose the **Parallel coordinates** graph and configure i
     class="align-center"
     id="chart-view"
     alt="Screenshot of MLflow tracking UI parallel coordinates graph showing runs"
-  />
+  >
 
 The red graphs on this graph are runs that fared poorly. The lowest one is a baseline run with both **lr** and **momentum** set to 0.0. That baseline run has an RMSE of ~0.89. The other red lines show that high **momentum** can also lead to poor results with this problem and architecture. 
 

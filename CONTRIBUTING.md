@@ -477,6 +477,13 @@ If contributing to MLflow's R APIs, install
 [R](https://cloud.r-project.org/) and make sure that you have satisfied
 all the [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
 
+For changes to R documentation, also install
+[pandoc](https://pandoc.org/installing.html) 2.2.1 or above, verifying
+the version of your installation via `pandoc --version`. If using Mac
+OSX, note that the homebrew installation of pandoc may be out of date -
+you can find newer pandoc versions at
+<https://github.com/jgm/pandoc/releases>.
+
 The `mlflow/R/mlflow` directory contains R wrappers for the Projects,
 Tracking and Models components. These wrappers depend on the Python
 package, so first install the Python package in a conda environment:
@@ -828,16 +835,6 @@ python setup.py bdist_wheel
 ### Writing Docs
 
 First, install dependencies for building docs as described in [Environment Setup and Python configuration](#environment-setup-and-python-configuration).
-
-Building documentation requires [Pandoc](https://pandoc.org/index.html). It should have already been
-installed if you used the automated env setup script
-([dev-env-setup.sh](https://github.com/mlflow/mlflow/blob/master/dev/dev-env-setup.sh)),
-but if you are manually installing dependencies, please follow [the official instruction](https://pandoc.org/installing.html).
-
-Also, check the version of your installation via `pandoc --version` and ensure it is 2.2.1 or above.
-If you are using Mac OSX, be aware that the Homebrew installation of Pandoc may be outdated. If you are using Linux,
-you should use a deb installer or install from the source, instead of running `apt` / `apt-get` commands. Pandoc package available on official
-repositories is an older version and contains several bugs. You can find newer versions at <https://github.com/jgm/pandoc/releases>.
 
 To generate a live preview of Python & other rst documentation, run the
 following snippet. Note that R & Java API docs must be regenerated

@@ -1,5 +1,3 @@
-import logging
-import os
 import urllib.parse
 
 import mlflow
@@ -21,8 +19,6 @@ from mlflow.utils.uri import (
 )
 
 REGISTERED_MODEL_META_FILE_NAME = "registered_model_meta"
-
-_logger = logging.getLogger(__name__)
 
 
 class ModelsArtifactRepository(ArtifactRepository):
@@ -173,14 +169,8 @@ class ModelsArtifactRepository(ArtifactRepository):
         :return: Absolute path of the local filesystem location containing the desired artifacts.
         """
 
-        from mlflow.models.model import MLMODEL_FILE_NAME
-
         model_path = self.repo.download_artifacts(artifact_path, dst_path)
-        # NB: only add the registered model metadata iff the artifact path is at the root model
-        # directory. For individual files or subdirectories within the model directory, do not
-        # create the metadata file.
-        if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
-            self._add_registered_model_meta_file(model_path)
+        self._add_registered_model_meta_file(model_path)
 
         return model_path
 

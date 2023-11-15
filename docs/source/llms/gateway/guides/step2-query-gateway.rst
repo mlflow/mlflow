@@ -22,7 +22,6 @@ Setup
 First, import the necessary functions and define the gateway URI.
 
 .. code-section::
-
     .. code-block:: python 
         :name: setup
 
@@ -40,7 +39,6 @@ which is the string the Language Model (LLM) will respond to. The gateway also a
 various other parameters. For detailed information, please refer to the documentation.
 
 .. code-section::
-
     .. code-block:: python 
         :name: completions
 
@@ -74,7 +72,6 @@ takes a list of dictionaries formatted as follows:
 For further details, please consult the documentation.
 
 .. code-section::
-
     .. code-block:: python 
         :name: chat
 
@@ -106,7 +103,6 @@ string or a list of strings. The gateway then processes these strings and return
 respective numerical vectors. Let's proceed with an example...
 
 .. code-section::
-
     .. code-block:: python 
         :name: embeddings
 

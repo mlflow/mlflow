@@ -86,7 +86,6 @@ In addition, or if you are using a library for which ``autolog`` is not yet supp
 This example demonstrates the use of these functions:
 
 .. code-section::
-
     .. code-block:: python
 
         import os

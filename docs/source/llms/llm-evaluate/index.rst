@@ -23,7 +23,7 @@ functionality for LLMs, please navigate to the notebook collection below:
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the Notebook Guides</a><br/>
+    <a href="notebooks/index.html" class="download-btn">View the Notebook Guides</a><br>
 
 Quickstart
 ----------

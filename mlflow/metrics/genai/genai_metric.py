@@ -262,9 +262,16 @@ def make_genai_metric(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        # generate grading payloads
-        grading_payloads = []
-        for indx, (input, output) in enumerate(zip(inputs, outputs)):
+        def score_model_on_one_payload(
+            indx,
+            input,
+            output,
+            grading_context_columns,
+            eval_values,
+            evaluation_context,
+            eval_parameters,
+            eval_model,
+        ):
             try:
                 arg_string = _format_args_string(grading_context_columns, eval_values, indx)
             except Exception as e:
@@ -280,19 +287,12 @@ def make_genai_metric(
                     "parameter\n"
                     "- input and output data are formatted correctly."
                 )
-            grading_payloads.append(
-                {
-                    "prompt": evaluation_context["eval_prompt"].format(
-                        input=input, output=output, grading_context_columns=arg_string
-                    ),
-                    **eval_parameters,
-                }
-            )
-
-        def score_model_on_one_payload(
-            payload,
-            eval_model,
-        ):
+            payload = {
+                "prompt": evaluation_context["eval_prompt"].format(
+                    input=input, output=output, grading_context_columns=arg_string
+                ),
+                **eval_parameters,
+            }
             try:
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 return _extract_score_and_justification(raw_result)
@@ -317,10 +317,16 @@ def make_genai_metric(
             futures = {
                 executor.submit(
                     score_model_on_one_payload,
-                    payload,
+                    indx,
+                    input,
+                    output,
+                    grading_context_columns,
+                    eval_values,
+                    evaluation_context,
+                    eval_parameters,
                     eval_model,
                 ): indx
-                for indx, payload in enumerate(grading_payloads)
+                for indx, (input, output) in enumerate(zip(inputs, outputs))
             }
 
             as_comp = as_completed(futures)

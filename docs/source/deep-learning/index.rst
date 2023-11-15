@@ -47,27 +47,27 @@ The officially supported integrations for deep learning libraries in MLflow enco
         <div class="logo-grid">
             <a href="../models.html#pytorch-pytorch">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/pytorch-logo.svg" alt="pytorch Logo"/>
+                    <img src="../_static/images/logos/pytorch-logo.svg" alt="pytorch Logo">
                 </div>
             </a>
             <a href="../models.html#keras-keras">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/keras-logo.svg" alt="keras Logo"/>
+                    <img src="../_static/images/logos/keras-logo.svg" alt="keras Logo">
                 </div>
             </a>
             <a href="../models.html#tensorflow-tensorflow">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/TensorFlow-logo.svg" alt="TensorFlow Logo"/>
+                    <img src="../_static/images/logos/TensorFlow-logo.svg" alt="TensorFlow Logo">
                 </div>
             </a>
             <a href="../models.html#spacy-spacy">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/spacy-logo.svg" alt="spaCy Logo"/>
+                    <img src="../_static/images/logos/spacy-logo.svg" alt="spaCy Logo">
                 </div>
             </a>
             <a href="../models.html#fastai-fastai">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/fastai-logo.png" alt="fast.ai Logo"/>
+                    <img src="../_static/images/logos/fastai-logo.png" alt="fast.ai Logo">
                 </div>
             </a>
         </div>

@@ -116,8 +116,6 @@ class OpenAIConfig(ConfigModel):
 
     @classmethod
     def _validate_field_compatibility(cls, info: Dict[str, Any]):
-        if not isinstance(info, dict):
-            return info
         api_type = (info.get("openai_api_type") or OpenAIAPIType.OPENAI).lower()
         if api_type == OpenAIAPIType.OPENAI:
             if info.get("openai_deployment_name") is not None:

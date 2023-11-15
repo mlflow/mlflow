@@ -10,7 +10,6 @@ from mlflow.metrics.metric_definitions import (
     _mape_eval_fn,
     _max_error_eval_fn,
     _mse_eval_fn,
-    _ndcg_at_k_eval_fn,
     _precision_at_k_eval_fn,
     _precision_eval_fn,
     _r2_score_eval_fn,
@@ -240,7 +239,7 @@ def precision_at_k(k) -> EvaluationMetric:
 
     This metric computes a score between 0 and 1 for each row representing the precision of the
     retriever model at the given ``k`` value. If no relevant documents are retrieved, the score is
-    0, indicating that no relevant docs are retrieved. Let ``x = min(k, # of retrieved doc IDs)``.
+    0, indicating that no relevant docs were retrieved. Let ``x = min(k, # of retrieved doc IDs)``.
     Then, in all other cases, the precision at k is calculated as follows:
 
         ``precision_at_k`` = (# of relevant retrieved doc IDs in top-``x`` ranked docs) / ``x``.
@@ -259,8 +258,8 @@ def recall_at_k(k) -> EvaluationMetric:
 
     This metric computes a score between 0 and 1 for each row representing the recall ability of
     the retriever model at the given ``k`` value. If no ground truth doc IDs are provided and no
-    documents are retrieved, the score is 1. However, if no ground truth doc IDs are provided and
-    documents are retrieved, the score is 0. In all other cases, the recall at k is calculated as
+    documents were retrieved, the score is 1. However, if no ground truth doc IDs are provided and
+    documents were retrieved, the score is 0. In all other cases, the recall at k is calculated as
     follows:
 
         ``recall_at_k`` = (# of unique relevant retrieved doc IDs in top-``k`` ranked docs) / (# of
@@ -270,35 +269,6 @@ def recall_at_k(k) -> EvaluationMetric:
         eval_fn=_recall_at_k_eval_fn(k),
         greater_is_better=True,
         name=f"recall_at_{k}",
-    )
-
-
-@experimental
-def ndcg_at_k(k) -> EvaluationMetric:
-    """
-    This function will create a metric for evaluating `NDCG@k`_ for retriever models.
-
-    NDCG score is capable of handling non-binary notions of relevance. However, for simplicity,
-    we use binary relevance here. The relevance score for documents in the ground truth is 1,
-    and the relevance score for documents not in the ground truth is 0.
-
-    The NDCG score is calculated using sklearn.metrics.ndcg_score with the following edge cases
-    on top of the sklearn implementation:
-
-    1. If no ground truth doc IDs are provided and no documents are retrieved, the score is 1.
-    2. If no ground truth doc IDs are provided and documents are retrieved, the score is 0.
-    3. If ground truth doc IDs are provided and no documents are retrieved, the score is 0.
-    4. If duplicate doc IDs are retrieved and the duplicate doc IDs are in the ground truth,
-       they will be treated as different docs. For example, if the ground truth doc IDs are
-       [1, 2] and the retrieved doc IDs are [1, 1, 1, 3], the score will be equavalent to
-       ground truth doc IDs [10, 11, 12, 2] and retrieved doc IDs [10, 11, 12, 3].
-
-    .. _NDCG@k: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ndcg_score.html
-    """
-    return make_metric(
-        eval_fn=_ndcg_at_k_eval_fn(k),
-        greater_is_better=True,
-        name=f"ndcg_at_{k}",
     )
 
 

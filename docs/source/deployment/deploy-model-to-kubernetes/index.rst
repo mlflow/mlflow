@@ -126,7 +126,6 @@ Next, use the MLflow UI to compare the models that you have produced. In the sam
 as the one that contains the ``mlruns`` run:
 
 .. code-section::
-
     .. code-block:: shell
 
         mlflow ui

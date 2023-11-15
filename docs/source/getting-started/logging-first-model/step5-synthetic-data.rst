@@ -21,7 +21,6 @@ We can introduce this correlation by crafting a relationship between our feature
 The random elements of some of the factors will handle the unexplained variance portion.
 
 .. code-section::
-
     .. code-block:: python
 
         import pandas as pd

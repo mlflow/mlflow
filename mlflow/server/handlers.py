@@ -96,7 +96,6 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
-from mlflow.utils.os import is_windows
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.string_utils import is_string_type
@@ -553,7 +552,6 @@ def validate_path_is_safe(path):
         or ".." in path.split("/")
         or pathlib.PureWindowsPath(path).is_absolute()
         or pathlib.PurePosixPath(path).is_absolute()
-        or (is_windows() and len(path) >= 2 and path[1] == ":")
     ):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 

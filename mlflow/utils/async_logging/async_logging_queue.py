@@ -47,8 +47,9 @@ class AsyncLoggingQueue:
         try:
             # Stop the data processing thread
             self._stop_data_logging_thread_event.set()
-            # Waits till logging queue is drained.
-            self._batch_logging_thread.join()
+            # Waits till queue is drained.
+            self._run_data_logging_thread.result()
+            self._batch_logging_threadpool.shutdown(wait=False)
             self._batch_status_check_threadpool.shutdown(wait=False)
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
@@ -131,10 +132,14 @@ class AsyncLoggingQueue:
             del state["_run_data_logging_thread"]
         if "_stop_data_logging_thread_event" in state:
             del state["_stop_data_logging_thread_event"]
-        if "_batch_logging_thread" in state:
-            del state["_batch_logging_thread"]
+        if "_batch_logging_threadpool" in state:
+            del state["_batch_logging_threadpool"]
         if "_batch_status_check_threadpool" in state:
             del state["_batch_status_check_threadpool"]
+        if "_run_data_logging_thread" in state:
+            del state["_run_data_logging_thread"]
+        if "_stop_data_logging_thread_event" in state:
+            del state["_stop_data_logging_thread_event"]
 
         return state
 
@@ -153,7 +158,7 @@ class AsyncLoggingQueue:
         self._queue = Queue()
         self._lock = threading.RLock()
         self._is_activated = False
-        self._batch_logging_thread = None
+        self._batch_logging_threadpool = None
         self._batch_status_check_threadpool = None
         self._stop_data_logging_thread_event = None
 
@@ -188,6 +193,7 @@ class AsyncLoggingQueue:
         )
 
         self._queue.put(batch)
+
         operation_future = self._batch_status_check_threadpool.submit(self._wait_for_batch, batch)
         return RunOperations(operation_futures=[operation_future])
 
@@ -211,17 +217,14 @@ class AsyncLoggingQueue:
             self._stop_data_logging_thread_event = threading.Event()
 
             # Keeping max_workers=1 so that there are no two threads
-            self._batch_logging_thread = threading.Thread(
-                target=self._logging_loop,
-                name="MLflowAsyncLoggingLoop",
-                daemon=True,
-            )
+            self._batch_logging_threadpool = ThreadPoolExecutor(max_workers=1)
 
-            self._batch_status_check_threadpool = ThreadPoolExecutor(
-                max_workers=10,
-                thread_name_prefix="MLflowAsyncLoggingStatusCheck",
-            )
-            self._batch_logging_thread.start()
+            self._batch_status_check_threadpool = ThreadPoolExecutor(max_workers=10)
+
+            self._run_data_logging_thread = self._batch_logging_threadpool.submit(
+                self._logging_loop
+            )  # concurrent.futures.Future[self._logging_loop]
+
             atexit.register(self._at_exit_callback)
 
             self._is_activated = True

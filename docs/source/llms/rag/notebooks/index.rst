@@ -22,10 +22,10 @@ If you would like a copy of this notebook to execute in your environment, downlo
 
 .. raw:: html
 
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/rag/notebooks/question-generation-retrieval-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/rag/notebooks/question-generation-retrieval-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br>
 
 To follow along and see the sections of the notebook guide, click below:
 
 .. raw:: html
 
-    <a href="question-generation-retrieval-evaluation.html" class="download-btn">View the Notebook</a><br/>
+    <a href="question-generation-retrieval-evaluation.html" class="download-btn">View the Notebook</a><br>

@@ -105,45 +105,6 @@ minor_to_micro() {
   esac
 }
 
-# Check if brew is installed and install it if it isn't present
-# Note: if xcode isn't installed, this will fail.
-# $1: name of package that requires brew
-check_and_install_brew() {
-  if [ -z "$(command -v brew)" ]; then
-    echo "Homebrew is required to install $1 on MacOS. Installing in your home directory."
-    bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  fi
-  echo "Updating brew..."
-  brew update
-}
-
-# Compare two version numbers
-# Usage: version_gt version1 version2
-# Returns 0 (true) if version1 > version2, 1 (false) otherwise
-version_gt() {
-    IFS='.' read -ra VER1 <<< "$1"
-    IFS='.' read -ra VER2 <<< "$2"
-
-    # Compare each segment of the version numbers
-    for (( i=0; i<"${#VER1[@]}"; i++ )); do
-        # If VER2 is shorter and we haven't found a difference yet, VER1 is greater
-        if [[ -z ${VER2[i]} ]]; then
-            return 0
-        fi
-
-        # If some segments are not equal, return their comparison result
-        if (( ${VER1[i]} > ${VER2[i]} )); then
-            return 0
-        elif (( ${VER1[i]} < ${VER2[i]} )); then
-            return 1
-        fi
-    done
-
-    # If all common length segments are same, the one with more segments is greater
-    return $(( ${#VER1[@]} <= ${#VER2[@]} ))
-}
-
-
 # Check if pyenv is installed and offer to install it if not present
 pyenv_exist=$(command -v pyenv)
 
@@ -154,9 +115,15 @@ if [ -z "$pyenv_exist" ]; then
   fi
   if [[ $REPLY =~ ^[Yy]$ || -n "$GITHUB_ACTIONS" ]]; then
     if [[ "$machine" == mac ]]; then
-      check_and_install_brew "pyenv"
-      echo "Installing pyenv..."
+      # Check if brew is installed and install it if it isn't present
+      # Note: if xcode isn't installed, this will fail.
+      if [ -z "$(command -v brew)" ]; then
+        echo "Homebrew is required to install pyenv on MacOS. Installing in your home directory."
+        bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      fi
+      echo "Updating brew and installing pyenv..."
       echo "Note: this will probably take a considerable amount of time."
+      brew update
       brew install pyenv
       brew install openssl readline sqlite3 xz zlib
     elif [[ "$machine" == linux ]]; then
@@ -274,34 +241,6 @@ echo "$(tput setaf 2; tput smul)Python packages that have been installed:$(tput 
 echo "$(pip freeze)$(tput sgr0)"
 
 command -v docker >/dev/null 2>&1 || echo "$(tput bold; tput setaf 1)A docker installation cannot be found. Please ensure that docker is installed to run all tests locally.$(tput sgr0)"
-
-
-# check if pandoc with required version is installed and offer to install it if not present
-pandoc_version=$(pandoc --version | grep "pandoc" | awk '{print $2}')
-if [[ -z "$pandoc_version" ]] || ! version_gt "$pandoc_version" "2.2.1"; then
-  if [ -z "$GITHUB_ACTIONS" ]; then
-    read -p "Pandoc version 2.2.1 or above is required to generate documentation. Would you like to install it? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
-    echo
-  fi
-
-  if [[ $REPLY =~ ^[Yy]$ || -n "$GITHUB_ACTIONS" ]]; then
-    echo "Installing Pandoc..."
-    if [[ "$machine" == mac ]]; then
-      check_and_install_brew "pandoc"
-      brew install pandoc
-    elif [[ "$machine" == linux ]]; then
-      # install pandoc via deb package as `apt-get` gives too old version
-      TEMP_DEB=$(mktemp) && \
-        wget --directory-prefix $TEMP_DEB https://github.com/jgm/pandoc/releases/download/2.16.2/pandoc-2.16.2-1-amd64.deb && \
-        sudo dpkg --install $(find $TEMP_DEB -name '*.deb') && \
-        rm -rf $TEMP_DEB
-    else
-      echo "Unknown operating system environment: $machine exiting."
-      exit 1
-    fi
-  fi
-fi
-
 
 # Setup git environment configuration for proper signing of commits
 git_user=$(git config user.name)

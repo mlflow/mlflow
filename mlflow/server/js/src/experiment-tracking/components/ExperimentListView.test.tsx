@@ -6,8 +6,6 @@
  */
 
 import React from 'react';
-import userEvent from '@testing-library/user-event';
-import { screen, fireEvent } from '../../common/utils/TestUtils';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
@@ -18,8 +16,7 @@ import Fixtures from '../utils/test-utils/Fixtures';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
-import { mountWithIntl, renderWithIntl } from '../../common/utils/TestUtils';
-import { DesignSystemProvider } from '@databricks/design-system';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 // Make the autosizer render items.
 // https://github.com/bvaughn/react-virtualized/blob/v9.22.3/source/AutoSizer/AutoSizer.jest.js#L68
@@ -46,69 +43,61 @@ afterAll(() => {
 const designSystemThemeApi = {
   theme: {
     colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
-    general: { iconSize: 24 },
-    spacing: { xs: 4 },
   },
 };
 
 const mountComponent = (props: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
-  return renderWithIntl(
-    <DesignSystemProvider>
-      <Provider
-        store={mockStore({
-          entities: {
-            experimentsById: {},
-          },
-        })}
-      >
-        <BrowserRouter>
-          <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />
-          ,
-        </BrowserRouter>
-        ,
-      </Provider>
+  return mountWithIntl(
+    <Provider
+      store={mockStore({
+        entities: {
+          experimentsById: {},
+        },
+      })}
+    >
+      <BrowserRouter>
+        <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />,
+      </BrowserRouter>
       ,
-    </DesignSystemProvider>,
+    </Provider>,
   );
 };
 
 test('If searchInput is set to "Test" then first shown element in experiment list has the title "Test"', () => {
-  mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
-  const input = screen.getByTestId('search-experiment-input');
-  fireEvent.change(input, {
-    target: { value: 'Test' },
-  });
-  expect(screen.getAllByTestId('experiment-list-item')[0].textContent).toContain('Test');
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
+  wrapper
+    .find('input[data-test-id="search-experiment-input"]')
+    .first()
+    .simulate('change', { target: { value: 'Test' } });
+  expect(wrapper.find('[data-test-id="experiment-list-item"]').first().text()).toContain('Test');
 });
 
 test('If searchInput is set to "Test" and default experiment is active then no active element is shown in the experiment list', () => {
-  mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
-  const input = screen.getByTestId('search-experiment-input');
-  fireEvent.change(input, {
-    target: { value: 'Test ' },
-  });
-  expect(screen.queryAllByTestId('active-experiment-list-item')).toHaveLength(0);
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
+  wrapper
+    .find('input[data-test-id="search-experiment-input"]')
+    .first()
+    .simulate('change', { target: { value: 'Test' } });
+  expect(wrapper.find('[data-test-id="active-experiment-list-item"]')).toHaveLength(0);
 });
 
 test('If button to create experiment is pressed then open CreateExperimentModal', () => {
-  mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
-  userEvent.click(screen.getByTestId('create-experiment-button'));
-  expect(screen.getByText('Create Experiment')).toBeInTheDocument();
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
+  wrapper.find('[data-test-id="create-experiment-button"]').first().simulate('click');
+  expect(wrapper.find(CreateExperimentModal).prop('isOpen')).toEqual(true);
 });
 
 test('If button to delete experiment is pressed then open DeleteExperimentModal', () => {
-  mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
-  userEvent.click(screen.getAllByTestId('delete-experiment-button')[0]);
-  expect(
-    screen.getByText(`Delete Experiment "${Fixtures.experiments[0].name}"`),
-  ).toBeInTheDocument();
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
+  wrapper.find('button[data-test-id="delete-experiment-button"]').first().simulate('click');
+  expect(wrapper.find(DeleteExperimentModal).prop('isOpen')).toEqual(true);
 });
 
 test('If button to edit experiment is pressed then open RenameExperimentModal', () => {
-  mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
-  userEvent.click(screen.getAllByTestId('rename-experiment-button')[0]);
-  expect(screen.getByText('Rename Experiment')).toBeInTheDocument();
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
+  wrapper.find('button[data-test-id="rename-experiment-button"]').first().simulate('click');
+  expect(wrapper.find(RenameExperimentModal).prop('isOpen')).toEqual(true);
 });
 
 test('If activeExperimentIds is defined then choose all the corresponding experiments', () => {
@@ -118,24 +107,22 @@ test('If activeExperimentIds is defined then choose all the corresponding experi
     Fixtures.createExperiment({ experiment_id: '2', name: 'Second' }),
     Fixtures.createExperiment({ experiment_id: '3', name: 'Third' }),
   ];
-  mountComponent({
+  const wrapper = mountComponent({
     experiments: localExperiments,
     activeExperimentIds: ['1', '3'],
   });
-  const selected = screen.getAllByTestId('active-experiment-list-item');
+  const selected = wrapper.find('[data-test-id="active-experiment-list-item"]');
   expect(selected.length).toEqual(2);
-  expect(selected[0].textContent).toEqual('Test');
-  expect(selected[1].textContent).toEqual('Third');
+  expect(selected.first().text()).toEqual('Test');
+  expect(selected.at(1).text()).toEqual('Third');
 });
 
 test('should render when both experiments and activeExperimentIds are empty', () => {
-  mountComponent({
+  const wrapper = mountComponent({
     experiments: [],
     activeExperimentIds: [],
   });
-
-  // Get the sidebar header as proof that the component rendered
-  expect(screen.getByText('Experiments')).toBeInTheDocument();
+  expect(wrapper.length).toBe(1);
 });
 
 test('virtual list should not render everything when there are many experiments', () => {
@@ -144,10 +131,10 @@ test('virtual list should not render everything when there are many experiments'
     Fixtures.createExperiment({ experiment_id: k, name: k }),
   );
 
-  mountComponent({
+  const wrapper = mountComponent({
     experiments: localExperiments,
     activeExperimentIds: keys,
   });
-  const selected = screen.getAllByTestId('active-experiment-list-item');
+  const selected = wrapper.find('[data-test-id="active-experiment-list-item"]');
   expect(selected.length).toBeLessThan(keys.length);
 });

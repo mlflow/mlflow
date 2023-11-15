@@ -30,7 +30,7 @@ If you would like to get started immediately by interactively running the notebo
 .. raw:: html
 
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/intro-quickstart/notebooks/tracking_quickstart.ipynb" class="notebook-download-btn">
-        <i class="fas fa-download"></i>Download the Notebook</a><br/>
+        <i class="fas fa-download"></i>Download the Notebook</a><br>
 
 Quickstart elements
 ^^^^^^^^^^^^^^^^^^^
@@ -76,7 +76,7 @@ If you would like to get started immediately by interactively running the notebo
 .. raw:: html
 
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/logging-first-model/notebooks/logging-first-model.ipynb" class="notebook-download-btn">
-        <i class="fas fa-download"></i>Download the Notebook</a><br/>
+        <i class="fas fa-download"></i>Download the Notebook</a><br>
 
 Guide sections
 ^^^^^^^^^^^^^^

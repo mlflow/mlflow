@@ -147,20 +147,19 @@ Parameters:
             extra_metrics = [
                 mlflow.metrics.precision_at_k(5),
                 mlflow.metrics.precision_at_k(6),
-                mlflow.metrics.recall_at_k(5),
-                mlflow.metrics.ndcg_at_k(5)
+                mlflow.metrics.recall_at_k(4),
+                mlflow.metrics.recall_at_k(5)
             ]   
         )
     
     NOTE: In the 2nd method, it is recommended to omit the ``model_type`` as well, or else 
     ``precision@3`` and ``recall@3`` will be  calculated in  addition to ``precision@5``, 
-    ``precision@6``, ``recall@5``, and ``ndcg_at_k@5``.
+    ``precision@6``, ``recall@4``, and ``recall@5``.
 
 .. autofunction:: mlflow.metrics.precision_at_k
 
 .. autofunction:: mlflow.metrics.recall_at_k
 
-.. autofunction:: mlflow.metrics.ndcg_at_k
 
 Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_metric <mlflow.metrics.make_metric>` factory function
 
@@ -170,7 +169,7 @@ Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMet
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, exact_match, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency, precision_at_k, recall_at_k, ndcg_at_k
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, exact_match, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency, precision_at_k, recall_at_k
 
 Generative AI Metrics
 ---------------------

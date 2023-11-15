@@ -41,7 +41,6 @@ Step 1 - Get MLflow
 MLflow is available on PyPI. If you don't already have it installed on your system, you can install it with:
 
 .. code-section::
-
     .. code-block:: bash
         :name: download-mlflow
 
@@ -54,7 +53,6 @@ We're going to start a local MLflow Tracking Server, which we will connect to fo
 From a terminal, run:
 
 .. code-section::
-
     .. code-block:: bash
         :name: tracking-server-start
 
@@ -74,7 +72,6 @@ In this section, we're going to log a model with MLflow. A quick overview of the
 
 
 .. code-section::
-
     .. code-block:: python
         :name: train-model
 
@@ -135,7 +132,6 @@ The steps that we will take are:
     to ensure that the loggable content (parameters, metrics, artifacts, and the model) are fully materialized prior to logging. 
 
 .. code-section::
-
     .. code-block:: python
         :name: log-model
 
@@ -181,7 +177,6 @@ After logging the model, we can perform inference by:
     below.
 
 .. code-section::
-
     .. code-block:: python
         :name: load-model 
 

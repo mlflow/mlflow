@@ -105,7 +105,6 @@ relatively performance amongst our iterative trials.
 If we were to use each iteration as its own MLflow run, our code might look something like this:
 
 .. code-section::
-
     .. code-block:: python
 
         import random
@@ -163,7 +162,6 @@ What happens when we need to run this again with some slight modifications?
 Our code might change in-place with the values being tested:
 
 .. code-section::
-
     .. code-block:: python
 
         def log_run(run_name, test_no):
@@ -206,7 +204,6 @@ Adapting for Parent and Child Runs
 The code below demonstrates these modifications to our original hyperparameter tuning example.
 
 .. code-section::
-
     .. code-block:: python
 
         import random
@@ -279,7 +276,6 @@ The real benefit of this nested architecture becomes much more apparent when we 
 with different conditions of hyperparameter selection criteria.
 
 .. code-section::
-
     .. code-block:: python
 
         # Execute modified hyperparameter tuning runs with custom parameter choices
@@ -295,7 +291,6 @@ with different conditions of hyperparameter selection criteria.
 ... and even more runs ...
 
 .. code-section::
-
     .. code-block:: python
 
         param_1_values = ["b", "c"]
