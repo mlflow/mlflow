@@ -78,8 +78,10 @@ module.exports = async ({ github, context }) => {
   const TIMEOUT = 60 * MINUTE; // 1 hours
   while (new Date() - start < TIMEOUT) {
     const checks = await fetchChecks(sha);
+    const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status }) => {
-      console.log(`- name: ${name}, status: ${status}`);
+      const icon = status === STATE.success ? "✅" : status === STATE.failure ? "❌" : "🕒";
+      console.log(`- ${name.padEnd(longest)}: ${icon} ${status}`);
     });
 
     if (checks.some(({ status }) => status === STATE.failure)) {
