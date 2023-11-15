@@ -223,7 +223,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="body">
                         The MLflow AI Gateway now supports defining an MLflow serving endpoint as provider. With this 
                         new feature, you can serve any OSS transformers model that conforms to the 
-                        <a href="gateway/index.html#completions">completions</a> or <a href="gateway/index.html#embeddings">embeddings</a> route type 
+                        <a href="../llms/gateway/index.html#completions">completions</a> or <a href="../llms/gateway/index.html#embeddings">embeddings</a> route type 
                         definitions. 
                     </div>
                     <div class="body">

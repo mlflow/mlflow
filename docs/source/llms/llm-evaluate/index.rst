@@ -205,7 +205,7 @@ for LLM evaluation in MLflow. You can specify a custom list of metrics in the `e
         )
 
 
-The full reference for supported evaluation metrics can be found `here <../python_api/mlflow.html#mlflow.evaluate>`_. 
+The full reference for supported evaluation metrics can be found `here <../../python_api/mlflow.html#mlflow.evaluate>`_.
 
 Metrics with LLM as the Judge
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
