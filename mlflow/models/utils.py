@@ -1014,7 +1014,11 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
         try:
             data[k] = _enforce_property(v, properties[k])
         except MlflowException as e:
-            raise MlflowException(f"Failed to enforce schema for key `{k}`") from e
+            raise MlflowException(
+                f"Failed to enforce schema for key `{k}`. "
+                f"Expected type {properties[k].to_dict()[k]['type']}, "
+                f"received type {type(v).__name__}"
+            ) from e
     return data
 
 

@@ -241,8 +241,9 @@ def _infer_schema(data: Any) -> Schema:
         # TODO: Add a link to docs/examples
         _logger.info(
             "MLflow 2.9.0 introduces model signature with new data types for "
-            "lists and dictionaries. Lists will be inferred as Array, and dictionaries "
-            "will be inferred as Object."
+            "lists and dictionaries. For input such as "
+            "Dict[str, Union[scalars, List, Dict]], we infer dictionary values "
+            "types as `List -> Array` and `Dict -> Object`. "
         )
 
     # To keep backward compatibility with < 2.9.0, an empty list is inferred as string.
@@ -384,8 +385,7 @@ def _infer_schema(data: Any) -> Schema:
             "integer columns as doubles (float64) whenever these columns may have "
             "missing values. See `Handling Integers With Missing Values "
             "<https://www.mlflow.org/docs/latest/models.html#"
-            "handling-integers-with-missing-values>`_ for more details.",
-            stacklevel=2,
+            "handling-integers-with-missing-values>`_ for more details."
         )
     return schema
 
@@ -547,7 +547,15 @@ def _is_spark_df(x) -> bool:
     try:
         import pyspark.sql.dataframe
 
-        return isinstance(x, pyspark.sql.dataframe.DataFrame)
+        if isinstance(x, pyspark.sql.dataframe.DataFrame):
+            return True
+    except ImportError:
+        return False
+    # For spark 4.0
+    try:
+        import pyspark.sql.connect.dataframe
+
+        return isinstance(x, pyspark.sql.connect.dataframe.DataFrame)
     except ImportError:
         return False
 
