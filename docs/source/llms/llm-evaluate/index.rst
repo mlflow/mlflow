@@ -125,6 +125,8 @@ There are two ways to select metrics to evaluate your model:
 * Use **default** metrics for pre-defined model types.
 * Use a **custom** list of metrics.
 
+.. _llm-eval-default-metrics:
+
 Use Default Metrics for Pre-defined Model Types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -173,6 +175,8 @@ The supported LLM model types and associated metrics are listed below:
 :sup:`3` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
 `rouge-score <https://pypi.org/project/rouge-score>`_
 
+.. _llm-eval-custom-metrics:
+
 Use a Custom List of Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -205,7 +209,7 @@ for LLM evaluation in MLflow. You can specify a custom list of metrics in the `e
         )
 
 
-The full reference for supported evaluation metrics can be found `here <../python_api/mlflow.html#mlflow.evaluate>`_. 
+The full reference for supported evaluation metrics can be found `here <../../python_api/mlflow.html#mlflow.evaluate>`_.
 
 Metrics with LLM as the Judge
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -440,6 +444,8 @@ up OpenAI authentication to run the code below.
             eval_data,
             model_type="question-answering",
         )
+
+.. _llm-eval-static-dataset:
 
 Evaluating with a Static Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
