@@ -17,8 +17,20 @@ depends_on = None
 
 
 def upgrade():
-    pass
+    op.alter_column(
+        "datasets",
+        "digest",
+        existing_type=sa.String(length=36),
+        type_=sa.String(length=44),
+        existing_nullable=False,
+    )
 
 
 def downgrade():
-    pass
+    op.alter_column(
+        "datasets",
+        "digest",
+        existing_type=sa.String(length=44),
+        type_=sa.String(length=36),
+        existing_nullable=False,
+    )
