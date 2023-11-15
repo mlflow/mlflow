@@ -7,7 +7,7 @@ import contextlib
 import json
 import logging
 import os
-import posixpathip
+import posixpath
 import sys
 import tempfile
 import urllib
