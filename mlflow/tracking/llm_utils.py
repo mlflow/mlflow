@@ -6,12 +6,12 @@ from typing import Dict, List, Union
 
 import mlflow
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental, deprecated
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@deprecated("mlflow.log_table")
 def log_predictions(
     inputs: List[Union[str, Dict[str, str]]],
     outputs: List[str],
