@@ -6,7 +6,7 @@ from typing import Dict, List, Union
 
 import mlflow
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.annotations import experimental, deprecated
+from mlflow.utils.annotations import deprecated
 
 _logger = logging.getLogger(__name__)
 
