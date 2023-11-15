@@ -52,6 +52,7 @@ jobs:
           command: |
             make rsthtml
             make javadocs
+            python broken_links.py
       - run:
           name: Test examples
           working_directory: docs
