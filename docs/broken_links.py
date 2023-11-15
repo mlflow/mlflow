@@ -26,8 +26,8 @@ def server(port):
         try:
             for _ in range(5):
                 try:
-                    requests.get("http://localhost:8000")
-                    break
+                    if requests.get(f"http://localhost:{port}").ok:
+                        break
                 except requests.exceptions.ConnectionError:
                     time.sleep(0.5)
             else:
