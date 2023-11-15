@@ -11,7 +11,7 @@ from mlflow.utils.annotations import deprecated
 _logger = logging.getLogger(__name__)
 
 
-@deprecated("mlflow.log_table")
+@deprecated("mlflow.log_table", since="2.8.1", impact=True)
 def log_predictions(
     inputs: List[Union[str, Dict[str, str]]],
     outputs: List[str],
