@@ -236,21 +236,15 @@ model artifacts, together with other model metadata. To set a signature on a log
 saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` API
 (see the :ref:`How to set signatures on models <how-to-set-signatures-on-models>` section for more details).
 
-Model Signature Types
-~~~~~~~~~~~~~~~~~~~~~
-
-A model signature consists of three schemas **(1) inputs**, **(2)outputs**, and **(3) inference params**. The
-former two simply refer to the input and output of the model, while the inference params is a set of additional params 
-that are passed to the model at inference time. 
-
-Input and output schemas can be either column-based or tensor-based. 
+A model signature consists of three schemas **(1) inputs**, **(2)outputs**, and **(3) params**. The
+former two refer to schemas of model inputs and outputs, while `params` defines schema for additional params 
+that are passed to the model at inference time. Input and output schemas can be either column-based or tensor-based. 
 
 Column-based Signature
-""""""""""""""""""""""""""""""
-
+~~~~~~~~~~~~~~~~~~~~~~
 This signature is typically used for traditional machine learning models that take tabular data as input such as Pandas 
 DataFrame. Column-based schemas are a sequence of (optionally) named columns with data type. Each column-based input and 
-output is represented by a type corresponding to one of :ref:`supported data types <supported-data-types>` and an 
+output is represented by a type corresponding to one of :ref:`supported data types <supported-data-types-column>` and an 
 optional name. Input columns can also be marked as ``optional``, indicating whether they are required as input to the 
 model or can be omitted. 
 
@@ -271,9 +265,97 @@ The following example displays the model signature for a classification model tr
       outputs: '[{"type": "integer"}]'
       params: null
 
+.. _supported-data-types-column:
+
+Supported Data Types
+""""""""""""""""""""
+Column-based signature supports :py:class:`MLflow DataType <mlflow.types.DataType>` that defines following data primitives,
+
+* string
+* integer
+* long
+* float
+* double
+* boolean
+* datetime
+
+.. code-block:: python
+
+    from mlflow.models import infer_signature
+
+    sign = infer_signature(model_input={"long_col": 1, "str_col": "a", "bool_col": True})
+    print(sign.inputs)
+    # [
+    #   'long_col': long (required),
+    #   'str_col': string (required),
+    #   'bool_col': boolean (required)
+    # ]
+
+    ## You can also infer signature from Pandas DataFrame. Column with None will be inferred as `optional`
+    sign = infer_signature(model_input=pd.DataFrame({"col": [1.0, 2.0, None]}))
+    print(sign.inputs)
+    # [ 'col': long (optional) ]
+
+
+Column-based signature also support composite data types of these primitives:
+
+* Array (list, numpy arrays)
+* Object (dictionary)
+
+.. code-block:: python
+
+    # Array (from list)
+    sign = infer_signature(model_input={"list_col": ["a", "b", "c"]})
+    print(sign.inputs)
+    
+    # [ 'list_col': Array(string) (required) ]
+
+    # Array (from numpy array)
+    sign = infer_signature(model_input={"np_col": np.array([1, 2, 3])})
+    print(sign.inputs)
+    # [ 'np_col': Array(long) (required) ]
+
+    # Object
+    sign = infer_signature(
+        model_input={"object_col": {"long_prop": 1, "array_prop": ["a", "b", "c"]}}
+    )
+    print(sign.inputs)
+    # ['object_col': {
+    #     long_prop: long (required),
+    #     str_prop: Array(string) (required)
+    #  } (required)]
+
+    # Combination of array / object is also supported
+    sign = infer_signature(
+        model_input={
+            "complex_col": [
+                {
+                    "prop_a": [["a", "b", "c"], ["d", "e", "f"]],
+                    "prop_b": 0.1,
+                },
+                {
+                    "prop_a": [["g"]],
+                    "prop_b": 0.5,
+                },
+            ]
+        }
+    )
+    print(sign.inputs)
+    # [
+    #    'complex_col': Array({
+    #      prop_a: Array(Array(string)) (required),
+    #      prop_b: double (required)
+    #     }) (required)
+    #  ]
+
+.. note::
+    Nested arrays can contain an empty list. In such case, the schema will be inferred
+    from the other elements of the list, assuming they have homogeneous types.
+
+
 Tensor-based Signature
-""""""""""""""""""""""""""""""
-This signature is typically used for deep learning models that take tensors as input such as images, speech, etc. 
+~~~~~~~~~~~~~~~~~~~~~~
+This signature is typically used for models that take tensors such as imagesa and speech as input, as represented by deep learning. 
 Tensor-based schemas are a sequence of (optionally) named tensors with 
 type specified as one of the `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. 
 Each tensor-based input and output is represented by a dtype corresponding to one of
@@ -294,10 +376,32 @@ the input and the output is the batch size and is thus set to -1 to allow for va
       outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
       params: null
 
+.. _supported-data-types-tensor:
+
+Supported Data Types
+""""""""""""""""""""
+
+Tensor-based schemas support `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
+
+.. note::
+    Tensor-based schemas do not support optional inputs. You can pass an array with `None` or `np.nan` values,
+    but the schema doesn't flag them as optional.
+
+.. code-block:: python
+
+    sign = infer_signature(model_input=np.array([1, 2]))
+    print(sign.inputs)
+    # [Tensor('int64', (-1,))]
+
+    sign = infer_signature(model_input=np.array([1.0, None, np.nan]))
+    print(sign.inputs)
+    # [Tensor('float64', (-1,))]
+
+
 .. _inference-params:
 
 Model Signature with Inference Params
-"""""""""""""""""""""""""""""""""""""
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Inference params are additional parameters that are passed to the model at inference time, such as 
 ``temperature``, ``max_length`` params for LLM models. These params do not need to be 
 specified when training the model, but could be used to modify the behavior of a model at inference time. 
@@ -307,10 +411,10 @@ With this newly introduced feature, you can now specify a dictionary of inferenc
 providing a broader utility and improved control over the generated inference results.
 
 In order to use params at inference time, ``params`` must be defined as a part of a valid :ref:`Model Signature <model-signature>`. 
-Params schema is a sequence of **ParamSpec**, which contains following fields:
+Params schema is a sequence of :py:class:`ParamSpec <mlflow.types.ParamSpec>`, which contains following fields:
 
 * ``name``: Name of the param e.g. ``temperature``.
-* ``type``: Type of the param. Must be one of :ref:`supported data types <supported-data-types>` or list of them.
+* ``type``: Type of the param. Must be one of :ref:`supported data types <supported-data-types-params>`.
 * ``default``: Default value of the param.
 * ``shape``: Shape of the param. Must be ``None`` for scalar values and ``(-1,)`` for a list.
 
@@ -364,92 +468,25 @@ The following example demonstrates how to define params in a model signature and
     loaded_predict = loaded_model.predict(["input"])
     assert loaded_predict == [0.5, [101, 102]]
 
-    # Passing some params -- add default values
+    # Passing some params -- override passed-in params
     loaded_predict = loaded_model.predict(["input"], params={"temperature": 0.1})
     assert loaded_predict == [0.1, [101, 102]]
 
-    # Passing all params -- override
+    # Passing all params -- override all params
     loaded_predict = loaded_model.predict(
         ["input"], params={"temperature": 0.5, "suppress_tokens": [103]}
     )
     assert loaded_predict == [0.5, [103]]
 
+.. _supported-data-types-params:
+
+Supported Data Types
+""""""""""""""""""""
+Params expects :py:class:`MLflow DataType <mlflow.types.DataType>` and a list of them. Currently we only support 1D list for params.
+
 .. note::
     When validating param values, the values will be converted to python native types.
     For example, ``np.float32(0.1)`` will be converted to ``float(0.1)``.
-
-.. _supported-data-types:
-
-Supported Data Types in Model Signature
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Currently, :py:class:`MLflow DataType <mlflow.types.DataType>` defines following data primitives for model signature.
-
-* string
-* integer
-* boolean
-* double
-* float
-* long
-* datetime
-
-Model signature also supports composite data types as follows,
-
-* Array
-* Object (a.k.a. dictionary in python)
-* Nested Arrays and Objects e.g. ``Array(Object(Propertiy("a", Array(DataType.integer))))``
-
-Here are some examples of model inputs and inferred signature
-
-.. code-block:: python
-
-    from mlflow.models import infer_signature
-
-    sign = infer_signature(model_input={"long_col": 1, "str_col": "a", "bool_col": True}, model_output=0.1)
-    print(sign)
-    # inputs:  [
-    #             'long_col': long (required), 
-    #             'str_col': string (required), 
-    #             'bool_col': boolean (required)
-    #          ]
-    # outputs: [double (required)]
-    # params:  None
-
-    ## You can also infer signature Pandas DataFrame. Column with None value will be `optional`
-    sign = infer_signature(model_input=pd.DataFrame({"col": [1.0, 2.0, None]}), model_output=0.0)
-    print(sign)
-    # inputs:  ['col': long (optional)]
-    # outputs: [double (required)]
-    # params: None
-
-    ## Numpy array is inferred as Tensor column. We don't set optional for Tensor column.
-    sign = infer_signature(model_input=np.array([1, 2, np.nan]), model_output=np.array([0.1, 0.2, 0.3]))
-    print(sign)
-    # inputs:  ['int_col': Tensor('int64', (-1,))]
-    # outputs: [Tensor('float64', (-1,))]
-    # params:  None
-
-    # Composite data type: Array
-    sign = infer_signature(model_input=[["a", "b", "c"], ["a", "b", "c", "d"], []])
-    print(sign)
-    # inputs:  [Array(string) (required)]
-    # outputs: None
-    # params: None
-
-    # Composite data types: Object (a.k.a. dictionary)
-    sign = infer_signature(model_input={"object_col": {"long_prop": 1, "array_prop": ["a", "b", "c"]}}, model_output=0.0)
-    print(sign)
-    # inputs:  ['object_col': {
-    #              long_prop: long (required), 
-    #              str_prop: Array(string) (required)
-    #           } (required)]
-    # outputs: [double (required)]
-    # params: None
-
-
-.. note::
-    Nested arrays can contain an empty list. In such case, the schema will be inferred
-    from the other elements of the list, assuming they have homogeneous types.
-
 
 .. _signature-enforcement:
 
