@@ -88,7 +88,7 @@ Text Metrics
 .. autofunction:: mlflow.metrics.flesch_kincaid_grade_level
 
 Questions Answering Metrics
----------------------
+------------------------------------------
 
 Includes all of the above Text Metrics as well as the following:
 
@@ -187,7 +187,7 @@ Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMet
     :exclude-members: MetricValue, EvaluationMetric, make_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, exact_match, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency, precision_at_k, recall_at_k, ndcg_at_k
 
 Generative AI Metrics
----------------------
+------------------------
 
 We also provide generative AI ("genai") :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. Note that your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and governed by the LLM service's terms of use. The following factory functions help you customize the intelligent metric to your use case.
 
