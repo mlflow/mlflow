@@ -51,6 +51,7 @@ tags, note the particular syntax used. The custom tag names are wrapped with bac
 condition is wrapped in single quotes.
 
 .. code-section::
+
     .. code-block:: python
 
         # Use search_experiments() to search on the project_name tag key

@@ -90,7 +90,7 @@ def _validate_databricks_auth():
             # If the credential is invalid, the command will return non-zero exit code.
             # If both host and credential are valid, it will return zero exit code.
             result = subprocess.run(
-                ["databricks", "tokens", "list"],
+                ["databricks", "clusters", "list-zones"],
                 timeout=timeout,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
