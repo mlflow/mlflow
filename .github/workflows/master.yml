@@ -389,7 +389,7 @@ jobs:
     # in the process of running or have resulted in failures.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    needs: python
+    needs: [windows, models]
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
