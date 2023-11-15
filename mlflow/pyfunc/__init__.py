@@ -208,6 +208,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import collections
+from colorama import Fore, Style
 import functools
 import importlib
 import inspect
@@ -1675,17 +1676,21 @@ def _validate_function_python_model(python_model):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    # validate best practices for __init__ method
     if isinstance(python_model, PythonModel):
         try:
             init_has_model_param = "model" in inspect.signature(python_model.__init__).parameters
             init_has_model_assignment = 'self.model =' in inspect.getsource(python_model.__init__)
             if init_has_model_param or init_has_model_assignment:
                 _logger.warning(
-                    "It looks like you're trying to save a model as an instance attribute "
-                    "on your PythonModel. "
+                    f"{Fore.YELLOW}It looks like you're trying to save a model as an "
+                    f"instance attribute in your PythonModel. {Style.BRIGHT}This is not "
+                    f"recommended{Style.NORMAL} as it can cause problems with "
+                    "model serialization, especially for large models. "
+                    f"{Style.BRIGHT}Please use the `artifacts` parameter, and load your "
+                    f"external model in the `load_context()` method instead.{Style.RESET_ALL}"
                 )
-                
+        except Exception:
+            pass
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
