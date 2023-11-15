@@ -317,19 +317,23 @@ for text summarization:
    """
    question = "What is an MLflow project?"
 
-   data = pd.DataFrame({
-      "article": [article_text],
-      "question": [question],
-      "ground_truth": [article_text],  # used for certain evaluation metrics, such as ROUGE score
-   })
+   data = pd.DataFrame(
+       {
+           "article": [article_text],
+           "question": [question],
+           "ground_truth": [
+               article_text
+           ],  # used for certain evaluation metrics, such as ROUGE score
+       }
+   )
 
    with mlflow.start_run():
-      results = mlflow.evaluate(
-         model=logged_model,
-         data=data,
-         targets="ground_truth",
-         model_type="text-summarization",
-      )
+       results = mlflow.evaluate(
+           model=logged_model,
+           data=data,
+           targets="ground_truth",
+           model_type="text-summarization",
+       )
 
    eval_table = results.tables["eval_results_table"]
    print(f"See evaluation table below: \n{eval_table}")
