@@ -80,14 +80,14 @@ class EvaluationExample:
         )
 
         return f"""
-Input:
+Example Input:
 {self.input}
 
-Output:
+Example Output:
 {self.output}
 
 {grading_context}
 
-score: {self.score}
-justification: {self.justification}
+Example score: {self.score}
+Example justification: {self.justification}
         """

@@ -53,6 +53,10 @@ def test_evaluation_model_output():
     )
     expected_prompt1 = """
     Task:
+    You must return the following fields in your response one below the other:
+    score: Your numerical score for the model's correctness based on the rubric
+    justification: Your step-by-step reasoning about the model's correctness score
+
     You are an impartial judge. You will be given an input that was sent to a machine
     learning model, and you will be given an output that the model produced. You
     may also be given additional information that was used by the model to generate the output.
@@ -93,10 +97,10 @@ def test_evaluation_model_output():
         - Score 5: the answer correctly answer the question and not missing any major aspect
 
     Examples:
-        Input:
+        Example Input:
         This is an input
 
-        Output:
+        Example Output:
         This is an output
 
         Additional information used by the model:
@@ -104,14 +108,14 @@ def test_evaluation_model_output():
         value:
         This is an output
 
-        score: 4
-        justification: This is a justification
+        Example score: 4
+        Example justification: This is a justification
 
 
-        Input:
+        Example Input:
         This is an example input 2
 
-        Output:
+        Example Output:
         This is an example output 2
 
         Additional information used by the model:
@@ -119,8 +123,8 @@ def test_evaluation_model_output():
         value:
         This is an output
 
-        score: 4
-        justification: This is an example justification 2
+        Example score: 4
+        Example justification: This is an example justification 2
 
     You must return the following fields in your response one below the other:
     score: Your numerical score for the model's correctness based on the rubric
@@ -159,6 +163,10 @@ def test_evaluation_model_output():
     args_string = ""
     expected_prompt2 = """
     Task:
+    You must return the following fields in your response one below the other:
+    score: Your numerical score for the model's correctness based on the rubric
+    justification: Your step-by-step reasoning about the model's correctness score
+
     You are an impartial judge. You will be given an input that was sent to a machine
     learning model, and you will be given an output that the model produced. You
     may also be given additional information that was used by the model to generate the output.
@@ -215,6 +223,10 @@ def test_no_examples(examples):
     args_string = ""
     expected_prompt2 = """
     Task:
+    You must return the following fields in your response one below the other:
+    score: Your numerical score for the model's correctness based on the rubric
+    justification: Your step-by-step reasoning about the model's correctness score
+
     You are an impartial judge. You will be given an input that was sent to a machine
     learning model, and you will be given an output that the model produced. You
     may also be given additional information that was used by the model to generate the output.
