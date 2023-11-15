@@ -58,10 +58,9 @@ def main():
                     )
                 )
 
-    process = CrawlerProcess(settings={"LOG_LEVEL": "ERROR"})
-    process.crawl(Crawler)
-
     with server(port):
+        process = CrawlerProcess(settings={"LOG_LEVEL": "ERROR"})
+        process.crawl(Crawler)
         process.start()
 
     if Crawler.links:
