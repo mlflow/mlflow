@@ -6,7 +6,7 @@
  */
 
 import React, { Component } from 'react';
-import { css } from '@emotion/react';
+import { css, Theme } from '@emotion/react';
 import {
   Checkbox,
   CaretDownSquareIcon,
@@ -15,6 +15,7 @@ import {
   PencilIcon,
   Typography,
   WithDesignSystemThemeHoc,
+  DesignSystemHocProps,
 } from '@databricks/design-system';
 import { List } from 'antd';
 import { List as VList, AutoSizer } from 'react-virtualized';
@@ -30,13 +31,10 @@ import { withRouterNext } from '../../common/utils/withRouterNext';
 
 type Props = {
   activeExperimentIds: string[];
-  designSystemThemeApi: {
-    theme?: any;
-  };
   // @ts-expect-error TS(2749): 'Experiment' refers to a value, but is being used ... Remove this comment to see the full error message
   experiments: Experiment[];
   navigate: NavigateFunction;
-};
+} & DesignSystemHocProps;
 
 type State = any;
 
@@ -174,7 +172,7 @@ export class ExperimentListView extends Component<Props, State> {
     return (
       <div
         css={isActive ? this.activeExperimentListItem : this.inactiveExperimentListItem}
-        data-test-id={dataTestId}
+        data-testid={dataTestId}
         key={key}
         style={style}
       >
@@ -190,14 +188,14 @@ export class ExperimentListView extends Component<Props, State> {
               key={item.experiment_id}
               onChange={(isChecked) => this.handleCheck(isChecked, item.experiment_id)}
               checked={isActive}
-              data-test-id={`${dataTestId}-check-box`}
+              data-testid={`${dataTestId}-check-box`}
             ></Checkbox>,
             <Link
               className={'experiment-link'}
               to={Routes.getExperimentPageRoute(item.experiment_id)}
               onClick={() => this.setState({ checkedKeys: [item.experiment_id] })}
               title={item.name}
-              data-test-id={`${dataTestId}-link`}
+              data-testid={`${dataTestId}-link`}
             >
               {item.name}
             </Link>,
@@ -205,7 +203,7 @@ export class ExperimentListView extends Component<Props, State> {
               icon={<PencilIcon />}
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; "data-... Remove this comment to see the full error message
               onClick={this.handleRenameExperiment(item.experiment_id, item.name)}
-              data-test-id='rename-experiment-button'
+              data-testid='rename-experiment-button'
               css={classNames.renameExperiment}
             />,
             <IconButton
@@ -213,7 +211,7 @@ export class ExperimentListView extends Component<Props, State> {
               // @ts-expect-error TS(2322): Type '{ icon: Element; onClick: () => void; css: {... Remove this comment to see the full error message
               onClick={this.handleDeleteExperiment(item.experiment_id, item.name)}
               css={classNames.deleteExperiment}
-              data-test-id='delete-experiment-button'
+              data-testid='delete-experiment-button'
             />,
           ]}
         ></List.Item>
@@ -230,19 +228,21 @@ export class ExperimentListView extends Component<Props, State> {
 
   render() {
     const { hidden } = this.state;
+    const { activeExperimentIds, designSystemThemeApi } = this.props;
+    const { theme } = designSystemThemeApi;
+
     if (hidden) {
       return (
         <CaretDownSquareIcon
           rotate={-90}
           onClick={this.unHide}
-          css={{ fontSize: '24px' }}
+          css={classNames.icon(theme)}
           title='Show experiment list'
         />
       );
     }
 
     const { searchInput } = this.state;
-    const { activeExperimentIds } = this.props;
     const filteredExperiments = this.filterExperiments(searchInput);
 
     return (
@@ -268,28 +268,27 @@ export class ExperimentListView extends Component<Props, State> {
           <Typography.Title level={2} style={{ margin: 0 }}>
             Experiments
           </Typography.Title>
-          <PlusCircleIcon
-            onClick={this.handleCreateExperiment}
-            css={{
-              fontSize: '24px',
-              marginLeft: 'auto',
-            }}
-            title='New Experiment'
-            data-test-id='create-experiment-button'
-          />
-          <CaretDownSquareIcon
-            onClick={this.hide}
-            rotate={90}
-            css={{ fontSize: '24px' }}
-            title='Hide experiment list'
-          />
+          <div>
+            <PlusCircleIcon
+              onClick={this.handleCreateExperiment}
+              css={classNames.icon(theme)}
+              title='New Experiment'
+              data-testid='create-experiment-button'
+            />
+            <CaretDownSquareIcon
+              onClick={this.hide}
+              rotate={90}
+              css={classNames.icon(theme)}
+              title='Hide experiment list'
+            />
+          </div>
         </div>
         <Input
           placeholder='Search Experiments'
           aria-label='search experiments'
           value={searchInput}
           onChange={this.handleSearchInputChange}
-          data-test-id='search-experiment-input'
+          data-testid='search-experiment-input'
         />
         <div>
           <AutoSizer>
@@ -392,7 +391,11 @@ const classNames = {
     justifySelf: 'end',
     marginRight: '10px',
   },
+  icon: (theme: Theme) => ({
+    color: theme.colors.actionDefaultTextDefault,
+    fontSize: theme.general.iconSize,
+    marginLeft: theme.spacing.xs,
+  }),
 };
 
-// @ts-expect-error TS(2345): Argument of type '(props: Props) => ReactElement<a... Remove this comment to see the full error message
 export default withRouterNext(WithDesignSystemThemeHoc(ExperimentListView));
