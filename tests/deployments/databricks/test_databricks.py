@@ -1,6 +1,14 @@
 from unittest import mock
 
+import pytest
+
 from mlflow.deployments import get_deploy_client
+
+
+@pytest.fixture(autouse=True)
+def mock_databricks_credentials(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://test.cloud.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "secret")
 
 
 def test_get_deploy_client():
