@@ -9,7 +9,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
-import { Alert, Button, Spacer, Switch, Tabs, Tooltip } from '@databricks/design-system';
+import { Alert, Button, Spacer, Switch, Tabs, Tooltip, Typography } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -261,12 +261,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
     if (dataRows.length === 0) {
       return (
-        <h2>
-          <FormattedMessage
-            defaultMessage='No parameters to display.'
-            description='Text shown when there are no parameters to display'
-          />
-        </h2>
+        <FormattedMessage
+          defaultMessage='No parameters to display.'
+          description='Text shown when there are no parameters to display'
+        />
       );
     }
     return (
@@ -308,12 +306,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
     if (dataRows.length === 0) {
       return (
-        <h2>
-          <FormattedMessage
-            defaultMessage='No metrics to display.'
-            description='Text shown when there are no metrics to display'
-          />
-        </h2>
+        <FormattedMessage
+          defaultMessage='No metrics to display.'
+          description='Text shown when there are no metrics to display'
+        />
       );
     }
     return (
@@ -337,12 +333,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
     if (dataRows.length === 0) {
       return (
-        <h2>
-          <FormattedMessage
-            defaultMessage='No tags to display.'
-            description='Text shown when there are no tags to display'
-          />
-        </h2>
+        <FormattedMessage
+          defaultMessage='No tags to display.'
+          description='Text shown when there are no tags to display'
+        />
       );
     }
     return (
