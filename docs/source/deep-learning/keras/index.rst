@@ -36,4 +36,4 @@ To download the Keras 3.0 tutorial notebook to run in your environment, click th
     :maxdepth: 1
     :hidden:
 
-    notebooks/quickstart_keras_core.ipynb
+    quickstart/quickstart_keras_core.ipynb
