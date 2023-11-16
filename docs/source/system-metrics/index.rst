@@ -175,7 +175,7 @@ metrics to it:
 Navigate to `http://127.0.0.1:5000 <https://docs.databricks.com/en/machine-learning/index.html>`_ in your browser,
 and open your run, you should see system metrics under the metrics section, similar as shown by the screenshot below:
 
-.. image:: ../_static/images/system-metrics/system-metrics-view.png
+.. figure:: ../_static/images/system-metrics/system-metrics-view.png
     :width: 800px
     :align: center
     :alt: System metrics on Mlflow UI
