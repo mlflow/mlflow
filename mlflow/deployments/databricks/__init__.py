@@ -2,6 +2,10 @@ import posixpath
 from typing import Any, Dict, Optional
 
 from mlflow.deployments import BaseDeploymentClient
+from mlflow.deployments.databricks.constants import (
+    MLFLOW_DATABRICKS_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
+    MLFLOW_DATABRICKS_DEPLOYMENT_CLIENT_REQUEST_TIMEOUT_SECONDS,
+)
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
@@ -65,8 +69,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             host_creds=get_databricks_host_creds(self.target_uri),
             endpoint=posixpath.join(prefix, "serving-endpoints", route or ""),
             method=method,
-            timeout=300,
+            timeout=MLFLOW_DATABRICKS_DEPLOYMENT_CLIENT_REQUEST_TIMEOUT_SECONDS,
             raise_on_status=False,
+            retry_codes=MLFLOW_DATABRICKS_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             **call_kwargs,
         )
         augmented_raise_for_status(response)
