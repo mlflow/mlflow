@@ -17,7 +17,6 @@ import pandas as pd
 import pytest
 import torch
 import transformers
-from PIL import Image
 import yaml
 from datasets import load_dataset
 from huggingface_hub import ModelCard, scan_cache_dir
@@ -625,6 +624,7 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
     assert flavor_config["task"] == "image-classification"
     assert flavor_config["source_model_name"] == "google/mobilenet_v2_1.0_224"
 
+
 def test_vision_model_save__model_for_task_and_card_inference(small_vision_model, model_path):
     mlflow.transformers.save_model(transformers_model=small_vision_model, path=model_path)
     # validate inferred pip requirements
@@ -640,7 +640,7 @@ def test_vision_model_save__model_for_task_and_card_inference(small_vision_model
     with model_path.joinpath("model_card.md").open() as file:
         card_text = file.read()
     assert len(card_text) > 0
-    
+
     # Validate the MLModel file
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
     flavor_config = mlmodel["flavors"]["transformers"]
@@ -648,6 +648,7 @@ def test_vision_model_save__model_for_task_and_card_inference(small_vision_model
     assert flavor_config["pipeline_model_type"] == "MobileNetV2ForImageClassification"
     assert flavor_config["task"] == "image-classification"
     assert flavor_config["source_model_name"] == "google/mobilenet_v2_1.0_224"
+
 
 def test_qa_model_save_model_for_task_and_card_inference(small_seq2seq_pipeline, model_path):
     mlflow.transformers.save_model(
@@ -679,6 +680,7 @@ def test_qa_model_save_model_for_task_and_card_inference(small_seq2seq_pipeline,
     assert flavor_config["pipeline_model_type"] == "TFMobileBertForSequenceClassification"
     assert flavor_config["task"] == "text-classification"
     assert flavor_config["source_model_name"] == "lordtt13/emo-mobilebert"
+
 
 def test_qa_model_save_and_override_card(small_qa_pipeline, model_path):
     supplied_card = """
@@ -712,6 +714,7 @@ def test_qa_model_save_and_override_card(small_qa_pipeline, model_path):
     assert flavor_config["pipeline_model_type"] == "MobileBertForQuestionAnswering"
     assert flavor_config["task"] == "question-answering"
     assert flavor_config["source_model_name"] == "csarron/mobilebert-uncased-squad-v2"
+
 
 def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_path):
     mlflow.transformers.save_model(
@@ -1362,54 +1365,54 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert isinstance(pd_inference, list)
     assert all(isinstance(element, str) for element in inference)
 
+
 @pytest.fixture
 def raw_image_file(imagename):
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
 
     return datasets_path.joinpath(imagename).read_bytes()
 
+
 @pytest.mark.parametrize(
-    
     "inference_payload",
     [
         "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-        ["https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png","https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"],
+        [
+            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
+            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
+        ],
         json.dumps(
-        {
-            "inputs": {
-                "image": "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-                
-            },
-            
-        }
+            {
+                "inputs": {
+                    "image": "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
+                },
+            }
         ),
         json.dumps(
-        {
-            "inputs": {
-                "image":  ["https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"],
-                
-            },
-            
-        }
-        
+            {
+                "inputs": {
+                    "image": [
+                        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
+                    ],
+                },
+            }
         ),
         raw_image_file("cat_image.jpg"),
-        [raw_image_file("cat_image.jpg"),raw_image_file("tiger_cat.jpg")],
+        [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
         json.dumps(
-        {
-            "inputs": {
-                "image":   raw_image_file("cat_image.jpg"),
-                
-            },
-            
-        }
-        
+            {
+                "inputs": {
+                    "image": raw_image_file("cat_image.jpg"),
+                },
+            }
         ),
         base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-        [base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"), base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii")],
-       
+        [
+            base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
+            base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
+        ],
     ],
-   )
+)
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     signature = infer_signature(
         inference_payload,
@@ -1435,7 +1438,7 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     pd_inference = pyfunc_loaded.predict(pd_input)
 
     assert isinstance(pd_inference, list)
-    assert all(isinstance(element, str) for element in inference)    
+    assert all(isinstance(element, str) for element in inference)
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
@@ -2165,49 +2168,48 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 
     assert values.to_dict(orient="records") == [{0: "Run"}]
 
+
 @pytest.mark.parametrize(
-    
     "inference_payload",
     [
         "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-        ["https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png","https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"],
+        [
+            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
+            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
+        ],
         json.dumps(
-        {
-            "inputs": {
-                "image": "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-                
-            },
-            
-        }
+            {
+                "inputs": {
+                    "image": "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
+                },
+            }
         ),
         json.dumps(
-        {
-            "inputs": {
-                "image":  ["https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"],
-                
-            },
-            
-        }
-        
+            {
+                "inputs": {
+                    "image": [
+                        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
+                    ],
+                },
+            }
         ),
         raw_image_file("cat_image.jpg"),
-        [raw_image_file("cat_image.jpg"),raw_image_file("tiger_cat.jpg")],
+        [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
         json.dumps(
-        {
-            "inputs": {
-                "image":   raw_image_file("cat_image.jpg"),
-                
-            },
-            
-        }
-        
+            {
+                "inputs": {
+                    "image": raw_image_file("cat_image.jpg"),
+                },
+            }
         ),
         base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-        [base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"), base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii")],
-       
+        [
+            base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
+            base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
+        ],
     ],
-   )    
-def test_vision_pipeline_pyfunc_predict(small_vision_model,inference_payload):
+)
+def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     artifact_path = "image_classification_model"
 
     # Log the image classification model
@@ -2224,14 +2226,10 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model,inference_payload):
         extra_args=["--env-manager", "local"],
     )
 
-    
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-   
-    assert len(predictions)!= 0
-        
-        
-        
+    assert len(predictions) != 0
+
 
 def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
     artifact_path = "text_classifier_model"
@@ -3634,26 +3632,35 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
     assert txt == card_data.text
     data = yaml.safe_load(tmp_path.joinpath(_CARD_DATA_FILE_NAME).read_text())
     assert data == card_data.data.to_dict()
+
+
 def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     artifact_path = "image_classification_model"
 
-   
-    image_file_paths = ["https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat_image.jpg", "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/tiger_cat.jpg"]  # Replace with actual image file paths
-    labels = ["tabby", "tabby cat", "tiger cat","Egyptian cat"]  # Replace with corresponding class labels
+    image_file_paths = [
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat_image.jpg",
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/tiger_cat.jpg",
+    ]  # Replace with actual image file paths
+    labels = [
+        "tabby",
+        "tabby cat",
+        "tiger cat",
+        "Egyptian cat",
+    ]  # Replace with corresponding class labels
 
-    
-    inference_payload = json.dumps({
-        "inputs": {
-            "images": image_file_paths, 
-        },
-        "params": {
-            "top_k": 2, 
-            "confidence_threshold": 0.8,  
-        },
-    })
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "images": image_file_paths,
+            },
+            "params": {
+                "top_k": 2,
+                "confidence_threshold": 0.8,
+            },
+        }
+    )
 
-    
-    expected_predictions = ["tabby", "tabby cat", "tiger cat","Egyptian cat"]  
+    expected_predictions = ["tabby", "tabby cat", "tiger cat", "Egyptian cat"]
 
     with mlflow.start_run():
         mlflow.transformers.log_model(
@@ -3663,13 +3670,14 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
                 {
                     "images": image_file_paths,
                 },
-                mlflow.transformers.generate_signature_output(small_vision_model, {"images": image_file_paths}),
-                {"top_k": 2, "confidence_threshold": 0.8},  
+                mlflow.transformers.generate_signature_output(
+                    small_vision_model, {"images": image_file_paths}
+                ),
+                {"top_k": 2, "confidence_threshold": 0.8},
             ),
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-   
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_payload,
@@ -3677,11 +3685,10 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
         extra_args=["--env-manager", "local"],
     )
 
-    
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    
     assert predictions == expected_predictions
+
 
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
     artifact_path = "qa_model"
@@ -4075,6 +4082,7 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
     text = "Apples are delicious"
     assert loaded(text) == pipeline(text)
 
+
 def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     def _calculate_expected_size(path_or_dir):
         # this helper function does not consider subdirectories
@@ -4106,4 +4114,3 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
 
     mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
     assert mlmodel["model_size_bytes"] == expected_size
-
