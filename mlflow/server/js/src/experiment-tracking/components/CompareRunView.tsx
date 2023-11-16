@@ -9,7 +9,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
-import { Alert, Button, Spacer, Switch, Tabs, Tooltip, Typography } from '@databricks/design-system';
+import { Alert, Button, Spacer, Switch, Tabs, Tooltip } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
