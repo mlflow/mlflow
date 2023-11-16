@@ -509,9 +509,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
 
     # pylint: disable=broad-except
     if "signature_name" in inp_dict:
-        raise MlflowInvalidInputException(
-            '"signature_name" is currently not supported in MLflow tf serving input.'
-        )
+        raise MlflowInvalidInputException('"signature_name" parameter is currently not supported')
 
     if not (list(inp_dict.keys()) == ["instances"] or list(inp_dict.keys()) == ["inputs"]):
         raise MlflowInvalidInputException(

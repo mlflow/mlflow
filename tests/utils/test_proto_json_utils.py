@@ -447,7 +447,7 @@ def test_parse_tf_serving_raises_expected_errors():
         "signature_name": "hello",
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
     }
-    match = '"signature_name" is currently not supported in MLflow tf serving input.'
+    match = '"signature_name" parameter is currently not supported'
     with pytest.raises(MlflowException, match=match):
         parse_tf_serving_input(tfserving_input)
 
