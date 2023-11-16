@@ -65,7 +65,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             host_creds=get_databricks_host_creds(self.target_uri),
             endpoint=posixpath.join(prefix, "serving-endpoints", route if route else ""),
             method=method,
-            timeout=10,
+            timeout=300,
             raise_on_status=False,
             **call_kwargs,
         )
