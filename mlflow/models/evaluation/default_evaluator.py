@@ -1215,6 +1215,7 @@ class DefaultEvaluator(ModelEvaluator):
                         self.other_output_columns is not None
                         and column in self.other_output_columns.columns
                     ):
+                        self.other_output_columns_for_eval.add(column)
                         eval_fn_args.append(self.other_output_columns[column])
 
                     # case where the param is defined as part of the evaluator_config
@@ -1417,6 +1418,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.other_output_columns,
             self.predictions,
         ) = _extract_output_and_other_columns(model_predictions, output_column_name)
+        self.other_output_columns_for_eval = set()
 
     def _compute_builtin_metrics(self):
         """
@@ -1613,9 +1615,10 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 data = data.assign(outputs=self.y_pred)
 
-        # Include other_output_columns in the eval table
-        if self.other_output_columns is not None:
-            data = data.assign(**self.other_output_columns)
+        # Include other_output_columns used in evaluation to the eval table
+        if self.other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
+            for column in self.other_output_columns_for_eval:
+                data[column] = self.other_output_columns[column]
 
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():
