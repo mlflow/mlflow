@@ -2740,7 +2740,8 @@ class _TransformersWrapper:
         #         except binascii.Error as e:
         #             raise MlflowException(
         #                 "The encoded imagefile that was passed has not been properly base64 "
-        #                 "encoded. Please ensure that the raw image bytes have been processed with "
+        #                 "encoded. "
+        #                 "Please ensure that the raw image bytes have been processed with "
         #                 "`base64.b64encode(<image data bytes>).decode('ascii')`"
         #             ) from e
 
@@ -2792,7 +2793,7 @@ def autolog(
     """
     # A list of other flavors whose base autologging config would be automatically logged due to
     # training a model that would otherwise create a run and be logged internally within the
-    # transformers-supported trainer calls.
+    #transformers-supported trainer calls.
     DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn", "tensorflow", "pytorch"]
 
     def train(original, *args, **kwargs):
