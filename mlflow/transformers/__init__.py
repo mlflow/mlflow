@@ -2657,7 +2657,8 @@ class _TransformersWrapper:
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
         """
-        Validation of blob references for audio or image transformers pipelines; if a string is input to the ``predict``
+        Validation of blob references for audio or image transformers pipelines;
+        if a string is input to the ``predict``
         method, perform validation of the string contents by checking for a valid uri or
         filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
         for an invalid uri input.
@@ -2730,7 +2731,8 @@ class _TransformersWrapper:
         #         if not is_base64(encoded):
         #             return encoded
         #         else:
-        #             # For input type 'inputs', explicit decoding of the b64encoded image is needed.
+        #             # For input type 'inputs',
+        #             #explicit decoding of the b64encoded image is needed.
         #             return base64.b64decode(encoded)
         #     else:
         #         try:
@@ -2762,7 +2764,7 @@ class _TransformersWrapper:
                 encoded_image = next(iter(item.values()))
                 if isinstance(encoded_image, str):
                     self._validate_str_input_uri_or_file(encoded_image)
-                images.append(decode_image(encoded_image))
+                images.append(decode_image(encoded_image))  # noqa: F821
             return images
 
         elif isinstance(data, str):
@@ -2790,7 +2792,7 @@ def autolog(
     """
     # A list of other flavors whose base autologging config would be automatically logged due to
     # training a model that would otherwise create a run and be logged internally within the
-    # transformers-supported trainer calls.
+    #transformers-supported trainer calls.
     DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn", "tensorflow", "pytorch"]
 
     def train(original, *args, **kwargs):
