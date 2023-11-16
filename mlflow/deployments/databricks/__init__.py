@@ -94,10 +94,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         config = config.copy() if config else {}
         payload = {"name": name, "config": config}
-        if task := config.pop("task", None):
-            payload["task"] = task
-        if tags := config.pop("tags", None):
-            payload["tags"] = tags
+        for key in ("task", "tags"):
+            if val := config.pop(key, None):
+                payload[key] = val
         return self._call_endpoint(method="POST", json_body=payload)
 
     def update_endpoint(self, endpoint, config=None):
