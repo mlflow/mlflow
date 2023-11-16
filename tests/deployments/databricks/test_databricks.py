@@ -13,6 +13,7 @@ def mock_databricks_credentials(monkeypatch):
 
 def test_get_deploy_client():
     get_deploy_client("databricks")
+    get_deploy_client("databricks://scope:prefix")
 
 
 def test_create_endpoint():
