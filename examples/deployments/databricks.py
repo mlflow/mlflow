@@ -7,7 +7,6 @@ python examples/deployments/databricks.py --secret <scope>/openai-api-key
 -----
 """
 import argparse
-import json
 import uuid
 
 from mlflow.deployments import get_deploy_client
@@ -65,21 +64,18 @@ def main():
                 ],
             },
         )
-        print(json.dumps(client.list_endpoints()["endpoints"][:3], indent=2))
-        print(json.dumps(client.get_endpoint(endpoint=name), indent=2))
+        print(client.list_endpoints()["endpoints"][:3])
+        print(client.get_endpoint(endpoint=name))
         print(
-            json.dumps(
-                client.predict(
-                    endpoint=name,
-                    inputs={
-                        "messages": [
-                            {"role": "user", "content": "Hello!"},
-                        ],
-                        "max_tokens": 128,
-                    },
-                ),
-                indent=2,
-            )
+            client.predict(
+                endpoint=name,
+                inputs={
+                    "messages": [
+                        {"role": "user", "content": "Hello!"},
+                    ],
+                    "max_tokens": 128,
+                },
+            ),
         )
     finally:
         client.delete_endpoint(endpoint=name)
