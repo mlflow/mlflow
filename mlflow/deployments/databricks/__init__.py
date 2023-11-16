@@ -91,6 +91,8 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         payload = {"name": name, "config": config}
         if task := config.pop("task", None):
             payload["task"] = task
+        if tags := config.pop("tags", None):
+            payload["tags"] = tags
         return self._call_endpoint(method="POST", json_body=payload)
 
     def update_endpoint(self, endpoint, config=None):
