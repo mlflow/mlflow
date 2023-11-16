@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Dict, List, Optional
 
 from mlflow.gateway.client import MlflowGatewayClient
