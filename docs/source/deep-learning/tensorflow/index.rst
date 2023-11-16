@@ -25,7 +25,7 @@ will walk you through the basics of tracking Tensorflow experiments.
 
     <a href="quickstart/quickstart_tensorflow.html" class="download-btn">View the Quickstart</a>
 
-To download the transformers tutorial notebooks to run in your environment, click the respective links below:
+To download the tensorflow tutorial notebooks to run in your environment, click the respective links below:
 
 .. raw:: html
 
