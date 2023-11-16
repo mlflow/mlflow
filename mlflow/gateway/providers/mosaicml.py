@@ -246,13 +246,18 @@ class MosaicMLProvider(BaseProvider):
         # }
         # ```
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": resp["outputs"],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=output,
+                    index=idx,
+                )
+                for idx, output in enumerate(resp["outputs"])
+            ],
+            model=self.config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=None,
+                total_tokens=None,
+            ),
         )
 
 

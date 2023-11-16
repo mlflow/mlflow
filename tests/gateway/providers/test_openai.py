@@ -258,23 +258,23 @@ async def test_embeddings():
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
-        payload = {"text": "This is a test"}
+        payload = {"input": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "embeddings": [
-                [
-                    0.0023064255,
-                    -0.009327292,
-                    -0.0028842222,
-                ],
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        0.0023064255,
+                        -0.009327292,
+                        -0.0028842222,
+                    ],
+                    "index": 0,
+                }
             ],
-            "metadata": {
-                "input_tokens": 8,
-                "output_tokens": 0,
-                "total_tokens": 8,
-                "model": "text-embedding-ada-002",
-                "route_type": "llm/v1/embeddings",
-            },
+            "model": "text-embedding-ada-002",
+            "usage": {"prompt_tokens": 8, "total_tokens": 8},
         }
         mock_build_client.assert_called_once_with(
             headers={
@@ -309,7 +309,7 @@ async def test_embeddings_batch_input():
                     0.5,
                     0.6,
                 ],
-                "index": 0,
+                "index": 1,
             },
         ],
         "model": "text-embedding-ada-002",
@@ -321,28 +321,32 @@ async def test_embeddings_batch_input():
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
-        payload = {"text": ["1", "2"]}
+        payload = {"input": ["1", "2"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "embeddings": [
-                [
-                    0.1,
-                    0.2,
-                    0.3,
-                ],
-                [
-                    0.4,
-                    0.5,
-                    0.6,
-                ],
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        0.1,
+                        0.2,
+                        0.3,
+                    ],
+                    "index": 0,
+                },
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        0.4,
+                        0.5,
+                        0.6,
+                    ],
+                    "index": 1,
+                },
             ],
-            "metadata": {
-                "input_tokens": 8,
-                "output_tokens": 0,
-                "total_tokens": 8,
-                "model": "text-embedding-ada-002",
-                "route_type": "llm/v1/embeddings",
-            },
+            "model": "text-embedding-ada-002",
+            "usage": {"prompt_tokens": 8, "total_tokens": 8},
         }
         mock_build_client.assert_called_once_with(
             headers={
