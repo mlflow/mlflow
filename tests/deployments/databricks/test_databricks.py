@@ -94,3 +94,14 @@ def test_delete_endpoint():
         resp = client.delete_endpoint(endpoint="test")
         mock_request.assert_called_once()
         assert resp == {}
+
+
+def test_predict():
+    client = get_deploy_client("databricks")
+    mock_resp = mock.Mock()
+    mock_resp.json.return_value = {"foo": "bar"}
+    mock_resp.status_code = 200
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        resp = client.predict(endpoint="test", inputs={})
+        mock_request.assert_called_once()
+        assert resp == {"foo": "bar"}
