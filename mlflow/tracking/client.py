@@ -11,6 +11,7 @@ import posixpath
 import sys
 import tempfile
 import urllib
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import yaml
@@ -3360,9 +3361,11 @@ class MlflowClient:
         """
         _validate_model_version_or_stage_exists(version, stage)
         if stage:
-            _logger.warning(
+            warnings.warn(
                 "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
-                + _STAGES_DEPRECATION_WARNING
+                + _STAGES_DEPRECATION_WARNING,
+                category=FutureWarning,
+                stacklevel=2,
             )
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
@@ -3449,9 +3452,11 @@ class MlflowClient:
         """
         _validate_model_version_or_stage_exists(version, stage)
         if stage:
-            _logger.warning(
-                "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
-                + _STAGES_DEPRECATION_WARNING
+            warnings.warn(
+                "The `stage` parameter of the `delete_model_version_tag` API is deprecated. "
+                + _STAGES_DEPRECATION_WARNING,
+                category=FutureWarning,
+                stacklevel=2,
             )
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
