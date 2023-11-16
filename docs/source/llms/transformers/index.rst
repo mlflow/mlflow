@@ -40,9 +40,10 @@ The Transformers library offers:
 
 MLflow's Transformers flavor is designed to harness the power of the Transformers library within the MLflow ecosystem, providing tools for:
 
-- **Simplified Experiment Tracking**: Log parameters, metrics, and models with ease during the fine-tuning process.
+- **Simplified Experiment Tracking**: Log parameters, metrics, and models with ease during the `fine-tuning process <https://huggingface.co/docs/transformers/main_classes/trainer>`_.
 - **Effortless Deployment**: Deploy trained models with simple API calls, catering to a variety of production environments.
-- **Comprehensive Model Support**: Compatibility with a wide range of models from the Transformers library, ensuring that the latest advancements in AI are readily accessible.
+- **Comprehensive Model Support**: Compatibility with a wide range of models from the `Transformers library <https://pypi.org/project/transformers/>`_, ensuring that the latest advancements in AI are readily accessible.
+- **Support for Performance-enabling Optional Dependencies**: Integration with performance-enabled libraries such as `Hugging Face Accelerate <https://huggingface.co/docs/accelerate/index>`_.
 
 Whether you are a data scientist, a machine learning engineer, or a researcher, MLflow's integration with Transformers offers a 
 robust and efficient pathway to incorporate cutting-edge NLP and AI capabilities into your applications.
@@ -72,6 +73,19 @@ Simplified Fine-Tuning and Experiment Tracking
 Fine-tuning a pre-trained model is a common practice in machine learning. MLflow streamlines this process by allowing users to log 
 the fine-tuning parameters, track the training metrics, and save the resulting model. This ensures reproducibility and facilitates 
 comparison across different experiments.
+
+To see an example of how to fine-tune a model and log the results in MLflow in an end-to-end example of creating a spam classifier pipeline, 
+see the `fine-tuning tutorial <tutorials/fine-tuning/transformers-fine-tuning.html>`_. 
+
+For a frame of reference of what the experience is within MLflow for fine-tuning a transformers foundation model, the image below shows the 
+MLflow UI after running the fine tuning tutorial.
+
+.. figure:: ../../_static/images/tutorials/llms/transformers-fine-tuning.png
+   :alt: Fine-tuning a Transformers Model with MLflow
+   :width: 80%
+   :align: center
+
+   Fine-tuning a Transformers Model with MLflow
 
 Deployment Made Easy
 ^^^^^^^^^^^^^^^^^^^^
@@ -130,6 +144,16 @@ APIs for tracking and inference capabilities.
                 </a>
             </div>
             <div class="simple-card">
+                <a href="tutorials/fine-tuning/transformers-fine-tuning.html">
+                    <div class="header">
+                        Fine tuning a transformers Foundation Model
+                    </div>
+                    <p>
+                        Learn how to fine-tune a transformers model using MLflow to keep track of the training process and to log a use-case-specific tuned pipeline.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="../custom-pyfunc-for-llms/index.html">
                     <div class="header">
                         Custom PyFunc for Transformers
@@ -153,16 +177,18 @@ To download the transformers tutorial notebooks to run in your environment, clic
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/audio-transcription/whisper.ipynb" class="notebook-download-btn">Download the Audio Transcription Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/translation/component-translation.ipynb" class="notebook-download-btn">Download the Translation Notebook</a><br>        
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/conversational/conversational-model.ipynb" class="notebook-download-btn">Download the Chat Conversational Notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/fine-tuning/transformers-fine-tuning.ipynb" class="notebook-download-btn">Download the Fine Tuning Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm.ipynb" class="notebook-download-btn">Download the Custom PyFunc transformers Notebook</a><br>
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :hidden:
 
     tutorials/text-generation/text-generation.ipynb
     tutorials/audio-transcription/whisper.ipynb
     tutorials/translation/component-translation.ipynb
     tutorials/conversational/conversational-model.ipynb
+    tutorials/fine-tuning/transformers-fine-tuning.ipynb
 
 
 Options for Logging Transformers Models - Pipelines vs. Component logging
@@ -240,8 +266,14 @@ To learn more about the nuances of the `transformers` flavor in MLflow, delve in
 
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :hidden:
 
     guide/index.rst
  
+Learn more about Transformers
+-----------------------------
+
+Interested in learning more about how to leverage transformers for your machine learning workflows? 
+
+🤗 Hugging Face has a fantastic NLP course. Check it out and see how to leverage `Transformers, Datasets, Tokenizers, and Accelerate <https://huggingface.co/learn/nlp-course/chapter1/1>`_.
