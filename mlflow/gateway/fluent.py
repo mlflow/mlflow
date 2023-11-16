@@ -7,8 +7,6 @@ from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 
-_logger = logging.getLogger(__name__)
-
 
 @experimental
 def get_route(name: str) -> Route:
