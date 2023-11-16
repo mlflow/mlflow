@@ -1,4 +1,4 @@
-name: deployments
+name: Deployments
 
 on:
   pull_request:
