@@ -212,7 +212,7 @@ class MosaicMLProvider(BaseProvider):
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-        key_mapping = {"text": "inputs"}
+        key_mapping = {"input": "inputs"}
         for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(
