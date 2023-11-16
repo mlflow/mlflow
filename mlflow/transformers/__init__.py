@@ -1409,18 +1409,13 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
                 transformers.FillMaskPipeline,
                 transformers.TextGenerationPipeline,
                 transformers.Text2TextGenerationPipeline,
-                transformers.ImageClassificationPipeline,
+                
             ),
         ):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]), outputs=Schema([ColSpec("string")])
             )
-        elif isinstance(pipeline, transformers.ImageClassificationPipeline):
-            return ModelSignature(
-                inputs=Schema([ColSpec("string")]),
-                outputs=Schema([ColSpec("string", name="label")]),
-            )        
-        elif isinstance(pipeline, transformers.TextClassificationPipeline):
+        elif isinstance(pipeline, transformers.TextClassificationPipeline,transformers.ImageClassificationPipeline):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]),
                 outputs=Schema([ColSpec("string", name="label"), ColSpec("double", name="score")]),
@@ -1881,14 +1876,9 @@ class _TransformersWrapper:
             output = json.dumps(raw_output)
         elif isinstance(
             self.pipeline,
-            (transformers.AudioClassificationPipeline, transformers.TextClassificationPipeline),
+            (transformers.AudioClassificationPipeline, transformers.TextClassificationPipeline,transformers.ImageClassificationPipeline),
         ):
             return pd.DataFrame(raw_output)
-        elif isinstance(
-            self.pipeline,
-            (transformers.ViTForImageClassification, transformers.ImageClassificationPipeline),
-        ):
-            return raw_output
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
@@ -2661,7 +2651,7 @@ class _TransformersWrapper:
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
         """
-        Validation of blob references for audio and image transformers pipelines; if a string is input to the ``predict``
+        Validation of blob references for audio or image transformers pipelines; if a string is input to the ``predict``
         method, perform validation of the string contents by checking for a valid uri or
         filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
         for an invalid uri input.
@@ -2679,7 +2669,7 @@ class _TransformersWrapper:
         if not valid_uri:
             raise MlflowException(
                 "An invalid string input was provided. String inputs to "
-                "audio or image pipelines must be either a file location or a uri.",
+                "audio or image files must be either a file location or a uri.",
                 error_code=BAD_REQUEST,
             )
     def _convert_image_input(self, data):
@@ -2715,35 +2705,35 @@ class _TransformersWrapper:
             input into the imageclassificationPipeline for inference.
             """
             
-            def is_base64(s):
-                try:
-                    return base64.b64encode(base64.b64decode(s)) == s
-                except binascii.Error:
-                    return False
+            # def is_base64(s):
+            #     try:
+            #         return base64.b64encode(base64.b64decode(s)) == s
+            #     except binascii.Error:
+            #         return False
 
-            def decode_image(encoded):
-                if isinstance(encoded, str):
-                    # This is to support blob style passing of uri locations to process image files
-                    # on disk or object store. Note that if a uri is passed, a signature *must be*
-                    # provided for serving to function as the default signature uses bytes.
-                    return encoded
-                elif isinstance(encoded, bytes):
-                    # For input types 'dataframe_split' and 'dataframe_records', the encoding
-                    # conversion to bytes is handled.
-                    if not is_base64(encoded):
-                        return encoded
-                    else:
-                        # For input type 'inputs', explicit decoding of the b64encoded image is needed.
-                        return base64.b64decode(encoded)
-                else:
-                    try:
-                        return base64.b64decode(encoded)
-                    except binascii.Error as e:
-                        raise MlflowException(
-                            "The encoded imagefile that was passed has not been properly base64 "
-                            "encoded. Please ensure that the raw image bytes have been processed with "
-                            "`base64.b64encode(<image data bytes>).decode('ascii')`"
-                        ) from e
+            # def decode_image(encoded):
+            #     if isinstance(encoded, str):
+            #         # This is to support blob style passing of uri locations to process image files
+            #         # on disk or object store. Note that if a uri is passed, a signature *must be*
+            #         # provided for serving to function as the default signature uses bytes.
+            #         return encoded
+            #     elif isinstance(encoded, bytes):
+            #         # For input types 'dataframe_split' and 'dataframe_records', the encoding
+            #         # conversion to bytes is handled.
+            #         if not is_base64(encoded):
+            #             return encoded
+            #         else:
+            #             # For input type 'inputs', explicit decoding of the b64encoded image is needed.
+            #             return base64.b64decode(encoded)
+            #     else:
+            #         try:
+            #             return base64.b64decode(encoded)
+            #         except binascii.Error as e:
+            #             raise MlflowException(
+            #                 "The encoded imagefile that was passed has not been properly base64 "
+            #                 "encoded. Please ensure that the raw image bytes have been processed with "
+            #                 "`base64.b64encode(<image data bytes>).decode('ascii')`"
+            #             ) from e
 
             # The example input data that is processed by this logic is from the pd.DataFrame
             # conversion that happens within serving wherein the bytes input data is cast to
