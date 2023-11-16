@@ -425,29 +425,31 @@ def test_client_query_completions(gateway):
 
 def test_client_query_embeddings(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
-
     routes = gateway_client.search_routes()
-
     expected_output = {
-        "embeddings": [
-            [
-                0.1,
-                0.2,
-                0.3,
-            ],
-            [
-                0.4,
-                0.5,
-                0.6,
-            ],
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            },
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.4,
+                    0.5,
+                    0.6,
+                ],
+                "index": 1,
+            },
         ],
-        "metadata": {
-            "input_tokens": 8,
-            "output_tokens": 0,
-            "total_tokens": 8,
-            "model": "text-embedding-ada-002",
-            "route_type": "llm/v1/embeddings",
-        },
+        "model": "text-embedding-ada-002",
+        "usage": {"prompt_tokens": 8, "total_tokens": 8},
     }
     data = {"text": ["Jenny", "What's her number?"]}
 
@@ -639,26 +641,31 @@ def test_client_query_mlflow_embeddings_route(oss_gateway):
     data = {"text": ["test1", "test2"]}
 
     expected_output = {
-        "embeddings": [
-            [
-                0.1,
-                0.2,
-                0.3,
-            ],
-            [
-                0.4,
-                0.5,
-                0.6,
-            ],
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            },
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.4,
+                    0.5,
+                    0.6,
+                ],
+                "index": 1,
+            },
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "sentence-transformers",
-            "route_type": "llm/v1/embeddings",
-        },
+        "model": "sentence-transformers",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
     }
+
     mock_response = mock.Mock()
     mock_response.json.return_value = expected_output
 

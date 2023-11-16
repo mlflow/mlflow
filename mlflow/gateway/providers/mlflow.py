@@ -194,18 +194,25 @@ class MlflowModelServingProvider(BaseProvider):
             headers=self.headers,
             base_url=self.mlflow_config.model_server_url,
             path="invocations",
-            payload=self._process_payload(payload, "text"),
+            payload=self._process_payload(payload, "input"),
         )
 
         # Example response:
         # {"predictions": [[0.100, -0.234, 0.002, ...], [0.222, -0.111, 0.134, ...]]}
 
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": self._process_embeddings_response_for_mlflow_serving(resp),
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=embedding,
+                    index=idx,
+                )
+                for idx, embedding in enumerate(
+                    self._process_embeddings_response_for_mlflow_serving(resp)
+                )
+            ],
+            model=self.config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=None,
+                total_tokens=None,
+            ),
         )

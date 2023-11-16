@@ -162,20 +162,30 @@ async def test_embeddings():
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = MlflowModelServingProvider(RouteConfig(**config))
-        payload = {"text": ["test1", "test2"]}
+        payload = {"input": ["test1", "test2"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "embeddings": [
-                [0.01, -0.1],
-                [0.03, -0.03],
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        0.01,
+                        -0.1,
+                    ],
+                    "index": 0,
+                },
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        0.03,
+                        -0.03,
+                    ],
+                    "index": 1,
+                },
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "sentence-piece",
-                "route_type": "llm/v1/embeddings",
-            },
+            "model": "sentence-piece",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
         }
         mock_build_client.assert_called_once()
         mock_client.post.assert_called_once_with(
