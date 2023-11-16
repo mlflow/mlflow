@@ -1684,12 +1684,13 @@ def _validate_function_python_model(python_model):
             if init_has_model_param or init_has_model_assignment:
                 message = (
                     click.style(
-                        "It looks like you're trying to save a model as an instance attribute ",
+                        "It looks like you're trying to save a model as an instance attribute. ",
                         fg="yellow",
                     )
                     + click.style("This is not recommended ", fg="yellow", bold=True)
                     + click.style(
-                        "as it can cause problems with model serialization, especially for large models. ",
+                        "as it can cause problems with model serialization, "
+                        "especially for large models. ",
                         fg="yellow",
                     )
                     + click.style("Please use the `artifacts` parameter", fg="yellow", bold=True)
