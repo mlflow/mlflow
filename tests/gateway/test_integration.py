@@ -856,21 +856,20 @@ def test_gateway_query_mlflow_embeddings_model(serve_embeddings_model, gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("embeddings-oss")
 
-    data = {"text": ["test1", "test2"]}
+    data = {"input": ["test1", "test2"]}
 
     response = query(route=route.name, data=data)
+    assert response["model"] == "sentence-transformers"
 
-    embeddings_response = response["embeddings"]
+    embeddings_response = response["data"]
 
     assert isinstance(embeddings_response, list)
     assert len(embeddings_response) == 2
 
-    metadata_response = response["metadata"]
+    usage_response = response["usage"]
 
-    assert not metadata_response["input_tokens"]
-    assert not metadata_response["output_tokens"]
-    assert metadata_response["model"] == "sentence-transformers"
-    assert metadata_response["route_type"] == route.route_type
+    assert not usage_response["prompt_tokens"]
+    assert not usage_response["total_tokens"]
 
 
 def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway):
