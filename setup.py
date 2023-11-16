@@ -184,6 +184,9 @@ setup(
 
         [mlflow.app.client]
         basic-auth=mlflow.server.auth.client:AuthServiceClient
+
+        [mlflow.deployments]
+        databricks=mlflow.deployments.databricks
     """,
     cmdclass={
         "dependencies": ListDependencies,
