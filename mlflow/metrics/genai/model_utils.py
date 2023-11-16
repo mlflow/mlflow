@@ -11,15 +11,17 @@ _logger = logging.getLogger(__name__)
 
 
 # TODO: improve this name
-def score_model_on_payload(model_uri, payload):
+def score_model_on_payload(model_uri, payload, eval_parameters=None):
     """Call the model identified by the given uri with the given payload."""
 
+    if eval_parameters is None:
+        eval_parameters = {}
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
         return _call_openai_api(suffix, payload)
     elif prefix == "gateway":
-        return _call_gateway_api(suffix, payload)
+        return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
@@ -127,15 +129,26 @@ def _call_openai_api(openai_uri, payload):
     }
 
 
-def _call_gateway_api(gateway_uri, payload):
+def _call_gateway_api(gateway_uri, payload, eval_parameters):
     from mlflow.gateway import get_route, query
 
     route_info = get_route(gateway_uri).dict()
     if route_info["route_type"] == "llm/v1/completions":
-        return query(gateway_uri, payload)
+        # create completions payload
+        completions_payload = {
+            "prompt": payload,
+            **eval_parameters,
+        }
+        return query(gateway_uri, completions_payload)
+    elif route_info["route_type"] == "llm/v1/chat":
+        chat_payload = {
+            "messages": [{"role": "user", "content": payload}],
+            **eval_parameters,
+        }
+        return query(gateway_uri, chat_payload)
     else:
         raise MlflowException(
             f"Unsupported gateway route type: {route_info['route_type']}. Use a "
-            "route of type 'llm/v1/completions' instead.",
+            "route of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
             error_code=INVALID_PARAMETER_VALUE,
         )

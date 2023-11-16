@@ -282,12 +282,9 @@ def make_genai_metric(
                     "- input and output data are formatted correctly."
                 )
             grading_payloads.append(
-                {
-                    "prompt": evaluation_context["eval_prompt"].format(
-                        input=input, output=output, grading_context_columns=arg_string
-                    ),
-                    **eval_parameters,
-                }
+                evaluation_context["eval_prompt"].format(
+                    input=input, output=output, grading_context_columns=arg_string
+                )
             )
 
         def score_model_on_one_payload(
@@ -295,7 +292,9 @@ def make_genai_metric(
             eval_model,
         ):
             try:
-                raw_result = model_utils.score_model_on_payload(eval_model, payload)
+                raw_result = model_utils.score_model_on_payload(
+                    eval_model, payload, eval_parameters
+                )
                 return _extract_score_and_justification(raw_result)
             except ImportError:
                 raise

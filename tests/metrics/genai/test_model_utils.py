@@ -243,8 +243,8 @@ def test_score_model_gateway_chat():
         ),
     ):
         with mock.patch("mlflow.gateway.query", return_value=expected_output):
-            with pytest.raises(MlflowException, match="Unsupported gateway route type"):
-                score_model_on_payload("gateway:/my-route", {})
+            response = score_model_on_payload("gateway:/my-route", {})
+            assert response == expected_output
 
 
 def test_openai_authentication_error(set_envs):
