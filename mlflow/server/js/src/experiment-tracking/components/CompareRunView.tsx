@@ -261,12 +261,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
     if (dataRows.length === 0) {
       return (
-        <h2>
-          <FormattedMessage
-            defaultMessage='No parameters to display.'
-            description='Text shown when there are no parameters to display'
-          />
-        </h2>
+        <FormattedMessage
+          defaultMessage='No parameters to display.'
+          description='Text shown when there are no parameters to display'
+        />
       );
     }
     return (
@@ -308,12 +306,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
     if (dataRows.length === 0) {
       return (
-        <h2>
-          <FormattedMessage
-            defaultMessage='No metrics to display.'
-            description='Text shown when there are no metrics to display'
-          />
-        </h2>
+        <FormattedMessage
+          defaultMessage='No metrics to display.'
+          description='Text shown when there are no metrics to display'
+        />
       );
     }
     return (
@@ -337,12 +333,10 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     );
     if (dataRows.length === 0) {
       return (
-        <h2>
-          <FormattedMessage
-            defaultMessage='No tags to display.'
-            description='Text shown when there are no tags to display'
-          />
-        </h2>
+        <FormattedMessage
+          defaultMessage='No tags to display.'
+          description='Text shown when there are no tags to display'
+        />
       );
     }
     return (
