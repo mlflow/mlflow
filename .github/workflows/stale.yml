@@ -15,7 +15,7 @@ jobs:
       issues: write # harupy/stale
       pull-requests: write # harupy/stale
     steps:
-      - uses: harupy/stale@mlflow-stale-bot
+      - uses: harupy/stale@d9cf1e8cc29e83515ad2d2f831647eb37115437f # mlflow-stale-bot
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: "This issue is stale because it has been open 14 days with no activity. Remove stale label or comment or this will be closed in 35 days."

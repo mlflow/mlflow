@@ -26,10 +26,10 @@ jobs:
       issues: write # harupy/auto-labeling
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: recursive
-      - uses: harupy/auto-labeling@master
+      - uses: harupy/auto-labeling@937d558e37285af6ca5c5813a826cf6f0d66bf0f # master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           label-pattern: '- \[(.*?)\] ?`(.+?)`'

@@ -31,7 +31,7 @@ jobs:
     permissions:
       packages: write # to push to ghcr.io
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Get image name
         run: |
           IMAGE_NAME=$(yq '.services.mlflow.image' .devcontainer/docker-compose.yml)
@@ -48,7 +48,7 @@ jobs:
       - name: Test Image
         run: |
           docker run --rm -v $(pwd):/workspaces/mlflow $IMAGE_NAME bash -c "pip install --no-deps -e . && pytest tests/test_version.py"
-      - uses: docker/login-action@v2
+      - uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
         if: github.event_name == 'push'
         with:
           registry: ghcr.io

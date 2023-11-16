@@ -31,14 +31,14 @@ jobs:
         shell: bash --noprofile --norc -exo pipefail {0}
         working-directory: mlflow/R/mlflow
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r@e40ad904310fc92e96951c1b0d64f3de6cbe9e14 # v2.6.5
       # This step dumps the current set of R dependencies and R version into files to be used
       # as a cache key when caching/restoring R dependencies.
       - name: Dump dependencies
@@ -51,7 +51,7 @@ jobs:
           os_name=$(lsb_release -ds | sed 's/\s/-/g')
           echo "os-name=$os_name" >> $GITHUB_OUTPUT
       - name: Cache R packages
-        uses: actions/cache@v3
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
         continue-on-error: true
         # https://github.com/actions/cache/issues/810
         env:
