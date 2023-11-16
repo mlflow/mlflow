@@ -83,7 +83,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         return self._call_endpoint("DELETE", route=endpoint)
 
     def list_endpoints(self):
-        raise NotImplementedError("TODO")
+        return self._call_endpoint("GET")
 
     def get_endpoint(self, endpoint):
         return self._call_endpoint("GET", route=endpoint)

@@ -34,6 +34,7 @@ def main():
         },
     )
     try:
+        print(json.dumps(client.list_endpoints()["endpoints"][:3], indent=2))
         print(json.dumps(client.get_endpoint(endpoint=name), indent=2))
         print(
             json.dumps(
