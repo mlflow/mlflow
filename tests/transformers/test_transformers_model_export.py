@@ -3633,13 +3633,6 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
         "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat_image.jpg",
         "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/tiger_cat.jpg",
     ]  # Replace with actual image file paths
-    labels = [
-        "tabby",
-        "tabby cat",
-        "tiger cat",
-        "Egyptian cat",
-    ]  # Replace with corresponding class labels
-
     inference_payload = json.dumps(
         {
             "inputs": {
