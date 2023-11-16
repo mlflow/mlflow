@@ -2,7 +2,7 @@
 
 In order to utilize the MLflow AI Gateway with MLflow model serving, a few steps must be taken
 in addition to those for configuring access to SaaS models (such as Anthropic and OpenAI). The first and most obvious
-step that must be taken prior to interfacing with an Mlflow served model is that a model needs to be logged to the
+step that must be taken prior to interfacing with an MLflow served model is that a model needs to be logged to the
 MLflow tracking server.
 
 An important consideration for deciding whether to interface the MLflow AI Gateway with a specific model is to evaluate the PyFunc interface that the model will
@@ -156,7 +156,7 @@ mlflow models serve -m file:///Users/me/demos/mlruns/0/bc8bdb7fb90c406eb95603a97
 
 ## Update the config.yaml to add a new completions route
 
-Ensure that the Mlflow serving endpoint starts and is ready for traffic.
+Ensure that the MLflow serving endpoint starts and is ready for traffic.
 
 ```commandline
 2023/08/08 17:39:14 INFO mlflow.models.flavor_backend_registry: Selected backend for flavor 'python_function'
@@ -362,7 +362,7 @@ routes:
         model_server_url: http://127.0.0.1:9030
 ```
 
-## Start the Mlflow AI Gateway server
+## Start the MLflow AI Gateway server
 
 Now that both routes (or all 3, if adding in the optional MPT-7B-instruct model route) are defined within the configuration YAML file and the Model Serving servers are ready to receive queries, we can start the MLflow AI Gateway server.
 

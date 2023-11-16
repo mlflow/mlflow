@@ -8,29 +8,26 @@ dependencies, including ``uvicorn`` and ``fastapi``. Note that direct dependenci
 unnecessary, as all supported providers are abstracted from the developer.
 
 .. code-section::
+
     .. code-block:: bash 
         :name: install-gateway
 
         pip install 'mlflow[gateway]' 
 
-Step 2: Expose OpenAI Token
----------------------------
+Step 2: Set the OpenAI Token as an Environment Variable
+-------------------------------------------------------
 Next, set the OpenAI API key as an environment variable in your CLI. 
 
-This approach allows the MLflow AI Gateway to manage API keys centrally, reducing the risk 
-of unintended exposure across the system.
+This approach allows the MLflow AI Gateway to read the sensitive API key safely, reducing the risk 
+of leaking the token in code. The AI Gateway, when started, will read the value set by this environment 
+variable without any additional action required.
 
 .. code-section::
+
     .. code-block:: bash
         :name: token
 
         export OPENAI_API_KEY=your_api_key_here
-
-
-.. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/openai_api_key.gif
-   :width: 800px
-   :align: center
-   :alt: Exporting the OpenAI key in your CLI
 
 Step 3: Configure the Gateway
 -----------------------------
@@ -42,6 +39,7 @@ service restart is not required for changes to take effect and can instead be do
 configuration file that is defined at server start, permitting dynamic route creation without downtime of the service.
 
 .. code-section::
+
     .. code-block:: yaml 
         :name: configure-gateway
 
@@ -90,6 +88,7 @@ the URL: ``http://localhost:5000``. To modify these default settings, use the
 ``mlflow gateway --help`` command to view additional configuration options.
 
 .. code-section::
+
     .. code-block:: bash 
         :name: start-gateway
 

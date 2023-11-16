@@ -115,20 +115,12 @@ def test_mlflow_login(tmp_path, monkeypatch):
         monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)
         monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", profile)
 
-        class FakeWorkspaceClient:
-            class FakeClusters:
-                def list(self):
-                    return ["dummy_cluster"]
-
-            def __init__(self):
-                self.clusters = FakeWorkspaceClient.FakeClusters()
+        def success():
+            return
 
         with patch(
-            "databricks.sdk.WorkspaceClient",
-            side_effect=[
-                MlflowException("Error"),
-                FakeWorkspaceClient(),
-            ],
+            "mlflow.utils.credentials._validate_databricks_auth",
+            side_effect=[MlflowException("Invalid databricks credentials."), success()],
         ):
             login("databricks")
 

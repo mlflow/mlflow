@@ -23,7 +23,7 @@ functionality for LLMs, please navigate to the notebook collection below:
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the Notebook Guides</a><br>
+    <a href="notebooks/index.html" class="download-btn">View the Notebook Guides</a><br/>
 
 Quickstart
 ----------
@@ -125,6 +125,8 @@ There are two ways to select metrics to evaluate your model:
 * Use **default** metrics for pre-defined model types.
 * Use a **custom** list of metrics.
 
+.. _llm-eval-default-metrics:
+
 Use Default Metrics for Pre-defined Model Types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -165,7 +167,7 @@ The supported LLM model types and associated metrics are listed below:
     * `flesch_kincaid_grade_level <https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level>`_ :sup:`2`
 
 
-:sup:`1` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `pytorch <https://pytorch.org/get-started/locally/>`_, and 
+:sup:`1` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `torch <https://pytorch.org/get-started/locally/>`_, and 
 `transformers <https://huggingface.co/docs/transformers/installation>`_
 
 :sup:`2` Requires package `textstat <https://pypi.org/project/textstat>`_
@@ -173,11 +175,13 @@ The supported LLM model types and associated metrics are listed below:
 :sup:`3` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
 `rouge-score <https://pypi.org/project/rouge-score>`_
 
+.. _llm-eval-custom-metrics:
+
 Use a Custom List of Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics 
-for LLM evaluation in MLFlow. You can specify a custom list of metrics in the `extra_metrics` argument in `mlflow.evaluate`:
+for LLM evaluation in MLflow. You can specify a custom list of metrics in the `extra_metrics` argument in `mlflow.evaluate`:
 
 * To add additional metrics to the default metrics list of pre-defined model type, keep the `model_type` and add your metrics to ``extra_metrics``:
   
@@ -205,7 +209,7 @@ for LLM evaluation in MLFlow. You can specify a custom list of metrics in the `e
         )
 
 
-The full reference for supported evaluation metrics can be found `here <../python_api/mlflow.html#mlflow.evaluate>`_. 
+The full reference for supported evaluation metrics can be found `here <../../python_api/mlflow.html#mlflow.evaluate>`_.
 
 Metrics with LLM as the Judge
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -236,7 +240,7 @@ needs the following information:
 * ``examples``: a few input/output examples with score, they are used as a reference for LLM judge.
 * ``model``: the identifier of LLM judge. 
 * ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-3.5-turbo-16k"``.
-* ``aggregations``: aggregation strategy for the metrics.
+* ``aggregations``: The list of options to aggregate the per-row scores using numpy functions.
 * ``greater_is_better``: indicates if a higher score means your model is better.
 
 Under the hood, ``definition``, ``grading_prompt``, ``examples`` together with evaluation data and model output will be 
@@ -311,8 +315,8 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
     )
 
 
-Create Per-row LLM Evluation Metrics (Category 2)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Create heuristic-based LLM Evaluation Metrics (Category 2)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This is very similar to creating a custom traditional metrics, with the exception of returning a `EvaluationResult` instance.
 Basically you need to:
@@ -364,9 +368,9 @@ Evaluating with an MLflow Model
 
 For detailed instruction on how to convert your model into a ``mlflow.pyfunc.PyFuncModel`` instance, please read
 `this doc <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models>`_. But in short,
-to evaluate your model as an MLflow model, we recomment following the steps below:
+to evaluate your model as an MLflow model, we recommend following the steps below:
 
-1. Convert your LLM to MLflow model and log it to MLflow server by ``log_model``. Each flavor (``opeanai``, ``pytorch``, ...) 
+1. Package your LLM as an MLflow model and log it to MLflow server by ``log_model``. Each flavor (``opeanai``, ``pytorch``, ...) 
    has its own ``log_model`` API, e.g., :py:func:`mlflow.openai.log_model()`:
 
    .. code-block:: python
@@ -440,6 +444,8 @@ up OpenAI authentication to run the code below.
             eval_data,
             model_type="question-answering",
         )
+
+.. _llm-eval-static-dataset:
 
 Evaluating with a Static Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

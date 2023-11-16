@@ -32,7 +32,7 @@ Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment
     export MLFLOW_PYTHON_BIN=/path/to/bin/python
     export MLFLOW_BIN=/path/to/bin/mlflow
 
-You can use the R API to start the `user interface <mlflow_ui>`_, `create experiment <mlflow_create_experiment>`_ and `search experiments <mlflow_search_experiments>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
+You can use the R API to start the `user interface <mlflow_ui_>`_, `create experiment <mlflow_create_experiment_>`_ and `search experiments <mlflow_search_experiments_>`_, `save models <mlflow_save_model.crate_>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
 
 .. contents:: Table of Contents
     :local:
@@ -45,7 +45,7 @@ Get information from a Databricks job execution context
 
 Parses the data from a job execution context when running on Databricks
 in a non-interactive mode. This function extracts relevant data that
-Mlflow needs in order to properly utilize the MLflow APIs from this
+MLflow needs in order to properly utilize the MLflow APIs from this
 context.
 
 .. code:: r

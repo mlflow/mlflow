@@ -3,11 +3,15 @@ import os
 import posixpath
 import shutil
 import subprocess
+import sys
 
 import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.version import VERSION
+
+from tests.helper_functions import get_safe_port
 
 
 def pytest_addoption(parser):
@@ -38,6 +42,12 @@ def pytest_addoption(parser):
         default=None,
         type=int,
         help="The group of tests to run.",
+    )
+    parser.addoption(
+        "--serve-wheel",
+        action="store_true",
+        default=os.getenv("CI", "false").lower() == "true",
+        help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
     )
 
 
@@ -88,6 +98,27 @@ def pytest_runtest_setup(item):
     markers = [mark.name for mark in item.iter_markers()]
     if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
         pytest.skip("use `--requires-ssh` to run this test")
+
+
+def fetch_pr_labels():
+    """
+    Returns the labels associated with the current pull request.
+    """
+    if "GITHUB_ACTIONS" not in os.environ:
+        return None
+
+    if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
+        return None
+
+    with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+        pr_data = json.load(f)
+        return [label["name"] for label in pr_data["pull_request"]["labels"]]
+
+
+def pytest_configure(config):
+    labels = fetch_pr_labels() or []
+    if "fail-fast" in labels:
+        config.option.maxfail = 1
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -212,6 +243,24 @@ def pytest_terminal_summary(
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
 
+        # If some tests failed at installing mlflow, we suggest using `--serve-wheel` flag.
+        # Some test cases try to install mlflow via pip e.g. model loading. They pins
+        # mlflow version to install based on local environment i.e. dev version ahead of
+        # the latest release, hence it's not found on PyPI. `--serve-wheel` flag was
+        # introduced to resolve this issue, which starts local PyPI server and serve
+        # an mlflow wheel based on local source code.
+        # Ref: https://github.com/mlflow/mlflow/pull/10247
+        msg = f"No matching distribution found for mlflow=={VERSION}"
+        for rep in failed_test_reports:
+            if any(msg in t for t in (rep.longreprtext, rep.capstdout, rep.capstderr)):
+                terminalreporter.section("HINTS", yellow=True)
+                terminalreporter.write(
+                    f"Found test(s) that failed with {msg!r}. Adding"
+                    " --serve-wheel` flag to your pytest command may help.\n\n",
+                    yellow=True,
+                )
+                break
+
 
 @pytest.fixture(scope="module", autouse=True)
 def clean_up_envs():
@@ -234,3 +283,65 @@ def enable_mlflow_testing():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv(_MLFLOW_TESTING.name, "TRUE")
         yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def serve_wheel(request, tmp_path_factory):
+    """
+    Models logged during tests have a dependency on the dev version of MLflow built from
+    source (e.g., mlflow==1.20.0.dev0) and cannot be served because the dev version is not
+    available on PyPI. This fixture serves a wheel for the dev version from a temporary
+    PyPI repository running on localhost and appends the repository URL to the
+    `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
+    """
+    if not request.config.getoption("--serve-wheel"):
+        yield  # pytest expects a generator fixture to yield
+        return
+
+    root = tmp_path_factory.mktemp("root")
+    mlflow_dir = root.joinpath("mlflow")
+    mlflow_dir.mkdir()
+    port = get_safe_port()
+    try:
+        repo_root = subprocess.check_output(
+            [
+                "git",
+                "rev-parse",
+                "--show-toplevel",
+            ],
+            text=True,
+        ).strip()
+    except subprocess.CalledProcessError:
+        # Some tests run in a Docker container where git is not installed.
+        # In this case, assume we're in the root of the repo.
+        repo_root = "."
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            "--wheel-dir",
+            mlflow_dir,
+            "--no-deps",
+            repo_root,
+        ],
+        check=True,
+    )
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "http.server",
+            str(port),
+        ],
+        cwd=root,
+    ) as prc:
+        url = f"http://localhost:{port}"
+        if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
+            url = f"{existing_url} {url}"
+        os.environ["PIP_EXTRA_INDEX_URL"] = url
+
+        yield
+        prc.terminate()

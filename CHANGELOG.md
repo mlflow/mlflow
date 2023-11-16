@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2.8.1 (2023-11-14)
+
+MLflow 2.8.1 is a patch release, containing some critical bug fixes and an update to our continued work on reworking our docs. 
+
+Notable details:
+
+- The API `mlflow.llm.log_predictions` is being marked as deprecated, as its functionality has been incorporated into `mlflow.log_table`. This API will be removed in the 2.9.0 release. (#10414, @dbczumar)
+
+Bug fixes:
+
+- [Artifacts] Fix a regression in 2.8.0 where downloading a single file from a registered model would fail (#10362, @BenWilson2)
+- [Evaluate] Fix the `Azure OpenAI` integration for `mlflow.evaluate` when using LLM `judge` metrics (#10291, @prithvikannan)
+- [Evaluate] Change `Examples` to optional for the `make_genai_metric` API (#10353, @prithvikannan)
+- [Evaluate] Remove the `fastapi` dependency when using `mlflow.evaluate` for LLM results (#10354, @prithvikannan)
+- [Evaluate] Fix syntax issues and improve the formatting for generated prompt templates (#10402, @annzhang-db)
+- [Gateway] Fix the Gateway configuration validator pre-check for OpenAI to perform instance type validation (#10379, @BenWilson2)
+- [Tracking] Fix an intermittent issue with hanging threads when using asynchronous logging (#10374, @chenmoneygithub)
+- [Tracking] Add a timeout for the `mlflow.login()` API to catch invalid hostname configuration input errors (#10239, @chenmoneygithub)
+- [Tracking] Add a `flush` operation at the conclusion of logging system metrics (#10320, @chenmoneygithub)
+- [Models] Correct the prompt template generation logic within the Prompt Engineering UI so that the prompts can be used in the Python API (#10341, @daniellok-db)
+- [Models] Fix an issue in the `SHAP` model explainability functionality within `mlflow.shap.log_explanation` so that duplicate or conflicting dependencies are not registered when logging (#10305, @BenWilson2)
+
+Documentation updates:
+
+- [Docs] Add MLflow Tracking Quickstart (#10285, @BenWilson2)
+- [Docs] Add tracking server configuration guide (#10241, @chenmoneygithub)
+- [Docs] Refactor and improve the model deployment quickstart guide (#10322, @prithvikannan)
+- [Docs] Add documentation for system metrics logging (#10261, @chenmoneygithub)
+
+Small bug fixes and documentation updates:
+
+#10367, #10359, #10358, #10340, #10310, #10276, #10277, #10247, #10260, #10220, #10263, #10259, #10219, @harupy; #10313, #10303, #10213, #10272, #10282, #10283, #10231, #10256, #10242, #10237, #10238, #10233, #10229, #10211, #10231, #10256, #10242, #10238, #10237, #10229, #10233, #10211, @BenWilson2; #10375, @serena-ruan; #10330, @Haxatron; #10342, #10249, #10249, @B-Step62; #10355, #10301, #10286, #10257, #10236, #10270, #10236, @prithvikannan; #10321, #10258, @jerrylian-db; #10245, @jessechancy; #10278, @daniellok-db; #10244, @gabrielfu; #10226, @milinddethe15; #10390, @bbqiu; #10232, @sunishsheth2009
+
 ## 2.8.0 (2023-10-28)
 
 MLflow 2.8.0 includes several notable new features and improvements
@@ -31,11 +64,12 @@ Features:
 - [Tracking] Introduce support for Spark 3.5's SparkConnect mode within MLflow to allow logging models created using this operation mode of Spark (#9534, @WeichenXu123)
 - [Tracking] Add support for logging system metrics to the MLflow fluent API (#9557, #9712, #9714, @chenmoneygithub)
 - [Tracking] Add callbacks within MLflow for Keras and Tensorflow (#9454, #9637, #9579, @chenmoneygithub)
-- [Tracking] Introduce a fluent login API for Databricks within Mlflow (#9665, #10180, @chenmoneygithub)
+- [Tracking] Introduce a fluent login API for Databricks within MLflow (#9665, #10180, @chenmoneygithub)
 - [Tracking] Add support for customizing auth for http requests from the MLflow client via a plugin extension (#10049, @lu-ohai)
 - [Tracking] Introduce experimental asynchronous logging support for metrics, params, and tags (#9705, @sagarsumant)
 - [Auth] Modify the behavior of user creation in MLflow Authentication so that only admins can create new users (#9700, @gabrielfu)
 - [Artifacts] Add support for using `xethub` as an artifact store via a plugin extension (#9957, @Kelton8Z)
+- [UI] Add new opt-in Model Registry UI that supports model aliases and tags (#10163, @hubertzub-db, @jerrylian-db)
 
 Bug fixes:
 
@@ -1341,7 +1375,7 @@ Bug fixes and documentation updates:
 - Fixed bug where MLflow model schema enforcement raised exceptions when validating string columns using pandas >= 1.0 (#3130, @harupy)
 - Fixed bug where `mlflow.spark.log_model` did not save model signature and input examples (#3151, @harupy)
 - Fixed bug in runs UI where tags table did not reflect deletion of tags. (#3135, @ParseDark)
-- Added example illustrating the use of RAPIDS with MLFlow (#3028, @drobison00)
+- Added example illustrating the use of RAPIDS with MLflow (#3028, @drobison00)
 
 Small bug fixes and doc updates (#3326, #3344, #3314, #3289, #3225, #3288, #3279, #3265, #3263, #3260, #3255, #3267, #3266, #3264, #3256, #3253, #3231, #3245, #3191, #3238, #3192, #3188, #3189, #3180, #3178, #3166, #3181, #3142, #3165, #2960, #3129, #3244, #3359 @harupy; #3236, #3141, @AveshCSingh; #3295, #3163, @arjundc-db; #3241, #3200, @zhidongqu-db; #3338, #3275, @sueann; #3020, @magnus-m; #3322, #3219, @dmatrix; #3341, #3179, #3355, #3360, #3363 @smurching; #3124, @jdlesage; #3232, #3146, @ankitmathur-db; #3140, @andreakress; #3174, #3133, @mlflow-automation; #3062, @cafeal; #3193, @tomasatdatabricks; 3115, @fhoering; #3328, @apurva-koti; #3046, @OlivierBondu; #3194, #3158, @dmatrix; #3250, @shivp950; #3259, @simonhessner; #3357 @dbczumar)
 

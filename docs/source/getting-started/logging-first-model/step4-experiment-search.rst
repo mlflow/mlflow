@@ -10,8 +10,8 @@ Before we perform the search, let's take a look at our ``Apple_Models`` experime
 
 Seeing our new Experiment in the UI
 -----------------------------------
-As before, we're going to navigate to our running MLflow UI server. If you've closed the browser
-window that was running it, simply navigate to ``http://127.0.0.1:8090`` in a new browser window.
+As before, we're going to connect to our running MLflow Tracking server to view the MLflow UI. If you've closed the browser
+window that was running it, simply navigate to ``http://127.0.0.1:8080`` in a new browser window.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/first-experiment-ui.gif
    :width: 1024px
@@ -51,6 +51,7 @@ tags, note the particular syntax used. The custom tag names are wrapped with bac
 condition is wrapped in single quotes.
 
 .. code-section::
+
     .. code-block:: python
 
         # Use search_experiments() to search on the project_name tag key

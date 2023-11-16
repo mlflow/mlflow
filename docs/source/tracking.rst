@@ -280,7 +280,7 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
 
     mlflow server --artifacts-destination s3://bucket_name --artifacts-only --host remote_host
 
-Running an MLFlow server in ``--artifacts-only`` mode:
+Running an MLflow server in ``--artifacts-only`` mode:
 
  * **Part 1a and b**:
 
@@ -909,7 +909,7 @@ This simplifies access requirements for users of the MLflow client, eliminating 
 configure access tokens or username and password environment variables for the underlying object store when writing or retrieving artifacts.
 To disable proxied access for artifacts, specify ``--no-serve-artifacts``.
 
-Provided an Mlflow server configuration where the ``--default-artifact-root`` is ``s3://my-root-bucket``,
+Provided an MLflow server configuration where the ``--default-artifact-root`` is ``s3://my-root-bucket``,
 the following patterns will all resolve to the configured proxied object store location of ``s3://my-root-bucket/mlartifacts``:
 
  * ``https://<host>:<port>/mlartifacts``
