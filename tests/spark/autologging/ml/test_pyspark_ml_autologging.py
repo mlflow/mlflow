@@ -1224,6 +1224,7 @@ def test_get_feature_cols_with_indexer_and_assembler(spark_session):
     lr = LogisticRegression()
     pipeline = Pipeline(stages=[indexer, assembler, lr])
     pipeline_model = pipeline.fit(df)
+    # test
     assert get_feature_cols(df, pipeline_model) == {"categorical"}
 
 
