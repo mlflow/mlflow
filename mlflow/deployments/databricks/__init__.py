@@ -23,6 +23,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
     def _call_endpoint(
         self,
+        *,
         method: str,
         prefix: str = "/api/2.0",
         route: Optional[str] = None,
@@ -55,7 +56,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         return self._call_endpoint(
-            "POST", prefix="", route=f"{endpoint}/invocations", json_body=inputs
+            method="POST", prefix="", route=f"{endpoint}/invocations", json_body=inputs
         )
 
     def create_endpoint(self, name, config=None):
@@ -63,19 +64,19 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         payload = {"name": name, "config": config}
         if task := config.pop("task", None):
             payload["task"] = task
-        return self._call_endpoint("POST", json_body=payload)
+        return self._call_endpoint(method="POST", json_body=payload)
 
     def update_endpoint(self, endpoint, config=None):
-        return self._call_endpoint("PUT", route=f"{endpoint}/config", json_body=config)
+        return self._call_endpoint(method="PUT", route=f"{endpoint}/config", json_body=config)
 
     def delete_endpoint(self, endpoint):
-        return self._call_endpoint("DELETE", route=endpoint)
+        return self._call_endpoint(method="DELETE", route=endpoint)
 
     def list_endpoints(self):
-        return self._call_endpoint("GET")
+        return self._call_endpoint(method="GET")
 
     def get_endpoint(self, endpoint):
-        return self._call_endpoint("GET", route=endpoint)
+        return self._call_endpoint(method="GET", route=endpoint)
 
 
 def run_local(name, model_uri, flavor=None, config=None):
