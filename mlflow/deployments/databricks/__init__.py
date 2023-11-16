@@ -21,17 +21,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     def get_deployment(self, name, endpoint=None):
         raise NotImplementedError
 
-    @property
-    def _host_creds(self):
-        """
-        NB: When `MlflowGatewayClient` is used as an instance variable in a custom pyfunc model, it
-        is pickled in the environment where the custom pyfunc model is defined (e.g. a notebook).
-        When the model is moved to a different environment, e.g. model serving, new credentials
-        need to be resolved from within the new environment. Accordingly, we re-resolve host
-        credentials every time a request is made.
-        """
-        return get_databricks_host_creds("databricks")
-
     def _call_endpoint(
         self,
         method: str,
@@ -46,7 +35,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             call_kwargs["json"] = json_body
 
         response = http_request(
-            host_creds=self._host_creds,
+            host_creds=get_databricks_host_creds("databricks"),
             endpoint=f"{prefix}/serving-endpoints" + (f"/{route}" if route else ""),
             method=method,
             timeout=10,
