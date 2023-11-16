@@ -62,7 +62,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             call_kwargs["json"] = json_body
 
         response = http_request(
-            host_creds=get_databricks_host_creds("databricks"),
+            host_creds=get_databricks_host_creds(self.target_uri),
             endpoint=posixpath.join(prefix, "serving-endpoints", route if route else ""),
             method=method,
             timeout=10,
