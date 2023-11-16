@@ -39,6 +39,12 @@ def main():
                 }
             ],
             "task": "llm/v1/chat",
+            "tags": [
+                {
+                    "key": "foo",
+                    "value": "bar",
+                }
+            ],
         },
     )
     try:
