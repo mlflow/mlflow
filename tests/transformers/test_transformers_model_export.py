@@ -1366,7 +1366,6 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert all(isinstance(element, str) for element in inference)
 
 
-@pytest.fixture
 def raw_image_file(imagename):
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
 
