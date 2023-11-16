@@ -105,6 +105,7 @@ materialized plots, which, if not regenerated after data modification, can lead 
 and errors in data representation.
 
 .. code-section::
+
     .. code-block:: python
 
         def plot_box_weekend(df, style="seaborn", plot_size=(10, 8)):
@@ -152,6 +153,7 @@ remains seamlessly compatible with MLflow, ensuring the same level of organizati
 with additional flexibility in plot access and usage.
 
 .. code-section::
+
     .. code-block:: python
 
         def plot_correlation_matrix_and_save(
@@ -213,6 +215,7 @@ the more generic artifact writer (it supports any file type) ``mlflow.log_artifa
 
 
 .. code-section::
+
     .. code-block:: python
 
         mlflow.set_tracking_uri("http://127.0.0.1:8080")

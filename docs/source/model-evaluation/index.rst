@@ -49,30 +49,30 @@ To learn more about how you can leverage MLflow's evaluation features for your L
                     <div class="header">
                         RAG Evaluation
                     </div>
+                    <p>
+                        Learn how to evaluate a Retrieval Augmented Generation setup with MLflow Evaluate
+                    </p>
                 </a>
-                <p>
-                    Learn how to evaluate a Retrieval Augmented Generation setup with MLflow Evaluate
-                </p>
             </div>
             <div class="simple-card">
                 <a href="../llms/llm-evaluate/notebooks/question-answering-evaluation.html">
                     <div class="header">
                         Question-Answering Evaluation
                     </div>
+                    <p>
+                        See a working example of how to evaluate the quality of an LLM Question-Answering solution
+                    </p>
                 </a>
-                <p>
-                    See a working example of how to evaluate the quality of an LLM Question-Answering solution
-                </p>
             </div>
             <div class="simple-card">
                 <a href="../llms/rag/notebooks/question-generation-retrieval-evaluation.html">
                     <div class="header">
                         RAG Question Generation Evaluation
                     </div>
+                    <p>
+                        See how to generate Questions for RAG generation and how to evaluate a RAG solution using MLflow
+                    </p>
                 </a>
-                <p>
-                    See how to generate Questions for RAG generation and how to evaluate a RAG solution using MLflow
-                </p>
             </div>
         </article>
     </section>

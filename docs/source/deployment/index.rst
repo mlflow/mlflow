@@ -45,11 +45,11 @@ Tutorials and Guides
                     <div class="header">
                         Deploying a Model to Kubernetes with MLflow
                     </div>
+                    <p>
+                        Explore an end-to-end guide on using MLflow to train a linear regression model, package it, and deploy it to a Kubernetes cluster. 
+                        Understand how MLflow simplifies the entire process, from training to serving.
+                    </p>
                 </a>
-                <p>
-                    Explore an end-to-end guide on using MLflow to train a linear regression model, package it, and deploy it to a Kubernetes cluster. 
-                    Understand how MLflow simplifies the entire process, from training to serving.
-                </p>
             </div>
         </article>
     </section>

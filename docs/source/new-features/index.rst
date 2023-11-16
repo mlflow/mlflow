@@ -42,6 +42,22 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
+                        Updated Model Registry UI
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        A new opt-in Model Registry UI has been built that uses Aliases and Tags for managing model development. See 
+                       more about the new <a href="../model-registry.html#ui-workflow">UI workflow</a> in the docs.
+                    </div>
+                    <div class="doc"><a class="icon bell" href="../model-registry.html">Learn more</a></div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.8.0">released in 2.8.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
                         Spark Connect support 
                     </div>
                     <img class="card-image" src="../_static/images/logos/spark-logo.svg" alt="MLflow"></img>
@@ -207,7 +223,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="body">
                         The MLflow AI Gateway now supports defining an MLflow serving endpoint as provider. With this 
                         new feature, you can serve any OSS transformers model that conforms to the 
-                        <a href="gateway/index.html#completions">completions</a> or <a href="gateway/index.html#embeddings">embeddings</a> route type 
+                        <a href="../llms/gateway/index.html#completions">completions</a> or <a href="../llms/gateway/index.html#embeddings">embeddings</a> route type 
                         definitions. 
                     </div>
                     <div class="body">

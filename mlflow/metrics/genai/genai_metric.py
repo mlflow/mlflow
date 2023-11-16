@@ -105,7 +105,7 @@ def make_genai_metric(
     :param grading_prompt: Grading criteria of the metric.
     :param examples: (Optional) Examples of the metric.
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
-    :param model: (Optional) Model uri of the of an openai or gateway judge model in the format of
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
         "openai:/gpt-4" or "gateway:/my-route". Defaults to
         "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
         evaluation may be subject to and governed by the LLM service's terms of use.
@@ -209,7 +209,8 @@ def make_genai_metric(
 
         return example
 
-    examples = [process_example(example) for example in examples]
+    if examples is not None:
+        examples = [process_example(example) for example in examples]
 
     class_name = f"mlflow.metrics.genai.prompts.{version}.EvaluationModel"
     try:
@@ -261,16 +262,9 @@ def make_genai_metric(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        def score_model_on_one_payload(
-            indx,
-            input,
-            output,
-            grading_context_columns,
-            eval_values,
-            evaluation_context,
-            eval_parameters,
-            eval_model,
-        ):
+        # generate grading payloads
+        grading_payloads = []
+        for indx, (input, output) in enumerate(zip(inputs, outputs)):
             try:
                 arg_string = _format_args_string(grading_context_columns, eval_values, indx)
             except Exception as e:
@@ -286,12 +280,19 @@ def make_genai_metric(
                     "parameter\n"
                     "- input and output data are formatted correctly."
                 )
-            payload = {
-                "prompt": evaluation_context["eval_prompt"].format(
-                    input=input, output=output, grading_context_columns=arg_string
-                ),
-                **eval_parameters,
-            }
+            grading_payloads.append(
+                {
+                    "prompt": evaluation_context["eval_prompt"].format(
+                        input=input, output=output, grading_context_columns=arg_string
+                    ),
+                    **eval_parameters,
+                }
+            )
+
+        def score_model_on_one_payload(
+            payload,
+            eval_model,
+        ):
             try:
                 raw_result = model_utils.score_model_on_payload(eval_model, payload)
                 return _extract_score_and_justification(raw_result)
@@ -316,16 +317,10 @@ def make_genai_metric(
             futures = {
                 executor.submit(
                     score_model_on_one_payload,
-                    indx,
-                    input,
-                    output,
-                    grading_context_columns,
-                    eval_values,
-                    evaluation_context,
-                    eval_parameters,
+                    payload,
                     eval_model,
                 ): indx
-                for indx, (input, output) in enumerate(zip(inputs, outputs))
+                for indx, payload in enumerate(grading_payloads)
             }
 
             as_comp = as_completed(futures)
