@@ -4,8 +4,8 @@ from inspect import signature
 
 import click
 
-from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.deployments import interface
+from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.gateway.config import _validate_config
 from mlflow.gateway.runner import run_app
 from mlflow.utils import cli_args
