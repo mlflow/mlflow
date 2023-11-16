@@ -12,7 +12,7 @@ package_path <- devtools::build(".", path = ".")
 Sys.setenv("_R_CHECK_SYSTEM_CLOCK_" = "FALSE")
 
 # Run the check with `cran = TRUE`
-# TODO: Cran is down. Uncomment this when it's back up.
+# TODO: CRAN is down. Uncomment this when it's back up.
 # devtools::check_built(
 #     path = package_path,
 #     cran = TRUE,
