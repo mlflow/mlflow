@@ -2,6 +2,7 @@ import React from 'react';
 import { ApolloProvider } from '@apollo/client';
 import { IntlProvider } from 'react-intl';
 import './index.css';
+import { ApplyGlobalStyles } from '@databricks/design-system';
 import '@databricks/design-system/dist/index.css';
 import '@databricks/design-system/dist/index-dark.css';
 import App from './experiment-tracking/components/App';
@@ -35,6 +36,7 @@ export function MLFlowRoot() {
     <IntlProvider locale={locale} messages={messages}>
       <Provider store={store}>
         <DesignSystemContainer isDarkTheme={isDarkTheme}>
+          <ApplyGlobalStyles />
           <ConfigProvider prefixCls='ant'>
             {shouldUsePathRouting() ? (
               <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
