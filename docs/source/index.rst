@@ -274,6 +274,7 @@ Deployment Guides and Tutorials
     traditional-ml/index
     deployment/index
     tracking
+    system-metrics/index
     projects
     models
     model-registry
