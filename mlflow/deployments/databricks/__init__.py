@@ -18,7 +18,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         raise NotImplementedError
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
-        raise NotImplementedError
+        raise NotImplementedError("TODO")
 
     def create_endpoint(self, name, config=None):
         raise NotImplementedError("TODO")
