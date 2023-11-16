@@ -192,10 +192,10 @@ class PaLMProvider(BaseProvider):
         return embeddings.ResponsePayload(
             data=[
                 embeddings.EmbeddingObject(
-                    embedding=output,
+                    embedding=embedding["value"],
                     index=idx,
                 )
-                for idx, output in enumerate(resp["embeddings"])
+                for idx, embedding in enumerate(resp["embeddings"])
             ],
             model=self.config.model.name,
             usage=embeddings.EmbeddingsUsage(
