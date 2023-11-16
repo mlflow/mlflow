@@ -1,3 +1,11 @@
+"""
+Usage
+-----
+databricks secrets create-scope <scope>
+databricks secrets put-secret <scope> openai-api-key --string-value $OPENAI_API_KEY
+python examples/deployments/databricks.py --secret <scope>/openai-api-key
+-----
+"""
 import argparse
 import json
 import uuid
