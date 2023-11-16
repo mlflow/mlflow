@@ -1,3 +1,4 @@
+import posixpath
 from typing import Any, Dict, Optional
 
 from mlflow.deployments import BaseDeploymentClient
@@ -62,17 +63,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         response = http_request(
             host_creds=get_databricks_host_creds("databricks"),
-            endpoint=f"{prefix}/serving-endpoints" + (f"/{route}" if route else ""),
+            endpoint=posixpath.join(prefix, "serving-endpoints", route if route else ""),
             method=method,
             timeout=10,
-            retry_codes=frozenset(
-                [
-                    429,  # Too many requests
-                    500,  # Server Error
-                    502,  # Bad Gateway
-                    503,  # Service Unavailable
-                ]
-            ),
             raise_on_status=False,
             **call_kwargs,
         )
@@ -84,7 +77,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         TODO
         """
         return self._call_endpoint(
-            method="POST", prefix="", route=f"{endpoint}/invocations", json_body=inputs
+            method="POST",
+            prefix="/",
+            route=posixpath.join(endpoint, "invocations"),
+            json_body=inputs,
         )
 
     def create_endpoint(self, name, config=None):
@@ -101,7 +97,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
-        return self._call_endpoint(method="PUT", route=f"{endpoint}/config", json_body=config)
+        return self._call_endpoint(
+            method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
+        )
 
     def delete_endpoint(self, endpoint):
         """
