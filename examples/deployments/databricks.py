@@ -42,6 +42,23 @@ def main():
         },
     )
     try:
+        client.update_endpoint(
+            endpoint=name,
+            config={
+                "served_entities": [
+                    {
+                        "name": "test",
+                        "external_model": {
+                            "name": "gpt-4",
+                            "provider": "openai",
+                            "openai_config": {
+                                "openai_api_key": "{{" + args.secret + "}}",
+                            },
+                        },
+                    }
+                ],
+            },
+        )
         print(json.dumps(client.list_endpoints()["endpoints"][:3], indent=2))
         print(json.dumps(client.get_endpoint(endpoint=name), indent=2))
         print(
