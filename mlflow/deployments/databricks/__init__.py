@@ -103,8 +103,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
+        route = "rate-limits" if "rate_limits" in config else "config"
         return self._call_endpoint(
-            method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
+            method="PUT", route=posixpath.join(endpoint, route), json_body=config
         )
 
     def delete_endpoint(self, endpoint):

@@ -50,18 +50,13 @@ def main():
         client.update_endpoint(
             endpoint=name,
             config={
-                "served_entities": [
+                "rate_limits": [
                     {
-                        "name": "test",
-                        "external_model": {
-                            "name": "gpt-4",
-                            "provider": "openai",
-                            "openai_config": {
-                                "openai_api_key": "{{" + args.secret + "}}",
-                            },
-                        },
+                        "key": "user",
+                        "renewal_period": "minute",
+                        "calls": 5,
                     }
-                ],
+                ]
             },
         )
         print(client.list_endpoints()["endpoints"][:3])
