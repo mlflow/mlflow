@@ -203,3 +203,10 @@ You can also create your own generative AI :py:class:`EvaluationMetric <mlflow.m
 When using generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.genai.EvaluationExample>`
 
 .. autoclass:: mlflow.metrics.genai.EvaluationExample
+
+Users must set the appropriate environment variables for the LLM service they are using for 
+evaluation. For example, if you are using OpenAI's API, you must set the ``OPENAI_API_KEY`` 
+environment variable. If using Azure OpenAI, you must also set the ``OPENAI_API_TYPE``, 
+``OPENAI_API_VERSION``, ``OPENAI_API_BASE``, and ``OPENAI_DEPLOYMENT_NAME`` environment variables. 
+See `Azure OpenAI documentation <https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/switching-endpoints>`_
+Users do not need to set these environment variables if they are using a gateway route.
