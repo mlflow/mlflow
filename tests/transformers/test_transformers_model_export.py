@@ -1402,7 +1402,7 @@ def raw_image_file(imagename):
         json.dumps(
             {
                 "inputs": {
-                    "image": raw_image_file("cat_image.jpg"),
+                    "image": base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
                 },
             }
         ),
@@ -2194,7 +2194,7 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
         json.dumps(
             {
                 "inputs": {
-                    "image": raw_image_file("cat_image.jpg"),
+                    "image": base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
                 },
             }
         ),
