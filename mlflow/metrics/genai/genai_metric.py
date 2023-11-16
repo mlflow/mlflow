@@ -50,15 +50,7 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
 
 
 # Function to extract Score and Justification
-def _extract_score_and_justification(output):
-    if (
-        isinstance(output, dict)
-        and "candidates" in output
-        and isinstance(output["candidates"], list)
-        and output["candidates"]
-    ):
-        text = output["candidates"][0]["text"]
-
+def _extract_score_and_justification(text):
     if text:
         # Attempt to parse JSON
         try:
@@ -73,10 +65,10 @@ def _extract_score_and_justification(output):
                 justification = match.group(2)
             else:
                 score = None
-                justification = f"Failed to extract score and justification. Raw output: {output}"
+                justification = f"Failed to extract score and justification. Raw output: {text}"
 
         if not isinstance(score, (int, float)) or not isinstance(justification, str):
-            return None, f"Failed to extract score and justification. Raw output: {output}"
+            return None, f"Failed to extract score and justification. Raw output: {text}"
 
         return score, justification
 
