@@ -1,4 +1,5 @@
 import os
+from unittest import mock
 
 import pytest
 
@@ -91,3 +92,37 @@ def test_pyfunc_loader_without_model_config(model_path):
     pyfunc_model = mlflow.pyfunc.load_model(model_path, model_config=inference_override)
 
     assert not pyfunc_model.model_config
+
+
+def test_pyfunc_warn_on_model_assignment(model_path):
+    # should warn on self.model assignment in __init__
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def __init__(self, llm):
+            self.model = llm
+
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mock.patch("warnings.warn") as warn_mock:
+        mlflow.pyfunc.save_model(model_path, python_model=MyModel(1))
+        assert warn_mock.called
+
+        message = warn_mock.mock_calls[0].args[0]
+        assert "It looks like you're trying to save a model as an instance attribute" in message
+
+
+def test_pyfunc_warn_on_model_param(model_path):
+    # should warn if `model` param is present in __init__
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def __init__(self, model):
+            self.llm = model
+
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mock.patch("warnings.warn") as warn_mock:
+        mlflow.pyfunc.save_model(model_path, python_model=MyModel(1))
+        assert warn_mock.called
+
+        message = warn_mock.mock_calls[0].args[0]
+        assert "It looks like you're trying to save a model as an instance attribute" in message
