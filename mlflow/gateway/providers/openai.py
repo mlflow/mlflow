@@ -220,10 +220,7 @@ class OpenAIProvider(BaseProvider):
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
-        payload = rename_payload_keys(
-            jsonable_encoder(payload, exclude_none=True),
-            {"text": "input"},
-        )
+        payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await send_request(
             headers=self._request_headers,
@@ -255,14 +252,16 @@ class OpenAIProvider(BaseProvider):
         # }
         # ```
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": [d["embedding"] for d in resp["data"]],
-                "metadata": {
-                    "input_tokens": resp["usage"]["prompt_tokens"],
-                    "output_tokens": 0,  # output_tokens is not available for embeddings
-                    "total_tokens": resp["usage"]["total_tokens"],
-                    "model": resp["model"],
-                    "route_type": self.config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=d["embedding"],
+                    index=idx,
+                )
+                for idx, d in enumerate(resp["data"])
+            ],
+            model=resp["model"],
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=resp["usage"]["prompt_tokens"],
+                total_tokens=resp["usage"]["total_tokens"],
+            ),
         )

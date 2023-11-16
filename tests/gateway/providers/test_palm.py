@@ -169,6 +169,30 @@ def embeddings_response():
     }
 
 
+def embeddings_batch_response():
+    return {
+        "embeddings": [
+            [
+                3.25,
+                0.7685547,
+                2.65625,
+                -0.30126953,
+                -2.3554688,
+                1.2597656,
+            ],
+            [
+                7.25,
+                0.7685547,
+                4.65625,
+                -0.30126953,
+                -2.3554688,
+                8.2597656,
+            ],
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+
 @pytest.mark.parametrize("prompt", ["This is a test", ["This is a test"]])
 @pytest.mark.asyncio
 async def test_embeddings(prompt):
@@ -177,26 +201,68 @@ async def test_embeddings(prompt):
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(embeddings_response())
     ) as mock_post:
         provider = PaLMProvider(RouteConfig(**config))
-        payload = {"text": prompt}
+        payload = {"input": prompt}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "embeddings": [
-                [
-                    3.25,
-                    0.7685547,
-                    2.65625,
-                    -0.30126953,
-                    -2.3554688,
-                    1.2597656,
-                ]
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "embedding-gecko",
-                "route_type": "llm/v1/embeddings",
-            },
+            "model": "embedding-gecko",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
+        }
+        mock_post.assert_called_once()
+
+
+async def test_embeddings_batch():
+    config = embeddings_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(embeddings_batch_response())
+    ) as mock_post:
+        provider = PaLMProvider(RouteConfig(**config))
+        payload = {"input": ["this is a", "batch test"]}
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                },
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        7.25,
+                        0.7685547,
+                        4.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        8.2597656,
+                    ],
+                    "index": 1,
+                },
+            ],
+            "model": "embedding-gecko",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
         }
         mock_post.assert_called_once()
 

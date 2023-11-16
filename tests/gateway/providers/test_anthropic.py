@@ -189,7 +189,7 @@ def embedding_config():
 async def test_embeddings_are_not_supported_for_anthropic():
     config = embedding_config()
     provider = AnthropicProvider(RouteConfig(**config))
-    payload = {"text": "give me that sweet, sweet vector, please."}
+    payload = {"input": "give me that sweet, sweet vector, please."}
 
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))

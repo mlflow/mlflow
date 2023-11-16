@@ -175,6 +175,30 @@ def embeddings_response():
     }
 
 
+def embeddings_batch_response():
+    return {
+        "outputs": [
+            [
+                3.25,
+                0.7685547,
+                2.65625,
+                -0.30126953,
+                -2.3554688,
+                1.2597656,
+            ],
+            [
+                7.25,
+                0.7685547,
+                4.65625,
+                -0.30126953,
+                -2.3554688,
+                8.2597656,
+            ],
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+
 @pytest.mark.asyncio
 async def test_embeddings():
     resp = embeddings_response()
@@ -183,26 +207,70 @@ async def test_embeddings():
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = MosaicMLProvider(RouteConfig(**config))
-        payload = {"text": "This is a test"}
+        payload = {"input": ["This is a", "batch test"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "embeddings": [
-                [
-                    3.25,
-                    0.7685547,
-                    2.65625,
-                    -0.30126953,
-                    -2.3554688,
-                    1.2597656,
-                ]
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "instructor-large",
-                "route_type": "llm/v1/embeddings",
-            },
+            "model": "instructor-large",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
+        }
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_batch_embeddings():
+    resp = embeddings_batch_response()
+    config = embeddings_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {"input": "This is a test"}
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                },
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        7.25,
+                        0.7685547,
+                        4.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        8.2597656,
+                    ],
+                    "index": 1,
+                },
+            ],
+            "model": "instructor-large",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
         }
         mock_post.assert_called_once()
 

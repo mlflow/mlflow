@@ -164,7 +164,7 @@ async def test_chat_is_not_supported_for_ai21labs():
 async def test_embeddings_are_not_supported_for_ai21labs():
     config = embedding_config()
     provider = AI21LabsProvider(RouteConfig(**config))
-    payload = {"text": "give me that sweet, sweet vector, please."}
+    payload = {"input": "give me that sweet, sweet vector, please."}
 
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))

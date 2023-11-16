@@ -74,13 +74,18 @@ class CohereAdapter(ProviderAdapter):
         # }
         # ```
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": resp["embeddings"],
-                "metadata": {
-                    "model": config.model.name,
-                    "route_type": config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=output,
+                    index=idx,
+                )
+                for idx, output in enumerate(resp["embeddings"])
+            ],
+            model=config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     @classmethod
@@ -97,7 +102,7 @@ class CohereAdapter(ProviderAdapter):
 
     @classmethod
     def embeddings_to_model(cls, payload, config):
-        key_mapping = {"text": "texts"}
+        key_mapping = {"input": "texts"}
         for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(

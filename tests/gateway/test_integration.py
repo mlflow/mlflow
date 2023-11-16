@@ -336,17 +336,23 @@ def test_openai_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-openai")
     expected_output = {
-        "embeddings": [[0.1, 0.2, 0.3]],
-        "metadata": {
-            "input_tokens": 4,
-            "output_tokens": 0,
-            "total_tokens": 4,
-            "model": "text-embedding-ada-002",
-            "route_type": "llm/v1/embeddings",
-        },
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "text-embedding-ada-002",
+        "usage": {"prompt_tokens": 4, "total_tokens": 4},
     }
 
-    data = {"text": "mock me and my test"}
+    data = {"input": "mock me and my test"}
 
     async def mock_embeddings(self, payload):
         return expected_output
@@ -573,17 +579,23 @@ def test_cohere_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-cohere")
     expected_output = {
-        "embeddings": [[0.1, 0.2, 0.3]],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "embed-english-v2.0",
-            "route_type": "llm/v1/embeddings",
-        },
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "embed-english-v2.0",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
     }
 
-    data = {"text": "mock me and my test"}
+    data = {"input": "mock me and my test"}
 
     async def mock_embeddings(self, payload):
         return expected_output
@@ -597,17 +609,23 @@ def test_mosaicml_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-mosaicml")
     expected_output = {
-        "embeddings": [[0.1, 0.2, 0.3]],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "instructor-large",
-            "route_type": "llm/v1/embeddings",
-        },
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "instructor-large",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
     }
 
-    data = {"text": "mock me and my test"}
+    data = {"input": "mock me and my test"}
 
     async def mock_embeddings(self, payload):
         return expected_output
@@ -621,17 +639,23 @@ def test_palm_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-palm")
     expected_output = {
-        "embeddings": [[0.1, 0.2, 0.3]],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "embedding-gecko-001",
-            "route_type": "llm/v1/embeddings",
-        },
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "embedding-gecko-001",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
     }
 
-    data = {"text": "mock me and my test"}
+    data = {"input": "mock me and my test"}
 
     async def mock_embeddings(self, payload):
         return expected_output
@@ -798,20 +822,30 @@ def test_mlflow_embeddings(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("embeddings-oss")
     expected_output = {
-        "embeddings": [
-            [0.001, -0.001],
-            [0.002, -0.002],
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.001,
+                    -0.001,
+                ],
+                "index": 0,
+            },
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.002,
+                    -0.002,
+                ],
+                "index": 1,
+            },
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "sentence-transformers",
-            "route_type": "llm/v1/embeddings",
-        },
+        "model": "sentence-transformers",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
     }
 
-    data = {"text": ["test1", "test2"]}
+    data = {"input": ["test1", "test2"]}
 
     with patch.object(MlflowModelServingProvider, "embeddings", return_value=expected_output):
         response = query(route=route.name, data=data)
@@ -822,21 +856,20 @@ def test_gateway_query_mlflow_embeddings_model(serve_embeddings_model, gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("embeddings-oss")
 
-    data = {"text": ["test1", "test2"]}
+    data = {"input": ["test1", "test2"]}
 
     response = query(route=route.name, data=data)
+    assert response["model"] == "sentence-transformers"
 
-    embeddings_response = response["embeddings"]
+    embeddings_response = response["data"]
 
     assert isinstance(embeddings_response, list)
     assert len(embeddings_response) == 2
 
-    metadata_response = response["metadata"]
+    usage_response = response["usage"]
 
-    assert not metadata_response["input_tokens"]
-    assert not metadata_response["output_tokens"]
-    assert metadata_response["model"] == "sentence-transformers"
-    assert metadata_response["route_type"] == route.route_type
+    assert not usage_response["prompt_tokens"]
+    assert not usage_response["total_tokens"]
 
 
 def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway):
