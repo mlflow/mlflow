@@ -106,7 +106,9 @@ def make_genai_metric(
     :param examples: (Optional) Examples of the metric.
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
     :param model: (Optional) Model uri of an openai or gateway completions judge model in the
-        format of "openai:/gpt-4" or "gateway:/my-route". Defaults to "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and governed by the LLM service's terms of use.
+        format of "openai:/gpt-4" or "gateway:/my-route". Defaults to "openai:/gpt-4". Your use of
+        a third party LLM service (e.g., OpenAI) for evaluation may be subject to and governed by
+        the LLM service's terms of use.
     :param grading_context_columns: (Optional) The name of the grading context column, or a list of
         grading context column names, required to compute the metric. The
         ``grading_context_columns`` are used by the LLM as a judge as additional information to
