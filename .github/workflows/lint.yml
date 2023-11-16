@@ -1,4 +1,4 @@
-name: MLflow lint tests
+name: Lint
 
 on:
   pull_request:
