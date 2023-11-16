@@ -157,7 +157,7 @@ class PaLMProvider(BaseProvider):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
-            "text": "texts",
+            "input": "texts",
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
@@ -190,11 +190,16 @@ class PaLMProvider(BaseProvider):
         # }
         # ```
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": [e["value"] for e in resp["embeddings"]],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=output,
+                    index=idx,
+                )
+                for idx, output in enumerate(resp["embeddings"])
+            ],
+            model=self.config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=None,
+                total_tokens=None,
+            ),
         )

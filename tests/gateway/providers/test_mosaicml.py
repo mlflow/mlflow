@@ -201,6 +201,38 @@ def embeddings_batch_response():
 
 @pytest.mark.asyncio
 async def test_embeddings():
+    resp = embeddings_response()
+    config = embeddings_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = MosaicMLProvider(RouteConfig(**config))
+        payload = {"input": ["This is a", "batch test"]}
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                }
+            ],
+            "model": "instructor-large",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
+        }
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_batch_embeddings():
     resp = embeddings_batch_response()
     config = embeddings_config()
     with mock.patch(
@@ -236,38 +268,6 @@ async def test_embeddings():
                     ],
                     "index": 1,
                 },
-            ],
-            "model": "instructor-large",
-            "usage": {"prompt_tokens": None, "total_tokens": None},
-        }
-        mock_post.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_batch_embeddings():
-    resp = embeddings_response()
-    config = embeddings_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
-        provider = MosaicMLProvider(RouteConfig(**config))
-        payload = {"input": ["This is a", "batch test"]}
-        response = await provider.embeddings(embeddings.RequestPayload(**payload))
-        assert jsonable_encoder(response) == {
-            "object": "list",
-            "data": [
-                {
-                    "object": "embedding",
-                    "embedding": [
-                        3.25,
-                        0.7685547,
-                        2.65625,
-                        -0.30126953,
-                        -2.3554688,
-                        1.2597656,
-                    ],
-                    "index": 0,
-                }
             ],
             "model": "instructor-large",
             "usage": {"prompt_tokens": None, "total_tokens": None},
