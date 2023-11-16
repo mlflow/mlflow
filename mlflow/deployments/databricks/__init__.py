@@ -7,18 +7,43 @@ from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
 class DatabricksDeploymentClient(BaseDeploymentClient):
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
+        """
+        .. warning::
+
+            This method is not implemented for Databricks deployments.
+        """
         raise NotImplementedError
 
     def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint=None):
+        """
+        .. warning::
+
+            This method is not implemented for Databricks deployments.
+        """
         raise NotImplementedError
 
     def delete_deployment(self, name, config=None, endpoint=None):
+        """
+        .. warning::
+
+            This method is not implemented for Databricks deployments.
+        """
         raise NotImplementedError
 
     def list_deployments(self, endpoint=None):
+        """
+        .. warning::
+
+            This method is not implemented for Databricks deployments.
+        """
         raise NotImplementedError
 
     def get_deployment(self, name, endpoint=None):
+        """
+        .. warning::
+
+            This method is not implemented for Databricks deployments.
+        """
         raise NotImplementedError
 
     def _call_endpoint(
@@ -55,11 +80,17 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         return response.json()
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
+        """
+        TODO
+        """
         return self._call_endpoint(
             method="POST", prefix="", route=f"{endpoint}/invocations", json_body=inputs
         )
 
     def create_endpoint(self, name, config=None):
+        """
+        TODO
+        """
         config = config.copy() if config else {}
         payload = {"name": name, "config": config}
         if task := config.pop("task", None):
@@ -67,15 +98,27 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         return self._call_endpoint(method="POST", json_body=payload)
 
     def update_endpoint(self, endpoint, config=None):
+        """
+        TODO
+        """
         return self._call_endpoint(method="PUT", route=f"{endpoint}/config", json_body=config)
 
     def delete_endpoint(self, endpoint):
+        """
+        TODO
+        """
         return self._call_endpoint(method="DELETE", route=endpoint)
 
     def list_endpoints(self):
+        """
+        TODO
+        """
         return self._call_endpoint(method="GET")
 
     def get_endpoint(self, endpoint):
+        """
+        TODO
+        """
         return self._call_endpoint(method="GET", route=endpoint)
 
 
