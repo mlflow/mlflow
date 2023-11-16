@@ -75,7 +75,7 @@ module.exports = async ({ github, context }) => {
 
   const start = new Date();
   const MINUTE = 1000 * 60;
-  const TIMEOUT = 60 * MINUTE; // 1 hours
+  const TIMEOUT = 120 * MINUTE; // 2 hours
   while (new Date() - start < TIMEOUT) {
     const checks = await fetchChecks(sha);
     const longest = Math.max(...checks.map(({ name }) => name.length));
@@ -88,7 +88,7 @@ module.exports = async ({ github, context }) => {
       throw new Error("Found failed job(s)");
     }
 
-    if (checks.every(({ status }) => status === STATE.success)) {
+    if (checks.length > 0 && checks.every(({ status }) => status === STATE.success)) {
       console.log("All checks passed");
       return;
     }
