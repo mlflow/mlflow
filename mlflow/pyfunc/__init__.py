@@ -1703,7 +1703,9 @@ def _validate_function_python_model(python_model):
                     UserWarning,
                     stacklevel=5,
                 )
-        except Exception:
+        finally:
+            # it's possible that inspect.getsource might fail, but since we
+            # just want to warn the user, we shouldn't throw any exception
             pass
 
 
