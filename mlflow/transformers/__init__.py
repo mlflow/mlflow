@@ -1346,7 +1346,6 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "ZeroShotAudioClassificationPipeline",
     ]
 
-    
     for model_type in exclusion_model_types:
         if hasattr(transformers, model_type):
             if isinstance(pipeline.model, getattr(transformers, model_type)):
@@ -1409,13 +1408,16 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
                 transformers.FillMaskPipeline,
                 transformers.TextGenerationPipeline,
                 transformers.Text2TextGenerationPipeline,
-                
             ),
         ):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]), outputs=Schema([ColSpec("string")])
             )
-        elif isinstance(pipeline, transformers.TextClassificationPipeline,transformers.ImageClassificationPipeline):
+        elif isinstance(
+            pipeline,
+            transformers.TextClassificationPipeline,
+            transformers.ImageClassificationPipeline,
+        ):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]),
                 outputs=Schema([ColSpec("string", name="label"), ColSpec("double", name="score")]),
@@ -1797,7 +1799,7 @@ class _TransformersWrapper:
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ImageClassificationPipeline):
             data = self._convert_image_input(data)
-            output_key = "label"              
+            output_key = "label"
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             output_key = "labels"
             data = self._parse_json_encoded_list(data, "candidate_labels")
@@ -1876,7 +1878,11 @@ class _TransformersWrapper:
             output = json.dumps(raw_output)
         elif isinstance(
             self.pipeline,
-            (transformers.AudioClassificationPipeline, transformers.TextClassificationPipeline,transformers.ImageClassificationPipeline),
+            (
+                transformers.AudioClassificationPipeline,
+                transformers.TextClassificationPipeline,
+                transformers.ImageClassificationPipeline,
+            ),
         ):
             return pd.DataFrame(raw_output)
         else:
@@ -2672,96 +2678,98 @@ class _TransformersWrapper:
                 "audio or image files must be either a file location or a uri.",
                 error_code=BAD_REQUEST,
             )
+
     def _convert_image_input(self, data):
-            """
-            Conversion utility for decoding the base64 encoded bytes data of a raw imagefile when
-            parsed through model serving, if applicable. Direct usage of the pyfunc implementation
-            outside of model serving will treat this utility as a noop.
+        """
+        Conversion utility for decoding the base64 encoded bytes data of a raw imagefile when
+        parsed through model serving, if applicable. Direct usage of the pyfunc implementation
+        outside of model serving will treat this utility as a noop.
 
-            For reference, the expected encoding for input to Model Serving will be:
+        For reference, the expected encoding for input to Model Serving will be:
 
-            import requests
-            import base64
+        import requests
+        import base64
 
-            response = requests.get("http://images.cocodataset.org/val2017/000000039769.jpg")
-            encoded_image = base64.b64encode(response.content).decode("ascii")
+        response = requests.get("http://images.cocodataset.org/val2017/000000039769.jpg")
+        encoded_image = base64.b64encode(response.content).decode("ascii")
 
-            inference_data = json.dumps({"inputs": [encoded_image]})
+        inference_data = json.dumps({"inputs": [encoded_image]})
 
-            or
+        or
 
-            inference_df = pd.DataFrame(
-            pd.Series([encoded_image], name="image_file")
-            )
-            split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
-            split_json = json.dumps(split_dict)
+        inference_df = pd.DataFrame(
+        pd.Series([encoded_image], name="image_file")
+        )
+        split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+        split_json = json.dumps(split_dict)
 
-            or
+        or
 
-            records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
-            records_json = json.dumps(records_dict)
+        records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
+        records_json = json.dumps(records_dict)
 
-            This utility will convert this JSON encoded, base64 encoded text back into bytes for
-            input into the imageclassificationPipeline for inference.
-            """
-            
-            # def is_base64(s):
-            #     try:
-            #         return base64.b64encode(base64.b64decode(s)) == s
-            #     except binascii.Error:
-            #         return False
+        This utility will convert this JSON encoded, base64 encoded text back into bytes for
+        input into the imageclassificationPipeline for inference.
+        """
 
-            # def decode_image(encoded):
-            #     if isinstance(encoded, str):
-            #         # This is to support blob style passing of uri locations to process image files
-            #         # on disk or object store. Note that if a uri is passed, a signature *must be*
-            #         # provided for serving to function as the default signature uses bytes.
-            #         return encoded
-            #     elif isinstance(encoded, bytes):
-            #         # For input types 'dataframe_split' and 'dataframe_records', the encoding
-            #         # conversion to bytes is handled.
-            #         if not is_base64(encoded):
-            #             return encoded
-            #         else:
-            #             # For input type 'inputs', explicit decoding of the b64encoded image is needed.
-            #             return base64.b64decode(encoded)
-            #     else:
-            #         try:
-            #             return base64.b64decode(encoded)
-            #         except binascii.Error as e:
-            #             raise MlflowException(
-            #                 "The encoded imagefile that was passed has not been properly base64 "
-            #                 "encoded. Please ensure that the raw image bytes have been processed with "
-            #                 "`base64.b64encode(<image data bytes>).decode('ascii')`"
-            #             ) from e
+        # def is_base64(s):
+        #     try:
+        #         return base64.b64encode(base64.b64decode(s)) == s
+        #     except binascii.Error:
+        #         return False
 
-            # The example input data that is processed by this logic is from the pd.DataFrame
-            # conversion that happens within serving wherein the bytes input data is cast to
-            # a pd.DataFrame(pd.Series([raw_bytes])) and then cast to JSON serializable data in the
-            # format:
-            # {[0]: [{[0]: <image data>}]}
-            # In the inputs format, due to the modification of how types are not enforced, the
-            # logic that is present in processing `records` and `split` format orientation when casting
-            # back to dictionary does not do the automatic decoding of the data from base64 encoded
-            # back to bytes. This is the reason for the conditional logic within `decode_image` based
-            # on whether the bytes data is base64 encoded or standard bytes format.
-            # The output of the conversion present in the conditional structural validation below is
-            # to return the only input format that the image transcription pipeline permits:
-            # a bytes input of a single element.
-            
+        # def decode_image(encoded):
+        #     if isinstance(encoded, str):
+        #         # This is to support blob style passing of uri locations to process image files
+        #         # on disk or object store. Note that if a uri is passed, a signature *must be*
+        #         # provided for serving to function as the default signature uses bytes.
+        #         return encoded
+        #     elif isinstance(encoded, bytes):
+        #         # For input types 'dataframe_split' and 'dataframe_records', the encoding
+        #         # conversion to bytes is handled.
+        #         if not is_base64(encoded):
+        #             return encoded
+        #         else:
+        #             # For input type 'inputs', explicit decoding of the b64encoded image is needed.
+        #             return base64.b64decode(encoded)
+        #     else:
+        #         try:
+        #             return base64.b64decode(encoded)
+        #         except binascii.Error as e:
+        #             raise MlflowException(
+        #                 "The encoded imagefile that was passed has not been properly base64 "
+        #                 "encoded. Please ensure that the raw image bytes have been processed with "
+        #                 "`base64.b64encode(<image data bytes>).decode('ascii')`"
+        #             ) from e
 
-            if isinstance(data, list) and all(isinstance(element, dict) for element in data):
-                images = []
-                for item in data:
-                    encoded_image = next(iter(item.values()))
-                    if isinstance(encoded_image, str):
-                        self._validate_str_input_uri_or_file(encoded_image)
-                    images.append(decode_image(encoded_image))
-                return images
-                
-            elif isinstance(data, str):
-                self._validate_str_input_uri_or_file(data)
-            return data
+        # The example input data that is processed by this logic is from the pd.DataFrame
+        # conversion that happens within serving wherein the bytes input data is cast to
+        # a pd.DataFrame(pd.Series([raw_bytes])) and then cast to JSON serializable data in the
+        # format:
+        # {[0]: [{[0]: <image data>}]}
+        # In the inputs format, due to the modification of how types are not enforced, the
+        # logic that is present in processing `records` and `split` format orientation when casting
+        # back to dictionary does not do the automatic decoding of the data from base64 encoded
+        # back to bytes. This is the reason for the conditional logic within `decode_image` based
+        # on whether the bytes data is base64 encoded or standard bytes format.
+        # The output of the conversion present in the conditional structural validation below is
+        # to return the only input format that the image transcription pipeline permits:
+        # a bytes input of a single element.
+
+        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
+            images = []
+            for item in data:
+                encoded_image = next(iter(item.values()))
+                if isinstance(encoded_image, str):
+                    self._validate_str_input_uri_or_file(encoded_image)
+                images.append(decode_image(encoded_image))
+            return images
+
+        elif isinstance(data, str):
+            self._validate_str_input_uri_or_file(data)
+        return data
+
+
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
