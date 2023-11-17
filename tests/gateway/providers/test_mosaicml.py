@@ -148,8 +148,8 @@ def chat_response():
                 "inputs": [
                     (
                         "<s>[INST] <<SYS>> You're funny <</SYS>>"
-                        "Tell me a joke [/INST] Haha </s><s>[INST]"
-                        "That was a bad joke [/INST]"
+                        " Tell me a joke [/INST] Haha </s><s>[INST]"
+                        " That was a bad joke [/INST]"
                     )
                 ],
                 "parameters": {
