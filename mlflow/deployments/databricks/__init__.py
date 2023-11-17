@@ -89,7 +89,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             prefix="/",
             route=posixpath.join(endpoint, "invocations"),
             json_body=inputs,
-            timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
+            timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
         )
 
     # TODO: Return a DatabricksEndpoint object that wraps the response dictionary and exposes some
@@ -100,9 +100,8 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         config = config.copy() if config else {}  # avoid mutating config
         payload = {"name": name, "config": config}
-        for key in ("task", "tags"):
-            if val := config.pop(key, None):
-                payload[key] = val
+        if tags := config.pop("tags", None):
+            payload["tags"] = tags
         return self._call_endpoint(method="POST", json_body=payload)
 
     def update_endpoint(self, endpoint, config=None):

@@ -31,13 +31,13 @@ def main():
                     "external_model": {
                         "name": "gpt-4",
                         "provider": "openai",
+                        "task": "llm/v1/chat",
                         "openai_config": {
                             "openai_api_key": "{{" + args.secret + "}}",
                         },
                     },
                 }
             ],
-            "task": "llm/v1/chat",
             "tags": [
                 {
                     "key": "foo",
