@@ -15,8 +15,7 @@ class RunBatch:
         metrics: List[Metric],
         completion_event: threading.Event,
     ) -> None:
-        """
-        Initializes an instance of RunBatch.
+        """Initializes an instance of `RunBatch`.
 
         Args:
             run_id: The ID of the run.
@@ -30,4 +29,13 @@ class RunBatch:
         self.tags = tags or []
         self.metrics = metrics or []
         self.completion_event = completion_event
-        self.exception = None
+        self._exception = None
+
+    @property
+    def exception(self):
+        """Exception raised during logging the batch."""
+        return self._exception
+
+    @exception.setter
+    def exception(self, exception):
+        self._exception = exception
