@@ -92,8 +92,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
         )
 
-    # TODO: Return a DatabricksEndpoint object that wraps the response dictionary and exposes some
-    # properties nicely like name and endpoint type (https://github.com/mlflow/mlflow/pull/10425/files#r1396514655)
     def create_endpoint(self, name, config=None):
         """
         TODO
