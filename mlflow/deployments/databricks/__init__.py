@@ -7,6 +7,7 @@ from mlflow.deployments.constants import (
     MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
 )
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
+from mlflow.utils import AttrDict
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
@@ -77,7 +78,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             **call_kwargs,
         )
         augmented_raise_for_status(response)
-        return response.json()
+        return AttrDict(response.json())
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
@@ -97,7 +98,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
-        config = config.copy() if config else {}
+        config = config.copy() if config else {}  # avoid mutating config
         payload = {"name": name, "config": config}
         for key in ("task", "tags"):
             if val := config.pop(key, None):
