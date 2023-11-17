@@ -3103,21 +3103,9 @@ def test_evaluate_with_latency_static_dataset():
     assert all(grade == 0.0 for grade in logged_data["latency"])
 
 
-properly_formatted_openai_response1 = {
-    "candidates": [
-        {
-            "text": '{\n  "score": 3,\n  "justification": "' "justification" '"\n}',
-            "metadata": {"finish_reason": "stop"},
-        }
-    ],
-    "metadata": {
-        "input_tokens": 569,
-        "output_tokens": 93,
-        "total_tokens": 662,
-        "model": "gpt-3.5-turbo-0613",
-        "route_type": "llm/v1/completions",
-    },
-}
+properly_formatted_openai_response1 = (
+    '{\n  "score": 3,\n  "justification": "' "justification" '"\n}'
+)
 
 
 def test_evaluate_with_correctness():
