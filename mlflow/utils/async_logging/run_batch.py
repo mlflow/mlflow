@@ -34,7 +34,7 @@ class RunBatch:
     @property
     def exception(self):
         """Exception raised during logging the batch."""
-        return getattr(self, "_exception", None)
+        return self._exception
 
     @exception.setter
     def exception(self, exception):
