@@ -1000,11 +1000,25 @@ def _parse_spark_datatype(datatype: str):
     from pyspark.sql.functions import udf
     from pyspark.sql.session import SparkSession
 
-    returnType = "boolean" if datatype == "bool" else datatype
-    schema = (
-        SparkSession.active().range(0).select(udf(lambda x: x, returnType=returnType)("id")).schema
-    )
-    return schema[0].dataType
+    return_type = "boolean" if datatype == "bool" else datatype
+    parsed_datatype = udf(lambda x: x, returnType=return_type).returnType
+    try:
+        from pyspark.sql.connect.types import UnparsedDataType
+
+        # For spark 3.5.x, `udf(lambda x: x, returnType=return_type).returnType`
+        # returns UnparsedDataType, which is not compatible with signature inference.
+        # Note: SparkSession.active only exists for spark >= 3.5.0
+        if isinstance(parsed_datatype, UnparsedDataType):
+            schema = (
+                SparkSession.active()
+                .range(0)
+                .select(udf(lambda x: x, returnType=return_type)("id"))
+                .schema
+            )
+            return schema[0].dataType
+    except ImportError:
+        pass
+    return parsed_datatype
 
 
 def _is_none_or_nan(value):
