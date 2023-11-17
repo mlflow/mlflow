@@ -999,11 +999,18 @@ def _parse_spark_datatype(datatype: str):
     from pyspark.sql.functions import udf
     from pyspark.sql.session import SparkSession
 
-    returnType = "boolean" if datatype == "bool" else datatype
-    schema = (
-        SparkSession.active().range(0).select(udf(lambda x: x, returnType=returnType)("id")).schema
-    )
-    return schema[0].dataType
+    return_type = "boolean" if datatype == "bool" else datatype
+    try:
+        # SparkSession.active only exists for spark >= 3.5.0
+        schema = (
+            SparkSession.active()
+            .range(0)
+            .select(udf(lambda x: x, returnType=return_type)("id"))
+            .schema
+        )
+        return schema[0].dataType
+    except AttributeError:
+        return udf(lambda x: x, returnType=return_type).returnType
 
 
 def _is_none_or_nan(value):
