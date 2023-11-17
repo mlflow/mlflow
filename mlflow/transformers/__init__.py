@@ -2714,60 +2714,13 @@ class _TransformersWrapper:
         This utility will convert this JSON encoded, base64 encoded text back into bytes for
         input into the imageclassificationPipeline for inference.
         """
-
-        # def is_base64(s):
-        #     try:
-        #         return base64.b64encode(base64.b64decode(s)) == s
-        #     except binascii.Error:
-        #         return False
-
-        # def decode_image(encoded):
-        #     if isinstance(encoded, str):
-        #         # This is to support blob style passing of uri locations to process image files
-        #         # on disk or object store. Note that if a uri is passed, a signature *must be*
-        #         # provided for serving to function as the default signature uses bytes.
-        #         return encoded
-        #     elif isinstance(encoded, bytes):
-        #         # For input types 'dataframe_split' and 'dataframe_records', the encoding
-        #         # conversion to bytes is handled.
-        #         if not is_base64(encoded):
-        #             return encoded
-        #         else:
-        #             # For input type 'inputs',
-        #             #explicit decoding of the b64encoded image is needed.
-        #             return base64.b64decode(encoded)
-        #     else:
-        #         try:
-        #             return base64.b64decode(encoded)
-        #         except binascii.Error as e:
-        #             raise MlflowException(
-        #                 "The encoded imagefile that was passed has not been properly base64 "
-        #                 "encoded. "
-        #                 "Please ensure that the raw image bytes have been processed with "
-        #                 "`base64.b64encode(<image data bytes>).decode('ascii')`"
-        #             ) from e
-
-        # The example input data that is processed by this logic is from the pd.DataFrame
-        # conversion that happens within serving wherein the bytes input data is cast to
-        # a pd.DataFrame(pd.Series([raw_bytes])) and then cast to JSON serializable data in the
-        # format:
-        # {[0]: [{[0]: <image data>}]}
-        # In the inputs format, due to the modification of how types are not enforced, the
-        # logic that is present in processing `records` and `split` format orientation when casting
-        # back to dictionary does not do the automatic decoding of the data from base64 encoded
-        # back to bytes. This is the reason for the conditional logic within `decode_image` based
-        # on whether the bytes data is base64 encoded or standard bytes format.
-        # The output of the conversion present in the conditional structural validation below is
-        # to return the only input format that the image transcription pipeline permits:
-        # a bytes input of a single element.
-
         if isinstance(data, list) and all(isinstance(element, dict) for element in data):
             images = []
             for item in data:
                 encoded_image = next(iter(item.values()))
                 if isinstance(encoded_image, str):
                     self._validate_str_input_uri_or_file(encoded_image)
-                images.append(decode_image(encoded_image))  # noqa: F821
+                images.append(decode_audio(encoded_image))  # noqa: F821
             return images
 
         elif isinstance(data, str):
