@@ -50,7 +50,7 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
         extra_metrics=[answer_similarity_metric],
     )
 
-Information about how an :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` is calculated, such as the grading prompt used is available via the attribute :py:attr:`metric_details <mlflow.metrics.EvaluationMetric.metric_details>`.
+Information about how an :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` is calculated, such as the grading prompt used is available via the ``metric_details`` property.
 
 .. code-block:: python
 
