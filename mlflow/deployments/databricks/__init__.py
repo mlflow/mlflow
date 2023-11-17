@@ -21,7 +21,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         .. warning::
 
-            This method is not implemented for Databricks deployments.
+            This method is not implemented for `DatabricksDeploymentClient`.
         """
         raise NotImplementedError
 
@@ -29,7 +29,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         .. warning::
 
-            This method is not implemented for Databricks deployments.
+            This method is not implemented for `DatabricksDeploymentClient`.
         """
         raise NotImplementedError
 
@@ -37,7 +37,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         .. warning::
 
-            This method is not implemented for Databricks deployments.
+            This method is not implemented for `DatabricksDeploymentClient`.
         """
         raise NotImplementedError
 
@@ -45,7 +45,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         .. warning::
 
-            This method is not implemented for Databricks deployments.
+            This method is not implemented for `DatabricksDeploymentClient`.
         """
         raise NotImplementedError
 
@@ -53,7 +53,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         .. warning::
 
-            This method is not implemented for Databricks deployments.
+            This method is not implemented for `DatabricksDeploymentClient`.
         """
         raise NotImplementedError
 
