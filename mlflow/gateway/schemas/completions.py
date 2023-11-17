@@ -9,7 +9,7 @@ from mlflow.gateway.schemas.chat import BaseRequestPayload
 
 class BaseRequestPayload(RequestModel):
     temperature: float = Field(0.0, ge=0, le=2)
-    n: int = Field(1, ge=1)
+    n: int = Field(1, ge=1, le=5)
     stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=1)
 

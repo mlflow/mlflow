@@ -13,6 +13,7 @@ def test_chat_request():
     chat.RequestPayload(
         **{
             "messages": [{"role": "user", "content": "content"}],
+            "n": 1000,
             "extra": "extra",
         }
     )
