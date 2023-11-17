@@ -7,6 +7,7 @@ import inspect
 import logging
 import os
 import shutil
+import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -81,8 +82,6 @@ class _PythonModelMetaclass(ABCMeta):
     def _warn_on_setting_model_in_init(cls):
         if not cls.__bases__ == (PythonModel,):
             return
-
-        import warnings
 
         import click
 
