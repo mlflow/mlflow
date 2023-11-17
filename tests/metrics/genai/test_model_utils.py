@@ -194,20 +194,13 @@ def test_score_model_azure_openai_bad_envs(set_bad_azure_envs):
 def test_score_model_gateway_completions():
     expected_output = {
         "candidates": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "The core of the sun is estimated to have a temperature of about "
-                    "15 million degrees Celsius (27 million degrees Fahrenheit).",
-                },
-                "metadata": {"finish_reason": "stop"},
-            }
+            {"text": "man, one giant leap for mankind.", "metadata": {"finish_reason": "stop"}}
         ],
         "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
-            "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
+            "model": "gpt-4-0613",
+            "input_tokens": 13,
+            "total_tokens": 21,
+            "output_tokens": 8,
             "route_type": "llm/v1/completions",
         },
     }
@@ -223,7 +216,7 @@ def test_score_model_gateway_completions():
     ):
         with mock.patch("mlflow.gateway.query", return_value=expected_output):
             response = score_model_on_payload("gateway:/my-route", {})
-            assert response == expected_output
+            assert response == expected_output["candidates"][0]["text"]
 
 
 def test_score_model_gateway_chat():
@@ -257,8 +250,8 @@ def test_score_model_gateway_chat():
         ),
     ):
         with mock.patch("mlflow.gateway.query", return_value=expected_output):
-            with pytest.raises(MlflowException, match="Unsupported gateway route type"):
-                score_model_on_payload("gateway:/my-route", {})
+            response = score_model_on_payload("gateway:/my-route", {})
+            assert response == expected_output["candidates"][0]["message"]["content"]
 
 
 def test_score_model_endpoints(set_deployment_envs):
