@@ -2,10 +2,11 @@ import posixpath
 from typing import Any, Dict, Optional
 
 from mlflow.deployments import BaseDeploymentClient
-from mlflow.deployments.envs import (
-    MLFLOW_DEPLOYMENT_CLIENT_REQUEST_TIMEOUT_SECONDS,
+from mlflow.deployments.constants import (
+    MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
     MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
 )
+from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
@@ -58,7 +59,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         prefix: str = "/api/2.0",
         route: Optional[str] = None,
         json_body: Optional[Dict[str, Any]] = None,
-        timeout: int = MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
+        timeout: int = MLFLOW_HTTP_REQUEST_TIMEOUT.get(),
     ):
         call_kwargs = {}
         if method.lower() == "get":
@@ -72,7 +73,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method=method,
             timeout=timeout,
             raise_on_status=False,
-            retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_TIMEOUT_SECONDS,
+            retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             **call_kwargs,
         )
         augmented_raise_for_status(response)
