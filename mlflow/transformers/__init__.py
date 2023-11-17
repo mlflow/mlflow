@@ -1415,8 +1415,10 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
             )
         elif isinstance(
             pipeline,
-            transformers.TextClassificationPipeline,
-            transformers.ImageClassificationPipeline,
+            (
+                transformers.TextClassificationPipeline,
+                transformers.ImageClassificationPipeline,
+            ),
         ):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]),
