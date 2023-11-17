@@ -53,8 +53,8 @@ FLAVOR_NAME = "promptflow"
 
 _MODEL_FLOW_DIRECTORY = "flow"
 _MODEL_FLOW_PIP_REQUIREMENTS = "python_requirements_txt"
-_MODEL_FLOW_BASE_IMAGE = "image"
 _MODEL_CONFIG_CONNECTION_PROVIDER = "connection.provider"
+_FLOW_ENV_REQUIREMENTS = "python_requirements_txt"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow promptflow flavor only supports instances loaded by ~promptflow.load_flow(), "
     "found {instance_type}."
@@ -271,6 +271,7 @@ def save_model(
     from promptflow.contracts.tool import ValueType
     from promptflow._sdk.entities._flow import Flow
     from promptflow._sdk._utils import _merge_local_code_and_additional_includes
+    from promptflow._sdk._constants import DAG_FILE_NAME
     from promptflow._sdk.operations._run_submitter import remove_additional_includes
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -333,8 +334,8 @@ def save_model(
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         code=code_dir_subpath,
-        promptflow_version=promptflow.__version__,
-        entry=_MODEL_FLOW_DIRECTORY,
+        version=promptflow.__version__,
+        entry=f"{_MODEL_FLOW_DIRECTORY}/{DAG_FILE_NAME}",
         **flow_env
     )
 
@@ -387,6 +388,9 @@ def _resolve_env_from_flow(flow_dag_path):
     with open(flow_dag_path, "r") as f:
         flow_dict = yaml.safe_load(f)
     environment = flow_dict.get("environment", {})
+    if _FLOW_ENV_REQUIREMENTS in environment:
+        # Append entry path to requirements
+        environment[_FLOW_ENV_REQUIREMENTS] = f"{_MODEL_FLOW_DIRECTORY}/{environment[_FLOW_ENV_REQUIREMENTS]}"
     return environment
 
 
