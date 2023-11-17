@@ -49,6 +49,7 @@ async def test_completions():
         provider = MosaicMLProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
+            "max_tokens": 1000,
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -61,7 +62,10 @@ async def test_completions():
         }
         mock_post.assert_called_once_with(
             "https://models.hosted-on.mosaicml.hosting/mpt-7b-instruct/v1/predict",
-            json={"inputs": ["This is a test"], "parameters": {"temperature": 0.0, "n": 1}},
+            json={
+                "inputs": ["This is a test"],
+                "parameters": {"temperature": 0.0, "n": 1, "max_new_tokens": 1000},
+            },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
 

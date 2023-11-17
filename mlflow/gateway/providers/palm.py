@@ -43,6 +43,8 @@ class PaLMProvider(BaseProvider):
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
+        # The range of PaLM's temperature is 0-1, but ours is 0-2, so we halve it
+        payload["temperature"] = 0.5 * payload["temperature"]
 
         # Replace 'role' with 'author' in payload
         for m in payload["messages"]:

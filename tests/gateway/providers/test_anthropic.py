@@ -71,7 +71,7 @@ async def test_completions():
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = AnthropicProvider(RouteConfig(**config))
-        payload = {"prompt": "How does a car work?", "max_tokens": 200}
+        payload = {"prompt": "How does a car work?", "max_tokens": 200, "stop": ["foobazbardiddly"]}
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == parsed_completions_response()
         mock_post.assert_called_once_with(
@@ -82,6 +82,7 @@ async def test_completions():
                 "n": 1,
                 "max_tokens_to_sample": 200,
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
+                "stop_sequences": ["foobazbardiddly"],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )

@@ -1,11 +1,13 @@
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -85,30 +87,37 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch(
+    with mock.patch("time.time", lambda: 1677858242), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = AI21LabsProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
+            "temperature": 0.2,
+            "max_tokens": 1000,
+            "n": 1,
+            "stop": ["foobazbardiddly"],
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
-                {
-                    "text": "this is a test response",
-                    "metadata": {"finish_reason": "length"},
-                }
-            ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "j2-ultra",
-                "route_type": "llm/v1/completions",
-            },
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "j2-ultra",
+            "choices": [{"text": "this is a test response", "index": 0, "finish_reason": "length"}],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://api.ai21.com/studio/v1/j2-ultra/complete",
+            json={
+                "temperature": 0.2,
+                "numResults": 1,
+                "stopSequences": ["foobazbardiddly"],
+                "maxTokens": 1000,
+                "prompt": "This is a test",
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 @pytest.mark.asyncio

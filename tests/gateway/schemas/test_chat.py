@@ -15,8 +15,17 @@ def test_chat_request():
             "messages": [{"role": "user", "content": "content"}],
             "n": 1000,
             "extra": "extra",
+            "temperature": 2.0,
         }
     )
+
+    with pytest.raises(pydantic.ValidationError, match="should be less than or equal to 2"):
+        chat.RequestPayload(
+            **{
+                "messages": [{"role": "user", "content": "content"}],
+                "temperature": 3.0,
+            }
+        )
 
     with pytest.raises(pydantic.ValidationError, match="at least 1 item"):
         chat.RequestPayload(
