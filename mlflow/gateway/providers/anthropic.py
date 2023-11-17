@@ -1,3 +1,5 @@
+import time
+
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
@@ -17,15 +19,21 @@ class AnthropicAdapter(ProviderAdapter):
         stop_reason = "stop" if resp["stop_reason"] == "stop_sequence" else "length"
 
         return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {"text": resp["completion"], "metadata": {"finish_reason": stop_reason}}
-                ],
-                "metadata": {
-                    "model": resp["model"],
-                    "route_type": config.route_type,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=resp["model"],
+            choices=[
+                completions.Choice(
+                    index=0,
+                    text=resp["completion"],
+                    finish_reason=stop_reason,
+                )
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     @classmethod
@@ -55,12 +63,11 @@ class AnthropicAdapter(ProviderAdapter):
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
                 "Gateway.",
             )
-        candidate_count = payload.get("candidate_count", 1)
-        if candidate_count != 1:
+        n = payload.get("n", 1)
+        if n != 1:
             raise HTTPException(
                 status_code=422,
-                detail="'candidate_count' must be '1' for the Anthropic provider. "
-                f"Received value: '{candidate_count}'.",
+                detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
 
         payload = rename_payload_keys(payload, key_mapping)
