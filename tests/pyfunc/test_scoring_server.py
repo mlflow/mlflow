@@ -129,9 +129,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_error_code_and_mes
     response_json = json.loads(response.content)
     assert response_json.get("error_code") == ErrorCode.Name(BAD_REQUEST)
     message = response_json.get("message")
-    expected_message = (
-        "Failed to parse input from JSON. Ensure that input is a valid JSON formatted string."
-    )
+    expected_message = "Invalid input. Ensure that input is a valid JSON formatted string."
     assert expected_message in message
 
 

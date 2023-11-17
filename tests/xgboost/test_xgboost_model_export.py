@@ -25,6 +25,7 @@ from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.proto_json_utils import dataframe_from_parsed_json
 
 from tests.helper_functions import (
     _assert_pip_requirements,
@@ -594,3 +595,18 @@ def test_model_log_with_signature_inference(xgb_model, xgb_model_signature):
 
     mlflow_model = Model.load(model_uri)
     assert mlflow_model.signature == xgb_model_signature
+
+
+def test_model_without_signature_predict(xgb_model):
+    artifact_path = "model"
+    X = xgb_model.inference_dataframe
+    example = X.iloc[[0]]
+
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(xgb_model.model, artifact_path=artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    data = pd.DataFrame(example).to_dict(orient="split")
+    parsed_data = dataframe_from_parsed_json(data, pandas_orient="split")
+    loaded_model.predict(parsed_data)
