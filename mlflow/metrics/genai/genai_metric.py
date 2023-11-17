@@ -98,7 +98,8 @@ def make_genai_metric(
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
-    Create a genai metric used to evaluate LLM using LLM as a judge in MLflow.
+    Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
+    prompt is stored in the metric_details field of the ``EvaluationMetric`` object.
 
     :param name: Name of the metric.
     :param definition: Definition of the metric.
