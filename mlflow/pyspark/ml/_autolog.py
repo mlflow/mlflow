@@ -3,6 +3,7 @@ from functools import reduce
 from typing import Set, Union
 
 try:
+    # For spark >= 4.0
     from pyspark.errors.exceptions.base import IllegalArgumentException
 except ModuleNotFoundError:
     from pyspark.sql.utils import IllegalArgumentException
