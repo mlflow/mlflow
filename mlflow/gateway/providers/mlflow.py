@@ -1,3 +1,4 @@
+import time
 from typing import List
 
 from fastapi import HTTPException
@@ -163,13 +164,23 @@ class MlflowModelServingProvider(BaseProvider):
         # {"predictions": ["answer"]}
 
         return chat.ResponsePayload(
-            **{
-                "candidates": self._process_chat_response_for_mlflow_serving(resp),
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            model=self.config.model.name,
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(
+                        role=c["message"]["role"], content=c["message"]["content"]
+                    ),
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(self._process_chat_response_for_mlflow_serving(resp))
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     def _process_embeddings_response_for_mlflow_serving(self, response):

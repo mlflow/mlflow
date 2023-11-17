@@ -66,23 +66,24 @@ async def test_chat():
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
+            "id": "chatcmpl-abc123",
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": "gpt-3.5-turbo-0301",
+            "choices": [
                 {
                     "message": {
                         "role": "assistant",
                         "content": "\n\nThis is a test!",
                     },
-                    "metadata": {
-                        "finish_reason": "stop",
-                    },
+                    "finish_reason": "stop",
+                    "index": 0,
                 }
             ],
-            "metadata": {
-                "input_tokens": 13,
-                "output_tokens": 7,
+            "usage": {
+                "prompt_tokens": 13,
+                "completion_tokens": 7,
                 "total_tokens": 20,
-                "model": "gpt-3.5-turbo-0301",
-                "route_type": "llm/v1/chat",
             },
         }
         mock_build_client.assert_called_once_with(
@@ -100,32 +101,6 @@ async def test_chat():
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
-
-
-@pytest.mark.asyncio
-async def test_chat_throws_if_request_payload_contains_n():
-    config = chat_config()
-    provider = OpenAIProvider(RouteConfig(**config))
-    payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "n": 1}
-    with pytest.raises(HTTPException, match=r".*") as e:
-        await provider.chat(chat.RequestPayload(**payload))
-    assert "Invalid parameter `n`" in e.value.detail
-
-
-@pytest.mark.asyncio
-async def test_chat_temperature_is_doubled():
-    resp = chat_response()
-    config = chat_config()
-    with mock.patch(
-        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_post:
-        provider = OpenAIProvider(RouteConfig(**config))
-        payload = {
-            "prompt": "This is a test",
-            "temperature": 0.5,
-        }
-        await provider.chat(completions.RequestPayload(**payload))
-        assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 2
 
 
 def completions_config():
@@ -181,16 +156,6 @@ async def test_completions():
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
-
-
-@pytest.mark.asyncio
-async def test_completions_throws_if_request_payload_contains_n():
-    config = completions_config()
-    provider = OpenAIProvider(RouteConfig(**config))
-    payload = {"prompt": "This is a test", "n": 1}
-    with pytest.raises(HTTPException, match=r".*") as e:
-        await provider.completions(completions.RequestPayload(**payload))
-    assert "Invalid parameter `n`" in e.value.detail
 
 
 @pytest.mark.parametrize("prompt", [{"set1", "set2"}, ["list1"], [1], ["list1", "list2"], [1, 2]])

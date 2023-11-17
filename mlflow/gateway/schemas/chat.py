@@ -1,10 +1,8 @@
-from enum import Enum
 from typing import List, Optional
 
 from pydantic import Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
-from mlflow.gateway.config import RouteType
 
 
 class RequestMessage(RequestModel):
@@ -14,7 +12,7 @@ class RequestMessage(RequestModel):
 
 class BaseRequestPayload(RequestModel):
     temperature: float = Field(0.0, ge=0, le=1)
-    candidate_count: int = Field(1, ge=1, le=5)
+    n: int = Field(1, ge=1, le=5)
     stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=1)
 
@@ -24,24 +22,15 @@ class RequestPayload(BaseRequestPayload):
 
     class Config:
         schema_extra = {
-            "example": {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": "hello world",
-                    }
-                ],
-                "temperature": 0.0,
-                "max_tokens": 64,
-                "stop": ["END"],
-                "candidate_count": 1,
-            }
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Hello!"},
+            ],
+            "temperature": 0.0,
+            "max_tokens": 64,
+            "stop": ["END"],
+            "n": 1,
         }
-
-
-class FinishReason(str, Enum):
-    STOP = "stop"
-    LENGTH = "length"
 
 
 class ResponseMessage(ResponseModel):
@@ -49,47 +38,40 @@ class ResponseMessage(ResponseModel):
     content: str
 
 
-class CandidateMetadata(ResponseModel, extra="allow"):
-    finish_reason: Optional[FinishReason] = None
-
-
-class Candidate(ResponseModel):
+class Choice(ResponseModel):
+    index: int
     message: ResponseMessage
-    metadata: CandidateMetadata
+    finish_reason: Optional[str] = None
 
 
-class Metadata(ResponseModel):
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
+class ChatUsage(ResponseModel):
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
     total_tokens: Optional[int] = None
-    model: str
-    route_type: RouteType
 
 
 class ResponsePayload(ResponseModel):
-    candidates: List[Candidate]
-    metadata: Metadata
+    id: Optional[str] = None
+    object: str = "chat.completion"
+    created: int
+    model: str
+    choices: List[Choice]
+    usage: ChatUsage
 
     class Config:
         schema_extra = {
             "example": {
-                "candidates": [
+                "id": "3cdb958c-e4cc-4834-b52b-1d1a7f324714",
+                "object": "chat.completion",
+                "created": 1700173217,
+                "model": "llama-2-70b-chat-hf",
+                "choices": [
                     {
-                        "message": {
-                            "role": "user",
-                            "content": "hello world",
-                        },
-                        "metadata": {
-                            "finish_reason": "stop",
-                        },
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "Hello! I am an AI assistant"},
+                        "finish_reason": "stop",
                     }
                 ],
-                "metadata": {
-                    "input_tokens": 1,
-                    "output_tokens": 2,
-                    "total_tokens": 3,
-                    "model": "gpt-3.5-turbo",
-                    "route_type": "llm/v1/chat",
-                },
+                "usage": {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18},
             }
         }
