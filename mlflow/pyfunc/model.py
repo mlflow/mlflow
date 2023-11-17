@@ -72,7 +72,7 @@ def _log_warning_if_params_not_in_predict_signature(logger, params):
             f" function. `params` {params} will be ignored."
         )
 
-        
+
 class _PythonModelMetaclass(ABCMeta):
     def __call__(cls, *args, **kwargs):
         cls._warn_on_setting_model_in_init()
@@ -82,8 +82,10 @@ class _PythonModelMetaclass(ABCMeta):
         if not cls.__bases__ == (PythonModel,):
             return
 
-        import click
         import warnings
+
+        import click
+
         message = (
             click.style(
                 "It looks like you're trying to save a model as an instance attribute. ",
@@ -101,26 +103,21 @@ class _PythonModelMetaclass(ABCMeta):
                 fg="yellow",
             )
         )
-        
+
         try:
-            should_warn = False
-
-            # should warn if init has a "model" parameter
-            if "model" in inspect.signature(cls.__init__).parameters:
-                should_warn = True
-            # if load_context is not overridden, warn on self.model assignment
-            elif (cls.load_context == PythonModel.load_context and
-                  "self.model =" in inspect.getsource(cls.__init__)):
-                should_warn = True
-
-            if should_warn:
+            model_param_present = "model" in inspect.signature(cls.__init__).parameters
+            model_assignment = (
+                cls.load_context == PythonModel.load_context
+                and "self.model =" in inspect.getsource(cls.__init__)
+            )
+            if model_param_present or model_assignment:
                 warnings.warn(message, stacklevel=3)
-        except Exception as e:
+        except Exception:
             # it's possible that inspect.getsource might fail, but since we
             # just want to warn the user, we shouldn't throw an exception
             pass
-                
-        
+
+
 class PythonModel(metaclass=_PythonModelMetaclass):
     """
     Represents a generic Python model that evaluates inputs and produces API-compatible outputs.

@@ -111,6 +111,7 @@ def test_pyfunc_warn_on_model_assignment_no_context(model_path):
         message = warn_mock.mock_calls[0].args[0]
         assert "It looks like you're trying to save a model" in message
 
+
 def test_pyfunc_no_warn_on_model_assignment_with_context(model_path):
     # don't warn on model assignment if users override load_context
     class MyModelGood(mlflow.pyfunc.PythonModel):
@@ -132,7 +133,7 @@ def test_pyfunc_no_warn_on_model_assignment_with_context(model_path):
             message = call.args[0]
             assert "It looks like you're trying to save a model" not in message
 
-        
+
 def test_pyfunc_warn_on_model_param(model_path):
     # should warn if `model` param is present in __init__
     class MyModelBad(mlflow.pyfunc.PythonModel):
