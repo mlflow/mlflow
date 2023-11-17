@@ -1677,38 +1677,6 @@ def _validate_function_python_model(python_model):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    if isinstance(python_model, PythonModel):
-        try:
-            init_has_model_param = "model" in inspect.signature(python_model.__init__).parameters
-            init_has_model_assignment = "self.model =" in inspect.getsource(python_model.__init__)
-            if init_has_model_param or init_has_model_assignment:
-                message = (
-                    click.style(
-                        "It looks like you're trying to save a model as an instance attribute. ",
-                        fg="yellow",
-                    )
-                    + click.style("This is not recommended ", fg="yellow", bold=True)
-                    + click.style(
-                        "as it can cause problems with model serialization, "
-                        "especially for large models. ",
-                        fg="yellow",
-                    )
-                    + click.style("Please use the `artifacts` parameter", fg="yellow", bold=True)
-                    + click.style(
-                        ", and load your external model in the `load_context()` method instead.",
-                        fg="yellow",
-                    )
-                )
-                warnings.warn(
-                    message,
-                    UserWarning,
-                    stacklevel=5,
-                )
-        except Exception:
-            # it's possible that inspect.getsource might fail, but since we
-            # just want to warn the user, we shouldn't throw any exception
-            pass
-
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def save_model(

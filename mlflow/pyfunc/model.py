@@ -72,16 +72,62 @@ def _log_warning_if_params_not_in_predict_signature(logger, params):
             f" function. `params` {params} will be ignored."
         )
 
+        
+class _PythonModelMetaclass(ABCMeta):
+    def __call__(cls, *args, **kwargs):
+        cls._warn_on_setting_model_in_init()
+        return super().__call__(*args, **kwargs)
 
-class PythonModel:
+    def _warn_on_setting_model_in_init(cls):
+        if not cls.__bases__ == (PythonModel,):
+            return
+
+        import click
+        import warnings
+        message = (
+            click.style(
+                "It looks like you're trying to save a model as an instance attribute. ",
+                fg="yellow",
+            )
+            + click.style("This is not recommended ", fg="yellow", bold=True)
+            + click.style(
+                "as it can cause problems with model serialization, "
+                "especially for large models. ",
+                fg="yellow",
+            )
+            + click.style("Please use the `artifacts` parameter", fg="yellow", bold=True)
+            + click.style(
+                ", and load your external model in the `load_context()` method instead.",
+                fg="yellow",
+            )
+        )
+        
+        try:
+            should_warn = False
+
+            # should warn if init has a "model" parameter
+            if "model" in inspect.signature(cls.__init__).parameters:
+                should_warn = True
+            # if load_context is not overridden, warn on self.model assignment
+            elif (cls.load_context == PythonModel.load_context and
+                  "self.model =" in inspect.getsource(cls.__init__)):
+                should_warn = True
+
+            if should_warn:
+                warnings.warn(message, stacklevel=3)
+        except Exception as e:
+            # it's possible that inspect.getsource might fail, but since we
+            # just want to warn the user, we shouldn't throw an exception
+            pass
+                
+        
+class PythonModel(metaclass=_PythonModelMetaclass):
     """
     Represents a generic Python model that evaluates inputs and produces API-compatible outputs.
     By subclassing :class:`~PythonModel`, users can create customized MLflow models with the
     "python_function" ("pyfunc") flavor, leveraging custom inference logic and artifact
     dependencies.
     """
-
-    __metaclass__ = ABCMeta
 
     def load_context(self, context):
         """

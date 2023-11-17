@@ -94,9 +94,10 @@ def test_pyfunc_loader_without_model_config(model_path):
     assert not pyfunc_model.model_config
 
 
-def test_pyfunc_warn_on_model_assignment(model_path):
+def test_pyfunc_warn_on_model_assignment_no_context(model_path):
     # should warn on self.model assignment in __init__
-    class MyModel(mlflow.pyfunc.PythonModel):
+    # if load_context is not overridden
+    class MyModelBad(mlflow.pyfunc.PythonModel):
         def __init__(self, llm):
             self.model = llm
 
@@ -104,16 +105,37 @@ def test_pyfunc_warn_on_model_assignment(model_path):
             return model_input
 
     with mock.patch("warnings.warn") as warn_mock:
-        mlflow.pyfunc.save_model(model_path, python_model=MyModel(1))
-        assert warn_mock.called
+        mlflow.pyfunc.save_model(model_path, python_model=MyModelBad(1))
+        warn_mock.assert_called()
 
         message = warn_mock.mock_calls[0].args[0]
-        assert "It looks like you're trying to save a model as an instance attribute" in message
+        assert "It looks like you're trying to save a model" in message
 
+def test_pyfunc_no_warn_on_model_assignment_with_context(model_path):
+    # don't warn on model assignment if users override load_context
+    class MyModelGood(mlflow.pyfunc.PythonModel):
+        def __init__(self):
+            self.model = None
 
+        def load_context(self, context):
+            self.model = "gpt4"
+
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    with mock.patch("warnings.warn") as warn_mock:
+        mlflow.pyfunc.save_model(model_path, python_model=MyModelGood())
+        # the warnings function might be called by other functions
+        # but we can ensure that our message is not in the call args
+
+        for call in warn_mock.mock_calls:
+            message = call.args[0]
+            assert "It looks like you're trying to save a model" not in message
+
+        
 def test_pyfunc_warn_on_model_param(model_path):
     # should warn if `model` param is present in __init__
-    class MyModel(mlflow.pyfunc.PythonModel):
+    class MyModelBad(mlflow.pyfunc.PythonModel):
         def __init__(self, model):
             self.llm = model
 
@@ -121,8 +143,8 @@ def test_pyfunc_warn_on_model_param(model_path):
             return model_input
 
     with mock.patch("warnings.warn") as warn_mock:
-        mlflow.pyfunc.save_model(model_path, python_model=MyModel(1))
+        mlflow.pyfunc.save_model(model_path, python_model=MyModelBad(1))
         assert warn_mock.called
 
         message = warn_mock.mock_calls[0].args[0]
-        assert "It looks like you're trying to save a model as an instance attribute" in message
+        assert "It looks like you're trying to save a model" in message
