@@ -147,7 +147,7 @@ def _call_gateway_api(gateway_uri, payload, eval_parameters):
         }
         response = query(gateway_uri, chat_payload)
         try:
-            text = response["candidates"][0]['message']['content']
+            text = response["candidates"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError):
             text = None
         return text
