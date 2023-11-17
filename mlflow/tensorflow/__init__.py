@@ -407,7 +407,7 @@ def save_model(
         # To maintain prior behavior, when the format is HDF5, we save
         # with the h5 file extension. Otherwise, model_path is a directory
         # where the saved_model.pb will be stored (for SavedModel format)
-        file_extension = ".h5" if save_format == "h5" else ""
+        file_extension = ".h5" if save_format == "h5" else ".keras"
         model_path = os.path.join(path, model_subpath) + file_extension
         if path.startswith("/dbfs/"):
             # The Databricks Filesystem uses a FUSE implementation that does not support
@@ -513,8 +513,7 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
 
     # If the save_format is HDF5, then we save with h5 file
     # extension to align with prior behavior of mlflow logging
-    if save_format == "h5":
-        model_path = model_path + ".h5"
+    model_path += ".h5" if save_format == "h5" else ".keras"
 
     # keras in tensorflow used to have a '-tf' suffix in the version:
     # https://github.com/tensorflow/tensorflow/blob/v2.2.1/tensorflow/python/keras/__init__.py#L36

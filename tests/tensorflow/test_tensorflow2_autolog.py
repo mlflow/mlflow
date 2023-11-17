@@ -403,7 +403,7 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "validation_data" not in data.params
     # Testing optimizer parameters are logged
     assert "opt_name" in data.params
-    assert data.params["opt_name"] == "Adam"
+    assert data.params["opt_name"].lower() == "adam"
     assert "opt_learning_rate" in data.params
     assert "opt_beta_1" in data.params
     assert "opt_beta_2" in data.params
@@ -576,7 +576,18 @@ def test_tf_keras_autolog_implicit_batch_size_works_multi_input(generate_data, b
     Version(tf.__version__) < Version("2.1.4"),
     reason="Does not support passing of generator classes as `x` in `fit`",
 )
-@pytest.mark.parametrize("generator", [__generator, __GeneratorClass])
+@pytest.mark.parametrize(
+    "generator",
+    [
+        __generator,
+        pytest.param(
+            __GeneratorClass,
+            marks=pytest.mark.skipif(
+                Version(tf.__version__) > Version("2.14.0"), reason="does not support"
+            ),
+        ),
+    ],
+)
 @pytest.mark.parametrize("batch_size", [2, 3, 6])
 def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side_effects(
     generator,
@@ -617,11 +628,7 @@ def test_tf_keras_autolog_succeeds_for_tf_datasets_lacking_batch_size_info():
     assert not hasattr(train_ds, "_batch_size")
 
     model = tf.keras.Sequential()
-    model.add(
-        tf.keras.Input(
-            100,
-        )
-    )
+    model.add(tf.keras.Input((100,)))
     model.add(tf.keras.layers.Dense(256, activation="relu"))
     model.add(tf.keras.layers.Dropout(rate=0.4))
     model.add(tf.keras.layers.Dense(10, activation="sigmoid"))
@@ -1007,7 +1014,10 @@ def get_text_vec_model(train_samples):
     # Taken from: https://github.com/mlflow/mlflow/issues/3910
 
     # pylint: disable=no-name-in-module
-    from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
+    try:
+        from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
+    except ModuleNotFoundError:
+        from keras.layers import TextVectorization
 
     VOCAB_SIZE = 10
     SEQUENCE_LENGTH = 16
@@ -1035,7 +1045,7 @@ def get_text_vec_model(train_samples):
             tf.keras.layers.Dense(1, activation="tanh"),
         ]
     )
-    model.compile(optimizer="adam", loss="mse", metrics="mae")
+    model.compile(optimizer="adam", loss="mse", metrics=["mae"])
     return model
 
 
