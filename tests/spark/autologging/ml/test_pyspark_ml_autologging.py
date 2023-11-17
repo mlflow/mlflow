@@ -1068,7 +1068,9 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
         _assert_autolog_infers_model_signature_correctly(
-            run, input_sig_spec=[{"name": "text", "type": "string"}], output_sig_spec=None
+            run,
+            input_sig_spec=[{"name": "text", "type": "string", "required": True}],
+            output_sig_spec=None,
         )
 
 
@@ -1095,7 +1097,9 @@ def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
         with open(ml_model_path) as f:
             data = yaml.safe_load(f)
             signature = data["signature"]
-            assert json.loads(signature["inputs"]) == [{"name": "number", "type": "double"}]
+            assert json.loads(signature["inputs"]) == [
+                {"name": "number", "type": "double", "required": True}
+            ]
             assert signature["outputs"] is None
 
 
@@ -1143,7 +1147,9 @@ def test_signature_with_index_to_string_stage(
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
         _assert_autolog_infers_model_signature_correctly(
-            run, input_sig_spec=[{"name": "id", "type": "long"}], output_sig_spec=None
+            run,
+            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
+            output_sig_spec=None,
         )
 
 
@@ -1186,7 +1192,7 @@ def test_signature_with_non_feature_input_columns(
         pipeline_for_feature_cols.fit(input_df_with_non_features)
         _assert_autolog_infers_model_signature_correctly(
             run,
-            input_sig_spec=[{"name": "id", "type": "long"}],
+            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
             output_sig_spec=None,
         )
 

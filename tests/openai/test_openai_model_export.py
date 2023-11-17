@@ -146,11 +146,11 @@ def test_chat_multiple_variables(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "x", "type": "string"},
-        {"name": "y", "type": "string"},
+        {"name": "x", "type": "string", "required": True},
+        {"name": "y", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -188,11 +188,11 @@ def test_chat_role_content(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "content", "type": "string"},
-        {"name": "role", "type": "string"},
+        {"name": "content", "type": "string", "required": True},
+        {"name": "role", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -224,11 +224,11 @@ def test_completion_multiple_variables(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "x", "type": "string"},
-        {"name": "y", "type": "string"},
+        {"name": "x", "type": "string", "required": True},
+        {"name": "y", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -266,11 +266,11 @@ def test_chat_multiple_messages(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "x", "type": "string"},
-        {"name": "y", "type": "string"},
+        {"name": "x", "type": "string", "required": True},
+        {"name": "y", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -308,10 +308,10 @@ def test_chat_no_variables(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -379,10 +379,10 @@ def test_chat_no_messages(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -554,7 +554,7 @@ def test_embeddings(tmp_path):
     )
 
     model = mlflow.models.Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
     assert model.signature.outputs.to_dict() == [
         {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": (-1,)}}
     ]
