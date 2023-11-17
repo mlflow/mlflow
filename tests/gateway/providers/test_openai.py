@@ -63,7 +63,7 @@ async def test_chat():
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
         provider = OpenAIProvider(RouteConfig(**config))
-        payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+        payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "temperature": 0.5}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
             "id": "chatcmpl-abc123",
@@ -95,7 +95,7 @@ async def test_chat():
             "https://api.openai.com/v1/chat/completions",
             json={
                 "model": "gpt-3.5-turbo",
-                "temperature": 0,
+                "temperature": 0.5,
                 "n": 1,
                 **payload,
             },

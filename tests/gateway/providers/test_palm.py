@@ -128,7 +128,7 @@ def chat_response():
                 "temperature": 0.5,
             },
             {
-                "temperature": 0.5,
+                "temperature": 0.25,
                 "candidateCount": 1,
                 "prompt": {"messages": [{"content": "Tell me a joke", "author": "user"}]},
             },
