@@ -35,38 +35,42 @@ def test_chat_request():
 def test_chat_response():
     chat.ResponsePayload(
         **{
-            "candidates": [
+            "created": 100,
+            "model": "gpt-4",
+            "choices": [
                 {
                     "message": {"role": "user", "content": "content"},
-                    "metadata": {},
+                    "index": 0,
                 },
             ],
-            "metadata": {
-                "input_tokens": 1,
-                "output_tokens": 1,
+            "usage": {
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
                 "total_tokens": 1,
-                "model": "gpt-4",
-                "route_type": "llm/v1/chat",
             },
         }
     )
+
     chat.ResponsePayload(
         **{
-            "candidates": [
+            "id": "foobar",
+            "created": 100,
+            "model": "gpt-4",
+            "object": "chat.completion",
+            "choices": [
                 {
                     "message": {"role": "user", "content": "content"},
-                    "metadata": {"finish_reason": "stop"},
+                    "finish_reason": "stop",
+                    "index": 0,
                 },
             ],
-            "metadata": {
-                "input_tokens": 1,
-                "output_tokens": 1,
+            "usage": {
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
                 "total_tokens": 1,
-                "model": "gpt-4",
-                "route_type": "llm/v1/chat",
             },
         }
     )
 
     with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
-        chat.ResponsePayload(**{"metadata": {}})
+        chat.ResponsePayload(**{"usage": {}})
