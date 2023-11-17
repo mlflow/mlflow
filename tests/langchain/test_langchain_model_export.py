@@ -216,8 +216,8 @@ def test_langchain_native_log_and_load_model():
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
 
     assert "langchain" in logged_model.flavors
-    assert str(logged_model.signature.inputs) == "['product': string]"
-    assert str(logged_model.signature.outputs) == "['text': string]"
+    assert str(logged_model.signature.inputs) == "['product': string (required)]"
+    assert str(logged_model.signature.outputs) == "['text': string (required)]"
 
     assert type(loaded_model) == langchain.chains.llm.LLMChain
     assert type(loaded_model.llm) == langchain.llms.openai.OpenAI
@@ -265,8 +265,8 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
 
     assert "langchain" in logged_model.flavors
-    assert str(logged_model.signature.inputs) == "['product': string]"
-    assert str(logged_model.signature.outputs) == "['text': string]"
+    assert str(logged_model.signature.inputs) == "['product': string (required)]"
+    assert str(logged_model.signature.outputs) == "['text': string (required)]"
 
     assert type(loaded_model) == langchain.chains.llm.LLMChain
     assert type(loaded_model.llm) == langchain.llms.huggingface_pipeline.HuggingFacePipeline

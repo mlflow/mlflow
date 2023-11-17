@@ -655,8 +655,8 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
 
     assert "inputs" in signature
     assert json.loads(signature["inputs"]) == [
-        {"name": "sepal length (cm)", "type": "double"},
-        {"name": "sepal width (cm)", "type": "double"},
+        {"name": "sepal length (cm)", "type": "double", "required": True},
+        {"name": "sepal width (cm)", "type": "double", "required": True},
     ]
 
     assert "outputs" in signature
