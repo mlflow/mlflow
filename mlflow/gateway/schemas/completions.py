@@ -4,7 +4,6 @@ from pydantic import Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.gateway.config import RouteType
-from mlflow.gateway.schemas.chat import BaseRequestPayload
 
 
 class BaseRequestPayload(RequestModel):
