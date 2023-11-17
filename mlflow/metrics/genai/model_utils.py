@@ -128,6 +128,14 @@ def _call_openai_api(openai_uri, payload):
 
 
 def _call_gateway_api(gateway_uri, payload):
-    from mlflow.gateway import query
+    from mlflow.gateway import get_route, query
 
-    return query(gateway_uri, payload)
+    route_info = get_route(gateway_uri).dict()
+    if route_info["route_type"] == "llm/v1/completions":
+        return query(gateway_uri, payload)
+    else:
+        raise MlflowException(
+            f"Unsupported gateway route type: {route_info['route_type']}. Use a "
+            "route of type 'llm/v1/completions' instead.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
