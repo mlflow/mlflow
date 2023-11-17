@@ -97,18 +97,19 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         TODO
         """
         config = config.copy() if config else {}  # avoid mutating config
-        payload = {"name": name, "config": config}
-        if tags := config.pop("tags", None):
-            payload["tags"] = tags
+        extras = {}
+        for key in ("tags", "rate_limits"):
+            if tags := config.pop(key, None):
+                extras[key] = tags
+        payload = {"name": name, "config": config, **extras}
         return self._call_endpoint(method="POST", json_body=payload)
 
     def update_endpoint(self, endpoint, config=None):
         """
         TODO
         """
-        route = "rate-limits" if "rate_limits" in config else "config"
         return self._call_endpoint(
-            method="PUT", route=posixpath.join(endpoint, route), json_body=config
+            method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
         )
 
     def delete_endpoint(self, endpoint):
