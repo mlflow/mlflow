@@ -38,6 +38,7 @@ from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import (
+    MlflowInvalidInputException,
     NumpyEncoder,
     _get_jsonable_obj,
     dataframe_from_parsed_json,
@@ -154,25 +155,18 @@ def _decode_json_input(json_input):
     try:
         decoded_input = json.loads(json_input)
     except json.decoder.JSONDecodeError as ex:
-        raise MlflowException(
-            message=(
-                "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                f" formatted string. Input: \n{json_input}\n"
-            ),
-            error_code=BAD_REQUEST,
+        raise MlflowInvalidInputException(
+            "Ensure that input is a valid JSON formatted string. "
+            f"Error: '{ex!r}'\nInput: \n{json_input}\n"
         ) from ex
 
     if isinstance(decoded_input, dict):
         return decoded_input
     if isinstance(decoded_input, list):
-        raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. Received a list. {SCORING_PROTOCOL_CHANGE_INFO}",
-            error_code=BAD_REQUEST,
-        )
+        raise MlflowInvalidInputException(f"{REQUIRED_INPUT_FORMAT}. Received a list.")
 
-    raise MlflowException(
-        message=f"{REQUIRED_INPUT_FORMAT}. Received unexpected input type '{type(decoded_input)}.",
-        error_code=BAD_REQUEST,
+    raise MlflowInvalidInputException(
+        f"{REQUIRED_INPUT_FORMAT}. Received unexpected input type '{type(decoded_input)}."
     )
 
 
@@ -222,12 +216,12 @@ def parse_csv_input(csv_input, schema: Schema = None):
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
             return pd.read_csv(csv_input, dtype=dtypes)
-    except Exception:
+    except Exception as e:
         _handle_serving_error(
             error_message=(
                 "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
                 " a valid CSV-formatted Pandas DataFrame produced using the"
-                " `pandas.DataFrame.to_csv()` method."
+                f" `pandas.DataFrame.to_csv()` method. Error: '{e}'"
             ),
             error_code=BAD_REQUEST,
         )
