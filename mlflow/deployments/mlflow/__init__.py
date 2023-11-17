@@ -40,25 +40,28 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         raise NotImplementedError
 
-    def predict(self, deployment_name=None, inputs=None, endpoint=None):
-        """
-        TODO
-        """
-        raise NotImplementedError("TODO")
-
     def create_endpoint(self, name, config=None):
         """
-        TODO
+        .. warning::
+            This method is not implemented for `MLflowDeploymentClient`.
         """
-        raise NotImplementedError("TODO")
+        raise NotImplementedError
 
     def update_endpoint(self, endpoint, config=None):
         """
-        TODO
+        .. warning::
+            This method is not implemented for `MLflowDeploymentClient`.
         """
-        raise NotImplementedError("TODO")
+        raise NotImplementedError
 
     def delete_endpoint(self, endpoint):
+        """
+        .. warning::
+            This method is not implemented for `MLflowDeploymentClient`.
+        """
+        raise NotImplementedError
+
+    def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         TODO
         """
