@@ -81,6 +81,9 @@ class AnthropicAdapter(ProviderAdapter):
         if not payload["prompt"].endswith("\n\nAssistant:"):
             payload["prompt"] = payload["prompt"] + "\n\nAssistant:"
 
+        # The range of Anthropic's temperature is 0-1, but ours is 0-2, so we halve it
+        payload["temperature"] = 0.5 * payload["temperature"]
+
         return payload
 
     @classmethod

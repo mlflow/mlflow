@@ -71,14 +71,19 @@ async def test_completions():
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = AnthropicProvider(RouteConfig(**config))
-        payload = {"prompt": "How does a car work?", "max_tokens": 200, "stop": ["foobazbardiddly"]}
+        payload = {
+            "prompt": "How does a car work?",
+            "max_tokens": 200,
+            "stop": ["foobazbardiddly"],
+            "temperature": 1.0,
+        }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == parsed_completions_response()
         mock_post.assert_called_once_with(
             "https://api.anthropic.com/v1/complete",
             json={
                 "model": "claude-instant-1",
-                "temperature": 0.0,
+                "temperature": 0.5,
                 "n": 1,
                 "max_tokens_to_sample": 200,
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
