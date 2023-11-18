@@ -194,7 +194,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _experiment_factory(store: SqlAlchemyStore, names) -> Union[str, List]:
+def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, List]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:
@@ -212,7 +212,7 @@ def _get_run_configs(experiment_id=None, tags=None, start_time=None):
     return {
         "experiment_id": experiment_id,
         "user_id": "Anderson",
-        "start_time": start_time if start_time is not None else get_current_time_millis(),
+        "start_time": start_time or get_current_time_millis(),
         "tags": tags,
         "run_name": "name",
     }
@@ -221,11 +221,8 @@ def _get_run_configs(experiment_id=None, tags=None, start_time=None):
 def _run_factory(store: SqlAlchemyStore, config=None):
     if not config:
         config = _get_run_configs()
-
-    experiment_id = config.get("experiment_id", None)
-    if not experiment_id:
-        experiment_id = _experiment_factory(store, "test exp")
-        config["experiment_id"] = experiment_id
+    if "experiment_id" not in config:
+        config["experiment_id"] = _create_experiments(store, "test exp")
 
     return store.create_run(**config)
 
@@ -244,7 +241,7 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
     assert default_experiment.lifecycle_stage == entities.LifecycleStage.ACTIVE
 
-    _experiment_factory(store, "aNothEr")
+    _create_experiments(store, "aNothEr")
     all_experiments = [e.name for e in store.search_experiments()]
     assert set(all_experiments) == {"aNothEr", "Default"}
 
@@ -278,7 +275,7 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
 
 def test_raise_duplicate_experiments(store: SqlAlchemyStore):
     with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
-        _experiment_factory(store, ["test", "test"])
+        _create_experiments(store, ["test", "test"])
 
 
 def test_raise_experiment_dont_exist(store: SqlAlchemyStore):
@@ -287,7 +284,7 @@ def test_raise_experiment_dont_exist(store: SqlAlchemyStore):
 
 
 def test_delete_experiment(store: SqlAlchemyStore):
-    experiments = _experiment_factory(store, ["morty", "rick", "rick and morty"])
+    experiments = _create_experiments(store, ["morty", "rick", "rick and morty"])
 
     all_experiments = store.search_experiments()
     assert len(all_experiments) == len(experiments) + 1  # default
@@ -305,7 +302,7 @@ def test_delete_experiment(store: SqlAlchemyStore):
 
 
 def test_delete_restore_experiment_with_runs(store: SqlAlchemyStore):
-    experiment_id = _experiment_factory(store, "test exp")
+    experiment_id = _create_experiments(store, "test exp")
     run1 = _run_factory(store, config=_get_run_configs(experiment_id)).info.run_id
     run2 = _run_factory(store, config=_get_run_configs(experiment_id)).info.run_id
     store.delete_run(run1)
@@ -352,7 +349,7 @@ def test_delete_restore_experiment_with_runs(store: SqlAlchemyStore):
 
 def test_get_experiment(store: SqlAlchemyStore):
     name = "goku"
-    experiment_id = _experiment_factory(store, name)
+    experiment_id = _create_experiments(store, name)
     actual = store.get_experiment(experiment_id)
     assert actual.name == name
     assert actual.experiment_id == experiment_id
@@ -365,7 +362,7 @@ def test_get_experiment(store: SqlAlchemyStore):
 
 def test_search_experiments_view_type(store: SqlAlchemyStore):
     experiment_names = ["a", "b"]
-    experiment_ids = _experiment_factory(store, experiment_names)
+    experiment_ids = _create_experiments(store, experiment_names)
     store.delete_experiment(experiment_ids[1])
 
     experiments = store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
@@ -378,7 +375,7 @@ def test_search_experiments_view_type(store: SqlAlchemyStore):
 
 def test_search_experiments_filter_by_attribute(store: SqlAlchemyStore):
     experiment_names = ["a", "ab", "Abc"]
-    _experiment_factory(store, experiment_names)
+    _create_experiments(store, experiment_names)
 
     experiments = store.search_experiments(filter_string="name = 'a'")
     assert [e.name for e in experiments] == ["a"]
