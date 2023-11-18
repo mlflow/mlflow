@@ -3,7 +3,7 @@ import os
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_AUTH,
@@ -96,10 +96,13 @@ def _resolve_tracking_uri(tracking_uri=None):
     return tracking_uri or get_tracking_uri()
 
 
-def get_tracking_uri() -> str:
+def get_tracking_uri(tracking_uri:Optional[str]=None) -> str:
     """
     Get the current tracking URI. This may not correspond to the tracking URI of
     the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
+    If ``tracking_uri`` is not `None`, it takes precedence.
+
+    :param tracking_uri: Address of local or remote tracking server.
 
     :return: The tracking URI.
 
@@ -117,6 +120,10 @@ def get_tracking_uri() -> str:
 
         Current tracking uri: file:///.../mlruns
     """
+
+    if tracking_uri is not None:
+        return tracking_uri
+
     global _tracking_uri
     if _tracking_uri is not None:
         return _tracking_uri
