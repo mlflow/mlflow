@@ -772,6 +772,7 @@ def test_update_run(mock_store):
         run_status=RunStatus.from_string("FINISHED"),
         end_time=mock.ANY,
         run_name="my name",
+        start_time=mock.ANY,
     )
 
 

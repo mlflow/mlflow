@@ -137,7 +137,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetRun, req_body)
         return Run.from_proto(response_proto.run)
 
-    def update_run_info(self, run_id, run_status, end_time, run_name):
+    def update_run_info(self, run_id, run_status, end_time, run_name, start_time=None):
         """Updates the metadata of the specified run."""
         req_body = message_to_json(
             UpdateRun(
@@ -146,6 +146,7 @@ class RestStore(AbstractStore):
                 status=run_status,
                 end_time=end_time,
                 run_name=run_name,
+                start_time=start_time,
             )
         )
         response_proto = self._call_endpoint(UpdateRun, req_body)

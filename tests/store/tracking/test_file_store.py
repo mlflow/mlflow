@@ -942,6 +942,32 @@ def test_update_run_does_not_rename_run_with_none_name(store):
     assert get_run.info.run_name == "first name"
 
 
+def test_update_run_updates_start_time(store):
+    run_id = store.create_run(
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name="first name",
+    ).info.run_id
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, None, 1)
+    get_run = store.get_run(run_id)
+    assert get_run.info.start_time == 1
+
+
+def test_update_run_does_not_update_with_none_start_time(store):
+    run_id = store.create_run(
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name="first name",
+    ).info.run_id
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, None, None)
+    get_run = store.get_run(run_id)
+    assert get_run.info.start_time == 0
+
+
 def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(store):
     run_id = store.create_run(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
@@ -1157,6 +1183,7 @@ def test_search_runs_run_name(store):
         RunStatus.FINISHED,
         end_time=run1.info.end_time,
         run_name="new_run_name1",
+        start_time=run1.info.start_time,
     )
     result = store.search_runs(
         [exp_id],

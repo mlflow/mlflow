@@ -732,13 +732,21 @@ def _update_run():
             "end_time": [_assert_intlike],
             "status": [_assert_string],
             "run_name": [_assert_string],
+            "start_time": [_assert_intlike],
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
     run_name = request_message.run_name if request_message.HasField("run_name") else None
+    start_time = request_message.start_time if request_message.HasField("start_time") else None
     end_time = request_message.end_time if request_message.HasField("end_time") else None
     status = request_message.status if request_message.HasField("status") else None
-    updated_info = _get_tracking_store().update_run_info(run_id, status, end_time, run_name)
+    updated_info = _get_tracking_store().update_run_info(
+        run_id,
+        status,
+        end_time,
+        run_name,
+        start_time,
+    )
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))

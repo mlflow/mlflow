@@ -1324,10 +1324,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         for new_status_string in models.RunStatusTypes:
             run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
             endtime = get_current_time_millis()
+            starttime = get_current_time_millis() - 100
             actual = self.store.update_run_info(
-                run.info.run_id, RunStatus.from_string(new_status_string), endtime, None
+                run.info.run_id, RunStatus.from_string(new_status_string), endtime, None, starttime
             )
             assert actual.status == new_status_string
+            assert actual.start_time == starttime
             assert actual.end_time == endtime
 
         # test updating run name without changing other attributes.
@@ -1335,6 +1337,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         updated_info = self.store.update_run_info(run.info.run_id, None, None, "name_abc2")
         assert updated_info.run_name == "name_abc2"
         assert updated_info.status == origin_run_info.status
+        assert updated_info.start_time == origin_run_info.start_time
         assert updated_info.end_time == origin_run_info.end_time
 
     def test_update_run_name(self):
@@ -2139,6 +2142,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             RunStatus.FINISHED,
             end_time=run1.info.end_time,
             run_name="new_run_name1",
+            start_time=run1.info.start_time,
         )
         result = self.store.search_runs(
             [exp_id],

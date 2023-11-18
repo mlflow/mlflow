@@ -397,6 +397,7 @@ class TrackingServiceClient:
             run_status=RunStatus.from_string(status),
             end_time=run.info.end_time,
             run_name=name,
+            start_time=run.info.start_time,
         )
 
     def log_batch(
@@ -577,6 +578,7 @@ class TrackingServiceClient:
             run_status=RunStatus.from_string(status),
             end_time=end_time,
             run_name=None,
+            start_time=None,
         )
 
     def delete_run(self, run_id):
