@@ -52,7 +52,7 @@ class ChatUsage(ResponseModel):
 
 class ResponsePayload(ResponseModel):
     id: Optional[str] = None
-    object: str = "chat.completion"
+    object: Literal["chat.completion"]
     created: int
     model: str
     choices: List[Choice]
