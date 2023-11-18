@@ -63,7 +63,7 @@ def test_list_endpoints():
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.list_endpoints()
         mock_request.assert_called_once()
-        assert resp == {"endpoints": [{"name": "test"}]}
+        assert resp == [{"name": "test"}]
 
 
 def test_update_endpoint():
