@@ -164,7 +164,7 @@ def chat_response():
 async def test_chat(payload, expected_llm_input):
     resp = chat_response()
     config = chat_config()
-    with mock.patch("time.time", lambda: 1700242674), mock.patch(
+    with mock.patch("time.time", return_value=1700242674), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = MosaicMLProvider(RouteConfig(**config))
