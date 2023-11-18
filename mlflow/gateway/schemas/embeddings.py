@@ -15,7 +15,7 @@ class RequestPayload(RequestModel):
 
 
 class EmbeddingObject(ResponseModel):
-    object: Literal["embedding"]
+    object: Literal["embedding"] = "embedding"
     embedding: List[float]
     index: int
 
@@ -26,7 +26,7 @@ class EmbeddingsUsage(ResponseModel):
 
 
 class ResponsePayload(ResponseModel):
-    object: Literal["list"]
+    object: Literal["list"] = "list"
     data: List[EmbeddingObject]
     model: str
     usage: EmbeddingsUsage
