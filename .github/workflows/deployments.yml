@@ -33,4 +33,4 @@ jobs:
             pytest pytest-timeout pytest-asyncio httpx psutil
       - name: Run tests
         run: |
-          pytest tests/deployments/databricks
+          pytest tests/deployments/databricks tests/deployments/mlflow
