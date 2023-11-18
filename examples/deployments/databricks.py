@@ -79,7 +79,7 @@ def main():
                 ],
             },
         )
-        print(client.list_endpoints()["endpoints"][:3])
+        print(client.list_endpoints()[:3])
         print(client.get_endpoint(endpoint=name))
         print(
             client.predict(

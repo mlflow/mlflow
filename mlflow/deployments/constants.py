@@ -1,5 +1,6 @@
 from mlflow.environment_variables import _EnvironmentVariable
 
+# TODO: Move this to mlflow.environment_variables before merging to master
 # Specifies the timeout for deployment client APIs to declare a request has timed out
 MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", int, 120

@@ -12,6 +12,10 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
 
+class DatabricksEndpoint(AttrDict):
+    pass
+
+
 class DatabricksDeploymentClient(BaseDeploymentClient):
     """
     TODO
@@ -82,7 +86,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             **call_kwargs,
         )
         augmented_raise_for_status(response)
-        return AttrDict(response.json())
+        return DatabricksEndpoint(response.json())
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
@@ -126,7 +130,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
-        return self._call_endpoint(method="GET")
+        return self._call_endpoint(method="GET").endpoints
 
     def get_endpoint(self, endpoint):
         """
