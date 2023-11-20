@@ -102,18 +102,22 @@ class AI21Adapter(ProviderAdapter):
     @classmethod
     def model_to_completions(cls, resp, config):
         return completions.ResponsePayload(
-            **{
-                "metadata": {
-                    "model": config.model.name,
-                    "route_type": config.route_type,
-                },
-                "candidates": [
-                    # second .get ensures item only has key "text",
-                    # but might be redundant/undesirable
-                    {"text": candidate.get("data", {}).get("text"), "metadata": {}}
-                    for candidate in resp.get("completions", [])
-                ],
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=config.model.name,
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=candidate.get("data", {}).get("text"),
+                    finish_reason=None,
+                )
+                for idx, candidate in enumerate(resp.get("completions", []))
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     @classmethod

@@ -84,14 +84,18 @@ def ai21_completion_response():
 
 def ai21_parsed_completion_response(mdl):
     return {
-        "candidates": [{"metadata": {}, "text": "\nIt looks like"}],
-        "metadata": {
-            "model": mdl,
-            "route_type": "llm/v1/completions",
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-        },
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": mdl,
+        "choices": [
+            {
+                "text": "\nIt looks like",
+                "index": 0,
+                "finish_reason": None,
+            }
+        ],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
 
@@ -177,14 +181,18 @@ bedrock_model_provider_fixtures = [
             "inputTextTokenCount": 4,
         },
         "expected": {
-            "candidates": [{"metadata": {}, "text": "\nThis is a test"}],
-            "metadata": {
-                "model": "amazon.titan-tg1-large",
-                "route_type": "llm/v1/completions",
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-            },
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "amazon.titan-tg1-large",
+            "choices": [
+                {
+                    "text": "\nThis is a test",
+                    "index": 0,
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         },
         "model_request": {"inputText": "This is a test", "textGenerationConfig": {}},
     },
@@ -352,13 +360,13 @@ def test_bedrock_aws_client(provider, config, aws_config):
 async def test_bedrock_request_response(
     provider, config, payload, response, expected, model_request, aws_config
 ):
-    with mock.patch(
+    with mock.patch("time.time", lambda: 1677858242), mock.patch(
         "mlflow.gateway.providers.bedrock.AWSBedrockProvider._request", return_value=response
     ) as mock_request:
         if not expected:
             pytest.skip("no expected value")
 
-        expected["metadata"]["model"] = config["model"]["name"]
+        expected["model"] = config["model"]["name"]
 
         provider = AWSBedrockProvider(
             RouteConfig(**_merge_model_and_aws_config(config, aws_config))
