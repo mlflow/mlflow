@@ -1,13 +1,49 @@
-===========================
-MLflow Tracking Client APIs
-===========================
+====================
+MLflow Tracking APIs
+====================
 
-Some description.
+`MLflow Tracking <index.html>`_ provides Python, R, Java, or REST API to log your experiment data and models.
 
-.. _logging-functions:
+`Auto Logging <autolog.html>`_
+==============================
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    autolog
+
+`Auto logging <autolog.html>`_ is a powerful feature that allows you to log metrics, parameters, and models without the need for explicit log statements
+but just a single ``mlflow.autolog()`` call at the top of your ML code. See :ref:`auto logging documentation <automatic-logging>` for supported libraries and how to use autolog APIs with each of them.
+
+Manual Logging
+==============
+
+Alternatively, you log MLflow metrics by adding ``log`` methods in your ML code. For example:
+
+Python
+  .. code-block:: python
+
+    with mlflow.start_run():
+        for epoch in range(0, 3):
+            mlflow.log_metric(key="quality", value=2 * epoch, step=epoch)
+
+Java and Scala
+  .. code-block:: java
+
+    MlflowClient client = new MlflowClient();
+    RunInfo run = client.createRun();
+    for (int epoch = 0; epoch < 3; epoch ++) {
+        client.logMetric(run.getRunId(), "quality", 2 * epoch, System.currentTimeMillis(), epoch);
+    }
+
+.. _tracking_logging_functions:
 
 Logging functions
-=================
+-----------------
+
+Here are the full list of logging functions provided by the Tracking API (Python). Note that Java and R APIs provide similar but
+limited set of logging functions.
 
 :py:func:`mlflow.set_tracking_uri` connects to a tracking URI. You can also set the
 ``MLFLOW_TRACKING_URI`` environment variable to have MLflow find a URI from there. In both cases,
@@ -75,15 +111,21 @@ an optional ``artifact_path``.
 logged to.
 
 
+Tracking Tips
+=============
 
+Logging with explicit step and timestamp
+----------------------------------------
 
+The ``log`` methods support two alternative methods for distinguishing metric values on the x-axis: ``timestamp`` and ``step`` (number of training iterations, number of epochs, and so on).
+By default, ``timestamp`` is set to the current time and ``step`` is set to 0. You can override these values by passing
+``timestamp`` and ``step`` arguments to the ``log`` methods. For example:
 
-Performance Tracking with Metrics
-=================================
+.. code-block:: python
 
-You log MLflow metrics with ``log`` methods in the Tracking API. The ``log`` methods support two alternative methods for distinguishing metric values on the x-axis: ``timestamp`` and ``step``.
+    mlflow.log_metric(key="train_loss", value=train_loss, step=epoch, timestamp=now)
 
-``timestamp`` is an optional long value that represents the time that the metric was logged. ``timestamp`` defaults to the current time. ``step`` is an optional integer that represents any measurement of training progress (number of training iterations, number of epochs, and so on). ``step`` defaults to 0 and has the following requirements and properties:
+``step``  has the following requirements and properties:
 
 - Must be a valid 64-bit integer value.
 - Can be negative.
@@ -92,51 +134,14 @@ You log MLflow metrics with ``log`` methods in the Tracking API. The ``log`` met
 
 If you specify both a timestamp and a step, metrics are recorded against both axes independently.
 
-Examples
-~~~~~~~~
-
-Python
-  .. code-block:: python
-
-    with mlflow.start_run():
-        for epoch in range(0, 3):
-            mlflow.log_metric(key="quality", value=2 * epoch, step=epoch)
-
-Java and Scala
-  .. code-block:: java
-
-    MlflowClient client = new MlflowClient();
-    RunInfo run = client.createRun();
-    for (int epoch = 0; epoch < 3; epoch ++) {
-        client.logMetric(run.getRunId(), "quality", 2 * epoch, System.currentTimeMillis(), epoch);
-    }
-
-
-Visualizing Metrics
--------------------
-
-Here is an example plot of the :ref:`quick start tutorial <quickstart-1>` with the step x-axis and two timestamp axes:
-
-.. figure:: ../_static/images/metrics-step.png
-
-  X-axis step
-
-.. figure:: ../_static/images/metrics-time-wall.png
-
-  X-axis wall time - graphs the absolute time each metric was logged
-
-.. figure:: ../_static/images/metrics-time-relative.png
-
-  X-axis relative time - graphs the time relative to the first metric logged, for each run
-
 .. _organizing-runs-in-experiments:
 
 Organizing Runs in Experiments
-==============================
+------------------------------
 
 MLflow allows you to group runs under experiments, which can be useful for comparing runs intended
-to tackle a particular task. You can create experiments using the :ref:`cli` (``mlflow experiments``) or
-the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for an individual run
+to tackle a particular task. You can create experiments via multiple way - MLflow UI, the :ref:`cli` (``mlflow experiments``),
+or the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for an individual run
 using the CLI (for example, ``mlflow run ... --experiment-name [name]``) or the ``MLFLOW_EXPERIMENT_NAME``
 environment variable. Alternatively, you can use the experiment ID instead, via the
 ``--experiment-id`` CLI flag or the ``MLFLOW_EXPERIMENT_ID`` environment variable.
@@ -157,33 +162,10 @@ environment variable. Alternatively, you can use the experiment ID instead, via 
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
 
-
-Managing Experiments and Runs with the Tracking Service API
-===========================================================
-
-MLflow provides a more detailed Tracking Service API for managing experiments and runs directly,
-which is available through client SDK in the :py:mod:`mlflow.client` module.
-This makes it possible to query data about past runs, log additional information about them, create experiments,
-add tags to a run, and more.
-
-.. rubric:: Example
-
-.. code-block:: python
-
-    from mlflow.tracking import MlflowClient
-
-    client = MlflowClient()
-    experiments = (
-        client.search_experiments()
-    )  # returns a list of mlflow.entities.Experiment
-    run = client.create_run(experiments[0].experiment_id)  # returns mlflow.entities.Run
-    client.log_param(run.info.run_id, "hello", "world")
-    client.set_terminated(run.info.run_id)
-
 .. _launching-multiple-runs:
 
 Launching Multiple Runs in One Program
-======================================
+--------------------------------------
 Sometimes you want to launch multiple MLflow runs in the same program: for example, maybe you are
 performing a hyperparameter search locally or your experiments are just very fast to run. This is
 easy to do because the ``ActiveRun`` object returned by :py:func:`mlflow.start_run` is a Python
@@ -204,24 +186,18 @@ statement exits, even if it exits due to an exception.
 .. _add-tags-to-runs:
 
 Adding Tags to Runs
-===================
+-------------------
 
-The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
-
-.. code-block:: python
-
-  client.set_tag(run.info.run_id, "tag_key", "tag_value")
-
-.. important:: Do not use the prefix ``mlflow.`` (e.g. ``mlflow.note``) for a tag.  This prefix is reserved for use by MLflow. See :ref:`system_tags` for a list of reserved tag keys.
-
+You can annotate runs with arbitrary tags to organize them into groups. This allows you to easily filter and search
+Runs in Tracking UI by using :ref:`filter experssion <mlflow_tags>`.
 
 .. _system_tags:
 
 System Tags
-===========
+~~~~~~~~~~~
 
-You can annotate runs with arbitrary tags. Tag keys that start with ``mlflow.`` are reserved for
-internal use. The following tags are set automatically by MLflow, when appropriate:
+Tag keys that start with ``mlflow.`` are reserved for internal use.
+The following tags are set automatically by MLflow, when appropriate:
 
 +-------------------------------+----------------------------------------------------------------------------------------+
 | Key                           | Description                                                                            |
@@ -258,3 +234,40 @@ internal use. The following tags are set automatically by MLflow, when appropria
 |                               | form of the MLModel model files logged to a run, although the exact format and         |
 |                               | information captured is subject to change.                                             |
 +-------------------------------+----------------------------------------------------------------------------------------+
+
+Custom Tags
+~~~~~~~~~~~
+
+The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
+
+.. code-block:: python
+
+  client.set_tag(run.info.run_id, "tag_key", "tag_value")
+
+
+Get MLflow Run instance from autologged results
+-----------------------------------------------
+
+In some cases, you may want to access the MLflow Run instance associated with the autologged results, similarly to you can get `mlflow.start_run()` 
+You can access the most recent autolog run through the :py:func:`mlflow.last_active_run` function. Here's a short sklearn autolog example that makes use of this function:
+
+.. code-block:: python
+
+    import mlflow
+
+    from sklearn.model_selection import train_test_split
+    from sklearn.datasets import load_diabetes
+    from sklearn.ensemble import RandomForestRegressor
+
+    mlflow.autolog()
+
+    db = load_diabetes()
+    X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+    # Create and train models.
+    rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+    rf.fit(X_train, y_train)
+
+    # Use the model to make predictions on the test dataset.
+    predictions = rf.predict(X_test)
+    autolog_run = mlflow.last_active_run()

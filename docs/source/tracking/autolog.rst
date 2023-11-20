@@ -3,31 +3,47 @@
 ======================================
 Automatic Logging with MLflow Tracking
 ======================================
-
-Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements.
+Auto logging is a powerful feature that allows you to log metrics, parameters, and models without the need for explicit log statements. All you need to do is to call
+:py:func:`mlflow.autolog` before your training code. 
 
 .. code-block:: python
- 
-        import mlflow
-        mlflow.autolog()    
 
-        # Your training code...
+    import mlflow
+
+    mlflow.autolog()
+
+    with mlflow.start_run():
+        # your training code goes here
+        ... 
+
+This will enable MLflow to automatically log various information about your run, including:
+
+* **Metrics** - MLflow pre-selects a set of metrics to log, based on what model and library you use
+* **Parameters** - hyper params specified for the training, plus default values provided by the library if not explicitly set
+* **Model Signature** - logs :ref:`Model signature <model-signature>` instance, which describes input and output schema of the model
+* **Artifacts** -  e.g. model checkpoints
+* **Dataset** - dataset object used for training (if applicable), such as `tensorflow.data.Dataset`
 
 
-There are two ways to use autologging:
+How to Get started
+==================
 
-#. Call :py:func:`mlflow.autolog` before your training code like above code snippet. This will enable autologging for each supported library you have installed as soon as you import it.
-#. Use library-specific autolog calls for each library you use in your code. See below for examples.
+Step 1 - Get MLflow
+-------------------
 
-The following libraries support autologging:
+MLflow is available on PyPI. If you don't already have it installed on your system, you can install it with:
 
-.. contents::
-  :local:
-  :depth: 1
+.. code-section::
 
-For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
+    .. code-block:: bash
+        :name: download-mlflow
 
-You can access the most recent autolog run through the :py:func:`mlflow.last_active_run` function. Here's a short sklearn autolog example that makes use of this function:
+        pip install mlflow
+
+Step 2 - Insert ``mlflow.autolog`` in Your Code
+-----------------------------------------------
+
+For example, following code snippet shows how to enable autologging for a scikit-learn model:
 
 .. code-block:: python
 
@@ -42,13 +58,67 @@ You can access the most recent autolog run through the :py:func:`mlflow.last_act
     db = load_diabetes()
     X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
 
-    # Create and train models.
     rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
     rf.fit(X_train, y_train)
 
-    # Use the model to make predictions on the test dataset.
-    predictions = rf.predict(X_test)
-    autolog_run = mlflow.last_active_run()
+Step 3 - Execute Your Code
+--------------------------
+
+.. code-section::
+
+    .. code-block:: bash
+        :name: execute code
+
+        python YOUR_ML_CODE.py
+
+
+Step 4 - View Your Results in the MLflow UI
+-------------------------------------------
+
+Once your training job finishes, you can run following command to launch the MLflow UI:
+
+.. code-section::
+
+    .. code-block:: bash
+        :name: view-results
+
+        mlflow ui --port 8080
+
+Then, navigate to `http://localhost:8080 <http://localhost:8080>`_ in your browser to view the results.
+
+Customize Autologging Behavior
+==============================
+
+You can also control the behavior of autologging by passing arguments to :py:func:`mlflow.autolog` function.
+For example, you can disable logging of model checkpoints and assosiate tags with your run as follows:
+
+.. code-block:: python
+
+    import mlflow
+
+    mlflow.autolog(
+        log_model_signatures=False,
+        extra_tags={"YOUR_TAG": "VALUE"},
+    )
+
+See :py:func:`mlflow.autolog` for the full set of arguments you can use.
+
+Supported Libraries
+===================
+
+.. note::
+
+    Generic autolog function :py:func:`mlflow.autolog` enables autologging for each supported library you have installed as soon as you import it.
+    Alternatively, you can use library-specific autolog calls such as :py:func:`mlflow.pytorch.autolog` to explicitly enable autologging for a particular library.
+
+The following libraries support autologging:
+
+.. contents::
+  :local:
+  :depth: 1
+
+For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
+
 
 .. _autolog-sklearn:
 
@@ -104,7 +174,7 @@ containing the following data:
 
 Keras
 -----
-Call :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. As an example, try running the `Keras/Tensorflow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
+Call the generic autolog function or :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. As an example, try running the `Keras/Tensorflow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 
 Note that only ``tensorflow>=2.3`` are supported.
 The respective metrics associated with ``tf.estimator`` and ``EarlyStopping`` are automatically logged.
@@ -131,7 +201,7 @@ If a run already exists when ``autolog()`` captures data, MLflow will log to tha
 
 Gluon
 -----
-Call :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
+Call the generic autolog function :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
 See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
 
 Autologging captures the following information:
@@ -146,7 +216,7 @@ Autologging captures the following information:
 
 XGBoost
 -------
-Call :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters.
+Call the generic autolog function :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
 
@@ -166,7 +236,7 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 
 LightGBM
 --------
-Call :py:func:`mlflow.lightgbm.autolog` before your training code to enable automatic logging of metrics and parameters.
+Call the generic autolog function :py:func:`mlflow.lightgbm.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
 
@@ -184,7 +254,7 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 
 Statsmodels
 -----------
-Call :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
+Call the generic autolog function :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
 
@@ -206,7 +276,7 @@ Spark
 
 Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
 ``SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")``) and then
-call :py:func:`mlflow.spark.autolog` to enable automatic logging of Spark datasource
+call the generic autolog function :py:func:`mlflow.spark.autolog` to enable automatic logging of Spark datasource
 information at read-time, without the need for explicit
 log statements. Note that autologging of Spark ML (MLlib) models is not yet supported.
 
@@ -226,7 +296,7 @@ Autologging captures the following information:
 Fastai
 ------
 
-Call :py:func:`mlflow.fastai.autolog` before your training code to enable automatic logging of metrics and parameters.
+Call the generic autolog function :py:func:`mlflow.fastai.autolog` before your training code to enable automatic logging of metrics and parameters.
 See an example usage with `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_.
 
 Autologging captures the following information:
@@ -248,7 +318,7 @@ Autologging captures the following information:
 Pytorch
 -------
 
-Call :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
+Call the generic autolog function :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
 that currently, Pytorch autologging supports only models trained using Pytorch Lightning.
 
 Autologging is triggered on calls to ``pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
