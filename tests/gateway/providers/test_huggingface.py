@@ -1,10 +1,12 @@
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -18,7 +20,7 @@ def completions_config():
         "model": {
             "provider": "huggingface-text-generation-inference",
             "name": "hf-tgi",
-            "config": {"hf_server_url": "url"},
+            "config": {"hf_server_url": "https://testserverurl.com"},
         },
     }
 
@@ -30,7 +32,7 @@ def embedding_config():
         "model": {
             "provider": "huggingface-text-generation-inference",
             "name": "hf-tgi",
-            "config": {"hf_server_url": "url"},
+            "config": {"hf_server_url": "https://testserverurl.com"},
         },
     }
 
@@ -42,7 +44,7 @@ def chat_config():
         "model": {
             "provider": "huggingface-text-generation-inference",
             "name": "hf-tgi",
-            "config": {"hf_server_url": "url"},
+            "config": {"hf_server_url": "https://testserverurl.com"},
         },
     }
 
@@ -63,7 +65,7 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch(
+    with mock.patch("time.time", lambda: 1677858242), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
@@ -72,34 +74,41 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "hf-tgi",
+            "choices": [
                 {
                     "text": "this is a test response",
-                    "metadata": {"finish_reason": "length", "seed": "0"},
+                    "index": 0,
+                    "finish_reason": "length",
                 }
             ],
-            "metadata": {
-                "input_tokens": 4,
-                "output_tokens": 5,
-                "total_tokens": 9,
-                "model": "hf-tgi",
-                "route_type": "llm/v1/completions",
-            },
+            "usage": {"prompt_tokens": 4, "completion_tokens": 5, "total_tokens": 9},
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://testserverurl.com/generate",
+            json={
+                "inputs": "This is a test",
+                "parameters": {
+                    "temperature": 0.001,
+                    "details": True,
+                    "decoder_input_details": True,
+                },
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 @pytest.mark.asyncio
 async def test_completion_fails_with_multiple_candidates():
     config = chat_config()
     provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
-    payload = {"prompt": "This is a test", "candidate_count": 2}
+    payload = {"prompt": "This is a test", "n": 2}
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
-    assert (
-        "'candidate_count' must be '1' for the Text Generation Inference provider."
-        in e.value.detail
-    )
+    assert "'n' must be '1' for the Text Generation Inference provider." in e.value.detail
     assert e.value.status_code == 422
 
 
