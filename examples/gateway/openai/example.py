@@ -3,7 +3,7 @@ from mlflow.gateway import query, set_gateway_uri
 
 def main():
     # Set the URI for the MLflow AI Gateway
-    set_gateway_uri("http://localhost:5000")
+    set_gateway_uri("http://localhost:8000")
 
     # Completions example
     response_completions = query(

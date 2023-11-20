@@ -7,6 +7,14 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 
+from mlflow.deployments.server.constants import (
+    MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE,
+    MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE,
+    MLFLOW_DEPLOYMENTS_HEALTH_ENDPOINT,
+    MLFLOW_DEPLOYMENTS_LIMITS_BASE,
+    MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
+    MLFLOW_GATEWAY_LIST_ENDPOINTS_PAGE_SIZE,
+)
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import SetLimitsModel
@@ -23,7 +31,6 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_HEALTH_ENDPOINT,
     MLFLOW_GATEWAY_LIMITS_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
-    MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
     MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.providers import get_provider
@@ -43,6 +50,14 @@ class GatewayAPI(FastAPI):
     def set_dynamic_routes(self, config: GatewayConfig) -> None:
         self.dynamic_routes.clear()
         for route in config.routes:
+            self.add_api_route(
+                path=(
+                    MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + route.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
+                ),
+                endpoint=_route_type_to_endpoint(route),
+                methods=["POST"],
+            )
+            # TODO: Remove Gateway server URLs after deprecation window elapses
             self.add_api_route(
                 path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{route.name}{MLFLOW_QUERY_SUFFIX}",
                 endpoint=_route_type_to_endpoint(route),
@@ -179,10 +194,24 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             swagger_favicon_url="/favicon.ico",
         )
 
+    @app.get(MLFLOW_DEPLOYMENTS_HEALTH_ENDPOINT)
+    # TODO: Remove Gateway server URLs after deprecation window elapses
     @app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT)
     async def health() -> HealthResponse:
         return {"status": "OK"}
 
+    @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE + "{endpoint_name}")
+    async def get_endpoint(endpoint_name: str) -> Route:
+        if matched := app.get_dynamic_route(endpoint_name):
+            return matched
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"The endpoint '{endpoint_name}' is not present or active on the server. Please "
+            "verify the endpoint name.",
+        )
+
+    # TODO: Remove Gateway server URLs after deprecation window elapses
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}")
     async def get_route(route_name: str) -> Route:
         if matched := app.get_dynamic_route(route_name):
@@ -194,11 +223,11 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             "verify the route name.",
         )
 
-    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
-    async def search_routes(page_token: Optional[str] = None) -> SearchRoutesResponse:
+    @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE)
+    async def list_endpoints(page_token: Optional[str] = None) -> SearchRoutesResponse:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
-        end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
+        end_idx = start_idx + MLFLOW_GATEWAY_LIST_ENDPOINTS_PAGE_SIZE
         routes = list(app.dynamic_routes.values())
         result = {"routes": routes[start_idx:end_idx]}
         if len(routes[end_idx:]) > 0:
@@ -207,17 +236,31 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
         return result
 
-    @app.get(MLFLOW_GATEWAY_LIMITS_BASE + "{route}")
-    async def get_limits(route: str) -> LimitsConfig:
-        raise HTTPException(
-            status_code=501, detail="The get_limits API is not available in OSS MLflow AI Gateway."
-        )
+    # TODO: Remove Gateway server URLs after deprecation window elapses
+    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
+    async def search_routes(page_token: Optional[str] = None) -> SearchRoutesResponse:
+        start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
+        end_idx = start_idx + MLFLOW_GATEWAY_LIST_ENDPOINTS_PAGE_SIZE
+        routes = list(app.dynamic_routes.values())
+        result = {"routes": routes[start_idx:end_idx]}
+        if len(routes[end_idx:]) > 0:
+            next_page_token = SearchRoutesToken(index=end_idx)
+            result["next_page_token"] = next_page_token.encode()
+
+        return result
+
+    @app.get(MLFLOW_DEPLOYMENTS_LIMITS_BASE + "{endpoint}")
+    # TODO: Remove Gateway server URLs after deprecation window elapses
+    @app.get(MLFLOW_GATEWAY_LIMITS_BASE + "{endpoint}")
+    async def get_limits(endpoint: str) -> LimitsConfig:
+        raise HTTPException(status_code=501, detail="The get_limits API is not available yet.")
+
+    @app.post(MLFLOW_DEPLOYMENTS_LIMITS_BASE)
+    # TODO: Remove Gateway server URLs after deprecation window elapses
     @app.post(MLFLOW_GATEWAY_LIMITS_BASE)
     async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
-        raise HTTPException(
-            status_code=501, detail="The set_limits API is not available in OSS MLflow AI Gateway."
-        )
+        raise HTTPException(status_code=501, detail="The set_limits API is not available yet.")
 
     return app
 

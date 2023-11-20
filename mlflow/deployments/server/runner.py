@@ -6,8 +6,8 @@ from typing import Generator
 
 from watchfiles import watch
 
+from mlflow.deployments.server import app
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
-from mlflow.gateway import app
 from mlflow.gateway.config import _load_route_config
 from mlflow.gateway.utils import kill_child_processes
 
