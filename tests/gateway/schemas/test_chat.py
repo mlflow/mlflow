@@ -19,7 +19,7 @@ def test_chat_request():
         }
     )
 
-    with pytest.raises(pydantic.ValidationError, match="should be less than or equal to 2"):
+    with pytest.raises(pydantic.ValidationError, match="less than or equal to 2"):
         chat.RequestPayload(
             **{
                 "messages": [{"role": "user", "content": "content"}],

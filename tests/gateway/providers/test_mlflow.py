@@ -253,7 +253,7 @@ async def test_chat():
     config = chat_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("time.time", lambda: 1700242674), mock.patch(
+    with mock.patch("time.time", return_value=1700242674), mock.patch(
         "aiohttp.ClientSession", return_value=mock_client
     ) as mock_build_client:
         provider = MlflowModelServingProvider(RouteConfig(**config))

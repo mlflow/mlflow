@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 
@@ -15,7 +15,7 @@ class RequestPayload(RequestModel):
 
 
 class EmbeddingObject(ResponseModel):
-    object: str = "embedding"
+    object: Literal["embedding"] = "embedding"
     embedding: List[float]
     index: int
 
@@ -26,7 +26,7 @@ class EmbeddingsUsage(ResponseModel):
 
 
 class ResponsePayload(ResponseModel):
-    object: str = "list"
+    object: Literal["list"] = "list"
     data: List[EmbeddingObject]
     model: str
     usage: EmbeddingsUsage

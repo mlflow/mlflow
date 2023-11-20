@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import Field
 
@@ -52,7 +52,7 @@ class ChatUsage(ResponseModel):
 
 class ResponsePayload(ResponseModel):
     id: Optional[str] = None
-    object: str = "chat.completion"
+    object: Literal["chat.completion"] = "chat.completion"
     created: int
     model: str
     choices: List[Choice]

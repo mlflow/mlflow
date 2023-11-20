@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from mlflow.gateway.base_models import ResponseModel
 from mlflow.gateway.schemas.chat import BaseRequestPayload
@@ -33,7 +33,7 @@ class CompletionsUsage(ResponseModel):
 
 class ResponsePayload(ResponseModel):
     id: Optional[str] = None
-    object: str = "text_completion"
+    object: Literal["text_completion"] = "text_completion"
     created: int
     model: str
     choices: List[Choice]
