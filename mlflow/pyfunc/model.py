@@ -108,7 +108,8 @@ class PythonModel:
             load_context_defined = cls.load_context != PythonModel.load_context
             if model_assigned and not load_context_defined:
                 warnings.warn(message, stacklevel=3)
-        except Exception:
+        except Exception as e:
+            print(e)
             # it's possible that inspect.getsource might fail, but since we
             # just want to warn the user, we shouldn't throw an exception
             pass

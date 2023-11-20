@@ -3,6 +3,7 @@ import inspect
 import json
 import os
 import sys
+import textwrap
 from typing import Any, Dict
 
 from mlflow.exceptions import MlflowException
@@ -273,19 +274,12 @@ def _validate_model_assignment_in_init(cls):
     of a class. Intended to be used `PythonModel` to encourage best practices
     when declaring pyfunc models.
     """
-    cls_init_source = inspect.getsource(cls.__init__)
-    lines = cls_init_source.split("\n")
-    spaces = lines[0].find("d")
-
-    # shouldn't happen as the first line
-    # should always be def __init__(...):
-    if spaces == -1:
-        return
-
-    # remove the spaces from the beginning of each line
-    source = "\n".join([line[spaces:] for line in lines])
+    cls_init_source = textwrap.dedent(inspect.getsource(cls.__init__))
 
     class ModelAssignVisitor(ast.NodeVisitor):
+        def __init__(self):
+            self.has_model = False
+            
         def visit_Assign(self, node):
             if (
                 isinstance(node.targets[0], ast.Attribute)
@@ -296,8 +290,7 @@ def _validate_model_assignment_in_init(cls):
                 self.has_model = True
 
     visitor = ModelAssignVisitor()
-    visitor.has_model = False
-    tree = ast.parse(source)
+    tree = ast.parse(cls_init_source)
     visitor.visit(tree)
 
     return visitor.has_model
