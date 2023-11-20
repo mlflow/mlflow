@@ -1,5 +1,4 @@
 import os
-from unittest import mock
 
 import pytest
 
@@ -104,12 +103,9 @@ def test_pyfunc_warn_on_model_assignment_no_context(model_path):
         def predict(self, context, model_input, params=None):
             return model_input
 
-    with mock.patch("warnings.warn") as warn_mock:
-        mlflow.pyfunc.save_model(model_path, python_model=MyModelBad(1))
-        warn_mock.assert_called()
-
-        message = warn_mock.mock_calls[0].args[0]
-        assert "It looks like you're trying to save a model" in message
+    msg = "It looks like you're trying to save a model"
+    with pytest.warns(UserWarning, match=msg):
+        MyModelBad(1)
 
 
 def test_pyfunc_no_warn_on_model_assignment_with_context(model_path):
@@ -124,28 +120,8 @@ def test_pyfunc_no_warn_on_model_assignment_with_context(model_path):
         def predict(self, context, model_input, params=None):
             return model_input
 
-    with mock.patch("warnings.warn") as warn_mock:
-        mlflow.pyfunc.save_model(model_path, python_model=MyModelGood())
-        # the warnings function might be called by other functions
-        # but we can ensure that our message is not in the call args
+    with pytest.warns(None) as record:
+        MyModelGood()
 
-        for call in warn_mock.mock_calls:
-            message = call.args[0]
-            assert "It looks like you're trying to save a model" not in message
-
-
-def test_pyfunc_warn_on_model_param(model_path):
-    # should warn if `model` param is present in __init__
-    class MyModelBad(mlflow.pyfunc.PythonModel):
-        def __init__(self, model):
-            self.llm = model
-
-        def predict(self, context, model_input, params=None):
-            return model_input
-
-    with mock.patch("warnings.warn") as warn_mock:
-        mlflow.pyfunc.save_model(model_path, python_model=MyModelBad(1))
-        assert warn_mock.called
-
-        message = warn_mock.mock_calls[0].args[0]
-        assert "It looks like you're trying to save a model" in message
+    # assert no warnings
+    assert not record

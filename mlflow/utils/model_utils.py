@@ -1,3 +1,4 @@
+import ast
 import json
 import os
 import sys
@@ -263,3 +264,38 @@ def _validate_pyfunc_model_config(model_config):
             "Values in the provided ``model_config`` are of an unsupported type. Only "
             "JSON-serializable data types can be provided as values."
         )
+
+
+def _validate_model_assignment_in_init(cls_init_method_source):
+    """
+    Checks for the presence of `self.model = <something>` in the init method
+    of a class. Intended to be used in `_PythonModelMetaclass` to encourage
+    best practices when declaring pyfunc models.
+    """
+    lines = cls_init_method_source.split("\n")
+    spaces = lines[0].find("d")
+
+    # shouldn't happen as the first line
+    # should always be def __init__(...):
+    if spaces == -1:
+        return
+
+    # remove the spaces from the beginning of each line
+    source = "\n".join([line[spaces:] for line in lines])
+
+    class ModelAssignVisitor(ast.NodeVisitor):
+        def visit_Assign(self, node):
+            if (
+                isinstance(node.targets[0], ast.Attribute)
+                and node.targets[0].attr == "model"
+                and isinstance(node.targets[0].value, ast.Name)
+                and node.targets[0].value.id == "self"
+            ):
+                self.has_model = True
+
+    visitor = ModelAssignVisitor()
+    visitor.has_model = False
+    tree = ast.parse(source)
+    visitor.visit(tree)
+
+    return visitor.has_model

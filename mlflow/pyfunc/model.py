@@ -34,7 +34,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, get_total_file_size, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import _get_flavor_configuration, _validate_model_assignment_in_init
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -74,56 +74,44 @@ def _log_warning_if_params_not_in_predict_signature(logger, params):
         )
 
 
-class _PythonModelMetaclass(ABCMeta):
-    def __call__(cls, *args, **kwargs):
-        cls._warn_on_setting_model_in_init()
-        return super().__call__(*args, **kwargs)
-
-    def _warn_on_setting_model_in_init(cls):
-        if not cls.__bases__ == (PythonModel,):
-            return
-
-        import click
-
-        message = (
-            click.style(
-                "It looks like you're trying to save a model as an instance attribute. ",
-                fg="yellow",
-            )
-            + click.style("This is not recommended ", fg="yellow", bold=True)
-            + click.style(
-                "as it can cause problems with model serialization, "
-                "especially for large models. ",
-                fg="yellow",
-            )
-            + click.style("Please use the `artifacts` parameter", fg="yellow", bold=True)
-            + click.style(
-                ", and load your external model in the `load_context()` method instead.",
-                fg="yellow",
-            )
-        )
-
-        try:
-            model_param_present = "model" in inspect.signature(cls.__init__).parameters
-            model_assignment = (
-                cls.load_context == PythonModel.load_context
-                and "self.model =" in inspect.getsource(cls.__init__)
-            )
-            if model_param_present or model_assignment:
-                warnings.warn(message, stacklevel=3)
-        except Exception:
-            # it's possible that inspect.getsource might fail, but since we
-            # just want to warn the user, we shouldn't throw an exception
-            pass
-
-
-class PythonModel(metaclass=_PythonModelMetaclass):
+class PythonModel:
     """
     Represents a generic Python model that evaluates inputs and produces API-compatible outputs.
     By subclassing :class:`~PythonModel`, users can create customized MLflow models with the
     "python_function" ("pyfunc") flavor, leveraging custom inference logic and artifact
     dependencies.
     """
+
+    __metaclass__ = ABCMeta
+
+    def __new__(cls, *args, **kwargs):
+        cls._warn_on_setting_model_in_init()
+        return super().__new__(cls)
+
+    @classmethod
+    def _warn_on_setting_model_in_init(cls):
+        message = (
+            "It looks like you're trying to save a model as an instance attribute. "
+            "This is not recommended as it can cause problems with model serialization, "
+            "especially for large models. Please use the `artifacts` parameter, "
+            "and load your external model in the `load_context()` method instead.\n\n"
+            "For example:\n\n"
+            "class MyModel(mlflow.pyfunc.PythonModel):\n"
+            "    def load_context(self, context):\n"
+            "        model_path = context.artifacts['my_model_path']\n"
+            "        // custom load logic here\n"
+            "        self.model = load_model(model_path)\n"
+        )
+
+        try:
+            model_assigned = _validate_model_assignment_in_init(inspect.getsource(cls.__init__))
+            load_context_defined = cls.load_context != PythonModel.load_context
+            if model_assigned and not load_context_defined:
+                warnings.warn(message, stacklevel=3)
+        except Exception:
+            # it's possible that inspect.getsource might fail, but since we
+            # just want to warn the user, we shouldn't throw an exception
+            pass
 
     def load_context(self, context):
         """
