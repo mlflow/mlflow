@@ -90,7 +90,10 @@ class MlflowModelServingProvider(BaseProvider):
         except ValidationError as e:
             raise HTTPException(status_code=502, detail=str(e))
 
-        return [{"text": entry, "metadata": {}} for entry in inference_data]
+        return [
+            completions.Choice(index=idx, text=entry, finish_reason=None)
+            for idx, entry in enumerate(inference_data)
+        ]
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         # Example request to MLflow REST API server for completions:
@@ -113,13 +116,15 @@ class MlflowModelServingProvider(BaseProvider):
         # {"predictions": ["hello", "hi", "goodbye"]}
 
         return completions.ResponsePayload(
-            **{
-                "candidates": self._process_completions_response_for_mlflow_serving(resp),
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=self.config.model.name,
+            choices=self._process_completions_response_for_mlflow_serving(resp),
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     def _process_chat_response_for_mlflow_serving(self, response):
