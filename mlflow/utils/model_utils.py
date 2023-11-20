@@ -269,8 +269,8 @@ def _validate_pyfunc_model_config(model_config):
 def _validate_model_assignment_in_init(cls_init_method_source):
     """
     Checks for the presence of `self.model = <something>` in the init method
-    of a class. Intended to be used in `_PythonModelMetaclass` to encourage
-    best practices when declaring pyfunc models.
+    of a class. Intended to be used `PythonModel` to encourage best practices
+    when declaring pyfunc models.
     """
     lines = cls_init_method_source.split("\n")
     spaces = lines[0].find("d")
