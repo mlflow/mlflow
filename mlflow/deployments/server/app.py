@@ -38,7 +38,6 @@ from mlflow.gateway.constants import (
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken
-from mlflow.utils.annotations import deprecated
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -252,8 +251,8 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             "verify the endpoint name.",
         )
 
+    # TODO: Remove Gateway server URLs after deprecation window elapses
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}")
-    @deprecated
     async def get_route(route_name: str) -> Route:
         if matched := app.get_dynamic_route(route_name):
             return matched
@@ -277,8 +276,8 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
         return result
 
+    # TODO: Remove Gateway server URLs after deprecation window elapses
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
-    @deprecated
     async def search_routes(page_token: Optional[str] = None) -> SearchRoutesResponse:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
