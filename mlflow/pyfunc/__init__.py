@@ -1002,7 +1002,7 @@ def _parse_spark_datatype(datatype: str):
     return_type = "boolean" if datatype == "bool" else datatype
     parsed_datatype = udf(lambda x: x, returnType=return_type).returnType
 
-    if parsed_datatype.typeName() == "UnparsedData":
+    if parsed_datatype.typeName() == "unparseddata":
         # For spark 3.5.x, `udf(lambda x: x, returnType=return_type).returnType`
         # returns UnparsedDataType, which is not compatible with signature inference.
         # Note: SparkSession.active only exists for spark >= 3.5.0
