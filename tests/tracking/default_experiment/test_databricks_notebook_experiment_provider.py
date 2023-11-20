@@ -16,7 +16,16 @@ def test_databricks_notebook_default_experiment_in_context():
 
 
 def test_databricks_notebook_default_experiment_id():
-    with mock.patch("mlflow.utils.databricks_utils.get_notebook_id") as patch_notebook_id:
+    with mock.patch.object(
+        MlflowClient,
+        "create_experiment",
+        side_effect=MlflowException(message="Error message", error_code=INVALID_PARAMETER_VALUE),
+    ), mock.patch(
+        "mlflow.utils.databricks_utils.get_notebook_path",
+        return_value="path",
+    ), mock.patch(
+        "mlflow.utils.databricks_utils.get_notebook_id"
+    ) as patch_notebook_id:
         assert (
             DatabricksNotebookExperimentProvider().get_experiment_id()
             == patch_notebook_id.return_value
