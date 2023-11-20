@@ -1261,7 +1261,7 @@ def spark_udf(
     # If client code is executed in databricks runtime and NFS is available,
     # In driver side, we save model to NFS temp directory,
     # then in executor side we can load model from the NFS temp directory.
-    should_spark_connect_use_nfs = (is_in_databricks_runtime() and should_use_nfs)
+    should_spark_connect_use_nfs = is_in_databricks_runtime() and should_use_nfs
 
     if (
         is_spark_connect
