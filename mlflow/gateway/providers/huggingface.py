@@ -60,6 +60,9 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         prompt = payload.pop("prompt")
         parameters = rename_payload_keys(payload, key_mapping)
 
+        # The range of HF TGI's temperature is 0-100, but ours is 0-2, so we multiply
+        # by 50
+        payload["temperature"] = 50 * payload["temperature"]
         # HF TGI does not support 0 temperature
         parameters["temperature"] = max(payload["temperature"], 1e-3)
         parameters["details"] = True

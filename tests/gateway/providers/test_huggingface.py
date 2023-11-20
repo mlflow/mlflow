@@ -71,6 +71,8 @@ async def test_completions():
         provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
+            "n": 1,
+            "max_tokens": 1000,
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -93,12 +95,29 @@ async def test_completions():
                 "inputs": "This is a test",
                 "parameters": {
                     "temperature": 0.001,
+                    "max_new_tokens": 1000,
                     "details": True,
                     "decoder_input_details": True,
                 },
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
+
+
+@pytest.mark.asyncio
+async def test_completions_temperature_is_scaled_correctly():
+    resp = completions_response()
+    config = completions_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+            "temperature": 0.5,
+        }
+        await provider.completions(completions.RequestPayload(**payload))
+        assert mock_post.call_args[1]["json"]["parameters"]["temperature"] == 0.5 * 50
 
 
 @pytest.mark.asyncio
