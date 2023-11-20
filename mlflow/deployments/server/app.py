@@ -7,13 +7,14 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
 
+from mlflow.deployments.server.config import Endpoint
 from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE,
     MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE,
     MLFLOW_DEPLOYMENTS_HEALTH_ENDPOINT,
     MLFLOW_DEPLOYMENTS_LIMITS_BASE,
+    MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE,
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
-    MLFLOW_GATEWAY_LIST_ENDPOINTS_PAGE_SIZE,
 )
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.exceptions import MlflowException
@@ -31,11 +32,13 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_HEALTH_ENDPOINT,
     MLFLOW_GATEWAY_LIMITS_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
+    MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE,
     MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken
+from mlflow.utils.annotations import deprecated
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -121,6 +124,44 @@ class HealthResponse(BaseModel):
     status: str
 
 
+class ListEndpointsResponse(BaseModel):
+    endpoints: List[Endpoint]
+    next_page_token: Optional[str] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "endpoints": [
+                    {
+                        "name": "openai-chat",
+                        "endpoint_type": "llm/v1/chat",
+                        "model": {
+                            "name": "gpt-3.5-turbo",
+                            "provider": "openai",
+                        },
+                    },
+                    {
+                        "name": "anthropic-completions",
+                        "endpoint_type": "llm/v1/completions",
+                        "model": {
+                            "name": "claude-instant-100k",
+                            "provider": "anthropic",
+                        },
+                    },
+                    {
+                        "name": "cohere-embeddings",
+                        "endpoint_type": "llm/v1/embeddings",
+                        "model": {
+                            "name": "embed-english-v2.0",
+                            "provider": "cohere",
+                        },
+                    },
+                ],
+                "next_page_token": "eyJpbmRleCI6IDExfQ==",
+            }
+        }
+
+
 class SearchRoutesResponse(BaseModel):
     routes: List[Route]
     next_page_token: Optional[str] = None
@@ -201,9 +242,9 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         return {"status": "OK"}
 
     @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE + "{endpoint_name}")
-    async def get_endpoint(endpoint_name: str) -> Route:
+    async def get_endpoint(endpoint_name: str) -> Endpoint:
         if matched := app.get_dynamic_route(endpoint_name):
-            return matched
+            return matched.to_endpoint()
 
         raise HTTPException(
             status_code=404,
@@ -211,8 +252,8 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             "verify the endpoint name.",
         )
 
-    # TODO: Remove Gateway server URLs after deprecation window elapses
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}")
+    @deprecated
     async def get_route(route_name: str) -> Route:
         if matched := app.get_dynamic_route(route_name):
             return matched
@@ -224,24 +265,24 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE)
-    async def list_endpoints(page_token: Optional[str] = None) -> SearchRoutesResponse:
+    async def list_endpoints(page_token: Optional[str] = None) -> ListEndpointsResponse:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
-        end_idx = start_idx + MLFLOW_GATEWAY_LIST_ENDPOINTS_PAGE_SIZE
+        end_idx = start_idx + MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE
         routes = list(app.dynamic_routes.values())
-        result = {"routes": routes[start_idx:end_idx]}
+        result = {"endpoints": [route.to_endpoint() for route in routes[start_idx:end_idx]]}
         if len(routes[end_idx:]) > 0:
             next_page_token = SearchRoutesToken(index=end_idx)
             result["next_page_token"] = next_page_token.encode()
 
         return result
 
-    # TODO: Remove Gateway server URLs after deprecation window elapses
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
+    @deprecated
     async def search_routes(page_token: Optional[str] = None) -> SearchRoutesResponse:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
-        end_idx = start_idx + MLFLOW_GATEWAY_LIST_ENDPOINTS_PAGE_SIZE
+        end_idx = start_idx + MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
         routes = list(app.dynamic_routes.values())
         result = {"routes": routes[start_idx:end_idx]}
         if len(routes[end_idx:]) > 0:

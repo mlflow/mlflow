@@ -406,6 +406,16 @@ class Route(ResponseModel):
             }
         }
 
+    def to_endpoint(self):
+        from mlflow.deployments.server.config import Endpoint
+
+        return Endpoint(
+            name=self.name,
+            endpoint_type=self.route_type,
+            model=self.model,
+            endpoint_url=self.route_url,
+        )
+
 
 class Limit(LimitModel):
     calls: int
