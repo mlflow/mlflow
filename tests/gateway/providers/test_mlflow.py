@@ -45,7 +45,6 @@ async def test_completions():
         payload = {
             "prompt": "Is this a test?",
             "temperature": 0.0,
-            "candidate_count": 1,
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -65,7 +64,7 @@ async def test_completions():
                 "inputs": ["Is this a test?"],
                 "params": {
                     "temperature": 0.0,
-                    "candidate_count": 1,
+                    "n": 1,
                 },
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
@@ -239,26 +238,31 @@ async def test_chat():
     config = chat_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("time.time", return_value=1700242674), mock.patch(
+        "aiohttp.ClientSession", return_value=mock_client
+    ) as mock_build_client:
         provider = MlflowModelServingProvider(RouteConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Is this a test?"}]}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
+            "id": None,
+            "created": 1700242674,
+            "object": "chat.completion",
+            "model": "chat-bot-9000",
+            "choices": [
                 {
                     "message": {
                         "role": "assistant",
                         "content": "It is a test",
                     },
-                    "metadata": {"finish_reason": None},
+                    "finish_reason": None,
+                    "index": 0,
                 }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
                 "total_tokens": None,
-                "model": "chat-bot-9000",
-                "route_type": "llm/v1/chat",
             },
         }
         mock_build_client.assert_called_once()
@@ -266,7 +270,7 @@ async def test_chat():
             "http://127.0.0.1:4000/invocations",
             json={
                 "inputs": ["Is this a test?"],
-                "params": {"temperature": 0.0, "candidate_count": 1},
+                "params": {"temperature": 0.0, "n": 1},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )

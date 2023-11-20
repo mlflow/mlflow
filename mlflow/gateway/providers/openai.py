@@ -74,22 +74,10 @@ class OpenAIProvider(BaseProvider):
             return payload
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        from fastapi import HTTPException
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-        if "n" in payload:
-            raise HTTPException(
-                status_code=422, detail="Invalid parameter `n`. Use `candidate_count` instead."
-            )
-
-        payload = rename_payload_keys(
-            payload,
-            {"candidate_count": "n"},
-        )
-        # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
-        payload["temperature"] = 2 * payload["temperature"]
 
         resp = await send_request(
             headers=self._request_headers,
@@ -122,27 +110,25 @@ class OpenAIProvider(BaseProvider):
         # }
         # ```
         return chat.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "message": {
-                            "role": c["message"]["role"],
-                            "content": c["message"]["content"],
-                        },
-                        "metadata": {
-                            "finish_reason": c["finish_reason"],
-                        },
-                    }
-                    for c in resp["choices"]
-                ],
-                "metadata": {
-                    "input_tokens": resp["usage"]["prompt_tokens"],
-                    "output_tokens": resp["usage"]["completion_tokens"],
-                    "total_tokens": resp["usage"]["total_tokens"],
-                    "model": resp["model"],
-                    "route_type": self.config.route_type,
-                },
-            }
+            id=resp["id"],
+            object=resp["object"],
+            created=resp["created"],
+            model=resp["model"],
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(
+                        role=c["message"]["role"], content=c["message"]["content"]
+                    ),
+                    finish_reason=c["finish_reason"],
+                )
+                for idx, c in enumerate(resp["choices"])
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=resp["usage"]["prompt_tokens"],
+                completion_tokens=resp["usage"]["completion_tokens"],
+                total_tokens=resp["usage"]["total_tokens"],
+            ),
         )
 
     def _prepare_completion_request_payload(self, payload):
@@ -176,15 +162,10 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        from fastapi import HTTPException
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-        if "n" in payload:
-            raise HTTPException(
-                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
-            )
         payload = self._prepare_completion_request_payload(payload)
 
         resp = await send_request(

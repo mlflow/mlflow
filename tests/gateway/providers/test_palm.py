@@ -1,11 +1,13 @@
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.palm import PaLMProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -92,49 +94,82 @@ def chat_response():
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "expected_llm_input"),
     [
-        {"messages": [{"role": "user", "content": "Tell me a joke"}]},
-        {
-            "messages": [
-                {"role": "system", "content": "You're funny"},
-                {"role": "user", "content": "Tell me a joke"},
-            ]
-        },
-        {
-            "messages": [{"role": "user", "content": "Tell me a joke"}],
-            "temperature": 0.5,
-        },
+        (
+            {"messages": [{"role": "user", "content": "Tell me a joke"}]},
+            {
+                "temperature": 0.0,
+                "candidateCount": 1,
+                "prompt": {"messages": [{"content": "Tell me a joke", "author": "user"}]},
+            },
+        ),
+        (
+            {
+                "messages": [
+                    {"role": "system", "content": "You're funny"},
+                    {"role": "user", "content": "Tell me a joke"},
+                ]
+            },
+            {
+                "temperature": 0.0,
+                "candidateCount": 1,
+                "prompt": {
+                    "messages": [
+                        {"content": "You're funny", "author": "system"},
+                        {"content": "Tell me a joke", "author": "user"},
+                    ]
+                },
+            },
+        ),
+        (
+            {
+                "messages": [{"role": "user", "content": "Tell me a joke"}],
+                "temperature": 0.5,
+            },
+            {
+                "temperature": 0.25,
+                "candidateCount": 1,
+                "prompt": {"messages": [{"content": "Tell me a joke", "author": "user"}]},
+            },
+        ),
     ],
 )
 @pytest.mark.asyncio
-async def test_chat(payload):
+async def test_chat(payload, expected_llm_input):
     resp = chat_response()
     config = chat_config()
-    with mock.patch(
+    with mock.patch("time.time", return_value=1700242674), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = PaLMProvider(RouteConfig(**config))
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
+            "id": None,
+            "created": 1700242674,
+            "object": "chat.completion",
+            "model": "chat-bison",
+            "choices": [
                 {
                     "message": {
                         "role": "1",
                         "content": "Hi there! How can I help you today?",
                     },
-                    "metadata": {"finish_reason": None},
+                    "finish_reason": None,
+                    "index": 0,
                 }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
                 "total_tokens": None,
-                "model": "chat-bison",
-                "route_type": "llm/v1/chat",
             },
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://generativelanguage.googleapis.com/v1beta3/models/chat-bison:generateMessage",
+            json=expected_llm_input,
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def embeddings_config():

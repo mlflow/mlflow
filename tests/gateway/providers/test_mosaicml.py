@@ -1,12 +1,14 @@
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow import MlflowException
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.schemas.chat import RequestMessage
@@ -91,58 +93,108 @@ def chat_response():
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "expected_llm_input"),
     [
-        {"messages": [{"role": "user", "content": "Tell me a joke"}]},
-        {
-            "messages": [
-                {"role": "system", "content": "You're funny"},
-                {"role": "user", "content": "Tell me a joke"},
-            ]
-        },
-        {
-            "messages": [{"role": "user", "content": "Tell me a joke"}],
-            "temperature": 0.5,
-            "max_tokens": 1000,
-        },
-        {
-            "messages": [
-                {"role": "system", "content": "You're funny"},
-                {"role": "user", "content": "Tell me a joke"},
-                {"role": "assistant", "content": "Haha"},
-                {"role": "user", "content": "That was a bad joke"},
-            ]
-        },
+        (
+            {"messages": [{"role": "user", "content": "Tell me a joke"}]},
+            {
+                "inputs": ["<s>[INST] Tell me a joke [/INST]"],
+                "parameters": {
+                    "temperature": 0.0,
+                    "n": 1,
+                },
+            },
+        ),
+        (
+            {
+                "messages": [
+                    {"role": "system", "content": "You're funny"},
+                    {"role": "user", "content": "Tell me a joke"},
+                ]
+            },
+            {
+                "inputs": ["<s>[INST] <<SYS>> You're funny <</SYS>> Tell me a joke [/INST]"],
+                "parameters": {
+                    "temperature": 0.0,
+                    "n": 1,
+                },
+            },
+        ),
+        (
+            {
+                "messages": [{"role": "user", "content": "Tell me a joke"}],
+                "temperature": 0.5,
+                "max_tokens": 1000,
+            },
+            {
+                "inputs": ["<s>[INST] Tell me a joke [/INST]"],
+                "parameters": {
+                    "temperature": 0.5,
+                    "n": 1,
+                    "max_new_tokens": 1000,
+                },
+            },
+        ),
+        (
+            {
+                "messages": [
+                    {"role": "system", "content": "You're funny"},
+                    {"role": "user", "content": "Tell me a joke"},
+                    {"role": "assistant", "content": "Haha"},
+                    {"role": "user", "content": "That was a bad joke"},
+                ]
+            },
+            {
+                "inputs": [
+                    (
+                        "<s>[INST] <<SYS>> You're funny <</SYS>>"
+                        " Tell me a joke [/INST] Haha </s><s>[INST]"
+                        " That was a bad joke [/INST]"
+                    )
+                ],
+                "parameters": {
+                    "temperature": 0.0,
+                    "n": 1,
+                },
+            },
+        ),
     ],
 )
 @pytest.mark.asyncio
-async def test_chat(payload):
+async def test_chat(payload, expected_llm_input):
     resp = chat_response()
     config = chat_config()
-    with mock.patch(
+    with mock.patch("time.time", return_value=1700242674), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = MosaicMLProvider(RouteConfig(**config))
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
+            "id": None,
+            "created": 1700242674,
+            "object": "chat.completion",
+            "model": "llama2-70b-chat",
+            "choices": [
                 {
                     "message": {
                         "role": "assistant",
                         "content": "This is a test",
                     },
-                    "metadata": {"finish_reason": None},
+                    "finish_reason": None,
+                    "index": 0,
                 }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
                 "total_tokens": None,
-                "model": "llama2-70b-chat",
-                "route_type": "llm/v1/chat",
             },
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://models.hosted-on.mosaicml.hosting/llama2-70b-chat/v1/predict",
+            json=expected_llm_input,
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def embeddings_config():

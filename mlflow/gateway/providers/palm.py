@@ -1,3 +1,4 @@
+import time
 from typing import Any, Dict
 
 from fastapi import HTTPException
@@ -34,7 +35,7 @@ class PaLMProvider(BaseProvider):
             )
         key_mapping = {
             "stop": "stopSequences",
-            "candidate_count": "candidateCount",
+            "n": "candidateCount",
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
@@ -42,6 +43,8 @@ class PaLMProvider(BaseProvider):
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
+        # The range of PaLM's temperature is 0-1, but ours is 0-2, so we halve it
+        payload["temperature"] = 0.5 * payload["temperature"]
 
         # Replace 'role' with 'author' in payload
         for m in payload["messages"]:
@@ -79,22 +82,21 @@ class PaLMProvider(BaseProvider):
         # }
         # ```
         return chat.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "message": {
-                            "role": c["author"],
-                            "content": c["content"],
-                        },
-                        "metadata": {},
-                    }
-                    for c in resp["candidates"]
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            model=self.config.model.name,
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(role=c["author"], content=c["content"]),
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(resp["candidates"])
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:

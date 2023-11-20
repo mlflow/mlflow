@@ -275,21 +275,24 @@ def test_openai_chat(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("chat-openai")
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
-                    "content": "test",
+                    "content": "\n\nThis is a test!",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "finish_reason": "stop",
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
-            "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 7,
+            "total_tokens": 20,
         },
     }
 
@@ -486,21 +489,24 @@ def test_mosaicml_chat(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("chat-mosaicml")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "created": 1700242674,
+        "object": "chat.completion",
+        "model": "llama2-70b-chat",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
-                    "content": "test",
+                    "content": "This is a test",
                 },
-                "metadata": {"finish_reason": None},
+                "finish_reason": None,
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
             "total_tokens": None,
-            "model": "llama2-70b-chat",
-            "route_type": "llm/v1/chat",
         },
     }
 
@@ -547,21 +553,24 @@ def test_palm_chat(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("chat-palm")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "created": 1700242674,
+        "object": "chat.completion",
+        "model": "chat-bison",
+        "choices": [
             {
                 "message": {
-                    "role": "assistant",
-                    "content": "test",
+                    "role": "1",
+                    "content": "Hi there! How can I help you today?",
                 },
-                "metadata": {"finish_reason": None},
+                "finish_reason": None,
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
             "total_tokens": None,
-            "model": "chat-bison-001",
-            "route_type": "llm/v1/chat",
         },
     }
 
@@ -767,21 +776,24 @@ def test_mlflow_chat(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("chat-oss")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "created": 1700242674,
+        "object": "chat.completion",
+        "model": "chat-bot-9000",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
-                    "content": "test",
+                    "content": "It is a test",
                 },
-                "metadata": {"finish_reason": None},
+                "finish_reason": None,
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
             "total_tokens": None,
-            "model": "mpt-chatbot",
-            "route_type": "llm/v1/chat",
         },
     }
 

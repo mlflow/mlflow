@@ -1,3 +1,4 @@
+import time
 from contextlib import contextmanager
 from typing import Any, Dict, List
 
@@ -129,22 +130,21 @@ class MosaicMLProvider(BaseProvider):
         # }
         # ```
         return chat.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "message": {
-                            "role": "assistant",
-                            "content": c,
-                        },
-                        "metadata": {},
-                    }
-                    for c in resp["outputs"]
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            model=self.config.model.name,
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(role="assistant", content=c),
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(resp["outputs"])
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:

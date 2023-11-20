@@ -1,8 +1,16 @@
 from typing import Dict, List, Optional
 
-from mlflow.gateway.base_models import ResponseModel
+from pydantic import Field
+
+from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.gateway.config import RouteType
-from mlflow.gateway.schemas.chat import BaseRequestPayload, FinishReason
+
+
+class BaseRequestPayload(RequestModel):
+    temperature: float = Field(0.0, ge=0, le=1)
+    n: int = Field(1, ge=1, le=5)
+    stop: Optional[List[str]] = Field(None, min_items=1)
+    max_tokens: Optional[int] = Field(None, ge=1)
 
 
 class RequestPayload(BaseRequestPayload):
@@ -21,7 +29,7 @@ class RequestPayload(BaseRequestPayload):
 
 
 class CandidateMetadata(ResponseModel):
-    finish_reason: Optional[FinishReason] = None
+    finish_reason: Optional[str] = None
 
 
 class Candidate(ResponseModel):
