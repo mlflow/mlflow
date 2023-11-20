@@ -46,6 +46,9 @@ class AWSTitanAdapter(ProviderAdapter):
     # TODO handle top_p, top_k, etc.
     @classmethod
     def completions_to_model(cls, payload, config):
+        # The range of Titan's temperature is 0-1, but ours is 0-2, so we halve it
+        if "temperature" in payload:
+            payload["temperature"] = 0.5 * payload["temperature"]
         return {
             "inputText": payload.pop("prompt"),
             "textGenerationConfig": rename_payload_keys(
@@ -56,16 +59,22 @@ class AWSTitanAdapter(ProviderAdapter):
     @classmethod
     def model_to_completions(cls, resp, config):
         return completions.ResponsePayload(
-            **{
-                "metadata": {
-                    "model": config.model.name,
-                    "route_type": config.route_type,
-                },
-                "candidates": [
-                    {"text": candidate.get("outputText"), "metadata": {}}
-                    for candidate in resp.get("results", [])
-                ],
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=config.model.name,
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=candidate.get("outputText"),
+                    finish_reason=None,
+                )
+                for idx, candidate in enumerate(resp.get("results", []))
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     @classmethod
