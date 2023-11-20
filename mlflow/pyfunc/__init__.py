@@ -1239,9 +1239,21 @@ def spark_udf(
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
 
     is_spark_connect = _is_spark_connect()
-    if is_spark_connect and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA):
+
+    # For spark connect mode,
+    # If client code is executed in databricks runtime and NFS is available,
+    # In driver side, we save model to NFS temp directory,
+    # then in executor side we can load model from the NFS temp directory.
+    should_spark_connect_use_nfs = (is_in_databricks_runtime() and should_use_nfs)
+
+    if (
+        is_spark_connect
+        and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA)
+        and not should_spark_connect_use_nfs
+    ):
         raise MlflowException.invalid_parameter_value(
-            f"Environment manager {env_manager!r} is not supported in Spark connect mode.",
+            f"In non-databricks runtime or NFS is not available, "
+            f"environment manager {env_manager!r} is not supported in Spark connect mode.",
         )
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
@@ -1516,6 +1528,8 @@ Compound types:
                     model_uri=local_model_path_on_executor, capture_output=True
                 )
             else:
+                if is_spark_connect:
+                    assert should_spark_connect_use_nfs
                 local_model_path_on_executor = None
 
             if check_port_connectivity():
@@ -1581,16 +1595,19 @@ Compound types:
 
         elif env_manager == _EnvManager.LOCAL:
             if is_spark_connect:
-                model_path = os.path.join(
-                    tempfile.gettempdir(),
-                    "mlflow",
-                    insecure_hash.sha1(model_uri.encode()).hexdigest(),
-                )
-                try:
-                    loaded_model = mlflow.pyfunc.load_model(model_path)
-                except Exception:
-                    os.makedirs(model_path, exist_ok=True)
-                    loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
+                if should_spark_connect_use_nfs:
+                    loaded_model = mlflow.pyfunc.load_model(local_model_path)
+                else:
+                    model_path = os.path.join(
+                        tempfile.gettempdir(),
+                        "mlflow",
+                        insecure_hash.sha1(model_uri.encode()).hexdigest(),
+                    )
+                    try:
+                        loaded_model = mlflow.pyfunc.load_model(model_path)
+                    except Exception:
+                        os.makedirs(model_path, exist_ok=True)
+                        loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
             elif should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
