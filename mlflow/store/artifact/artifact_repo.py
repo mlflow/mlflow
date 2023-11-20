@@ -1,7 +1,6 @@
 import logging
 import os
 import posixpath
-import tempfile
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 

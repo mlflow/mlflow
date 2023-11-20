@@ -1,7 +1,6 @@
 import os
 import posixpath
 import re
-import tempfile
 from typing import Any, Dict
 from urllib.parse import urlparse
 
