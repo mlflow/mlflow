@@ -376,6 +376,10 @@ MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
 #: (default: ``None``)
 MLFLOW_GATEWAY_CONFIG = _EnvironmentVariable("MLFLOW_GATEWAY_CONFIG", str, None)
 
+#: Specifies the path of the config file for the MLflow Deployments server.
+#: (default: ``None``)
+MLFLOW_DEPLOYMENTS_CONFIG = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_CONFIG", str, None)
+
 #: Specifies whether to display the progress bar when uploading/downloading artifacts.
 #: (default: ``True``)
 MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR = _BooleanEnvironmentVariable(

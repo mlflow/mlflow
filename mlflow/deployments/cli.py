@@ -6,7 +6,7 @@ import click
 
 from mlflow.deployments import interface
 from mlflow.deployments.server.runner import run_app
-from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
+from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
 from mlflow.gateway.config import _validate_config
 from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
@@ -469,7 +469,7 @@ def get_endpoint(target, endpoint):
 @commands.command("start-server", help="Start the MLflow Deployments server")
 @click.option(
     "--config-path",
-    envvar=MLFLOW_GATEWAY_CONFIG.name,
+    envvar=MLFLOW_DEPLOYMENTS_CONFIG.name,
     callback=validate_config_path,
     required=True,
     help="The path to the deployments configuration file.",
