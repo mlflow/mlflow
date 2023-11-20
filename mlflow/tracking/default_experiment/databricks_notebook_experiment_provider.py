@@ -10,11 +10,38 @@ from mlflow.utils.mlflow_tags import (
 
 
 class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
+    _resolved_notebook_experiment_id = None
+
     def in_context(self):
         return databricks_utils.is_in_databricks_notebook()
 
     def get_experiment_id(self):
-        return databricks_utils.get_notebook_id()
+        if DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id:
+            return DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id
+
+        source_notebook_id = databricks_utils.get_notebook_id()
+        source_notebook_name = databricks_utils.get_notebook_path()
+        tags = {
+            MLFLOW_EXPERIMENT_SOURCE_ID: source_notebook_id,
+        }
+
+        # With the presence of the source id, the following is a get or create in which it will
+        # return the corresponding experiment if one exists for the repo notebook.
+        # For non-repo notebooks, it will raise an exception and we will use source_notebook_id
+        try:
+            experiment_id = MlflowClient().create_experiment(source_notebook_name, None, tags)
+        except MlflowException as e:
+            if e.error_code == databricks_pb2.ErrorCode.Name(
+                databricks_pb2.INVALID_PARAMETER_VALUE
+            ):
+                # If determined that it is not a repo noetbook
+                experiment_id = source_notebook_id
+            else:
+                raise e
+
+        DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id = experiment_id
+
+        return experiment_id
 
 
 class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
