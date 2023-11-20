@@ -849,9 +849,11 @@ def _get_tmp_dir():
 
 
 def create_tmp_dir():
-    directory = _get_tmp_dir()
-    os.makedirs(directory, exist_ok=True)
-    return tempfile.mkdtemp(dir=directory)
+    if directory := _get_tmp_dir():
+        os.makedirs(directory, exist_ok=True)
+        return tempfile.mkdtemp(dir=directory)
+
+    return tempfile.mkdtemp()
 
 
 @cache_return_value_per_process
