@@ -104,7 +104,7 @@ class PythonModel:
         )
 
         try:
-            model_assigned = _validate_model_assignment_in_init(inspect.getsource(cls.__init__))
+            model_assigned = _validate_model_assignment_in_init(cls)
             load_context_defined = cls.load_context != PythonModel.load_context
             if model_assigned and not load_context_defined:
                 warnings.warn(message, stacklevel=3)
