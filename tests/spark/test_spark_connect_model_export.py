@@ -138,4 +138,3 @@ def test_pyfunc_serve_and_score(spark_model):
     np.testing.assert_array_almost_equal(
         scores, spark_model.model.transform(spark_model.pandas_df)["prediction"].values
     )
-

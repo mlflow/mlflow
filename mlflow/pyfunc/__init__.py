@@ -1008,9 +1008,9 @@ def _parse_spark_datatype(datatype: str):
         # Note: SparkSession.active only exists for spark >= 3.5.0
         schema = (
             SparkSession.active()
-                .range(0)
-                .select(udf(lambda x: x, returnType=return_type)("id"))
-                .schema
+            .range(0)
+            .select(udf(lambda x: x, returnType=return_type)("id"))
+            .schema
         )
         return schema[0].dataType
 
