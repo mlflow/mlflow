@@ -310,19 +310,12 @@ def test_openai_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-openai")
     expected_output = {
-        "candidates": [
-            {
-                "text": "test.",
-                "metadata": {"finish_reason": "stop"},
-            }
-        ],
-        "metadata": {
-            "input_tokens": 4,
-            "output_tokens": 7,
-            "total_tokens": 11,
-            "model": "gpt-4",
-            "route_type": "llm/v1/completions",
-        },
+        "id": "chatcmpl-abc123",
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "gpt-4",
+        "choices": [{"text": "test.", "index": 0, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 4, "completion_tokens": 4, "total_tokens": 11},
     }
 
     data = {"prompt": "test", "max_tokens": 50}
@@ -369,19 +362,18 @@ def test_anthropic_completions(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("completions-anthropic")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "claude-instant-1.1",
+        "choices": [
             {
                 "text": "test",
-                "metadata": {"finish_reason": "length"},
+                "index": 0,
+                "finish_reason": "length",
             }
         ],
-        "metadata": {
-            "model": "claude-instant-1.1",
-            "route_type": "llm/v1/completions",
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {
@@ -402,19 +394,12 @@ def test_ai21labs_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-ai21labs")
     expected_output = {
-        "candidates": [
-            {
-                "text": "mock using MagicMock please",
-                "metadata": {},
-            }
-        ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "j2-ultra",
-            "route_type": "llm/v1/completions",
-        },
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "j2-ultra",
+        "choices": [{"text": "mock using MagicMock please", "index": 0, "finish_reason": "length"}],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {"prompt": "mock my test", "max_tokens": 50}
@@ -431,19 +416,18 @@ def test_cohere_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-cohere")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "command",
+        "choices": [
             {
                 "text": "mock using MagicMock please",
-                "metadata": {"finish_reason": "stop"},
+                "index": 0,
+                "finish_reason": "stop",
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "gpt-4",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {"prompt": "mock my test", "max_tokens": 50}
@@ -460,19 +444,12 @@ def test_mosaicml_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-mosaicml")
     expected_output = {
-        "candidates": [
-            {
-                "text": "mock using MagicMock please",
-                "metadata": {},
-            }
-        ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "mpt-7b-instruct",
-            "route_type": "llm/v1/completions",
-        },
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "mpt-7b-instruct",
+        "choices": [{"text": "mock using MagicMock please", "index": 0, "finish_reason": None}],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {"prompt": "mock my test", "max_tokens": 50}
@@ -524,19 +501,18 @@ def test_palm_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-palm")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "text-bison-001",
+        "choices": [
             {
                 "text": "mock using MagicMock please",
-                "metadata": {},
+                "index": 0,
+                "finish_reason": None,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "text-bison-001",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {"prompt": "mock my test", "max_tokens": 50}
@@ -738,21 +714,24 @@ def test_invalid_query_request_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("chat-openai")
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
                     "content": "test",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "finish_reason": "stop",
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
+        "usage": {
+            "prompt_tokens": 17,
+            "completion_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
         },
     }
 
@@ -808,19 +787,18 @@ def test_mlflow_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-oss")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "completion-model",
+        "choices": [
             {
                 "text": "test",
-                "metadata": {},
+                "index": 0,
+                "finish_reason": None,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "completion-model",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {"prompt": "this is a test"}
@@ -891,37 +869,35 @@ def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway
     data = {"prompt": "test [MASK]"}
 
     response = client.query(route=route.name, data=data)
+    assert response["model"] == "completion-model"
 
-    completions_response = response["candidates"]
+    completions_response = response["choices"]
 
     assert isinstance(completions_response, list)
     assert isinstance(completions_response[0]["text"], str)
     assert len(completions_response) == 1
 
-    metadata_response = response["metadata"]
-    assert not metadata_response["input_tokens"]
-    assert not metadata_response["output_tokens"]
-    assert metadata_response["model"] == "completion-model"
-    assert metadata_response["route_type"] == route.route_type
+    metadata_response = response["usage"]
+    assert not metadata_response["prompt_tokens"]
+    assert not metadata_response["completion_tokens"]
 
 
 def test_huggingface_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-huggingface")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "llm/v1/completions",
+        "choices": [
             {
                 "text": "mock using MagicMock please",
-                "metadata": {"finish_reason": "length", "seed": "0"},
+                "index": 0,
+                "finish_reason": "length",
             }
         ],
-        "metadata": {
-            "input_tokens": 5,
-            "output_tokens": 10,
-            "total_tokens": 15,
-            "route_type": "llm/v1/completions",
-            "model": "hf-falcon-7b-instruct",
-        },
+        "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15},
     }
 
     data = {"prompt": "mock my test", "max_tokens": 50}
@@ -939,19 +915,18 @@ def test_bedrock_completions(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("completions-bedrock")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "amazon.titan-tg1-large",
+        "choices": [
             {
-                "text": "test",
-                "metadata": {"finish_reason": "length"},
+                "text": "\nThis is a test",
+                "index": 0,
+                "finish_reason": None,
             }
         ],
-        "metadata": {
-            "model": "amazon.titan-tg1-large",
-            "route_type": "llm/v1/completions",
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {

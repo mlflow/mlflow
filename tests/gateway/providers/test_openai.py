@@ -341,14 +341,12 @@ async def test_azure_openai():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [{"text": "\n\nThis is a test!", "metadata": {"finish_reason": "stop"}}],
-            "metadata": {
-                "input_tokens": 13,
-                "output_tokens": 7,
-                "total_tokens": 20,
-                "model": "gpt-3.5-turbo-0301",
-                "route_type": "llm/v1/completions",
-            },
+            "id": "chatcmpl-abc123",
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "gpt-3.5-turbo-0301",
+            "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
         mock_build_client.assert_called_once_with(
             headers={
@@ -382,14 +380,12 @@ async def test_azuread_openai():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [{"text": "\n\nThis is a test!", "metadata": {"finish_reason": "stop"}}],
-            "metadata": {
-                "input_tokens": 13,
-                "output_tokens": 7,
-                "total_tokens": 20,
-                "model": "gpt-3.5-turbo-0301",
-                "route_type": "llm/v1/completions",
-            },
+            "id": "chatcmpl-abc123",
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "gpt-3.5-turbo-0301",
+            "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
         mock_build_client.assert_called_once_with(
             headers={
