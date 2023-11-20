@@ -178,7 +178,7 @@ and open your run, you should see system metrics under the metrics section, simi
 .. figure:: ../_static/images/system-metrics/system-metrics-view.png
     :width: 800px
     :align: center
-    :alt: System metrics on Mlflow UI
+    :alt: system metrics on MLflow UI
 
 
 Customize System Metrics Logging
