@@ -34,7 +34,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, get_total_file_size, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration, _validate_model_assignment_in_init
+from mlflow.utils.model_utils import _check_model_assignment_in_init, _get_flavor_configuration
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -104,7 +104,7 @@ class PythonModel:
         )
 
         try:
-            model_assigned = _validate_model_assignment_in_init(cls)
+            model_assigned = _check_model_assignment_in_init(cls)
             load_context_defined = cls.load_context != PythonModel.load_context
             if model_assigned and not load_context_defined:
                 warnings.warn(message, stacklevel=3)
