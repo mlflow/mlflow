@@ -279,7 +279,7 @@ def _validate_model_assignment_in_init(cls):
     class ModelAssignVisitor(ast.NodeVisitor):
         def __init__(self):
             self.has_model = False
-            
+
         def visit_Assign(self, node):
             if (
                 isinstance(node.targets[0], ast.Attribute)
