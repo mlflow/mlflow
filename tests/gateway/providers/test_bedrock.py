@@ -169,6 +169,10 @@ bedrock_model_provider_fixtures = [
         },
         "request": {
             "prompt": "This is a test",
+            "n": 1,
+            "temperature": 0.5,
+            "stop": ["foobar"],
+            "max_tokens": 1000,
         },
         "response": {
             "results": [
@@ -194,7 +198,14 @@ bedrock_model_provider_fixtures = [
             ],
             "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         },
-        "model_request": {"inputText": "This is a test", "textGenerationConfig": {}},
+        "model_request": {
+            "inputText": "This is a test",
+            "textGenerationConfig": {
+                "temperature": 0.25,
+                "stopSequences": ["foobar"],
+                "maxTokenCount": 1000,
+            },
+        },
     },
     {
         "provider": AWSBedrockModelProvider.AI21,
@@ -223,12 +234,15 @@ bedrock_model_provider_fixtures = [
                 "name": "ai21.j2-mid",
             },
         },
-        "request": {
-            "prompt": "This is a test",
-        },
+        "request": {"prompt": "This is a test", "n": 2, "max_tokens": 1000, "stop": ["foobar"]},
         "response": ai21_completion_response(),
         "expected": ai21_parsed_completion_response("ai21.j2-mid"),
-        "model_request": {"prompt": "This is a test"},
+        "model_request": {
+            "prompt": "This is a test",
+            "stopSequences": ["foobar"],
+            "maxTokens": 1000,
+            "numResults": 2,
+        },
     },
     {
         "provider": AWSBedrockModelProvider.COHERE,

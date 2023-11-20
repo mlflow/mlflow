@@ -46,6 +46,13 @@ class AWSTitanAdapter(ProviderAdapter):
     # TODO handle top_p, top_k, etc.
     @classmethod
     def completions_to_model(cls, payload, config):
+        n = payload.pop("n", 1)
+        if n != 1:
+            raise HTTPException(
+                status_code=422,
+                detail="'n' must be '1' for AWS Titan models. Received value: '{n}'.",
+            )
+
         # The range of Titan's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
@@ -94,7 +101,7 @@ class AI21Adapter(ProviderAdapter):
             payload,
             {
                 "stop": "stopSequences",
-                "candidate_count": "numResults",
+                "n": "numResults",
                 "max_tokens": "maxTokens",
             },
         )
