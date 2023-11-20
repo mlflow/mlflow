@@ -50,6 +50,16 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
         extra_metrics=[answer_similarity_metric],
     )
 
+Information about how an :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` is calculated, such as the grading prompt used is available via the ``metric_details`` property.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.metrics.genai import relevance
+
+    my_relevance_metric = relevance()
+    print(my_relevance_metric.metric_details)
+
 Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricValue>`. Aggregate results are logged to the MLflow run as metrics, while per-example results are logged to the MLflow run as artifacts in the form of an evaluation table.
 
 .. autoclass:: mlflow.metrics.MetricValue
@@ -204,3 +214,10 @@ You can also create your own generative AI :py:class:`EvaluationMetric <mlflow.m
 When using generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.genai.EvaluationExample>`
 
 .. autoclass:: mlflow.metrics.genai.EvaluationExample
+
+Users must set the appropriate environment variables for the LLM service they are using for 
+evaluation. For example, if you are using OpenAI's API, you must set the ``OPENAI_API_KEY`` 
+environment variable. If using Azure OpenAI, you must also set the ``OPENAI_API_TYPE``, 
+``OPENAI_API_VERSION``, ``OPENAI_API_BASE``, and ``OPENAI_DEPLOYMENT_NAME`` environment variables. 
+See `Azure OpenAI documentation <https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/switching-endpoints>`_
+Users do not need to set these environment variables if they are using a gateway route.
