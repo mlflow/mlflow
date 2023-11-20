@@ -1240,12 +1240,6 @@ def spark_udf(
 
     is_spark_connect = _is_spark_connect()
 
-    # For spark connect mode,
-    # If client code is executed in databricks runtime and NFS is available,
-    # In driver side, we save model to NFS temp directory,
-    # then in executor side we can load model from the NFS temp directory.
-    should_spark_connect_use_nfs = (is_in_databricks_runtime() and should_use_nfs)
-
     if (
         is_spark_connect
         and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA)
@@ -1271,6 +1265,12 @@ def spark_udf(
     should_use_spark_to_broadcast_file = not (
         is_spark_in_local_mode or should_use_nfs or is_spark_connect
     )
+
+    # For spark connect mode,
+    # If client code is executed in databricks runtime and NFS is available,
+    # In driver side, we save model to NFS temp directory,
+    # then in executor side we can load model from the NFS temp directory.
+    should_spark_connect_use_nfs = (is_in_databricks_runtime() and should_use_nfs)
 
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
