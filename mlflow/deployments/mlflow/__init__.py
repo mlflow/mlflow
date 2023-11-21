@@ -5,15 +5,18 @@ import requests
 
 from mlflow import MlflowException
 from mlflow.deployments import BaseDeploymentClient
-from mlflow.gateway.config import Route
-from mlflow.gateway.constants import (
-    MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
-    MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
-    MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
-    MLFLOW_GATEWAY_ROUTE_BASE,
-    MLFLOW_QUERY_SUFFIX,
+from mlflow.deployments.constants import (
+    MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
+    MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
 )
-from mlflow.gateway.utils import assemble_uri_path, resolve_route_url
+from mlflow.deployments.server.config import Endpoint
+from mlflow.deployments.server.constants import (
+    MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE,
+    MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE,
+    MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
+)
+from mlflow.deployments.utils import assemble_uri_path, resolve_route_url
+from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
@@ -82,7 +85,13 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         raise NotImplementedError
 
-    def _call_endpoint(self, method: str, route: str, json_body: Optional[str] = None):
+    def _call_endpoint(
+        self,
+        method: str,
+        route: str,
+        json_body: Optional[str] = None,
+        timeout: int = MLFLOW_HTTP_REQUEST_TIMEOUT.get(),
+    ):
         if json_body:
             json_body = json.loads(json_body)
 
@@ -96,8 +105,8 @@ class MLflowDeploymentClient(BaseDeploymentClient):
             host_creds=_get_default_host_creds(self.target_uri),
             endpoint=route,
             method=method,
-            timeout=MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
-            retry_codes=MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
+            timeout=timeout,
+            retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             raise_on_status=False,
             **call_kwargs,
         )
@@ -106,39 +115,51 @@ class MLflowDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def get_endpoint(self, endpoint):
-        route = assemble_uri_path([MLFLOW_GATEWAY_CRUD_ROUTE_BASE, endpoint])
+        """
+        TODO
+        """
+        route = assemble_uri_path([MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint])
         response = self._call_endpoint("GET", route).json()
-        response["route_url"] = resolve_route_url(self.target_uri, response["route_url"])
-
-        return Route(**response)
+        response["endpoint_url"] = resolve_route_url(self.target_uri, response["endpoint_url"])
+        return Endpoint(**response)
 
     @experimental
     def list_endpoints(self, page_token=None):
-        request_parameters = {"page_token": page_token} if page_token is not None else None
+        """
+        TODO
+        """
+        params = {"page_token": page_token} if page_token is not None else None
         response_json = self._call_endpoint(
-            "GET", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json_body=json.dumps(request_parameters)
+            "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=json.dumps(params)
         ).json()
         routes = [
-            Route(
+            Endpoint(
                 **{
                     **resp,
-                    "route_url": resolve_route_url(
+                    "endpoint_url": resolve_route_url(
                         self.target_uri,
-                        resp["route_url"],
+                        resp["endpoint_url"],
                     ),
                 }
             )
-            for resp in response_json.get("routes", [])
+            for resp in response_json.get("endpoints", [])
         ]
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
 
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
+        """
+        TODO
+        """
         data = json.dumps(inputs)
-        query_route = assemble_uri_path([MLFLOW_GATEWAY_ROUTE_BASE, endpoint, MLFLOW_QUERY_SUFFIX])
+        query_route = assemble_uri_path(
+            [MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX]
+        )
         try:
-            return self._call_endpoint("POST", query_route, data).json()
+            return self._call_endpoint(
+                "POST", query_route, data, MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
+            ).json()
         except MlflowException as e:
             if isinstance(e.__cause__, requests.exceptions.Timeout):
                 timeout_message = (
@@ -146,7 +167,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
                     "query. Please evaluate the available parameters for the query "
                     "that you are submitting. Some parameter values and inputs can "
                     "increase the computation time beyond the allowable route "
-                    f"timeout of {MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS} "
+                    f"timeout of {MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT} "
                     "seconds."
                 )
                 raise MlflowException(message=timeout_message, error_code=BAD_REQUEST)
