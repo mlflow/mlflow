@@ -1,3 +1,7 @@
+from unittest import mock
+
+import pytest
+
 from mlflow.deployments import get_deploy_client
 from mlflow.deployments.mlflow import MLflowDeploymentClient
 
@@ -5,3 +9,118 @@ from mlflow.deployments.mlflow import MLflowDeploymentClient
 def test_get_deploy_client():
     client = get_deploy_client("http://localhost:5000")
     assert isinstance(client, MLflowDeploymentClient)
+
+
+def test_create_endpoint():
+    client = get_deploy_client("http://localhost:5000")
+    with pytest.raises(NotImplementedError, match=r".*"):
+        client.create_endpoint(name="test")
+
+
+def test_update_endpoint():
+    client = get_deploy_client("http://localhost:5000")
+    with pytest.raises(NotImplementedError, match=r".*"):
+        client.update_endpoint(endpoint="test")
+
+
+def test_delete_endpoint():
+    client = get_deploy_client("http://localhost:5000")
+    with pytest.raises(NotImplementedError, match=r".*"):
+        client.delete_endpoint(endpoint="test")
+
+
+def test_get_endpoint():
+    client = get_deploy_client("http://localhost:5000")
+    mock_resp = mock.Mock()
+    mock_resp.json.return_value = {
+        "model": {"name": "gpt-4", "provider": "openai"},
+        "name": "completions",
+        "route_type": "llm/v1/completions",
+        "route_url": "http://localhost:5000/gateway/chat/invocations",
+    }
+    mock_resp.status_code = 200
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        resp = client.get_endpoint(endpoint="test")
+        mock_request.assert_called_once()
+        assert resp.dict() == {
+            "name": "completions",
+            "route_type": "llm/v1/completions",
+            "model": {"name": "gpt-4", "provider": "openai"},
+            "route_url": "http://localhost:5000/gateway/chat/invocations",
+        }
+
+
+def test_list_endpoints():
+    client = get_deploy_client("http://localhost:5000")
+    mock_resp = mock.Mock()
+    mock_resp.json.return_value = {
+        "routes": [
+            {
+                "model": {"name": "gpt-4", "provider": "openai"},
+                "name": "completions",
+                "route_type": "llm/v1/completions",
+                "route_url": "http://localhost:5000/gateway/chat/invocations",
+            }
+        ]
+    }
+    mock_resp.status_code = 200
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        resp = client.list_endpoints()
+        mock_request.assert_called_once()
+        assert [r.dict() for r in resp] == [
+            {
+                "model": {"name": "gpt-4", "provider": "openai"},
+                "name": "completions",
+                "route_type": "llm/v1/completions",
+                "route_url": "http://localhost:5000/gateway/chat/invocations",
+            }
+        ]
+
+
+def test_predict():
+    client = get_deploy_client("http://localhost:5000")
+    mock_resp = mock.Mock()
+    mock_resp.json.return_value = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "gpt-3.5-turbo-0613",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "hello",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+        },
+    }
+
+    mock_resp.status_code = 200
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        resp = client.predict(endpoint="test", inputs={})
+        mock_request.assert_called_once()
+        assert resp == {
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "created": 1677652288,
+            "model": "gpt-3.5-turbo-0613",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hello"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 9,
+                "completion_tokens": 12,
+                "total_tokens": 21,
+            },
+        }
