@@ -6,14 +6,14 @@ from mlflow.deployments.server.app import GatewayAPI
 from mlflow.deployments.server.app import (
     create_app_from_config as deployments_create_app_from_config,
 )
-from mlflow.deployments.server.app import create_app_from_path as deployments_create_app_from_path
+from mlflow.deployments.server.app import (
+    create_app_from_path as deployments_create_app_from_path,
+)
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import GatewayConfig
 
-
-def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
-    return deployments_create_app_from_config(config)
+create_app_from_config = deployments_create_app_from_config
+create_app_from_path = deployments_create_app_from_path
 
 
 def create_app_from_env() -> GatewayAPI:
