@@ -744,13 +744,13 @@ As of MLflow 2.9.0, Model Stages have been deprecated and will be removed in a f
 New model deployment tools
 --------------------------
 
-Model stages were used to express the lifecycle of MLflow Models as for productionization and deployment. Users transitioned model versions through four fixed stages (from **none**, to **staging**, to **production**, and then to **archived**) as they proposed, validated, deployed, and deprecated models for their ML use-cases. In doing so, model registry stages provided labeling and aliasing functionality for the model versions, by denoting the status of a model version in the UI and providing named references to model versions in the code (e.g. ``/Staging`` in the model URI). Model registry stages were also been used to denote the environment that the model is in.
+Model stages were used to express the lifecycle of MLflow Models for productionization and deployment. Users transitioned model versions through four fixed stages (from **none**, to **staging**, to **production**, and then to **archived**) as they proposed, validated, deployed, and deprecated models for their ML use-cases. In doing so, model registry stages provided labeling and aliasing functionality for the model versions, by denoting the status of a model version in the UI and providing named references to model versions in the code (e.g. ``/Staging`` in the model URI). Model registry stages were also been used to denote the environment that the model is in.
 
 To replace and improve upon stages, we elevated **model version tags**, introduced **model version aliases**, and enhanced the model registry UI to provide flexible and powerful ways to label and alias MLflow models in the Model Registry. We also introduced **environmental separation** to enable you to set up separate environments for your models and to express access controls for them.
 
 **Model version tags**
 
-Now prominently displayed in the new model registry UI, model version tags can be used to annotate model versions with their status. For example, you could apply a tag of key ``validation_status`` and value ``pending`` to a model version while it is being validated and then update the tag value to ``passed`` when it has passed smoke tests and performance tests.
+Now prominently displayed in the model registry UI, model version tags can be used to annotate model versions with their status. For example, you could apply a tag of key ``validation_status`` and value ``pending`` to a model version while it is being validated and then update the tag value to ``passed`` when it has passed smoke tests and performance tests.
 
 **Model version aliases**
 
@@ -763,7 +763,7 @@ In mature DevOps and MLOps workflows, organizations may set up environments to p
 Migrating models away from stages
 ---------------------------------
 
-In the new model registry paradigm, we provide different tools for each legacy stages use-case. See the information below to learn how to use the new model registry for each use-case.
+See the information below to learn how to use the new tools for your legacy Model Stage use-cases.
 
 **Model environments**
 
