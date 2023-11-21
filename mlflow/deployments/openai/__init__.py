@@ -1,3 +1,11 @@
+import logging
+import os
+
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, UNAUTHENTICATED
+
+_logger = logging.getLogger(__name__)
+
 from mlflow.deployments import BaseDeploymentClient
 
 
@@ -47,11 +55,89 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         raise NotImplementedError
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
-        """
-        TODO
-        """
-        # TODO: fill this in
-        pass
+        payload = inputs
+        if "OPENAI_API_KEY" not in os.environ:
+            raise MlflowException(
+                "OPENAI_API_KEY environment variable not set",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        import openai
+
+        from mlflow.openai import _get_api_config
+        from mlflow.openai.api_request_parallel_processor import process_api_requests
+        from mlflow.openai.utils import _OAITokenHolder
+
+        api_config = _get_api_config()
+        api_token = _OAITokenHolder(api_config.api_type)
+        envs = {
+            x: getattr(api_config, x)
+            for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
+            if getattr(api_config, x) is not None
+        }
+
+        payload = {{"candidate_count": "n"}.get(k, k): v for k, v in payload.items()}
+        # TODO: delete this??
+        # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
+        payload["temperature"] = 2 * payload["temperature"]
+        payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
+
+        if api_config.api_type in ("azure", "azure_ad", "azuread"):
+            deployment_id = envs.get("deployment_id")
+            if envs.get("engine"):
+                # Avoid using both parameters as they serve the same purpose
+                # Invalid inputs:
+                #   - Wrong engine + correct/wrong deployment_id
+                #   - No engine + wrong deployment_id
+                # Valid inputs:
+                #   - Correct engine + correct/wrong deployment_id
+                #   - No engine + correct deployment_id
+                if deployment_id is not None:
+                    _logger.warning(
+                        "Both engine and deployment_id are set. "
+                        "Using engine as it takes precedence."
+                    )
+            elif deployment_id is None:
+                raise MlflowException(
+                    "Either engine or deployment_id must be set for Azure OpenAI API",
+                )
+            payload = payload
+        else:
+            payload = {"model": endpoint, **payload}
+
+        payload_with_envs = {**payload, **envs}
+
+        try:
+            resp = process_api_requests(
+                [payload_with_envs],
+                openai.ChatCompletion,
+                api_token=api_token,
+                throw_original_error=True,
+                max_workers=1,
+            )[0]
+        except openai.error.AuthenticationError as e:
+            raise MlflowException(
+                f"Authentication Error for OpenAI. Error response:\n {e}",
+                error_code=UNAUTHENTICATED,
+            )
+        except openai.error.InvalidRequestError as e:
+            raise MlflowException(
+                f"Invalid Request to OpenAI. Error response:\n {e}", error_code=BAD_REQUEST
+            )
+        except MlflowException as e:
+            raise e
+        except Exception as e:
+            raise MlflowException(f"Error response from OpenAI:\n {e}")
+
+        return {
+            "candidates": [
+                {
+                    "text": c["message"]["content"],
+                    "metadata": {"finish_reason": c["finish_reason"]},
+                }
+                for c in resp["choices"]
+            ],
+        }
 
     def create_endpoint(self, name, config=None):
         """
