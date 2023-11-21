@@ -1,4 +1,3 @@
-import json
 from typing import Optional
 
 import requests
@@ -117,15 +116,19 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         route = assemble_uri_path([MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint])
         response = self._call_endpoint("GET", route)
-        response["endpoint_url"] = resolve_route_url(self.target_uri, response["endpoint_url"])
-        return Endpoint(**response)
+        return Endpoint(
+            **{
+                **response,
+                "endpoint_url": resolve_route_url(self.target_uri, response["endpoint_url"]),
+            }
+        )
 
     @experimental
     def list_endpoints(self, page_token=None):
         """
         TODO
         """
-        params = {"page_token": page_token} if page_token is not None else None
+        params = None if page_token is None else {"page_token": page_token}
         response_json = self._call_endpoint(
             "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=params
         )
@@ -167,8 +170,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
                     "seconds."
                 )
                 raise MlflowException(message=timeout_message, error_code=BAD_REQUEST)
-            else:
-                raise e
+            raise e
 
 
 def run_local(name, model_uri, flavor=None, config=None):
