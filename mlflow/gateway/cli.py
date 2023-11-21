@@ -3,7 +3,7 @@ import click
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.gateway.config import _validate_config
 from mlflow.gateway.runner import run_app
-from mlflow.utils.annotations import experimental
+from mlflow.gateway.utils import gateway_deprecated
 
 
 def validate_config_path(_ctx, _param, value):
@@ -19,7 +19,7 @@ def commands():
     pass
 
 
-@experimental
+@gateway_deprecated
 @commands.command("start", help="Start the MLflow Gateway service")
 @click.option(
     "--config-path",

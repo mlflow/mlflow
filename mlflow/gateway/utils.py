@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
@@ -68,7 +68,19 @@ def _is_valid_uri(uri: str):
         return False
 
 
-@experimental
+def gateway_deprecated(f):
+    deco = deprecated(
+        "2.9.0",
+        impact=(
+            "`mlflow.gateway` is deprecated and will be replaced by the deployments API in "
+            "a future release.  See https://mlflow.org/docs/latest/llms/gateway/deprecation.html "
+            "for more details"
+        ),
+    )
+    return deco(f)
+
+
+@gateway_deprecated
 def set_gateway_uri(gateway_uri: str):
     """
     Sets the uri of a configured and running MLflow AI Gateway server in a global context.
@@ -88,7 +100,7 @@ def set_gateway_uri(gateway_uri: str):
     _gateway_uri = gateway_uri
 
 
-@experimental
+@gateway_deprecated
 def get_gateway_uri() -> str:
     """
     Returns the currently set MLflow AI Gateway server uri iff set.
