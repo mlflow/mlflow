@@ -9,7 +9,8 @@ from typing import Any, Dict, List, Optional, Union
 import pydantic
 import yaml
 from packaging import version
-from pydantic import ValidationError, root_validator, validator
+from packaging.version import Version
+from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -313,10 +314,21 @@ class Model(ConfigModel):
             return cls._validate_config(config, values)
 
 
+class AliasedConfigModel(ConfigModel):
+    """
+    Enables use of field aliases in a configuration model for backwards compatibility
+    """
+
+    if Version(pydantic.__version__) >= Version("2.0"):
+        model_config = ConfigDict(populate_by_name=True)
+    else:
+        model_config = ConfigDict(allow_population_by_field_name=True)
+
+
 # pylint: disable=no-self-argument
-class RouteConfig(ConfigModel):
+class RouteConfig(AliasedConfigModel):
     name: str
-    route_type: RouteType
+    route_type: RouteType = Field(alias="endpoint_type")
     model: Model
 
     @validator("name")
@@ -387,7 +399,7 @@ class RouteModelInfo(ResponseModel):
     provider: str
 
 
-class Route(ResponseModel):
+class Route(ConfigModel):
     name: str
     route_type: str
     model: RouteModelInfo
@@ -423,8 +435,8 @@ class Limit(LimitModel):
     renewal_period: str
 
 
-class GatewayConfig(ConfigModel):
-    routes: List[RouteConfig]
+class GatewayConfig(AliasedConfigModel):
+    routes: List[RouteConfig] = Field(alias="endpoints")
 
 
 class LimitsConfig(ConfigModel):
