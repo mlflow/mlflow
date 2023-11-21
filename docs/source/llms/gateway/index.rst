@@ -6,7 +6,7 @@ MLflow AI Gateway (Experimental)
 
 .. warning::
 
-    The MLflow AI Gateway is deprecated and will be replaced by the deployments API in a future release.
+    MLflow AI gateway is deprecated and has been replaced by the deployments API for generative AI.
     See :ref:`gateway-deprecation` for more information.
 
 The MLflow AI Gateway service is a powerful tool designed to streamline the usage and management of
