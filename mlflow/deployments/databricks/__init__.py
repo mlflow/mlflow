@@ -8,6 +8,7 @@ from mlflow.deployments.constants import (
 )
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.utils import AttrDict
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
@@ -88,6 +89,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         augmented_raise_for_status(response)
         return DatabricksEndpoint(response.json())
 
+    @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         TODO
@@ -100,6 +102,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
         )
 
+    @experimental
     def create_endpoint(self, name, config=None):
         """
         TODO
@@ -112,6 +115,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         payload = {"name": name, "config": config, **extras}
         return self._call_endpoint(method="POST", json_body=payload)
 
+    @experimental
     def update_endpoint(self, endpoint, config=None):
         """
         TODO
@@ -120,18 +124,21 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
         )
 
+    @experimental
     def delete_endpoint(self, endpoint):
         """
         TODO
         """
         return self._call_endpoint(method="DELETE", route=endpoint)
 
+    @experimental
     def list_endpoints(self):
         """
         TODO
         """
         return self._call_endpoint(method="GET").endpoints
 
+    @experimental
     def get_endpoint(self, endpoint):
         """
         TODO
