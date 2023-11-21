@@ -40,9 +40,6 @@ Tags
 Annotations and Descriptions
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
 
-Model Stage
-    Each distinct model version can be assigned one stage at any given time. MLflow provides predefined stages for common use-cases such as *Staging*, *Production* or *Archived*. You can transition a model version from one stage to another stage.
-
 Model Registry Workflows
 ========================
 If running your own MLflow server, you must use a database-backed backend store in order to access
@@ -276,21 +273,6 @@ To fetch a model version by alias, specify the model alias in the model URI, and
     champion_version.predict(data)
 
 Note that model alias assignments can be updated independently of your production code. If the ``champion`` alias in the snippet above is reassigned to a new model version in the Model Registry, the next execution of this snippet will automatically pick up the new model version. This allows you to decouple model deployments from your inference workloads.
-
-**Fetch the latest model version in a specific stage**
-
-To fetch a model version by stage, simply provide the model stage as part of the model URI, and it will fetch the most recent version of the model in that stage.
-
-.. code-block:: python
-
-    import mlflow.pyfunc
-
-    model_name = "sk-learn-random-forest-reg-model"
-    stage = "Staging"
-
-    model = mlflow.pyfunc.load_model(model_uri=f"models:/{model_name}/{stage}")
-
-    model.predict(data)
 
 Serving an MLflow Model from Model Registry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -705,8 +687,15 @@ save, log, register, and load from the Model Registry and score.
     <Yay!! Another good phone interview. I nailed it!!> -- {'neg': 0.0, 'neu': 0.446, 'pos': 0.554, 'compound': 0.816}
     <This is INSANE! I can't believe it. How could you do such a horrible thing?> -- {'neg': 0.357, 'neu': 0.643, 'pos': 0.0, 'compound': -0.8034}
 
-Transitioning an MLflow Model’s Stage
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Deprecated: using Model Stages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, visit our migration guide here.
+
+See the sections below on using Model Stages in the MLflow Model Registry.
+
+**Transitioning an MLflow Model’s Stage**
+
 Over the course of the model’s lifecycle, a model evolves—from development to staging to production.
 You can transition a registered model to one of the stages: **Staging**, **Production** or **Archived**.
 
@@ -719,8 +708,23 @@ You can transition a registered model to one of the stages: **Staging**, **Produ
 
 The accepted values for <stage> are: Staging|Archived|Production|None.
 
-Archiving an MLflow Model
-^^^^^^^^^^^^^^^^^^^^^^^^^
+**Fetch the latest model version in a specific stage**
+
+To fetch a model version by stage, simply provide the model stage as part of the model URI, and it will fetch the most recent version of the model in that stage.
+
+.. code-block:: python
+
+    import mlflow.pyfunc
+
+    model_name = "sk-learn-random-forest-reg-model"
+    stage = "Staging"
+
+    model = mlflow.pyfunc.load_model(model_uri=f"models:/{model_name}/{stage}")
+
+    model.predict(data)
+
+**Archiving an MLflow Model**
+
 You can move models versions out of a **Production** stage into an **Archived** stage.
 At a later point, if that archived model is not needed, you can delete it.
 
@@ -731,4 +735,3 @@ At a later point, if that archived model is not needed, you can delete it.
     client.transition_model_version_stage(
         name="sk-learn-random-forest-reg-model", version=3, stage="Archived"
     )
-
