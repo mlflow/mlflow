@@ -1,15 +1,18 @@
 import base64
+import functools
+import inspect
 import json
 import logging
 import posixpath
 import re
+import textwrap
+import warnings
 from typing import List, Optional
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
-from mlflow.utils.annotations import deprecated
 from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
@@ -68,15 +71,56 @@ def _is_valid_uri(uri: str):
         return False
 
 
-def gateway_deprecated(f):
-    deco = deprecated(
-        "2.9.0",
-        impact=(
-            "It will be replaced by the deployments API in a future release. "
-            "See https://mlflow.org/docs/latest/llms/gateway/deprecation.html for more details."
-        ),
+def _get_indent(s: str) -> str:
+    for l in s.splitlines():
+        if l.startswith(" "):
+            return " " * (len(l) - len(l.lstrip()))
+    return ""
+
+
+def _prepend(docstring: Optional[str], text: str) -> str:
+    if not docstring:
+        return text
+
+    indent = _get_indent(docstring)
+    return f"""
+{textwrap.indent(text, indent)}
+
+{docstring}
+"""
+
+
+def gateway_deprecated(obj):
+    msg = (
+        "MLflow AI gateway is deprecated and will be replaced by the deployments API. "
+        "See https://mlflow.org/docs/latest/llms/gateway/deprecation.html for more details."
     )
-    return deco(f)
+    warning = f"""
+.. warning::
+
+    {msg}
+""".strip()
+    if inspect.isclass(obj):
+        original = obj.__init__
+
+        @functools.wraps(original)
+        def wrapper(*args, **kwargs):
+            warnings.warn(msg, FutureWarning, stacklevel=2)
+            return original(*args, **kwargs)
+
+        obj.__init__ = wrapper
+        obj.__init__.__doc__ = _prepend(obj.__init__.__doc__, warning)
+        return obj
+    else:
+
+        @functools.wraps(obj)
+        def wrapper(*args, **kwargs):
+            warnings.warn(msg, FutureWarning, stacklevel=2)
+            return obj(*args, **kwargs)
+
+        wrapper.__doc__ = _prepend(obj.__doc__, warning)
+
+        return wrapper
 
 
 @gateway_deprecated
