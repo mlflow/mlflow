@@ -996,12 +996,6 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             conda_env=str(conda_env),
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
-        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
-        model_config = Model.load(str(model_path.joinpath("MLmodel")))
-        # Vision models can't be loaded as pyfunc currently.
-        assert pyfunc.FLAVOR_NAME not in model_config.flavors
-
 
 def test_transformers_save_persists_requirements_in_mlflow_directory(
     small_qa_pipeline, model_path, transformers_custom_env
@@ -1410,7 +1404,7 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
 
     inference = pyfunc_loaded.predict(inference_payload)
 
-    assert isinstance(inference, list)
+    assert isinstance(inference, pd.DataFrame)
     assert all(isinstance(element, str) for element in inference)
 
     if isinstance(inference_payload, dict):
@@ -1419,7 +1413,7 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
         pd_input = pd.DataFrame(inference_payload)
     pd_inference = pyfunc_loaded.predict(pd_input)
 
-    assert isinstance(pd_inference, list)
+    assert isinstance(pd_inference, pd.DataFrame)
     assert all(isinstance(element, str) for element in inference)
 
 
@@ -3593,7 +3587,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     inference_payload = json.dumps(
         {
             "inputs": {
-                "images": image_file_paths,
+                "image": image_file_paths,
             },
             "params": {
                 "top_k": 2,
