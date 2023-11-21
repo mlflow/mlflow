@@ -1595,7 +1595,7 @@ Compound types:
         elif env_manager == _EnvManager.LOCAL:
             if is_spark_connect and not should_spark_connect_use_nfs:
                 model_path = os.path.join(
-                    create_tmp_dir(),
+                    tempfile.gettempdir(),
                     "mlflow",
                     insecure_hash.sha1(model_uri.encode()).hexdigest(),
                 )
