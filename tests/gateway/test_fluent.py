@@ -172,22 +172,25 @@ def test_fluent_query_chat(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     routes = search_routes()
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
                     "content": "The core of the sun is estimated to have a temperature of about "
                     "15 million degrees Celsius (27 million degrees Fahrenheit).",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "finish_reason": "stop",
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
+        "usage": {
+            "prompt_tokens": 17,
+            "completion_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
         },
     }
 
@@ -204,19 +207,18 @@ def test_fluent_query_completions(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     routes = search_routes()
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "text-davinci-003",
+        "choices": [
             {
                 "text": " car\n\nDriving fast can be dangerous and is not recommended. It is",
-                "metadata": {"finish_reason": "length"},
+                "index": 0,
+                "finish_reason": "length",
             }
         ],
-        "metadata": {
-            "input_tokens": 7,
-            "output_tokens": 16,
-            "total_tokens": 23,
-            "model": "text-davinci-003",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": 7, "completion_tokens": 16, "total_tokens": 23},
     }
 
     data = {"prompt": "I like to drive fast in my"}

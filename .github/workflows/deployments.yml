@@ -33,4 +33,4 @@ jobs:
             pytest pytest-timeout pytest-asyncio httpx psutil
       - name: Run tests
         run: |
-          pytest tests/deploymnets/databricks
+          pytest tests/deployments
