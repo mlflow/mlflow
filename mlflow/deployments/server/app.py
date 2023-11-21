@@ -16,7 +16,7 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE,
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
-from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
+from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import SetLimitsModel
 from mlflow.gateway.config import (
@@ -64,6 +64,7 @@ class GatewayAPI(FastAPI):
                 path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{route.name}{MLFLOW_QUERY_SUFFIX}",
                 endpoint=_route_type_to_endpoint(route),
                 methods=["POST"],
+                include_in_schema=False,
             )
             self.dynamic_routes[route.name] = route.to_route()
 
@@ -219,7 +220,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
         for directory in ["build", "public"]:
-            favicon = Path(__file__).parent.parent.joinpath(
+            favicon = Path(__file__).parent.parent.parent.joinpath(
                 "server", "js", directory, "favicon.ico"
             )
             if favicon.exists():
@@ -236,7 +237,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
     @app.get(MLFLOW_DEPLOYMENTS_HEALTH_ENDPOINT)
     # TODO: Remove Gateway server URLs after deprecation window elapses
-    @app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT)
+    @app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT, include_in_schema=False)
     async def health() -> HealthResponse:
         return {"status": "OK"}
 
@@ -252,7 +253,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     # TODO: Remove Gateway server URLs after deprecation window elapses
-    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}")
+    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}", include_in_schema=False)
     async def get_route(route_name: str) -> Route:
         if matched := app.get_dynamic_route(route_name):
             return matched
@@ -277,7 +278,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         return result
 
     # TODO: Remove Gateway server URLs after deprecation window elapses
-    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
+    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE, include_in_schema=False)
     async def search_routes(page_token: Optional[str] = None) -> SearchRoutesResponse:
         start_idx = SearchRoutesToken.decode(page_token).index if page_token is not None else 0
 
@@ -292,13 +293,13 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
 
     @app.get(MLFLOW_DEPLOYMENTS_LIMITS_BASE + "{endpoint}")
     # TODO: Remove Gateway server URLs after deprecation window elapses
-    @app.get(MLFLOW_GATEWAY_LIMITS_BASE + "{endpoint}")
+    @app.get(MLFLOW_GATEWAY_LIMITS_BASE + "{endpoint}", include_in_schema=False)
     async def get_limits(endpoint: str) -> LimitsConfig:
         raise HTTPException(status_code=501, detail="The get_limits API is not available yet.")
 
     @app.post(MLFLOW_DEPLOYMENTS_LIMITS_BASE)
     # TODO: Remove Gateway server URLs after deprecation window elapses
-    @app.post(MLFLOW_GATEWAY_LIMITS_BASE)
+    @app.post(MLFLOW_GATEWAY_LIMITS_BASE, include_in_schema=False)
     async def set_limits(payload: SetLimitsModel) -> LimitsConfig:
         raise HTTPException(status_code=501, detail="The set_limits API is not available yet.")
 
@@ -317,10 +318,10 @@ def create_app_from_env() -> GatewayAPI:
     """
     Load the path from the environment variable and generate the GatewayAPI app instance.
     """
-    if config_path := MLFLOW_GATEWAY_CONFIG.get():
+    if config_path := MLFLOW_DEPLOYMENTS_CONFIG.get():
         return create_app_from_path(config_path)
 
     raise MlflowException(
-        f"Environment variable {MLFLOW_GATEWAY_CONFIG!r} is not set. "
+        f"Environment variable {MLFLOW_DEPLOYMENTS_CONFIG!r} is not set. "
         "Please set it to the path of the gateway configuration file."
     )
