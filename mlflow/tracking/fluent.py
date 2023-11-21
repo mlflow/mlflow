@@ -293,7 +293,9 @@ def start_run(
     global _active_run_stack
     _validate_experiment_id_type(experiment_id)
     # back compat for int experiment_id
+    _logger.DEBUG("START RUN")
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
+    _logger.DEBUG(f"experiment_id = {experiment_id}")
     if len(_active_run_stack) > 0 and not nested:
         raise Exception(
             (
@@ -311,6 +313,7 @@ def start_run(
     else:
         existing_run_id = None
     if existing_run_id:
+        _logger.DEBUG("EXISTING RUN ID")
         _validate_run_id(existing_run_id)
         active_run_obj = client.get_run(existing_run_id)
         # Check to see if experiment_id from environment matches experiment_id from set_experiment()
@@ -351,6 +354,7 @@ def start_run(
             )
         active_run_obj = client.get_run(existing_run_id)
     else:
+        _logger.DEBUG("ELSE")
         parent_run_id = _active_run_stack[-1].info.run_id if len(_active_run_stack) > 0 else None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
@@ -1920,9 +1924,12 @@ def _get_experiment_id_from_env():
 
 
 def _get_experiment_id():
+    _logger.DEBUG("call _get_experiment_id")
     if _active_experiment_id:
+        _logger.DEBUG("return _active_experiment_id")
         return _active_experiment_id
     else:
+        _logger.DEBUG("else case")
         return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
 
