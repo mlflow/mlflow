@@ -22,7 +22,7 @@ Model
     An MLflow Model is created from an experiment or run that is logged with one of the model flavor’s ``mlflow.<model_flavor>.log_model()`` methods. Once logged, this model can then be registered with the Model Registry.
 
 Registered Model
-    An MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions, associated transitional stages, model lineage, and other metadata.
+    An MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions, version aliases, model lineage, and other metadata.
 
 Model Version
     Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name increments the version number.
@@ -501,7 +501,7 @@ This code snippet creates a sklearn model, which we assume that you had created 
     Coefficient of determination: 0.47
 
 
-Once saved in pickled format, we can load the sklearn model into memory using pickle API and
+Once saved in pickled format, you can load the sklearn model into memory using pickle API and
 register the loaded model with the Model Registry.
 
 .. code-block:: python
@@ -539,7 +539,7 @@ register the loaded model with the Model Registry.
     Model name: SklearnLinearRegression, version 1
     Created version '1' of model 'SklearnLinearRegression'.
 
-Now, using MLflow fluent APIs, we reload the model from the Model Registry and score.
+Now, using MLflow fluent APIs, you reload the model from the Model Registry and score.
 
 .. code-block:: python
 
@@ -687,10 +687,10 @@ save, log, register, and load from the Model Registry and score.
     <Yay!! Another good phone interview. I nailed it!!> -- {'neg': 0.0, 'neu': 0.446, 'pos': 0.554, 'compound': 0.816}
     <This is INSANE! I can't believe it. How could you do such a horrible thing?> -- {'neg': 0.357, 'neu': 0.643, 'pos': 0.0, 'compound': -0.8034}
 
-Deprecated: using Model Stages
+Deprecated: Using Model Stages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, visit our migration guide here.
+.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our migration guide below.
 
 See the sections below on using Model Stages in the MLflow Model Registry.
 
@@ -735,3 +735,82 @@ At a later point, if that archived model is not needed, you can delete it.
     client.transition_model_version_stage(
         name="sk-learn-random-forest-reg-model", version=3, stage="Archived"
     )
+
+Migrating from Stages
+=====================
+
+As of MLflow 2.9.0, Model Stages have been deprecated and will be removed in a future major release. This is the culmination of extensive feedback on the inflexibility of model stages for expressing MLOps workflows, from which we developed and introduced of new tools for managing and deploying models in the MLflow Model Registry. Learn more below.
+
+New model deployment tools
+--------------------------
+
+Model stages were used to express the lifecycle of MLflow Models as for productionization and deployment. Users transitioned model versions through four fixed stages (from **none**, to **staging**, to **production**, and then to **archived**) as they proposed, validated, deployed, and deprecated models for their ML use-cases. In doing so, model registry stages provided labeling and aliasing functionality for the model versions, by denoting the status of a model version in the UI and providing named references to model versions in the code (e.g. ``/Staging`` in the model URI). Model registry stages were also been used to denote the environment that the model is in.
+
+To replace and improve upon stages, we elevated **model version tags**, introduced **model version aliases**, and enhanced the model registry UI to provide flexible and powerful ways to label and alias MLflow models in the Model Registry. We also introduced **environmental separation** to enable you to set up separate environments for your models and to express access controls for them.
+
+**Model version tags**
+
+Now prominently displayed in the new model registry UI, model version tags can be used to annotate model versions with their status. For example, you could apply a tag of key ``validation_status`` and value ``pending`` to a model version while it is being validated and then update the tag value to ``passed`` when it has passed smoke tests and performance tests.
+
+**Model version aliases**
+
+Model version aliases provide a flexible way to set named aliases on model versions. For example, setting a **champion** alias on a model version enables you to fetch this model version by that alias via the :meth:`~mlflow.client.MlflowClient.get_model_version_by_alias` client API or the model URI ``models:/<registered model name>@champion``. Aliases can be easily reassigned to new model versions via the UI and client API alike, thereby decoupling model deployment from the production system code. Unlike model registry stages, more than one alias can be applied to any given model version, creating powerful possibilities for model deployment.
+
+**[New] Environmental separation**
+
+In mature DevOps and MLOps workflows, organizations may set up environments to promote code and models across. With proper separation and access controls, these environments enable continuous integration and deployment for code and models. Organizations usually have a dev, a staging, and a prod environment. Thanks to the introduction of :ref:`MLflow Authentication <auth>`, you can use registered models to express access-controlled environments for your MLflow models. One registered model can correspond to each environment and you can use the new :meth:`~mlflow.client.MlflowClient.copy_model_version` client API to promote your models across them.
+
+Migrating models away from stages
+---------------------------------
+
+In the new model registry paradigm, we provide different tools for each legacy stages use-case. See the information below to learn how to use the new model registry for each use-case.
+
+**Model environments**
+
+To set up separate environments and ACLs for your model versions, create separate registered models:
+
+* Given a base name for your model’s use-case, e.g. ``revenue_forecasting``, set up various registered models corresponding to your environments with different prefixes.
+* For example, if you want three separate dev, staging, and production environments, you can set up ``dev.ml_team.revenue_forecasting``, ``staging.ml_team.revenue_forecasting``, and ``prod.ml_team.revenue_forecasting`` registered models.
+* Use :ref:`MLflow Authentication <auth>` to set up appropriate ACLs to these models.
+
+**Transition models across environments**
+
+Once you have registered models set up for each environment, you can build your MLOps workflows on top of them.
+
+* For simple model promotion use cases, you can first register your MLflow models under the dev registered model and then promote models across environments using the :meth:`~mlflow.client.MlflowClient.copy_model_version` client API.
+* For more mature production-grade setups, we recommend promoting your ML code (including model training code, inference code, and ML infrastructure as code) across environments. This eliminates the need to transition models across environments. Dev ML code is experimental and in a dev environment, hence targeting the dev registered model. Before merging developed ML code into your source code repository, your CI stages the code in a staging environment for integration testing (targeting the staging registered model). Post-merge, the ML code is deployed to production for automated retraining (targeting the prod registered model). Such setups enable safe and robust CI/CD of ML systems - including not just model training, but also feature engineering, model monitoring, and automated retraining.
+
+**Model aliasing**
+
+To specify (via named references) which model version to deploy to serve traffic within an environment (e.g. production), use **model aliases**:
+
+1. Decide on an equivalent model alias for each model registry stage (e.g., **champion** for the **Production** stage)
+2. Assign the chosen alias to the latest model version under each stage. You can use the helper function below for this.
+3. Update ML workflows to target the alias rather than the stage. For example, the model URI ``models:/regression_model/Production`` will be replaced by the model URI ``models:/prod.ml_team.regression_model@champion`` in the production code.
+
+.. code-block:: python
+
+    from mlflow import MlflowClient
+
+    # Initialize an MLflow Client
+    client = MlflowClient()
+
+    def assign_alias_to_stage(model_name, stage, alias):
+        """
+        Assign an alias to the latest version of a registered model within a specified stage.
+
+        :param model_name: The name of the registered model.
+        :param stage: The stage of the model version for which the alias is to be assigned. Can be
+                    "Production", "Staging", "Archived", or "None".
+        :param alias: The alias to assign to the model version.
+        :return: None
+        """
+        latest_mv = client.get_latest_versions(model_name, stages=[stage])[0]
+        client.set_registered_model_alias(model_name, alias, latest_mv.version)
+
+**Model status**
+
+To represent and communicate the status of your model versions, use model version tags:
+
+* Set tags on model versions to indicate the status of the model.
+* For example, to indicate the review status of a model version, you can set a tag with key ``validation_status`` and value ``pending`` or ``passed``.

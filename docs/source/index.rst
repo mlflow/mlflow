@@ -276,7 +276,7 @@ Deployment Guides and Tutorials
     tracking
     projects
     models
-    model-registry/index
+    model-registry
     recipes
     plugins
     auth/index
