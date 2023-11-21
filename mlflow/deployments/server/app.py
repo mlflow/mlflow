@@ -16,7 +16,7 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_LIST_ENDPOINTS_PAGE_SIZE,
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
-from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
+from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import SetLimitsModel
 from mlflow.gateway.config import (
@@ -220,7 +220,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
         for directory in ["build", "public"]:
-            favicon = Path(__file__).parent.parent.joinpath(
+            favicon = Path(__file__).parent.parent.parent.joinpath(
                 "server", "js", directory, "favicon.ico"
             )
             if favicon.exists():
@@ -318,10 +318,10 @@ def create_app_from_env() -> GatewayAPI:
     """
     Load the path from the environment variable and generate the GatewayAPI app instance.
     """
-    if config_path := MLFLOW_GATEWAY_CONFIG.get():
+    if config_path := MLFLOW_DEPLOYMENTS_CONFIG.get():
         return create_app_from_path(config_path)
 
     raise MlflowException(
-        f"Environment variable {MLFLOW_GATEWAY_CONFIG!r} is not set. "
+        f"Environment variable {MLFLOW_DEPLOYMENTS_CONFIG!r} is not set. "
         "Please set it to the path of the gateway configuration file."
     )

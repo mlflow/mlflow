@@ -3,10 +3,13 @@ from unittest import mock
 import pytest
 from fastapi.testclient import TestClient
 
+from mlflow.deployments.server.app import create_app_from_config, create_app_from_env
+from mlflow.deployments.server.constants import (
+    MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE,
+    MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE,
+)
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.app import create_app_from_config, create_app_from_env
 from mlflow.gateway.config import GatewayConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_CRUD_ROUTE_BASE, MLFLOW_GATEWAY_ROUTE_BASE
 
 from tests.gateway.tools import MockAsyncResponse
 
@@ -70,14 +73,14 @@ def test_docs(client: TestClient):
     assert response.status_code == 200
 
 
-def test_search_routes(client: TestClient):
-    response = client.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
+def test_list_endpoints(client: TestClient):
+    response = client.get(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE)
     assert response.status_code == 200
-    assert response.json()["routes"] == [
+    assert response.json()["endpoints"] == [
         {
             "name": "completions-gpt4",
-            "route_type": "llm/v1/completions",
-            "route_url": "/gateway/completions-gpt4/invocations",
+            "endpoint_type": "llm/v1/completions",
+            "endpoint_url": "/gateway/completions-gpt4/invocations",
             "model": {
                 "name": "gpt-4",
                 "provider": "openai",
@@ -85,8 +88,8 @@ def test_search_routes(client: TestClient):
         },
         {
             "name": "chat-gpt4",
-            "route_type": "llm/v1/chat",
-            "route_url": "/gateway/chat-gpt4/invocations",
+            "endpoint_type": "llm/v1/chat",
+            "endpoint_url": "/gateway/chat-gpt4/invocations",
             "model": {
                 "name": "gpt-4",
                 "provider": "openai",
@@ -95,13 +98,13 @@ def test_search_routes(client: TestClient):
     ]
 
 
-def test_get_route(client: TestClient):
-    response = client.get(f"{MLFLOW_GATEWAY_CRUD_ROUTE_BASE}chat-gpt4")
+def test_get_endpoint(client: TestClient):
+    response = client.get(f"{MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE}chat-gpt4")
     assert response.status_code == 200
     assert response.json() == {
         "name": "chat-gpt4",
-        "route_type": "llm/v1/chat",
-        "route_url": "/gateway/chat-gpt4/invocations",
+        "endpoint_type": "llm/v1/chat",
+        "endpoint_url": "/gateway/chat-gpt4/invocations",
         "model": {
             "name": "gpt-4",
             "provider": "openai",
@@ -109,7 +112,7 @@ def test_get_route(client: TestClient):
     }
 
 
-def test_dynamic_route():
+def test_dynamic_endpoint():
     config = GatewayConfig(
         **{
             "routes": [
@@ -157,7 +160,7 @@ def test_dynamic_route():
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         resp = client.post(
-            f"{MLFLOW_GATEWAY_ROUTE_BASE}chat/invocations",
+            f"{MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE}chat/invocations",
             json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
         )
         mock_post.assert_called_once()
@@ -184,7 +187,7 @@ def test_dynamic_route():
         }
 
 
-def test_create_app_from_env_fails_if_MLFLOW_GATEWAY_CONFIG_is_not_set(monkeypatch):
-    monkeypatch.delenv("MLFLOW_GATEWAY_CONFIG", raising=False)
-    with pytest.raises(MlflowException, match="'MLFLOW_GATEWAY_CONFIG' is not set"):
+def test_create_app_from_env_fails_if_MLFLOW_DEPLOYMENTS_CONFIG_is_not_set(monkeypatch):
+    monkeypatch.delenv("MLFLOW_DEPLOYMENTS_CONFIG", raising=False)
+    with pytest.raises(MlflowException, match="'MLFLOW_DEPLOYMENTS_CONFIG' is not set"):
         create_app_from_env()
