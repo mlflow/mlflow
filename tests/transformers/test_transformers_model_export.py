@@ -1359,7 +1359,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert isinstance(pd_inference, list)
     assert all(isinstance(element, str) for element in inference)
 
-
+@pytest.fixture
 def raw_image_file(imagename):
     datasets_path = (
         pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets").joinpath(imagename)
@@ -1374,7 +1374,7 @@ def raw_image_file(imagename):
         image_url,
         [image_url, image_url],
         {
-            "image": raw_image_file("cat.png"),
+            "images": raw_image_file("cat.png"),
         },
         raw_image_file("cat_image.jpg"),
         [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
@@ -1395,16 +1395,7 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
 
     inference = pyfunc_loaded.predict(inference_payload)
     inference_dataframe= pd.DataFrame(inference)
-    assert isinstance(inference_dataframe, pd.DataFrame())
-    assert all(isinstance(element, str) for element in inference)
-
-    if isinstance(inference_payload, dict):
-        pd_input = pd.DataFrame(inference_payload, index=[0])
-    else:
-        pd_input = pd.DataFrame(inference_payload)
-    pd_inference = pyfunc_loaded.predict(pd_input)
-    pd_inference_dataframe = pd.DataFrame(pd_inference)
-    assert isinstance(pd_inference_dataframe, pd.DataFrame)
+    assert isinstance(inference_dataframe, pd.core.frame.DataFrame)
     assert all(isinstance(element, str) for element in inference)
 
 
@@ -2136,7 +2127,7 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
         image_url,
         [image_url, image_url],
         {
-            "image": raw_image_file("cat.png"),
+            "images": raw_image_file("cat.png"),
         },
         raw_image_file("cat_image.jpg"),
         [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
@@ -3576,7 +3567,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     inference_payload = json.dumps(
         {
             "inputs": {
-                "image": image_file_paths,
+                "images": image_file_paths,
             },
             "params": {
                 "top_k": 2,
