@@ -1269,7 +1269,7 @@ def spark_udf(
         and not should_spark_connect_use_nfs
     ):
         raise MlflowException.invalid_parameter_value(
-            f"Environment manager {env_manager!r} is not supported in Spark connect mode when "
+            f"Environment manager {env_manager!r} is not supported in Spark connect mode "
             "when either non-Databricks environment is in use or NFS is unavailable.",
         )
 
