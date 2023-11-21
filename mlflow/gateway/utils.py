@@ -30,7 +30,7 @@ def is_valid_endpoint_name(name: str) -> bool:
 
 
 def check_configuration_route_name_collisions(config):
-    routes = config.get("routes", []) or config.get("endpoints", [])
+    routes = config.get("routes") or config.get("endpoints") or []
     if len(routes) < 2:
         return
     names = [route["name"] for route in routes]
