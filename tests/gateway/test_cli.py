@@ -47,4 +47,4 @@ routes:
     )
     assert res.exit_code == 2
     assert "The gateway configuration is invalid" in res.output
-    assert "routes" in res.output
+    assert "endpoints" in res.output
