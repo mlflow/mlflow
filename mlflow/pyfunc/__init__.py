@@ -286,6 +286,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import (
     _copy_file_or_tree,
+    create_tmp_dir,
     get_or_create_nfs_tmp_dir,
     get_or_create_tmp_dir,
     get_total_file_size,
@@ -1239,7 +1240,6 @@ def spark_udf(
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
 
     is_spark_connect = _is_spark_connect()
-
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
@@ -1529,8 +1529,6 @@ Compound types:
                     model_uri=local_model_path_on_executor, capture_output=True
                 )
             else:
-                if is_spark_connect:
-                    assert should_spark_connect_use_nfs
                 local_model_path_on_executor = None
 
             if check_port_connectivity():
@@ -1600,7 +1598,7 @@ Compound types:
                     loaded_model = mlflow.pyfunc.load_model(local_model_path)
                 else:
                     model_path = os.path.join(
-                        tempfile.gettempdir(),
+                        create_tmp_dir(),
                         "mlflow",
                         insecure_hash.sha1(model_uri.encode()).hexdigest(),
                     )
