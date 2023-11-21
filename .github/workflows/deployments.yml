@@ -29,7 +29,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install --no-dependencies tests/resources/mlflow-test-plugin && \
+          pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install .[gateway] \
             pytest pytest-timeout pytest-asyncio httpx psutil
       - name: Run tests
