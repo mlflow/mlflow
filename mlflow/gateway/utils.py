@@ -3,19 +3,17 @@ import functools
 import inspect
 import json
 import logging
+import posixpath
 import re
 import textwrap
 import warnings
-from typing import Optional
+from typing import List, Optional
+from urllib.parse import urlparse
 
-from mlflow.deployments.utils import (
-    _is_valid_uri,  # noqa: F401
-    assemble_uri_path,  # noqa: F401
-    resolve_route_url,  # noqa: F401
-)
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
+from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
 _gateway_uri: Optional[str] = None
@@ -57,6 +55,20 @@ def kill_child_processes(parent_pid):
     _, still_alive = psutil.wait_procs(parent.children(), timeout=3)
     for p in still_alive:
         p.kill()
+
+
+def _is_valid_uri(uri: str):
+    """
+    Evaluates the basic structure of a provided gateway uri to determine if the scheme and
+    netloc are provided
+    """
+    if uri == "databricks":
+        return True
+    try:
+        parsed = urlparse(uri)
+        return parsed.scheme == "databricks" or all([parsed.scheme, parsed.netloc])
+    except ValueError:
+        return False
 
 
 def _get_indent(s: str) -> str:
@@ -150,6 +162,33 @@ def get_gateway_uri() -> str:
             "`mlflow.gateway.set_gateway_uri()` or set the environment variable "
             f"{MLFLOW_GATEWAY_URI} to the running Gateway API server's uri"
         )
+
+
+def assemble_uri_path(paths: List[str]) -> str:
+    """
+    Assemble a correct URI path from a list of path parts.
+
+    :param paths: A list of strings representing parts of a URI path.
+    :return: A string representing the complete assembled URI path.
+    """
+    stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
+    return "/" + posixpath.join(*stripped_paths) if stripped_paths else "/"
+
+
+def resolve_route_url(base_url: str, route: str) -> str:
+    """
+    Performs a validation on whether the returned value is a fully qualified url (as the case
+    with Databricks) or requires the assembly of a fully qualified url by appending the
+    Route return route_url to the base url of the AI Gateway server.
+
+    :param base_url: The base URL. Should include the scheme and domain, e.g.,
+                     ``http://127.0.0.1:6000``.
+    :param route: The route to be appended to the base URL, e.g., ``/api/2.0/gateway/routes/`` or,
+                  in the case of Databricks, the fully qualified url.
+    :return: The complete URL, either directly returned or formed and returned by joining the
+             base URL and the route path.
+    """
+    return route if _is_valid_uri(route) else append_to_uri_path(base_url, route)
 
 
 class SearchRoutesToken:
