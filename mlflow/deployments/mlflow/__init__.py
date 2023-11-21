@@ -111,7 +111,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
             **call_kwargs,
         )
         augmented_raise_for_status(response)
-        return response
+        return response.json()
 
     @experimental
     def get_endpoint(self, endpoint):
@@ -119,7 +119,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         TODO
         """
         route = assemble_uri_path([MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint])
-        response = self._call_endpoint("GET", route).json()
+        response = self._call_endpoint("GET", route)
         response["endpoint_url"] = resolve_route_url(self.target_uri, response["endpoint_url"])
         return Endpoint(**response)
 
@@ -131,7 +131,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         params = {"page_token": page_token} if page_token is not None else None
         response_json = self._call_endpoint(
             "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=json.dumps(params)
-        ).json()
+        )
         routes = [
             Endpoint(
                 **{
@@ -159,7 +159,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         try:
             return self._call_endpoint(
                 "POST", query_route, data, MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
-            ).json()
+            )
         except MlflowException as e:
             if isinstance(e.__cause__, requests.exceptions.Timeout):
                 timeout_message = (
