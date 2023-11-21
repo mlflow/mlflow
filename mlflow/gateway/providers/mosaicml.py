@@ -194,19 +194,22 @@ class MosaicMLProvider(BaseProvider):
         # }
         # ```
         return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": c,
-                        "metadata": {},
-                    }
-                    for c in resp["outputs"]
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=self.config.model.name,
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=c,
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(resp["outputs"])
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:

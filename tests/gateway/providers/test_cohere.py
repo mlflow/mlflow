@@ -1,11 +1,13 @@
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import completions, embeddings
 
@@ -44,34 +46,45 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch(
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = CohereProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
+            "n": 1,
+            "stop": ["foobar"],
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "command",
+            "choices": [
                 {
                     "text": "This is a test",
-                    "metadata": {},
+                    "index": 0,
+                    "finish_reason": None,
                 }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "command",
-                "route_type": "llm/v1/completions",
-            },
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://api.cohere.ai/v1/generate",
+            json={
+                "prompt": "This is a test",
+                "model": "command",
+                "num_generations": 1,
+                "stop_sequences": ["foobar"],
+                "temperature": 0.0,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 @pytest.mark.asyncio
-async def test_completions_temperature_is_multiplied_by_5():
+async def test_completions_temperature_is_scaled_correctly():
     resp = completions_response()
     config = completions_config()
     with mock.patch(
@@ -83,7 +96,7 @@ async def test_completions_temperature_is_multiplied_by_5():
             "temperature": 0.5,
         }
         await provider.completions(completions.RequestPayload(**payload))
-        assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 5
+        assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 2.5
 
 
 def embeddings_config():

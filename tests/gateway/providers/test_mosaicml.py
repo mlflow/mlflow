@@ -43,30 +43,31 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch(
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = MosaicMLProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
+            "max_tokens": 1000,
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
-                {
-                    "text": "This is a test",
-                    "metadata": {},
-                }
-            ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "mpt-7b-instruct",
-                "route_type": "llm/v1/completions",
-            },
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "mpt-7b-instruct",
+            "choices": [{"text": "This is a test", "index": 0, "finish_reason": None}],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://models.hosted-on.mosaicml.hosting/mpt-7b-instruct/v1/predict",
+            json={
+                "inputs": ["This is a test"],
+                "parameters": {"temperature": 0.0, "n": 1, "max_new_tokens": 1000},
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def chat_config():
