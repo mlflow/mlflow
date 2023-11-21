@@ -14,7 +14,7 @@ Auto logging is a powerful feature that allows you to log metrics, parameters, a
 
     with mlflow.start_run():
         # your training code goes here
-        ... 
+        ...
 
 This will enable MLflow to automatically log various information about your run, including:
 

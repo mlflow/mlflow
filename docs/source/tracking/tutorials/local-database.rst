@@ -40,18 +40,13 @@ If you are on notebook, you can run the following cell instead:
 
 .. code-section::
 
-    .. code-block:: python
+    .. code-block::
         :name: set-env-notebook
 
         %env MLFLOW_TRACKING_URI=sqlite:///mlruns.db
 
 .. note::
   For SQLite database, MLflow automatically creates a new database if it does not exist. If you want to use other database, you need to create the database first.
-
-Set S3 endpoint URL
-~~~~~~~~~~~~~~~~~~~
-
-
 
 
 Step 3: Start logging
@@ -103,6 +98,6 @@ Now you have learned how to connect MLflow Tracking with remote storage and data
 There are a couple of more advanced topics you can explore:
 
 * **Remote environment setup for team development**: While storing runs and experiments data in local machine is perfectly fine for solo development, you should 
-  consider using :ref:`MLflow Tracking Server <tracking-server>` when you set up team collaboration environment with MLflow Tracking. Read 
+  consider using :ref:`MLflow Tracking Server <tracking_server>` when you set up team collaboration environment with MLflow Tracking. Read 
   `Remote Experiment Tracking with MLflow Tracking Server <remote-server.html>`_ tutorial to learn more.
-* **New Features**: MLflow team constantly develops new features to support broader use cases. See `New Features <../new-features/index.html>`_ to catch up with the latest features.
+* **New Features**: MLflow team constantly develops new features to support broader use cases. See `New Features <../../new-features/index.html>`_ to catch up with the latest features.

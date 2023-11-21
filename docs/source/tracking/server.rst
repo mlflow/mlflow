@@ -109,7 +109,6 @@ Using the Tracking Server for proxied artifact access
 By default, the tracking server stores artifacts in its local filesystem under ``./mlartifacts`` directory. To configure 
 the tracking server to connect to remote storgate and serve artifacts, start the server with ``--artifacts-destination`` flag.
 
-Example
 .. code-block:: bash
 
     mlflow server \
@@ -131,6 +130,11 @@ explicit object store destination (e.g., "s3:/my_bucket/mlartifacts") for interf
  * ``mlflow-artifacts://<host>/mlartifacts``
  * ``mlflow-artifacts://<host>:<port>/mlartifacts``
  * ``mlflow-artifacts:/mlartifacts``
+
+
+.. important:: 
+  The MLflow client caches artifact location information on a per-run basis.
+  It is therefore not recommended to alter a run's artifact location before it has terminated.
 
 .. _tracking-server-no-proxy:
 

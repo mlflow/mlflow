@@ -14,7 +14,9 @@ The backend store is a core component in `MLflow Tracking <../index.html>`_ wher
 * Code version (only if you launch runs from an :ref:`MLflow Project <projects>`).
 * Source file name (only if you launch runs from an :ref:`MLflow Project <projects>`).
 
-Note that large model artifacts such as model weight files are stored in :ref:`artifact store <artifacts-stores>`,  the other core component in MLflow Tracking.
+Note that large model artifacts such as model weight files are stored in `artifact store <artifacts-stores.html>`_,  the other core component in MLflow Tracking.
+
+.. _where_runs_are_recorded:
 
 Configure Backend Store
 =======================

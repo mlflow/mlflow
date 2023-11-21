@@ -16,6 +16,14 @@ MLflow Tracking APIs
 `Auto logging <autolog.html>`_ is a powerful feature that allows you to log metrics, parameters, and models without the need for explicit log statements
 but just a single ``mlflow.autolog()`` call at the top of your ML code. See :ref:`auto logging documentation <automatic-logging>` for supported libraries and how to use autolog APIs with each of them.
 
+    .. code-block:: python
+
+        import mlflow
+
+        mlflow.autolog()
+
+        # Your training code...
+
 Manual Logging
 ==============
 
@@ -134,7 +142,7 @@ By default, ``timestamp`` is set to the current time and ``step`` is set to 0. Y
 
 If you specify both a timestamp and a step, metrics are recorded against both axes independently.
 
-.. _organizing-runs-in-experiments:
+.. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments
 ------------------------------

@@ -1,23 +1,17 @@
-.. _artifact-stores:
-
 ===============
 Artifact Stores
 ===============
 
 The artifact store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores (typicaly large) arifacts
-for each run to such as model weights (e.g. a pickled scikit-learn model), images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). 
-Note that metadata like parameters, metrics, and tags are stored in :ref:`backend store <backend-stores>`, the other component of the MLflow Tracking.
+for each run such as model weights (e.g. a pickled scikit-learn model), images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). 
+Note that metadata like parameters, metrics, and tags are stored in `backend store <backend-stores.html>`_, the other component of the MLflow Tracking.
 
 Configure Artifact Store
 ========================
 MLflow by default stores artifacts in local ``./mlruns`` directory, but also supports various locations suitable for large data:
-AAmazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
-
-Currently, using remote artifacts store requires running MLflow Tracking server. See :ref:`tracking server setup <tracking-server-artifact-store>` for more guidance.
-
-.. important:: 
-  The MLflow client caches artifact location information on a per-run basis.
-  It is therefore not recommended to alter a run's artifact location before it has terminated.
+AAmazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS. You can connect those remote storages via MLflow Tracking server.
+See :ref:`tracking server setup <tracking-server-artifact-store>` and the specific section for your storage in :ref:`supported storages <artifacts-store-supported-storages>` for 
+how to connect to the remote storage.
 
 .. _artifacts-stores-manage-access:
 
@@ -27,7 +21,6 @@ To allow the server and clients to access the artifact location, you should conf
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``.
-See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
 
 .. important::
     Access credentials and configuration for the artifact storage location are configured *once during server initialization* in the place
@@ -36,9 +29,8 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 
 Timeout
 -------
-You may set an MLflow environment variable to configure the timeout for artifact uploads and downloads:
-
-- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the timeout for artifact upload/download in seconds (Default set by individual artifact stores).
+You can set an environment variable ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` (in seconds) to configure the timeout for artifact uploads and downloads.
+Note that this is experimental feature, may be changed or removed.
 
 Logging Artifacts Location
 --------------------------
