@@ -16,6 +16,7 @@ your own plugin for deployment to a custom serving tool, see
 import json
 
 from mlflow.deployments.base import BaseDeploymentClient
+from mlflow.deployments.databricks import DatabricksDeploymentClient  # noqa: F401
 from mlflow.deployments.interface import get_deploy_client, run_local
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -87,4 +88,10 @@ class PredictionsResponse(dict):
         return PredictionsResponse(parsed_response)
 
 
-__all__ = ["get_deploy_client", "run_local", "BaseDeploymentClient", "PredictionsResponse"]
+__all__ = [
+    "get_deploy_client",
+    "run_local",
+    "BaseDeploymentClient",
+    "DatabricksDeploymentClient",
+    "PredictionsResponse",
+]

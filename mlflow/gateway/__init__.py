@@ -1,3 +1,9 @@
+"""
+.. warning::
+
+    MLflow AI gateway is deprecated and has been replaced by the deployments API for generative AI.
+    See :ref:`gateway-deprecation` for more details.",
+"""
 from mlflow.gateway.client import MlflowGatewayClient
 from mlflow.gateway.fluent import (
     create_route,
