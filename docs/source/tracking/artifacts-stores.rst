@@ -54,6 +54,7 @@ default location to store artifacts for all runs in this experiment.
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
 
+.. _artifacts-store-supported-storages:
 
 Supported storages
 ==================

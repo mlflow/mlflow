@@ -4,15 +4,6 @@
 MLflow Tracking
 ===============
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    tracking-api
-    artifacts-stores
-    backend-stores
-    server
-
 The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files
 when running your machine learning code and for later visualizing the results.
 MLflow Tracking lets you log and query experiments using :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R-api`, and :ref:`java_api` APIs.
@@ -76,8 +67,14 @@ for more details on how to organize your runs into experiments.
 
 .. _start-logging:
 
-Start Tracking Runs
-===================
+Tracking Runs
+=============
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tracking-api
 
 .. note::
     By default without no particular server / database configuration, MLflow Tracking logs data to local `mlruns` directory. If you want to log your Runs to different location,
@@ -175,15 +172,36 @@ Components
 
 `MLflow Tracking APIs <tracking-api.html>`_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-MLflow provides Python, Java, R , and REST APIs for logging runs and artifacts, and communicating with MLflow Tracking Server if necessary.
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tracking-api
+
+Java, R , and REST APIs for logging runs and artifacts, and communicating with MLflow Tracking Server if necessary.
 
 `Backend store <backend-stores.html>`_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    backend-stores
+
 Backend store persists various metadata for each :ref:`Run <runs>`, such as run id, start & end time, parameters, metrics, etc.
 MLflow supports two types storage for backend, either **file-system based** like local files and **database-based** like PostgresQL.
 
 `Artifact store <artifacts-stores.html>`_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    artifacts-stores
+
 Artifact store persists (typicaly large) arifacts for each run to such as model weights (e.g. a pickled scikit-learn model),
 images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). MLflow stores artifacts ina a
 local file (`mlruns`) by default, but also supports different storage options such as Amazon S3 and Azure Blob Storage.
@@ -192,6 +210,13 @@ local file (`mlruns`) by default, but also supports different storage options su
 
 `MLflow Tracking Server <server.html>`_ (Optional)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    server
+
 MLflow Tracking Server is a stand-alone HTTP server that provides REST APIs for accessing backend and/or artifact store.
 Tracking server also offers flexibility to configure what data to server, govern access control, versioning, and etc.
 
@@ -204,6 +229,7 @@ Common Setups
     :maxdepth: 1
     :hidden:
 
+    ../getting-started/quickstart-1/index
     tutorials/local-database
     tutorials/remote-server
 
@@ -220,22 +246,22 @@ The following diagram and table show a few common set ups for MLflow Tracking en
     :widths: 45 15 20 20
     :header-rows: 1
 
-    * - Setup
-      - Scenario
+    * - Scenario
+      - Use Case
       - Description
       - Tutorial
 
-    * - **Localhost (default)**
+    * - **1. Localhost (default)**
       - Solo development
       - By default, MLflow records metadata and artifacts for each run to a local directory ``mlruns``. This is the simplest way to get started with MLflow Tracking, without setting up any external server, database, and storage.
       - `QuickStart <getting-started/quickstart-1/index.html>`_
 
-    * - **Local Tracking with Local Database**
+    * - **2. Local Tracking with Local Database**
       - Solo development
       - The MLflow client can interface with SQLAlchemy-compatible database (e.g. SQLite, PostgresQL, MySQl) for `backend <backend-stores.html>`_. Saving metadata to a database allows you cleaner management of your experiment data, while skipping the effort of setting up a server.
-      - `Experiment Tracking with Local Database <tutorials/local-database.html>`_
+      - `Tracking Experiments with Local Database <tutorials/local-database.html>`_
 
-    * - **Remote Tracking with** `MLflow Tracking Server <server.html>`_
+    * - **3. Remote Tracking with** `MLflow Tracking Server <server.html>`_
       - Team development
       - MLflow Tracking Server can be configured with an artifacts HTTP proxy, passing artifact requests through the tracking server to store and retrieve artifacts without having to interact with underlying object store services. This is particularly useful for team development scenarios where you want to store artifacts and experiment metadata in a shared location with proper access control.
       - `Remote Experiment Tracking with MLflow Tracking Server <tutorials/remote-server.html>`_
@@ -247,42 +273,42 @@ Other Configuration with `MLflow Tracking Server <server.html>`_
 MLflow Tracking Server provides customizability for other special use cases. Please follow `Remote Experiment Tracking with MLflow Tracking Server <tutorials/remote-server.html>`_ for 
 learning the basic setup, and continue to the following materials for the advanced configurations to meet your needs.
 
-.. |image-local-server| image:: ../_static/images/tracking/tracking-setup-localhost.png
+.. |image-local-server| image:: ../_static/images/tracking/tracking-setup-local-server.png
     :align: middle
     :width: 50px
     :alt: Run MLflow Tracking Server on localhost
 
-.. |image-no-proxy| image:: ../_static/images/tracking/tracking-setup-no-proxy.png
+.. |image-no-proxy| image:: ../_static/images/tracking/tracking-setup-no-serve-artifacts.png
     :align: middle
-    :figwidth: 50px
+    :width: 50px
     :alt: Bypass Tracking Server proxy for artifacts access
 
-.. |image-artifact-only| image:: ../_static/images/tracking/tracking-setup-artifact-only.png
+.. |image-artifact-only| image:: ../_static/images/tracking/tracking-setup-artifacts-only.png
     :align: middle
-    :figwidth: 50px
+    :width: 50px
     :alt: Use MLflow Tracking Server exclusively as a proxy for artifacts
 
 .. list-table::
-    :widths: 30 40 30
+    :widths: 30 50 20
     :header-rows: 1
 
-    * - Setup
-      - Use Case
+    * - Scenario
+      - Description
       - Diagram
 
     * - Run MLflow Tracking Server on localhost
       - This is mainly useful for testing your team development workflow locally, or running your machine learning code on container environment.
-      - |image-local-server|
+      - |image-local-server| 
 
     * - Bypass Tracking Server proxy for artifacts access
       - MLflow Tracking Server by default serves both artifacts and only metadata. However, in some case you want to allow direct access to the remote artifacts storage to avoid overhead of proxy, while preserving the functionality of metadata tracking.
-        Refer `Use tracking server w/o proxying artifacts access <stracking-server-no-proxy>` for how to set this up.
-      - |image-no-proxy|
+        Refer :ref:`Use tracking server w/o proxying artifacts access <stracking-server-no-proxy>` for how to set this up.
+      - |image-no-proxy|  
 
     * - Use MLflow Tracking Server exclusively as a proxy for artifacts
       - If you are in large organization or training huge models, you might have high artifact transfer volumes. In such case, you may want to split out the traffic for serving artifacts, so as not to impact tracking functionality.
         You can achieve this by configure the server with ``--artifact-only`` mode, as described in :ref:`Use tracking server w/o proxying artifacts access <stracking-server-no-proxy>`.
-      - |image-artifact-only|
+      - |image-artifact-only| 
 
 FAQ
 ===
@@ -297,3 +323,20 @@ MLflow provides a few ways to organize your runs,
 
 * :ref:`Organize runs into experiments <organizing-runs-in-experiments>` - Experiments is a logical container for your runs. You can create an experiment using CLI, API, or UI.
 * :ref:`Add tags to runs <add-tags-to-runs>` - You can associate arbitrary tags with each run, which allows you to filter and search runs based on tags.
+
+Can I directly access remote storage, without running Tracking Server?
+----------------------------------------------------------------------
+
+Yes, while it is the best practice to have MLflow Tracking Server as a proxy for artifacts access for team development workflow, you may not need that 
+if you are using it for personal project or testing. You can achieve this by the following workaround:
+
+1. Set up artifacts configuration such as credentials, endpoints, just like you would do for MLflow Tracking Server. See :ref:`configure artifact storage <artifacts-store-supported-storages>` for more details.
+2. Create an experiment with explicit artifact location,
+
+    .. code-block:: python
+
+        experiment_name = "your_experiment_name"
+        mlflow.create_experiment(experiment_name, artifact_location="s3://your-bucket")
+        mlflow.set_experiment(experiment_name)
+
+Your runs under this experiment will log artifacts to the remote storage directly.

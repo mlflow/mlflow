@@ -13,12 +13,16 @@ There are many benefits to utilize MLflow Tracking Server for remote experiment 
 How it works?
 =============
 
-The following picture depicts the end state once you have completed this tutorial.
+The following picture depicts the architecture of using remote MLflow Tracking Server with PostgreSQL and S3
+
+.. figure:: ../../_static/images/tracking/scenario_5.png
+    :align: center
+    :figwidth: 900
+
+    Artifacture diagram of MLflow Tracking Server with PostgreSQL and S3
 
 .. note::
-  In this tutorial, we will use a PostgreSQL database to store experiment and run data and an S3 bucket to store artifacts, but 
-  you can modify the steps below to use other data stores. Find the list of supported data stores in `artifact stores <artifacts-stores.html>`_ and `backend stores <backend-stores.html>` documentations.
-
+   You cna find the list of supported data stores in `artifact stores <artifacts-stores.html>`_ and `backend stores <backend-stores.html>` documentations.
 
 When you start logging runs to the MLflow Tracking Server, the following happens:
 
@@ -46,6 +50,13 @@ When you start logging runs to the MLflow Tracking Server, the following happens
 Get Started
 ===========
 
+Preface
+-------
+
+In the actual environment, you will have a multiple remote hosts to run the tracking server and databases, as shown in the diagram above. However, for the pupose of this tutorial, 
+we will just use single machine with multiple Docker containers running on different ports, mimicing the remote environment with easy set up. We also use `MinIO <https://min.io/>`_,
+an S3-compatible object storage, as an artifact store so that you don't need to have AWS account to run this tutorial.
+
 Step 1 - Get MLflow
 -------------------
 MLflow is available on PyPI. If you don't already have it installed on your system (both local and remote), you can install it with:
@@ -53,68 +64,191 @@ MLflow is available on PyPI. If you don't already have it installed on your syst
 .. code-section::
 
     .. code-block:: bash
-        :name: download-mlflow
+        :name: install-mlflow
 
         pip install mlflow
 
 Step 2 - Set up remote data stores
 ----------------------------------
 MLflow Tracking Server can interact with a variety of data stores to store experiment and run data as well as artifacts.
-In this tutorial, we will use a PostgreSQL database to store experiment and run data and an S3 bucket to store artifacts, but 
-you can modify the steps below to use other data stores supported by MLflow.
+In this tutorial, we will use **Docker Compose** to start two containers, each of them simulating remote servers in actual environment.
 
-Create a PostgreSQL database
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-TBA
+1. `PostgreSQL <https://www.postgresql.org/>`_ database as a backend store.
+2. `MinIO <https://min.io/>`_ server as an artifact store.
 
-Create an S3 bucket
-~~~~~~~~~~~~~~~~~~~
+Install docker and docker-compose
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-TBA
+.. note::
+  These docker steps are only required for the tutorial purpose. MLflow itself doesn't depend on Docker at all.
 
-Set up access credentials for the S3 bucket
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Follow the official instructions for installing `Docker <https://docs.docker.com/install/>`_ and `Docker Compose <https://docs.docker.com/compose/install/>`_.
 
-TBA
+Then, run ``docker --version`` and ``docker-compose --version`` to make sure they are installed correctly.
 
+Create ``docker-compose.yaml``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Create a file named ``docker-compose.yaml`` with the following content:
+
+.. code-block:: yaml
+    :caption: docker-compose.yaml
+
+    version: '3.7'
+    services:
+      # PostgreSQL database
+      postgres:
+        image: postgres:latest
+        environment:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: mlflowdb
+        ports:
+          - 5432:5432
+        volumes:
+          - ./postgres-data:/var/lib/postgresql/data
+      # MinIO server
+      minio:
+        image: minio/minio
+        expose:
+          - "9000"
+        ports:
+          - "9000:9000"
+          # MinIO Console is available at http://localhost:9001
+          - "9001:9001"
+        environment:
+          MINIO_ROOT_USER: "minio_user"
+          MINIO_ROOT_PASSWORD: "minio_password"
+        healthcheck:
+          test: timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1
+          interval: 1s
+          timeout: 10s
+          retries: 5
+        command: server /data --console-address ":9001"
+      # Create a bucket named "bucket" if it doesn't exist
+      minio-create-bucket:
+        image: minio/mc
+        depends_on:
+          minio:
+            condition: service_healthy
+        entrypoint: >
+          bash -c "
+          mc alias set minio http://minio:9000 user password &&
+          if ! mc ls minio | grep --quiet bucket; then
+            mc mb minio/bucket
+          else
+            echo 'bucket already exists'
+          fi
+          "
+
+Start the containers
+~~~~~~~~~~~~~~~~~~~~
+
+Run the following command from the same directory ``docker-compose.yaml`` file resides to start the containers:
+
+.. code-block:: bash
+    :caption: Command to start the containers
+
+    docker-compose up -d
+
+This will start the containers for PostgreSQL and Minio server in the background, as well as create a new bucket named "bucket" in Minio.
 
 Step 3 - Start the Tracking Server
 ----------------------------------
 
-Now login to your remote machine and start the MLflow Tracking Server with the following command:
+.. note::
+  In actual environment, you will have remote host to run the tracking server, but in this tutorial we will just use the local machine.
+
+Configure access
+~~~~~~~~~~~~~~~~
+
+For the tracking server to access remote storage, it needs to be configured with the necessary credentials.
+
+.. code-block:: bash
+
+  export MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+  export AWS_ACCESS_KEY_ID=minio_user
+  export AWS_SECRET_ACCESS_KEY=minio_password
+
+You can find the instructions for how to configure credentials for other storages in :ref:`Supported Storage <artifacts-store-supported-storages>`.
+
+Launch tracking server
+~~~~~~~~~~~~~~~~~~~~~~
+
+TO specify the backend store and artifact store, you can use the ``--backend-store-uri`` and ``--artifacts-store-uri`` options respectively.
 
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
 
     mlflow server \
       --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb \
-      --artifacts-destination s3://bucket_name \
-      --host remote_host
+      --artifacts-destination s3://bucket \
+      --host 0.0.0.0 \
+      --port 5000
 
 Step 4: Logging to the Tracking Server
 --------------------------------------
 
-Set environment variable
-~~~~~~~~~~~~~~~~~~~~~~~~
-TBA
+Once the tracking server is running, you can log runs to the tracking server by setting the MLflow Tracking URI to the tracking server's URI.
+
+.. code-block:: bash
+    :caption: Setting the tracking URI
+
+    export MLFLOW_TRACKING_URI=http://127.0.0.1:5000  # Replace with remote host name or IP address in actual environment
 
 Alternatively, you can use the :py:func:`mlflow.set_tracking_uri` API to set the tracking URI.
 
+Then run your code with MLflow tracking APIs as usual,  the following code runs training for an scikit-learn RandomForest model on diabetes dataset:
 
-Start a run
-~~~~~~~~~~~
+.. code-section::
 
-TBA
+    .. code-block:: python
 
-Artifact access is enabled through the proxy URI 'mlflow-artifacts:/',
-giving users access to this location without having to manage credentials
-or permissions.
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        mlflow.autolog()
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        # Create and train models.
+        rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+        rf.fit(X_train, y_train)
+
+        # Use the model to make predictions on the test dataset.
+        predictions = rf.predict(X_test)
 
 Step 5: View logged Run in Tracking UI
 --------------------------------------
 
-MLflow Tracking Server also hosts Tracking UI on the same endpoint. 
-You can access the UI by navigating to ``http://remote_host:5000`` and find the logger run.
+MLflow Tracking Server also hosts Tracking UI on the same endpoint.
+You can access the UI by navigating to ``http://127.0.0.1:5000`` (replace with remote host name or IP address in actual environment) in your browser.
+
+Step 6: Download artifacts
+--------------------------
+
+MLflow Tracking Server also serves as a proxy host for artifact access. Artifact access is enabled through the proxy URI ``mlflow-artifacts:/``,
+giving users access to this location without having to manage credentials or permissions of direct access.
+
+.. code-section::
+
+      .. code-block:: python
+
+          import mlflow
+
+          run_id = "YOUR_RUN_ID"
+          artifact_path = "model"
+
+          # Download artifact via the tracking server
+          mlflow_artifact_uri = f"mlflow-artifact://{run_id}/{artifact_path}"
+          local_path = mlflow.download_artifacts(mlflow_artifact_uri)
+
+          # Load the model
+          model = mlflow.sklearn.load_model(local_path)
 
 
 What's Next?
@@ -127,6 +261,6 @@ There are a couple of more advanced topics you can explore:
   You can also configure the Tracking Server to serve only backend store or artifact store, to handle different use cases such as large 
   traffic or security concerns. See :ref:`other use cases <other-tracking-setup>` for how to customize the Tracking Server for these use cases.
 * **Secure the Tracking Server**: The ``--host`` option exposes the service on all interfaces. If running a server in production, we
-  would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted. Read :ref:`Secure Tracking Server <tracking-auth>`
+  would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted). Read :ref:`Secure Tracking Server <tracking-auth>`
   for the best practices to secure the Tracking Server in production.
 * **New Features**: MLflow team constantly develops new features to support broader use cases. See `New Features <../new-features/index.html>`_ to catch up with the latest features.

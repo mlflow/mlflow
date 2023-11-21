@@ -208,6 +208,7 @@ Secure Tracking Server
 The ``--host`` option exposes the service on all interfaces. If running a server in production, we
 would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted),
 and instead putting it behind a reverse proxy like NGINX or Apache httpd, or connecting over VPN.
+
 You can then pass authentication headers to MLflow using these environment variables .
 
 - ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` - username and password to use with HTTP
@@ -225,10 +226,6 @@ You can then pass authentication headers to MLflow using these environment varia
   of the ``requests.request`` function
   (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
   This can be used to use a (self-signed) client certificate.
-
-
-Additionally, you should ensure that the ``--backend-store-uri`` (which defaults to the
-``./mlruns`` directory) points to a persistent (non-ephemeral) disk or database connection.
 
 Tracking Server versioning
 ==========================

@@ -1,41 +1,10 @@
-=======================================
-Experiment Tracking with Local Database
-=======================================
+========================================
+Tracking Experiments with Local Database
+========================================
 
 In this tutorial, you will learn how to use local database to track your experiment metadata with MLflow. By default, MLflow Tracking logs run to local files,
 which may cause some frustration due to fractured small files and lack of simple access interface. Also, if you are using Python, you can use SQLite that runs 
 upon local file (e.g. ``mlruns.db``) and has a built-in client ``sqlite3``, eliminating the effort to install any additional dependencies and setting up database server.
-
-How it works?
-=============
-
-The following picture depicts the end state once you have completed this tutorial.
-
-.. note::
-  In this tutorial, we will use a SQLite database for the sake of easy setup, but any SQLAlchemy-compatible databases should work as well.
-
-When you start logging runs to MLflow, the following happens:
-
- * **Part 1a and b**:
-
-  * The MLflow client creates an instance of a `RestStore` and sends REST API requests to log MLflow entities
-  * The Tracking Server creates an instance of an `SQLAlchemyStore` and connects to the remote host for inserting
-    tracking information in the database (i.e., metrics, parameters, tags, etc.)
-
- * **Part 1c and d**:
-
-  * Retrieval requests by the client return information from the configured `SQLAlchemyStore` table
-
- * **Part 2a and b**:
-
-  * Logging events for artifacts are made by the client using the ``HttpArtifactRepository`` to write files to MLflow Tracking Server
-  * The Tracking Server then writes these files to the configured object store location with assumed role authentication
-
- * **Part 2c and d**:
-
-  * Retrieving artifacts from the configured backend store for a user request is done with the same authorized authentication that was configured at server start
-  * Artifacts are passed to the end user through the Tracking Server through the interface of the ``HttpArtifactRepository``
-
 
 Get Started
 ===========
@@ -51,35 +20,80 @@ MLflow is available on PyPI. If you don't already have it installed on your loca
 
         pip install mlflow
 
-Step 2 - Create SQLite Database
--------------------------------
-
-TBA
-
-Step 3 - Configure MLflow environment varialbles
+Step 2 - Configure MLflow environment varialbles
 ------------------------------------------------
 
-TBA
+Set tracking URI to local SQLite database
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Step 4: Start logging
+To point MLflow to your local SQLite database, you need to set envioronment variable ``MLFLOW_TRACKING_URI`` to ``sqlite:///mlruns.db``.
+(This will create a SQLite database file called ``mlruns.db`` in the current directory. Specify different path if you want to store the database file in a different location.)
+
+.. code-section::
+
+    .. code-block:: bash
+        :name: set-env
+
+        export MLFLOW_TRACKING_URI=sqlite:///mlruns.db
+
+If you are on notebook, you can run the following cell instead:
+
+.. code-section::
+
+    .. code-block:: python
+        :name: set-env-notebook
+
+        %env MLFLOW_TRACKING_URI=sqlite:///mlruns.db
+
+.. note::
+  For SQLite database, MLflow automatically creates a new database if it does not exist. If you want to use other database, you need to create the database first.
+
+Set S3 endpoint URL
+~~~~~~~~~~~~~~~~~~~
+
+
+
+
+Step 3: Start logging
 ---------------------
 
-TBA
+Now you are ready to start logging your experiment runs. For example, the following code runs training for an scikit-learn RandomForest model on diabetes dataset:
 
-Step 5: View logged Run in Tracking UI
+.. code-section::
+
+    .. code-block:: python
+
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        mlflow.autolog()
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        # Create and train models.
+        rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+        rf.fit(X_train, y_train)
+
+        # Use the model to make predictions on the test dataset.
+        predictions = rf.predict(X_test)
+
+Step 4: View logged Run in Tracking UI
 --------------------------------------
 
-Once your training job finishes, you can run following command to launch the MLflow UI:
+Once your training job finishes, you can run following command to launch the MLflow UI. You have to specify the path to SQLite database file with ``--backend-store-uri`` option.
 
 .. code-section::
 
     .. code-block:: bash
         :name: view-results
 
-        mlflow ui --port 8080
+        mlflow ui --port 8080 --backend-store-uri sqlite:///mlruns.db
 
 Then, navigate to `http://localhost:8080 <http://localhost:8080>`_ in your browser to view the results.
-
 
 What's Next?
 ============
