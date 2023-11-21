@@ -16,8 +16,8 @@ The backend store is a core component in `MLflow Tracking <../index.html>`_ wher
 
 Note that large model artifacts such as model weight files are stored in :ref:`artifact store <artifacts-stores>`,  the other core component in MLflow Tracking.
 
-Configure the backend store
-===========================
+Configure Backend Store
+=======================
 By default, MLflow stores metadata in local files in the ``./mlruns`` directory, but MLflow can store metadata to databases as well.
 You can configure the location by passing **tracking URI** to MLflow, via either of the following methods:
 
@@ -28,8 +28,8 @@ You can configure the location by passing **tracking URI** to MLflow, via either
 Continue to the next section for the supported format of tracking URLs.
 Also visit :ref:`this guidance <tracking_setup>` for how to set up the backend store properly for your workflow.
 
-Supported backend stores
-========================
+Supported Store Types
+=====================
 MLflow supports the following types of tracking URI for backend stores:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
@@ -80,7 +80,7 @@ You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalch
 +-----------------------------------------+-----------------------------+
 
 
-File store performance
+File Store Performance
 ======================
 
 MLflow will automatically try to use `LibYAML <https://pyyaml.org/wiki/LibYAML>`_ bindings if they are already installed.

@@ -8,8 +8,8 @@ The artifact store is a core component in `MLflow Tracking <../index.html>`_ whe
 for each run to such as model weights (e.g. a pickled scikit-learn model), images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). 
 Note that metadata like parameters, metrics, and tags are stored in :ref:`backend store <backend-stores>`, the other component of the MLflow Tracking.
 
-Configure the artifact store
-============================
+Configure Artifact Store
+========================
 MLflow by default stores artifacts in local ``./mlruns`` directory, but also supports various locations suitable for large data:
 AAmazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
@@ -33,11 +33,6 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
     Access credentials and configuration for the artifact storage location are configured *once during server initialization* in the place
     of having users handle access credentials for artifact-based operations. Note that *all users who have access to the
     Tracking Server in this mode will have access to artifacts served through this assumed role*.
-
-.. warning::
-    The MLflow artifact proxied access service enables users to have an *assumed role of access to all artifacts* that are accessible to the Tracking Server.
-    Administrators who are enabling this feature should ensure that the access level granted to the Tracking Server for artifact
-    operations meets all security requirements prior to enabling the Tracking Server to operate in a proxied file handling role.
 
 Timeout
 -------

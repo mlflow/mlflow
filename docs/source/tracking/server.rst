@@ -135,7 +135,7 @@ explicit object store destination (e.g., "s3:/my_bucket/mlartifacts") for interf
 .. _tracking-server-no-proxy:
 
 Use tracking server w/o proxying artifacts access
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 In some cases, you may want to directly access remote storage without proxying through the tracking server.
 In this case, you can start the server with ``--no-serve-artifacts`` flag, and setting ``--default-artifact-root`` to the remote storage URI
 you want to redirect the request to.

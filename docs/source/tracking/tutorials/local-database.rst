@@ -1,15 +1,10 @@
-======================================================
-Connect MLflow directly to remote storage and database
-======================================================
+=======================================
+Experiment Tracking with Local Database
+=======================================
 
-In this tutorial, you will learn how to use external storage and database with MLflow Tracking **without** using :ref:`MLflow Tracking Server <tracking_server>`.
-
-.. warning::
-    While it might be ok to directly access remote storages and databases if you just want to try out MLflow Tracking for solo development purpose or for a small team,
-    **we strongly recommended to use MLflow Tracking Server when you set up team collaboration environment with MLflow Tracking**, because of multiple benefits of having
-    a centralized endpoint for accessing assets, for example, unified access control, easy result sharing, and more. Please follow 
-    `Remote Experiment Tracking with MLflow Tracking Server <remote-server.html>`
-    tutorial to learn how to set up team environment.
+In this tutorial, you will learn how to use local database to track your experiment metadata with MLflow. By default, MLflow Tracking logs run to local files,
+which may cause some frustration due to fractured small files and lack of simple access interface. Also, if you are using Python, you can use SQLite that runs 
+upon local file (e.g. ``mlruns.db``) and has a built-in client ``sqlite3``, eliminating the effort to install any additional dependencies and setting up database server.
 
 How it works?
 =============
@@ -17,11 +12,9 @@ How it works?
 The following picture depicts the end state once you have completed this tutorial.
 
 .. note::
-  In this tutorial, we will use a PostgreSQL database to store experiment and run data and an S3 bucket to store artifacts, but 
-  you can modify the steps below to use other data stores. Find the list of supported data stores in `artifact stores <artifacts-stores.html>`_ and `backend stores <backend-stores.html>` documentations.
+  In this tutorial, we will use a SQLite database for the sake of easy setup, but any SQLAlchemy-compatible databases should work as well.
 
-
-When you start logging runs to the MLflow Tracking Server, the following happens:
+When you start logging runs to MLflow, the following happens:
 
  * **Part 1a and b**:
 
@@ -58,23 +51,8 @@ MLflow is available on PyPI. If you don't already have it installed on your loca
 
         pip install mlflow
 
-Step 2 - Set up remote data stores
-----------------------------------
-MLflow Tracking Server can interact with a variety of data stores to store experiment and run data as well as artifacts.
-In this tutorial, we will use a PostgreSQL database to store experiment and run data and an S3 bucket to store artifacts, but 
-you can modify the steps below to use other data stores supported by MLflow.
-
-Create a PostgreSQL database
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-TBA
-
-Create an S3 bucket
-~~~~~~~~~~~~~~~~~~~
-
-TBA
-
-Set up access credentials for the S3 bucket
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Step 2 - Create SQLite Database
+-------------------------------
 
 TBA
 
@@ -109,8 +87,8 @@ What's Next?
 Now you have learned how to connect MLflow Tracking with remote storage and database.
 
 There are a couple of more advanced topics you can explore:
-* **Remote environment setup for team development**: While accessing remote data directly might be ok for solo development, you should 
+
+* **Remote environment setup for team development**: While storing runs and experiments data in local machine is perfectly fine for solo development, you should 
   consider using :ref:`MLflow Tracking Server <tracking-server>` when you set up team collaboration environment with MLflow Tracking. Read 
   `Remote Experiment Tracking with MLflow Tracking Server <remote-server.html>`_ tutorial to learn more.
-
 * **New Features**: MLflow team constantly develops new features to support broader use cases. See `New Features <../new-features/index.html>`_ to catch up with the latest features.

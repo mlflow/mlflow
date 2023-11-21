@@ -4,7 +4,7 @@ Remote Experiment Tracking with MLflow Tracking Server
 
 In this tutorial, you will learn how to set up MLflow Tracking environment for team development using :ref:`MLflow Tracking Server <tracking_server>`.
 
-There are a few benefits to utilize MLflow Tracking Server:
+There are many benefits to utilize MLflow Tracking Server for remote experiment tracking:
 
 * **Collaboration**: Multiple users can log runs to the same endpoint, and query runs and models logged by other users.
 * **Sharing Results**: The tracking server also serves :ref:`tracking_ui` endpoint, where team members can easily explore each other's results.
@@ -73,7 +73,7 @@ Create an S3 bucket
 TBA
 
 Set up access credentials for the S3 bucket
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 TBA
 
@@ -121,14 +121,12 @@ What's Next?
 ============
 
 Now you have learned how to set up MLflow Tracking Server for remote experiment tracking!
-
 There are a couple of more advanced topics you can explore:
+
 * **Other configurations for the Tracking Server**: By default, MLflow Tracking Server serves both backend store and artifact store. 
   You can also configure the Tracking Server to serve only backend store or artifact store, to handle different use cases such as large 
   traffic or security concerns. See :ref:`other use cases <other-tracking-setup>` for how to customize the Tracking Server for these use cases.
-
 * **Secure the Tracking Server**: The ``--host`` option exposes the service on all interfaces. If running a server in production, we
   would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted. Read :ref:`Secure Tracking Server <tracking-auth>`
   for the best practices to secure the Tracking Server in production.
-
 * **New Features**: MLflow team constantly develops new features to support broader use cases. See `New Features <../new-features/index.html>`_ to catch up with the latest features.
