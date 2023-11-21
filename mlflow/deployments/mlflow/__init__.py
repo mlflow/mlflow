@@ -1,6 +1,8 @@
 from mlflow.deployments import BaseDeploymentClient
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class MLflowDeploymentClient(BaseDeploymentClient):
     """
     TODO
@@ -61,18 +63,21 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         raise NotImplementedError
 
+    @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         TODO
         """
         raise NotImplementedError("TODO")
 
+    @experimental
     def list_endpoints(self):
         """
         TODO
         """
         raise NotImplementedError("TODO")
 
+    @experimental
     def get_endpoint(self, endpoint):
         """
         TODO
