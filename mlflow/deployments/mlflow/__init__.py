@@ -92,9 +92,6 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         json_body: Optional[str] = None,
         timeout: int = MLFLOW_HTTP_REQUEST_TIMEOUT.get(),
     ):
-        if json_body:
-            json_body = json.loads(json_body)
-
         call_kwargs = {}
         if method.lower() == "get":
             call_kwargs["params"] = json_body
@@ -130,7 +127,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         params = {"page_token": page_token} if page_token is not None else None
         response_json = self._call_endpoint(
-            "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=json.dumps(params)
+            "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=params
         )
         routes = [
             Endpoint(
@@ -152,13 +149,12 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
-        data = json.dumps(inputs)
         query_route = assemble_uri_path(
             [MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX]
         )
         try:
             return self._call_endpoint(
-                "POST", query_route, data, MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
+                "POST", query_route, inputs, MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get()
             )
         except MlflowException as e:
             if isinstance(e.__cause__, requests.exceptions.Timeout):
