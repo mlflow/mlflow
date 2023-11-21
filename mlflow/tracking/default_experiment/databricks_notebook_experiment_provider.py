@@ -20,7 +20,7 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
         return databricks_utils.is_in_databricks_notebook()
 
     def get_experiment_id(self):
-        _logger.DEBUG("get_experiment_id for DatabricksNotebookExperimentProvider")
+        _logger.debug("get_experiment_id for DatabricksNotebookExperimentProvider")
         if DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id:
             return DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id
 
@@ -39,14 +39,14 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
             if e.error_code == databricks_pb2.ErrorCode.Name(
                 databricks_pb2.INVALID_PARAMETER_VALUE
             ):
-                _logger.DEBUG("it was not a repo notebook")
+                _logger.debug("it was not a repo notebook")
                 # If determined that it is not a repo noetbook
                 experiment_id = source_notebook_id
             else:
                 raise e
 
         DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id = experiment_id
-        _logger.DEBUG(f"experiment_id = {experiment_id}")
+        _logger.debug(f"experiment_id = {experiment_id}")
 
         return experiment_id
 
@@ -58,7 +58,7 @@ class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
         return databricks_utils.is_in_databricks_repo_notebook()
 
     def get_experiment_id(self):
-        _logger.DEBUG("get_experiment_id for DatabricksREPONotebookExperimentProvider")
+        _logger.debug("get_experiment_id for DatabricksREPONotebookExperimentProvider")
         if DatabricksRepoNotebookExperimentProvider._resolved_repo_notebook_experiment_id:
             return DatabricksRepoNotebookExperimentProvider._resolved_repo_notebook_experiment_id
 
@@ -88,5 +88,5 @@ class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
         DatabricksRepoNotebookExperimentProvider._resolved_repo_notebook_experiment_id = (
             experiment_id
         )
-        _logger.DEBUG(f"experiment_id = {experiment_id}")
+        _logger.debug(f"experiment_id = {experiment_id}")
         return experiment_id
