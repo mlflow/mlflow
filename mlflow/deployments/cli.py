@@ -6,8 +6,6 @@ import click
 
 from mlflow.deployments import interface
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
-from mlflow.gateway.config import _validate_config
-from mlflow.gateway.runner import run_app
 from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
@@ -32,14 +30,6 @@ def _user_args_to_dict(user_list):
             raise click.ClickException(f"Repeated parameter: '{name}'")
         user_dict[name] = value
     return user_dict
-
-
-def validate_config_path(_ctx, _param, value):
-    try:
-        _validate_config(value)
-        return value
-    except Exception as e:
-        raise click.BadParameter(str(e))
 
 
 installed_targets = list(interface.plugin_store.registry)
@@ -465,29 +455,44 @@ def get_endpoint(target, endpoint):
     click.echo("\n")
 
 
-@experimental
-@commands.command("start-server", help="Start the MLflow Deployments server")
-@click.option(
-    "--config-path",
-    envvar=MLFLOW_DEPLOYMENTS_CONFIG.name,
-    callback=validate_config_path,
-    required=True,
-    help="The path to the deployments configuration file.",
-)
-@click.option(
-    "--host",
-    default="127.0.0.1",
-    help="The network address to listen on (default: 127.0.0.1).",
-)
-@click.option(
-    "--port",
-    default=5000,
-    help="The port to listen on (default: 5000).",
-)
-@click.option(
-    "--workers",
-    default=2,
-    help="The number of workers.",
-)
-def start_server(config_path: str, host: str, port: str, workers: int):
-    run_app(config_path=config_path, host=host, port=port, workers=workers)
+try:
+    from mlflow.gateway.config import _validate_config
+    from mlflow.gateway.runner import run_app
+
+    def validate_config_path(_ctx, _param, value):
+        try:
+            _validate_config(value)
+            return value
+        except Exception as e:
+            raise click.BadParameter(str(e))
+
+    @experimental
+    @commands.command("start-server", help="Start the MLflow Deployments server")
+    @click.option(
+        "--config-path",
+        envvar=MLFLOW_DEPLOYMENTS_CONFIG.name,
+        callback=validate_config_path,
+        required=True,
+        help="The path to the deployments configuration file.",
+    )
+    @click.option(
+        "--host",
+        default="127.0.0.1",
+        help="The network address to listen on (default: 127.0.0.1).",
+    )
+    @click.option(
+        "--port",
+        default=5000,
+        help="The port to listen on (default: 5000).",
+    )
+    @click.option(
+        "--workers",
+        default=2,
+        help="The number of workers.",
+    )
+    def start_server(config_path: str, host: str, port: str, workers: int):
+        run_app(config_path=config_path, host=host, port=port, workers=workers)
+
+except ImportError:
+    # Dependencies for MLflow Deployments server have not been installed
+    pass
