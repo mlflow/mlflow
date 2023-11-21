@@ -30,6 +30,8 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
         tags = {
             MLFLOW_EXPERIMENT_SOURCE_ID: source_notebook_id,
         }
+        print(f"source_notebook_id {source_notebook_id}")
+        print(f"source_notebook_name {source_notebook_name}")
 
         # With the presence of the source id, the following is a get or create in which it will
         # return the corresponding experiment if one exists for the repo notebook.
@@ -40,7 +42,6 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
             if e.error_code == databricks_pb2.ErrorCode.Name(
                 databricks_pb2.INVALID_PARAMETER_VALUE
             ):
-                _logger.debug("it was not a repo notebook")
                 print("it was not a repo notebook")
                 # If determined that it is not a repo noetbook
                 experiment_id = source_notebook_id
