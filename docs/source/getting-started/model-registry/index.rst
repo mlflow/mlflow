@@ -12,9 +12,14 @@ steps possible. The topics in this tutorial cover:
 * Viewing the model in the MLflow UI.
 * Referencing a logged model.
 * Loading a logged model for inference.
-* Stage transition via aliasing
-
-Material
-    * TODO: take existing model and register
+* Aliasing model versions.
 
 To get started with the tutorial, click NEXT below.
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+    
+    step1-register-model
+    step2-load-registered-model
+    step3-model-version-alias

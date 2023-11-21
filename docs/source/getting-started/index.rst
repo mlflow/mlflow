@@ -236,3 +236,4 @@ via containerizing the model via Docker is covered.
     :hidden:
 
     quickstart-2/index
+    model-registry/index

@@ -1,18 +1,14 @@
 Register a Model
 =================
 
-To leverge the Model Registry, we must install and set up MLflow. Throughout this quick start, we 
-will leverge a local tracking server, which by default stores infomration about your mlflow 
-resources in a local directory, more specifically...
-* `mlartifacts``: This directory is used to store the actual artifacts produced by your 
-    MLflow runs, such as model files, plots, or data files. It's the storage location 
-    used by the MLflow Artifacts component.
-
-Models are artifacts and are stored in the `mlruns` in the directory `models`.
+To effectively use the Model Registry, it's necessary to first install and configure MLflow. In this
+quick start guide, we'll use a local tracking server which saves information about your MLflow 
+resources in a local directory. More specifically, models will be located in the `./mlruns/models` 
+directory.
 
 .. note::
-    We recommend using a remote server in production. Here, we're simply using a local host for
-    demo purposes.
+    For production use cases, we advise using a remote server. In this guide, we're using a local 
+    server for demonstration purposes.
 
 Step 1: Install MLflow from PyPI
 --------------------------------
@@ -30,7 +26,7 @@ Step 2: Register a Model
 
 With the MLflow library installed, we can now create and register a model. Below we leverage 
 `sklearn`'s `RandomForestRegressor` fit on a generated dataset. This model will be logged
-to a local model registry at `./mlartifacts`. 
+to a local model registry at `./mlruns/models`. 
 
 .. code-section::
     .. code-block:: python 

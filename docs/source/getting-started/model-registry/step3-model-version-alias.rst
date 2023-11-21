@@ -1,8 +1,9 @@
 Alias Model Version
 ===================
+
 Model version aliases provide a flexible way to set named aliases on model versions. For example, 
 setting a champion alias on a model version enables you to fetch this model version by that alias 
-via client API :py:func:`mlflow.tracking.get_model_version_by_alias()` or the model URI 
+via client API :py:func:`mlflow.client.MlflowClient.get_model_version_by_alias()` or the model URI 
 `models:/<registered model name>@champion`. Aliases can be easily reassigned to new model versions 
 via the UI and client API alike, thereby decoupling model deployment from the production system 
 code. Unlike model registry stages, more than one alias can be applied to any given model version, 
@@ -37,6 +38,10 @@ Step 1: Get the Model with the MLflow Client
 
 Step 2: Alias the Model Version
 --------------------------------
+
+Finally, let's leverage the MLflow client to increment the model version and set an alias on that
+new version.
+
 .. code-section::
     .. code-block:: python 
         :name: alias-model 
@@ -45,7 +50,7 @@ Step 2: Alias the Model Version
 
         # Increment the model version
         model_uri = "runs:/{}/sklearn-model".format(run_id)
-        mv = client.create_model_version(model_name, model_uri, run_id)
+        client.create_model_version(model_name, model_uri, run_id)
 
         # Set registered model alias
         alias = "my_fancy_production_model"
@@ -66,4 +71,7 @@ Step 2: Alias the Model Version
         --------- Aliased ----------
         name: sk-learn-random-forest-reg-model
         version: 2
-        aliases: ['my_fancy_production_model-1']
+        aliases: ['my_fancy_production_model']
+
+And there you have it! You have successfullly written models to and read models from the MLflow 
+Model Registry.
