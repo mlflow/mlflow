@@ -286,7 +286,6 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import (
     _copy_file_or_tree,
-    create_tmp_dir,
     get_or_create_nfs_tmp_dir,
     get_or_create_tmp_dir,
     get_total_file_size,
