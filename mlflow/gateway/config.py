@@ -322,7 +322,9 @@ class AliasedConfigModel(ConfigModel):
     if Version(pydantic.__version__) >= Version("2.0"):
         model_config = ConfigDict(populate_by_name=True)
     else:
-        model_config = ConfigDict(allow_population_by_field_name=True)
+
+        class Config:
+            allow_population_by_field_name = True
 
 
 # pylint: disable=no-self-argument

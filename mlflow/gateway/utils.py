@@ -30,13 +30,14 @@ def is_valid_endpoint_name(name: str) -> bool:
 
 
 def check_configuration_route_name_collisions(config):
-    if len(config["routes"]) < 2:
+    routes = config.get("routes", []) or config.get("endpoints", [])
+    if len(routes) < 2:
         return
-    names = [route["name"] for route in config["routes"]]
+    names = [route["name"] for route in routes]
     if len(names) != len(set(names)):
         raise MlflowException.invalid_parameter_value(
-            "Duplicate names found in route configurations. Please remove the duplicate route "
-            "name from the configuration to ensure that route endpoints are created properly."
+            "Duplicate names found in endpoint configurations. Please remove the duplicate endpoint"
+            " name from the configuration to ensure that endpoints are created properly."
         )
 
 
