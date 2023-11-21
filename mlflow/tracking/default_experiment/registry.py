@@ -6,7 +6,6 @@ import entrypoints
 from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
-    DatabricksRepoNotebookExperimentProvider,
 )
 
 _logger = logging.getLogger(__name__)
@@ -14,7 +13,6 @@ _logger = logging.getLogger(__name__)
 # the current context where the MLflow client is running when the user has not explicitly set
 # an experiment. The order below is the order in which the these providers are registered.
 _EXPERIMENT_PROVIDERS = (
-    DatabricksRepoNotebookExperimentProvider,
     DatabricksNotebookExperimentProvider,
 )
 
