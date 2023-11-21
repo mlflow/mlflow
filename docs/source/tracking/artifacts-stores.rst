@@ -13,40 +13,13 @@ Configure the artifact store
 MLflow by default stores artifacts in local ``./mlruns`` directory, but also supports various locations suitable for large data:
 AAmazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
-In order to configure remote storgate URI, follow the steps below:
-
-1. Start the `MLflow tracking server <server.html>`_ with ``--default-artifact-root`` flag to specify the default artifact location.
-2. Set the ``MLFLOW_TRACKING_URI`` environment variable to the URI of the tracking server.
-3. (Optional) With above two setting, the tracking server will launch as a proxy server for accessing remote artifacts, namely,
-the MLflow clients make HTTP request to the server for fetching artifacts. While this is a good practice for simplfying access 
-and secury requirements, if you want it to directly access remote storage nevertheless, you add an additional argument ``--no-serve-artifacts`` 
-when launching the tracking server. Note that the client still need minimum interaction with the server to fetch configured remote storage URI,
-but the artifacts will be directly uploaded to / download from the remote storage.
+Currently, using remote artifacts store requires running MLflow Tracking server. See :ref:`tracking server setup <tracking-server-artifact-store>` for more guidance.
 
 .. important:: 
   The MLflow client caches artifact location information on a per-run basis.
   It is therefore not recommended to alter a run's artifact location before it has terminated.
 
-URL Resolution
---------------
-The tracking server resolves the uri ``mlflow-artifacts:/`` in tracking request from the client to an otherwise 
-explicit object store destination (e.g., "s3:/my_bucket/mlartifacts") for interfacing with artifacts. Provided an MLflow server configuration
-where the ``--default-artifact-root`` is ``s3://my-root-bucket``, the following patterns will all resolve to the configured proxied object store location of ``s3://my-root-bucket/mlartifacts``:
-
- * ``https://<host>:<port>/mlartifacts``
- * ``http://<host>/mlartifacts``
- * ``mlflow-artifacts://<host>/mlartifacts``
- * ``mlflow-artifacts://<host>:<port>/mlartifacts``
- * ``mlflow-artifacts:/mlartifacts``
-
-If the ``host`` or ``host:port`` declaration is absent in client artifact requests to the MLflow server, the client API
-will assume that the host is the same as the MLflow Tracking uri.
-
-.. note::
-    If an MLflow server is running with the ``--artifact-only`` flag, the client should interact with this server explicitly by
-    including either a ``host`` or ``host:port`` definition for uri location references for artifacts.
-    Otherwise, all artifact requests will route to the MLflow Tracking server, defeating the purpose of running a distinct artifact server.
-
+.. _artifacts-stores-manage-access:
 
 Manage Access
 -------------
@@ -60,6 +33,11 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
     Access credentials and configuration for the artifact storage location are configured *once during server initialization* in the place
     of having users handle access credentials for artifact-based operations. Note that *all users who have access to the
     Tracking Server in this mode will have access to artifacts served through this assumed role*.
+
+.. warning::
+    The MLflow artifact proxied access service enables users to have an *assumed role of access to all artifacts* that are accessible to the Tracking Server.
+    Administrators who are enabling this feature should ensure that the access level granted to the Tracking Server for artifact
+    operations meets all security requirements prior to enabling the Tracking Server to operate in a proxied file handling role.
 
 Timeout
 -------

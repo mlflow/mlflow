@@ -240,16 +240,16 @@ The following diagram and table show a few common set ups for MLflow Tracking en
 
     * - **Localhost (default)**
       - Solo development
-      - * By default, MLflow records metadata and artifacts for each run to a local directory ``mlruns``. This is the simplest way to get started with MLflow Tracking, without setting up any external server, database, and storage.
+      - By default, MLflow records metadata and artifacts for each run to a local directory ``mlruns``. This is the simplest way to get started with MLflow Tracking, without setting up any external server, database, and storage.
       - `QuickStart <getting-started/quickstart-1/index.html>`_
 
     * - **Connect MLflow with database and cloud storage**
       - Solo / Team development
       - The MLflow client can interface with a variety of `backend <backend-stores.html>`_ and `artifact <artifact-stores.html>`_ storage configurations, such as 
-        * SQLAlchemy-compatible databases
-        * Amazon S3
-        * Azure Blob Storage
-        * and more
+        - SQLAlchemy-compatible databases
+        - Amazon S3
+        - Azure Blob Storage
+        - and more
       - `Connect MLflow Tracking to Data Stores <tutorials/local-with-various-store.html>`_
 
     * - **Remote Tracking with** `MLflow Tracking Server <server.html>`
@@ -257,14 +257,16 @@ The following diagram and table show a few common set ups for MLflow Tracking en
       - MLflow Tracking Server can be configured with an artifacts HTTP proxy, passing artifact requests through the tracking server to store and retrieve artifacts without having to interact with underlying object store services. This is particularly useful for team development scenarios where you want to store artifacts and experiment metadata in a shared location with proper access control.
       - `Remote Experiment Tracking with MLflow Tracking Server <tutorials/remote-server.html>`_
 
+.. _other-tracking-setup:
 
 Other Configuration with `MLflow Tracking Server <server.html>`_
 ----------------------------------------------------------------
-Here are some additional guidance on how to set up MLflow Tracking environment for other special use cases.
+MLflow Tracking Server provides customizability for other special use cases. Please follow `Remote Experiment Tracking with MLflow Tracking Server <tutorials/remote-server.html>`_ for 
+learning the basic setup, and continue to the following materials for the advanced configurations to meet your needs.
 
-- `Run MLflow Tracking Server on localhost <server.html>`_: This is mainly useful for testing your team development workflow locally, or running your machine learning code on container environment.
-- `Use MLflow Tracking Server for remote metadata store <server.html>`_: MLflow Tracking Server by default doesn't serve artifacts but only metadata. This is useful when manage your artifacts differently like cloud storage (while you can access cloud storage via MLflow server as well).
-- `Use MLflow Tracking Server for serving artifacts only <server.html>`_: In contrary to above, you can also configure MLflow Tracking Server to serve artifacts only. This mode is useful when you have high artifact transfer volumes (e.g. LLM model weights) hence split the traffic so as not to impact tracking functionality.
+- Run MLflow Tracking Server on localhost: This is mainly useful for testing your team development workflow locally, or running your machine learning code on container environment.
+- :ref:`Use MLflow Tracking Server w/o serving artifacts <stracking-server-no-proxy>`: MLflow Tracking Server by default serves both artifacts and only metadata. This is useful when you want to allow direct access to the remove storage to avoid overhead of proxy.
+- :ref:`Use MLflow Tracking Server for serving artifacts only <stracking-server-artifacts-only>`: In contrary to above, you can also configure MLflow Tracking Server to serve artifacts only. This mode is useful when you have high artifact transfer volumes (e.g. LLM model weights) hence split the traffic so as not to impact tracking functionality.
 
 
 FAQ
