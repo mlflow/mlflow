@@ -412,6 +412,6 @@ def test_duplicate_routes_in_config(tmp_path):
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(route))
     with pytest.raises(
-        MlflowException, match="Duplicate names found in route configurations. Please"
+        MlflowException, match="Duplicate names found in endpoint configurations. Please"
     ):
         _load_route_config(conf_path)
