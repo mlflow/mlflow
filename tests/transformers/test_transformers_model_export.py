@@ -80,7 +80,7 @@ _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 # runners#supported-runners-and-hardware-resources for instance specs.
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
-url="https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
+image_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
 # Test that can only be run locally:
 # - Summarization pipeline tests
 # - TextClassifier pipeline tests
@@ -479,7 +479,7 @@ def test_instance_extraction(small_qa_pipeline):
         ("small_qa_pipeline", True),
         ("small_seq2seq_pipeline", True),
         ("small_multi_modal_pipeline", False),
-        ("small_vision_model", False),
+        ("small_vision_model", True),
     ],
 )
 def test_pipeline_eligibility_for_pyfunc_registration(model, result, request):
@@ -1364,20 +1364,24 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 
     assert isinstance(pd_inference, list)
     assert all(isinstance(element, str) for element in inference)
+
+
 def raw_image_file(imagename):
-    datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets").joinpath(imagename)
+    datasets_path = (
+        pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets").joinpath(imagename)
+    )
     datasets_path_str = str(datasets_path).replace("\\", "\\\\")
     return datasets_path_str
-
-
 
 
 @pytest.mark.parametrize(
     "inference_payload",
     [
-        url,
-        [url,url],
-        { "image": raw_image_file("cat.png"),},
+        image_url,
+        [image_url, image_url],
+        {
+            "image": raw_image_file("cat.png"),
+        },
         raw_image_file("cat_image.jpg"),
         [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
     ],
@@ -2135,9 +2139,11 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 @pytest.mark.parametrize(
     "inference_payload",
     [
-        url,
-        [url,url],
-        { "image": raw_image_file("cat.png"),},
+        image_url,
+        [image_url, image_url],
+        {
+            "image": raw_image_file("cat.png"),
+        },
         raw_image_file("cat_image.jpg"),
         [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
     ],
