@@ -4,7 +4,6 @@ from click.testing import CliRunner
 from mlflow.deployments import cli
 
 pytest.importorskip("mlflow.gateway")
-runner = CliRunner()
 
 
 def test_start_help():
