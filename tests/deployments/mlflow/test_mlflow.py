@@ -35,8 +35,8 @@ def test_get_endpoint():
     mock_resp.json.return_value = {
         "model": {"name": "gpt-4", "provider": "openai"},
         "name": "completions",
-        "route_type": "llm/v1/completions",
-        "route_url": "http://localhost:5000/gateway/chat/invocations",
+        "endpoint_type": "llm/v1/completions",
+        "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
     }
     mock_resp.status_code = 200
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
@@ -44,9 +44,9 @@ def test_get_endpoint():
         mock_request.assert_called_once()
         assert resp.dict() == {
             "name": "completions",
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
             "model": {"name": "gpt-4", "provider": "openai"},
-            "route_url": "http://localhost:5000/gateway/chat/invocations",
+            "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
         }
 
 
@@ -54,12 +54,12 @@ def test_list_endpoints():
     client = get_deploy_client("http://localhost:5000")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {
-        "routes": [
+        "endpoints": [
             {
                 "model": {"name": "gpt-4", "provider": "openai"},
                 "name": "completions",
-                "route_type": "llm/v1/completions",
-                "route_url": "http://localhost:5000/gateway/chat/invocations",
+                "endpoint_type": "llm/v1/completions",
+                "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
             }
         ]
     }
@@ -71,8 +71,8 @@ def test_list_endpoints():
             {
                 "model": {"name": "gpt-4", "provider": "openai"},
                 "name": "completions",
-                "route_type": "llm/v1/completions",
-                "route_url": "http://localhost:5000/gateway/chat/invocations",
+                "endpoint_type": "llm/v1/completions",
+                "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
             }
         ]
 
