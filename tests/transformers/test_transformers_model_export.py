@@ -80,7 +80,7 @@ _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 # runners#supported-runners-and-hardware-resources for instance specs.
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
-
+url="https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
 # Test that can only be run locally:
 # - Summarization pipeline tests
 # - TextClassifier pipeline tests
@@ -1364,53 +1364,28 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 
     assert isinstance(pd_inference, list)
     assert all(isinstance(element, str) for element in inference)
+<<<<<<< HEAD
 
 
 <<<<<<< HEAD
+=======
+>>>>>>> f9a0a7ada (added types of datasets and added dic init files)
 def raw_image_file(imagename):
-    datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
+    datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets").joinpath(imagename)
+    datasets_path_str = str(datasets_path).replace("\\", "\\\\")
+    return datasets_path_str
 
-    return datasets_path.joinpath(imagename).read_bytes()
+
 
 
 @pytest.mark.parametrize(
     "inference_payload",
     [
-        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-        [
-            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-        ],
-        json.dumps(
-            {
-                "inputs": {
-                    "image": "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-                },
-            }
-        ),
-        json.dumps(
-            {
-                "inputs": {
-                    "image": [
-                        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
-                    ],
-                },
-            }
-        ),
+        url,
+        [url,url],
+        { "image": raw_image_file("cat.png"),},
         raw_image_file("cat_image.jpg"),
         [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
-        json.dumps(
-            {
-                "inputs": {
-                    "image": base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-                },
-            }
-        ),
-        base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-        [
-            base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-            base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-        ],
     ],
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
@@ -2168,41 +2143,11 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 @pytest.mark.parametrize(
     "inference_payload",
     [
-        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-        [
-            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-        ],
-        json.dumps(
-            {
-                "inputs": {
-                    "image": "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png",
-                },
-            }
-        ),
-        json.dumps(
-            {
-                "inputs": {
-                    "image": [
-                        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
-                    ],
-                },
-            }
-        ),
+        url,
+        [url,url],
+        { "image": raw_image_file("cat.png"),},
         raw_image_file("cat_image.jpg"),
         [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
-        json.dumps(
-            {
-                "inputs": {
-                    "image": base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-                },
-            }
-        ),
-        base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-        [
-            base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-            base64.b64encode(raw_image_file("cat_image.jpg")).decode("ascii"),
-        ],
     ],
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
