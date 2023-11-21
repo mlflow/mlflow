@@ -21,6 +21,7 @@ from mlflow.gateway.constants import (
     MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.utils import (
+    check_configuration_deprecated_fields,
     check_configuration_route_name_collisions,
     is_valid_ai21labs_model,
     is_valid_endpoint_name,
@@ -458,6 +459,7 @@ def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
         raise MlflowException.invalid_parameter_value(
             f"The file at {path} is not a valid yaml file"
         ) from e
+    check_configuration_deprecated_fields(configuration)
     check_configuration_route_name_collisions(configuration)
     try:
         return GatewayConfig(**configuration)

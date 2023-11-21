@@ -1,4 +1,4 @@
-endpoints:
+routes:
   - name: chat
     route_type: llm/v1/chat
     model:
