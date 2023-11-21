@@ -1230,23 +1230,41 @@ class DefaultEvaluator(ModelEvaluator):
             return extra_metric.name, params_not_found
         return eval_fn_args
 
-    def _evaluate_extra_metrics(self, eval_df):
+    def _evaluate_extra_metrics(self, eval_df, first_row=False):
+        exceptions = []
         for index, extra_metric in enumerate(self.extra_metrics):
-            eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
-            _logger.info(f"Evaluating metrics: {extra_metric.name}")
-            extra_metric_tuple = _CustomMetric(
-                function=extra_metric.eval_fn,
-                index=index,
-                name=extra_metric.name,
-            )
-            metric_value = _evaluate_extra_metric(extra_metric_tuple, eval_fn_args)
-            if metric_value:
-                name = (
-                    f"{extra_metric.name}/{extra_metric.version}"
-                    if extra_metric.version
-                    else extra_metric.name
+            try:
+                eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
+                _logger.info(
+                    f"Evaluating extra metric{first_row and ' for first row'}: {extra_metric.name}"
                 )
-                self.metrics_values.update({name: metric_value})
+                extra_metric_tuple = _CustomMetric(
+                    function=extra_metric.eval_fn,
+                    index=index,
+                    name=extra_metric.name,
+                )
+                metric_value = _evaluate_extra_metric(extra_metric_tuple, eval_fn_args)
+                if metric_value:
+                    name = (
+                        f"{extra_metric.name}/{extra_metric.version}"
+                        if extra_metric.version
+                        else extra_metric.name
+                    )
+                    self.metrics_values.update({name: metric_value})
+            except Exception as e:
+                if first_row:
+                    stacktrace_str = traceback.format_exc()
+                    if isinstance(e, MlflowException):
+                        exceptions.append(
+                            f"Metric '{extra_metric.name}': Error:\n{e.message}\n{stacktrace_str}"
+                        )
+                    else:
+                        exceptions.append(
+                            f"Metric '{extra_metric.name}': Error:\n{e!r}\n{stacktrace_str}"
+                        )
+                else:
+                    raise
+        return exceptions
 
     def _log_custom_artifacts(self, eval_df):
         if not self.custom_artifacts:
@@ -1509,37 +1527,9 @@ class DefaultEvaluator(ModelEvaluator):
         _logger.info("Testing metrics on first row...")
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
-        for metric in self.builtin_metrics:
-            try:
-                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
-                metric_value = metric.eval_fn(*eval_fn_args)
-
-                # need to update metrics because they might be used in calculating extra_metrics
-                if metric_value:
-                    name = f"{metric.name}/{metric.version}" if metric.version else metric.name
-                    self.metrics_values.update({name: metric_value})
-            except Exception as e:
-                stacktrace_str = traceback.format_exc()
-                if isinstance(e, MlflowException):
-                    exceptions.append(
-                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
-                    )
-                else:
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
+        exceptions.extend(self._evaluate_builtin_metrics(first_row_df, first_row=True))
         self._update_metrics()
-        for metric in self.extra_metrics:
-            try:
-                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
-                metric.eval_fn(*eval_fn_args)
-            except Exception as e:
-                stacktrace_str = traceback.format_exc()
-                if isinstance(e, MlflowException):
-                    exceptions.append(
-                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
-                    )
-                else:
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
-
+        exceptions.extend(self._evaluate_extra_metrics(first_row_df, first_row=True))
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
 
@@ -1552,20 +1542,37 @@ class DefaultEvaluator(ModelEvaluator):
         self._update_metrics()
         self._evaluate_extra_metrics(eval_df)
 
-    def _evaluate_builtin_metrics(self, eval_df):
+    def _evaluate_builtin_metrics(self, eval_df, first_row=False):
+        exceptions = []
         for builtin_metric in self.builtin_metrics:
-            _logger.info(f"Evaluating builtin metrics: {builtin_metric.name}")
+            _logger.info(
+                f"Evaluating builtin metric{first_row and ' for first row'}: {builtin_metric.name}"
+            )
+            try:
+                eval_fn_args = self._get_args_for_metrics(builtin_metric, eval_df)
+                metric_value = builtin_metric.eval_fn(*eval_fn_args)
 
-            eval_fn_args = self._get_args_for_metrics(builtin_metric, eval_df)
-            metric_value = builtin_metric.eval_fn(*eval_fn_args)
-
-            if metric_value:
-                name = (
-                    f"{builtin_metric.name}/{builtin_metric.version}"
-                    if builtin_metric.version
-                    else builtin_metric.name
-                )
-                self.metrics_values.update({name: metric_value})
+                if metric_value:
+                    name = (
+                        f"{builtin_metric.name}/{builtin_metric.version}"
+                        if builtin_metric.version
+                        else builtin_metric.name
+                    )
+                    self.metrics_values.update({name: metric_value})
+            except Exception as e:
+                if first_row:
+                    stacktrace_str = traceback.format_exc()
+                    if isinstance(e, MlflowException):
+                        exceptions.append(
+                            f"Metric '{builtin_metric.name}': Error:\n{e.message}\n{stacktrace_str}"
+                        )
+                    else:
+                        exceptions.append(
+                            f"Metric '{builtin_metric.name}': Error:\n{e!r}\n{stacktrace_str}"
+                        )
+                else:
+                    raise
+        return exceptions
 
     def _log_artifacts(self):
         """
