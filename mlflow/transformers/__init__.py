@@ -1800,7 +1800,7 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ImageClassificationPipeline):
-            data = self._convert_audio_input(data,"image")
+            data = self._convert_audio_input(data)
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             output_key = "labels"
@@ -2571,7 +2571,7 @@ class _TransformersWrapper:
                     parsed_data.append(entry)
             return parsed_data
 
-    def _convert_audio_input(self, data,type="Audio"):
+    def _convert_audio_input(self, data):
         """
         Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
         parsed through model serving, if applicable. Direct usage of the pyfunc implementation
@@ -2648,19 +2648,10 @@ class _TransformersWrapper:
         # to return the only input format that the audio transcription pipeline permits:
         # a bytes input of a single element.
         if isinstance(data, list) and all(isinstance(element, dict) for element in data):
-            # if type=="Audio":
-                encoded_audio = list(data[0].values())[0]
-                if isinstance(encoded_audio, str):
-                    self._validate_str_input_uri_or_file(encoded_audio)
-                return decode_audio(encoded_audio)
-            # else:
-                    # images = []
-                    # for item in data:
-                    #     encoded_image = next(iter(item.values()))
-                    #     if isinstance(encoded_image, str):
-                    #         self._validate_str_input_uri_or_file(encoded_image)
-                    #     images.append(decode_audio(encoded_image))  # noqa: F821
-                    # return images
+            encoded_audio = list(data[0].values())[0]
+            if isinstance(encoded_audio, str):
+                self._validate_str_input_uri_or_file(encoded_audio)
+            return decode_audio(encoded_audio)
         elif isinstance(data, str):
             self._validate_str_input_uri_or_file(data)
         return data
