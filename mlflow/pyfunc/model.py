@@ -90,23 +90,21 @@ class PythonModel:
 
     @classmethod
     def _warn_on_setting_model_in_init(cls):
-        message = (
-            "It looks like you're trying to save a model as an instance attribute. "
-            "This is not recommended as it can cause problems with model serialization, "
-            "especially for large models. Please use the `artifacts` parameter, "
-            "and load your external model in the `load_context()` method instead.\n\n"
-            "For example:\n\n"
-            "class MyModel(mlflow.pyfunc.PythonModel):\n"
-            "    def load_context(self, context):\n"
-            "        model_path = context.artifacts['my_model_path']\n"
-            "        // custom load logic here\n"
-            "        self.model = load_model(model_path)\n"
-        )
-
         try:
             model_assigned = _check_model_assignment_in_init(cls)
-            load_context_defined = cls.load_context != PythonModel.load_context
-            if model_assigned and not load_context_defined:
+            if model_assigned and cls.load_context == PythonModel.load_context:
+                message = (
+                    "It looks like you're trying to save a model as an instance attribute. "
+                    "This is not recommended as it can cause problems with model serialization, "
+                    "especially for large models. Please use the `artifacts` parameter, "
+                    "and load your external model in the `load_context()` method instead.\n\n"
+                    "For example:\n\n"
+                    "class MyModel(mlflow.pyfunc.PythonModel):\n"
+                    "    def load_context(self, context):\n"
+                    "        model_path = context.artifacts['my_model_path']\n"
+                    "        // custom load logic here\n"
+                    "        self.model = load_model(model_path)\n"
+                )
                 warnings.warn(message, stacklevel=3)
         except Exception:
             # it's possible that inspect.getsource might fail, but since we
