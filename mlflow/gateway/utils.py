@@ -72,9 +72,8 @@ def gateway_deprecated(f):
     deco = deprecated(
         "2.9.0",
         impact=(
-            "`mlflow.gateway` is deprecated and will be replaced by the deployments API in "
-            "a future release.  See https://mlflow.org/docs/latest/llms/gateway/deprecation.html "
-            "for more details"
+            "It will be replaced by the deployments API in a future release. "
+            "See https://mlflow.org/docs/latest/llms/gateway/deprecation.html for more details."
         ),
     )
     return deco(f)

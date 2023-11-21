@@ -19,7 +19,6 @@ def commands():
     pass
 
 
-@gateway_deprecated
 @commands.command("start", help="Start the MLflow Gateway service")
 @click.option(
     "--config-path",
@@ -43,5 +42,6 @@ def commands():
     default=2,
     help="The number of workers.",
 )
+@gateway_deprecated
 def start(config_path: str, host: str, port: str, workers: int):
     run_app(config_path=config_path, host=host, port=port, workers=workers)
