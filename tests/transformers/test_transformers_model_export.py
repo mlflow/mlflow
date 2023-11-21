@@ -1362,6 +1362,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 <<<<<<< HEAD
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 <<<<<<< HEAD
 =======
@@ -1373,6 +1374,9 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 =======
 @pytest.fixture
 >>>>>>> 98499a281 (inferencecomapre_dataframe)
+=======
+
+>>>>>>> 5999d284e (removed pytestfixture)
 def raw_image_file(imagename):
     datasets_path = (
         pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets").joinpath(imagename)
@@ -1410,6 +1414,7 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     inference_dataframe= pd.DataFrame(inference)
     assert isinstance(inference_dataframe, pd.core.frame.DataFrame)
     assert all(isinstance(element, str) for element in inference)
+
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
@@ -2165,7 +2170,7 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
         extra_args=["--env-manager", "local"],
     )
 
-    predictions = PredictionsResponse.from_json(response.content.decode("ascii")).get_predictions()
+    predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
     assert len(predictions) != 0
 
