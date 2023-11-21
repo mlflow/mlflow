@@ -21,7 +21,7 @@ def parse_target_uri(target_uri):
     return parsed.scheme
 
 
-def _is_valid_uri(uri: str):
+def _is_valid_uri(uri: str) -> bool:
     """
     Evaluates the basic structure of a provided gateway uri to determine if the scheme and
     netloc are provided
