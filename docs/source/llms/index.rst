@@ -288,6 +288,17 @@ Native Integration Guides and Tutorials
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="sentence-transformers/index.html">
+                    <div class="header">
+                        Sentence Transformers
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage 
+                        MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
@@ -296,17 +307,13 @@ Native Integration Guides and Tutorials
     :hidden:
 
     transformers/index
-
+    sentence-transformers/index
 
 Native Integration Examples
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you'd like to directly explore code examples for how to get started with using our official library integrations, you can navigate 
 directly to our up-to-date examples on GitHub below:
-
-* **sentence-transformers**
-
-    * `Text Encoding Example <https://github.com/mlflow/mlflow/blob/master/examples/sentence_transformers/simple.py>`_
 
 * **langchain**
 

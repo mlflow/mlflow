@@ -163,6 +163,17 @@ LLM Guides and Tutorials
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="llms/sentence-transformers/index.html" >
+                    <div class="header">
+                        Guide to using Sentence Transformers in MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage the advanced capabilities with semantic sentence embeddings within the Sentence Transformers package, using Mlflow to simplify 
+                        inference, create custom deployable applications, and more.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
