@@ -1269,8 +1269,8 @@ def spark_udf(
         and not should_spark_connect_use_nfs
     ):
         raise MlflowException.invalid_parameter_value(
-            f"In non-databricks runtime or NFS is not available, "
-            f"environment manager {env_manager!r} is not supported in Spark connect mode.",
+            f"Environment manager {env_manager!r} is not supported in Spark connect mode when "
+            "in non-databricks runtime or NFS not available",
         )
 
     local_model_path = _download_artifact_from_uri(
@@ -1593,20 +1593,17 @@ Compound types:
                 return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
-            if is_spark_connect:
-                if should_spark_connect_use_nfs:
-                    loaded_model = mlflow.pyfunc.load_model(local_model_path)
-                else:
-                    model_path = os.path.join(
-                        create_tmp_dir(),
-                        "mlflow",
-                        insecure_hash.sha1(model_uri.encode()).hexdigest(),
-                    )
-                    try:
-                        loaded_model = mlflow.pyfunc.load_model(model_path)
-                    except Exception:
-                        os.makedirs(model_path, exist_ok=True)
-                        loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
+            if is_spark_connect and not should_spark_connect_use_nfs:
+                model_path = os.path.join(
+                    create_tmp_dir(),
+                    "mlflow",
+                    insecure_hash.sha1(model_uri.encode()).hexdigest(),
+                )
+                try:
+                    loaded_model = mlflow.pyfunc.load_model(model_path)
+                except Exception:
+                    os.makedirs(model_path, exist_ok=True)
+                    loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
             elif should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
