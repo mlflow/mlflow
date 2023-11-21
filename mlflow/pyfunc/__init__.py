@@ -1270,7 +1270,7 @@ def spark_udf(
     ):
         raise MlflowException.invalid_parameter_value(
             f"Environment manager {env_manager!r} is not supported in Spark connect mode when "
-            "in non-databricks runtime or NFS not available",
+            "when either non-Databricks environment is in use or NFS is unavailable.",
         )
 
     local_model_path = _download_artifact_from_uri(
