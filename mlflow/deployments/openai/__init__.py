@@ -1,4 +1,3 @@
-
 from mlflow.deployments import BaseDeploymentClient
 
 
@@ -56,10 +55,11 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
 
     def create_endpoint(self, name, config=None):
         """
-        TODO
+        .. warning::
+
+            This method is not implemented for `OpenAIDeploymentClient`.
         """
-        # TODO: fill this in
-        pass
+        raise NotImplementedError
 
     def update_endpoint(self, endpoint, config=None):
         """
