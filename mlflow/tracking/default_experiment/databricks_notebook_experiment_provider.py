@@ -21,6 +21,7 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
 
     def get_experiment_id(self):
         _logger.debug("get_experiment_id for DatabricksNotebookExperimentProvider")
+        print("get_experiment_id for DatabricksNotebookExperimentProvider")
         if DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id:
             return DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id
 
@@ -40,6 +41,7 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
                 databricks_pb2.INVALID_PARAMETER_VALUE
             ):
                 _logger.debug("it was not a repo notebook")
+                print("it was not a repo notebook")
                 # If determined that it is not a repo noetbook
                 experiment_id = source_notebook_id
             else:
@@ -47,6 +49,7 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
 
         DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id = experiment_id
         _logger.debug(f"experiment_id = {experiment_id}")
+        print(f"experiment_id = {experiment_id}")
 
         return experiment_id
 
@@ -59,6 +62,7 @@ class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
 
     def get_experiment_id(self):
         _logger.debug("get_experiment_id for DatabricksREPONotebookExperimentProvider")
+        print("get_experiment_id for DatabricksREPONotebookExperimentProvider")
         if DatabricksRepoNotebookExperimentProvider._resolved_repo_notebook_experiment_id:
             return DatabricksRepoNotebookExperimentProvider._resolved_repo_notebook_experiment_id
 
@@ -89,4 +93,5 @@ class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
             experiment_id
         )
         _logger.debug(f"experiment_id = {experiment_id}")
+        print(f"experiment_id = {experiment_id}")
         return experiment_id
