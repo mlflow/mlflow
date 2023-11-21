@@ -2,28 +2,25 @@
 Remote Experiment Tracking with MLflow Tracking Server
 ======================================================
 
-MLflow's Tracking Server supports utilizing the host as a proxy server for operations involving artifacts.
-Once configured with the appropriate access requirements, an administrator can start the tracking server to enable
-assumed-role operations involving the saving, loading, or listing of model artifacts, images, documents, and files.
-This eliminates the need to allow end users to have direct path access to a remote object store (e.g., s3, adls, gcs, hdfs) for artifact handling and eliminates the
-need for an end-user to provide access credentials to interact with an underlying object store.
+In this tutorial, you will learn how to set up MLflow Tracking environment for team development using :ref:`MLflow Tracking Server <tracking_server>`.
 
-.. figure:: ../../_static/images/scenario_5.png
-    :align: center
-    :figwidth: 800
+There are a few benefits to utilize MLflow Tracking Server:
 
-.. code-block:: bash
-    :caption: Command to run the tracking server in this configuration
+* **Collaboration**: Multiple users can log runs to the same endpoint, and query runs and models logged by other users.
+* **Sharing Results**: The tracking server also serves :ref:`tracking_ui` endpoint, where team members can easily explore each other's results.
+* **Centralized Access**: The tracking server can be run as a proxy for the remote access for metadata and artifacts, making it easier to secure and audit access to data.
 
-    mlflow server \
-      --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb \
-      # Artifact access is enabled through the proxy URI 'mlflow-artifacts:/',
-      # giving users access to this location without having to manage credentials
-      # or permissions.
-      --artifacts-destination s3://bucket_name \
-      --host remote_host
+How it works?
+=============
 
-Enabling the Tracking Server to perform proxied artifact access in order to route client artifact requests to an object store location:
+The following picture depicts the end state once you have completed this tutorial.
+
+.. note::
+  In this tutorial, we will use a PostgreSQL database to store experiment and run data and an S3 bucket to store artifacts, but 
+  you can modify the steps below to use other data stores. Find the list of supported data stores in `artifact stores <artifacts-stores.html>`_ and `backend stores <backend-stores.html>` documentations.
+
+
+When you start logging runs to the MLflow Tracking Server, the following happens:
 
  * **Part 1a and b**:
 
@@ -45,99 +42,93 @@ Enabling the Tracking Server to perform proxied artifact access in order to rout
   * Retrieving artifacts from the configured backend store for a user request is done with the same authorized authentication that was configured at server start
   * Artifacts are passed to the end user through the Tracking Server through the interface of the ``HttpArtifactRepository``
 
-.. note::
-    When an experiment is created, the artifact storage location from the configuration of the tracking server is logged in the experiment's metadata.
-    When enabling proxied artifact storage, any existing experiments that were created while operating a tracking server in
-    non-proxied mode will continue to use a non-proxied artifact location. In order to use proxied artifact logging, a new experiment must be created.
-    If the intention of enabling a tracking server in ``-serve-artifacts`` mode is to eliminate the need for a client to have authentication to
-    the underlying storage, new experiments should be created for use by clients so that the tracking server can handle authentication after this migration.
 
-.. warning::
-    The MLflow artifact proxied access service enables users to have an *assumed role of access to all artifacts* that are accessible to the Tracking Server.
-    Administrators who are enabling this feature should ensure that the access level granted to the Tracking Server for artifact
-    operations meets all security requirements prior to enabling the Tracking Server to operate in a proxied file handling role.
+Get Started
+===========
 
-Example: xxxxxxxxx
-==================
+Step 1 - Get MLflow
+-------------------
+MLflow is available on PyPI. If you don't already have it installed on your system (both local and remote), you can install it with:
 
-Logging to a tracking server
-----------------------------
+.. code-section::
 
-To log to a tracking server, set the ``MLFLOW_TRACKING_URI`` environment variable to the server's URI,
-along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :py:func:`mlflow.set_tracking_uri`.
+    .. code-block:: bash
+        :name: download-mlflow
 
-The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls
-then make API requests to your remote tracking server.
+        pip install mlflow
 
-  .. code-section::
+Step 2 - Set up remote data stores
+----------------------------------
+MLflow Tracking Server can interact with a variety of data stores to store experiment and run data as well as artifacts.
+In this tutorial, we will use a PostgreSQL database to store experiment and run data and an S3 bucket to store artifacts, but 
+you can modify the steps below to use other data stores supported by MLflow.
 
-    .. code-block:: python
+Create a PostgreSQL database
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+TBA
 
-        import mlflow
+Create an S3 bucket
+~~~~~~~~~~~~~~~~~~~
 
-        remote_server_uri = "..."  # set to your server URI
-        mlflow.set_tracking_uri(remote_server_uri)
-        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
-        # valid path in the workspace
-        mlflow.set_experiment("/my-experiment")
-        with mlflow.start_run():
-            mlflow.log_param("a", 1)
-            mlflow.log_metric("b", 2)
+TBA
 
-    .. code-block:: R
+Set up access credentials for the S3 bucket
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        library(mlflow)
-        install_mlflow()
-        remote_server_uri = "..." # set to your server URI
-        mlflow_set_tracking_uri(remote_server_uri)
-        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
-        # valid path in the workspace
-        mlflow_set_experiment("/my-experiment")
-        mlflow_log_param("a", "1")
+TBA
 
 
-.. _tracking_auth:
+Step 3 - Start the Tracking Server
+----------------------------------
 
-In addition to the ``MLFLOW_TRACKING_URI`` environment variable, the following environment variables
-allow passing HTTP authentication to the tracking server:
+Now login to your remote machine and start the MLflow Tracking Server with the following command:
 
-- ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` - username and password to use with HTTP
-  Basic authentication. To use Basic authentication, you must set `both` environment variables .
-- ``MLFLOW_TRACKING_TOKEN`` - token to use with HTTP Bearer authentication. Basic authentication takes precedence if set.
-- ``MLFLOW_TRACKING_INSECURE_TLS`` - If set to the literal ``true``, MLflow does not verify the TLS connection,
-  meaning it does not validate certificates or hostnames for ``https://`` tracking URIs. This flag is not recommended for
-  production environments. If this is set to ``true`` then ``MLFLOW_TRACKING_SERVER_CERT_PATH`` must not be set.
-- ``MLFLOW_TRACKING_SERVER_CERT_PATH`` - Path to a CA bundle to use. Sets the ``verify`` param of the
-  ``requests.request`` function
-  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
-  When you use a self-signed server certificate you can use this to verify it on client side.
-  If this is set ``MLFLOW_TRACKING_INSECURE_TLS`` must not be set (false).
-- ``MLFLOW_TRACKING_CLIENT_CERT_PATH`` - Path to ssl client cert file (.pem). Sets the ``cert`` param
-  of the ``requests.request`` function
-  (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
-  This can be used to use a (self-signed) client certificate.
+.. code-block:: bash
+    :caption: Command to run the tracking server in this configuration
+
+    mlflow server \
+      --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb \
+      --artifacts-destination s3://bucket_name \
+      --host remote_host
+
+Step 4: Logging to the Tracking Server
+--------------------------------------
+
+Set environment variable
+~~~~~~~~~~~~~~~~~~~~~~~~
+TBA
+
+Alternatively, you can use the :py:func:`mlflow.set_tracking_uri` API to set the tracking URI.
 
 
-.. note::
-    If the MLflow server is *not configured* with the ``--serve-artifacts`` option, the client directly pushes artifacts
-    to the artifact store. It does not proxy these through the tracking server by default.
+Start a run
+~~~~~~~~~~~
 
-    For this reason, the client needs direct access to the artifact store. For instructions on setting up these credentials,
-    see :ref:`Artifact Stores <artifact-stores>`.
+TBA
 
-Tracking Server versioning
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Artifact access is enabled through the proxy URI 'mlflow-artifacts:/',
+giving users access to this location without having to manage credentials
+or permissions.
 
-The version of MLflow running on the server can be found by querying the ``/version`` endpoint.
-This can be used to check that the client-side version of MLflow is up-to-date with a remote tracking server prior to running experiments.
-For example:
+Step 5: View logged Run in Tracking UI
+--------------------------------------
 
-.. code-block:: python
+MLflow Tracking Server also hosts Tracking UI on the same endpoint. 
+You can access the UI by navigating to ``http://remote_host:5000`` and find the logger run.
 
-    import requests
-    import mlflow
 
-    response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
-    assert response.text == mlflow.__version__  # Checking for a strict version match
+What's Next?
+============
 
-TOOD:add some description and links about other modes like artifact-only
+Now you have learned how to set up MLflow Tracking Server for remote experiment tracking!
+
+There are a couple of more advanced topics you can explore:
+* **Other configurations for the Tracking Server**: By default, MLflow Tracking Server serves both backend store and artifact store. 
+  You can also configure the Tracking Server to serve only backend store or artifact store, to handle different use cases such as large 
+  traffic or security concerns. See :ref:`other use cases <other-tracking-setup>` for how to customize the Tracking Server for these use cases.
+
+* **Secure the Tracking Server**: The ``--host`` option exposes the service on all interfaces. If running a server in production, we
+  would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted. Read :ref:`Secure Tracking Server <tracking-auth>`
+  for the best practices to secure the Tracking Server in production.
+
+* **New Features**: MLflow team constantly develops new features to support broader use cases. See `New Features <../new-features/index.html>`_ to catch up with the latest features.
