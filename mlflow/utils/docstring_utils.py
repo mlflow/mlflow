@@ -41,7 +41,7 @@ def _indent(text: str, indent: str) -> str:
 def _replace_all(text: str, replacements: Dict[str, str]) -> str:
     """
     Replace all instances of replacements.keys() with their corresponding
-    values in text. The replacements will be inserted on the line same line
+    values in text. The replacements will be inserted on the same line
     with wrapping to the same level of indentation, for example:
 
     ```
