@@ -12,9 +12,7 @@ _logger = logging.getLogger(__name__)
 # Listed below are the list of providers, which are used to provide MLflow Experiment IDs based on
 # the current context where the MLflow client is running when the user has not explicitly set
 # an experiment. The order below is the order in which the these providers are registered.
-_EXPERIMENT_PROVIDERS = (
-    DatabricksNotebookExperimentProvider,
-)
+_EXPERIMENT_PROVIDERS = (DatabricksNotebookExperimentProvider,)
 
 
 class DefaultExperimentProviderRegistry:
