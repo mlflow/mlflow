@@ -17,6 +17,7 @@ class DatabricksEndpoint(AttrDict):
     pass
 
 
+@experimental
 class DatabricksDeploymentClient(BaseDeploymentClient):
     """
     TODO

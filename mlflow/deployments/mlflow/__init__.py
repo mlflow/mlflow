@@ -2,6 +2,7 @@ from mlflow.deployments import BaseDeploymentClient
 from mlflow.utils.annotations import experimental
 
 
+@experimental
 class MLflowDeploymentClient(BaseDeploymentClient):
     """
     TODO
