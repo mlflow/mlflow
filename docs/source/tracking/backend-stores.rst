@@ -1,24 +1,47 @@
+.. _backend-stores:
+
 ==============
 Backend Stores
 ==============
 
-The backend store is where MLflow Tracking Server stores experiment and run metadata as well as
-params, metrics, and tags for runs. MLflow supports two types of backend stores: *file store* and
-*database-backed store*.
+The backend store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores metadata for 
+:ref:`Runs <runs>` and experiments such as:
+
+* Run ID
+* Start & end time
+* Parameters
+* Metrics
+* Code version (only if you launch runs from an :ref:`MLflow Project <projects>`).
+* Source file name (only if you launch runs from an :ref:`MLflow Project <projects>`).
+
+Note that large model artifacts such as model weight files are stored in :ref:`artifact store <artifacts-stores>`,  the other core component in MLflow Tracking.
+
+Configure the backend store
+===========================
+By default, MLflow stores metadata in local files in the ``./mlruns`` directory, but MLflow can store metadata to databases as well.
+You can configure the location by passing **tracking URI** to MLflow, via either of the following methods:
+
+* Set the ``MLFLOW_TRACKING_URI`` environment variable.
+* Call :py:func:`mlflow.set_tracking_uri` in your code.
+* If you are running :ref:`Tracking Server <tracking_server>`, you can set the ``tracking_uri`` option when starting the server, like ``mlflow server --backend-store-uri sqlite:///mydb.sqlite``
+
+Continue to the next section for the supported format of tracking URLs.
+Also visit :ref:`this guidance <tracking_setup>` for how to set up the backend store properly for your workflow.
+
+Supported backend stores
+========================
+MLflow supports the following types of tracking URI for backend stores:
+
+- Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
+- Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. MLflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
+- HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLflow tracking server <tracking_server>`.
+- Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_).
+  Refer to Access the MLflow tracking server from outside Databricks `[AWS] <http://docs.databricks.com/applications/mlflow/access-hosted-tracking-server.html>`_
+  `[Azure] <http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server>`_, or :ref:`the quickstart <quickstart_tracking_server>` to
+  easily get started with hosted MLflow on Databricks Community Edition.
 
 .. note::
-    In order to use model registry functionality, you must run your server using a database-backed store.
-
-
-Use ``--backend-store-uri`` to configure the type of backend store. You specify:
-
-- A file store backend as ``./path_to_store`` or ``file:/path_to_store``
-- A database-backed store as `SQLAlchemy database URI <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
-  The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
-  MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
-  Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver.
-  For example, ``--backend-store-uri sqlite:///mlflow.db`` would use a local SQLite database.
-
+    In order to use :ref:`Model Registry <registry>` functionality, you must run your server using a database-backed store.
 
 .. important::
 
@@ -30,26 +53,20 @@ Use ``--backend-store-uri`` to configure the type of backend store. You specify:
     documentation for instructions on taking a backup.
 
 .. note::
-    ``2d6e25af4d3e_increase_max_param_val_length`` is a non-invertible migration script that increases 
-    the param value length to 8k (but we limit param value max length to 6000 internally). Please be careful
-    if you want to upgrade and backup your database before upgrading.
-
-
-By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (the same as when
-running ``mlflow run`` locally), but when running a server, make sure that this points to a
-persistent (that is, non-ephemeral) file system location.
+    In Sep 2023, we increased the max length for params recorded in a Run from 500 to 8k (but we limit param value max length to 6000 internally).
+    `mlflow/2d6e25af4d3e_increase_max_param_val_length <https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/versions/2d6e25af4d3e_increase_max_param_val_length.py>`_
+    is a non-invertible migration script that increases the cap in existing database to 8k . Please be careful if you want to upgrade and backup your database before upgrading.
 
 
 Deletion Behavior
-~~~~~~~~~~~~~~~~~
+=================
 In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
 from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
 for permanently removing Run metadata and artifacts for deleted runs.
 
 
 SQLAlchemy Options
-~~~~~~~~~~~~~~~~~~
-
+==================
 You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
 
 +-----------------------------------------+-----------------------------+
@@ -64,7 +81,7 @@ You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalch
 
 
 File store performance
-~~~~~~~~~~~~~~~~~~~~~~
+======================
 
 MLflow will automatically try to use `LibYAML <https://pyyaml.org/wiki/LibYAML>`_ bindings if they are already installed.
 However if you notice any performance issues when using *file store* backend, it could mean LibYAML is not installed on your system.

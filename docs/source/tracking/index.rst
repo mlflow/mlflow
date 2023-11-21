@@ -4,6 +4,15 @@
 MLflow Tracking
 ===============
 
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tracking-api
+    artifacts-stores
+    backend-stores
+    server
+
 The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files
 when running your machine learning code and for later visualizing the results.
 MLflow Tracking lets you log and query experiments using :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R-api`, and :ref:`java_api` APIs.
@@ -54,7 +63,7 @@ Concepts
 Runs
 ----
 MLflow Tracking is organized around the concept of *runs*, which are executions of some piece of
-data science code, for example, single `python train.py` execution. Each run records metadata
+data science code, for example, single ``python train.py`` execution. Each run records metadata
 (various information about your run such as metrics, parameters, start and end time) and artifacts
 (output files from the run such as model weights, images, etc).
 
@@ -115,7 +124,7 @@ Following example shows simple use case to log your experiment data and models t
 
         mlflow.log_artifact(local_path="model/model.pkl")
 
-Please visit `client documentation <client.html>`_ for more details about using MLflow Tracking APIs for manually logging your experiment data and models.
+Please visit `tracking API documentation <tracking-api.html>`_ for more details about using MLflow Tracking APIs for manually logging your experiment data and models.
 
 Explore Runs and Results
 ========================
@@ -132,7 +141,7 @@ The Tracking UI lets you visually explore your experiments and runs, with featur
 * Downloading run results (artifacts and metadata)
 
 If you log runs to a local ``mlruns`` directory,
-run the following command in the directory above it, then access to `localhost:5000` in your browser.
+run the following command in the directory above it, then access to ``localhost:5000`` in your browser.
 
 .. code-block:: bash
 
@@ -147,7 +156,7 @@ In that case, you can view the UI at ``http://<ip address of your MLflow trackin
 Querying Runs Programmatically
 ------------------------------
 
-You can access all of the functions in the Tracking UI programmatically through client SDK in the :py:mod:`mlflow.client` module. 
+You can also access all of the functions in the Tracking UI programmatically with :py:class:`MlflowClient <mlflow.client.MlflowClient>`.
 
 
 .. _tracking-setup:
@@ -164,18 +173,9 @@ From bird's-eye view, MLflow Tracking environment consists of the following comp
 Components
 ----------
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    client
-    artifacts-stores
-    backend-stores
-    server
-
-`MLflow Client APIs <client.html>`_
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-MLflow provides APIs for logging runs and artifacts, and communicating with MLflow Tracking Server if necessary.
+`MLflow Tracking APIs <tracking-api.html>`_
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+MLflow provides Python, Java, R , and REST APIs for logging runs and artifacts, and communicating with MLflow Tracking Server if necessary.
 
 `Backend store <backend-stores.html>`_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -188,11 +188,9 @@ Backend store persists various metadata for each :ref:`Run <runs>`, such as
 * Code version (only if you launch runs from an :ref:`MLflow Project <projects>`).
 * Source file name (only if you launch runs from an :ref:`MLflow Project <projects>`).
 
-
 MLflow supports two types storage for backend, either **file-system based** like local files and **database-based** like PostgresQL.
 Visit `backend store documentation <backend-stores.html>`_ for how to set up backend store with each type.
 
-.. _artifact-stores:
 
 `Artifact store <artifacts-stores.html>`_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -208,6 +206,9 @@ local file (`mlruns`) by default, but also supports different storage options su
 MLflow Tracking Server is a stand-alone HTTP server that provides REST APIs for accessing backend and/or artifact store.
 Tracking server also offers flexibility to configure what data to server, govern access control, versioning, and etc.
 Please visit `tracking server documentation <server.html>`_ for more details.
+
+
+.. _tracking_setup:
 
 Common Setups
 -------------
