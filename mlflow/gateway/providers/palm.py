@@ -1,3 +1,4 @@
+import time
 from typing import Any, Dict
 
 from fastapi import HTTPException
@@ -34,7 +35,7 @@ class PaLMProvider(BaseProvider):
             )
         key_mapping = {
             "stop": "stopSequences",
-            "candidate_count": "candidateCount",
+            "n": "candidateCount",
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
@@ -42,6 +43,8 @@ class PaLMProvider(BaseProvider):
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
+        # The range of PaLM's temperature is 0-1, but ours is 0-2, so we halve it
+        payload["temperature"] = 0.5 * payload["temperature"]
 
         # Replace 'role' with 'author' in payload
         for m in payload["messages"]:
@@ -79,22 +82,21 @@ class PaLMProvider(BaseProvider):
         # }
         # ```
         return chat.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "message": {
-                            "role": c["author"],
-                            "content": c["content"],
-                        },
-                        "metadata": {},
-                    }
-                    for c in resp["candidates"]
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            model=self.config.model.name,
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(role=c["author"], content=c["content"]),
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(resp["candidates"])
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
@@ -102,7 +104,7 @@ class PaLMProvider(BaseProvider):
         self.check_for_model_field(payload)
         key_mapping = {
             "stop": "stopSequences",
-            "candidate_count": "candidateCount",
+            "n": "candidateCount",
             "max_tokens": "maxOutputTokens",
         }
         for k1, k2 in key_mapping.items():
@@ -111,6 +113,8 @@ class PaLMProvider(BaseProvider):
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
+        # The range of PaLM's temperature is 0-1, but ours is 0-2, so we halve it
+        payload["temperature"] = 0.5 * payload["temperature"]
         payload["prompt"] = {"text": payload["prompt"]}
         resp = await self._request(
             f"{self.config.model.name}:generateText",
@@ -138,26 +142,29 @@ class PaLMProvider(BaseProvider):
         # }
         # ```
         return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": c["output"],
-                        "metadata": {},
-                    }
-                    for c in resp["candidates"]
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=self.config.model.name,
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=c["output"],
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(resp["candidates"])
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
-            "text": "texts",
+            "input": "texts",
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
@@ -190,11 +197,16 @@ class PaLMProvider(BaseProvider):
         # }
         # ```
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": [e["value"] for e in resp["embeddings"]],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=embedding["value"],
+                    index=idx,
+                )
+                for idx, embedding in enumerate(resp["embeddings"])
+            ],
+            model=self.config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=None,
+                total_tokens=None,
+            ),
         )

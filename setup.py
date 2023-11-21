@@ -187,6 +187,8 @@ setup(
 
         [mlflow.deployments]
         databricks=mlflow.deployments.databricks
+        http=mlflow.deployments.mlflow
+        https=mlflow.deployments.mlflow
     """,
     cmdclass={
         "dependencies": ListDependencies,

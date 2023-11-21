@@ -365,22 +365,25 @@ def test_client_query_chat(gateway):
     data = {"messages": [{"role": "user", "content": "How hot is the core of the sun?"}]}
 
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
                     "content": "The core of the sun is estimated to have a temperature of about "
                     "15 million degrees Celsius (27 million degrees Fahrenheit).",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "finish_reason": "stop",
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
+        "usage": {
+            "prompt_tokens": 17,
+            "completion_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
         },
     }
     mock_response = mock.Mock()
@@ -398,19 +401,18 @@ def test_client_query_completions(gateway):
     routes = gateway_client.search_routes()
 
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "text-davinci-003",
+        "choices": [
             {
                 "text": " car\n\nDriving fast can be dangerous and is not recommended. It is",
-                "metadata": {"finish_reason": "length"},
+                "index": 0,
+                "finish_reason": "length",
             }
         ],
-        "metadata": {
-            "input_tokens": 7,
-            "output_tokens": 16,
-            "total_tokens": 23,
-            "model": "text-davinci-003",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": 7, "completion_tokens": 16, "total_tokens": 23},
     }
 
     data = {"prompt": "I like to drive fast in my"}
@@ -425,29 +427,31 @@ def test_client_query_completions(gateway):
 
 def test_client_query_embeddings(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
-
     routes = gateway_client.search_routes()
-
     expected_output = {
-        "embeddings": [
-            [
-                0.1,
-                0.2,
-                0.3,
-            ],
-            [
-                0.4,
-                0.5,
-                0.6,
-            ],
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            },
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.4,
+                    0.5,
+                    0.6,
+                ],
+                "index": 1,
+            },
         ],
-        "metadata": {
-            "input_tokens": 8,
-            "output_tokens": 0,
-            "total_tokens": 8,
-            "model": "text-embedding-ada-002",
-            "route_type": "llm/v1/embeddings",
-        },
+        "model": "text-embedding-ada-002",
+        "usage": {"prompt_tokens": 8, "total_tokens": 8},
     }
     data = {"text": ["Jenny", "What's her number?"]}
 
@@ -511,20 +515,19 @@ def test_client_query_anthropic_completions(mixed_gateway):
     assert route.model.provider == "anthropic"
 
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "claude-instant-1.1",
+        "choices": [
             {
                 "text": "Here are the steps for making a peanut butter sandwich:\n\n1. Get bread. "
                 "\n\n2. Spread peanut butter on bread.",
-                "metadata": {"finish_reason": "length"},
+                "index": 0,
+                "finish_reason": "length",
             }
         ],
-        "metadata": {
-            "model": "claude-instant-1.1",
-            "route_type": "llm/v1/completions",
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
     data = {"prompt": "Can you tell me how to make a peanut butter sandwich?", "max_tokens": 500}
 
@@ -572,21 +575,24 @@ def test_client_query_mlflow_chat_route(oss_gateway):
     data = {"messages": [{"role": "user", "content": "Is this a test?"}]}
 
     expected_output = {
-        "candidates": [
+        "id": None,
+        "created": 1700242674,
+        "object": "chat.completion",
+        "model": "mpt-chatbot",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
                     "content": "It is a test",
                 },
-                "metadata": {"finish_reason": "length"},
+                "finish_reason": None,
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
             "total_tokens": None,
-            "model": "mpt-chatbot",
-            "route_type": "llm/v1/chat",
         },
     }
     mock_response = mock.Mock()
@@ -607,19 +613,18 @@ def test_client_query_mlflow_completions_route(oss_gateway):
     data = {"prompt": "Tell me what this is"}
 
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "mpt-completion-model",
+        "choices": [
             {
                 "text": "a test",
-                "metadata": {"finish_reason": "length"},
+                "index": 0,
+                "finish_reason": None,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "mpt-completion-model",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
     mock_response = mock.Mock()
     mock_response.json.return_value = expected_output
@@ -639,26 +644,31 @@ def test_client_query_mlflow_embeddings_route(oss_gateway):
     data = {"text": ["test1", "test2"]}
 
     expected_output = {
-        "embeddings": [
-            [
-                0.1,
-                0.2,
-                0.3,
-            ],
-            [
-                0.4,
-                0.5,
-                0.6,
-            ],
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            },
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.4,
+                    0.5,
+                    0.6,
+                ],
+                "index": 1,
+            },
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "sentence-transformers",
-            "route_type": "llm/v1/embeddings",
-        },
+        "model": "sentence-transformers",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
     }
+
     mock_response = mock.Mock()
     mock_response.json.return_value = expected_output
 

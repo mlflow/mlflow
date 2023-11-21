@@ -1,8 +1,7 @@
-from typing import Dict, List, Optional
+from typing import List, Literal, Optional
 
 from mlflow.gateway.base_models import ResponseModel
-from mlflow.gateway.config import RouteType
-from mlflow.gateway.schemas.chat import BaseRequestPayload, FinishReason
+from mlflow.gateway.schemas.chat import BaseRequestPayload
 
 
 class RequestPayload(BaseRequestPayload):
@@ -20,44 +19,36 @@ class RequestPayload(BaseRequestPayload):
         }
 
 
-class CandidateMetadata(ResponseModel):
-    finish_reason: Optional[FinishReason] = None
-
-
-class Candidate(ResponseModel):
+class Choice(ResponseModel):
+    index: int
     text: str
-    metadata: Optional[Dict[str, str]] = None
+    finish_reason: Optional[str] = None
 
 
-class Metadata(ResponseModel):
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
+class CompletionsUsage(ResponseModel):
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
     total_tokens: Optional[int] = None
-    model: str
-    route_type: RouteType
 
 
 class ResponsePayload(ResponseModel):
-    candidates: List[Candidate]
-    metadata: Metadata
+    id: Optional[str] = None
+    object: Literal["text_completion"] = "text_completion"
+    created: int
+    model: str
+    choices: List[Choice]
+    usage: CompletionsUsage
 
     class Config:
         schema_extra = {
             "example": {
-                "candidates": [
-                    {
-                        "text": "hello world",
-                        "metadata": {
-                            "finish_reason": "stop",
-                        },
-                    }
+                "id": "cmpl-123",
+                "object": "text_completion",
+                "created": 1589478378,
+                "model": "gpt-4",
+                "choices": [
+                    {"text": "Hello! I am an AI Assistant!", "index": 0, "finish_reason": "length"}
                 ],
-                "metadata": {
-                    "input_tokens": 1,
-                    "output_tokens": 2,
-                    "total_tokens": 3,
-                    "model": "gpt-3.5-turbo",
-                    "route_type": "llm/v1/completions",
-                },
+                "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
             }
         }
