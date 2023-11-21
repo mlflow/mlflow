@@ -18,10 +18,10 @@ from tests.gateway.tools import MockAsyncResponse
 def client() -> TestClient:
     config = GatewayConfig(
         **{
-            "routes": [
+            "endpoints": [
                 {
                     "name": "completions-gpt4",
-                    "route_type": "llm/v1/completions",
+                    "endpoint_type": "llm/v1/completions",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -35,7 +35,7 @@ def client() -> TestClient:
                 },
                 {
                     "name": "chat-gpt4",
-                    "route_type": "llm/v1/chat",
+                    "endpoint_type": "llm/v1/chat",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -115,10 +115,10 @@ def test_get_endpoint(client: TestClient):
 def test_dynamic_endpoint():
     config = GatewayConfig(
         **{
-            "routes": [
+            "endpoints": [
                 {
                     "name": "chat",
-                    "route_type": "llm/v1/chat",
+                    "endpoint_type": "llm/v1/chat",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -182,7 +182,7 @@ def test_dynamic_endpoint():
                 "output_tokens": 7,
                 "total_tokens": 20,
                 "model": "gpt-3.5-turbo-0301",
-                "route_type": "llm/v1/chat",
+                "endpoint_type": "llm/v1/chat",
             },
         }
 
