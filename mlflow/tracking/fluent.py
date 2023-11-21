@@ -379,8 +379,6 @@ def start_run(
 
         resolved_tags = context_registry.resolve_tags(user_specified_tags)
 
-        _logger.info("active_run_obj")
-        _logger.info(f"experiment_id {exp_id_for_run}")
         print(f"active_run_obj experiment_id {exp_id_for_run}")
         active_run_obj = client.create_run(
             experiment_id=exp_id_for_run,

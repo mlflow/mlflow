@@ -42,7 +42,7 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
             if e.error_code == databricks_pb2.ErrorCode.Name(
                 databricks_pb2.INVALID_PARAMETER_VALUE
             ):
-                print("it was not a repo notebook")
+                print(f"it was not a repo notebook {e}")
                 # If determined that it is not a repo noetbook
                 experiment_id = source_notebook_id
             else:
