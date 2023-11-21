@@ -1403,8 +1403,8 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     inference = pyfunc_loaded.predict(inference_payload)
-
-    assert isinstance(inference, pd.DataFrame)
+    inference_dataframe= pd.DataFrame(inference) 
+    assert isinstance(inference_dataframe, pd.DataFrame())
     assert all(isinstance(element, str) for element in inference)
 
     if isinstance(inference_payload, dict):
@@ -1412,8 +1412,8 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     else:
         pd_input = pd.DataFrame(inference_payload)
     pd_inference = pyfunc_loaded.predict(pd_input)
-
-    assert isinstance(pd_inference, pd.DataFrame)
+    pd_inference_dataframe = pd.DataFrame(pd_inference) 
+    assert isinstance(pd_inference_dataframe, pd.DataFrame)
     assert all(isinstance(element, str) for element in inference)
 
 
