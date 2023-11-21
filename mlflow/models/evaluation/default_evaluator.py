@@ -561,6 +561,10 @@ def _is_numeric(value):
     return isinstance(value, (int, float, np.number))
 
 
+def _is_string(value):
+    return isinstance(value, str)
+
+
 def _evaluate_extra_metric(extra_metric_tuple, eval_fn_args):
     """
     This function calls the `extra_metric` function and performs validations on the returned
@@ -598,8 +602,10 @@ def _evaluate_extra_metric(extra_metric_tuple, eval_fn_args):
         if not isinstance(scores, list):
             _logger.warning(f"{exception_header} must return MetricValue with scores as a list.")
             return
-        if any(not (_is_numeric(score) or score is None) for score in scores):
-            _logger.warning(f"{exception_header} must return MetricValue with numeric scores.")
+        if any(not (_is_numeric(score) or _is_string(score) or score is None) for score in scores):
+            _logger.warning(
+                f"{exception_header} must return MetricValue with numeric or string scores."
+            )
             return
 
     if justifications is not None:
