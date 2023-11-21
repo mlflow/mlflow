@@ -1489,6 +1489,13 @@ Compound types:
 
     tracking_uri = mlflow.get_tracking_uri()
 
+    if is_spark_connect and not should_spark_connect_use_nfs:
+        spark_connect_temp_model_path = os.path.join(
+            create_tmp_dir(),
+            "mlflow",
+            insecure_hash.sha1(model_uri.encode()).hexdigest(),
+        )
+
     @pandas_udf(result_type)
     def udf(
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
@@ -1594,11 +1601,7 @@ Compound types:
 
         elif env_manager == _EnvManager.LOCAL:
             if is_spark_connect and not should_spark_connect_use_nfs:
-                model_path = os.path.join(
-                    create_tmp_dir(),
-                    "mlflow",
-                    insecure_hash.sha1(model_uri.encode()).hexdigest(),
-                )
+                model_path = spark_connect_temp_model_path
                 try:
                     loaded_model = mlflow.pyfunc.load_model(model_path)
                 except Exception:
