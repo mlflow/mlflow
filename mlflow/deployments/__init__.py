@@ -23,6 +23,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 with contextlib.suppress(Exception):
+    # MLflowDeploymentClient depends on optional dependencies and can't be imported
+    # if they are not installed.
     from mlflow.deployments.mlflow import MLflowDeploymentClient
 
 
