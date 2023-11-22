@@ -752,7 +752,7 @@ To replace and improve upon stages, we elevated **model version tags**, introduc
 
 **Model version tags**
 
-Now prominently displayed in the model registry UI, model version tags can be used to annotate model versions with their status. For example, you could apply a tag of key ``validation_status`` and value ``pending`` to a model version while it is being validated and then update the tag value to ``passed`` when it has passed smoke tests and performance tests.
+Model version tags can be used to annotate model versions with their status. For example, you could apply a tag of key ``validation_status`` and value ``pending`` to a model version while it is being validated and then update the tag value to ``passed`` when it has passed smoke tests and performance tests.
 
 **Model version aliases**
 
