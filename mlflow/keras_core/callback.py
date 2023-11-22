@@ -74,7 +74,7 @@ class MLflowCallback(keras.callbacks.Callback):
 
         model_summary = []
 
-        def print_fn(line, **kwargs):
+        def print_fn(line, *args, **kwargs):
             model_summary.append(line)
 
         self.model.summary(print_fn=print_fn)

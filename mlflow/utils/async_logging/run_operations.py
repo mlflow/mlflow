@@ -1,16 +1,14 @@
+from typing import List
+
+
 class RunOperations:
-    """
-    Represents a collection of operations on one or more MLflow Runs, such as run creation
-    or metric logging.
-    """
+    """Class that helps manage the futures of MLflow async logging."""
 
     def __init__(self, operation_futures):
         self._operation_futures = operation_futures or []
 
     def wait(self):
-        """
-        Blocks on completion of the MLflow Run operations.
-        """
+        """Blocks on completion of all futures."""
         from mlflow.exceptions import MlflowException
 
         failed_operations = []
@@ -21,25 +19,25 @@ class RunOperations:
                 failed_operations.append(e)
 
         if len(failed_operations) > 0:
-            # Importing MlflowException gives circular reference / module load error, need to
-            #  figure out why.
             raise MlflowException(
-                "The following failures occurred while performing one or more logging"
-                + f" operations: {failed_operations}"
+                "The following failures occurred while performing one or more async logging "
+                f"operations: {failed_operations}"
             )
 
 
-def get_combined_run_operations(run_operations_list: [RunOperations]) -> RunOperations:
-    """
-    Given a list of RunOperations, returns a single RunOperations object that represents the
+def get_combined_run_operations(run_operations_list: List[RunOperations]) -> RunOperations:
+    """Combine a list of RunOperations objects into a single RunOperations object.
+
+    Given a list of `RunOperations`, returns a single `RunOperations` object that represents the
     combined set of operations. If the input list is empty, returns None. If the input list
-    contains only one element, returns that element. Otherwise, creates a new RunOperations
+    contains only one element, returns that element. Otherwise, creates a new `RunOperations`
     object that combines the operation futures from each input RunOperations object.
 
-    :param run_operations_list: A list of RunOperations objects to combine.
-    :type run_operations_list: list[RunOperations]
-    :return: A single RunOperations object that represents the combined set of operations.
-    :rtype: RunOperations
+    Args:
+        run_operations_list: A list of `RunOperations` objects to combine.
+
+    Returns:
+        A single `RunOperations` object that represents the combined set of operations.
     """
     if not run_operations_list:
         return None
