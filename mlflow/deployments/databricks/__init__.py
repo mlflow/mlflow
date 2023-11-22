@@ -70,7 +70,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         prefix: str = "/api/2.0",
         route: Optional[str] = None,
         json_body: Optional[Dict[str, Any]] = None,
-        timeout: int = MLFLOW_HTTP_REQUEST_TIMEOUT.get(),
+        timeout: Optional[int] = None,
     ):
         call_kwargs = {}
         if method.lower() == "get":
@@ -82,7 +82,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             host_creds=get_databricks_host_creds(self.target_uri),
             endpoint=posixpath.join(prefix, "serving-endpoints", route or ""),
             method=method,
-            timeout=timeout,
+            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
             raise_on_status=False,
             retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             **call_kwargs,
