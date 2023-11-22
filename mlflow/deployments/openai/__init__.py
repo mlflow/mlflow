@@ -63,6 +63,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
             )
 
         import openai
+        import openai.error
 
         from mlflow.openai import _get_api_config
         from mlflow.openai.api_request_parallel_processor import process_api_requests
