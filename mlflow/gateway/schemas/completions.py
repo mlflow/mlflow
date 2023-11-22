@@ -1,22 +1,28 @@
 from typing import List, Literal, Optional
 
 from mlflow.gateway.base_models import ResponseModel
+from mlflow.gateway.config import IS_PYDANTIC_V2
 from mlflow.gateway.schemas.chat import BaseRequestPayload
+
+_REQUEST_PAYLOAD_EXTRA_SCHEMA = {
+    "example": {
+        "prompt": "hello",
+        "temperature": 0.0,
+        "max_tokens": 64,
+        "stop": ["END"],
+        "candidate_count": 1,
+    }
+}
 
 
 class RequestPayload(BaseRequestPayload):
     prompt: str
 
     class Config:
-        schema_extra = {
-            "example": {
-                "prompt": "hello",
-                "temperature": 0.0,
-                "max_tokens": 64,
-                "stop": ["END"],
-                "candidate_count": 1,
-            }
-        }
+        if IS_PYDANTIC_V2:
+            json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
+        else:
+            schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
 
 
 class Choice(ResponseModel):
@@ -31,6 +37,20 @@ class CompletionsUsage(ResponseModel):
     total_tokens: Optional[int] = None
 
 
+_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
+    "example": {
+        "id": "cmpl-123",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "gpt-4",
+        "choices": [
+            {"text": "Hello! I am an AI Assistant!", "index": 0, "finish_reason": "length"}
+        ],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+    }
+}
+
+
 class ResponsePayload(ResponseModel):
     id: Optional[str] = None
     object: Literal["text_completion"] = "text_completion"
@@ -40,15 +60,7 @@ class ResponsePayload(ResponseModel):
     usage: CompletionsUsage
 
     class Config:
-        schema_extra = {
-            "example": {
-                "id": "cmpl-123",
-                "object": "text_completion",
-                "created": 1589478378,
-                "model": "gpt-4",
-                "choices": [
-                    {"text": "Hello! I am an AI Assistant!", "index": 0, "finish_reason": "length"}
-                ],
-                "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
-            }
-        }
+        if IS_PYDANTIC_V2:
+            json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+        else:
+            schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA

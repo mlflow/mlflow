@@ -186,6 +186,10 @@ class PaLMConfig(ConfigModel):
 class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
 
+    # Workaround to suppress warning that Pydantic raises when a field name starts with "model_".
+    # https://github.com/mlflow/mlflow/issues/10335
+    model_config = pydantic.ConfigDict(protected_namespaces=())
+
 
 class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
     hf_server_url: str
@@ -402,6 +406,19 @@ class RouteModelInfo(ResponseModel):
     provider: str
 
 
+_ROUTE_EXTRA_SCHEMA = {
+    "example": {
+        "name": "openai-completions",
+        "route_type": "llm/v1/completions",
+        "model": {
+            "name": "gpt-3.5-turbo",
+            "provider": "openai",
+        },
+        "route_url": "/gateway/routes/completions/invocations",
+    }
+}
+
+
 class Route(ConfigModel):
     name: str
     route_type: str
@@ -409,17 +426,10 @@ class Route(ConfigModel):
     route_url: str
 
     class Config:
-        schema_extra = {
-            "example": {
-                "name": "openai-completions",
-                "route_type": "llm/v1/completions",
-                "model": {
-                    "name": "gpt-3.5-turbo",
-                    "provider": "openai",
-                },
-                "route_url": "/gateway/routes/completions/invocations",
-            }
-        }
+        if IS_PYDANTIC_V2:
+            json_schema_extra = _ROUTE_EXTRA_SCHEMA
+        else:
+            schema_extra = _ROUTE_EXTRA_SCHEMA
 
     def to_endpoint(self):
         from mlflow.deployments.server.config import Endpoint
