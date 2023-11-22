@@ -17,6 +17,7 @@ class BaseRequestPayload(RequestModel):
     stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=1)
 
+
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "messages": [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -27,6 +28,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "stop": ["END"],
     "n": 1,
 }
+
 
 class RequestPayload(BaseRequestPayload):
     messages: List[RequestMessage] = Field(..., min_items=1)
@@ -71,6 +73,7 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
         "usage": {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18},
     }
 }
+
 
 class ResponsePayload(ResponseModel):
     id: Optional[str] = None

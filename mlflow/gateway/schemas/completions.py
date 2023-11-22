@@ -4,8 +4,7 @@ from mlflow.gateway.base_models import ResponseModel
 from mlflow.gateway.config import IS_PYDANTIC_V2
 from mlflow.gateway.schemas.chat import BaseRequestPayload
 
-
-_REQUEST_PAYLOAD_EXTRA_SCHEMA =  {
+_REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "example": {
         "prompt": "hello",
         "temperature": 0.0,
@@ -14,6 +13,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA =  {
         "candidate_count": 1,
     }
 }
+
 
 class RequestPayload(BaseRequestPayload):
     prompt: str
@@ -49,6 +49,7 @@ _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
         "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
     }
 }
+
 
 class ResponsePayload(ResponseModel):
     id: Optional[str] = None

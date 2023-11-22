@@ -188,9 +188,7 @@ class MlflowModelServingConfig(ConfigModel):
 
     # Workaround to suppress warning that Pydantic raises when a field name starts with "model_".
     # https://github.com/mlflow/mlflow/issues/10335
-    model_config = pydantic.ConfigDict(
-        protected_namespaces=()
-    )
+    model_config = pydantic.ConfigDict(protected_namespaces=())
 
 
 class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
@@ -407,6 +405,7 @@ class RouteModelInfo(ResponseModel):
     # support new providers without breaking the gateway client.
     provider: str
 
+
 _ROUTE_EXTRA_SCHEMA = {
     "example": {
         "name": "openai-completions",
@@ -418,6 +417,7 @@ _ROUTE_EXTRA_SCHEMA = {
         "route_url": "/gateway/routes/completions/invocations",
     }
 }
+
 
 class Route(ConfigModel):
     name: str

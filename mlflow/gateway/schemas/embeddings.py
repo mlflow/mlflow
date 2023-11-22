@@ -3,12 +3,12 @@ from typing import List, Literal, Optional, Union
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.gateway.config import IS_PYDANTIC_V2
 
-
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "example": {
         "text": ["hello", "world"],
     }
 }
+
 
 class RequestPayload(RequestModel):
     input: Union[str, List[str]]
