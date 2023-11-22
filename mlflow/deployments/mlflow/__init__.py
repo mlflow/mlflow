@@ -93,7 +93,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         method: str,
         route: str,
         json_body: Optional[str] = None,
-        timeout: int = MLFLOW_HTTP_REQUEST_TIMEOUT.get(),
+        timeout: Optional[int] = None,
     ):
         call_kwargs = {}
         if method.lower() == "get":
@@ -105,7 +105,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
             host_creds=_get_default_host_creds(self.target_uri),
             endpoint=route,
             method=method,
-            timeout=timeout,
+            timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
             retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             raise_on_status=False,
             **call_kwargs,
