@@ -292,6 +292,12 @@ MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
 # Specifies whether or not to use multipart upload when uploading large artifacts.
 MLFLOW_ENABLE_MULTIPART_UPLOAD = _BooleanEnvironmentVariable("MLFLOW_ENABLE_MULTIPART_UPLOAD", True)
 
+#: Specifies whether or not to use multipart upload for proxied artifact access.
+#: (default: ``False``)
+MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", False
+)
+
 #: Private environment variable that's set to ``True`` while running tests.
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
 

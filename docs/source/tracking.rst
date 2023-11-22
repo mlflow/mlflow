@@ -1203,6 +1203,10 @@ server handling both types of payloads.
 
 Multipart upload for proxied artifact access
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+    This feature is experimental and may be changed or removed in a future release without notice.
+
 When using a Tracking Server with proxied artifact storage access (:ref:`scenario_5`), the server will attempt to
 upload large artifacts using multipart upload. This behavior can be enabled by setting the ``MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD``
 environment variable to ``true`` (``false`` by default):

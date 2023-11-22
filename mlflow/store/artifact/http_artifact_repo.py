@@ -9,6 +9,7 @@ from requests import HTTPError
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
@@ -38,7 +39,10 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         # Try to perform multipart upload if the file is large.
         # If the server does not support, or if the upload failed, revert to normal upload.
-        if os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
+        if (
+            MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
+            and os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+        ):
             try:
                 self._try_multipart_upload(local_file, artifact_path)
                 return
@@ -161,14 +165,12 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 _UnsupportedMultipartUploadException.MESSAGE
             ):
                 raise _UnsupportedMultipartUploadException()
-            else:
-                raise
+            raise
 
         try:
             with open(local_file, "rb") as f:
                 for credential in create.credentials:
                     chunk = f.read(chunk_size)
-
                     response = requests.put(credential.url, data=chunk)
                     augmented_raise_for_status(response)
                     parts.append(
