@@ -81,7 +81,11 @@ _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 # runners#supported-runners-and-hardware-resources for instance specs.
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
+<<<<<<< HEAD
 image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+=======
+image_url ='http://images.cocodataset.org/val2017/000000039769.jpg' #"https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
+>>>>>>> 6d4c68c46 (inference error fixed)
 # Test that can only be run locally:
 # - Summarization pipeline tests
 # - TextClassifier pipeline tests
@@ -1413,8 +1417,17 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
         signature=signature,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+<<<<<<< HEAD
     predictions = pyfunc_loaded.predict(inference_payload)
     assert len(predictions) != 0
+=======
+
+    inference = pyfunc_loaded.predict(inference_payload)
+    inference_dataframe= pd.DataFrame(inference)
+    assert isinstance(inference_dataframe, pd.core.frame.DataFrame)
+    inference = [str(element) if element is not None else None for element in inference]
+    assert all(isinstance(element, str) for element in inference)
+>>>>>>> 6d4c68c46 (inference error fixed)
 
 
 
