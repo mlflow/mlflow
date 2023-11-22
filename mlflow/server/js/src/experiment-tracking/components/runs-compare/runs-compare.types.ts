@@ -135,6 +135,12 @@ export class RunsCompareLineCardConfig extends RunsCompareCardConfig {
   metricKey = '';
 
   /**
+   * New key to support multiple metrics
+   * NOTE: This key will not be present in older charts
+   */
+  selectedMetricKeys?: string[] = []
+
+  /**
    * Smoothness
    */
   lineSmoothness = 0;

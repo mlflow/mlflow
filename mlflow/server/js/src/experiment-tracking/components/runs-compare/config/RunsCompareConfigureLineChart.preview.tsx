@@ -45,6 +45,7 @@ export const RunsCompareConfigureLineChartPreviewImpl = ({
     <RunsMetricsLinePlot
       runsData={previewDataWithHistory}
       metricKey={cardConfig.metricKey}
+	  selectedMetricKeys={cardConfig.selectedMetricKeys}
       scaleType={cardConfig.scaleType}
       lineSmoothness={cardConfig.lineSmoothness}
       xAxisKey={cardConfig.xAxisKey}

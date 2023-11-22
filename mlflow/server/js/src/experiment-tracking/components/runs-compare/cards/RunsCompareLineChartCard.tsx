@@ -6,6 +6,14 @@ import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsToolt
 import type { RunsCompareLineCardConfig } from '../runs-compare.types';
 import { RunsCompareChartCardWrapper } from './ChartCard.common';
 
+const getChartTitle = (cardConfig: RunsCompareLineCardConfig): string => {
+  if (!cardConfig.selectedMetricKeys || cardConfig.selectedMetricKeys.length === 0) {
+	return cardConfig.metricKey;
+  }
+  
+  return cardConfig.selectedMetricKeys.join(', ');
+}
+
 export interface RunsCompareLineChartCardProps {
   config: RunsCompareLineCardConfig;
   chartRunData: RunsChartsRunData[];
@@ -34,7 +42,7 @@ export const RunsCompareLineChartCard = ({
     <RunsCompareChartCardWrapper
       onEdit={onEdit}
       onDelete={onDelete}
-      title={config.metricKey}
+      title={getChartTitle(config)}
       // TODO: add i18n after making decision on the final wording
       subtitle={<>Comparing first {slicedRuns.length} runs</>}
     >
@@ -45,6 +53,7 @@ export const RunsCompareLineChartCard = ({
           <RunsMetricsLinePlot
             runsData={slicedRuns}
             metricKey={config.metricKey}
+			selectedMetricKeys={config.selectedMetricKeys}
             scaleType={config.scaleType}
             xAxisKey={config.xAxisKey}
             lineSmoothness={config.lineSmoothness}

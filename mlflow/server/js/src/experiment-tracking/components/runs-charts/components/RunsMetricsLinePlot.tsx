@@ -28,12 +28,15 @@ export interface RunsMetricsLinePlotHoverData {
   step: number;
   index: number;
   label: string;
+  metricKey: string;
 }
 export interface RunsMetricsLinePlotProps extends RunsPlotsCommonProps {
   /**
    * Determines which metric are we comparing by
    */
   metricKey: string;
+
+  selectedMetricKeys?: string[];
 
   /**
    * Smoothing factor for EMA
@@ -70,8 +73,8 @@ const PLOT_CONFIG: Partial<Config> = {
   scrollZoom: false,
 };
 
-export const createTooltipTemplate = (runName: string) =>
-  `<b>${runName}</b>:<br>` +
+export const createTooltipTemplate = (runName: string, metricKey: string) =>
+  `<b>${runName} (${metricKey})</b>:<br>` +
   '<b>%{xaxis.title.text}:</b> %{x}<br>' +
   '<b>%{yaxis.title.text}:</b> %{y:.2f}<br>' +
   '<extra></extra>';
@@ -98,6 +101,57 @@ const prepareMetricHistoryByAxisType = (
   return metricHistory.map((e) => e.step);
 };
 
+const getDataTraceForRun = ({
+  runEntry,
+  metricKey,
+  xAxisKey,
+  useDefaultHoverBox,
+  lineSmoothness,
+  lineShape,
+}: {
+  runEntry: Omit<RunsChartsRunData, "metrics" | "params">;
+  metricKey: RunsMetricsLinePlotProps['metricKey'];
+  xAxisKey: RunsMetricsLinePlotProps['xAxisKey'];
+  useDefaultHoverBox: RunsMetricsLinePlotProps['useDefaultHoverBox'];
+  lineSmoothness: RunsMetricsLinePlotProps['lineSmoothness'];
+  lineShape: RunsMetricsLinePlotProps['lineShape'];
+}) => {
+  if (!runEntry.metricsHistory) {
+	return {};
+  }
+  
+  return {
+    // Let's add UUID to each run so it can be distinguished later (e.g. on hover)
+    uuid: runEntry.runInfo.run_uuid,
+    name: runEntry.runInfo.run_name,
+	metricKey: metricKey,
+    x: prepareMetricHistoryByAxisType(runEntry.metricsHistory[metricKey], xAxisKey),
+    // The actual value is on Y axis
+    y: EMA(
+      runEntry.metricsHistory[metricKey]?.map((e: MetricEntity) => normalizeChartValue(e.value)),
+      lineSmoothness,
+    ),
+    // Always record the step so it can be accessed even if x-axis contains timestamp
+    z: runEntry.metricsHistory[metricKey]?.map(({ step }: MetricEntity) => step),
+    hovertext: runEntry.runInfo.run_name,
+    text: 'x',
+    textposition: 'outside',
+    textfont: {
+      size: 11,
+    },
+    hovertemplate: useDefaultHoverBox
+                 ? createTooltipTemplate(runEntry.runInfo.run_name, metricKey)
+                 : undefined,
+    hoverinfo: useDefaultHoverBox ? undefined : 'none',
+    hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
+    type: 'scatter',
+    line: { shape: lineShape },
+    marker: {
+      color: runEntry.color,
+    }
+  }
+}
+
 /**
  * Implementation of plotly.js chart displaying
  * line plot comparing metrics' history for a given
@@ -107,6 +161,7 @@ export const RunsMetricsLinePlot = React.memo(
   ({
     runsData,
     metricKey,
+	selectedMetricKeys,
     scaleType = 'linear',
     xAxisKey = 'step',
     lineSmoothness = 70,
@@ -128,41 +183,31 @@ export const RunsMetricsLinePlot = React.memo(
       () =>
         // Generate separate data trace for each run
         runsData.map((runEntry) => {
-          if (runEntry.metricsHistory) {
-            return {
-              // Let's add UUID to each run so it can be distinguished later (e.g. on hover)
-              uuid: runEntry.runInfo.run_uuid,
-              name: runEntry.runInfo.run_name,
-              x: prepareMetricHistoryByAxisType(runEntry.metricsHistory[metricKey], xAxisKey),
-              // The actual value is on Y axis
-              y: EMA(
-                runEntry.metricsHistory[metricKey]?.map((e) => normalizeChartValue(e.value)),
-                lineSmoothness,
-              ),
-              // Always record the step so it can be accessed even if x-axis contains timestamp
-              z: runEntry.metricsHistory[metricKey]?.map(({ step }) => step),
-              hovertext: runEntry.runInfo.run_name,
-              text: 'x',
-              textposition: 'outside',
-              textfont: {
-                size: 11,
-              },
-              hovertemplate: useDefaultHoverBox
-                ? createTooltipTemplate(runEntry.runInfo.run_name)
-                : undefined,
-              hoverinfo: useDefaultHoverBox ? undefined : 'none',
-              hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
-              type: 'scatter',
-              line: { shape: lineShape },
-              marker: {
-                color: runEntry.color,
-              },
-            } as Data;
+          if (!runEntry.metricsHistory) {
+            return [];
           }
 
-          return {};
-        }),
-      [runsData, lineShape, xAxisKey, lineSmoothness, metricKey, useDefaultHoverBox],
+		  if (selectedMetricKeys && selectedMetricKeys.length > 0) {
+			return selectedMetricKeys.map((mk) => getDataTraceForRun({
+			  runEntry,
+			  metricKey: mk,
+			  xAxisKey,
+			  useDefaultHoverBox,
+			  lineSmoothness,
+			  lineShape,
+			}))
+		  }
+
+		  return getDataTraceForRun({
+			runEntry,
+			metricKey,
+			xAxisKey,
+			useDefaultHoverBox,
+			lineSmoothness,
+			lineShape,
+		  });
+        }).flat(),
+      [runsData, lineShape, xAxisKey, lineSmoothness, metricKey, useDefaultHoverBox, selectedMetricKeys],
     );
 
     const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } =
@@ -251,6 +296,8 @@ export const RunsMetricsLinePlot = React.memo(
           index: hoveredPoint.pointIndex,
           // Current label ("Step", "Time" etc.)
           label: xAxisKeyLabel,
+		  // Current metric being hovered
+		  metricKey: hoveredPointData.metricKey,
         };
         if (runUuid) {
           onHover?.(runUuid, event, data);

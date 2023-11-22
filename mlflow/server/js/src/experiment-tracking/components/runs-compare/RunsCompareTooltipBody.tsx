@@ -125,7 +125,9 @@ const createLineChartValuesBox = (
   activeRun: RunsChartsRunData,
   hoverData?: RunsMetricsLinePlotHoverData,
 ) => {
-  const { metricKey } = cardConfig;
+  const { metricKey: metricKeyFromConfig } = cardConfig;
+  const metricKey = hoverData?.metricKey || metricKeyFromConfig;
+  
   // If there's available value from x axis (step or time), extract entry from
   // metric history instead of latest metric.
   const metricValue = hoverData?.yValue || activeRun?.metrics[metricKey].value;
@@ -253,7 +255,7 @@ export const RunsCompareTooltipBody = ({
   const { runs, onTogglePin, onHideRun } = contextData;
   const [experimentId] = useExperimentIds();
   const activeRun = runs?.find((run) => run.runInfo.run_uuid === runUuid);
-
+  
   if (!activeRun) {
     return null;
   }
@@ -269,7 +271,7 @@ export const RunsCompareTooltipBody = ({
             css={styles.runLink}
             onClick={closeContextMenu}
           >
-            {activeRun.runInfo.run_name || activeRun.runInfo.run_uuid}
+            {hoverData?.metricKey || activeRun.runInfo.run_name || activeRun.runInfo.run_uuid}
           </Link>
         </div>
         {!isHovering && <Button size='small' onClick={closeContextMenu} icon={<CloseIcon />} />}
