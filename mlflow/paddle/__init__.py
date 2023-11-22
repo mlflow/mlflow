@@ -112,6 +112,72 @@ def save_model(
     
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    
+    .. code-block:: python	
+        :caption: Example	
+        
+        import mlflow.paddle	
+        import paddle	
+        from paddle.nn import Linear	
+        import paddle.nn.functional as F	
+        import numpy as np	
+        import os	
+        import random	
+        from sklearn.datasets import load_diabetes	
+        from sklearn.model_selection import train_test_split	
+        from sklearn import preprocessing	
+        def load_data():	
+            # dataset on boston housing prediction	
+            X, y = load_diabetes(return_X_y=True, as_frame=True)	
+            min_max_scaler = preprocessing.MinMaxScaler()	
+            X_min_max = min_max_scaler.fit_transform(X)	
+            X_normalized = preprocessing.scale(X_min_max, with_std=False)	
+            X_train, X_test, y_train, y_test = train_test_split(	
+                X_normalized, y, test_size=0.2, random_state=42	
+            )	
+            y_train = y_train.reshape(-1, 1)	
+            y_test = y_test.reshape(-1, 1)	
+            return np.concatenate((X_train, y_train), axis=1), np.concatenate(	
+                (X_test, y_test), axis=1	
+            )	
+        class Regressor(paddle.nn.Layer):	
+            def __init__(self):	
+                super().__init__()	
+                self.fc = Linear(in_features=13, out_features=1)	
+            @paddle.jit.to_static	
+            def forward(self, inputs):	
+                x = self.fc(inputs)	
+                return x	
+        model = Regressor()	
+        model.train()	
+        training_data, test_data = load_data()	
+        opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())	
+        EPOCH_NUM = 10	
+        BATCH_SIZE = 10	
+        for epoch_id in range(EPOCH_NUM):	
+            np.random.shuffle(training_data)	
+            mini_batches = [	
+                training_data[k : k + BATCH_SIZE]	
+                for k in range(0, len(training_data), BATCH_SIZE)	
+            ]	
+            for iter_id, mini_batch in enumerate(mini_batches):	
+                x = np.array(mini_batch[:, :-1]).astype("float32")	
+                y = np.array(mini_batch[:, -1:]).astype("float32")	
+                house_features = paddle.to_tensor(x)	
+                prices = paddle.to_tensor(y)	
+                predicts = model(house_features)	
+                loss = F.square_error_cost(predicts, label=prices)	
+                avg_loss = paddle.mean(loss)	
+                if iter_id % 20 == 0:	
+                    print(f"epoch: {epoch_id}, iter: {iter_id}, loss is: {avg_loss.numpy()}")	
+                avg_loss.backward()	
+                opt.step()	
+                opt.clear_grad()	
+        mlflow.log_param("learning_rate", 0.01)	
+        mlflow.paddle.log_model(model, "model")	
+        sk_path_dir = "./test-out"	
+        mlflow.paddle.save_model(model, sk_path_dir)	
+        print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
     """
     import paddle
 
@@ -304,6 +370,27 @@ def log_model(
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
+
+    .. code-block:: python
+        :caption: Example
+        
+        import mlflow.paddle	
+        def load_data():	
+            ...	
+        class Regressor:	
+            ...	
+        model = Regressor()	
+        model.train()	
+        training_data, test_data = load_data()	
+        opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())	
+        EPOCH_NUM = 10	
+        BATCH_SIZE = 10	
+        for epoch_id in range(EPOCH_NUM):	
+            ...	
+        mlflow.log_param("learning_rate", 0.01)	
+        mlflow.paddle.log_model(model, "model")	
+        sk_path_dir = ...	
+        mlflow.paddle.save_model(model, sk_path_dir)
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -323,8 +410,7 @@ def log_model(
 
 
 def _load_pyfunc(path):
-    """
-    Loads PyFunc implementation. Called by ``pyfunc.load_model``.
+    """Loads PyFunc implementation. Called by ``pyfunc.load_model``.
     
     Args:
         path: Local filesystem path to the MLflow Model with the ``paddle`` flavor.
@@ -417,6 +503,59 @@ def autolog(
                                new model version of the registered model with this name.
                                The registered model is created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+
+    .. code-block:: python	
+        :caption: Example	
+        
+        import paddle	
+        import mlflow	
+        from mlflow import MlflowClient	
+        def show_run_data(run_id):	
+            run = mlflow.get_run(run_id)	
+            print(f"params: {run.data.params}")	
+            print(f"metrics: {run.data.metrics}")	
+            client = MlflowClient()	
+            artifacts = [f.path for f in client.list_artifacts(run.info.run_id, "model")]	
+            print(f"artifacts: {artifacts}")	
+        class LinearRegression(paddle.nn.Layer):	
+            def __init__(self):	
+                super().__init__()	
+                self.fc = paddle.nn.Linear(13, 1)	
+            def forward(self, feature):	
+                return self.fc(feature)	
+        train_dataset = paddle.text.datasets.UCIHousing(mode="train")	
+        eval_dataset = paddle.text.datasets.UCIHousing(mode="test")	
+        model = paddle.Model(LinearRegression())	
+        optim = paddle.optimizer.SGD(learning_rate=1e-2, parameters=model.parameters())	
+        model.prepare(optim, paddle.nn.MSELoss(), paddle.metric.Accuracy())	
+        mlflow.paddle.autolog()	
+        with mlflow.start_run() as run:	
+            model.fit(train_dataset, eval_dataset, batch_size=16, epochs=10)	
+        show_run_data(run.info.run_id)	
+    .. code-block:: text	
+        :caption: Output	
+        params: {	
+            "learning_rate": "0.01",	
+            "optimizer_name": "SGD",	
+        }	
+        metrics: {	
+            "loss": 17.482044,	
+            "step": 25.0,	
+            "acc": 0.0,	
+            "eval_step": 6.0,	
+            "eval_acc": 0.0,	
+            "eval_batch_size": 6.0,	
+            "batch_size": 4.0,	
+            "eval_loss": 24.717455,	
+        }	
+        artifacts: [	
+            "model/MLmodel",	
+            "model/conda.yaml",	
+            "model/model.pdiparams",	
+            "model/model.pdiparams.info",	
+            "model/model.pdmodel",	
+            "model/requirements.txt",	
+        ]
     """
     import paddle
 
