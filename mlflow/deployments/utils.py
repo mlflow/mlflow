@@ -26,7 +26,7 @@ def _is_valid_uri(uri: str) -> bool:
     """
     try:
         parsed = urlparse(uri)
-        return parsed.scheme == "databricks" or all([parsed.scheme, parsed.netloc])
+        return bool(parsed.scheme and parsed.netloc)
     except ValueError:
         return False
 
