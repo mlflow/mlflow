@@ -116,11 +116,16 @@ def _cached_get_request_session(
         "backoff_jitter": backoff_jitter,
         "raise_on_status": raise_on_status,
     }
-    if Version(urllib3.__version__) >= Version("1.26.0"):
+    urllib3_version = Version(urllib3.__version__)
+    if urllib3_version >= Version("1.26.0"):
         retry_kwargs["allowed_methods"] = None
     else:
         retry_kwargs["method_whitelist"] = None
-    retry = JitteredRetry(**retry_kwargs)
+
+    if urllib3_version < Version("2.0"):
+        retry = JitteredRetry(**retry_kwargs)
+    else:
+        retry = Retry(**retry_kwargs)
     adapter = HTTPAdapter(max_retries=retry)
     session = requests.Session()
     session.mount("https://", adapter)
