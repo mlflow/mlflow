@@ -124,3 +124,5 @@ def test_predict():
                 "total_tokens": 21,
             },
         }
+        ((_, url), _) = mock_request.call_args
+        assert url == "http://localhost:5000/endpoints/test/invocations"

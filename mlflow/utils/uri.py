@@ -405,3 +405,7 @@ def resolve_uri_if_local(local_uri):
 
 def generate_tmp_dfs_path(dfs_tmp):
     return posixpath.join(dfs_tmp, str(uuid.uuid4()))
+
+
+def join_paths(*paths):
+    return "/" + posixpath.normpath(posixpath.join(*(p.strip("/") for p in paths)))

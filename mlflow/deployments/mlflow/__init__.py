@@ -22,6 +22,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+from mlflow.utils.uri import join_paths
 
 if TYPE_CHECKING:
     from mlflow.deployments.server.config import Endpoint
@@ -118,7 +119,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
-        route = posixpath.normpath(posixpath.join(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint))
+        route = join_paths(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint)
         response = self._call_endpoint("GET", route)
         return Endpoint(
             **{
@@ -156,10 +157,8 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
-        query_route = posixpath.normpath(
-            posixpath.join(
-                MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
-            )
+        query_route = join_paths(
+            MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
         )
         try:
             return self._call_endpoint(
