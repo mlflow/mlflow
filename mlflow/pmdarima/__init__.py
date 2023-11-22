@@ -351,6 +351,43 @@ def log_model(
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
+
+    .. code-block:: python
+        :caption: Example
+        
+        import pandas as pd
+        import mlflow
+        from mlflow.models import infer_signature
+        import pmdarima
+        from pmdarima.metrics import smape
+        
+        # Specify locations of source data and the model artifact
+        SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
+        ARTIFACT_PATH = "model"
+        
+        # Read data and recode columns
+        sales_data = pd.read_csv(SOURCE_DATA)
+        sales_data.rename(columns={"y": "sales", "ds": "date"}, inplace=True)
+        
+        # Split the data into train/test
+        train_size = int(0.8 * len(sales_data))
+        train, test = sales_data[:train_size], sales_data[train_size:]
+        
+        with mlflow.start_run():
+            # Create the model
+            model = pmdarima.auto_arima(train["sales"], seasonal=True, m=12)
+            
+            # Calculate metrics
+            prediction = model.predict(n_periods=len(test))
+            metrics = {"smape": smape(test["sales"], prediction)}
+            
+            # Infer signature
+            input_sample = pd.DataFrame(train["sales"])
+            output_sample = pd.DataFrame(model.predict(n_periods=5))
+            signature = infer_signature(input_sample, output_sample)
+            
+            # Log model
+            mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
     """
 
     return Model.log(
@@ -389,6 +426,63 @@ def load_model(model_uri, dst_path=None):
     
     Returns:
         A ``pmdarima`` model instance
+
+    .. code-block:: python
+        :caption: Example
+        
+        import pandas as pd
+        import mlflow
+        from mlflow.models import infer_signature
+        import pmdarima
+        from pmdarima.metrics import smape
+        
+        # Specify locations of source data and the model artifact
+        SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
+        ARTIFACT_PATH = "model"
+        
+        # Read data and recode columns
+        sales_data = pd.read_csv(SOURCE_DATA)
+        sales_data.rename(columns={"y": "sales", "ds": "date"}, inplace=True)
+        
+        # Split the data into train/test
+        train_size = int(0.8 * len(sales_data))
+        train, test = sales_data[:train_size], sales_data[train_size:]
+        
+        with mlflow.start_run():
+            # Create the model
+            model = pmdarima.auto_arima(train["sales"], seasonal=True, m=12)
+            
+            # Calculate metrics
+            prediction = model.predict(n_periods=len(test))
+            metrics = {"smape": smape(test["sales"], prediction)}
+            
+            # Infer signature
+            input_sample = pd.DataFrame(train["sales"])
+            output_sample = pd.DataFrame(model.predict(n_periods=5))
+            signature = infer_signature(input_sample, output_sample)
+            
+            # Log model
+            input_example = input_sample.head()
+            mlflow.pmdarima.log_model(
+                model, ARTIFACT_PATH, signature=signature, input_example=input_example
+            )
+            
+            # Get the model URI for loading
+            model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+            
+        # Load the model
+        loaded_model = mlflow.pmdarima.load_model(model_uri)
+        # Forecast for the next 60 days
+        forecast = loaded_model.predict(n_periods=60)
+        print(f"forecast: {forecast}")
+        
+    .. code-block:: text
+        :caption: Output
+        forecast:
+        234    382452.397246
+        235    380639.458720
+        236    359805.611219
+        ...
     """
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
