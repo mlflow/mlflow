@@ -258,14 +258,7 @@ def _log_secrets_yaml(local_model_dir, scope):
 
 
 def _parse_format_fields(s) -> Set[str]:
-    """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"].
-    
-    Args:
-        s: The string to parse.
-    
-    Returns:
-        A list of format fields found in the string.
-    """
+    """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"]."""
     return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
 
 
