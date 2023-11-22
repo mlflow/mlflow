@@ -760,7 +760,7 @@ Model version aliases provide a flexible way to set named aliases on model versi
 
 **[New] Environmental separation**
 
-In mature DevOps and MLOps workflows, organizations may set up environments to promote code and models across. With proper separation and access controls, these environments enable continuous integration and deployment for code and models. Organizations usually have a dev, a staging, and a prod environment. Thanks to the introduction of :ref:`MLflow Authentication <auth>`, you can use registered models to express access-controlled environments for your MLflow models. One registered model can correspond to each environment and you can use the new :meth:`~mlflow.client.MlflowClient.copy_model_version` client API to promote your models across them.
+In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev, staging, and prod) with access controls to enable quick development without compromising stability in production. With :ref:`MLflow Authentication <auth>`, you can use registered models to express access-controlled environments for your MLflow models. For example, you can create registered models corresponding to each combination of environment and business problem (e.g. `prod.ml_team.revenue_forecasting`, `dev.ml_team.revenue_forecasting`) and configure permissions accordingly. Automate model retraining against your production registered models, or for simple model deployment use cases, use :meth:`~mlflow.client.MlflowClient.copy_model_version` to promote model versions across registered models.
 
 Migrating models away from stages
 ---------------------------------
