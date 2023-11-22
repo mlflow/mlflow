@@ -102,7 +102,7 @@ MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
 )
 
 #: Specifies the backoff jitter between MLflow HTTP request failures
-#: (default: ``1``)
+#: (default: ``1.0``)
 MLFLOW_HTTP_REQUEST_BACKOFF_JITTER = _EnvironmentVariable(
     "MLFLOW_HTTP_REQUEST_BACKOFF_JITTER", float, 1.0
 )
