@@ -13,13 +13,19 @@ This page largely focuses on the user-facing deployment APIs. For instructions o
 your own plugin for deployment to a custom serving tool, see
 `plugin docs <http://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins>`_.
 """
+import contextlib
 import json
 
 from mlflow.deployments.base import BaseDeploymentClient
-from mlflow.deployments.databricks import DatabricksDeploymentClient  # noqa: F401
+from mlflow.deployments.databricks import DatabricksDeploymentClient
 from mlflow.deployments.interface import get_deploy_client, run_local
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+with contextlib.suppress(Exception):
+    # MLflowDeploymentClient depends on optional dependencies and can't be imported
+    # if they are not installed.
+    from mlflow.deployments.mlflow import MLflowDeploymentClient
 
 
 class PredictionsResponse(dict):
@@ -93,5 +99,6 @@ __all__ = [
     "run_local",
     "BaseDeploymentClient",
     "DatabricksDeploymentClient",
+    "MLflowDeploymentClient",
     "PredictionsResponse",
 ]
