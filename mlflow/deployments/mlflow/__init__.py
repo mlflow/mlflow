@@ -167,15 +167,17 @@ class MLflowDeploymentClient(BaseDeploymentClient):
             )
         except MlflowException as e:
             if isinstance(e.__cause__, requests.exceptions.Timeout):
-                timeout_message = (
-                    "The provider has timed out while generating a response to your "
-                    "query. Please evaluate the available parameters for the query "
-                    "that you are submitting. Some parameter values and inputs can "
-                    "increase the computation time beyond the allowable route "
-                    f"timeout of {MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT} "
-                    "seconds."
+                raise MlflowException(
+                    message=(
+                        "The provider has timed out while generating a response to your "
+                        "query. Please evaluate the available parameters for the query "
+                        "that you are submitting. Some parameter values and inputs can "
+                        "increase the computation time beyond the allowable route "
+                        f"timeout of {MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT} "
+                        "seconds."
+                    ),
+                    error_code=BAD_REQUEST,
                 )
-                raise MlflowException(message=timeout_message, error_code=BAD_REQUEST)
             raise e
 
 
