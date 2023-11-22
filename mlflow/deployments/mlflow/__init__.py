@@ -1,3 +1,4 @@
+import posixpath
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import requests
@@ -14,7 +15,7 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE,
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
-from mlflow.deployments.utils import assemble_uri_path, resolve_endpoint_url
+from mlflow.deployments.utils import resolve_endpoint_url
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
@@ -117,7 +118,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
-        route = assemble_uri_path([MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint])
+        route = posixpath.normpath(posixpath.join(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint))
         response = self._call_endpoint("GET", route)
         return Endpoint(
             **{
@@ -155,8 +156,10 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
-        query_route = assemble_uri_path(
-            [MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX]
+        query_route = posixpath.normpath(
+            posixpath.join(
+                MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
+            )
         )
         try:
             return self._call_endpoint(
