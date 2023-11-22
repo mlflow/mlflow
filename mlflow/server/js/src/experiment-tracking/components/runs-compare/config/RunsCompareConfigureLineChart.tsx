@@ -26,10 +26,10 @@ export const RunsCompareConfigureLineChart = ({
   const updateMetrics = useCallback(
     (selectedMetricKeys: string[]) => {
       onStateChange((current) => ({
-		...(current as RunsCompareLineCardConfig),
-		metricKey: selectedMetricKeys[0],
-		selectedMetricKeys,
-	  }));
+        ...(current as RunsCompareLineCardConfig),
+        metricKey: selectedMetricKeys[0],
+        selectedMetricKeys,
+      }));
     },
     [onStateChange],
   );
@@ -91,11 +91,10 @@ export const RunsCompareConfigureLineChart = ({
   return (
     <>
       <RunsCompareConfigureField title='Metric (Y-axis)'>
-          <Select
-              defaultActiveFirstOption={true}
-		  mode='multiple'
+        <Select
+          mode='multiple'
           css={styles.selectFull}
-          value={emptyMetricsList ? ['No metrics available'] : (state.selectedMetricKeys || [])}
+          value={emptyMetricsList ? ['No metrics available'] : state.selectedMetricKeys || []}
           onChange={updateMetrics}
           disabled={emptyMetricsList}
           dangerouslySetAntdProps={{ showSearch: true }}

@@ -73,8 +73,8 @@ const PLOT_CONFIG: Partial<Config> = {
   scrollZoom: false,
 };
 
-export const createTooltipTemplate = (runName: string, metricKey: string) =>
-  `<b>${runName} (${metricKey})</b>:<br>` +
+export const createTooltipTemplate = (runName: string) =>
+  `<b>${runName}</b>:<br>` +
   '<b>%{xaxis.title.text}:</b> %{x}<br>' +
   '<b>%{yaxis.title.text}:</b> %{y:.2f}<br>' +
   '<extra></extra>';
@@ -109,7 +109,7 @@ const getDataTraceForRun = ({
   lineSmoothness,
   lineShape,
 }: {
-  runEntry: Omit<RunsChartsRunData, "metrics" | "params">;
+  runEntry: Omit<RunsChartsRunData, 'metrics' | 'params'>;
   metricKey: RunsMetricsLinePlotProps['metricKey'];
   xAxisKey: RunsMetricsLinePlotProps['xAxisKey'];
   useDefaultHoverBox: RunsMetricsLinePlotProps['useDefaultHoverBox'];
@@ -117,14 +117,14 @@ const getDataTraceForRun = ({
   lineShape: RunsMetricsLinePlotProps['lineShape'];
 }) => {
   if (!runEntry.metricsHistory) {
-	return {};
+    return {};
   }
-  
+
   return {
     // Let's add UUID to each run so it can be distinguished later (e.g. on hover)
     uuid: runEntry.runInfo.run_uuid,
     name: runEntry.runInfo.run_name,
-	metricKey: metricKey,
+    metricKey: metricKey,
     x: prepareMetricHistoryByAxisType(runEntry.metricsHistory[metricKey], xAxisKey),
     // The actual value is on Y axis
     y: EMA(
@@ -140,17 +140,17 @@ const getDataTraceForRun = ({
       size: 11,
     },
     hovertemplate: useDefaultHoverBox
-                 ? createTooltipTemplate(runEntry.runInfo.run_name, metricKey)
-                 : undefined,
+      ? createTooltipTemplate(runEntry.runInfo.run_name)
+      : undefined,
     hoverinfo: useDefaultHoverBox ? undefined : 'none',
     hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
     type: 'scatter',
     line: { shape: lineShape },
     marker: {
       color: runEntry.color,
-    }
-  }
-}
+    },
+  };
+};
 
 /**
  * Implementation of plotly.js chart displaying
@@ -161,7 +161,7 @@ export const RunsMetricsLinePlot = React.memo(
   ({
     runsData,
     metricKey,
-	selectedMetricKeys,
+    selectedMetricKeys,
     scaleType = 'linear',
     xAxisKey = 'step',
     lineSmoothness = 70,
@@ -182,32 +182,44 @@ export const RunsMetricsLinePlot = React.memo(
     const plotData = useMemo(
       () =>
         // Generate separate data trace for each run
-        runsData.map((runEntry) => {
-          if (!runEntry.metricsHistory) {
-            return [];
-          }
+        runsData
+          .map((runEntry) => {
+            if (!runEntry.metricsHistory) {
+              return [];
+            }
 
-		  if (selectedMetricKeys && selectedMetricKeys.length > 0) {
-			return selectedMetricKeys.map((mk) => getDataTraceForRun({
-			  runEntry,
-			  metricKey: mk,
-			  xAxisKey,
-			  useDefaultHoverBox,
-			  lineSmoothness,
-			  lineShape,
-			}))
-		  }
+            if (selectedMetricKeys && selectedMetricKeys.length > 0) {
+              return selectedMetricKeys.map((mk) =>
+                getDataTraceForRun({
+                  runEntry,
+                  metricKey: mk,
+                  xAxisKey,
+                  useDefaultHoverBox,
+                  lineSmoothness,
+                  lineShape,
+                }),
+              );
+            }
 
-		  return getDataTraceForRun({
-			runEntry,
-			metricKey,
-			xAxisKey,
-			useDefaultHoverBox,
-			lineSmoothness,
-			lineShape,
-		  });
-        }).flat(),
-      [runsData, lineShape, xAxisKey, lineSmoothness, metricKey, useDefaultHoverBox, selectedMetricKeys],
+            return getDataTraceForRun({
+              runEntry,
+              metricKey,
+              xAxisKey,
+              useDefaultHoverBox,
+              lineSmoothness,
+              lineShape,
+            });
+          })
+          .flat(),
+      [
+        runsData,
+        lineShape,
+        xAxisKey,
+        lineSmoothness,
+        metricKey,
+        useDefaultHoverBox,
+        selectedMetricKeys,
+      ],
     );
 
     const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } =
@@ -296,8 +308,8 @@ export const RunsMetricsLinePlot = React.memo(
           index: hoveredPoint.pointIndex,
           // Current label ("Step", "Time" etc.)
           label: xAxisKeyLabel,
-		  // Current metric being hovered
-		  metricKey: hoveredPointData.metricKey,
+          // Current metric being hovered
+          metricKey: hoveredPointData.metricKey,
         };
         if (runUuid) {
           onHover?.(runUuid, event, data);

@@ -8,11 +8,11 @@ import { RunsCompareChartCardWrapper } from './ChartCard.common';
 
 const getChartTitle = (cardConfig: RunsCompareLineCardConfig): string => {
   if (!cardConfig.selectedMetricKeys || cardConfig.selectedMetricKeys.length === 0) {
-	return cardConfig.metricKey;
+    return cardConfig.metricKey;
   }
-  
+
   return cardConfig.selectedMetricKeys.join(', ');
-}
+};
 
 export interface RunsCompareLineChartCardProps {
   config: RunsCompareLineCardConfig;
@@ -53,7 +53,7 @@ export const RunsCompareLineChartCard = ({
           <RunsMetricsLinePlot
             runsData={slicedRuns}
             metricKey={config.metricKey}
-			selectedMetricKeys={config.selectedMetricKeys}
+            selectedMetricKeys={config.selectedMetricKeys}
             scaleType={config.scaleType}
             xAxisKey={config.xAxisKey}
             lineSmoothness={config.lineSmoothness}

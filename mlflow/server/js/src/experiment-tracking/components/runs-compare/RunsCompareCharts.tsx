@@ -48,6 +48,7 @@ export const RunsCompareCharts = ({
         <div css={styles.parallelChartsWrapper}>
           {parallelChartCards.map((cardConfig) => (
             <RunsCompareParallelChartCard
+              key={cardConfig.uuid}
               config={cardConfig as RunsCompareParallelCardConfig}
               chartRunData={chartRunData}
               onEdit={() => onStartEditChart(cardConfig)}
@@ -61,6 +62,7 @@ export const RunsCompareCharts = ({
           if (cardConfig.type === RunsCompareChartType.BAR) {
             return (
               <RunsCompareBarChartCard
+                key={cardConfig.uuid}
                 config={cardConfig as RunsCompareBarCardConfig}
                 chartRunData={chartRunData}
                 onEdit={() => onStartEditChart(cardConfig)}
@@ -70,6 +72,7 @@ export const RunsCompareCharts = ({
           } else if (cardConfig.type === RunsCompareChartType.LINE) {
             return (
               <RunsCompareLineChartCard
+                key={cardConfig.uuid}
                 config={cardConfig as RunsCompareLineCardConfig}
                 chartRunData={chartRunData}
                 onEdit={() => onStartEditChart(cardConfig)}
@@ -80,6 +83,7 @@ export const RunsCompareCharts = ({
           } else if (cardConfig.type === RunsCompareChartType.SCATTER) {
             return (
               <RunsCompareScatterChartCard
+                key={cardConfig.uuid}
                 config={cardConfig as RunsCompareScatterCardConfig}
                 chartRunData={chartRunData}
                 onEdit={() => onStartEditChart(cardConfig)}
@@ -89,6 +93,7 @@ export const RunsCompareCharts = ({
           } else if (cardConfig.type === RunsCompareChartType.CONTOUR) {
             return (
               <RunsCompareContourChartCard
+                key={cardConfig.uuid}
                 config={cardConfig as RunsCompareContourCardConfig}
                 chartRunData={chartRunData}
                 onEdit={() => onStartEditChart(cardConfig)}
