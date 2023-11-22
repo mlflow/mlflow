@@ -2647,11 +2647,20 @@ class _TransformersWrapper:
         # The output of the conversion present in the conditional structural validation below is
         # to return the only input format that the audio transcription pipeline permits:
         # a bytes input of a single element.
-        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
-            encoded_audio = list(data[0].values())[0]
-            if isinstance(encoded_audio, str):
-                self._validate_str_input_uri_or_file(encoded_audio)
-            return decode_audio(encoded_audio)
+        if isinstance(data, list) and  all(isinstance(element, dict) for element in data):
+           lst_data= []
+           for item in data:
+                encoded_audio = next(iter(item.values()))
+                if isinstance(encoded_audio, str):
+                    self._validate_str_input_uri_or_file(encoded_audio)
+                lst_data.append(decode_audio(encoded_audio))
+           return lst_data
+        # elif all(isinstance(element, dict) for element in data):
+        #     encoded_audio = list(data[0].values())[0]
+        #     if isinstance(encoded_audio, str):
+        #         self._validate_str_input_uri_or_file(encoded_audio)
+        #     return decode_audio(encoded_audio)
+
         elif isinstance(data, str):
             self._validate_str_input_uri_or_file(data)
         return data
