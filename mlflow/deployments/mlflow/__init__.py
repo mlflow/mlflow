@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import requests
 
@@ -14,13 +14,16 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE,
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
-from mlflow.deployments.utils import assemble_uri_path, resolve_route_url
+from mlflow.deployments.utils import assemble_uri_path, resolve_endpoint_url
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+
+if TYPE_CHECKING:
+    from mlflow.deployments.server.config import Endpoint
 
 
 @experimental
@@ -110,7 +113,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         return response.json()
 
     @experimental
-    def get_endpoint(self, endpoint):
+    def get_endpoint(self, endpoint) -> "Endpoint":
         """
         TODO
         """
@@ -119,12 +122,12 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         return Endpoint(
             **{
                 **response,
-                "endpoint_url": resolve_route_url(self.target_uri, response["endpoint_url"]),
+                "endpoint_url": resolve_endpoint_url(self.target_uri, response["endpoint_url"]),
             }
         )
 
     @experimental
-    def list_endpoints(self, page_token=None):
+    def list_endpoints(self, page_token=None) -> "PagedList[Endpoint]":
         """
         TODO
         """
@@ -136,7 +139,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
             Endpoint(
                 **{
                     **resp,
-                    "endpoint_url": resolve_route_url(
+                    "endpoint_url": resolve_endpoint_url(
                         self.target_uri,
                         resp["endpoint_url"],
                     ),
@@ -148,7 +151,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         return PagedList(routes, next_page_token)
 
     @experimental
-    def predict(self, deployment_name=None, inputs=None, endpoint=None):
+    def predict(self, deployment_name=None, inputs=None, endpoint=None) -> Dict[str, Any]:
         """
         TODO
         """
