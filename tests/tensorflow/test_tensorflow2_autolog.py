@@ -1055,7 +1055,7 @@ def test_autolog_text_vec_model(tmp_path):
     """
     Verifies autolog successfully saves a model that can't be saved in the H5 format
     """
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(saved_model_kwargs={"save_format": "tf"})
 
     train_samples = np.array(["this is an example", "another example"], dtype=object)
     train_labels = np.array([0.4, 0.2])
