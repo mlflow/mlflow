@@ -579,7 +579,7 @@ def test_tf_keras_autolog_implicit_batch_size_works_multi_input(generate_data, b
         pytest.param(
             __GeneratorClass,
             marks=pytest.mark.skipif(
-                Version(tf.__version__) >= Version("2.16.0"), reason="does not support"
+                Version(tf.__version__) > Version("2.15.0"), reason="does not support"
             ),
         ),
     ],
@@ -1055,7 +1055,7 @@ def test_autolog_text_vec_model(tmp_path):
     """
     Verifies autolog successfully saves a model that can't be saved in the H5 format
     """
-    mlflow.tensorflow.autolog(saved_model_kwargs={"save_format": "tf"})
+    mlflow.tensorflow.autolog()
 
     train_samples = np.array(["this is an example", "another example"], dtype=object)
     train_labels = np.array([0.4, 0.2])
@@ -1145,7 +1145,7 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
 
     import tensorflow.keras
 
-    if Version(tf.__version__) < Version("2.16.0"):
+    if Version(tf.__version__) <= Version("2.15.0"):
         from keras.api._v2.keras import Model as ModelV2
     else:
         from keras.src.models.model import Model as ModelV2

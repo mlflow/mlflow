@@ -419,7 +419,12 @@ def save_model(
         # To maintain prior behavior, when the format is HDF5, we save
         # with the h5 file extension. Otherwise, model_path is a directory
         # where the saved_model.pb will be stored (for SavedModel format)
-        file_extension = ".h5" if save_format == "h5" else ".keras"
+        if save_format == "h5":
+            file_extension = ".h5"
+        elif Version(tensorflow.__version__) > Version("2.15.0"):
+            file_extension = ".keras"
+        else:
+            file_extension = ""
         model_path = os.path.join(path, model_subpath) + file_extension
         if path.startswith("/dbfs/"):
             # The Databricks Filesystem uses a FUSE implementation that does not support
@@ -527,13 +532,13 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
     # extension to align with prior behavior of mlflow logging
     if save_format == "h5":
         model_path += ".h5"
-    elif not os.path.isdir(model_path):
+    elif os.path.exists(model_path + ".keras"):
         model_path += ".keras"
 
     # keras in tensorflow used to have a '-tf' suffix in the version:
     # https://github.com/tensorflow/tensorflow/blob/v2.2.1/tensorflow/python/keras/__init__.py#L36
     unsuffixed_version = re.sub(r"-tf$", "", _get_keras_version(keras_module))
-    if save_format == "h5" and Version("2.2.3") <= Version(unsuffixed_version) < Version("2.16.0"):
+    if save_format == "h5" and Version("2.2.3") <= Version(unsuffixed_version) <= Version("2.15.0"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         import h5py
@@ -723,7 +728,9 @@ def _load_pyfunc(path):
         should_compile = save_format == "tf"
         K = importlib.import_module(keras_module.__name__ + ".backend")
         if K.backend() == "tensorflow":
-            # K.set_learning_phase(0)
+            # This API doesn't exist for tf > 2.15.0
+            if Version(tensorflow.__version__) <= Version("2.15.0"):
+                K.set_learning_phase(0)
             m = _load_keras_model(
                 path, keras_module=keras_module, save_format=save_format, compile=should_compile
             )

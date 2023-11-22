@@ -135,14 +135,14 @@ def multi_multidim_tensor_input_model(data):
     input_a = Input(shape=(2, 3), name="a")
     input_b = Input(shape=(2, 5), name="b")
 
-    @register_keras_serializable(name="f1")
-    def f1(z):
+    @register_keras_serializable(name="f2")
+    def f2(z):
         from tensorflow.keras import backend as K
 
         return K.mean(z, axis=2)
 
-    input_a_sum = Lambda(f1)(input_a)
-    input_b_sum = Lambda(f1)(input_b)
+    input_a_sum = Lambda(f2)(input_a)
+    input_b_sum = Lambda(f2)(input_b)
 
     output = Dense(1)(Dense(3, input_dim=4)(Concatenate()([input_a_sum, input_b_sum])))
     model = Model(inputs=[input_a, input_b], outputs=output)
