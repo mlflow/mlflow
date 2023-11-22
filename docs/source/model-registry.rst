@@ -797,6 +797,7 @@ To specify (via named references) which model version to deploy to serve traffic
     # Initialize an MLflow Client
     client = MlflowClient()
 
+
     def assign_alias_to_stage(model_name, stage, alias):
         """
         Assign an alias to the latest version of a registered model within a specified stage.
