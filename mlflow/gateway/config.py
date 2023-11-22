@@ -9,7 +9,8 @@ from typing import Any, Dict, List, Optional, Union
 import pydantic
 import yaml
 from packaging import version
-from pydantic import ValidationError, root_validator, validator
+from packaging.version import Version
+from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -20,6 +21,7 @@ from mlflow.gateway.constants import (
     MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.utils import (
+    check_configuration_deprecated_fields,
     check_configuration_route_name_collisions,
     is_valid_ai21labs_model,
     is_valid_endpoint_name,
@@ -313,10 +315,23 @@ class Model(ConfigModel):
             return cls._validate_config(config, values)
 
 
+class AliasedConfigModel(ConfigModel):
+    """
+    Enables use of field aliases in a configuration model for backwards compatibility
+    """
+
+    if Version(pydantic.__version__) >= Version("2.0"):
+        model_config = ConfigDict(populate_by_name=True)
+    else:
+
+        class Config:
+            allow_population_by_field_name = True
+
+
 # pylint: disable=no-self-argument
-class RouteConfig(ConfigModel):
+class RouteConfig(AliasedConfigModel):
     name: str
-    route_type: RouteType
+    route_type: RouteType = Field(alias="endpoint_type")
     model: Model
 
     @validator("name")
@@ -387,7 +402,7 @@ class RouteModelInfo(ResponseModel):
     provider: str
 
 
-class Route(ResponseModel):
+class Route(ConfigModel):
     name: str
     route_type: str
     model: RouteModelInfo
@@ -423,8 +438,8 @@ class Limit(LimitModel):
     renewal_period: str
 
 
-class GatewayConfig(ConfigModel):
-    routes: List[RouteConfig]
+class GatewayConfig(AliasedConfigModel):
+    routes: List[RouteConfig] = Field(alias="endpoints")
 
 
 class LimitsConfig(ConfigModel):
@@ -444,6 +459,7 @@ def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
         raise MlflowException.invalid_parameter_value(
             f"The file at {path} is not a valid yaml file"
         ) from e
+    check_configuration_deprecated_fields(configuration)
     check_configuration_route_name_collisions(configuration)
     try:
         return GatewayConfig(**configuration)

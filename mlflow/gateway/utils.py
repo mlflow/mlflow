@@ -30,14 +30,36 @@ def is_valid_endpoint_name(name: str) -> bool:
 
 
 def check_configuration_route_name_collisions(config):
-    if len(config["routes"]) < 2:
+    routes = config.get("routes") or config.get("endpoints") or []
+    if len(routes) < 2:
         return
-    names = [route["name"] for route in config["routes"]]
+    names = [route["name"] for route in routes]
     if len(names) != len(set(names)):
         raise MlflowException.invalid_parameter_value(
-            "Duplicate names found in route configurations. Please remove the duplicate route "
-            "name from the configuration to ensure that route endpoints are created properly."
+            "Duplicate names found in endpoint configurations. Please remove the duplicate endpoint"
+            " name from the configuration to ensure that endpoints are created properly."
         )
+
+
+def check_configuration_deprecated_fields(config):
+    if "routes" in config:
+        warnings.warn(
+            "The 'routes' configuration key has been deprecated and will be removed in an"
+            " upcoming release. Use 'endpoints' instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
+    routes = config.get("routes", []) or config.get("endpoints", [])
+    for route in routes:
+        if "route_type" in route:
+            warnings.warn(
+                "The 'route_type' configuration key has been deprecated and will be removed in an"
+                " upcoming release. Use 'endpoint_type' instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            break
 
 
 def kill_child_processes(parent_pid):
