@@ -5,6 +5,7 @@ import requests
 
 from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
+    MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
@@ -106,6 +107,7 @@ def http_request(
             headers=headers,
             verify=host_creds.verify,
             timeout=timeout,
+            backoff_jitter=MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get(),
             **kwargs,
         )
     except requests.exceptions.Timeout as to:
