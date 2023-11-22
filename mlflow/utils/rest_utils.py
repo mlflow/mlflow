@@ -31,6 +31,7 @@ def http_request(
     method,
     max_retries=None,
     backoff_factor=None,
+    backoff_jitter=None,
     extra_headers=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
@@ -61,9 +62,14 @@ def http_request(
 
     :return: requests.Response object.
     """
-    max_retries = max_retries or MLFLOW_HTTP_REQUEST_MAX_RETRIES.get()
-    backoff_factor = backoff_factor or MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get()
-    timeout = timeout or MLFLOW_HTTP_REQUEST_TIMEOUT.get()
+    max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
+    backoff_factor = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
+    )
+    backoff_jitter = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
+    )
+    timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
@@ -102,12 +108,12 @@ def http_request(
             url,
             max_retries,
             backoff_factor,
+            backoff_jitter,
             retry_codes,
             raise_on_status,
             headers=headers,
             verify=host_creds.verify,
             timeout=timeout,
-            backoff_jitter=MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get(),
             **kwargs,
         )
     except requests.exceptions.Timeout as to:

@@ -71,6 +71,7 @@ def download_chunk(*, range_start, range_end, headers, download_path, http_uri):
 def _cached_get_request_session(
     max_retries,
     backoff_factor,
+    backoff_jitter,
     retry_codes,
     raise_on_status,
     # To create a new Session object for each process, we use the process id as the cache key.
@@ -92,6 +93,7 @@ def _cached_get_request_session(
         "status": max_retries,
         "status_forcelist": retry_codes,
         "backoff_factor": backoff_factor,
+        "backoff_jitter": backoff_jitter,
         "raise_on_status": raise_on_status,
     }
     if Version(urllib3.__version__) >= Version("1.26.0"):
@@ -106,7 +108,7 @@ def _cached_get_request_session(
     return session
 
 
-def _get_request_session(max_retries, backoff_factor, retry_codes, raise_on_status):
+def _get_request_session(max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status):
     """
     Returns a `Requests.Session` object for making an HTTP request.
 
@@ -114,6 +116,7 @@ def _get_request_session(max_retries, backoff_factor, retry_codes, raise_on_stat
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
+    :param backoff_jitter: A random jitter to add to the backoff interval.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param raise_on_status: whether to raise an exception, or return a response, if status falls
       in retry_codes range and retries have been exhausted.
@@ -122,6 +125,7 @@ def _get_request_session(max_retries, backoff_factor, retry_codes, raise_on_stat
     return _cached_get_request_session(
         max_retries,
         backoff_factor,
+        backoff_jitter,
         retry_codes,
         raise_on_status,
         _pid=os.getpid(),
@@ -129,7 +133,14 @@ def _get_request_session(max_retries, backoff_factor, retry_codes, raise_on_stat
 
 
 def _get_http_response_with_retries(
-    method, url, max_retries, backoff_factor, retry_codes, raise_on_status=True, **kwargs
+    method,
+    url,
+    max_retries,
+    backoff_factor,
+    backoff_jitter,
+    retry_codes,
+    raise_on_status=True,
+    **kwargs,
 ):
     """
     Performs an HTTP request using Python's `requests` module with an automatic retry policy.
@@ -140,6 +151,7 @@ def _get_http_response_with_retries(
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
+    :param backoff_jitter: A random jitter to add to the backoff interval.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param raise_on_status: whether to raise an exception, or return a response, if status falls
       in retry_codes range and retries have been exhausted.
@@ -147,7 +159,9 @@ def _get_http_response_with_retries(
 
     :return: requests.Response object.
     """
-    session = _get_request_session(max_retries, backoff_factor, retry_codes, raise_on_status)
+    session = _get_request_session(
+        max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status
+    )
     return session.request(method, url, **kwargs)
 
 
