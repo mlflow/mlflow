@@ -756,7 +756,7 @@ Model version tags can be used to annotate model versions with their status. For
 
 **Model version aliases**
 
-Model version aliases provide a flexible way to set named aliases on model versions. For example, setting a **champion** alias on a model version enables you to fetch this model version by that alias via the :meth:`~mlflow.client.MlflowClient.get_model_version_by_alias` client API or the model URI ``models:/<registered model name>@champion``. Aliases can be easily reassigned to new model versions via the UI and client API alike, thereby decoupling model deployment from the production system code. Unlike model registry stages, more than one alias can be applied to any given model version, creating powerful possibilities for model deployment.
+Model version aliases provide a flexible way to create named references for particular model versions, and are useful for identifying which model version(s) are deployed within an environment. For example, setting a **champion** alias on a model version enables you to fetch the model version by that alias via the :meth:`~mlflow.client.MlflowClient.get_model_version_by_alias` client API or the model URI ``models:/<registered model name>@champion``. Aliases can be reassigned to new model versions via the UI and client API. Unlike model registry stages, more than one alias can be applied to any given model version, allowing for easier A/B testing and model rollout.
 
 **[New] Environmental separation**
 
