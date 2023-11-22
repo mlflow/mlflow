@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import os
 import pytest
 
 from tests.gateway.tools import Gateway, save_yaml
@@ -141,6 +142,38 @@ def test_server_update(
 
         # push the original file back
         save_yaml(config, basic_config_dict)
+        gateway.assert_health()
+        gateway.wait_reload()
+        response = gateway.get(BASE_ROUTE)
+        assert response.json()["routes"] == basic_routes
+
+
+def test_server_update_symlink(
+    tmp_path: Path, basic_config_dict, update_config_dict, basic_routes, update_routes
+):
+    config = tmp_path / "config.yaml"
+    symlink = tmp_path / "symlink.yaml"
+    save_yaml(symlink, basic_config_dict)
+    os.symlink(config, symlink)
+
+    with Gateway(config) as gateway:
+        response = gateway.get(BASE_ROUTE)
+        assert response.json()["routes"] == basic_routes
+
+        # push an update to the config file
+        save_yaml(symlink, update_config_dict)
+
+        # Ensure there is no server downtime
+        gateway.assert_health()
+
+        # Wait for the app to restart
+        gateway.wait_reload()
+        response = gateway.get(BASE_ROUTE)
+
+        assert response.json()["routes"] == update_routes
+
+        # push the original file back
+        save_yaml(symlink, basic_config_dict)
         gateway.assert_health()
         gateway.wait_reload()
         response = gateway.get(BASE_ROUTE)
