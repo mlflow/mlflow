@@ -407,6 +407,17 @@ class RouteModelInfo(ResponseModel):
     # support new providers without breaking the gateway client.
     provider: str
 
+_ROUTE_EXTRA_SCHEMA = {
+    "example": {
+        "name": "openai-completions",
+        "route_type": "llm/v1/completions",
+        "model": {
+            "name": "gpt-3.5-turbo",
+            "provider": "openai",
+        },
+        "route_url": "/gateway/routes/completions/invocations",
+    }
+}
 
 class Route(ConfigModel):
     name: str
@@ -415,17 +426,10 @@ class Route(ConfigModel):
     route_url: str
 
     class Config:
-        schema_extra = {
-            "example": {
-                "name": "openai-completions",
-                "route_type": "llm/v1/completions",
-                "model": {
-                    "name": "gpt-3.5-turbo",
-                    "provider": "openai",
-                },
-                "route_url": "/gateway/routes/completions/invocations",
-            }
-        }
+        if IS_PYDANTIC_V2:
+            json_schema_extra = _ROUTE_EXTRA_SCHEMA
+        else:
+            schema_extra = _ROUTE_EXTRA_SCHEMA
 
     def to_endpoint(self):
         from mlflow.deployments.server.config import Endpoint
