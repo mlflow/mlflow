@@ -57,9 +57,10 @@ def _log_early_stop_params(early_stop_callback, client, run_id):
     """
     Logs early stopping configuration parameters to MLflow.
 
-    :param early_stop_callback: The early stopping callback instance used during training.
-    :param client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
-    :param run_id: The ID of the MLflow Run to which to log configuration parameters.
+    Args:
+        early_stop_callback: The early stopping callback instance used during training.
+        client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
+        run_id: The ID of the MLflow Run to which to log configuration parameters.
     """
     client.log_params(
         run_id,
@@ -75,9 +76,10 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
     """
     Logs early stopping behavior results (e.g. stopped epoch) as metrics to MLflow.
 
-    :param early_stop_callback: The early stopping callback instance used during training.
-    :param client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
-    :param run_id: The ID of the MLflow Run to which to log configuration parameters.
+    Args:
+        early_stop_callback: The early stopping callback instance used during training.
+        client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
+        run_id: The ID of the MLflow Run to which to log configuration parameters.
     """
     if early_stop_callback.stopped_epoch == 0:
         return

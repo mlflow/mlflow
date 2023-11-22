@@ -143,44 +143,44 @@ def save_model(
 
     Args:
         pmdarima_model: pmdarima ``ARIMA`` or ``Pipeline`` model that has been ``fit`` on a
-                        temporal series.
+            temporal series.
         path: Local path destination for the serialized model (in pickle format) is to be saved.
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                    containing file dependencies). These files are *prepended* to the system
-                    path when the model is loaded.
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                   class that describes the model's inputs and outputs. If not specified but an
-                   ``input_example`` is supplied, a signature will be automatically inferred
-                   based on the supplied input example and model. To disable automatic signature
-                   inference when providing an input example, set ``signature`` to ``False``.
-                   To manually infer a model signature, call
-                   :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
-                   with valid model inputs, such as a training dataset with the target column
-                   omitted, and valid model outputs, like model predictions made on the training
-                   dataset, for example:
+            class that describes the model's inputs and outputs. If not specified but an
+            ``input_example`` is supplied, a signature will be automatically inferred
+            based on the supplied input example and model. To disable automatic signature
+            inference when providing an input example, set ``signature`` to ``False``.
+            To manually infer a model signature, call
+            :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+            with valid model inputs, such as a training dataset with the target column
+            omitted, and valid model outputs, like model predictions made on the training
+            dataset, for example:
 
-                   .. code-block:: python
+            .. code-block:: python
 
-                     from mlflow.models import infer_signature
+                from mlflow.models import infer_signature
 
-                     model = pmdarima.auto_arima(data)
-                     predictions = model.predict(n_periods=30, return_conf_int=False)
-                     signature = infer_signature(data, predictions)
+                model = pmdarima.auto_arima(data)
+                predictions = model.predict(n_periods=30, return_conf_int=False)
+                signature = infer_signature(data, predictions)
 
-                   .. Warning:: if utilizing confidence interval generation in the ``predict``
-                     method of a ``pmdarima`` model (``return_conf_int=True``), the signature
-                     will not be inferred due to the complex tuple return type when using the
-                     native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
-                     if using the ``pyfunc`` flavor of the model, though.
+            .. Warning:: if utilizing confidence interval generation in the ``predict``
+                method of a ``pmdarima`` model (``return_conf_int=True``), the signature
+                will not be inferred due to the complex tuple return type when using the
+                native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
+                if using the ``pyfunc`` flavor of the model, though.
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                  .. Note:: Experimental: This parameter may change or be removed in a future
-                              release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
 
     .. code-block:: python
         :caption: Example
@@ -300,52 +300,52 @@ def log_model(
 
     Args:
         pmdarima_model: pmdarima ``ARIMA`` or ``Pipeline`` model that has been ``fit`` on a
-                        temporal series.
+            temporal series.
         artifact_path: Run-relative artifact path to save the model instance to.
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                    containing file dependencies). These files are *prepended* to the system
-                    path when the model is loaded.
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
         registered_model_name: This argument may change or be removed in a
-                               future release without warning. If given, create a model
-                               version under ``registered_model_name``, also creating a
-                               registered model if one with the given name does not exist.
+            future release without warning. If given, create a model
+            version under ``registered_model_name``, also creating a
+            registered model if one with the given name does not exist.
         signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                   class that describes the model's inputs and outputs. If not specified but an
-                   ``input_example`` is supplied, a signature will be automatically inferred
-                   based on the supplied input example and model. To disable automatic signature
-                   inference when providing an input example, set ``signature`` to ``False``.
-                   To manually infer a model signature, call
-                   :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
-                   with valid model inputs, such as a training dataset with the target column
-                   omitted, and valid model outputs, like model predictions made on the training
-                   dataset, for example:
+            class that describes the model's inputs and outputs. If not specified but an
+            ``input_example`` is supplied, a signature will be automatically inferred
+            based on the supplied input example and model. To disable automatic signature
+            inference when providing an input example, set ``signature`` to ``False``.
+            To manually infer a model signature, call
+            :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+            with valid model inputs, such as a training dataset with the target column
+            omitted, and valid model outputs, like model predictions made on the training
+            dataset, for example:
 
-                   .. code-block:: python
+            .. code-block:: python
 
-                     from mlflow.models import infer_signature
+                from mlflow.models import infer_signature
 
-                     model = pmdarima.auto_arima(data)
-                     predictions = model.predict(n_periods=30, return_conf_int=False)
-                     signature = infer_signature(data, predictions)
+                model = pmdarima.auto_arima(data)
+                predictions = model.predict(n_periods=30, return_conf_int=False)
+                signature = infer_signature(data, predictions)
 
-                   .. Warning:: if utilizing confidence interval generation in the ``predict``
-                     method of a ``pmdarima`` model (``return_conf_int=True``), the signature
-                     will not be inferred due to the complex tuple return type when using the
-                     native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
-                     if using the ``pyfunc`` flavor of the model, though.
+            .. Warning:: if utilizing confidence interval generation in the ``predict``
+                method of a ``pmdarima`` model (``return_conf_int=True``), the signature
+                will not be inferred due to the complex tuple return type when using the
+                native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
+                if using the ``pyfunc`` flavor of the model, though.
 
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version
-                                to finish being created and is in ``READY`` status.
-                                By default, the function waits for five minutes.
-                                Specify 0 or None to skip waiting.
+            to finish being created and is in ``READY`` status.
+            By default, the function waits for five minutes.
+            Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                    .. Note:: Experimental: This parameter may change or be removed in a future
-                                            release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
 
     Returns:
@@ -526,7 +526,7 @@ class _PmdarimaModelWrapper:
             params: Additional parameters to pass to the model for inference.
 
                 .. Note:: Experimental: This parameter may change or be removed in a future
-                           release without warning.
+                    release without warning.
 
         Returns:
             Model predictions.

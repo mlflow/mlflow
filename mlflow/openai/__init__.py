@@ -296,39 +296,39 @@ def save_model(
 
     Args:
         model: The OpenAI model name or reference instance, e.g.,
-               ``openai.Model.retrieve("gpt-3.5-turbo")``.
+            ``openai.Model.retrieve("gpt-3.5-turbo")``.
         task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
-              ``'chat.completions'``.
+            ``'chat.completions'``.
         path: Local path where the model is to be saved.
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                    containing file dependencies). These files are *prepended* to the system
-                    path when the model is loaded.
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                   describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                   The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                   from datasets with valid model input (e.g. the training dataset with target
-                   column omitted) and valid model output (e.g. model predictions generated on
-                   the training dataset), for example:
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-                   .. code-block:: python
+            .. code-block:: python
 
-                     from mlflow.models import infer_signature
+                from mlflow.models import infer_signature
 
-                     train = df.drop_column("target_label")
-                     predictions = ...  # compute model predictions
-                     signature = infer_signature(train, predictions)
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                  .. Note:: Experimental: This parameter may change or be removed in a future
-                                          release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
-                :ref:`mlflow.openai.messages` for more details on this parameter)
-                or ``top_p`` value to use for chat completion.
+            :ref:`mlflow.openai.messages` for more details on this parameter)
+            or ``top_p`` value to use for chat completion.
 
     .. code-block:: python
 
@@ -493,44 +493,44 @@ def log_model(
 
     Args:
         model: The OpenAI model name or reference instance, e.g.,
-               ``openai.Model.retrieve("gpt-3.5-turbo")``.
+            ``openai.Model.retrieve("gpt-3.5-turbo")``.
         task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
-              ``'chat.completions'``.
+            ``'chat.completions'``.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                    containing file dependencies). These files are *prepended* to the system
-                    path when the model is loaded.
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
         registered_model_name: If given, create a model version under
-                               ``registered_model_name``, also creating a registered model if one
-                               with the given name does not exist.
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                   describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                   The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                   from datasets with valid model input (e.g. the training dataset with target
-                   column omitted) and valid model output (e.g. model predictions generated on
-                   the training dataset), for example:
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-                   .. code-block:: python
+            .. code-block:: python
 
-                     from mlflow.models import infer_signature
+                from mlflow.models import infer_signature
 
-                     train = df.drop_column("target_label")
-                     predictions = ...  # compute model predictions
-                     signature = infer_signature(train, predictions)
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish
-                                being created and is in ``READY`` status. By default, the function
-                                waits for five minutes. Specify 0 or None to skip waiting.
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                   .. Note:: Experimental: This parameter may change or be removed in a future
-                                           release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
-                :ref:`mlflow.openai.messages` for more details on this parameter)
-                or ``top_p`` value to use for chat completion.
+            :ref:`mlflow.openai.messages` for more details on this parameter)
+            or ``top_p`` value to use for chat completion.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -869,6 +869,7 @@ def load_model(model_uri, dst_path=None):
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
             For more information about supported URI schemes, see
             `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
             artifact-locations>`_.

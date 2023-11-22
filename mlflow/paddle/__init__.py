@@ -97,12 +97,12 @@ def save_model(
         pd_model: paddle model to be saved.
         path: Local path where the model is to be saved.
         training: Only valid when saving a model trained using the PaddlePaddle high level API.
-                  If set to True, the saved model supports both re-training and
-                  inference. If set to False, it only supports inference.
+            If set to True, the saved model supports both re-training and
+            inference. If set to False, it only supports inference.
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                    containing file dependencies). These files are *prepended* to the system
-                    path when the model is loaded.
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         signature: {{ signature }}
         input_example: {{ input_example }}
@@ -110,8 +110,8 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
 
     .. code-block:: python
         :caption: Example
@@ -281,10 +281,10 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
             - ``models:/<model_name>/<stage>``
         model: Required when loading a `paddle.Model` model saved with `training=True`.
         dst_path: The local filesystem path to which to download the model artifact.
-                  This directory must already exist. If unspecified, a local output
-                  path will be created.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
         kwargs: The keyword arguments to pass to `paddle.jit.load`
-                or `model.load`.
+            or `model.load`.
 
     For more information about supported URI schemes, see
     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -353,26 +353,26 @@ def log_model(
         pd_model: paddle model to be saved.
         artifact_path: Run-relative artifact path.
         training: Only valid when saving a model trained using the PaddlePaddle high level API.
-                   If set to True, the saved model supports both re-training and
-                   inference. If set to False, it only supports inference.
+            If set to True, the saved model supports both re-training and
+            inference. If set to False, it only supports inference.
         conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                    containing file dependencies). These files are *prepended* to the system
-                    path when the model is loaded.
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
         registered_model_name: If given, create a model version under
-                               ``registered_model_name``, also creating a registered model if one
-                               with the given name does not exist.
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
         signature: {{ signature }}
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish
-                                being created and is in ``READY`` status. By default, the function
-                                waits for five minutes. Specify 0 or None to skip waiting.
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -501,20 +501,20 @@ def autolog(
 
     Args:
         log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
-                           are logged after every epoch.
+            are logged after every epoch.
         log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                    If ``False``, trained models are not logged.
+            If ``False``, trained models are not logged.
         disable: If ``True``, disables the PaddlePaddle autologging integration.
-                 If ``False``, enables the PaddlePaddle autologging integration.
+            If ``False``, enables the PaddlePaddle autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                   If ``False``, autologged content is logged to the active fluent run,
-                   which may be user-created.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
         silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
-                Lightning autologging. If ``False``, show all events and warnings during
-                PaddlePaddle autologging.
+            Lightning autologging. If ``False``, show all events and warnings during
+            PaddlePaddle autologging.
         registered_model_name: If given, each time a model is trained, it is registered as a
-                               new model version of the registered model with this name.
-                               The registered model is created if it does not already exist.
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. code-block:: python
@@ -552,8 +552,10 @@ def autolog(
         with mlflow.start_run() as run:
             model.fit(train_dataset, eval_dataset, batch_size=16, epochs=10)
         show_run_data(run.info.run_id)
+
     .. code-block:: text
         :caption: Output
+
         params: {
             "learning_rate": "0.01",
             "optimizer_name": "SGD",
