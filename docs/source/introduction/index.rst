@@ -51,7 +51,7 @@ Ensuring productivity and efficiency throughout this lifecycle poses several cha
 
 - **Deployment Consistency**: With the plethora of ML libraries available, there's often no standardized way to package and deploy models. Custom solutions can lead to inconsistencies, and the crucial link between a model and the code and parameters that produced it might be lost.
 
-- **Model Management**: As data science teams produce numerous models, managing, continuously integrating, and continuously deploying these models becomes a significant hurdle. Without a centralized platform, managing model lifecycles becomes unwieldy.
+- **Model Management**: As data science teams produce numerous models, managing, testing, and continuously deploying these models becomes a significant hurdle. Without a centralized platform, managing model lifecycles becomes unwieldy.
 
 - **Library Agnosticism**: While individual ML libraries might offer solutions to some of the challenges, achieving the best results often involves experimenting across multiple libraries. A platform that offers compatibility with various libraries while ensuring models are usable as reproducible "black boxes" is essential.
 
