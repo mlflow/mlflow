@@ -269,10 +269,10 @@ def save_model(
     """
     import promptflow
     from promptflow.contracts.tool import ValueType
-    from promptflow._sdk.entities._flow import Flow
-    from promptflow._sdk._utils import _merge_local_code_and_additional_includes
-    from promptflow._sdk._constants import DAG_FILE_NAME
-    from promptflow._sdk.operations._run_submitter import remove_additional_includes
+    from promptflow._sdk._mlflow import Flow
+    from promptflow._sdk._mlflow import _merge_local_code_and_additional_includes
+    from promptflow._sdk._mlflow import DAG_FILE_NAME
+    from promptflow._sdk._mlflow import remove_additional_includes
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -396,7 +396,7 @@ def _resolve_env_from_flow(flow_dag_path):
 
 class _PromptflowModelWrapper:
     def __init__(self, model, model_config: Dict[str, Any] = None):
-        from promptflow._sdk._serving.flow_invoker import FlowInvoker
+        from promptflow._sdk._mlflow import FlowInvoker
 
         self.model = model
         # TODO: Improve this if we have more configs afterwards
@@ -473,7 +473,7 @@ def load_model(model_uri, dst_path=None):
 
     :return: A Promptflow model instance
     """
-    from promptflow._sdk._load_functions import load_flow
+    from promptflow import load_flow
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     model_data_path = os.path.join(local_model_path, _MODEL_FLOW_DIRECTORY)
     return load_flow(model_data_path)
