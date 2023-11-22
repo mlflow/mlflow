@@ -10,7 +10,7 @@ from sklearn import datasets
 from tensorflow.keras.layers import Concatenate, Dense, Input, Lambda
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
-from tensorflow.keras.saving import register_keras_serializable
+from tensorflow.keras.utils import register_keras_serializable
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
