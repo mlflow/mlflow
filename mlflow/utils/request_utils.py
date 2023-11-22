@@ -43,7 +43,7 @@ class JitteredRetry(Retry):
         backoff_value = super().get_backoff_time()
         if self.backoff_jitter != 0.0:
             backoff_value += random.random() * self.backoff_jitter
-        return float(max(0, min(self.backoff_max, backoff_value)))
+        return float(max(0, min(Retry.DEFAULT_BACKOFF_MAX, backoff_value)))
 
 
 def augmented_raise_for_status(response):
