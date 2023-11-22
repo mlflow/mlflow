@@ -1,4 +1,5 @@
 import re
+import warnings
 
 import pytest
 import yaml
@@ -412,6 +413,76 @@ def test_duplicate_routes_in_config(tmp_path):
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(route))
     with pytest.raises(
-        MlflowException, match="Duplicate names found in route configurations. Please"
+        MlflowException, match="Duplicate names found in endpoint configurations. Please"
     ):
         _load_route_config(conf_path)
+
+
+def test_deprecated_keys_in_config(tmp_path):
+    deprecated_config = {
+        "routes": [
+            {
+                "name": "model1",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "MY_TOKEN",
+                    },
+                },
+            },
+            {
+                "name": "model2",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "MY_TOKEN",
+                    },
+                },
+            },
+        ]
+    }
+    deprecated_conf_path = tmp_path.joinpath("deprecated_config.yaml")
+    deprecated_conf_path.write_text(yaml.safe_dump(deprecated_config))
+    with pytest.warns(FutureWarning, match="'routes' configuration key has been deprecated"):
+        _load_route_config(deprecated_conf_path)
+
+    with pytest.warns(FutureWarning, match="'route_type' configuration key has been deprecated"):
+        _load_route_config(deprecated_conf_path)
+
+    recommended_config = {
+        "endpoints": [
+            {
+                "name": "model1",
+                "endpoint_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "MY_TOKEN",
+                    },
+                },
+            },
+            {
+                "name": "model2",
+                "endpoint_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "MY_TOKEN",
+                    },
+                },
+            },
+        ]
+    }
+    recommended_conf_path = tmp_path.joinpath("recommended_config.yaml")
+    recommended_conf_path.write_text(yaml.safe_dump(recommended_config))
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        _load_route_config(recommended_conf_path)
+        assert not w

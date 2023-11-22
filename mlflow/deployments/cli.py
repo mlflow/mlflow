@@ -490,6 +490,6 @@ def validate_config_path(_ctx, _param, value):
     help="The number of workers.",
 )
 def start_server(config_path: str, host: str, port: str, workers: int):
-    from mlflow.gateway.runner import run_app
+    from mlflow.deployments.server.runner import run_app
 
     run_app(config_path=config_path, host=host, port=port, workers=workers)

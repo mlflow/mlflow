@@ -1,17 +1,23 @@
 from typing import List, Literal, Optional, Union
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
+from mlflow.gateway.config import IS_PYDANTIC_V2
+
+_REQUEST_PAYLOAD_EXTRA_SCHEMA = {
+    "example": {
+        "text": ["hello", "world"],
+    }
+}
 
 
 class RequestPayload(RequestModel):
     input: Union[str, List[str]]
 
     class Config:
-        schema_extra = {
-            "example": {
-                "input": ["hello", "world"],
-            }
-        }
+        if IS_PYDANTIC_V2:
+            json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
+        else:
+            schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
 
 
 class EmbeddingObject(ResponseModel):
