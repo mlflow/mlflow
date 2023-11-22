@@ -1,7 +1,7 @@
+import re
 import textwrap
 import warnings
 from functools import wraps
-from typing import Dict
 
 import importlib_metadata
 from packaging.version import Version
@@ -12,58 +12,13 @@ from mlflow.utils.autologging_utils.versioning import (
 )
 
 
-def _create_placeholder(key: str):
+def _create_placeholder(key):
     return "{{ " + key + " }}"
 
 
-def _replace_keys_with_placeholders(d: Dict) -> Dict:
-    return {_create_placeholder(k): v for k, v in d.items()}
-
-
-def _get_indentation_of_key(line: str, placeholder: str) -> str:
-    index = line.find(placeholder)
-    return (index * " ") if index != -1 else ""
-
-
-def _indent(text: str, indent: str) -> str:
-    """Indent everything but first line in text."""
-    lines = text.splitlines()
-    if len(lines) <= 1:
-        return text
-
-    else:
-        first_line = lines[0]
-        subsequent_lines = "\n".join(list(lines[1:]))
-        indented_subsequent_lines = textwrap.indent(subsequent_lines, indent)
-        return first_line + "\n" + indented_subsequent_lines
-
-
-def _replace_all(text: str, replacements: Dict[str, str]) -> str:
-    """
-    Replace all instances of replacements.keys() with their corresponding
-    values in text. The replacements will be inserted on the same line
-    with wrapping to the same level of indentation, for example:
-
-    ```
-    Args:
-        param_1: {{ key }}
-    ```
-
-    will become...
-
-    ```
-    Args:
-        param_1: replaced_value_at same indentation as prior
-                 and if there are more lines they will also
-                 have the same indentation.
-    ```
-    """
-    for key, value in replacements.items():
-        if key in text:
-            indent = _get_indentation_of_key(text, key)
-            indented_value = _indent(value, indent)
-            text = text.replace(key, indented_value)
-    return text
+def _replace_placeholder(template, key, value):
+    placeholder = _create_placeholder(key)
+    return template.replace(placeholder, value)
 
 
 class ParamDocs(dict):
@@ -76,13 +31,10 @@ class ParamDocs(dict):
 
     def format(self, **kwargs):
         """
-        Formats values to be substituted in via the format_docstring() method.
+        Formats placeholders in this instance with `kwargs`.
 
-        Args:
-            kwargs: A `dict` in the form of `{"< placeholder name >": "< value >"}`.
-
-        Returns:
-            A new `ParamDocs` instance with the formatted param docs.
+        :param kwargs: A `dict` in the form of `{"< placeholder name >": "< value >"}`.
+        :return: A new `ParamDocs` instance with the formatted param docs.
 
         Examples
         --------
@@ -90,34 +42,56 @@ class ParamDocs(dict):
         >>> pd.format(doc1="foo", doc2="bar")
         ParamDocs({'p1': 'foo', 'p2': 'bar'})
         """
-        replacements = _replace_keys_with_placeholders(kwargs)
-        return ParamDocs({k: _replace_all(v, replacements) for k, v in self.items()})
+        new_param_docs = {}
+        for param_name, param_doc in self.items():
+            for key, value in kwargs.items():
+                param_doc = _replace_placeholder(param_doc, key, value)
+            new_param_docs[param_name] = param_doc
 
-    def format_docstring(self, docstring: str) -> str:
+        return ParamDocs(new_param_docs)
+
+    def format_docstring(self, docstring):
         """
         Formats placeholders in `docstring`.
 
+        :param docstring: Docstring to format.
+        :return: Formatted docstring.
+
         Examples
         --------
-        >>> pd = ParamDocs(p1="doc1", p2="doc2\ndoc2 second line")
+        >>> pd = ParamDocs(p1="doc1", p2="doc2")
         >>> docstring = '''
         ... :param p1: {{ p1 }}
         ... :param p2: {{ p2 }}
         ... '''.strip()
         >>> print(pd.format_docstring(docstring))
-        :param p1: doc1
-        :param p2: doc2
-                   doc2 second line
+        :param p1:
+            doc1
+        :param p2:
+            doc2
         """
         if docstring is None:
             return None
 
-        replacements = _replace_keys_with_placeholders(self)
-        lines = docstring.splitlines()
-        for i, line in enumerate(lines):
-            lines[i] = _replace_all(line, replacements)
+        min_indent = _get_minimum_indentation(docstring)
+        for param_name, param_doc in self.items():
+            param_doc = textwrap.indent(param_doc, min_indent + " " * 8)
+            if not param_doc.startswith("\n"):
+                param_doc = "\n" + param_doc
+            docstring = _replace_placeholder(docstring, param_name, param_doc)
 
-        return "\n".join(lines)
+        return docstring
+
+
+_leading_whitespace_re = re.compile("(^[ ]*)(?:[^ \n])", re.MULTILINE)
+
+
+def _get_minimum_indentation(text):
+    """
+    Returns the minimum indentation of all non-blank lines in `text`.
+    """
+    indents = _leading_whitespace_re.findall(text)
+    return min(indents, key=len) if indents else ""
 
 
 def format_docstring(param_docs):
@@ -125,15 +99,12 @@ def format_docstring(param_docs):
     Returns a decorator that replaces param doc placeholders (e.g. '{{ param_name }}') in the
     docstring of the decorated function.
 
-    Args:
-        param_docs: A `ParamDocs` instance or `dict`.
-
-    Returns:
-        A decorator to apply the formatting.
+    :param param_docs: A `ParamDocs` instance or `dict`.
+    :return: A decorator to apply the formatting.
 
     Examples
     --------
-    >>> param_docs = {"p1": "doc1", "p2": "doc2\ndoc2 second line"}
+    >>> param_docs = {"p1": "doc1", "p2": "doc2"}
     >>> @format_docstring(param_docs)
     ... def func(p1, p2):
     ...     '''
@@ -142,9 +113,10 @@ def format_docstring(param_docs):
     ...     '''
     >>> import textwrap
     >>> print(textwrap.dedent(func.__doc__).strip())
-    :param p1: doc1
-    :param p2: doc2
-               doc2 second line
+    :param p1:
+        doc1
+    :param p2:
+        doc2
     """
     param_docs = ParamDocs(param_docs)
 
@@ -158,12 +130,11 @@ def format_docstring(param_docs):
 # `{{ ... }}` represents a placeholder.
 LOG_MODEL_PARAM_DOCS = ParamDocs(
     {
-        "conda_env": (
-            """Either a dictionary representation of a Conda environment or the path to a conda
-environment yaml file. If provided, this describes the environment this model should be run in.
-At a minimum, it should specify the dependencies contained in :func:`get_default_conda_env()`.
-If ``None``, a conda environment with pip requirements inferred by
-:func:`mlflow.models.infer_pip_requirements` is added
+        "conda_env": """
+Either a dictionary representation of a Conda environment or the path to a conda environment yaml
+file. If provided, this describes the environment this model should be run in. At minimum, it
+should specify the dependencies contained in :func:`get_default_conda_env()`. If ``None``, a conda
+environment with pip requirements inferred by :func:`mlflow.models.infer_pip_requirements` is added
 to the model. If the requirement inference fails, it falls back to using
 :func:`get_default_pip_requirements`. pip requirements from ``conda_env`` are written to a pip
 ``requirements.txt`` file and the full conda environment is written to ``conda.yaml``.
@@ -180,10 +151,10 @@ The following is an *example* dictionary representation of a conda environment::
                 ],
             },
         ],
-    }"""
-        ),
-        "pip_requirements": (
-            """Either an iterable of pip requirement strings
+    }
+            """,
+        "pip_requirements": """
+Either an iterable of pip requirement strings
 (e.g. ``["{{ package_name }}", "-r requirements.txt", "-c constraints.txt"]``) or the string path to
 a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
 describes the environment this model should be run in. If ``None``, a default list of requirements
@@ -191,11 +162,10 @@ is inferred by :func:`mlflow.models.infer_pip_requirements` from the current sof
 If the requirement inference fails, it falls back to using :func:`get_default_pip_requirements`.
 Both requirements and constraints are automatically parsed and written to ``requirements.txt`` and
 ``constraints.txt`` files, respectively, and stored as part of the model. Requirements are also
-written to the ``pip`` section of the model's conda environment (``conda.yaml``) file."""
-        ),
-        "extra_pip_requirements": (
-            """Either an iterable of pip
-requirement strings
+written to the ``pip`` section of the model's conda environment (``conda.yaml``) file.
+""",
+        "extra_pip_requirements": """
+Either an iterable of pip requirement strings
 (e.g. ``["pandas", "-r requirements.txt", "-c constraints.txt"]``) or the string path to
 a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
 describes additional pip requirements that are appended to a default set of pip requirements
@@ -212,10 +182,10 @@ section of the model's conda environment (``conda.yaml``) file.
     - ``extra_pip_requirements``
 
 :ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements using
-``pip_requirements`` and ``extra_pip_requirements``."""
-        ),
-        "signature": (
-            """an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+``pip_requirements`` and ``extra_pip_requirements``.
+""",
+        "signature": """
+an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
 class that describes the model's inputs and outputs. If not specified but an
 ``input_example`` is supplied, a signature will be automatically inferred
 based on the supplied input example and model. To disable automatic signature
@@ -233,17 +203,18 @@ dataset, for example:
     train = df.drop_column("target_label")
     predictions = ...  # compute model predictions
     signature = infer_signature(train, predictions)
-"""
-        ),
-        "input_example": (
-            """one or several instances of valid model input. The input example is used
+""",
+        "input_example": """
+one or several instances of valid model input. The input example is used
 as a hint of what data to feed the model. It will be converted to a Pandas
 DataFrame and then serialized to json using the Pandas split-oriented
 format, or a numpy array where the example will be serialized to json
-by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
-``None``, the input example is used to infer a model signature.
-"""
-        ),
+by converting it to a list. If input example is a tuple, then the first element
+must be a valid model input, and the second element must be a valid params
+dictionary that could be used for model inference. Bytes are base64-encoded.
+When the ``signature`` parameter is ``None``, the input example is used to
+infer a model signature.
+""",
     }
 )
 
@@ -255,11 +226,8 @@ def get_module_min_and_max_supported_ranges(module_name):
     dev/update_ml_package_versions.py which writes a python file to the importable namespace of
     mlflow.ml_package_versions
 
-    Args:
-        module_name: The string name of the module as it is registered in ml_package_versions.py
-
-    Returns:
-        tuple of minimum supported version, maximum supported version as strings.
+    :param module_name: The string name of the module as it is registered in ml_package_versions.py
+    :return: tuple of minimum supported version, maximum supported version as strings.
     """
     versions = _ML_PACKAGE_VERSIONS[module_name]["models"]
     min_version = versions["minimum"]
@@ -272,11 +240,8 @@ def docstring_version_compatibility_warning(integration_name):
     Generates a docstring that can be applied as a note stating a version compatibility range for
     a given flavor.
 
-    Args:
-        integration_name: The name of the module as stored within ml-package-versions.yml
-
-    Returns:
-        The wrapped function with the additional docstring header applied
+    :param integration_name: The name of the module as stored within ml-package-versions.yml
+    :return: The wrapped function with the additional docstring header applied
     """
 
     def annotated_func(func):

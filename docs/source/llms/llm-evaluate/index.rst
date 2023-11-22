@@ -326,7 +326,7 @@ Basically you need to:
 2. Pass ``eval_fn`` and other arguments to ``mlflow.metrics.make_metric`` API to create the metric. 
 
 The following code creates a dummy per-row metric called ``"over_10_chars"``: if the model output is greater than 10, 
-the score is "yes" otherwise "no".
+the score is 1 otherwise 0.
 
 .. code-block:: python
 
@@ -334,9 +334,9 @@ the score is "yes" otherwise "no".
         scores = []
         for i in range(len(predictions)):
             if len(predictions[i]) > 10:
-                scores.append("yes")
+                scores.append(1)
             else:
-                scores.append("no")
+                scores.append(0)
         return MetricValue(
             scores=scores,
             aggregate_results=standard_aggregations(scores),

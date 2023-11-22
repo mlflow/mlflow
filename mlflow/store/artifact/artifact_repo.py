@@ -1,6 +1,7 @@
 import logging
 import os
 import posixpath
+import tempfile
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -9,7 +10,7 @@ from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
-from mlflow.utils.file_utils import ArtifactProgressBar, create_tmp_dir
+from mlflow.utils.file_utils import ArtifactProgressBar
 from mlflow.utils.validation import bad_path_message, path_not_unique
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
@@ -171,7 +172,7 @@ class ArtifactRepository:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
-            dst_path = create_tmp_dir()
+            dst_path = tempfile.mkdtemp()
 
         def _download_file(src_artifact_path, dst_local_dir_path):
             dst_local_file_path = self._create_download_destination(

@@ -833,27 +833,19 @@ def _handle_readonly_on_windows(func, path, exc_info):
     func(path)
 
 
-def _get_tmp_dir():
+def create_tmp_dir():
     from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
 
-    if is_in_databricks_runtime():
+    if is_in_databricks_runtime() and get_repl_id() is not None:
         try:
-            return _get_dbutils().entry_point.getReplLocalTempDir()
+            repl_local_tmp_dir = _get_dbutils().entry_point.getReplLocalTempDir()
         except Exception:
-            pass
+            repl_local_tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
 
-        if repl_id := get_repl_id():
-            return os.path.join("/tmp", "repl_tmp_data", repl_id)
-
-    return None
-
-
-def create_tmp_dir():
-    if directory := _get_tmp_dir():
-        os.makedirs(directory, exist_ok=True)
-        return tempfile.mkdtemp(dir=directory)
-
-    return tempfile.mkdtemp()
+        os.makedirs(repl_local_tmp_dir, exist_ok=True)
+        return tempfile.mkdtemp(dir=repl_local_tmp_dir)
+    else:
+        return tempfile.mkdtemp()
 
 
 @cache_return_value_per_process
