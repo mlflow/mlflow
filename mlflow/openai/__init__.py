@@ -293,7 +293,7 @@ def save_model(
     **kwargs,
 ):
     """Save an OpenAI model to a path on the local file system.
-    
+
     Args:
         model: The OpenAI model name or reference instance, e.g.,
                ``openai.Model.retrieve("gpt-3.5-turbo")``.
@@ -311,11 +311,11 @@ def save_model(
                    from datasets with valid model input (e.g. the training dataset with target
                    column omitted) and valid model output (e.g. model predictions generated on
                    the training dataset), for example:
-    
+
                    .. code-block:: python
-    
+
                      from mlflow.models import infer_signature
-    
+
                      train = df.drop_column("target_label")
                      predictions = ...  # compute model predictions
                      signature = infer_signature(train, predictions)
@@ -323,18 +323,18 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-    
+
                   .. Note:: Experimental: This parameter may change or be removed in a future
                                           release without warning.
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
                 :ref:`mlflow.openai.messages` for more details on this parameter)
                 or ``top_p`` value to use for chat completion.
-    
+
     .. code-block:: python
-    
+
         import mlflow
         import openai
-    
+
         # Chat
         mlflow.openai.save_model(
             model="gpt-3.5-turbo",
@@ -342,7 +342,7 @@ def save_model(
             messages=[{"role": "user", "content": "Tell me a joke."}],
             path="model",
         )
-    
+
         # Completions
         mlflow.openai.save_model(
             model="text-davinci-002",
@@ -350,7 +350,7 @@ def save_model(
             prompt="{text}. The general sentiment of the text is",
             path="model",
         )
-    
+
         # Embeddings
         mlflow.openai.save_model(
             model="text-embedding-ada-002",
@@ -490,7 +490,7 @@ def log_model(
     **kwargs,
 ):
     """Log an OpenAI model as an MLflow artifact for the current run.
-    
+
     Args:
         model: The OpenAI model name or reference instance, e.g.,
                ``openai.Model.retrieve("gpt-3.5-turbo")``.
@@ -510,11 +510,11 @@ def log_model(
                    from datasets with valid model input (e.g. the training dataset with target
                    column omitted) and valid model output (e.g. model predictions generated on
                    the training dataset), for example:
-    
+
                    .. code-block:: python
-    
+
                      from mlflow.models import infer_signature
-    
+
                      train = df.drop_column("target_label")
                      predictions = ...  # compute model predictions
                      signature = infer_signature(train, predictions)
@@ -525,22 +525,22 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-    
+
                    .. Note:: Experimental: This parameter may change or be removed in a future
                                            release without warning.
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
                 :ref:`mlflow.openai.messages` for more details on this parameter)
                 or ``top_p`` value to use for chat completion.
-    
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
-    
+
     .. code-block:: python
-    
+
         import mlflow
         import openai
-    
+
         # Chat
         with mlflow.start_run():
             info = mlflow.openai.log_model(
@@ -552,7 +552,7 @@ def log_model(
             model = mlflow.pyfunc.load_model(info.model_uri)
             df = pd.DataFrame({"animal": ["cats", "dogs"]})
             print(model.predict(df))
-    
+
         # Embeddings
         with mlflow.start_run():
             info = mlflow.openai.log_model(
@@ -809,10 +809,10 @@ class _OpenAIWrapper:
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-        
+
                 .. Note:: Experimental: This parameter may change or be removed in a future
                            release without warning.
-        
+
         Returns:
             Model predictions.
         """
@@ -836,10 +836,10 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
         Args:
             data: Model input data.
             params: Additional parameters to pass to the model for inference.
-        
+
                 .. Note:: Experimental: This parameter may change or be removed in a future
                            release without warning.
-        
+
         Returns:
             Model predictions.
         """
@@ -851,7 +851,7 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
 
 def _load_pyfunc(path):
     """Loads PyFunc implementation. Called by ``pyfunc.load_model``.
-    
+
     Args:
         path: Local filesystem path to the MLflow Model with the ``openai`` flavor.
     """
@@ -862,7 +862,7 @@ def _load_pyfunc(path):
 @experimental
 def load_model(model_uri, dst_path=None):
     """Load an OpenAI model from a local file or a run.
-    
+
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
             - ``/Users/me/path/to/local/model``
@@ -875,7 +875,7 @@ def load_model(model_uri, dst_path=None):
         dst_path: The local filesystem path to which to download the model artifact.
             This directory must already exist. If unspecified, a local output
             path will be created.
-    
+
     Returns:
         A dictionary representing the OpenAI model.
     """

@@ -140,7 +140,7 @@ def save_model(
     metadata=None,
 ):
     """Save a pmdarima ``ARIMA`` model or ``Pipeline`` object to a path on the local file system.
-    
+
     Args:
         pmdarima_model: pmdarima ``ARIMA`` or ``Pipeline`` model that has been ``fit`` on a
                         temporal series.
@@ -160,15 +160,15 @@ def save_model(
                    with valid model inputs, such as a training dataset with the target column
                    omitted, and valid model outputs, like model predictions made on the training
                    dataset, for example:
-    
+
                    .. code-block:: python
-    
+
                      from mlflow.models import infer_signature
-    
+
                      model = pmdarima.auto_arima(data)
                      predictions = model.predict(n_periods=30, return_conf_int=False)
                      signature = infer_signature(data, predictions)
-    
+
                    .. Warning:: if utilizing confidence interval generation in the ``predict``
                      method of a ``pmdarima`` model (``return_conf_int=True``), the signature
                      will not be inferred due to the complex tuple return type when using the
@@ -178,33 +178,33 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-    
+
                   .. Note:: Experimental: This parameter may change or be removed in a future
                               release without warning.
-    
+
     .. code-block:: python
         :caption: Example
-    
+
         import pandas as pd
         import mlflow
         import pmdarima
-    
+
         # Specify locations of source data and the model artifact
         SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
         ARTIFACT_PATH = "model"
-    
+
         # Read data and recode columns
         sales_data = pd.read_csv(SOURCE_DATA)
         sales_data.rename(columns={"y": "sales", "ds": "date"}, inplace=True)
-    
+
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
         train, test = sales_data[:train_size], sales_data[train_size:]
-    
+
         with mlflow.start_run():
             # Create the model
             model = pmdarima.auto_arima(train["sales"], seasonal=True, m=12)
-    
+
             # Save the model to the specified path
             mlflow.pmdarima.save_model(model, "model")
     """
@@ -297,7 +297,7 @@ def log_model(
     **kwargs,
 ):
     """Logs a ``pmdarima`` ``ARIMA`` or ``Pipeline`` object as an MLflow artifact for the current run.
-    
+
     Args:
         pmdarima_model: pmdarima ``ARIMA`` or ``Pipeline`` model that has been ``fit`` on a
                         temporal series.
@@ -320,21 +320,21 @@ def log_model(
                    with valid model inputs, such as a training dataset with the target column
                    omitted, and valid model outputs, like model predictions made on the training
                    dataset, for example:
-    
+
                    .. code-block:: python
-    
+
                      from mlflow.models import infer_signature
-    
+
                      model = pmdarima.auto_arima(data)
                      predictions = model.predict(n_periods=30, return_conf_int=False)
                      signature = infer_signature(data, predictions)
-    
+
                    .. Warning:: if utilizing confidence interval generation in the ``predict``
                      method of a ``pmdarima`` model (``return_conf_int=True``), the signature
                      will not be inferred due to the complex tuple return type when using the
                      native ``ARIMA.predict()`` API. ``infer_schema`` will function correctly
                      if using the ``pyfunc`` flavor of the model, though.
-    
+
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version
                                 to finish being created and is in ``READY`` status.
@@ -343,49 +343,49 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-    
+
                     .. Note:: Experimental: This parameter may change or be removed in a future
                                             release without warning.
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
-    
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
-        
+
         import pandas as pd
         import mlflow
         from mlflow.models import infer_signature
         import pmdarima
         from pmdarima.metrics import smape
-        
+
         # Specify locations of source data and the model artifact
         SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
         ARTIFACT_PATH = "model"
-        
+
         # Read data and recode columns
         sales_data = pd.read_csv(SOURCE_DATA)
         sales_data.rename(columns={"y": "sales", "ds": "date"}, inplace=True)
-        
+
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
         train, test = sales_data[:train_size], sales_data[train_size:]
-        
+
         with mlflow.start_run():
             # Create the model
             model = pmdarima.auto_arima(train["sales"], seasonal=True, m=12)
-            
+
             # Calculate metrics
             prediction = model.predict(n_periods=len(test))
             metrics = {"smape": smape(test["sales"], prediction)}
-            
+
             # Infer signature
             input_sample = pd.DataFrame(train["sales"])
             output_sample = pd.DataFrame(model.predict(n_periods=5))
             signature = infer_signature(input_sample, output_sample)
-            
+
             # Log model
             mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
     """
@@ -409,7 +409,7 @@ def log_model(
 
 def load_model(model_uri, dst_path=None):
     """Load a ``pmdarima`` ``ARIMA`` model or ``Pipeline`` object from a local file or a run.
-    
+
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
             - ``/Users/me/path/to/local/model``
@@ -423,59 +423,59 @@ def load_model(model_uri, dst_path=None):
         dst_path: The local filesystem path to which to download the model artifact.
             This directory must already exist. If unspecified, a local output
             path will be created.
-    
+
     Returns:
         A ``pmdarima`` model instance
 
     .. code-block:: python
         :caption: Example
-        
+
         import pandas as pd
         import mlflow
         from mlflow.models import infer_signature
         import pmdarima
         from pmdarima.metrics import smape
-        
+
         # Specify locations of source data and the model artifact
         SOURCE_DATA = "https://raw.githubusercontent.com/facebook/prophet/master/examples/example_retail_sales.csv"
         ARTIFACT_PATH = "model"
-        
+
         # Read data and recode columns
         sales_data = pd.read_csv(SOURCE_DATA)
         sales_data.rename(columns={"y": "sales", "ds": "date"}, inplace=True)
-        
+
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
         train, test = sales_data[:train_size], sales_data[train_size:]
-        
+
         with mlflow.start_run():
             # Create the model
             model = pmdarima.auto_arima(train["sales"], seasonal=True, m=12)
-            
+
             # Calculate metrics
             prediction = model.predict(n_periods=len(test))
             metrics = {"smape": smape(test["sales"], prediction)}
-            
+
             # Infer signature
             input_sample = pd.DataFrame(train["sales"])
             output_sample = pd.DataFrame(model.predict(n_periods=5))
             signature = infer_signature(input_sample, output_sample)
-            
+
             # Log model
             input_example = input_sample.head()
             mlflow.pmdarima.log_model(
                 model, ARTIFACT_PATH, signature=signature, input_example=input_example
             )
-            
+
             # Get the model URI for loading
             model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
-            
+
         # Load the model
         loaded_model = mlflow.pmdarima.load_model(model_uri)
         # Forecast for the next 60 days
         forecast = loaded_model.predict(n_periods=60)
         print(f"forecast: {forecast}")
-        
+
     .. code-block:: text
         :caption: Output
         forecast:
@@ -524,10 +524,10 @@ class _PmdarimaModelWrapper:
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-        
+
                 .. Note:: Experimental: This parameter may change or be removed in a future
                            release without warning.
-        
+
         Returns:
             Model predictions.
         """

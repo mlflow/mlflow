@@ -92,7 +92,7 @@ def save_model(
     metadata=None,
 ):
     """Save a Prophet model to a path on the local file system.
-    
+
     Args:
         pr_model: Prophet model (an instance of Prophet() forecaster that has been fit
                   on a temporal series.
@@ -112,11 +112,11 @@ def save_model(
                    with valid model inputs, such as a training dataset with the target column
                    omitted, and valid model outputs, like model predictions made on the training
                    dataset, for example:
-    
+
                    .. code-block:: python
-    
+
                      from mlflow.models import infer_signature
-    
+
                      model = Prophet().fit(df)
                      train = model.history
                      predictions = model.predict(model.make_future_dataframe(30))
@@ -125,7 +125,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-    
+
                    .. Note:: Experimental: This parameter may change or be removed in a future
                                             release without warning.
     """
@@ -223,7 +223,7 @@ def log_model(
     metadata=None,
 ):
     """Logs a Prophet model as an MLflow artifact for the current run.
-    
+
     Args:
         pr_model: Prophet model to be saved.
         artifact_path: Run-relative artifact path.
@@ -245,16 +245,16 @@ def log_model(
                    with valid model inputs, such as a training dataset with the target column
                    omitted, and valid model outputs, like model predictions made on the training
                    dataset, for example:
-    
+
                    .. code-block:: python
-    
+
                      from mlflow.models import infer_signature
-    
+
                      model = Prophet().fit(df)
                      train = model.history
                      predictions = model.predict(model.make_future_dataframe(30))
                      signature = infer_signature(train, predictions)
-    
+
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version
                                 to finish being created and is in ``READY`` status.
@@ -263,10 +263,10 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-    
+
                     .. Note:: Experimental: This parameter may change or be removed in a future
                                             release without warning.
-    
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
@@ -305,7 +305,7 @@ def _load_model(path):
 
 def _load_pyfunc(path):
     """Loads PyFunc implementation for Prophet. Called by ``pyfunc.load_model``.
-    
+
     Args:
         path: Local filesystem path to the MLflow Model with the ``prophet`` flavor.
     """
@@ -315,7 +315,7 @@ def _load_pyfunc(path):
 def load_model(model_uri, dst_path=None):
     """
     Load a Prophet model from a local file or a run.
-    
+
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
                    - ``/Users/me/path/to/local/model``
@@ -328,7 +328,7 @@ def load_model(model_uri, dst_path=None):
         dst_path: The local filesystem path to which to download the model artifact.
                   This directory must already exist. If unspecified, a local output
                   path will be created.
-    
+
     Returns:
         A Prophet model instance
     """
@@ -353,10 +353,10 @@ class _ProphetModelWrapper:
         Args:
             dataframe: Model input data.
             params: Additional parameters to pass to the model for inference.
-        
+
                 .. Note:: Experimental: This parameter may change or be removed in a future
                            release without warning.
-        
+
         Returns:
             Model predictions.
         """
