@@ -1032,7 +1032,8 @@ def test_infer_param_schema():
         "b": (1, 2, 3),
         "c": True,
         "d": [[1, 2], [3, 4]],
-        "e": {"a": 1, "b": 2},
+        "e": [[[1, 2], [3], []]],
+        "f": {"a": 1, "b": 2},
     }
     with pytest.raises(MlflowException, match=r".*") as e:
         _infer_param_schema(test_parameters)
@@ -1051,7 +1052,13 @@ def test_infer_param_schema():
     )
     assert e.match(
         re.escape(
-            "('e', {'a': 1, 'b': 2}, MlflowException('Expected parameters "
+            "('e', [[[1, 2], [3], []]], MlflowException('Expected parameters "
+            "to be 1D array or scalar, got 3D array'))"
+        )
+    )
+    assert e.match(
+        re.escape(
+            "('f', {'a': 1, 'b': 2}, MlflowException('Expected parameters "
             "to be 1D array or scalar, got dict'))"
         )
     )
