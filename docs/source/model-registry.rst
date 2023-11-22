@@ -690,7 +690,7 @@ save, log, register, and load from the Model Registry and score.
 Deprecated: Using Model Stages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our migration guide below.
+.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our :ref:`migration guide<migrating-from-stages>` below.
 
 See the sections below on using Model Stages in the MLflow Model Registry.
 
@@ -735,6 +735,8 @@ At a later point, if that archived model is not needed, you can delete it.
     client.transition_model_version_stage(
         name="sk-learn-random-forest-reg-model", version=3, stage="Archived"
     )
+
+.. _migrating-from-stages:
 
 Migrating from Stages
 =====================
