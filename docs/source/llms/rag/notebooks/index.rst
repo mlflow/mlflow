@@ -14,7 +14,7 @@ the user's question.
     :hidden:
 
     question-generation-retrieval-evaluation.ipynb
-    retriever-evaluation.ipynb
+    retriever-evaluation-tutorial.ipynb
 
 Question Generation for RAG Notebook
 ------------------------------------
