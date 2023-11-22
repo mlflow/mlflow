@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 
-from mlflow.metrics.base import MetricValue
+from mlflow.metrics.base import MetricValue, standard_aggregations
 
 _logger = logging.getLogger(__name__)
 
@@ -18,14 +18,6 @@ targets_col_specifier = "the column specified by the `targets` parameter"
 predictions_col_specifier = (
     "the column specified by the `predictions` parameter or the model output column"
 )
-
-
-def standard_aggregations(scores):
-    return {
-        "mean": np.mean(scores),
-        "variance": np.var(scores),
-        "p90": np.percentile(scores, 90),
-    }
 
 
 def _validate_text_data(data, metric_name, col_specifier):
@@ -77,6 +69,7 @@ def _token_count_eval_fn(predictions, targets=None, metrics=None):
 
     return MetricValue(
         scores=num_tokens,
+        aggregate_results={},
     )
 
 
