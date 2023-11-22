@@ -48,6 +48,8 @@ def test_get_endpoint():
             "model": {"name": "gpt-4", "provider": "openai"},
             "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
         }
+        ((_, url), _) = mock_request.call_args
+        assert url == "http://localhost:5000/api/2.0/endpoints/test"
 
 
 def test_list_endpoints():
@@ -75,6 +77,8 @@ def test_list_endpoints():
                 "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
             }
         ]
+        ((_, url), _) = mock_request.call_args
+        assert url == "http://localhost:5000/api/2.0/endpoints/"
 
 
 def test_predict():
