@@ -36,7 +36,7 @@ def test_get_endpoint():
         "model": {"name": "gpt-4", "provider": "openai"},
         "name": "completions",
         "endpoint_type": "llm/v1/completions",
-        "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+        "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
     }
     mock_resp.status_code = 200
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
@@ -46,7 +46,7 @@ def test_get_endpoint():
             "name": "completions",
             "endpoint_type": "llm/v1/completions",
             "model": {"name": "gpt-4", "provider": "openai"},
-            "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+            "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
         }
 
 
@@ -59,7 +59,7 @@ def test_list_endpoints():
                 "model": {"name": "gpt-4", "provider": "openai"},
                 "name": "completions",
                 "endpoint_type": "llm/v1/completions",
-                "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+                "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
             }
         ]
     }
@@ -72,7 +72,7 @@ def test_list_endpoints():
                 "model": {"name": "gpt-4", "provider": "openai"},
                 "name": "completions",
                 "endpoint_type": "llm/v1/completions",
-                "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+                "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
             }
         ]
 
