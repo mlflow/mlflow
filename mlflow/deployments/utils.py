@@ -1,6 +1,4 @@
-import posixpath
 import urllib
-from typing import List
 from urllib.parse import urlparse
 
 from mlflow.exceptions import MlflowException
@@ -31,17 +29,6 @@ def _is_valid_uri(uri: str) -> bool:
         return parsed.scheme == "databricks" or all([parsed.scheme, parsed.netloc])
     except ValueError:
         return False
-
-
-def assemble_uri_path(paths: List[str]) -> str:
-    """
-    Assemble a correct URI path from a list of path parts.
-
-    :param paths: A list of strings representing parts of a URI path.
-    :return: A string representing the complete assembled URI path.
-    """
-    stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
-    return "/" + posixpath.join(*stripped_paths) if stripped_paths else "/"
 
 
 def resolve_endpoint_url(base_url: str, endpoint: str) -> str:
