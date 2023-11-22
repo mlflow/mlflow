@@ -186,6 +186,12 @@ class PaLMConfig(ConfigModel):
 class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
 
+    # Workaround to suppress warning that Pydantic raises when a field name starts with "model_".
+    # https://github.com/mlflow/mlflow/issues/10335
+    model_config = pydantic.ConfigDict(
+        protected_namespaces=()
+    )
+
 
 class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
     hf_server_url: str
