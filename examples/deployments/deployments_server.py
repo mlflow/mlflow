@@ -2,7 +2,7 @@
 Usage
 -----
 mlflow deployments start-server --config-path examples/gateway/openai/config.yaml
-python examples/deployments/oss.py
+python examples/deployments/deployments_server.py
 -----
 """
 from mlflow.deployments import get_deploy_client
