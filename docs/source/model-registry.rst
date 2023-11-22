@@ -786,7 +786,7 @@ Once you have registered models set up for each environment, you can build your 
 
 To specify (via named references) which model version to deploy to serve traffic within an environment (e.g. production), use **model aliases**:
 
-1. Decide on an equivalent model alias for each model registry stage (e.g., **champion** for the **Production** stage)
+1. Decide on an equivalent model alias for each model registry stage (e.g., **champion** for the **Production** stage, to specify the model intended to serve the majority of traffic)
 2. Assign the chosen alias to the latest model version under each stage. You can use the helper function below for this.
 3. Update ML workflows to target the alias rather than the stage. For example, the model URI ``models:/regression_model/Production`` will be replaced by the model URI ``models:/prod.ml_team.regression_model@champion`` in the production code.
 
