@@ -101,6 +101,12 @@ MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
     "MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", int, 2
 )
 
+#: Specifies the backoff jitter between MLflow HTTP request failures
+#: (default: ``1``)
+MLFLOW_HTTP_REQUEST_BACKOFF_JITTER = _EnvironmentVariable(
+    "MLFLOW_HTTP_REQUEST_BACKOFF_JITTER", float, 1.0
+)
+
 #: Specifies the timeout in seconds for MLflow HTTP requests
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
