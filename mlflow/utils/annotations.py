@@ -122,3 +122,31 @@ def keyword_only(func):
     notice = ".. Note:: This method requires all argument be specified by keyword.\n"
     wrapper.__doc__ = notice + wrapper.__doc__ if wrapper.__doc__ else notice
     return wrapper
+
+
+def keras_custom_object_scope(custom_objects):
+    """
+    A decorator that wraps keras load model function within a custom object scope.
+    This decorator is used to load keras models on workers in Spark UDFs when
+    the custom objects are not saved with the model.
+    """
+
+    def custom_object_decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if custom_objects:
+                try:
+                    from tensorflow.keras.saving import custom_object_scope
+
+                    with custom_object_scope(custom_objects):
+                        return func(*args, **kwargs)
+                except Exception as e:
+                    warnings.warn(
+                        "Failed to use custom object scope for TensorFlow Keras models. "
+                        f"This may result in errors during model loading. Error: {e}\n"
+                    )
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return custom_object_decorator

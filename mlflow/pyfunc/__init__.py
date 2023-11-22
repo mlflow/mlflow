@@ -271,7 +271,7 @@ from mlflow.utils import (
     insecure_hash,
 )
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated, experimental, keras_custom_object_scope
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -1242,6 +1242,11 @@ def spark_udf(
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
+    try:
+        custom_objects = mlflow.tensorflow.get_custom_objects()
+    except Exception:
+        # If tensorflow is not installed, or other error happens, set custom_objects to None
+        custom_objects = None
     mlflow_testing = _MLFLOW_TESTING.get_raw()
 
     _EnvManager.validate(env_manager)
@@ -1511,6 +1516,25 @@ Compound types:
         # we can load the model from correct path
         mlflow.set_tracking_uri(tracking_uri)
 
+        @keras_custom_object_scope(custom_objects)
+        def load_model_for_local_env_manager():
+            if is_spark_connect and not should_spark_connect_use_nfs:
+                model_path = os.path.join(
+                    tempfile.gettempdir(),
+                    "mlflow",
+                    insecure_hash.sha1(model_uri.encode()).hexdigest(),
+                )
+                try:
+                    loaded_model = mlflow.pyfunc.load_model(model_path)
+                except Exception:
+                    os.makedirs(model_path, exist_ok=True)
+                    loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
+            elif should_use_spark_to_broadcast_file:
+                loaded_model, _ = SparkModelCache.get_or_load(archive_path)
+            else:
+                loaded_model = mlflow.pyfunc.load_model(local_model_path)
+            return loaded_model
+
         if env_manager != _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
@@ -1592,21 +1616,7 @@ Compound types:
                 return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
-            if is_spark_connect and not should_spark_connect_use_nfs:
-                model_path = os.path.join(
-                    tempfile.gettempdir(),
-                    "mlflow",
-                    insecure_hash.sha1(model_uri.encode()).hexdigest(),
-                )
-                try:
-                    loaded_model = mlflow.pyfunc.load_model(model_path)
-                except Exception:
-                    os.makedirs(model_path, exist_ok=True)
-                    loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
-            elif should_use_spark_to_broadcast_file:
-                loaded_model, _ = SparkModelCache.get_or_load(archive_path)
-            else:
-                loaded_model = mlflow.pyfunc.load_model(local_model_path)
+            loaded_model = load_model_for_local_env_manager()
 
             def batch_predict_fn(pdf, params=None):
                 if inspect.signature(loaded_model.predict).parameters.get("params"):

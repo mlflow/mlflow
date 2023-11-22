@@ -10,6 +10,7 @@ from sklearn import datasets
 from tensorflow.keras.layers import Concatenate, Dense, Input, Lambda
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.saving import register_keras_serializable
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -99,6 +100,10 @@ def single_multidim_tensor_input_model(data):
     x, y = data
     model = Sequential()
 
+    # This decorator injects the decorated class or function into the Keras custom
+    # object dictionary, so that it can be serialized and deserialized without
+    # needing an entry in the user-provided custom object dict.
+    @register_keras_serializable(name="f1")
     def f1(z):
         from tensorflow.keras import backend as K
 
@@ -130,6 +135,7 @@ def multi_multidim_tensor_input_model(data):
     input_a = Input(shape=(2, 3), name="a")
     input_b = Input(shape=(2, 5), name="b")
 
+    @register_keras_serializable(name="f1")
     def f1(z):
         from tensorflow.keras import backend as K
 
@@ -355,6 +361,7 @@ def test_multi_multidim_input_model_spark_udf(
     np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
 
+# TODO: fix the custom_objects problem in model serving
 def test_scoring_server_successfully_on_single_multidim_input_model(
     single_multidim_tensor_input_model, model_path, data
 ):
