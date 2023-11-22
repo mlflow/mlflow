@@ -13,6 +13,15 @@ interpreted as a generic Python function for inference via :py:func:`mlflow.pyfu
 Additionally, :py:func:`mlflow.sentence_transformers.load_model()` can be used to load a saved or logged MLflow
 Model with the ``sentence_transformers`` flavor in the native sentence-transformers format.
 
+Tutorials for Sentence Transformers
+-----------------------------------
+
+Looking to get right in to some usable examples and tutorials that show how to leverage this library with MLflow? 
+
+.. raw:: html
+
+    <a href="../index.html#getting-started-with-the-mlflow-sentence-transformers-flavor-tutorials-and-guides" class="download-btn">See the Tutorials</a>
+
 Input and Output Types for PyFunc
 ---------------------------------
 
@@ -33,19 +42,15 @@ You can save and log sentence-transformers models in MLflow. Here's an example o
     import mlflow
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer('model_name')
+    model = SentenceTransformer("model_name")
 
     # Saving the model
-    mlflow.sentence_transformers.save_model(
-        model=model,
-        path="path/to/save/directory"
-    )
+    mlflow.sentence_transformers.save_model(model=model, path="path/to/save/directory")
 
     # Logging the model
     with mlflow.start_run():
         mlflow.sentence_transformers.log_model(
-            sentence_transformers_model=model,
-            artifact_path="model_artifact_path"
+            sentence_transformers_model=model, artifact_path="model_artifact_path"
         )
 
 Custom Python Function Implementation
@@ -64,7 +69,6 @@ implementation for comparing the similarity between text documents:
 
 
     class DocumentSimilarityModel(PythonModel):
-
         def load_context(self, context):
             """Load the model context for inference."""
             self.model = SentenceTransformer.load(context.artifacts["model_path"])
@@ -85,6 +89,7 @@ implementation for comparing the similarity between text documents:
 
             return pd.DataFrame(similarity_scores.numpy(), columns=["similarity_score"])
 
+
     # Example model saving and loading
     model = SentenceTransformer("all-MiniLM-L6-v2")
     model_path = "/tmp/sentence_transformers_model"
@@ -95,16 +100,18 @@ implementation for comparing the similarity between text documents:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="document_similarity_model",
             python_model=DocumentSimilarityModel(),
-            artifacts={"model_path": model_path}
+            artifacts={"model_path": model_path},
         )
 
     loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
     # Test prediction
-    df = pd.DataFrame({
-        "doc1": ["Sentence Transformers is a wonderful package!"], 
-        "doc2": ["MLflow is pretty great too!"]
-    })
+    df = pd.DataFrame(
+        {
+            "doc1": ["Sentence Transformers is a wonderful package!"],
+            "doc2": ["MLflow is pretty great too!"],
+        }
+    )
 
     result = loaded.predict(df)
     print(result)

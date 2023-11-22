@@ -250,7 +250,7 @@ Select the integration below to read the documentation on how to leverage MLflow
             </div>
         </a>
         
-        <a href="../models.html#sentencetransformers-sentence-transformers-experimental">
+        <a href="sentence-transformers/guide/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo"/>
             </div>
@@ -372,6 +372,8 @@ Tutorials and Use Case Guides for LLMs in MLflow
 Interested in learning how to leverage MLflow for your LLM projects? 
 
 Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging LLMs a bit easier!
+
+Note that there are additional tutorials within the `Native Integration Guides and Tutorials section above <#native-integration-guides-and-tutorials>`_, so be sure to check those out as well!
 
 .. toctree::
     :maxdepth: 1

@@ -69,7 +69,7 @@ With MLflow's Sentence-Transformers flavor, users can:
 What can you do with Sentence Transformers and MLflow?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-One fo the more powerful applications that can be built with these tools is a semantic search engine. By using readily available open source 
+One of the more powerful applications that can be built with these tools is a semantic search engine. By using readily available open source 
 tooling, you can build a semantic search engine that can find the most semantically similar sentences in a corpus for a given query. This is 
 a significant improvement over traditional keyword-based search engines, which are limited in their ability to understand the context of a query.
 
