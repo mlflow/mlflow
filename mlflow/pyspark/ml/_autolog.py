@@ -2,7 +2,11 @@ import re
 from functools import reduce
 from typing import Set, Union
 
-from pyspark.errors.exceptions.base import IllegalArgumentException
+try:
+    # For spark >= 4.0
+    from pyspark.errors.exceptions.base import IllegalArgumentException
+except ModuleNotFoundError:
+    from pyspark.sql.utils import IllegalArgumentException
 from pyspark.ml.base import Transformer
 from pyspark.ml.functions import vector_to_array
 from pyspark.ml.linalg import VectorUDT
