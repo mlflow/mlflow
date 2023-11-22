@@ -22,67 +22,42 @@ having to worry about the underlying model or the preprocessing steps.
 
 .. figure:: ../../_static/images/tutorials/llms/transformers-pipeline-architecture.png
    :alt: Transformers Pipeline Architecture
-   :width: 80%
+   :width: 90%
    :align: center
 
    Transformers Pipeline Architecture for the Whisper Model
 
-The integration of Transformers with MLflow brings a seamless experience for tracking and deploying these models. 
-MLflow, a platform dedicated to the end-to-end machine learning lifecycle, now supports the Transformers library, 
-enabling practitioners to manage experiments, track model versions, and serve models with unprecedented ease.
+The integration of the Transformers library with MLflow enhances the management of machine learning workflows, from experiment 
+tracking to model deployment. This combination offers a robust and efficient pathway for incorporating advanced NLP and AI capabilities 
+into your applications.
 
-The Transformers library offers:
+**Key Features of the Transformers Library**:
 
-- **Pre-trained Models**: Access to a comprehensive collection of `pre-trained models <https://huggingface.co/models>`_, reducing compute costs, carbon footprint, and the time needed to train models from scratch.
-- **Task Versatility**: Support for common tasks across different modalities such as text classification, entity recognition, question answering, summarization, translation, image classification, object detection, segmentation, speech recognition, and more.
-- **Framework Interoperability**: Flexibility to train models in one framework and deploy in another, supporting PyTorch, TensorFlow, and JAX, with additional export options for ONNX and TorchScript.
-- **Community**: A highly active and engaged community for collaboration and support through forums and the Hugging Face Hub.
+- **Access to Pre-trained Models**: A vast collection of `pre-trained models <https://huggingface.co/models>`_ for various tasks, minimizing training time and resources.
+- **Task Versatility**: Support for multiple modalities including text, image, and speech processing tasks.
+- **Framework Interoperability**: Compatibility with PyTorch, TensorFlow, JAX, ONNX, and TorchScript.
+- **Community Support**: An active community for collaboration and support, accessible via forums and the Hugging Face Hub.
 
-MLflow's Transformers flavor is designed to harness the power of the Transformers library within the MLflow ecosystem, providing tools for:
+**MLflow's Transformers Flavor**: 
 
-- **Simplified Experiment Tracking**: Log parameters, metrics, and models with ease during the `fine-tuning process <https://huggingface.co/docs/transformers/main_classes/trainer>`_.
-- **Effortless Deployment**: Deploy trained models with simple API calls, catering to a variety of production environments.
-- **Comprehensive Model Support**: Compatibility with a wide range of models from the `Transformers library <https://pypi.org/project/transformers/>`_, ensuring that the latest advancements in AI are readily accessible.
-- **Support for Performance-enabling Optional Dependencies**: Integration with performance-enabled libraries such as `Hugging Face Accelerate <https://huggingface.co/docs/accelerate/index>`_.
+MLflow supports the use of the Transformers package by providing:
 
-Whether you are a data scientist, a machine learning engineer, or a researcher, MLflow's integration with Transformers offers a 
-robust and efficient pathway to incorporate cutting-edge NLP and AI capabilities into your applications.
+- **Simplified Experiment Tracking**: Efficient logging of parameters, metrics, and models during the `fine-tuning process <https://huggingface.co/docs/transformers/main_classes/trainer>`_.
+- **Effortless Model Deployment**: Streamlined deployment to various production environments.
+- **Comprehensive Model Support**: Compatibility with a broad range of models from the `Transformers library <https://pypi.org/project/transformers/>`_.
+- **Enhanced Performance**: Integration with libraries like `Hugging Face Accelerate <https://huggingface.co/docs/accelerate/index>`_ for improved model performance.
+- **Fine-tuning of Foundational Models**: Users can `fine-tune transformers models <tutorials/fine-tuning/transformers-fine-tuning.html>`_ on custom datasets while tracking metrics and parameters.
+- **Experiment Tracking**: Log experiments, including all relevant details and artifacts, for easy comparison and reproducibility.
+- **Simplified Model Deployment**: Deploy models with `minimal configuration requirements <guide/index.html#scalability-for-inference>`_.
 
-Features
---------
+**Example Use Case:**
 
-With MLflow's Transformers flavor, users can:
-
-- Log and save Transformer models directly within MLflow.
-- Track experiments, including parameters, metrics, and artifacts.
-- Deploy models for inference with ease.
-- Leverage the ``python_function`` flavor for generic Python function inference.
-
-MLflow Flavor for Transformers
-------------------------------
-
-The MLflow Transformers flavor is designed to simplify the machine learning workflow. It enables users to:
-
-- Fine-tune foundational models on custom datasets.
-- Keep track of training metrics, parameters, and outputs.
-- Deploy models for inference with minimal configuration.
-
-Simplified Fine-Tuning and Experiment Tracking
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Fine-tuning a pre-trained model is a common practice in machine learning. MLflow streamlines this process by allowing users to log 
-the fine-tuning parameters, track the training metrics, and save the resulting model. This ensures reproducibility and facilitates 
-comparison across different experiments.
-
-To see an example of how to fine-tune a model and log the results in MLflow in an end-to-end example of creating a spam classifier pipeline, 
-see the `fine-tuning tutorial <tutorials/fine-tuning/transformers-fine-tuning.html>`_. 
-
-For a frame of reference of what the experience is within MLflow for fine-tuning a transformers foundation model, the image below shows the 
-MLflow UI after running the fine tuning tutorial.
+For an illustration of fine-tuning a model and logging the results with MLflow, refer to the `fine-tuning tutorial <tutorials/fine-tuning/transformers-fine-tuning.html>`_. 
+The tutorial demonstrates creating a spam classifier pipeline, and the image below shows the result of that tutorial within the MLflow UI.
 
 .. figure:: ../../_static/images/tutorials/llms/transformers-fine-tuning.png
    :alt: Fine-tuning a Transformers Model with MLflow
-   :width: 80%
+   :width: 100%
    :align: center
 
    Fine-tuning a Transformers Model with MLflow
@@ -90,8 +65,12 @@ MLflow UI after running the fine tuning tutorial.
 Deployment Made Easy
 ^^^^^^^^^^^^^^^^^^^^
 
-Once a model is trained, it needs to be deployed for inference. MLflow's integration with Transformers simplifies this by providing 
-functions such as :py:func:`mlflow.transformers.load_model` and :py:func:`mlflow.pyfunc.load_model`, which allow for easy model serving.
+Once a model is trained, it needs to be `deployed for inference <guide/index.html#example-of-loading-a-transformers-model-as-a-python-function>`_. 
+MLflow's integration with Transformers simplifies this by providing functions such as :py:func:`mlflow.transformers.load_model` and 
+:py:func:`mlflow.pyfunc.load_model`, which allow for easy model serving.
+As part of the feature support for enhanced inference with transformers, MLflow provides mechanisms to enable the use of `inference 
+arguments <guide/index.html#scalability-for-inference>`_ that can reduce the computational overhead and lower the memory requirements 
+for deployment. 
 
 Getting Started with the MLflow Transformers Flavor - Tutorials and Guides
 --------------------------------------------------------------------------
@@ -106,10 +85,10 @@ APIs for tracking and inference capabilities.
             <div class="simple-card">
                 <a href="tutorials/text-generation/text-generation.html">
                     <div class="header">
-                        Text Generation with Transformers
+                        Quickstart: Text Generation with Transformers
                     </div>
                     <p>
-                        Learn how to leverage the transformers integration with MLflow in this introductory tutorial.
+                        Learn how to leverage the transformers integration with MLflow in this <strong>introductory quickstart</strong>.
                     </p>
                 </a>
             </div>
@@ -154,7 +133,7 @@ APIs for tracking and inference capabilities.
                 </a>
             </div>
             <div class="simple-card">
-                <a href="../custom-pyfunc-for-llms/index.html">
+                <a href="../custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm.html">
                     <div class="header">
                         Custom PyFunc for Transformers
                     </div>
@@ -233,7 +212,7 @@ When working with the transformers flavor in MLflow, there are several important
 - **Model Configuration**: When saving or logging models, the `model_config` can be used to set certain parameters. However, if both model_config and a `ModelSignature` with parameters are saved, the default parameters in ModelSignature will override those in `model_config`.
 - **Audio and Vision Models**: Audio and text-based large language models are supported for use with pyfunc, while other types like computer vision and multi-modal models are only supported for native type loading.
 
-The currently supported pipeline types for Pyfunc can be seen `here <../../models.html#supported-transformers-pipeline-types-for-pyfunc>`_.
+The currently supported pipeline types for Pyfunc can be seen `here <guide/index.html#supported-transformers-pipeline-types-for-pyfunc>`_.
 
 `Detailed Documentation <guide/index.html>`_
 --------------------------------------------
