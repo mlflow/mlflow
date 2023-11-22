@@ -533,7 +533,7 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
     # keras in tensorflow used to have a '-tf' suffix in the version:
     # https://github.com/tensorflow/tensorflow/blob/v2.2.1/tensorflow/python/keras/__init__.py#L36
     unsuffixed_version = re.sub(r"-tf$", "", _get_keras_version(keras_module))
-    if save_format == "h5" and Version("2.2.3") <= Version(unsuffixed_version) < Version("2.15.0"):
+    if save_format == "h5" and Version("2.2.3") <= Version(unsuffixed_version) < Version("2.16.0"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         import h5py
