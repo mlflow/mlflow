@@ -746,9 +746,9 @@ As of MLflow 2.9.0, Model Stages have been deprecated and will be removed in a f
 New model deployment tools
 --------------------------
 
-Model stages were used to express the lifecycle of MLflow Models for productionization and deployment. Users transitioned model versions through four fixed stages (from **none**, to **staging**, to **production**, and then to **archived**) as they proposed, validated, deployed, and deprecated models for their ML use-cases. In doing so, model registry stages provided labeling and aliasing functionality for the model versions, by denoting the status of a model version in the UI and providing named references to model versions in the code (e.g. ``/Staging`` in the model URI). Model registry stages were also been used to denote the environment that the model is in.
+Model stages were used to express the lifecycle of MLflow Models for productionization and deployment. Users transitioned model versions through four fixed stages (from **none**, to **staging**, to **production**, and then to **archived**) as they proposed, validated, deployed, and deprecated models for their ML use-cases. In doing so, model registry stages provided labeling and aliasing functionality for the model versions, by denoting the status of a model version in the UI and providing named references to model versions in the code (e.g. ``/Staging`` in the model URI). Model registry stages were also used to denote the environment that the model is in, though it was not possible to set up access controls for them.
 
-To replace and improve upon stages, we elevated **model version tags**, introduced **model version aliases**, and enhanced the model registry UI to provide flexible and powerful ways to label and alias MLflow models in the Model Registry. We also introduced **environmental separation** to enable you to set up separate environments for your models and to express access controls for them.
+To replace and improve upon stages, we elevated **model version tags** in the UI and introduced **model version aliases** to provide flexible and powerful ways to label and alias MLflow models in the Model Registry. We also made it possible to **set up separate environments** for your models and configure access controls for each environment.
 
 **Model version tags**
 
