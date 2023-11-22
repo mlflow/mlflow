@@ -2,6 +2,7 @@
 # This file is imported by download_cloud_file_chunk.py.
 # Importing mlflow is time-consuming and we want to avoid that in artifact download subprocesses.
 import os
+import random
 from functools import lru_cache
 
 import requests
@@ -24,6 +25,25 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
         504,  # Gateway Timeout
     ]
 )
+
+
+class JitteredRetry(Retry):
+    """
+    urllib3 < 2 doesn't support `backoff_jitter`. This class is a workaround for that.
+    """
+
+    def __init__(self, *args, backoff_jitter=0.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.backoff_jitter = backoff_jitter
+
+    def get_backoff_time(self):
+        """
+        Source: https://github.com/urllib3/urllib3/commit/214b184923388328919b0a4b0c15bff603aa51be
+        """
+        backoff_value = super().get_backoff_time()
+        if self.backoff_jitter != 0.0:
+            backoff_value += random.random() * self.backoff_jitter
+        return float(max(0, min(self.backoff_max, backoff_value)))
 
 
 def augmented_raise_for_status(response):
@@ -100,7 +120,7 @@ def _cached_get_request_session(
         retry_kwargs["allowed_methods"] = None
     else:
         retry_kwargs["method_whitelist"] = None
-    retry = Retry(**retry_kwargs)
+    retry = JitteredRetry(**retry_kwargs)
     adapter = HTTPAdapter(max_retries=retry)
     session = requests.Session()
     session.mount("https://", adapter)
