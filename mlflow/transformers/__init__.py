@@ -2655,12 +2655,6 @@ class _TransformersWrapper:
                     self._validate_str_input_uri_or_file(encoded_audio)
                 lst_data.append(decode_audio(encoded_audio))
            return lst_data
-        # elif all(isinstance(element, dict) for element in data):
-        #     encoded_audio = list(data[0].values())[0]
-        #     if isinstance(encoded_audio, str):
-        #         self._validate_str_input_uri_or_file(encoded_audio)
-        #     return decode_audio(encoded_audio)
-
         elif isinstance(data, str):
             self._validate_str_input_uri_or_file(data)
         return data
