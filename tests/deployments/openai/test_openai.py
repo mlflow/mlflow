@@ -5,17 +5,24 @@ import pytest
 from mlflow.deployments import get_deploy_client
 
 
-@pytest.fixture(autouse=True)
-def mock_databricks_credentials(monkeypatch):
-    monkeypatch.setenv("DATABRICKS_HOST", "https://test.cloud.databricks.com")
-    monkeypatch.setenv("DATABRICKS_TOKEN", "secret")
+@pytest.fixture
+def mock_openai_creds(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "my-secret-key")
 
 
-def test_get_deploy_client():
+@pytest.fixture
+def mock_azure_openai_creds(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "my-secret-key")
+    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    monkeypatch.setenv("OPENAI_API_BASE", "my-base")
+    monkeypatch.setenv("OPENAI_DEPLOYMENT_NAME", "my-deployment")
+
+
+def test_get_deploy_client(mock_openai_creds):
     get_deploy_client("openai")
 
 
-def test_predict():
+def test_predict(mock_openai_creds):
     client = get_deploy_client("openai")
     mock_resp = mock.Mock()
     mock_resp.json.return_value = {"foo": "bar"}
