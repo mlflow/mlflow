@@ -57,9 +57,10 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at a minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at a minimum, contains these requirements.
     """
     # Note: Prophet's whl build process will fail due to missing dependencies, defaulting
     # to setup.py installation process.
@@ -70,8 +71,9 @@ def get_default_pip_requirements():
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -89,43 +91,43 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
 ):
-    """
-    Save a Prophet model to a path on the local file system.
-
-    :param pr_model: Prophet model (an instance of Prophet() forecaster that has been fit
-                     on a temporal series.
-    :param path: Local path where the serialized model (as JSON) is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      class that describes the model's inputs and outputs. If not specified but an
-                      ``input_example`` is supplied, a signature will be automatically inferred
-                      based on the supplied input example and model. To disable automatic signature
-                      inference when providing an input example, set ``signature`` to ``False``.
-                      To manually infer a model signature, call
-                      :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
-                      with valid model inputs, such as a training dataset with the target column
-                      omitted, and valid model outputs, like model predictions made on the training
-                      dataset, for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        model = Prophet().fit(df)
-                        train = model.history
-                        predictions = model.predict(model.make_future_dataframe(30))
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+    """Save a Prophet model to a path on the local file system.
+    
+    Args:
+        pr_model: Prophet model (an instance of Prophet() forecaster that has been fit
+                  on a temporal series.
+        path: Local path where the serialized model (as JSON) is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                    containing file dependencies). These files are *prepended* to the system
+                    path when the model is loaded.
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                   class that describes the model's inputs and outputs. If not specified but an
+                   ``input_example`` is supplied, a signature will be automatically inferred
+                   based on the supplied input example and model. To disable automatic signature
+                   inference when providing an input example, set ``signature`` to ``False``.
+                   To manually infer a model signature, call
+                   :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+                   with valid model inputs, such as a training dataset with the target column
+                   omitted, and valid model outputs, like model predictions made on the training
+                   dataset, for example:
+    
+                   .. code-block:: python
+    
+                     from mlflow.models import infer_signature
+    
+                     model = Prophet().fit(df)
+                     train = model.history
+                     predictions = model.predict(model.make_future_dataframe(30))
+                     signature = infer_signature(train, predictions)
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    
+                   .. Note:: Experimental: This parameter may change or be removed in a future
+                                            release without warning.
     """
     import prophet
 
@@ -220,53 +222,54 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
 ):
-    """
-    Log a Prophet model as an MLflow artifact for the current run.
-
-    :param pr_model: Prophet model to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-
-    :param registered_model_name: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
-    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      class that describes the model's inputs and outputs. If not specified but an
-                      ``input_example`` is supplied, a signature will be automatically inferred
-                      based on the supplied input example and model. To disable automatic signature
-                      inference when providing an input example, set ``signature`` to ``False``.
-                      To manually infer a model signature, call
-                      :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
-                      with valid model inputs, such as a training dataset with the target column
-                      omitted, and valid model outputs, like model predictions made on the training
-                      dataset, for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        model = Prophet().fit(df)
-                        train = model.history
-                        predictions = model.predict(model.make_future_dataframe(30))
-                        signature = infer_signature(train, predictions)
-
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version
-                        to finish being created and is in ``READY`` status.
-                        By default, the function waits for five minutes.
-                        Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+    """Logs a Prophet model as an MLflow artifact for the current run.
+    
+    Args:
+        pr_model: Prophet model to be saved.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                    containing file dependencies). These files are *prepended* to the system
+                    path when the model is loaded.
+        registered_model_name: This argument may change or be removed in a
+                               future release without warning. If given, create a model
+                               version under ``registered_model_name``, also creating a
+                               registered model if one with the given name does not exist.
+        signature: An instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                   class that describes the model's inputs and outputs. If not specified but an
+                   ``input_example`` is supplied, a signature will be automatically inferred
+                   based on the supplied input example and model. To disable automatic signature
+                   inference when providing an input example, set ``signature`` to ``False``.
+                   To manually infer a model signature, call
+                   :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+                   with valid model inputs, such as a training dataset with the target column
+                   omitted, and valid model outputs, like model predictions made on the training
+                   dataset, for example:
+    
+                   .. code-block:: python
+    
+                     from mlflow.models import infer_signature
+    
+                     model = Prophet().fit(df)
+                     train = model.history
+                     predictions = model.predict(model.make_future_dataframe(30))
+                     signature = infer_signature(train, predictions)
+    
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version
+                                to finish being created and is in ``READY`` status.
+                                By default, the function waits for five minutes.
+                                Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    
+                    .. Note:: Experimental: This parameter may change or be removed in a future
+                                            release without warning.
+    
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -301,9 +304,10 @@ def _load_model(path):
 
 
 def _load_pyfunc(path):
-    """
-    Load PyFunc implementation for Prophet. Called by ``pyfunc.load_model``.
-    :param path: Local filesystem path to the MLflow Model with the ``prophet`` flavor.
+    """Loads PyFunc implementation for Prophet. Called by ``pyfunc.load_model``.
+    
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``prophet`` flavor.
     """
     return _ProphetModelWrapper(_load_model(path))
 
@@ -311,22 +315,22 @@ def _load_pyfunc(path):
 def load_model(model_uri, dst_path=None):
     """
     Load a Prophet model from a local file or a run.
-
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
-
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
-
-    :return: A Prophet model instance
+    
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
+                   - ``/Users/me/path/to/local/model``
+                   - ``relative/path/to/local/model``
+                   - ``s3://my_bucket/path/to/model``
+                   - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                   For more information about supported URI schemes, see
+                   `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                   artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+                  This directory must already exist. If unspecified, a local output
+                  path will be created.
+    
+    Returns:
+        A Prophet model instance
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
@@ -346,12 +350,14 @@ class _ProphetModelWrapper:
         self, dataframe, params: Optional[Dict[str, Any]] = None
     ):  # pylint: disable=unused-argument
         """
-        :param dataframe: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
-        :return: Model predictions.
+        Args:
+            dataframe: Model input data.
+            params: Additional parameters to pass to the model for inference.
+        
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                           release without warning.
+        
+        Returns:
+            Model predictions.
         """
         return self.pr_model.predict(dataframe)

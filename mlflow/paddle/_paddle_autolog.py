@@ -10,9 +10,7 @@ from mlflow.utils.autologging_utils import (
 
 
 class __MLflowPaddleCallback(paddle.callbacks.Callback, metaclass=ExceptionSafeAbstractClass):
-    """
-    Callback for auto-logging metrics and parameters.
-    """
+    """Callback for auto-logging metrics and parameters."""
 
     def __init__(self, client, metrics_logger, run_id, log_models, log_every_n_epoch):
         super().__init__()

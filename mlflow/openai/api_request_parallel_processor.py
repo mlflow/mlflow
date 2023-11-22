@@ -40,9 +40,7 @@ _logger = logging.getLogger(__name__)
 
 @dataclass
 class StatusTracker:
-    """
-    Stores metadata about the script's progress. Only one instance is created.
-    """
+    """Stores metadata about the script's progress. Only one instance is created."""
 
     num_tasks_started: int = 0
     num_tasks_in_progress: int = 0  # script ends when this reaches 0
@@ -95,9 +93,7 @@ class APIRequest:
     timeout: int = 60
 
     def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
-        """
-        Calls the OpenAI API and stores results.
-        """
+        """Calls the OpenAI API and stores results."""
         _logger.debug(f"Request #{self.index} started")
         try:
             response = self.task.create(**self.request_json, timeout=self.timeout)
@@ -222,9 +218,7 @@ def process_api_requests(
     max_workers: int = 10,
     throw_original_error=False,
 ):
-    """
-    Processes API requests in parallel, throttling to stay under rate limits.
-    """
+    """Processes API requests in parallel, throttling to stay under rate limits."""
     # constants
     seconds_to_pause_after_rate_limit_error = 15
 
