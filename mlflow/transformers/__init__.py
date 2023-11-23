@@ -1801,7 +1801,7 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ImageClassificationPipeline):
-            data = self._convert_audio_or_image_input(data)
+            data = self._convert_image_input(data)
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             output_key = "labels"
@@ -1827,9 +1827,9 @@ class _TransformersWrapper:
                 output_key = None
             else:
                 output_key = "text"
-            data = self._convert_audio_or_image_input(data)
+            data = self._convert_audio_input(data)
         elif isinstance(self.pipeline, transformers.AudioClassificationPipeline):
-            data = self._convert_audio_or_image_input(data)
+            data = self._convert_audio_input(data)
             output_key = None
         else:
             raise MlflowException(
@@ -2572,9 +2572,63 @@ class _TransformersWrapper:
                     parsed_data.append(entry)
             return parsed_data
 
-    def _convert_audio_or_image_input(self, data):
+    def _convert_image_input(self, data):
         """
-        Conversion utility for decoding the base64 encoded bytes data of a raw sound/image file when
+        Conversion utility for decoding the base64 encoded bytes data of a raw image file when
+        parsed through model serving, if applicable. Direct usage of the pyfunc implementation
+        outside of model serving will treat this utility as a noop.
+
+        For reference, the expected encoding for input to Model Serving will be:
+
+        import requests
+        import base64
+
+        response = requests.get("https://www.my.images/a/sound/file.jpg")
+        encoded_image = base64.b64encode(response.content).decode("utf-8")
+
+        inference_data = json.dumps({"inputs": [encoded_image]})
+
+        or
+
+        inference_df = pd.DataFrame(
+        pd.Series([encoded_image], name="image_file")
+        )
+        split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+        split_json = json.dumps(split_dict)
+
+        or
+
+        records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
+        records_json = json.dumps(records_dict)
+
+        This utility will convert this JSON encoded, base64 encoded text back into bytes for
+        input into the Image pipelines for inference.
+        """
+
+        def is_base64_image(s):
+            try:
+                return base64.b64encode(base64.b64decode(s)).decode("utf-8") == s
+            except binascii.Error:
+                return False
+
+        if isinstance(data, list) and  all(isinstance(element, dict) for element in data):
+           lst_data= []
+           for item in data:
+                data_ele = next(iter(item.values()))
+                if isinstance(data_ele, str):
+                    # base64 encoded image comes as string
+                    if not is_base64_image(data_ele):
+                        self._validate_str_input_uri_or_file(data_ele)
+                lst_data.append(data_ele)
+           return lst_data
+        elif isinstance(data, str):
+            if not is_base64_image(data):
+                self._validate_str_input_uri_or_file(data)
+        return data
+
+    def _convert_audio_input(self, data):
+        """
+        Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
         parsed through model serving, if applicable. Direct usage of the pyfunc implementation
         outside of model serving will treat this utility as a noop.
 
@@ -2611,15 +2665,9 @@ class _TransformersWrapper:
             except binascii.Error:
                 return False
 
-        def is_base64_image(s):
-            try:
-                return base64.b64encode(base64.b64decode(s)).decode("utf-8") == s
-            except binascii.Error:
-                return False
-
         def decode_audio(encoded):
             if isinstance(encoded, str):
-                # This is to support blob style passing of uri locations to process audio/image files
+                # This is to support blob style passing of uri locations to process audio files
                 # on disk or object store. Note that if a uri is passed, a signature *must be*
                 # provided for serving to function as the default signature uses bytes.
                 return encoded
@@ -2636,9 +2684,9 @@ class _TransformersWrapper:
                     return base64.b64decode(encoded)
                 except binascii.Error as e:
                     raise MlflowException(
-                        "The encoded file that was passed has not been properly base64 "
+                        "The encoded soundfile that was passed has not been properly base64 "
                         "encoded. Please ensure that the raw sound bytes have been processed with "
-                        "`base64.b64encode(<data bytes>).decode('ascii')`"
+                        "`base64.b64encode(<audio data bytes>).decode('ascii')`"
                     ) from e
 
         # The example input data that is processed by this logic is from the pd.DataFrame
@@ -2654,23 +2702,15 @@ class _TransformersWrapper:
         # The output of the conversion present in the conditional structural validation below is
         # to return the only input format that the audio transcription pipeline permits:
         # a bytes input of a single element.
-        if isinstance(data, list) and  all(isinstance(element, dict) for element in data):
-           lst_data= []
-           for item in data:
-                data_ele = next(iter(item.values()))
-                if isinstance(data_ele, bytes):
-                    lst_data.append(decode_audio(data_ele))
-                    continue
-                if isinstance(data_ele, str):
-                    # base64 encoded image comes as string
-                    if not is_base64_image(data_ele):
-                        self._validate_str_input_uri_or_file(data_ele)
-                lst_data.append(data_ele)
-           return lst_data
+        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
+            encoded_audio = list(data[0].values())[0]
+            if isinstance(encoded_audio, str):
+                self._validate_str_input_uri_or_file(encoded_audio)
+            return decode_audio(encoded_audio)
         elif isinstance(data, str):
-            if not is_base64_image(data):
-                self._validate_str_input_uri_or_file(data)
+            self._validate_str_input_uri_or_file(data)
         return data
+
 
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
