@@ -114,7 +114,7 @@ Running it
 ----------
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/default-experiment.gif
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Exploring the Default Experiment
 

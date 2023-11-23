@@ -38,7 +38,7 @@ I created a new MLflow Experiment to record the state of what I tried. Since I w
 sets and models, each subsequent modification that I was trying necessitated a new Experiment.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/dogfood-diagram.svg
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Using MLflow Tracking for building this demo
 
@@ -48,7 +48,7 @@ After finding a workable approach for the dataset generator, the results can be 
 UI.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/dogfood.gif
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Checking the results of the test
 
@@ -57,7 +57,7 @@ UI.
 Once I found something that actually worked, I cleaned everything up (deleted them).
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/cleanup-experiments.gif
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Tidying up
 
@@ -181,7 +181,7 @@ an annotated version of the code.
 To aid in visualizing how MLflow tracking API calls add in to an ML training code base, see the figure below.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/training-annotation.svg
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Explanation of MLflow integration into ML training code
 
@@ -193,6 +193,6 @@ Putting it all together
 Let's see what this looks like when we run our model training code and navigate to the MLflow UI.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/logging-first-model.gif
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Log the model to MLflow

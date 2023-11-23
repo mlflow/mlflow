@@ -14,7 +14,7 @@ As before, we're going to connect to our running MLflow Tracking server to view 
 window that was running it, simply navigate to ``http://127.0.0.1:8080`` in a new browser window.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/first-experiment-ui.gif
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: View our new experiment in the UI
 
@@ -26,7 +26,7 @@ There are some important elements in the UI to be aware of at this point, before
 our new experiment. Note the annotated elements on the figure below. It will be useful to know that these bits of data are there later on.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/experiment-page-elements.svg
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Important Data on the Experiment View Page
 
@@ -86,7 +86,7 @@ Executing the Search
 --------------------
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/creating-experiment.gif
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Creating a new Experiment
 

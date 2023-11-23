@@ -222,7 +222,7 @@ When opening the site, you will see a screen similar to the following:
 
 .. figure:: ../../_static/images/tutorials/introductory/quickstart-tracking/quickstart-our-experiment.png
     :alt: MLflow UI Experiment view page
-    :width: 1024px
+    :width: 90%
     :align: center
 
     The main MLflow Tracking page, showing Experiments that have been created
@@ -235,7 +235,7 @@ been highlighted below to show how and where this data is recorded within the UI
 
 .. figure:: ../../_static/images/tutorials/introductory/quickstart-tracking/quickstart-our-run.png
     :alt: MLflow UI Run view page
-    :width: 1024px
+    :width: 90%
     :align: center
 
     The run view page for our run 

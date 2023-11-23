@@ -559,6 +559,6 @@ Please see the screenshot below for clarity:
 
 
 .. figure:: ../../_static/images/llm_evaluate_experiment_view.png
-    :width: 1024px
+    :width: 90%
     :align: center
     :alt: Demo UI of MLflow evaluate

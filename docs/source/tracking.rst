@@ -101,7 +101,7 @@ instance of a `FileStore` and `LocalArtifactRepository`.
 
 .. figure:: _static/images/scenario_1.png
     :align: center
-    :figwidth: 600
+    :figwidth: 40%
 
 In this simple scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
 
@@ -116,7 +116,7 @@ are stored under the local ``./mlruns`` directory, and MLflow entities are inser
 
 .. figure:: _static/images/scenario_2.png
     :align: center
-    :figwidth: 600
+    :figwidth: 40%
 
 In this scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
 
@@ -136,7 +136,7 @@ server running, the MLflow client interacts with the tracking server via REST re
 
 .. figure:: _static/images/scenario_3.png
     :align: center
-    :figwidth: 800
+    :figwidth: 60%
 
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
@@ -167,7 +167,7 @@ a Postgres database for backend entity storage, and an S3 bucket for artifact st
 
 .. figure:: _static/images/scenario_4.png
     :align: center
-    :figwidth: 800
+    :figwidth: 60%
 
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
@@ -212,7 +212,7 @@ need for an end-user to provide access credentials to interact with an underlyin
 
 .. figure:: _static/images/scenario_5.png
     :align: center
-    :figwidth: 800
+    :figwidth: 80%
 
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
@@ -273,7 +273,7 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
 
 .. figure:: _static/images/scenario_6.png
     :align: center
-    :figwidth: 800
+    :figwidth: 80%
 
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
@@ -447,14 +447,20 @@ Visualizing Metrics
 Here is an example plot of the :ref:`quick start tutorial <quickstart-1>` with the step x-axis and two timestamp axes:
 
 .. figure:: _static/images/metrics-step.png
+  :width: 90%
+  :align: center
 
   X-axis step
 
 .. figure:: _static/images/metrics-time-wall.png
+  :width: 90%
+  :align: center
 
   X-axis wall time - graphs the absolute time each metric was logged
 
 .. figure:: _static/images/metrics-time-relative.png
+  :width: 90%
+  :align: center
 
   X-axis relative time - graphs the time relative to the first metric logged, for each run
 

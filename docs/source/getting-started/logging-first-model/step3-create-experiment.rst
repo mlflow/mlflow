@@ -15,7 +15,7 @@ In order to see the MLflow UI, we simply have to use a web browser to connect to
 Once navigating to the url for the MLflow UI, you will see the default experiment with no run data.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/default-ui.png
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: A freshly initialized MLflow UI
 
@@ -94,7 +94,7 @@ to ensure meaningful insights.
 To apply these boundaries effectively, as is shown in the figure below, tags should be employed.
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/tag-exp-run-relationship.svg
-   :width: 860px
+   :width: 60%
    :align: center
    :alt: Tags, experiments, and runs relationships
 

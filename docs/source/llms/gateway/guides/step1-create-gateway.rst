@@ -96,7 +96,7 @@ the URL: ``http://localhost:5000``. To modify these default settings, use the
 
 
 .. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/start_gateway.gif
-   :width: 800px
+   :width: 60%
    :align: center
    :alt: Start the gateway and observe the docs.
 

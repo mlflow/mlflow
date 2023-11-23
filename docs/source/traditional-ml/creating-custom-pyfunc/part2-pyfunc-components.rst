@@ -76,7 +76,7 @@ Here's a step-by-step breakdown of the sequence of events that happens when load
 are accessed and referenced to control the behavior of the loaded model object.
 
 .. figure:: ../../_static/images/guides/introductory/creating-custom-pyfunc/pyfunc_loading.svg
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Tags, experiments, and runs relationships
 

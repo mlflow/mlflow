@@ -56,7 +56,7 @@ various other parameters. For detailed information, please refer to the document
         print(response)
 
 .. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/completions.gif
-   :width: 800px
+   :width: 60%
    :align: center
    :alt: Completions example.
 
@@ -93,7 +93,7 @@ For further details, please consult the documentation.
         print(response)
 
 .. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/chat.gif
-   :width: 800px
+   :width: 60%
    :align: center
    :alt: Chat example.
 
@@ -124,7 +124,7 @@ respective numerical vectors. Let's proceed with an example...
         print(response)
 
 .. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/embeddings.gif
-   :width: 800px
+   :width: 60%
    :align: center
    :alt: Chat example.
 

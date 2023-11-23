@@ -65,12 +65,16 @@ Follow the steps below to register your MLflow model in the Model Registry.
 1. Open the details page for the MLflow Run containing the logged MLflow model you'd like to register. Select the model folder containing the intended MLflow model in the **Artifacts** section.
 
   .. figure:: _static/images/oss_registry_1_register.png
+    :align: center
+    :figwidth: 90%
 
 2. Click the **Register Model** button, which will trigger a form to pop up.
 
 3. In the **Model** dropdown menu on the form, you can either select "Create New Model", which creates a new registered model with your MLflow model as its initial version, or select an existing registered model, which registers your model under it as a new version. The screenshot below demonstrates registering the MLflow model to a new registered model named ``"iris_model_testing"``.
  
   .. figure:: _static/images/oss_registry_2_dialog.png
+    :align: center
+    :figwidth: 90%
 
 Find Registered Models
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -80,10 +84,14 @@ After you've registered your models in the Model Registry, you can navigate to t
 - Navigate to the **Registered Models** page, which links to your registered models and correponding model versions.
 
   .. figure:: _static/images/oss_registry_3_overview.png
+    :align: center
+    :figwidth: 90%
 
 - Go to the **Artifacts** section of your MLflow Runs details page, click the model folder, and then click the model version at the top right to view the version created from that model.
 
   .. figure:: _static/images/oss_registry_3b_version.png
+    :align: center
+    :figwidth: 90%
 
 Deploy and Organize Models
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -91,14 +99,20 @@ Deploy and Organize Models
 You can deploy and organize your models in the Model Registry using model aliases and tags. To set aliases and tags for model versions in your registered model, navigate to the overview page of your registered model, such as the one below.
 
 .. figure:: _static/images/oss_registry_4_model.png
+    :align: center
+    :figwidth: 90%
 
 You can add or edit aliases and tags for a specific model version by clicking on the corresponding ``Add`` link or pencil icon in the model verison table.
 
 .. figure:: _static/images/oss_registry_4b_model_alias.png
+    :align: center
+    :figwidth: 90%
 
 To learn more about a specific model version, navigate to the details page for that model version.
 
 .. figure:: _static/images/oss_registry_5_version.png
+    :align: center
+    :figwidth: 90%
 
 In this page, you can inspect model version details like the model signature, MLflow source run, and creation timestamp. You can also view and configure the verion's aliases, tags, and description.
 

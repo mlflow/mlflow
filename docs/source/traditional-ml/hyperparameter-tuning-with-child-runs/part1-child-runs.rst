@@ -16,7 +16,7 @@ complex ML projects, such as forecasting models for individual products in a sup
 presented in our example. The diagram below offers a visual representation:
 
 .. figure:: ../../_static/images/tutorials/introductory/logging-first-model/tag-exp-run-relationship.svg
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Tags, experiments, and runs relationships
 
@@ -47,7 +47,7 @@ Benefits of Hyperparameter Tuning
 But here lies the challenge: How do we systematically store the extensive data produced during hyperparameter tuning?
 
 .. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/what-to-do-with-hyperparam-runs.svg
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Challenges with hyperparameter data storage
 
@@ -152,7 +152,7 @@ After executing this, we can navigate to the MLflow UI to see the results of the
 error metrics to the parameters that were selected.
 
 .. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/no-child-first.gif
-    :width: 1024px
+    :width: 90%
     :align: center
     :alt: Hyperparameter tuning no child runs
 
@@ -185,7 +185,7 @@ This may become a serious problem for analysis if we:
 Let's take a look at the UI and see if it is clear which iteration a particular run is a member of.
 
 .. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/no-child-more.gif
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Adding more runs
 
@@ -310,7 +310,7 @@ with different conditions of hyperparameter selection criteria.
 Once we execute these three tuning run tests, we can view the results in the UI:
 
 .. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/child-runs.gif
-   :width: 860px
+   :width: 70%
    :align: center
    :alt: Using child runs
 
@@ -342,7 +342,7 @@ recommended to develop your own implementation that fulfills the following requi
 The results in the UI for this challenge are shown below.
 
 .. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/parent-child-challenge.gif
-   :width: 860px
+   :width: 70%
    :align: center
    :alt: Challenge
 

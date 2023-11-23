@@ -4858,7 +4858,9 @@ configuration DataFrame for this example defines an interval forecast with nomin
 
 When opening the MLflow runs detail page the serialized model artifact  will show up, such as:
 
-   .. figure:: _static/images/tracking_artifact_ui_custom_flavor.png
+.. figure:: _static/images/tracking_artifact_ui_custom_flavor.png
+    :align: center
+    :figwidth: 40%
 
 To serve the model to a local REST API endpoint run the following MLflow CLI command substituting
 the run id printed during execution of the previous block (for more details refer to the

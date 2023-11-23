@@ -17,7 +17,7 @@ To understand these constraints, consider the :py:mod:`sklearn <mlflow.sklearn>`
 implementation, highlighting the APIs and serialization methods MLflow has standardized:
 
 .. figure:: ../../_static/images/guides/introductory/creating-custom-pyfunc/anatomy_of_a_model_flavor.svg
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: MLflow's sklearn implementation
 
@@ -46,7 +46,7 @@ encapsulates everything needed to reproduce predictions reliably in various envi
 This includes the model's weights, but it goes far beyond that.
 
 .. figure:: ../../_static/images/guides/introductory/creating-custom-pyfunc/anatomy-of-a-model.svg
-   :width: 480px
+   :width: 50%
    :align: center
    :alt: Components of a Model in MLflow
 
@@ -77,7 +77,7 @@ This includes the model's weights, but it goes far beyond that.
 All of these elements are viewable within the MLflow UI's artifact viewer, when looking at a saved model.
 
 .. figure:: ../../_static/images/guides/introductory/creating-custom-pyfunc/model-components-in-ui.svg
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Components of a Model in the MLflow UI
 

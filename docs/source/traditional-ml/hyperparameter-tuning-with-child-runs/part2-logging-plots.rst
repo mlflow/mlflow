@@ -35,7 +35,7 @@ and guides, so it's essential to clarify why this method is chosen for the provi
 **The Central Issue: Statefulness**
 
 .. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/notebook-dangers.svg
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Notebook state
 
@@ -295,7 +295,7 @@ fetched from the local file system and logged via ``log_artifacts()``, we're abl
 associated with our data and our trained model, capturing the state at which the run was conducted.
 
 .. figure:: ../../_static/images/guides/introductory/hyperparameter-tuning-with-child-runs/plots-in-ui.gif
-   :width: 1024px
+   :width: 90%
    :align: center
    :alt: Viewing plots in the UI
 

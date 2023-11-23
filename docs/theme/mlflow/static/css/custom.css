@@ -29,7 +29,8 @@
 
 /* Set max-width for docs... */
 .wy-nav-content {
-    max-width: 1440px !important;
+    max-width: 1200px !important;
+    position: relative;
 }
 
 .db-icon-arrow-down-circle:before {
