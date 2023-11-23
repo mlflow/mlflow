@@ -42,7 +42,13 @@ export const useMultipleChartsMetricHistory = (
 
   // Determine which metrics need history to be fetched
   const metricsRequiringHistory = useMemo(
-    () => Array.from(new Set(cardsRequiringMetricHistory.map((card) => card.metricKey))),
+    () => Array.from(
+	  new Set(
+		cardsRequiringMetricHistory.map((card) => {
+		  return card.selectedMetricKeys ?? [card.metricKey]
+		}).flat()
+	  )
+	),
     [cardsRequiringMetricHistory],
   );
 
