@@ -82,10 +82,14 @@ _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 <<<<<<< HEAD
+<<<<<<< HEAD
 image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
 =======
 image_url ='http://images.cocodataset.org/val2017/000000039769.jpg' #"https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
 >>>>>>> 6d4c68c46 (inference error fixed)
+=======
+image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+>>>>>>> 776418952 (Add new feature imgclassification visionmodel (#1))
 # Test that can only be run locally:
 # - Summarization pipeline tests
 # - TextClassifier pipeline tests
@@ -1376,6 +1380,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 491f378ce (added small_vision_model", True)
 =======
 @pytest.fixture
@@ -1391,11 +1396,16 @@ def raw_image_file(imagename):
     return datasets_path_str
 
 =======
+=======
+>>>>>>> 776418952 (Add new feature imgclassification visionmodel (#1))
 def read_image(filename):
     image_path = os.path.join(pathlib.Path(__file__).parent.parent, "datasets", filename)
     with open(image_path, "rb") as f:
         return f.read()
+<<<<<<< HEAD
 >>>>>>> 19fec0c55 (uts update)
+=======
+>>>>>>> 776418952 (Add new feature imgclassification visionmodel (#1))
 
 @pytest.mark.parametrize(
     "inference_payload",
@@ -1418,6 +1428,7 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 <<<<<<< HEAD
+<<<<<<< HEAD
     predictions = pyfunc_loaded.predict(inference_payload)
     assert len(predictions) != 0
 =======
@@ -1428,6 +1439,10 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     inference = [str(element) if element is not None else None for element in inference]
     assert all(isinstance(element, str) for element in inference)
 >>>>>>> 6d4c68c46 (inference error fixed)
+=======
+    predictions = pyfunc_loaded.predict(inference_payload)
+    assert len(predictions) != 0
+>>>>>>> 776418952 (Add new feature imgclassification visionmodel (#1))
 
 
 
