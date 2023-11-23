@@ -39,10 +39,10 @@ If you would like a copy of this notebook to execute in your environment, downlo
 
 .. raw:: html
 
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/rag/notebooks/retriever-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/rag/notebooks/retriever-evaluation-tutorial.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
 
 To follow along and see the sections of the notebook guide, click below:
 
 .. raw:: html
 
-    <a href="retriever-evaluation.html" class="download-btn">View the Notebook</a><br/>
+    <a href="retriever-evaluation-tutorial.html" class="download-btn">View the Notebook</a><br/>
