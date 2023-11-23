@@ -3,6 +3,7 @@ import datetime as dt
 import importlib.util
 import json
 import string
+from PIL import Image
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
@@ -52,6 +53,8 @@ class DataType(Enum):
         dt.date,
     )
     """64b datetime data."""
+    pilimage = (9, "PILImage" , "PILImage", object, Image.Image)
+    """pil image."""
 
     def __repr__(self):
         return self.name
