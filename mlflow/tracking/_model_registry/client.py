@@ -4,11 +4,8 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 import logging
-from datetime import datetime, timedelta
-from time import sleep
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
-from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -18,8 +15,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, uti
 from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
-
-AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS = 3
 
 
 class ModelRegistryClient:
@@ -176,7 +171,7 @@ class ModelRegistryClient:
         Create a new model version from given source.
 
         :param name: Name of the containing registered model.
-        :param source: Source path where the MLflow model is stored.
+        :param source: URI indicating the location of the model artifacts.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
@@ -185,7 +180,6 @@ class ModelRegistryClient:
         :param await_creation_for: Number of seconds to wait for the model version to finish being
                                     created and is in ``READY`` status. By default, the function
                                     waits for five minutes. Specify 0 or None to skip waiting.
-        Wait until the model version is finished being created and is in ``READY`` status.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
@@ -208,26 +202,21 @@ class ModelRegistryClient:
             # support the local_model_path argument.
             mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
         if await_creation_for and await_creation_for > 0:
-            _logger.info(
-                f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
-                f"Model name: {name}, version {mv.version}",
-            )
-            max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
-            pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
-            while mv.status == pending_status:
-                if datetime.utcnow() > max_datetime:
-                    raise MlflowException(
-                        f"Exceeded max wait time for model name: {mv.name} version: {mv.version} "
-                        f"to become READY. Status: {mv.status} Wait Time: {await_creation_for}"
-                    )
-                mv = self.get_model_version(mv.name, mv.version)
-                sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
-            if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
-                raise MlflowException(
-                    f"Model version creation failed for model name: {mv.name} version: "
-                    f"{mv.version} with status: {mv.status} and message: {mv.status_message}"
-                )
+            self.store._await_model_version_creation(mv, await_creation_for)
         return mv
+
+    def copy_model_version(self, src_mv, dst_name):
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                       the source model version.
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        return self.store.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(self, name, version, description):
         """
@@ -297,6 +286,10 @@ class ModelRegistryClient:
     ):
         """
         Search for model versions in backend that satisfy the filter criteria.
+
+        .. warning:
+
+            The model version search results may not have aliases populated for performance reasons.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or

@@ -1,8 +1,10 @@
 /// <reference types="react" />
+import type { WithLoadingState } from '../LoadingState/LoadingState';
 import type { DialogComboboxOptionListProps } from './DialogComboboxOptionList';
-export interface DialogComboboxOptionControlledListProps extends Omit<DialogComboboxOptionListProps, 'children'> {
+export interface DialogComboboxOptionControlledListProps extends Omit<DialogComboboxOptionListProps, 'children'>, WithLoadingState {
     withSearch?: boolean;
-    showSelectAndClearAll?: boolean;
+    showAllOption?: boolean;
+    allOptionLabel?: string;
     options: string[];
     onChange?: (...args: any[]) => any;
 }

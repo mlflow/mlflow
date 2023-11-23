@@ -26,7 +26,7 @@ const getPullInformation = async (context, github) => {
     ref: head_ref,
     repo: { full_name },
   } = pr.data.head;
-  const { sha: base_sha, ref: base_ref } = pr.data.base;
+  const { sha: base_sha, ref: base_ref, repo: base_repo } = pr.data.base;
   return {
     repository: full_name,
     pull_number,
@@ -34,6 +34,7 @@ const getPullInformation = async (context, github) => {
     head_ref,
     base_sha,
     base_ref,
+    base_repo: base_repo.full_name,
   };
 };
 

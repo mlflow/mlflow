@@ -20,7 +20,7 @@ from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _truncate_dict, chunk_list
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     MAX_DATASETS_PER_BATCH,
     MAX_ENTITIES_PER_BATCH,

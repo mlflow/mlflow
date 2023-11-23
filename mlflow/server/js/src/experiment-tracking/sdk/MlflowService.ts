@@ -13,7 +13,15 @@
  *   Aug 1, 2018 3:42:41 PM. We will update the generation pipeline to actually
  *   place these generated objects in the correct location shortly.
  */
-import { getBigIntJson, postJson } from '../../common/utils/FetchUtils';
+import { getBigIntJson, getJson, postJson } from '../../common/utils/FetchUtils';
+import { RunInfoEntity } from '../types';
+
+type CreateRunApiRequest = {
+  experiment_id: string;
+  start_time?: number;
+  tags?: any;
+  run_name?: string;
+};
 
 export class MlflowService {
   /**
@@ -55,14 +63,22 @@ export class MlflowService {
   /**
    * Create a mlflow experiment run
    */
-  static createRun = (data: any) =>
-    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/create', data });
+  static createRun = (data: CreateRunApiRequest) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/create', data }) as Promise<{
+      run: { info: RunInfoEntity };
+    }>;
 
   /**
    * Delete a mlflow experiment run
    */
   static deleteRun = (data: any) =>
     postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/delete', data });
+
+  /**
+   * Search datasets used in experiments
+   */
+  static searchDatasets = (data: any) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search-datasets', data });
 
   /**
    * Restore a mlflow experiment run
@@ -129,4 +145,30 @@ export class MlflowService {
    */
   static setExperimentTag = (data: any) =>
     postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/set-experiment-tag', data });
+
+  /**
+   * Create prompt engineering run
+   */
+  static createPromptLabRun = (data: {
+    experiment_id: string;
+    tags?: { key: string; value: string }[];
+    prompt_template: string;
+    prompt_parameters: { key: string; value: string }[];
+    model_route: string;
+    model_parameters: { key: string; value: string | number | undefined }[];
+    model_output_parameters: { key: string; value: string | number }[];
+    model_output: string;
+  }) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/create-promptlab-run', data });
+
+  /**
+   * Proxy post request to gateway server
+   */
+  static gatewayProxyPost = (data: { gateway_path: string; json_data: any }) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/gateway-proxy', data });
+
+  /**
+   * Proxy get request to gateway server
+   */
+  static gatewayProxyGet = (data: { gateway_path: string; json_data?: any }) =>
+    getJson({ relativeUrl: 'ajax-api/2.0/mlflow/gateway-proxy', data });
 }

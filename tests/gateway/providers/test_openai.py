@@ -51,6 +51,7 @@ def chat_response():
                 "index": 0,
             }
         ],
+        "headers": {"Content-Type": "application/json"},
     }
 
 
@@ -250,6 +251,7 @@ async def test_embeddings():
         ],
         "model": "text-embedding-ada-002",
         "usage": {"prompt_tokens": 8, "total_tokens": 8},
+        "headers": {"Content-Type": "application/json"},
     }
     config = embedding_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
@@ -312,6 +314,7 @@ async def test_embeddings_batch_input():
         ],
         "model": "text-embedding-ada-002",
         "usage": {"prompt_tokens": 8, "total_tokens": 8},
+        "headers": {"Content-Type": "application/json"},
     }
     config = embedding_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))

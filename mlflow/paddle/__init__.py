@@ -181,11 +181,7 @@ def save_model(
                 loss = F.square_error_cost(predicts, label=prices)
                 avg_loss = paddle.mean(loss)
                 if iter_id % 20 == 0:
-                    print(
-                        "epoch: {}, iter: {}, loss is: {}".format(
-                            epoch_id, iter_id, avg_loss.numpy()
-                        )
-                    )
+                    print(f"epoch: {epoch_id}, iter: {iter_id}, loss is: {avg_loss.numpy()}")
 
                 avg_loss.backward()
                 opt.step()
@@ -533,11 +529,11 @@ def autolog(
 
         def show_run_data(run_id):
             run = mlflow.get_run(run_id)
-            print("params: {}".format(run.data.params))
-            print("metrics: {}".format(run.data.metrics))
+            print(f"params: {run.data.params}")
+            print(f"metrics: {run.data.metrics}")
             client = MlflowClient()
             artifacts = [f.path for f in client.list_artifacts(run.info.run_id, "model")]
-            print("artifacts: {}".format(artifacts))
+            print(f"artifacts: {artifacts}")
 
 
         class LinearRegression(paddle.nn.Layer):

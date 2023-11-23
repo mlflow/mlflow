@@ -133,6 +133,7 @@ message TemporaryCredentials {
     AwsCredentials aws_temp_credentials = 2;
     AzureUserDelegationSAS azure_user_delegation_sas = 3;
     GcpOauthToken gcp_oauth_token = 4;
+    R2Credentials r2_temp_credentials = 5;
   }
 
   // Server time when the credential will expire, in epoch milliseconds.
@@ -164,6 +165,19 @@ message AzureUserDelegationSAS {
 // Read more at https://developers.google.com/identity/protocols/oauth2/service-account
 message GcpOauthToken {
   optional string oauth_token = 1;
+}
+
+// R2 temporary credentials for API authentication.
+// Read more at https://developers.cloudflare.com/r2/api/s3/tokens/.
+message R2Credentials {
+  // The access key ID that identifies the temporary credentials.
+  optional string access_key_id = 1;
+
+  // The secret access key associated with the access key.
+  optional string secret_access_key = 2;
+
+  // The generated JWT that users must pass to use the temporary credentials.
+  optional string session_token = 3;
 }
 
 message CreateRegisteredModelRequest {

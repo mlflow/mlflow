@@ -31,7 +31,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),
@@ -441,9 +441,9 @@ class SqlParam(Base):
     """
     Param key: `String` (limit 250 characters). Part of *Primary Key* for ``params`` table.
     """
-    value = Column(String(500), nullable=False)
+    value = Column(String(8000), nullable=False)
     """
-    Param value: `String` (limit 500 characters). Defined as *Non-null* in schema.
+    Param value: `String` (limit 8000 characters). Defined as *Non-null* in schema.
     """
     run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
     """

@@ -21,8 +21,7 @@ class IrisDataModuleBase(pl.LightningDataModule):
         target = iris["target"]
         data = torch.Tensor(df).float()
         labels = torch.Tensor(target).long()
-        data_set = TensorDataset(data, labels)
-        return data_set
+        return TensorDataset(data, labels)
 
     def setup(self, stage=None):
         # Assign train/val datasets for use in dataloaders

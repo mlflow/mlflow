@@ -6,6 +6,16 @@ export type TagColorToken = `tag${Capitalize<SecondaryColorToken>}` | 'tagDefaul
 type ColorPalettePrimary = Record<PrimaryColorToken, string>;
 type ColorPaletteSecondary = Record<SecondaryColorToken, string>;
 export declare const colorPalettePrimary: ColorPalettePrimary;
+export declare const newGreys: {
+    grey100: string;
+    grey200: string;
+    grey300: string;
+    grey400: string;
+    grey500: string;
+    grey600: string;
+    grey700: string;
+    grey800: string;
+};
 export declare const colorPaletteSecondary: ColorPaletteSecondary;
 export declare const lightColorList: {
     backgroundPrimary: string;
@@ -84,5 +94,37 @@ export declare const lightColorList: {
     tooltipBackgroundTooltip: string;
 };
 export declare const darkColorList: typeof lightColorList;
+export declare const secondaryColorsUsingNewGreys: {
+    charcoal: string;
+};
+export declare const lightColorsUsingNewGreys: {
+    actionDefaultBorderDefault: string;
+    actionDefaultTextDefault: string;
+    actionDisabledBackground: string;
+    actionDisabledText: string;
+    backgroundSecondary: string;
+    border: string;
+    borderDecorative: string;
+    textPrimary: string;
+    textSecondary: string;
+    textPlaceholder: string;
+    textValidationInfo: string;
+    overlayOverlay: string;
+    tagDefault: string;
+    tagCharcoal: string;
+    typographyCodeBg: string;
+    tableRowHover: string;
+    tooltipBackgroundTooltip: string;
+};
+export declare const darkColorsUsingNewGreys: {
+    actionPrimaryTextDefault: string;
+    actionPrimaryTextHover: string;
+    actionPrimaryTextPress: string;
+    backgroundPrimary: string;
+    backgroundSecondary: string;
+    textPlaceholder: string;
+    overlayOverlay: string;
+    tagCharcoal: string;
+};
 export {};
 //# sourceMappingURL=colorList.d.ts.map

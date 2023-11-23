@@ -1,4 +1,5 @@
 import React from 'react';
+import { ApolloProvider } from '@apollo/client';
 import { IntlProvider } from 'react-intl';
 import './index.css';
 import '@databricks/design-system/dist/index.css';
@@ -9,15 +10,18 @@ import store from './store';
 import { useI18nInit } from './i18n/I18nUtils';
 import { DesignSystemContainer } from './common/components/DesignSystemContainer';
 import { ConfigProvider } from 'antd';
-import { Skeleton } from '@databricks/design-system';
+import { LegacySkeleton } from '@databricks/design-system';
+import { shouldUsePathRouting } from './common/utils/FeatureUtils';
+import { MlflowRouter } from './MlflowRouter';
 
 export function MLFlowRoot() {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const i18n = useI18nInit();
 
   if (!i18n) {
     return (
       <DesignSystemContainer>
-        <Skeleton />
+        <LegacySkeleton />
       </DesignSystemContainer>
     );
   }
@@ -29,7 +33,7 @@ export function MLFlowRoot() {
       <Provider store={store}>
         <DesignSystemContainer>
           <ConfigProvider prefixCls='ant'>
-            <App />
+            {shouldUsePathRouting() ? <MlflowRouter /> : <App />}
           </ConfigProvider>
         </DesignSystemContainer>
       </Provider>

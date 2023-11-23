@@ -5,6 +5,9 @@ on:
   issue_comment:
     types: [created, edited]
 
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
@@ -14,6 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
+    permissions:
+      statuses: write # autoformat.createStatus
+      pull-requests: write # autoformat.createReaction on PRs
     outputs:
       should_autoformat: ${{ fromJSON(steps.judge.outputs.result).shouldAutoformat }}
       repository: ${{ fromJSON(steps.judge.outputs.result).repository }}
@@ -21,6 +27,7 @@ jobs:
       head_sha: ${{ fromJSON(steps.judge.outputs.result).head_sha }}
       base_ref: ${{ fromJSON(steps.judge.outputs.result).base_ref }}
       base_sha: ${{ fromJSON(steps.judge.outputs.result).base_sha }}
+      base_repo: ${{ fromJSON(steps.judge.outputs.result).base_repo }}
       pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
     steps:
       - uses: actions/checkout@v3
@@ -50,6 +57,10 @@ jobs:
     timeout-minutes: 30
     needs: check-comment
     if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
+    permissions:
+      pull-requests: read # view files modified in PR
+    outputs:
+      reformatted: ${{ steps.patch.outputs.reformatted }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -57,7 +68,6 @@ jobs:
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
           fetch-depth: 300
-          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
       - name: Check diff
         id: diff
         env:
@@ -77,10 +87,9 @@ jobs:
         run: |
           git config user.name 'mlflow-automation'
           git config user.email 'mlflow-automation@users.noreply.github.com'
-          git remote add mlflow https://github.com/mlflow/mlflow.git
-          git remote -v
-          git fetch mlflow ${{ needs.check-comment.outputs.base_ref }}
-          git merge mlflow/${{ needs.check-comment.outputs.base_ref }}
+          git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
+          git fetch base ${{ needs.check-comment.outputs.base_ref }}
+          git merge base/${{ needs.check-comment.outputs.base_ref }}
       # ************************************************************************
       # Prettier
       # ************************************************************************
@@ -109,7 +118,7 @@ jobs:
         run: |
           ruff --fix .
           black .
-          blacken-docs $(git ls-files '*.py' '*.rst' '*.md')
+          blacken-docs $(git ls-files '*.py' '*.rst' '*.md') || true
       # ************************************************************************
       # js
       # ************************************************************************
@@ -137,21 +146,62 @@ jobs:
         run: |
           ./build-rdoc.sh
       # ************************************************************************
-      # Push changes
+      # Upload patch
       # ************************************************************************
-      - name: Push changes
+      - name: Create patch
+        id: patch
         run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            git add -A
-            git commit -s -m "Autoformat: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            git push
-          fi
+          git diff > ${{ github.run_id }}.diff
+          reformatted=$([[ -s ${{ github.run_id }}.diff ]] && echo "true" || echo "false")
+          echo "reformatted=$reformatted" >> $GITHUB_OUTPUT
+
+      - name: Upload patch
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ github.run_id }}.diff
+          path: ${{ github.run_id }}.diff
+
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [check-comment, format]
+    if: ${{ needs.format.outputs.reformatted == 'true' }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ needs.check-comment.outputs.repository }}
+          ref: ${{ needs.check-comment.outputs.head_ref }}
+          # Set fetch-depth to merge the base branch
+          fetch-depth: 300
+          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+
+      - name: Merge base branch
+        run: |
+          git config user.name 'mlflow-automation'
+          git config user.email 'mlflow-automation@users.noreply.github.com'
+          git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
+          git fetch base ${{ needs.check-comment.outputs.base_ref }}
+          git merge base/${{ needs.check-comment.outputs.base_ref }}
+
+      - name: Download patch
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ github.run_id }}.diff
+          path: /tmp
+
+      - name: Apply patch and push
+        run: |
+          git apply /tmp/${{ github.run_id }}.diff
+          git commit -sam "Autoformat: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          git push
 
   update-status:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [check-comment, format]
+    needs: [check-comment, format, push]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
+    permissions:
+      statuses: write # autoformat.updateStatus
     steps:
       - uses: actions/checkout@v3
       - name: Update status

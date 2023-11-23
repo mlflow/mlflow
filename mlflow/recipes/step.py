@@ -5,7 +5,7 @@ import os
 import time
 import traceback
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -110,6 +110,9 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.recipe_name = get_recipe_name(recipe_root_path=recipe_root)
         self.task = self.step_config.get("recipe", "regression/v1").rsplit("/", 1)[0]
         self.step_card = None
+
+    def __str__(self):
+        return f"Step:{self.name}"
 
     def run(self, output_directory: str):
         """
@@ -280,7 +283,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.step_card.save_as_html(path=output_directory)
 
     def _update_status(
-        self, status: StepStatus, output_directory: str, stack_trace: str = None
+        self, status: StepStatus, output_directory: str, stack_trace: Optional[str] = None
     ) -> None:
         execution_state = StepExecutionState(
             status=status, last_updated_timestamp=time.time(), stack_trace=stack_trace

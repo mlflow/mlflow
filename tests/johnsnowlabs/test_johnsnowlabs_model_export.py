@@ -55,8 +55,7 @@ def load_and_init_model(model=nlu_model):
     setup_env()
     mlflow.johnsnowlabs._validate_env_vars()
     nlp.start(model_cache_folder=MODEL_CACHE_FOLDER)
-    jsl_model = nlp.load(model, verbose=False)
-    return jsl_model
+    return nlp.load(model, verbose=False)
 
 
 def fix_dataframe_with_respect_for_nlu_issues(df1, df2):
@@ -240,10 +239,7 @@ def test_log_model_with_signature_and_examples(jsl_model):
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_tmpdir):
     old_tracking_uri = mlflow.get_tracking_uri()
-    if use_dfs_tmpdir:
-        dfs_tmpdir = None
-    else:
-        dfs_tmpdir = tmp_path.joinpath("test")
+    dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
         tracking_dir = tmp_path.joinpath("mlruns")

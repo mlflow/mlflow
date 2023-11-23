@@ -48,7 +48,8 @@ def test_log_artifacts(local_artifact_repo, local_artifact_root):
     artifact_dst_path = os.path.join(local_artifact_root, artifact_rel_path)
     assert os.path.exists(artifact_dst_path)
     assert artifact_dst_path != artifact_src_path
-    assert open(artifact_dst_path).read() == artifact_text
+    with open(artifact_dst_path) as f:
+        assert f.read() == artifact_text
 
 
 @pytest.mark.parametrize("dst_path", [None, "dest"])
@@ -67,7 +68,8 @@ def test_download_artifacts(local_artifact_repo, dst_path):
         result = local_artifact_repo.download_artifacts(
             artifact_path=artifact_rel_path, dst_path=dst_path
         )
-        assert open(result).read() == artifact_text
+        with open(result) as f:
+            assert f.read() == artifact_text
         result = local_artifact_repo.download_artifacts(artifact_path="", dst_path=dst_path)
         empty_dir_dst_path = os.path.join(result, empty_dir_path)
         assert os.path.isdir(empty_dir_dst_path)
@@ -87,7 +89,8 @@ def test_download_artifacts_does_not_copy(local_artifact_repo):
             f.write(artifact_text)
         local_artifact_repo.log_artifact(artifact_src_path)
         dst_path = local_artifact_repo.download_artifacts(artifact_path=artifact_rel_path)
-        assert open(dst_path).read() == artifact_text
+        with open(dst_path) as f:
+            assert f.read() == artifact_text
         assert dst_path.startswith(
             local_artifact_repo.artifact_dir
         ), "downloaded artifact is not in local_artifact_repo.artifact_dir root"
@@ -131,12 +134,14 @@ def test_artifacts_are_logged_to_and_downloaded_from_repo_subdirectory_successfu
     subdir_contents = os.listdir(downloaded_subdir)
     assert len(subdir_contents) == 1
     assert artifact_rel_path in subdir_contents
-    assert open(os.path.join(downloaded_subdir, artifact_rel_path)).read() == artifact_text
+    with open(os.path.join(downloaded_subdir, artifact_rel_path)) as f:
+        assert f.read() == artifact_text
 
     downloaded_file = local_artifact_repo.download_artifacts(
         posixpath.join(repo_subdir_path, artifact_rel_path)
     )
-    assert open(downloaded_file).read() == artifact_text
+    with open(downloaded_file) as f:
+        assert f.read() == artifact_text
 
 
 def test_log_artifact_throws_exception_for_invalid_artifact_paths(local_artifact_repo):
@@ -157,9 +162,12 @@ def test_logging_directory_of_artifacts_produces_expected_repo_contents(local_ar
         with open(local_dir.path("subdir", "nested", "c.txt"), "w") as f:
             f.write("C")
         local_artifact_repo.log_artifacts(local_dir.path("subdir"))
-        assert open(local_artifact_repo.download_artifacts("a.txt")).read() == "A"
-        assert open(local_artifact_repo.download_artifacts("b.txt")).read() == "B"
-        assert open(local_artifact_repo.download_artifacts("nested/c.txt")).read() == "C"
+        with open(local_artifact_repo.download_artifacts("a.txt")) as f:
+            assert f.read() == "A"
+        with open(local_artifact_repo.download_artifacts("b.txt")) as f:
+            assert f.read() == "B"
+        with open(local_artifact_repo.download_artifacts("nested/c.txt")) as f:
+            assert f.read() == "C"
 
 
 def test_hidden_files_are_logged_correctly(local_artifact_repo):
@@ -168,7 +176,8 @@ def test_hidden_files_are_logged_correctly(local_artifact_repo):
         with open(hidden_file, "w") as f:
             f.write("42")
         local_artifact_repo.log_artifact(hidden_file)
-        assert open(local_artifact_repo.download_artifacts(".mystery")).read() == "42"
+        with open(local_artifact_repo.download_artifacts(".mystery")) as f:
+            assert f.read() == "42"
 
 
 def test_delete_artifacts(local_artifact_repo):

@@ -1,5 +1,6 @@
 import click
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.gateway.config import _validate_config
 from mlflow.gateway.runner import run_app
 from mlflow.utils.annotations import experimental
@@ -22,6 +23,7 @@ def commands():
 @commands.command("start", help="Start the MLflow Gateway service")
 @click.option(
     "--config-path",
+    envvar=MLFLOW_GATEWAY_CONFIG.name,
     callback=validate_config_path,
     required=True,
     help="The path to the gateway configuration file.",

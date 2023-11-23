@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Union
 
 from mlflow.environment_variables import (
+    MLFLOW_TRACKING_AUTH,
     MLFLOW_TRACKING_AWS_SIGV4,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
     MLFLOW_TRACKING_INSECURE_TLS,
@@ -51,14 +52,14 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
                   "databricks://<profileName>".
                 - A :py:class:`pathlib.Path` instance
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow
 
         mlflow.set_tracking_uri("file:///tmp/my_tracking")
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
     .. code-block:: text
         :caption: Output
@@ -109,7 +110,7 @@ def get_tracking_uri() -> str:
 
         # Get the current tracking uri
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
     .. code-block:: text
         :caption: Output
@@ -145,6 +146,7 @@ def _get_default_host_creds(store_uri):
         password=creds.password,
         token=MLFLOW_TRACKING_TOKEN.get(),
         aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
+        auth=MLFLOW_TRACKING_AUTH.get(),
         ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
         client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
         server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),

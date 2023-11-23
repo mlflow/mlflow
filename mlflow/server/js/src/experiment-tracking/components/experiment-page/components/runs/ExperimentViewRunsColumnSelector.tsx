@@ -3,7 +3,7 @@ import {
   ChevronDownIcon,
   Dropdown,
   Input,
-  ListIcon,
+  ColumnsIcon,
   SearchIcon,
   Tree,
 } from '@databricks/design-system';
@@ -20,7 +20,7 @@ import {
   extractCanonicalSortKey,
   isCanonicalSortKeyOfType,
   makeCanonicalSortKey,
-} from '../../utils/experimentPage.column-utils';
+} from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
 
@@ -320,7 +320,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
     return (
       <Dropdown
         overlay={dropdownContent}
-        placement='bottomRight'
+        placement='bottomLeft'
         trigger={['click']}
         visible={columnSelectorVisible}
         onVisibleChange={onChangeColumnSelectorVisible}
@@ -329,7 +329,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
           ref={buttonRef}
           style={{ display: 'flex', alignItems: 'center' }}
           data-testid='column-selection-dropdown'
-          icon={<ListIcon />}
+          icon={<ColumnsIcon />}
         >
           <FormattedMessage
             defaultMessage='Columns'
@@ -359,7 +359,7 @@ export const ExperimentViewRunsColumnSelector = (props: ExperimentViewRunsColumn
 
 const styles = {
   dropdown: (theme: Theme) => ({
-    backgroundColor: theme.colors.white,
+    backgroundColor: theme.colors.backgroundPrimary,
     width: 400,
     border: `1px solid`,
     borderColor: theme.colors.border,

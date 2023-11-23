@@ -8,8 +8,8 @@
 import React from 'react';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
-import { Link, NavigateFunction } from 'react-router-dom-v5-compat';
-import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
+import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
+import { ModelRegistryRoutes } from '../routes';
 import { message } from 'antd';
 import { ACTIVE_STAGES } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
@@ -19,7 +19,7 @@ import { getRegisteredModelTags } from '../reducers';
 import { setRegisteredModelTagApi, deleteRegisteredModelTagApi } from '../actions';
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
-import { FormattedMessage, injectIntl } from 'react-intl';
+import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
 import {
   Button,
   SegmentedControlGroup,
@@ -27,6 +27,10 @@ import {
   DangerModal,
 } from '@databricks/design-system';
 import { Descriptions } from '../../common/components/Descriptions';
+import { ModelVersionInfoEntity, type ModelEntity } from '../../experiment-tracking/types';
+import { shouldUseToggleModelsNextUI } from '../../common/utils/FeatureUtils';
+import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
+import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -34,16 +38,8 @@ export const StageFilters = {
 };
 
 type ModelViewImplProps = {
-  model?: {
-    name: string;
-    creation_timestamp: number;
-    last_updated_timestamp: number;
-    permission_level: string;
-    id: string;
-  };
-  modelVersions?: {
-    current_stage: string;
-  }[];
+  model?: ModelEntity;
+  modelVersions?: ModelVersionInfoEntity[];
   handleEditDescription: (...args: any[]) => any;
   handleDelete: (...args: any[]) => any;
   navigate: NavigateFunction;
@@ -56,7 +52,9 @@ type ModelViewImplProps = {
   tags: any;
   setRegisteredModelTagApi: (...args: any[]) => any;
   deleteRegisteredModelTagApi: (...args: any[]) => any;
-  intl?: any;
+  intl: IntlShape;
+  onMetadataUpdated: () => void;
+  usingNextModelsUI: boolean;
 };
 
 type ModelViewImplState = any;
@@ -152,7 +150,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     this.props
       .handleDelete()
       .then(() => {
-        navigate(modelListPageRoute);
+        navigate(ModelRegistryRoutes.modelListPageRoute);
       })
       .catch((e: any) => {
         this.hideConfirmLoading();
@@ -212,9 +210,14 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   };
 
   onCompare() {
+    if (!this.props.model) {
+      return;
+    }
     this.props.navigate(
-      // @ts-expect-error TS(2532): Object is possibly 'undefined'.
-      getCompareModelVersionsPageRoute(this.props.model.name, this.state.runsSelected),
+      ModelRegistryRoutes.getCompareModelVersionsPageRoute(
+        this.props.model.name,
+        this.state.runsSelected,
+      ),
     );
   }
 
@@ -353,28 +356,30 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                        model view page'
                   />
                 </span>
-                <SegmentedControlGroup
-                  value={this.state.stageFilter}
-                  onChange={(e) => this.handleStageFilterChange(e)}
-                >
-                  <SegmentedControlButton value={StageFilters.ALL}>
-                    <FormattedMessage
-                      defaultMessage='All'
-                      description={
-                        'Tab text to view all versions under details tab on' +
-                        ' the model view page'
-                      }
-                    />
-                  </SegmentedControlButton>
-                  <SegmentedControlButton value={StageFilters.ACTIVE}>
-                    <FormattedMessage
-                      defaultMessage='Active'
-                      description='Tab text to view active versions under details tab
-                               on the model view page'
-                    />{' '}
-                    {this.getActiveVersionsCount()}
-                  </SegmentedControlButton>
-                </SegmentedControlGroup>
+                {!this.props.usingNextModelsUI && (
+                  <SegmentedControlGroup
+                    value={this.state.stageFilter}
+                    onChange={(e) => this.handleStageFilterChange(e)}
+                  >
+                    <SegmentedControlButton value={StageFilters.ALL}>
+                      <FormattedMessage
+                        defaultMessage='All'
+                        description={
+                          'Tab text to view all versions under details tab on' +
+                          ' the model view page'
+                        }
+                      />
+                    </SegmentedControlButton>
+                    <SegmentedControlButton value={StageFilters.ACTIVE}>
+                      <FormattedMessage
+                        defaultMessage='Active'
+                        description='Tab text to view active versions under details tab
+                                on the model view page'
+                      />{' '}
+                      {this.getActiveVersionsCount()}
+                    </SegmentedControlButton>
+                  </SegmentedControlGroup>
+                )}
                 <Button
                   data-test-id='compareButton'
                   disabled={compareDisabled}
@@ -391,12 +396,25 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
           }
           data-test-id='model-versions-section'
         >
+          {shouldUseToggleModelsNextUI() && (
+            <div
+              css={{
+                marginBottom: 8,
+                display: 'flex',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <ModelsNextUIToggleSwitch />
+            </div>
+          )}
           <ModelVersionTable
-            // @ts-expect-error TS(2322): Type '{ activeStageOnly: boolean; modelName: strin... Remove this comment to see the full error message
-            activeStageOnly={stageFilter === StageFilters.ACTIVE}
+            activeStageOnly={stageFilter === StageFilters.ACTIVE && !this.props.usingNextModelsUI}
             modelName={modelName}
             modelVersions={modelVersions}
+            modelEntity={model}
             onChange={this.onChange}
+            onMetadataUpdated={this.props.onMetadataUpdated}
+            usingNextModelsUI={this.props.usingNextModelsUI}
           />
         </CollapsibleSection>
 
@@ -442,7 +460,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const modelName = model.name;
 
     const breadcrumbs = [
-      <Link to={modelListPageRoute}>
+      <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
           defaultMessage='Registered Models'
           description='Text for link back to model page under the header on the model view page'
@@ -500,5 +518,7 @@ const styles = {
   }),
 };
 
-// @ts-expect-error TS(2769): No overload matches this call.
-export const ModelView = connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelViewImpl));
+export const ModelView = connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(withNextModelsUIContext(injectIntl(ModelViewImpl)));

@@ -6,6 +6,7 @@ import {
   RunsCompareConfigureField,
   RunsCompareRunNumberSelect,
 } from './RunsCompareConfigure.common';
+import { LineSmoothSlider } from '../../LineSmoothSlider';
 
 /**
  * Form containing configuration controls for runs compare charts.
@@ -47,6 +48,17 @@ export const RunsCompareConfigureLineChart = ({
       })),
     [onStateChange],
   );
+
+  const updateSmoothing = useCallback(
+    (lineSmoothness: number) => {
+      onStateChange((current) => ({
+        ...(current as RunsCompareLineCardConfig),
+        lineSmoothness: lineSmoothness,
+      }));
+    },
+    [onStateChange],
+  );
+
   /**
    * Callback for updating run count
    */
@@ -80,6 +92,7 @@ export const RunsCompareConfigureLineChart = ({
           value={emptyMetricsList ? 'No metrics available' : state.metricKey}
           onChange={updateMetric}
           disabled={emptyMetricsList}
+          dangerouslySetAntdProps={{ showSearch: true }}
         >
           {metricKeyList.map((metric) => (
             <Select.Option key={metric} value={metric} data-testid={`metric-${metric}`}>
@@ -128,6 +141,15 @@ export const RunsCompareConfigureLineChart = ({
       </RunsCompareConfigureField>
       <RunsCompareConfigureField title='Y-axis log scale'>
         <Switch checked={state.scaleType === 'log'} onChange={updateYAxisType} label='Enabled' />
+      </RunsCompareConfigureField>
+      <RunsCompareConfigureField title='Line smoothness'>
+        <LineSmoothSlider
+          data-testid='smoothness-toggle'
+          min={0}
+          max={100}
+          handleLineSmoothChange={updateSmoothing}
+          defaultValue={state.lineSmoothness ? state.lineSmoothness : 0}
+        />
       </RunsCompareConfigureField>
       <RunsCompareRunNumberSelect
         value={state.runsCountToCompare}

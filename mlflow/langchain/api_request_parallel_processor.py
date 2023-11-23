@@ -16,16 +16,16 @@ Features:
 """
 from __future__ import annotations
 
-import json
 import logging
 import queue
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
-import langchain
+import langchain.chains
+from langchain.schema import AgentAction
 
 import mlflow
 
@@ -75,6 +75,43 @@ class APIRequest:
     request_json: dict
     results: list[tuple[int, str]]
 
+    def _prepare_to_serialize(self, response: dict):
+        """
+        Converts LangChain objects to JSON-serializable formats.
+        """
+        from langchain.load.dump import dumps
+
+        if "intermediate_steps" in response:
+            steps = response["intermediate_steps"]
+            if (
+                isinstance(steps, tuple)
+                and len(steps) == 2
+                and isinstance(steps[0], AgentAction)
+                and isinstance(steps[1], str)
+            ):
+                response["intermediate_steps"] = [
+                    {
+                        "tool": agent.tool,
+                        "tool_input": agent.tool_input,
+                        "log": agent.log,
+                        "result": result,
+                    }
+                    for agent, result in response["intermediate_steps"]
+                ]
+            else:
+                try:
+                    # `AgentAction` objects are not yet implemented for serialization in `dumps`
+                    # https://github.com/langchain-ai/langchain/issues/8815#issuecomment-1666763710
+                    response["intermediate_steps"] = dumps(steps)
+                except Exception as e:
+                    _logger.warning(f"Failed to serialize intermediate steps: {e!r}")
+        # The `dumps` format for `Document` objects is noisy, so we will still have custom logic
+        if "source_documents" in response:
+            response["source_documents"] = [
+                {"page_content": doc.page_content, "metadata": doc.metadata}
+                for doc in response["source_documents"]
+            ]
+
     def call_api(self, status_tracker: StatusTracker):
         """
         Calls the LangChain API and stores results.
@@ -86,10 +123,18 @@ class APIRequest:
             if isinstance(self.lc_model, BaseRetriever):
                 # Retrievers are invoked differently than Chains
                 docs = self.lc_model.get_relevant_documents(**self.request_json)
-                list_of_str_page_content = [doc.page_content for doc in docs]
-                response = json.dumps(list_of_str_page_content)
+                response = [
+                    {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
+                ]
             else:
-                response = self.lc_model.run(**self.request_json)
+                response = self.lc_model(self.request_json, return_only_outputs=True)
+
+                # to maintain existing code, single output chains will still return only the result
+                if len(response) == 1:
+                    response = response.popitem()[1]
+                else:
+                    self._prepare_to_serialize(response)
+
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
@@ -101,7 +146,7 @@ class APIRequest:
 
 def process_api_requests(
     lc_model,
-    requests: List[Union[str, Dict[str, Any]]] = None,
+    requests: Optional[List[Union[str, Dict[str, Any]]]] = None,
     max_workers: int = 10,
 ):
     """

@@ -11,16 +11,15 @@ repos:
         name: ruff
         entry: python dev/ruff.py
         language: system
-        types_or: [python]
+        types_or: [python, jupyter]
         stages: [commit]
 
       - id: black
         name: black
-        entry: black
+        entry: python dev/black.py
         language: system
-        types: [python]
+        types_or: [python, jupyter]
         stages: [commit]
-        log_file: .black.log
 
       - id: blacken-docs
         name: blacken-docs
@@ -56,3 +55,8 @@ repos:
         entry: 'grep "Signed-off-by:"'
         language: system
         stages: [prepare-commit-msg]
+
+      - id: mlflow-typo
+        name: mlflow-typo
+        entry: dev/mlflow-typo.sh
+        language: system

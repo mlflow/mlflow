@@ -453,7 +453,20 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
   result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE, client = client)
-  trimws(strsplit(result$stdout, "\n")[[1]][-1])
+  # NB: The return type from the artifacts download instruction from the cli can be either
+  # a path as a "string" (character vector in R with length of 1) or as a string with a newline
+  # ("\n") character separating the source runs:/ path and the local path that is the destination
+  # directory. Due to this alternate behavior based on whether the download artifact progress logic
+  # is enabled or not, this conditional logic is required.
+  paths <- strsplit(result$stdout, "\n")[[1]]
+  if (length(paths) > 1) {
+    trimws(paths[-1])
+  } else if (length(paths) == 1) {
+    trimws(paths[1])
+  } else {
+    stop("Unknown return type after newline split parsing", class(paths),
+         ". Expected character type return from cli download artifacts call.", call. = FALSE)
+  }
 }
 
 #' Log Artifact

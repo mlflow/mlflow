@@ -10,7 +10,7 @@ import {
 } from './experimentRuns.selector';
 import { LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from '../../../types';
 
-import type { StateWithEntities } from '../../../../redux-types';
+import type { ReduxState } from '../../../../redux-types';
 
 describe('useExperimentRuns', () => {
   const WrapComponent = (Component: React.ComponentType, store: any) => (
@@ -30,9 +30,7 @@ describe('useExperimentRuns', () => {
     };
 
     const Component = () => {
-      result = useSelector((state: StateWithEntities) =>
-        experimentRunsSelector(state, params as any),
-      );
+      result = useSelector((state: ReduxState) => experimentRunsSelector(state, params as any));
 
       return null;
     };
@@ -178,6 +176,19 @@ describe('useExperimentRuns', () => {
     });
 
     expect(Object.keys(result.runInfos).length).toEqual(3);
+  });
+
+  it('filters runs without datasets in datasetsFilter', () => {
+    const result = mountComponentWithExperimentRuns(['123456789'], {
+      datasetsFilter: [
+        { experiment_id: '123456789', name: 'dataset_train', digest: 'abc', context: 'training' },
+      ],
+    });
+
+    expect(result.datasetsList.length).toEqual(1);
+    expect(result.datasetsList[0]).toEqual(
+      EXPERIMENT_RUNS_MOCK_STORE.entities.runDatasetsByUuid['experiment123456789_run1'],
+    );
   });
 
   it('fetches only active runs by default', () => {

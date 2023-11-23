@@ -50,7 +50,9 @@ export interface ModalProps extends HTMLDataAttributes, DangerouslySetAntdProps<
     modalRender?: (node: React.ReactNode) => React.ReactNode;
     /** Specify which button to autofocus, only works with default footer */
     autoFocusButton?: 'ok' | 'cancel';
+    /** Specify whether to truncate the Modal title when it is too long */
+    truncateTitle?: boolean;
 }
-export declare function Modal({ okButtonProps, cancelButtonProps, dangerouslySetAntdProps, children, title, footer, size, verticalSizing, autoFocusButton, ...props }: ModalProps): JSX.Element;
+export declare function Modal({ okButtonProps, cancelButtonProps, dangerouslySetAntdProps, children, title, footer, size, verticalSizing, autoFocusButton, truncateTitle, ...props }: ModalProps): JSX.Element;
 export declare function DangerModal(props: Omit<ModalProps, 'footer'>): JSX.Element;
 //# sourceMappingURL=Modal.d.ts.map

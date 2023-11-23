@@ -6,12 +6,14 @@ from typing import Dict, List, Union
 
 import mlflow
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@deprecated(
+    "mlflow.log_table", since="2.8.1", impact="This method will be removed in MLflow 2.9.0."
+)
 def log_predictions(
     inputs: List[Union[str, Dict[str, str]]],
     outputs: List[str],
@@ -26,7 +28,7 @@ def log_predictions(
     :param prompts: Union of either List of prompt strings or List of prompt dictionary
     :returns: None
 
-    .. test-code-block:: python
+    .. testcode:: python
         :caption: Example
 
         import mlflow

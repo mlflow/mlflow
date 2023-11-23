@@ -158,8 +158,7 @@ def _append_query_parameters(url, parameters):
     query_dict.update(parameters)
     new_query = urllib.parse.urlencode(query_dict)
     new_url_components = parsed_url._replace(query=new_query)
-    new_url = urllib.parse.urlunparse(new_url_components)
-    return new_url
+    return urllib.parse.urlunparse(new_url_components)
 
 
 def _build_block_list_xml(block_list):

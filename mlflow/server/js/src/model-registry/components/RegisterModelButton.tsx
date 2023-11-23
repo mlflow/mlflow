@@ -32,7 +32,8 @@ const MAX_SEARCH_REGISTERED_MODELS = 5;
 type RegisterModelButtonImplProps = {
   disabled: boolean;
   runUuid: string;
-  modelPath?: string;
+  modelPath: string;
+  modelRelativePath: string;
   modelByName: any;
   createRegisteredModelApi: (...args: any[]) => any;
   createModelVersionApi: (...args: any[]) => any;
@@ -149,9 +150,42 @@ export class RegisterModelButtonImpl extends React.Component<
     }
   }
 
+  renderRegisterModelForm() {
+    const { modelByName } = this.props;
+    return (
+      <RegisterModelForm
+        modelByName={modelByName}
+        innerRef={this.form}
+        onSearchRegisteredModels={_.debounce(this.handleSearchRegisteredModels, 300)}
+      />
+    );
+  }
+
+  renderFooter() {
+    return [
+      <Button key='back' onClick={this.hideRegisterModal}>
+        <FormattedMessage
+          defaultMessage='Cancel'
+          description='Cancel button text to cancel the flow to register the model'
+        />
+      </Button>,
+      <Button
+        key='submit'
+        type='primary'
+        onClick={this.handleRegisterModel}
+        data-test-id='confirm-register-model'
+      >
+        <FormattedMessage
+          defaultMessage='Register'
+          description='Register button text to register the model'
+        />
+      </Button>,
+    ];
+  }
+
   render() {
     const { visible, confirmLoading } = this.state;
-    const { disabled, modelByName } = this.props;
+    const { disabled } = this.props;
     return (
       <div className='register-model-btn-wrapper'>
         <Button
@@ -182,31 +216,9 @@ export class RegisterModelButtonImpl extends React.Component<
           confirmLoading={confirmLoading}
           onCancel={this.hideRegisterModal}
           centered
-          footer={[
-            <Button key='back' onClick={this.hideRegisterModal}>
-              <FormattedMessage
-                defaultMessage='Cancel'
-                description='Cancel button text to cancel the flow to register the model'
-              />
-            </Button>,
-            <Button
-              key='submit'
-              type='primary'
-              onClick={this.handleRegisterModel}
-              data-test-id='confirm-register-model'
-            >
-              <FormattedMessage
-                defaultMessage='Register'
-                description='Register button text to register the model'
-              />
-            </Button>,
-          ]}
+          footer={this.renderFooter()}
         >
-          <RegisterModelForm
-            modelByName={modelByName}
-            innerRef={this.form}
-            onSearchRegisteredModels={_.debounce(this.handleSearchRegisteredModels, 300)}
-          />
+          {this.renderRegisterModelForm()}
         </Modal>
       </div>
     );

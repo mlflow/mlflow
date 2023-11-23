@@ -2,7 +2,7 @@
 import type { CheckboxProps as AntDCheckboxProps, CheckboxGroupProps as AntDCheckboxGroupProps, CheckboxChangeEvent } from 'antd/lib/checkbox';
 import type { Theme } from '../../theme';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
-export declare const getWrapperStyle: ({ clsPrefix, theme, wrapperStyle, useNewStyles, }: {
+export declare const getWrapperStyle: ({ clsPrefix, theme, wrapperStyle, }: {
     clsPrefix: string;
     theme: Theme;
     wrapperStyle?: import("react").CSSProperties | undefined;

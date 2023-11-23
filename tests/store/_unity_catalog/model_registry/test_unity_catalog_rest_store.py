@@ -68,7 +68,8 @@ from mlflow.store._unity_catalog.registry.utils import (
 )
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+from mlflow.types.schema import ColSpec, DataType
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
@@ -173,7 +174,9 @@ def test_create_registered_model(mock_http, store):
 
 @pytest.fixture
 def local_model_dir(tmp_path):
-    fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.string)]), outputs=Schema([ColSpec(DataType.double)])
+    )
     fake_mlmodel_contents = {
         "artifact_path": "some-artifact-path",
         "run_id": "abc123",
@@ -226,7 +229,9 @@ def test_create_model_version_missing_python_deps(store, local_model_dir):
 
 @pytest.fixture
 def feature_store_local_model_dir(tmp_path):
-    fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
+    fake_signature = ModelSignature(
+        inputs=Schema([ColSpec(DataType.double)]), outputs=Schema([ColSpec(DataType.double)])
+    )
     fake_mlmodel_contents = {
         "artifact_path": "some-artifact-path",
         "run_id": "abc123",
@@ -266,7 +271,7 @@ def test_create_model_version_missing_signature(store, tmp_path):
 
 
 def test_create_model_version_missing_output_signature(store, tmp_path):
-    fake_signature = ModelSignature(inputs=Schema([]))
+    fake_signature = ModelSignature(inputs=Schema([ColSpec(DataType.integer)]))
     fake_mlmodel_contents = {"signature": fake_signature.to_dict()}
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
@@ -575,10 +580,7 @@ def get_request_mock(
                 )
             ] = GetRun.Response()
 
-        if method == "POST":
-            json_dict = kwargs["json"]
-        else:
-            json_dict = kwargs["params"]
+        json_dict = kwargs["json"] if method == "POST" else kwargs["params"]
         response_message = req_info_to_response[
             (host_creds.host, endpoint, method, json.dumps(json_dict, indent=2))
         ]
@@ -666,7 +668,7 @@ def test_create_model_version_aws(store, local_model_dir):
         ModelVersionTag(key="key", value="value"),
         ModelVersionTag(key="anotherKey", value="some other value"),
     ]
-    mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=get_request_mock(
@@ -678,14 +680,14 @@ def test_create_model_version_aws(store, local_model_dir):
             tags=tags,
         ),
     ) as request_mock, mock.patch(
-        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
         return_value=mock_artifact_repo,
-    ) as s3_artifact_repo_class_mock, mock.patch.dict(
+    ) as optimized_s3_artifact_repo_class_mock, mock.patch.dict(
         "sys.modules", {"boto3": {}}
     ):
         store.create_model_version(name=model_name, source=source, tags=tags)
         # Verify that s3 artifact repo mock was called with expected args
-        s3_artifact_repo_class_mock.assert_called_once_with(
+        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=storage_location,
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
@@ -716,7 +718,7 @@ def test_create_model_version_local_model_path(store, local_model_dir):
         ModelVersionTag(key="key", value="value"),
         ModelVersionTag(key="anotherKey", value="some other value"),
     ]
-    mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=get_request_mock(
@@ -730,7 +732,7 @@ def test_create_model_version_local_model_path(store, local_model_dir):
     ) as request_mock, mock.patch(
         "mlflow.artifacts.download_artifacts"
     ) as mock_download_artifacts, mock.patch(
-        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
         return_value=mock_artifact_repo,
     ):
         store.create_model_version(
@@ -761,7 +763,7 @@ def test_create_model_version_doesnt_redownload_model_from_local_dir(store, loca
     storage_location = "s3://blah"
     model_name = "model_1"
     version = "1"
-    mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
     model_dir = str(local_model_dir)
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
@@ -773,7 +775,7 @@ def test_create_model_version_doesnt_redownload_model_from_local_dir(store, loca
             source=model_dir,
         ),
     ), mock.patch(
-        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
         return_value=mock_artifact_repo,
     ):
         # Assert that we create the model version from the local model dir directly,
@@ -799,7 +801,7 @@ def test_create_model_version_remote_source(store, local_model_dir, tmp_path):
     source = "s3://model/version/source"
     model_name = "model_1"
     version = "1"
-    mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
     local_tmpdir = str(tmp_path.joinpath("local_tmpdir"))
     shutil.copytree(local_model_dir, local_tmpdir)
     with mock.patch(
@@ -815,7 +817,7 @@ def test_create_model_version_remote_source(store, local_model_dir, tmp_path):
         "mlflow.artifacts.download_artifacts",
         return_value=local_tmpdir,
     ) as mock_download_artifacts, mock.patch(
-        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
         return_value=mock_artifact_repo,
     ):
         store.create_model_version(name=model_name, source=source)

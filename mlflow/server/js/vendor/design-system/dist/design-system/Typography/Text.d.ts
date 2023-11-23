@@ -5,6 +5,9 @@ type AntDTypographyProps = ComponentProps<typeof AntDTypography>;
 type AntDTextProps = ComponentProps<typeof AntDTypography['Text']>;
 export interface TextProps extends AntDTypographyProps, Pick<AntDTextProps, 'ellipsis' | 'disabled' | 'code' | 'id' | 'title' | 'aria-label'>, HTMLDataAttributes, DangerouslySetAntdProps<AntDTextProps> {
     bold?: boolean;
+    /**
+     * @deprecated Use `Typography.Hint` instead
+     */
     hint?: boolean;
     size?: 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
     withoutMargins?: boolean;

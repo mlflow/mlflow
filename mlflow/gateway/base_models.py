@@ -1,3 +1,5 @@
+from typing import Any, Dict, List
+
 from pydantic import BaseModel
 
 
@@ -32,4 +34,27 @@ class ConfigModel(
     """
     A pydantic model representing Gateway configuration data, such as an OpenAI completions
     route definition including route name, model name, API keys, etc.
+    """
+
+
+class LimitModel(
+    BaseModel,
+    # Ignore extra fields for pydantic limit models, since they are unused
+    extra="ignore",
+):
+    """
+    A pydantic model representing Gateway Limit data, such as renewal period, limit
+    key, limit value, etc.
+    """
+
+
+class SetLimitsModel(
+    BaseModel,
+    # Ignore extra fields for pydantic limit models, since they are unused
+    extra="ignore",
+):
+    route: str
+    limits: List[Dict[str, Any]]
+    """
+    A pydantic model representing Gateway SetLimits request body, containing route and limits.
     """

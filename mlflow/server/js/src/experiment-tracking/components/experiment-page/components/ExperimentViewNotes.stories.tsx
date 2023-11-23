@@ -1,7 +1,7 @@
 import React from 'react';
 import { IntlProvider } from 'react-intl';
 import { Provider } from 'react-redux';
-import { StaticRouter } from 'react-router-dom-v5-compat';
+import { StaticRouter } from '../../../../common/utils/RoutingUtils';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { ExperimentTag } from '../../../sdk/MlflowMessages';

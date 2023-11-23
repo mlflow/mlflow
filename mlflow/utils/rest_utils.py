@@ -33,6 +33,7 @@ def http_request(
     extra_headers=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
+    raise_on_status=True,
     **kwargs,
 ):
     """
@@ -53,6 +54,8 @@ def http_request(
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request.
+    :param raise_on_status: whether to raise an exception, or return a response, if status falls
+      in retry_codes range and retries have been exhausted.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return: requests.Response object.
@@ -85,6 +88,10 @@ def http_request(
         from requests_auth_aws_sigv4 import AWSSigV4
 
         kwargs["auth"] = AWSSigV4("execute-api")
+    elif host_creds.auth:
+        from mlflow.tracking.request_auth.registry import fetch_auth
+
+        kwargs["auth"] = fetch_auth(host_creds.auth)
 
     cleaned_hostname = strip_suffix(hostname, "/")
     url = f"{cleaned_hostname}{endpoint}"
@@ -95,6 +102,7 @@ def http_request(
             max_retries,
             backoff_factor,
             retry_codes,
+            raise_on_status,
             headers=headers,
             verify=host_creds.verify,
             timeout=timeout,
@@ -231,6 +239,8 @@ class MlflowHostCreds:
     :param aws_sigv4: If true, we will create a signature V4 to be added for any outgoing request.
         Keys for signing the request can be passed via ENV variables,
         or will be fetched via boto3 session.
+    :param auth: If set, the auth will be added for any outgoing request.
+        Keys for signing the request can be passed via ENV variables,
     :param ignore_tls_verification: If true, we will not verify the server's hostname or TLS
         certificate. This is useful for certain testing situations, but should never be
         true in production.
@@ -251,6 +261,7 @@ class MlflowHostCreds:
         password=None,
         token=None,
         aws_sigv4=False,
+        auth=None,
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
@@ -276,6 +287,7 @@ class MlflowHostCreds:
         self.password = password
         self.token = token
         self.aws_sigv4 = aws_sigv4
+        self.auth = auth
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path

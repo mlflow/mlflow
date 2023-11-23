@@ -2,7 +2,7 @@
 
 In order to utilize the MLflow AI Gateway with MLflow model serving, a few steps must be taken
 in addition to those for configuring access to SaaS models (such as Anthropic and OpenAI). The first and most obvious
-step that must be taken prior to interfacing with an Mlflow served model is that a model needs to be logged to the
+step that must be taken prior to interfacing with an MLflow served model is that a model needs to be logged to the
 MLflow tracking server.
 
 An important consideration for deciding whether to interface the MLflow AI Gateway with a specific model is to evaluate the PyFunc interface that the model will
@@ -156,7 +156,7 @@ mlflow models serve -m file:///Users/me/demos/mlruns/0/bc8bdb7fb90c406eb95603a97
 
 ## Update the config.yaml to add a new completions route
 
-Ensure that the Mlflow serving endpoint starts and is ready for traffic.
+Ensure that the MLflow serving endpoint starts and is ready for traffic.
 
 ```commandline
 2023/08/08 17:39:14 INFO mlflow.models.flavor_backend_registry: Selected backend for flavor 'python_function'
@@ -197,22 +197,22 @@ class MPT(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         """
         This method initializes the tokenizer and language model
-        using the specified model repository.
+        using the specified model snapshot directory.
         """
         # Initialize tokenizer and language model
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(
-            context.artifacts["repository"], padding_side="left"
+            context.artifacts["snapshot"], padding_side="left"
         )
 
         config = transformers.AutoConfig.from_pretrained(
-            context.artifacts["repository"], trust_remote_code=True
+            context.artifacts["snapshot"], trust_remote_code=True
         )
         # Comment out this configuration setting if not running on a GPU or if triton is not installed.
         # Note that triton dramatically improves the inference speed performance
         config.attn_config["attn_impl"] = "triton"
 
         self.model = transformers.AutoModelForCausalLM.from_pretrained(
-            context.artifacts["repository"],
+            context.artifacts["snapshot"],
             config=config,
             torch_dtype=torch.bfloat16,
             trust_remote_code=True,
@@ -242,7 +242,7 @@ class MPT(mlflow.pyfunc.PythonModel):
         {RESPONSE_KEY}
         """
 
-    def predict(self, context, model_input):
+    def predict(self, context, model_input, params=None):
         """
         This method generates prediction for the given input.
         """
@@ -305,7 +305,7 @@ with mlflow.start_run():
     mlflow.pyfunc.log_model(
         "mpt-7b-instruct",
         python_model=MPT(),
-        artifacts={"repository": snapshot_location},
+        artifacts={"snapshot": snapshot_location},
         pip_requirements=[
             "torch",
             "transformers",
@@ -362,7 +362,7 @@ routes:
         model_server_url: http://127.0.0.1:9030
 ```
 
-## Start the Mlflow AI Gateway server
+## Start the MLflow AI Gateway server
 
 Now that both routes (or all 3, if adding in the optional MPT-7B-instruct model route) are defined within the configuration YAML file and the Model Serving servers are ready to receive queries, we can start the MLflow AI Gateway server.
 

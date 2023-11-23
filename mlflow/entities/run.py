@@ -45,7 +45,7 @@ class Run(_MLflowObject):
         """
         The run inputs, including dataset inputs
 
-        :rtype: :py:class:`mlflow.entities.RunData`
+        :rtype: :py:class:`mlflow.entities.RunInputs`
         """
         return self._inputs
 

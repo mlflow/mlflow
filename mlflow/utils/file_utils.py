@@ -4,24 +4,32 @@ import errno
 import fnmatch
 import gzip
 import json
+import logging
 import math
 import os
 import pathlib
 import posixpath
 import shutil
 import stat
+import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.parse
 import urllib.request
 import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
+from dataclasses import dataclass
+from subprocess import CalledProcessError, TimeoutExpired
+from typing import Optional, Union
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
 import yaml
+
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 try:
     from yaml import CSafeDumper as YamlSafeDumper
@@ -31,19 +39,29 @@ except ImportError:
     from yaml import SafeLoader as YamlSafeLoader
 
 from mlflow.entities import FileInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR
-from mlflow.exceptions import MissingConfigException
+from mlflow.environment_variables import (
+    _MLFLOW_MPD_NUM_RETRIES,
+    _MLFLOW_MPD_RETRY_INTERVAL_SECONDS,
+    MLFLOW_DOWNLOAD_CHUNK_TIMEOUT,
+    MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
+)
+from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import download_cloud_file_chunk, merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
-from mlflow.utils.process import _exec_cmd, cache_return_value_per_process
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
+
+_logger = logging.getLogger(__name__)
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ArtifactProgressBar:
@@ -197,20 +215,23 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
+def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):
     """
     Write dictionary data in yaml format.
 
     :param root: Directory name.
-    :param file_name: Desired file name. Will automatically add .yaml extension if not given
+    :param file_name: Desired file name.
     :param data: data to be dumped as yaml format
     :param overwrite: If True, will overwrite existing files
+    :param ensure_yaml_extension: If True, will automatically add .yaml extension if not given
     """
     if not exists(root):
         raise MissingConfigException(f"Parent directory '{root}' does not exist.")
 
     file_path = os.path.join(root, file_name)
-    yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
+    yaml_file_name = file_path
+    if ensure_yaml_extension and not file_path.endswith(".yaml"):
+        yaml_file_name = file_path + ".yaml"
 
     if exists(yaml_file_name) and not overwrite:
         raise Exception(f"Yaml file '{file_path}' exists as '{yaml_file_name}")
@@ -229,7 +250,7 @@ def write_yaml(root, file_name, data, overwrite=False, sort_keys=True):
         raise e
 
 
-def overwrite_yaml(root, file_name, data):
+def overwrite_yaml(root, file_name, data, ensure_yaml_extension=True):
     """
     Safely overwrites a preexisting yaml file, ensuring that file contents are not deleted or
     corrupted if the write fails. This is achieved by writing contents to a temporary file
@@ -237,10 +258,13 @@ def overwrite_yaml(root, file_name, data):
     preexisting file for a direct write.
 
     :param root: Directory name.
-    :param file_name: File name. Expects to have '.yaml' extension.
+    :param file_name: File name.
     :param data: The data to write, represented as a dictionary.
+    :param ensure_yaml_extension: If True, Will automatically add .yaml extension if not given
     """
     tmp_file_path = None
+    original_file_path = os.path.join(root, file_name)
+    original_file_mode = os.stat(original_file_path).st_mode
     try:
         tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
         os.close(tmp_file_fd)
@@ -250,11 +274,11 @@ def overwrite_yaml(root, file_name, data):
             data=data,
             overwrite=True,
             sort_keys=True,
+            ensure_yaml_extension=ensure_yaml_extension,
         )
-        shutil.move(
-            tmp_file_path,
-            os.path.join(root, file_name),
-        )
+        shutil.move(tmp_file_path, original_file_path)
+        # restores original file permissions, see https://docs.python.org/3/library/tempfile.html#tempfile.mkstemp
+        os.chmod(original_file_path, original_file_mode)
     finally:
         if tmp_file_path is not None and os.path.exists(tmp_file_path):
             os.remove(tmp_file_path)
@@ -374,7 +398,7 @@ class TempDir:
         self._remove = remove_on_exit
 
     def __enter__(self):
-        self._path = os.path.abspath(tempfile.mkdtemp())
+        self._path = os.path.abspath(create_tmp_dir())
         assert os.path.exists(self._path)
         if self._chdr:
             self._dir = os.path.abspath(os.getcwd())
@@ -649,10 +673,27 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
                 output_file.write(chunk)
 
 
+@dataclass(frozen=True)
+class _Chunk:
+    index: int
+    start: int
+    end: int
+    path: str
+
+
+def _yield_chunks(path, file_size, chunk_size):
+    num_requests = int(math.ceil(file_size / float(chunk_size)))
+    for i in range(num_requests):
+        range_start = i * chunk_size
+        range_end = min(range_start + chunk_size - 1, file_size - 1)
+        yield _Chunk(i, range_start, range_end, path)
+
+
 def parallelized_download_file_using_http_uri(
     thread_pool_executor,
     http_uri,
     download_path,
+    remote_file_path,
     file_size,
     uri_type,
     chunk_size,
@@ -670,58 +711,54 @@ def parallelized_download_file_using_http_uri(
     Returns a dict of chunk index : exception, if one was thrown for that index.
     """
 
-    def run_download(range_start, range_end):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            temp_file = os.path.join(tmpdir, "error_messages.txt")
-            download_proc = _exec_cmd(
-                cmd=[
+    def run_download(chunk: _Chunk):
+        try:
+            subprocess.run(
+                [
                     sys.executable,
                     download_cloud_file_chunk.__file__,
                     "--range-start",
-                    range_start,
+                    str(chunk.start),
                     "--range-end",
-                    range_end,
+                    str(chunk.end),
                     "--headers",
                     json.dumps(headers or {}),
                     "--download-path",
                     download_path,
                     "--http-uri",
                     http_uri,
-                    "--temp-file",
-                    temp_file,
                 ],
-                throw_on_error=True,
-                synchronous=False,
+                text=True,
+                check=True,
                 capture_output=True,
-                stream_output=False,
+                timeout=MLFLOW_DOWNLOAD_CHUNK_TIMEOUT.get(),
                 env=env,
             )
-            _, stderr = download_proc.communicate()
-            if download_proc.returncode != 0:
-                if os.path.exists(temp_file):
-                    with open(temp_file) as f:
-                        file_contents = f.read()
-                        if file_contents:
-                            return json.loads(file_contents)
-                        else:
-                            raise Exception(
-                                "Error from download_cloud_file_chunk not captured, "
-                                f"return code {download_proc.returncode}, stderr {stderr}"
-                            )
+        except (TimeoutExpired, CalledProcessError) as e:
+            raise MlflowException(
+                f"""
+----- stdout -----
+{e.stdout.strip()}
 
-    num_requests = int(math.ceil(file_size / float(chunk_size)))
+----- stderr -----
+{e.stderr.strip()}
+"""
+            ) from e
+
+    chunks = _yield_chunks(remote_file_path, file_size, chunk_size)
     # Create file if it doesn't exist or erase the contents if it does. We should do this here
     # before sending to the workers so they can each individually seek to their respective positions
     # and write chunks without overwriting.
-    open(download_path, "w").close()
-    starting_index = 0
+    with open(download_path, "w"):
+        pass
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
+        chunk = next(chunks)
         # GCP files could be transcoded, in which case the range header is ignored.
         # Test if this is the case by downloading one chunk and seeing if it's larger than the
         # requested size. If yes, let that be the file; if not, continue downloading more chunks.
         download_chunk(
-            range_start=0,
-            range_end=chunk_size - 1,
+            range_start=chunk.start,
+            range_end=chunk.end,
             headers=headers,
             download_path=download_path,
             http_uri=http_uri,
@@ -731,33 +768,46 @@ def parallelized_download_file_using_http_uri(
         # so we don't need to consider this here
         if downloaded_size > chunk_size:
             return {}
-        else:
-            starting_index = 1
 
-    futures = {}
-    for i in range(starting_index, num_requests):
-        range_start = i * chunk_size
-        range_end = range_start + chunk_size - 1
-        futures[thread_pool_executor.submit(run_download, range_start, range_end)] = i
-
+    futures = {thread_pool_executor.submit(run_download, chunk): chunk for chunk in chunks}
     failed_downloads = {}
-
     with ArtifactProgressBar.chunks(file_size, f"Downloading {download_path}", chunk_size) as pbar:
         for future in as_completed(futures):
-            index = futures[future]
+            chunk = futures[future]
             try:
-                result = future.result()
-                if result is not None:
-                    failed_downloads[index] = result
-                else:
-                    pbar.update()
+                future.result()
             except Exception as e:
-                failed_downloads[index] = {
-                    "error_status_code": 500,
-                    "error_text": repr(e),
-                }
+                _logger.debug(
+                    f"Failed to download chunk {chunk.index} for {chunk.path}: {e}. "
+                    f"The download of this chunk will be retried later."
+                )
+                failed_downloads[chunk] = future.exception()
+            else:
+                pbar.update()
 
     return failed_downloads
+
+
+def download_chunk_retries(*, chunks, http_uri, headers, download_path):
+    num_retries = _MLFLOW_MPD_NUM_RETRIES.get()
+    interval = _MLFLOW_MPD_RETRY_INTERVAL_SECONDS.get()
+    for chunk in chunks:
+        _logger.info(f"Retrying download of chunk {chunk.index} for {chunk.path}")
+        for retry in range(num_retries):
+            try:
+                download_chunk(
+                    range_start=chunk.start,
+                    range_end=chunk.end,
+                    headers=headers,
+                    download_path=download_path,
+                    http_uri=http_uri,
+                )
+                _logger.info(f"Successfully downloaded chunk {chunk.index} for {chunk.path}")
+                break
+            except Exception:
+                if retry == num_retries - 1:
+                    raise
+            time.sleep(interval)
 
 
 def _handle_readonly_on_windows(func, path, exc_info):
@@ -781,6 +831,29 @@ def _handle_readonly_on_windows(func, path, exc_info):
         raise exc_value
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+def _get_tmp_dir():
+    from mlflow.utils.databricks_utils import get_repl_id, is_in_databricks_runtime
+
+    if is_in_databricks_runtime():
+        try:
+            return _get_dbutils().entry_point.getReplLocalTempDir()
+        except Exception:
+            pass
+
+        if repl_id := get_repl_id():
+            return os.path.join("/tmp", "repl_tmp_data", repl_id)
+
+    return None
+
+
+def create_tmp_dir():
+    if directory := _get_tmp_dir():
+        os.makedirs(directory, exist_ok=True)
+        return tempfile.mkdtemp(dir=directory)
+
+    return tempfile.mkdtemp()
 
 
 @cache_return_value_per_process
@@ -881,7 +954,7 @@ def shutil_copytree_without_file_permissions(src_dir, dst_dir):
             file_path = os.path.join(dirpath, filename)
             relative_file_path = os.path.relpath(file_path, src_dir)
             abs_file_path = os.path.join(dst_dir, relative_file_path)
-            shutil.copyfile(file_path, abs_file_path)
+            shutil.copy2(file_path, abs_file_path)
 
 
 def contains_path_separator(path):
@@ -942,3 +1015,32 @@ def chdir(path: str) -> None:
         yield
     finally:
         os.chdir(cwd)
+
+
+def get_total_file_size(path: Union[str, pathlib.Path]) -> Optional[int]:
+    """
+    Return the size of all files under given path, including files in subdirectories.
+
+    :param path: The absolute path of a local directory.
+    :return: size in bytes.
+    """
+    try:
+        if isinstance(path, pathlib.Path):
+            path = str(path)
+        if not os.path.exists(path):
+            raise MlflowException(
+                message=f"The given {path} does not exist.", error_code=INVALID_PARAMETER_VALUE
+            )
+        if not os.path.isdir(path):
+            raise MlflowException(
+                message=f"The given {path} is not a directory.", error_code=INVALID_PARAMETER_VALUE
+            )
+
+        total_size = 0
+        for cur_path, dirs, files in os.walk(path):
+            full_paths = [os.path.join(cur_path, file) for file in files]
+            total_size += sum([os.path.getsize(file) for file in full_paths])
+        return total_size
+    except Exception as e:
+        _logger.info(f"Failed to get the total size of {path} because of error :{e}")
+        return None

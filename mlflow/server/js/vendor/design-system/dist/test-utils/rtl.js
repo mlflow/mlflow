@@ -1,11 +1,11 @@
 import userEvent from '@testing-library/user-event';
-import { waitFor, within, queryHelpers } from '@testing-library/react';
-import { s as selectClasses, c as createMarkdownTable } from '../common-31040b66.js';
+import { queryHelpers, waitFor, within } from '@testing-library/react';
+import { s as selectClasses, c as createMarkdownTable } from '../common-5b60d682.js';
 
 /**
  * Allows the helpers in this module to be used when the select element is
- * queried _semantically_ (as if it were a native <select> element) — i.e.
- * `ByRole('combobox', { name: '…' })`, rather than by test ID.
+ * queried _semantically_ (as if it were a native <select> element) - i.e.
+ * `ByRole('combobox', { name: '...' })`, rather than by test ID.
  *
  * Also checks if <DesignSystemProvider> was used, because many of the helpers
  * in this module query by class name starting with "du-bois-", which requires
@@ -25,15 +25,15 @@ function getOptionsList(select) {
   const input = within(select).getByRole('combobox');
   const listId = input.getAttribute('aria-owns') || input.getAttribute('aria-controls');
   if (!listId) {
-    throw new Error(`Options listid not found\n${body.innerHTML}`);
+    throw queryHelpers.getElementError('Options input does not control an options list', body);
   }
   const listbox = select.ownerDocument.getElementById(listId);
   if (!(listbox !== null && listbox !== void 0 && listbox.parentElement)) {
-    throw new Error(`Options list not found\n${body.innerHTML}`);
+    throw queryHelpers.getElementError('Options listbox does not have a parent', body);
   }
   const optionsList = listbox.parentElement.querySelector(`.${selectClasses.list}`);
   if (!optionsList) {
-    throw new Error(`Options list not found\n${body.innerHTML}`);
+    throw queryHelpers.getElementError('Options list not found', body);
   }
   return optionsList;
 }
@@ -45,18 +45,18 @@ function getOptionsList(select) {
 async function openMenu(select) {
   select = getRootElement(select);
   if (select.classList.contains(selectClasses.open)) {
-    throw new Error(`Select is already open\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Select is already open', select);
   }
   const selector = select.querySelector(`.${selectClasses.selector}`);
   if (!selector) {
-    throw new Error(`Selector not found\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Selector not found', select);
   }
   await userEvent.click(selector, {
     pointerEventsCheck: 0
   });
   await waitFor(() => {
     if (!select.classList.contains(selectClasses.open)) {
-      throw new Error(`Select did not open\n${select.innerHTML}`);
+      throw queryHelpers.getElementError('Select did not open', select);
     }
   });
 }
@@ -68,18 +68,18 @@ async function openMenu(select) {
 async function closeMenu(select) {
   select = getRootElement(select);
   if (!select.classList.contains(selectClasses.open)) {
-    throw new Error(`Select is already closed\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Select is already closed', select);
   }
   const selector = select.querySelector(`.${selectClasses.selector}`);
   if (!selector) {
-    throw new Error(`Selector not found\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Selector not found', select);
   }
   await userEvent.click(selector, {
     pointerEventsCheck: 0
   });
   await waitFor(() => {
     if (select.classList.contains(selectClasses.open)) {
-      throw new Error(`Select did not close\n${select.innerHTML}`);
+      throw queryHelpers.getElementError('Select did not close', select);
     }
   });
 }
@@ -92,12 +92,34 @@ function getLabelText(select) {
   select = getRootElement(select);
   const selector = select.querySelector(`.${selectClasses.selector}`);
   if (!selector) {
-    throw new Error(`Selector not found\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Selector not found', select);
   }
   // Trim the text to avoid weird whitespace issues non-label elements being added.
   // For example, the input mirror is an empty span with some whitespace that is
   // nested under the selector but does not show up in the label text.
   return (_selector$textContent = (_selector$textContent2 = selector.textContent) === null || _selector$textContent2 === void 0 ? void 0 : _selector$textContent2.trim()) !== null && _selector$textContent !== void 0 ? _selector$textContent : '';
+}
+
+/**
+ * Removes the `option` by clicking its "X" button. Can only be used with a <Select/>
+ * component with `mode="multiple"`. The provided strings must match the option label
+ * exactly.
+ */
+async function removeMultiSelectOption(select, option) {
+  select = getRootElement(select);
+  const selector = select.querySelector(`.${selectClasses.selector}`);
+  if (!selector) {
+    throw queryHelpers.getElementError('Selector not found', select);
+  }
+  const optionItem = within(selector).getByText(option).closest(`.${selectClasses.item}`);
+  if (optionItem === null) {
+    throw queryHelpers.getElementError(`Option "${option}" not found`, select);
+  }
+  const removeItem = optionItem.querySelector(`.${selectClasses.removeItem}`);
+  if (removeItem === null) {
+    throw queryHelpers.getElementError(`Remove button for option "${option}" not found`, optionItem);
+  }
+  await userEvent.click(removeItem);
 }
 
 /**
@@ -148,7 +170,7 @@ async function clearAll(select) {
   select = getRootElement(select);
   const clearBtn = select.querySelector(`.${selectClasses.clear}`);
   if (!clearBtn) {
-    throw new Error(`Select not clearable\n${select.innerHTML}`);
+    throw queryHelpers.getElementError('Select not clearable', select);
   }
   await userEvent.click(clearBtn);
 }
@@ -164,7 +186,7 @@ async function getAllOptions(select) {
   const options = [];
   optionsList.querySelectorAll(`.${selectClasses.option}`).forEach(option => {
     if (option.textContent === null) {
-      throw new Error(`Option had no text content\n${option.innerHTML}`);
+      throw queryHelpers.getElementError('Option had no text content', option);
     }
     options.push(option.textContent);
   });
@@ -180,8 +202,18 @@ var selectEvent = /*#__PURE__*/Object.freeze({
   getLabelText: getLabelText,
   multiSelect: multiSelect,
   openMenu: openMenu,
+  removeMultiSelectOption: removeMultiSelectOption,
   singleSelect: singleSelect
 });
+
+function getColumnHeaderIndex(tableElement, columnHeaderName) {
+  var _columnHeader$parentE, _columnHeader$parentE2;
+  const columnHeader = within(tableElement).getByRole('columnheader', {
+    name: columnHeaderName
+  });
+  const columnHeaderIndex = Array.from((_columnHeader$parentE = (_columnHeader$parentE2 = columnHeader.parentElement) === null || _columnHeader$parentE2 === void 0 ? void 0 : _columnHeader$parentE2.children) !== null && _columnHeader$parentE !== void 0 ? _columnHeader$parentE : []).indexOf(columnHeader);
+  return columnHeaderIndex;
+}
 
 /**
  * Returns the table row that contains the specified `cellText`. The `cellText`
@@ -200,16 +232,7 @@ function getTableRowByCellText(tableElement, cellText) {
   let {
     columnHeaderName
   } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-  let columnHeaderIndex;
-  if (columnHeaderName === undefined) {
-    columnHeaderIndex = 0;
-  } else {
-    var _columnHeader$parentE, _columnHeader$parentE2;
-    const columnHeader = within(tableElement).getByRole('columnheader', {
-      name: columnHeaderName
-    });
-    columnHeaderIndex = Array.from((_columnHeader$parentE = (_columnHeader$parentE2 = columnHeader.parentElement) === null || _columnHeader$parentE2 === void 0 ? void 0 : _columnHeader$parentE2.children) !== null && _columnHeader$parentE !== void 0 ? _columnHeader$parentE : []).indexOf(columnHeader);
-  }
+  const columnHeaderIndex = columnHeaderName === undefined ? 0 : getColumnHeaderIndex(tableElement, columnHeaderName);
   const matchingRows = within(tableElement).getAllByRole('row')
   // Skip first row (table header)
   .slice(1).filter(row => {
@@ -297,6 +320,50 @@ function getTableRows(tableElement) {
 }
 
 /**
+ * Returns the table cell in the specified table row corresponding to the given
+ * `columnHeaderName`. This is useful for checking that a row has a particular value
+ * for a given column, especially when there are duplicate values in the column.
+ *
+ * @example
+ * The HTML table:
+ * ```jsx
+ *   <Table>
+ *     <TableRow isHeader>
+ *       <TableHeader>Name</TableHeader>
+ *       <TableHeader>Age</TableHeader>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Alex</TableCell>
+ *       <TableCell>25</TableCell>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Brenda</TableCell>
+ *       <TableCell>39</TableCell>
+ *     </TableRow>
+ *     <TableRow>
+ *       <TableCell>Carlos</TableCell>
+ *       <TableCell>39</TableCell>
+ *     </TableRow>
+ *   </Table>
+ * ```
+ *
+ * ```js
+ * const table = screen.getByRole('table');
+ * const result = getTableCellInRow(table, { cellText: 'Carlos' }, 'Age');
+ * expect(result.textContent).toEqual('39');
+ * ```
+ */
+function getTableCellInRow(tableElement, row, columnHeaderName) {
+  const tableRowElement = getTableRowByCellText(tableElement, row.cellText, {
+    columnHeaderName: row.columnHeaderName
+  });
+  const columnHeaderIndex = getColumnHeaderIndex(tableElement, columnHeaderName);
+  const cells = within(tableRowElement).getAllByRole('cell');
+  const cell = cells[columnHeaderIndex];
+  return cell;
+}
+
+/**
  * Opens the dropdown menu by clicking on the dropdown button.
  *
  * @param dropdownButton - The Dropdown Trigger button that opens the menu when clicked.
@@ -305,5 +372,5 @@ const openDropdownMenu = async dropdownButton => {
   await userEvent.type(dropdownButton, '{arrowdown}');
 };
 
-export { getTableRowByCellText, getTableRows, openDropdownMenu, selectEvent, toMarkdownTable };
+export { getTableCellInRow, getTableRowByCellText, getTableRows, openDropdownMenu, selectEvent, toMarkdownTable };
 //# sourceMappingURL=rtl.js.map

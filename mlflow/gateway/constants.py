@@ -1,5 +1,6 @@
 MLFLOW_GATEWAY_HEALTH_ENDPOINT = "/health"
 MLFLOW_GATEWAY_CRUD_ROUTE_BASE = "/api/2.0/gateway/routes/"
+MLFLOW_GATEWAY_LIMITS_BASE = "/api/2.0/gateway/limits/"
 MLFLOW_GATEWAY_ROUTE_BASE = "/gateway/"
 MLFLOW_QUERY_SUFFIX = "/invocations"
 MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE = 3000
@@ -31,3 +32,10 @@ MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS = 200_000
 
 # MLflow model serving constants
 MLFLOW_SERVING_RESPONSE_KEY = "predictions"
+
+# MosaicML constants
+# MosaicML supported chat model names
+# These validated names are used for the MosaicML provider due to the need to perform prompt
+# translations prior to sending a request payload to their chat endpoints.
+# to reduce the need to case-match, supported model prefixes are lowercase.
+MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES = ["llama2"]

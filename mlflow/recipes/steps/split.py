@@ -17,6 +17,7 @@ from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.step import get_pandas_data_profiles, validate_classification_config
 from mlflow.store.artifact.artifact_repo import _NUM_DEFAULT_CPUS
+from mlflow.utils.time import Timer
 
 _logger = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
 
 
 def _parallelize(data, func, n_jobs=-1):
-    n_jobs = n_jobs if n_jobs > 0 and n_jobs <= _NUM_DEFAULT_CPUS else _NUM_DEFAULT_CPUS
+    n_jobs = n_jobs if 0 < n_jobs <= _NUM_DEFAULT_CPUS else _NUM_DEFAULT_CPUS
     data_split = np.array_split(data, n_jobs)
     pool = Pool(n_jobs)
     data = pd.concat(pool.map(func, data_split))
@@ -147,14 +148,13 @@ def _create_hash_buckets(input_df, n_jobs=-1):
     # Create hash bucket used for splitting dataset
     # Note: use `hash_pandas_object` instead of python builtin hash because it is stable
     # across different process runs / different python versions
-    start_time = time.time()
-    hash_buckets = _hash_pandas_dataframe(input_df, n_jobs=n_jobs).map(
-        lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
-    )
-    execution_duration = time.time() - start_time
+    with Timer() as t:
+        hash_buckets = _hash_pandas_dataframe(input_df, n_jobs=n_jobs).map(
+            lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
+        )
     _logger.debug(
         f"Creating hash buckets on input dataset containing {len(input_df)} "
-        f"rows consumes {execution_duration} seconds."
+        f"rows consumes {t:.3f} seconds."
     )
     return hash_buckets
 

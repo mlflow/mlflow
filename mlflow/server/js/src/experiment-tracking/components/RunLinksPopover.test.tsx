@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { MemoryRouter } from 'react-router-dom-v5-compat';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { shallow, mount } from 'enzyme';
 
 import { RunLinksPopover } from './RunLinksPopover';

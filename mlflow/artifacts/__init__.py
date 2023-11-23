@@ -66,8 +66,7 @@ def download_artifacts(
     artifact_repo = get_artifact_repository(
         add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri)
     )
-    artifact_location = artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
-    return artifact_location
+    return artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
 
 
 def load_text(artifact_uri: str) -> str:

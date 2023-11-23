@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -16,6 +16,9 @@ from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.annotations import experimental
 
+if TYPE_CHECKING:
+    import pyspark
+
 _logger = logging.getLogger(__name__)
 
 
@@ -28,7 +31,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        df,
+        df: "pyspark.sql.DataFrame",
         source: DatasetSource,
         targets: Optional[str] = None,
         name: Optional[str] = None,
@@ -255,7 +258,7 @@ def load_delta(
 
 @experimental
 def from_spark(
-    df,
+    df: "pyspark.sql.DataFrame",
     path: Optional[str] = None,
     table_name: Optional[str] = None,
     version: Optional[str] = None,

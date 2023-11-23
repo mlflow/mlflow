@@ -436,14 +436,13 @@ class SearchUtils:
 
     @classmethod
     def _invalid_statement_token_search_runs(cls, token):
-        if isinstance(token, Comparison):
+        if (
+            isinstance(token, Comparison)
+            or token.is_whitespace
+            or token.match(ttype=TokenType.Keyword, values=["AND"])
+        ):
             return False
-        elif token.is_whitespace:
-            return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
-            return False
-        else:
-            return True
+        return True
 
     @classmethod
     def _process_statement(cls, statement):
@@ -860,8 +859,7 @@ class SearchUtils:
         run_id_list = cls._parse_list_from_sql_token(token)
         # Because MySQL IN clause is case-insensitive, but all run_ids only contain lower
         # case letters, so that we filter out run_ids containing upper case letters here.
-        run_id_list = [run_id for run_id in run_id_list if run_id.islower()]
-        return run_id_list
+        return [run_id for run_id in run_id_list if run_id.islower()]
 
 
 class SearchExperimentsUtils(SearchUtils):
@@ -871,14 +869,13 @@ class SearchExperimentsUtils(SearchUtils):
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):
-        if isinstance(token, Comparison):
+        if (
+            isinstance(token, Comparison)
+            or token.is_whitespace
+            or token.match(ttype=TokenType.Keyword, values=["AND"])
+        ):
             return False
-        elif token.is_whitespace:
-            return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
-            return False
-        else:
-            return True
+        return True
 
     @classmethod
     def _process_statement(cls, statement):
@@ -1199,14 +1196,13 @@ class SearchModelUtils(SearchUtils):
 
     @classmethod
     def _invalid_statement_token_search_model_registry(cls, token):
-        if isinstance(token, Comparison):
+        if (
+            isinstance(token, Comparison)
+            or token.is_whitespace
+            or token.match(ttype=TokenType.Keyword, values=["AND"])
+        ):
             return False
-        elif token.is_whitespace:
-            return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
-            return False
-        else:
-            return True
+        return True
 
 
 class SearchModelVersionUtils(SearchUtils):
@@ -1397,14 +1393,13 @@ class SearchModelVersionUtils(SearchUtils):
 
     @classmethod
     def _invalid_statement_token_search_model_version(cls, token):
-        if isinstance(token, Comparison):
+        if (
+            isinstance(token, Comparison)
+            or token.is_whitespace
+            or token.match(ttype=TokenType.Keyword, values=["AND"])
+        ):
             return False
-        elif token.is_whitespace:
-            return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
-            return False
-        else:
-            return True
+        return True
 
     @classmethod
     def parse_search_filter(cls, filter_string):

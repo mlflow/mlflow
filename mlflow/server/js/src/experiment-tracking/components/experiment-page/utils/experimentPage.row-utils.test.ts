@@ -27,13 +27,13 @@ const MOCK_MODEL_MAP = {
 const MOCK_RUN_DATA = [
   {
     runInfo: { experiment_id: '1', run_uuid: 'run1_1' },
-    metrics: [{ key: 'met1', value: '111' }],
+    metrics: [{ key: 'met1', value: 111.123456789 }],
     params: [{ key: 'p1', value: '123' }],
     tags: { testtag1: { key: 'testtag1', value: 'testval1' } },
   },
   {
     runInfo: { experiment_id: '1', run_uuid: 'run1_2' },
-    metrics: [{ key: 'met1', value: '222' }],
+    metrics: [{ key: 'met1', value: 222 }],
     tags: {
       testtag1: { key: 'testtag1', value: 'testval2' },
       'mlflow.parentRunId': { key: 'mlflow.parentRunId', value: 'run1_1' },
@@ -49,8 +49,8 @@ const MOCK_RUN_DATA = [
   {
     runInfo: { experiment_id: '1', run_uuid: 'run1_4' },
     metrics: [
-      { key: 'met1', value: '1122' },
-      { key: 'met2', value: '2211' },
+      { key: 'met1', value: 1122 },
+      { key: 'met2', value: 2211 },
     ],
     params: [
       { key: 'p1', value: '1234' },
@@ -130,14 +130,14 @@ describe('ExperimentViewRuns row utils', () => {
     // Assert run #1 KV data
     expect(runsGridData[0]['$$$param$$$-p1']).toEqual('123');
     expect(runsGridData[0]['$$$param$$$-p2']).toEqual('-');
-    expect(runsGridData[0]['$$$metric$$$-met1']).toEqual('111');
+    expect(runsGridData[0]['$$$metric$$$-met1']).toEqual(111.123456789);
     expect(runsGridData[0]['$$$metric$$$-met2']).toEqual('-');
     expect(runsGridData[0]['$$$tag$$$-testtag1']).toEqual('testval1');
 
     // Assert run #2 KV data
     expect(runsGridData[1]['$$$param$$$-p1']).toEqual('-');
     expect(runsGridData[1]['$$$param$$$-p2']).toEqual('-');
-    expect(runsGridData[1]['$$$metric$$$-met1']).toEqual('222');
+    expect(runsGridData[1]['$$$metric$$$-met1']).toEqual(222);
     expect(runsGridData[1]['$$$metric$$$-met2']).toEqual('-');
     expect(runsGridData[1]['$$$tag$$$-testtag1']).toEqual('testval2');
 
@@ -151,8 +151,8 @@ describe('ExperimentViewRuns row utils', () => {
     // Assert run #4 KV data
     expect(runsGridData[3]['$$$param$$$-p1']).toEqual('1234');
     expect(runsGridData[3]['$$$param$$$-p2']).toEqual('12345');
-    expect(runsGridData[3]['$$$metric$$$-met1']).toEqual('1122');
-    expect(runsGridData[3]['$$$metric$$$-met2']).toEqual('2211');
+    expect(runsGridData[3]['$$$metric$$$-met1']).toEqual(1122);
+    expect(runsGridData[3]['$$$metric$$$-met2']).toEqual(2211);
     expect(runsGridData[3]['$$$tag$$$-testtag1']).toEqual('-');
 
     // Assert run #5 KV data

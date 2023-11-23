@@ -12,8 +12,7 @@ export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags }: DatasetL
   const { dataset } = datasetWithTags;
   if (dataset.source_type === DatasetSourceTypes.EXTERNAL) {
     return (
-      <Button>
-        <NewWindowIcon />
+      <Button icon={<NewWindowIcon />}>
         <FormattedMessage
           defaultMessage='Go to external location'
           description='Text for the external location link in the experiment run dataset drawer'

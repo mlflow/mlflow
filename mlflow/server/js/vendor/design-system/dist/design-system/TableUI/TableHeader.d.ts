@@ -1,9 +1,11 @@
 import type { CSSProperties } from 'react';
 import React from 'react';
 import type { HTMLDataAttributes } from '../types';
-export interface TableHeaderProps extends HTMLDataAttributes {
-    /** Enables single-line ellipsis truncation */
+export interface TableHeaderProps extends HTMLDataAttributes, React.HTMLAttributes<HTMLDivElement> {
+    /** @deprecated Use `multiline` prop instead. This prop will be removed soon. */
     ellipsis?: boolean;
+    /** Enables multiline wrapping */
+    multiline?: boolean;
     /** Is this column sortable? */
     sortable?: boolean;
     /** The current sort direction for this column */

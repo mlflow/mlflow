@@ -1,29 +1,21 @@
-<!-- 🚨 We recommend pull requests be filed from a non-master branch on a repository fork (e.g. <username>:fix-xxx). 🚨 -->
+### Related Issues/PRs
 
-## Related Issues/PRs
-
-<!-- Can this PR close the linked issue? If yes, uncomment "Resolve". -->
+<!-- Uncomment 'Resolve' if this PR can close the linked items. -->
 <!-- Resolve --> #xxx
 
-## What changes are proposed in this pull request?
+### What changes are proposed in this pull request?
 
-(Please fill in changes proposed in this fix)
+<!-- Please fill in changes proposed in this PR. -->
 
-## How is this patch tested?
-
-<!--
-If you're unsure about what to test, where to add tests, or how to run tests, please feel free to ask.
--->
+### How is this PR tested?
 
 - [ ] Existing unit/integration tests
 - [ ] New unit/integration tests
-- [ ] Manual tests (describe details, including test results, below)
+- [ ] Manual tests
 
-<!--
-Please describe how you confirmed the proposed feature/bug-fix/change works here. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.
--->
+<!-- Attach code, screenshot, video used for manual testing here. -->
 
-## Does this PR require documentation update?
+### Does this PR require documentation update?
 
 - [ ] No. You can skip the rest of this section.
 - [ ] Yes. I've updated:
@@ -31,16 +23,16 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
   - [ ] API references
   - [ ] Instructions
 
-## Release Notes
+### Release Notes
 
-### Is this a user-facing change?
+#### Is this a user-facing change?
 
 - [ ] No. You can skip the rest of this section.
 - [ ] Yes. Give a description of this change to be included in the release notes for MLflow users.
 
-(Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change.)
+<!-- Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change. -->
 
-### What component(s), interfaces, languages, and integrations does this PR affect?
+#### What component(s), interfaces, languages, and integrations does this PR affect?
 
 Components
 
@@ -84,10 +76,10 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 
 <a name="release-note-category"></a>
 
-### How should the PR be classified in the release notes? Choose one:
+#### How should the PR be classified in the release notes? Choose one:
 
-- [ ] `rn/breaking-change` - The PR will be mentioned in the "Breaking Changes" section
 - [ ] `rn/none` - No description will be included. The PR will be mentioned only by the PR number in the "Small Bugfixes and Documentation Updates" section
+- [ ] `rn/breaking-change` - The PR will be mentioned in the "Breaking Changes" section
 - [ ] `rn/feature` - A new user-facing feature worth mentioning in the release notes
 - [ ] `rn/bug-fix` - A user-facing bug fix worth mentioning in the release notes
 - [ ] `rn/documentation` - A user-facing documentation change worth mentioning in the release notes

@@ -151,6 +151,7 @@ def test_dynamic_route():
                 "index": 0,
             }
         ],
+        "headers": {"Content-Type": "application/json"},
     }
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)

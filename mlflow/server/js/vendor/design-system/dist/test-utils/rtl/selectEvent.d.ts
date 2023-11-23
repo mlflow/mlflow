@@ -13,6 +13,12 @@ export declare function closeMenu(select: HTMLElement): Promise<void>;
  */
 export declare function getLabelText(select: HTMLElement): string;
 /**
+ * Removes the `option` by clicking its "X" button. Can only be used with a <Select/>
+ * component with `mode="multiple"`. The provided strings must match the option label
+ * exactly.
+ */
+export declare function removeMultiSelectOption(select: HTMLElement, option: string): Promise<void>;
+/**
  * Selects options from the dropdown menu for a <Select/> component with `mode="multiple"`.
  * The provided strings must match the option labels exactly. There is a known
  * limitation for lists that are extremely long because AntD virtualizes the

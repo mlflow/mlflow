@@ -137,7 +137,7 @@ def test_client_run_creation_and_termination_are_successful():
 def test_client_asynchronous_flush_operates_correctly():
     original_log_batch = MlflowClient().log_batch
 
-    def mock_log_batch(run_id, metrics, params, tags):  # pylint: disable=unused-argument
+    def mock_log_batch(run_id, metrics=(), params=(), tags=()):  # pylint: disable=unused-argument
         # Sleep to simulate a long-running logging operation
         time.sleep(3)
         return original_log_batch(run_id, metrics, params, tags)
@@ -168,7 +168,7 @@ def test_client_asynchronous_flush_operates_correctly():
 def test_client_synchronous_flush_operates_correctly():
     original_log_batch = MlflowClient().log_batch
 
-    def mock_log_batch(run_id, metrics, params, tags):  # pylint: disable=unused-argument
+    def mock_log_batch(run_id, metrics=(), params=(), tags=()):  # pylint: disable=unused-argument
         # Sleep to simulate a long-running logging operation
         time.sleep(3)
         return original_log_batch(run_id, metrics, params, tags)

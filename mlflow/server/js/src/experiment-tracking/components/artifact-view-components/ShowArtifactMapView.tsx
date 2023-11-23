@@ -6,16 +6,12 @@
  */
 
 import React, { Component } from 'react';
-import { getSrc } from './ShowArtifactPage';
-import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactMapView.css';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-// @ts-expect-error TS(2307): Cannot find module 'leaflet/dist/images/marker-ico... Remove this comment to see the full error message
 import icon from 'leaflet/dist/images/marker-icon.png';
-// @ts-expect-error TS(2307): Cannot find module 'leaflet/dist/images/marker-ico... Remove this comment to see the full error message
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
-// @ts-expect-error TS(2307): Cannot find module 'leaflet/dist/images/marker-sha... Remove this comment to see the full error message
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 function onEachFeature(feature: any, layer: any) {
@@ -137,7 +133,7 @@ class ShowArtifactMapView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const artifactLocation = getSrc(this.props.path, this.props.runUuid);
+    const artifactLocation = getArtifactLocationUrl(this.props.path, this.props.runUuid);
     this.props
       .getArtifact(artifactLocation)
       .then((rawFeatures: any) => {

@@ -70,7 +70,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
@@ -184,6 +184,8 @@ def save_model(
         model_format=model_format,
         code=code_dir_subpath,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -704,8 +706,7 @@ def autolog(
 
         def infer_model_signature(input_example):
             model_output = model.predict(xgboost.DMatrix(input_example))
-            model_signature = infer_signature(input_example, model_output)
-            return model_signature
+            return infer_signature(input_example, model_output)
 
         # Only log the model if the autolog() param log_models is set to True.
         if _log_models:

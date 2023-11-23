@@ -51,8 +51,7 @@ def exception_safe_function_for_class(function):
             else:
                 _logger.warning("Encountered unexpected error during autologging: %s", e)
 
-    safe_function = update_wrapper_extended(safe_function, function)
-    return safe_function
+    return update_wrapper_extended(safe_function, function)
 
 
 def _safe_function(function, *args, **kwargs):
@@ -651,13 +650,12 @@ def safe_patch(
             def bound_safe_patch_fn(*args, **kwargs):
                 return safe_patch_function(self, *args, **kwargs)
 
-            # Make bound method `instance.target_method` keep the same doc and signature
-            bound_safe_patch_fn = update_wrapper_extended(bound_safe_patch_fn, original_fn.fget)
+            # Make bound method `instance.target_method` keep the same doc and signature.
             # Here return the bound safe patch function because user call property decorated
             # method will like `instance.property_decorated_method(...)`, and internally it will
             # call the `bound_safe_patch_fn`, the argument list don't include the `self` argument,
             # so return bound function here.
-            return bound_safe_patch_fn
+            return update_wrapper_extended(bound_safe_patch_fn, original_fn.fget)
 
         # Make unbound method `class.target_method` keep the same doc and signature
         get_bound_safe_patch_fn = update_wrapper_extended(get_bound_safe_patch_fn, original_fn.fget)

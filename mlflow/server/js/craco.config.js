@@ -241,7 +241,7 @@ module.exports = function () {
          */
         const createIgnorePatternForESM = () => {
           // List all the modules that we *want* to be transpiled by babel
-          const transpiledModules = [
+          const transpileModules = [
             '@databricks/design-system',
             '@babel/runtime/.+?/esm',
             '@ant-design/icons',
@@ -254,7 +254,7 @@ module.exports = function () {
 
           // prettier-ignore
           // eslint-disable-next-line max-len
-          return `(${validNodeModulesRoots.join('|')})\\/node_modules\\/((?!(${transpiledModules.join('|')})).)+(js|jsx|mjs|cjs|ts|tsx|json)$`;
+          return `(${validNodeModulesRoots.join('|')})\\/node_modules\\/((?!(${transpileModules.join('|')})).)+(js|jsx|mjs|cjs|ts|tsx|json)$`;
         };
 
         jestConfig.resetMocks = false; // ML-20462 Restore resetMocks
@@ -268,6 +268,8 @@ module.exports = function () {
           'jest-canvas-mock',
           '<rootDir>/scripts/throw-on-prop-type-warning.js',
         ];
+        jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/env-mocks.js');
+        jestConfig.setupFilesAfterEnv.push('<rootDir>/scripts/setup-jest-dom-matchers.js');
         // Adjust config to work with dependencies using ".mjs" file extensions
         jestConfig.moduleFileExtensions.push('mjs');
         // Remove when this issue is resolved: https://github.com/gsoft-inc/craco/issues/393
@@ -302,9 +304,6 @@ module.exports = function () {
         return webpackConfig;
       },
       plugins: [
-        new webpack.DefinePlugin({
-          'process.env.HOSTED_PATH': JSON.stringify(''),
-        }),
         new webpack.EnvironmentPlugin({
           HIDE_HEADER: process.env.HIDE_HEADER ? 'true' : 'false',
           HIDE_EXPERIMENT_LIST: process.env.HIDE_EXPERIMENT_LIST ? 'true' : 'false',

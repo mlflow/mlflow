@@ -20,6 +20,7 @@ import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import { ViewType } from './sdk/MlflowEnums';
 import { MlflowService } from './sdk/MlflowService';
 import { RunLoggedArtifactType } from './types';
+import { getUUID } from 'common/utils/ActionUtils';
 
 jest.mock('./sdk/EvaluationArtifactService', () => ({
   fetchEvaluationTableArtifact: jest.fn(),
@@ -58,11 +59,18 @@ beforeEach(() => {
   jest
     .spyOn(MlflowService, 'getRun')
     .mockImplementation((data) => Promise.resolve({ run: { info: { run_id: data.run_id } } }));
+
+  jest.spyOn(MlflowService, 'createRun').mockImplementation((data) =>
+    Promise.resolve({
+      run: { info: { run_id: getUUID(), experiment_id: data.experiment_id } as any },
+    }),
+  );
 });
 
 afterEach(() => {
   (MlflowService.searchRuns as any).mockRestore();
   (MlflowService.getRun as any).mockRestore();
+  (MlflowService.createRun as any).mockRestore();
 });
 
 describe('fetchMissingParents', () => {
@@ -127,6 +135,21 @@ describe('fetchMissingParents', () => {
 
     const res = { runs: [a, b] };
     await expect(fetchMissingParents(res)).rejects.toEqual(mockUnexpectedGetRunError);
+  });
+});
+
+describe('createRun', () => {
+  it('should create a run under the correct experiment', async () => {
+    expect(await MlflowService.createRun({ experiment_id: '1' })).toEqual(
+      expect.objectContaining({
+        run: expect.objectContaining({
+          info: expect.objectContaining({
+            experiment_id: '1',
+            run_id: expect.any(String),
+          }),
+        }),
+      }),
+    );
   });
 });
 
@@ -234,6 +257,14 @@ describe('searchRunsPayload', () => {
       .mockImplementation((data) => Promise.resolve({ run: aParent }));
     const result = await searchRunsPayload({ shouldFetchParents: true });
     expect(result.runsMatchingFilter).toEqual(expect.arrayContaining([aParent]));
+  });
+  it('throws proper error when received an invalid response', async () => {
+    jest
+      .spyOn(MlflowService, 'searchRuns')
+      .mockImplementation(() => Promise.resolve('this is a non-object response'));
+    await expect(async () => searchRunsPayload({ shouldFetchParents: true })).rejects.toThrow(
+      /Invalid format of the runs search response/,
+    );
   });
 });
 

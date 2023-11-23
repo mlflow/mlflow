@@ -2,7 +2,7 @@
 import type { TreeProps as AntDTreeProps } from 'antd';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export type { TreeDataNode } from 'antd';
-export type NodeSize = 'default' | 'small';
+export type NodeSize = 'default' | 'small' | 'x-small' | 'xx-small';
 export interface TreeProps extends HTMLDataAttributes, DangerouslySetAntdProps<AntDTreeProps> {
     /**
      * An array of `TreeNode`s representing the data in the tree
@@ -33,7 +33,7 @@ export interface TreeProps extends HTMLDataAttributes, DangerouslySetAntdProps<A
      */
     mode?: 'default' | 'selectable' | 'multiselectable' | 'checkable';
     /**
-     * The size of the button. Default is 32px whereas small is 24px.
+     * The size of the button. Sizes below small continue to compact the tree horizontally but not vertically.
      */
     size?: NodeSize;
     /**

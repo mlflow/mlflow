@@ -39,6 +39,7 @@ export interface TabsProps extends HTMLDataAttributes, DangerousGeneralProps {
      * Escape hatch to allow passing props directly to the underlying Ant `Tabs` component.
      */
     dangerouslySetAntdProps?: Partial<AntDTabsProps>;
+    dangerouslyAppendEmotionCSS?: CSSObject;
 }
 export interface TabPaneProps {
     /**

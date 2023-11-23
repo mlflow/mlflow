@@ -17,13 +17,15 @@ from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
-from tests.server.auth.auth_test_utils import User, create_user
+from tests.server.auth.auth_test_utils import (
+    ADMIN_PASSWORD,
+    ADMIN_USERNAME,
+    NEW_PERMISSION,
+    PERMISSION,
+    User,
+    create_user,
+)
 from tests.tracking.integration_test_utils import _init_server
-
-PERMISSION = "READ"
-NEW_PERMISSION = "EDIT"
-ADMIN_USERNAME = auth_config.admin_username
-ADMIN_PASSWORD = auth_config.admin_password
 
 
 @pytest.fixture(autouse=True)
@@ -70,18 +72,29 @@ def test_get_client():
     assert isinstance(client, AuthServiceClient)
 
 
-def test_create_user(client):
+def test_create_user(client, monkeypatch):
     username = random_str()
     password = random_str()
-    user = client.create_user(username, password)
+
+    with assert_unauthenticated():
+        client.create_user(username, password)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        user = client.create_user(username, password)
     assert user.username == username
     assert user.is_admin is False
+
+    username2 = random_str()
+    password2 = random_str()
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.create_user(username2, password2)
 
 
 def test_get_user(client, monkeypatch):
     username = random_str()
     password = random_str()
-    client.create_user(username, password)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
 
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         user = client.get_user(username)
@@ -92,7 +105,8 @@ def test_get_user(client, monkeypatch):
 
     username2 = random_str()
     password2 = random_str()
-    client.create_user(username2, password2)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username2, password2)
     with User(username2, password2, monkeypatch), assert_unauthorized():
         client.get_user(username)
 
@@ -100,7 +114,8 @@ def test_get_user(client, monkeypatch):
 def test_update_user_password(client, monkeypatch):
     username = random_str()
     password = random_str()
-    client.create_user(username, password)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
 
     new_password = random_str()
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
@@ -117,7 +132,8 @@ def test_update_user_password(client, monkeypatch):
 
     username2 = random_str()
     password2 = random_str()
-    client.create_user(username2, password2)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username2, password2)
     with User(username2, password2, monkeypatch), assert_unauthorized():
         client.update_user_password(username, new_password)
 
@@ -125,7 +141,8 @@ def test_update_user_password(client, monkeypatch):
 def test_update_user_admin(client, monkeypatch):
     username = random_str()
     password = random_str()
-    client.create_user(username, password)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
 
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.update_user_admin(username, True)
@@ -137,7 +154,8 @@ def test_update_user_admin(client, monkeypatch):
 
     username2 = random_str()
     password2 = random_str()
-    client.create_user(username2, password2)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username2, password2)
     with User(username2, password2, monkeypatch), assert_unauthorized():
         client.update_user_admin(username, True)
 
@@ -145,7 +163,8 @@ def test_update_user_admin(client, monkeypatch):
 def test_delete_user(client, monkeypatch):
     username = random_str()
     password = random_str()
-    client.create_user(username, password)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username, password)
 
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.update_user_admin(username, True)
@@ -162,7 +181,8 @@ def test_delete_user(client, monkeypatch):
 
     username2 = random_str()
     password2 = random_str()
-    client.create_user(username2, password2)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_user(username2, password2)
     with User(username2, password2, monkeypatch), assert_unauthorized():
         client.delete_user(username)
 

@@ -3,6 +3,7 @@ from functools import partial
 
 from mlflow.environment_variables import (
     MLFLOW_REGISTRY_URI,
+    MLFLOW_TRACKING_AUTH,
     MLFLOW_TRACKING_AWS_SIGV4,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
     MLFLOW_TRACKING_INSECURE_TLS,
@@ -75,9 +76,9 @@ def set_registry_uri(uri: str) -> None:
         # it with the tracking uri. They should be different
         mlflow.set_registry_uri("sqlite:////tmp/registry.db")
         mr_uri = mlflow.get_registry_uri()
-        print("Current registry uri: {}".format(mr_uri))
+        print(f"Current registry uri: {mr_uri}")
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
         # They should be different
         assert tracking_uri != mr_uri
@@ -113,11 +114,11 @@ def get_registry_uri() -> str:
 
         # Get the current model registry uri
         mr_uri = mlflow.get_registry_uri()
-        print("Current model registry uri: {}".format(mr_uri))
+        print(f"Current model registry uri: {mr_uri}")
 
         # Get the current tracking uri
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri: {}".format(tracking_uri))
+        print(f"Current tracking uri: {tracking_uri}")
 
         # They should be the same
         assert mr_uri == tracking_uri
@@ -148,6 +149,7 @@ def get_default_host_creds(store_uri):
         password=MLFLOW_TRACKING_PASSWORD.get(),
         token=MLFLOW_TRACKING_TOKEN.get(),
         aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
+        auth=MLFLOW_TRACKING_AUTH.get(),
         ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
         client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
         server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),

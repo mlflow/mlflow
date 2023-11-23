@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 import posixpath
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -15,7 +15,7 @@ _RECIPE_PROFILE_DIR = "profiles"
 _logger = logging.getLogger(__name__)
 
 
-def get_recipe_name(recipe_root_path: str = None) -> str:
+def get_recipe_name(recipe_root_path: Optional[str] = None) -> str:
     """
     Obtains the name of the specified recipe or of the recipe corresponding to the current
     working directory.
@@ -33,7 +33,9 @@ def get_recipe_name(recipe_root_path: str = None) -> str:
     return os.path.basename(recipe_root_path)
 
 
-def get_recipe_config(recipe_root_path: str = None, profile: str = None) -> Dict[str, Any]:
+def get_recipe_config(
+    recipe_root_path: Optional[str] = None, profile: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Obtains a dictionary representation of the configuration for the specified recipe.
 

@@ -1,38 +1,45 @@
-import { mount } from 'enzyme';
+import { renderHook } from '@testing-library/react-hooks';
 import { useEvaluationArtifactTableData } from './useEvaluationArtifactTableData';
 import { fromPairs } from 'lodash';
-import { EvaluationArtifactTable } from '../../../types';
+import { EvaluationArtifactTable, PendingEvaluationArtifactTableEntry } from '../../../types';
 
 describe('useEvaluationArtifactTableData', () => {
-  const mountTestComponent = (
-    storeData: {
+  const mountTestComponent = ({
+    artifactsByRun = {},
+    pendingDataByRun = {},
+    draftInputValues = [],
+    comparedRunUuids = [],
+    tableNames = [],
+    groupByColumns = [],
+    outputColumn = '',
+  }: {
+    artifactsByRun: {
       [runUuid: string]: {
         [artifactPath: string]: EvaluationArtifactTable;
       };
-    },
-    comparedRunUuids: string[],
-    tableNames: string[],
-    groupByColumns: string[],
-    outputColumn: string,
-    intersectingOnly = false,
-  ) => {
-    let hookResult: ReturnType<typeof useEvaluationArtifactTableData>;
-    const TestComponent = () => {
-      hookResult = useEvaluationArtifactTableData(
-        storeData,
+    };
+    pendingDataByRun?: {
+      [runUuid: string]: PendingEvaluationArtifactTableEntry[];
+    };
+    draftInputValues?: Record<string, string>[];
+    comparedRunUuids: string[];
+    tableNames: string[];
+    groupByColumns: string[];
+    outputColumn: string;
+  }) => {
+    const { result } = renderHook(() =>
+      useEvaluationArtifactTableData(
+        artifactsByRun,
+        pendingDataByRun,
+        draftInputValues,
         comparedRunUuids,
         tableNames,
         groupByColumns,
         outputColumn,
-        intersectingOnly,
-      );
+      ),
+    );
 
-      return null;
-    };
-
-    const wrapper = mount(<TestComponent />);
-
-    return { wrapper, getHookResult: () => hookResult };
+    return { getHookResult: () => result.current };
   };
 
   describe('properly generates data for a single table', () => {
@@ -46,6 +53,7 @@ describe('useEvaluationArtifactTableData', () => {
             { input: 'question', additionalInput: 'alpha', answer: 'answer_a', prompt: 'prompt_a' },
           ],
           path: TABLE_NAME,
+          rawArtifact: {},
         },
       },
       run_b: {
@@ -55,6 +63,7 @@ describe('useEvaluationArtifactTableData', () => {
             { input: 'question', additionalInput: 'alpha', answer: 'answer_b', prompt: 'prompt_b' },
           ],
           path: TABLE_NAME,
+          rawArtifact: {},
         },
       },
       run_c: {
@@ -64,6 +73,7 @@ describe('useEvaluationArtifactTableData', () => {
             { input: 'question', additionalInput: 'beta', answer: 'answer_c', prompt: 'prompt_c' },
           ],
           path: TABLE_NAME,
+          rawArtifact: {},
         },
       },
       run_d: {
@@ -73,12 +83,23 @@ describe('useEvaluationArtifactTableData', () => {
             { input: 'question', additionalInput: 'beta', answer: 'answer_d', prompt: 'prompt_d' },
           ],
           path: TABLE_NAME,
+          rawArtifact: {},
         },
       },
     };
 
-    const getResultsForRuns = (runIds: string[], groupBy: string[], outputColumn: string) =>
-      mountTestComponent(MOCK_STORE, runIds, ['/table1'], groupBy, outputColumn).getHookResult();
+    const getResultsForRuns = (
+      comparedRunUuids: string[],
+      groupByColumns: string[],
+      outputColumn: string,
+    ) =>
+      mountTestComponent({
+        artifactsByRun: MOCK_STORE,
+        comparedRunUuids,
+        groupByColumns,
+        outputColumn,
+        tableNames: ['/table1'],
+      }).getHookResult();
 
     test('properly groups by a single column having one value', () => {
       const results = getResultsForRuns(['run_a', 'run_b', 'run_c'], ['input'], 'answer');
@@ -132,6 +153,15 @@ describe('useEvaluationArtifactTableData', () => {
       expect(valuesForBeta?.['run_b']).toBeUndefined();
       expect(valuesForBeta?.['run_c']).toEqual('answer_c');
     });
+
+    test('properly ignores entries yielding empty values in "group by" columns', () => {
+      const results = getResultsForRuns(
+        ['run_a', 'run_b', 'run_c', 'run_d'],
+        ['nonExistingColumn', 'otherNonExistingColumn'],
+        'answer',
+      );
+      expect(results).toHaveLength(0);
+    });
   });
 
   describe('properly pulls and generates data for multiple data tables and columns', () => {
@@ -152,7 +182,7 @@ describe('useEvaluationArtifactTableData', () => {
       TestColumns.ValueVaryingPerRun,
       TestColumns.ValueVaryingPerRunAndTable,
     ];
-    const MOCK_STORE = fromPairs(
+    const mockedArtifactsByRun = fromPairs(
       RUN_IDS.map((runUuid) => [
         runUuid,
         fromPairs(
@@ -173,6 +203,7 @@ describe('useEvaluationArtifactTableData', () => {
                   [TestColumns.ValueVaryingPerRunAndTable]: `always_unique_value_${tableName}_${runUuid}`,
                 },
               ],
+              rawArtifact: {},
             },
           ]),
         ),
@@ -182,156 +213,67 @@ describe('useEvaluationArtifactTableData', () => {
     test('yields just a single row if the "group by" column always evaluates to a single value', () => {
       // Preparation: we aggregate/group data by the column that always
       // have the same value regardless of the table and run.
-      const results = mountTestComponent(
-        MOCK_STORE,
-        RUN_IDS,
-        TABLES,
-
-        [TestColumns.StaticData],
-
+      const results = mountTestComponent({
+        artifactsByRun: mockedArtifactsByRun,
+        comparedRunUuids: RUN_IDS,
+        groupByColumns: [TestColumns.StaticData],
+        tableNames: TABLES,
         // The output column is not important here
-        TestColumns.ValueVaryingPerRunAndTable,
-      ).getHookResult();
+        outputColumn: TestColumns.ValueVaryingPerRunAndTable,
+      }).getHookResult();
 
       // We expect only one row
       expect(results).toHaveLength(1);
     });
 
     test('yields as many rows as there are tables for the "group by" varying by table', () => {
-      const results = mountTestComponent(
-        MOCK_STORE,
-        RUN_IDS,
-        TABLES,
-        [TestColumns.ValueVaryingPerTable],
-
+      const results = mountTestComponent({
+        artifactsByRun: mockedArtifactsByRun,
+        comparedRunUuids: RUN_IDS,
+        groupByColumns: [TestColumns.ValueVaryingPerTable],
+        tableNames: TABLES,
         // The output column is not important here
-        TestColumns.ValueVaryingPerRunAndTable,
-      ).getHookResult();
+        outputColumn: TestColumns.ValueVaryingPerRunAndTable,
+      }).getHookResult();
 
       // We expect three rows since there are three tables
       expect(results).toHaveLength(3);
     });
 
     test('yields as many rows as there are runs for the "group by" varying by run', () => {
-      const results = mountTestComponent(
-        MOCK_STORE,
-        RUN_IDS,
-        TABLES,
-        [TestColumns.ValueVaryingPerRun],
-
+      const results = mountTestComponent({
+        artifactsByRun: mockedArtifactsByRun,
+        comparedRunUuids: RUN_IDS,
+        groupByColumns: [TestColumns.ValueVaryingPerRun],
+        tableNames: TABLES,
         // The output column is not important here
-        TestColumns.ValueVaryingPerRunAndTable,
-      ).getHookResult();
+        outputColumn: TestColumns.ValueVaryingPerRunAndTable,
+      }).getHookResult();
 
       // We expect ten rows since there are ten runs
       expect(results).toHaveLength(10);
     });
 
     test('yields as many rows as there are runs times tables for the "group by" varying by run and by table', () => {
-      const results = mountTestComponent(
-        MOCK_STORE,
-        RUN_IDS,
-        TABLES,
-        [TestColumns.ValueVaryingPerRunAndTable],
-
+      const results = mountTestComponent({
+        artifactsByRun: mockedArtifactsByRun,
+        comparedRunUuids: RUN_IDS,
+        groupByColumns: [TestColumns.ValueVaryingPerRunAndTable],
+        tableNames: TABLES,
         // The output column is not important here
-        TestColumns.ValueVaryingPerRunAndTable,
-      ).getHookResult();
+        outputColumn: TestColumns.ValueVaryingPerRunAndTable,
+      }).getHookResult();
 
       // Three tables per ten runs with distinct group values
       expect(results).toHaveLength(30);
     });
   });
 
-  describe('properly behaves when results are not covered by all runs', () => {
-    const RUN_IDS = ['run_1', 'run_2'];
-    const TABLES = ['/table1'];
-    const MOCK_COLUMNS = ['question', 'answer'];
-    const MOCK_STORE = {
-      run_1: {
-        '/table1': {
-          path: '/table1',
-          columns: MOCK_COLUMNS,
-          entries: [
-            {
-              question: 'first_question',
-              answer: 'first_answer_run_1',
-            },
-            {
-              question: 'second_question',
-              answer: 'second_answer_run_1',
-            },
-          ],
-        },
-      },
-      run_2: {
-        '/table1': {
-          path: '/table1',
-          columns: MOCK_COLUMNS,
-          entries: [
-            {
-              question: 'first_question',
-              answer: 'first_answer_run_2',
-            },
-            {
-              question: 'second_question',
-              // Second run doesn't have "answer" value for the second question
-              answer: undefined,
-            },
-          ],
-        },
-      },
-    } as any;
-
-    it('returns results with empty cells when intersectingOnly is set to false', () => {
-      const results = mountTestComponent(
-        MOCK_STORE,
-        RUN_IDS,
-        TABLES,
-        ['question'],
-        'answer',
-        false,
-      ).getHookResult();
-
-      expect(results).toEqual([
-        {
-          key: 'first_question',
-          groupByCellValues: { question: 'first_question' },
-          cellValues: { run_1: 'first_answer_run_1', run_2: 'first_answer_run_2' },
-        },
-        {
-          key: 'second_question',
-          groupByCellValues: { question: 'second_question' },
-          cellValues: { run_1: 'second_answer_run_1', run_2: undefined },
-        },
-      ]);
-    });
-
-    it('skips results not covered by every run when intersectingOnly is set to true', () => {
-      const results = mountTestComponent(
-        MOCK_STORE,
-        RUN_IDS,
-        TABLES,
-        ['question'],
-        'answer',
-        true,
-      ).getHookResult();
-
-      expect(results).toEqual([
-        {
-          key: 'first_question',
-          groupByCellValues: { question: 'first_question' },
-          cellValues: { run_1: 'first_answer_run_1', run_2: 'first_answer_run_2' },
-        },
-      ]);
-    });
-  });
-
-  describe('properly displays overlapping data', () => {
+  describe('properly displays overlapping and draft data', () => {
     const RUN_IDS = ['run_1'];
     const TABLES = ['/t1', '/t2'];
     const MOCK_COLUMNS = ['colA', 'colB'];
-    const MOCK_STORE = {
+    const mockedArtifactsByRun = {
       run_1: {
         '/t1': {
           path: '/t1',
@@ -343,33 +285,325 @@ describe('useEvaluationArtifactTableData', () => {
             },
           ],
         },
-        '/t2': {
-          path: '/t2',
-          columns: MOCK_COLUMNS,
-          entries: [
-            {
-              colA: 'question',
-              colB: 'answer_2',
-            },
-          ],
-        },
       },
     } as any;
 
-    it('selects the last valid cell value', () => {
-      const results = mountTestComponent(
-        MOCK_STORE,
-        RUN_IDS,
-        TABLES,
-        ['colA'],
-        'colB',
-      ).getHookResult();
+    it('selects the first valid cell value', () => {
+      const mockedDuplicatedArtifactsByRun = {
+        run_1: {
+          '/t1': {
+            path: '/t1',
+            columns: MOCK_COLUMNS,
+            entries: [
+              {
+                colA: 'question',
+                colB: 'answer_1',
+              },
+            ],
+          },
+          '/t2': {
+            path: '/t2',
+            columns: MOCK_COLUMNS,
+            entries: [
+              {
+                colA: 'question',
+                colB: 'answer_2',
+              },
+            ],
+          },
+        },
+      } as any;
+
+      const results = mountTestComponent({
+        artifactsByRun: mockedDuplicatedArtifactsByRun,
+        comparedRunUuids: RUN_IDS,
+        groupByColumns: ['colA'],
+        tableNames: TABLES,
+        // The output column is not important here
+        outputColumn: 'colB',
+      }).getHookResult();
 
       expect(results).toEqual([
         {
-          cellValues: { run_1: 'answer_2' },
+          isPendingInputRow: false,
+          cellValues: { run_1: 'answer_1' },
           groupByCellValues: { colA: 'question' },
           key: 'question',
+        },
+      ]);
+    });
+
+    it('correctly overwrites fetched data with the pending data', () => {
+      // Given data:
+      // - pending evaluation entry with colA set to "question" and colB set to "answer_pending"
+      const mockedPendingDataByRun = {
+        run_1: [
+          {
+            isPending: true as const,
+            entryData: {
+              colA: 'question',
+              colB: 'answer_pending',
+            },
+            evaluationTime: 100,
+          },
+        ],
+      };
+
+      const results = mountTestComponent({
+        artifactsByRun: mockedArtifactsByRun,
+        pendingDataByRun: mockedPendingDataByRun,
+        comparedRunUuids: RUN_IDS,
+        groupByColumns: ['colA'],
+        tableNames: TABLES,
+        outputColumn: 'colB',
+      }).getHookResult();
+
+      expect(results).toEqual([
+        {
+          cellValues: { run_1: 'answer_pending' },
+          groupByCellValues: { colA: 'question' },
+          key: 'question',
+          isPendingInputRow: false,
+          outputMetadataByRunUuid: {
+            run_1: {
+              evaluationTime: 100,
+              isPending: true,
+            },
+          },
+        },
+      ]);
+    });
+
+    it('correctly returns fetched artifact data mixed with the pending data in the draft rows, grouped by single column', () => {
+      // Given data:
+      // - draft input "draft_question" for "colA"
+      // - pending evaluation entry with colA set to "question" and colB set to "answer_pending"
+      // - pending evaluation entry with colA set to "draft_question" and colB set to "another_answer_pending"
+      const mockedPendingDataByRun = {
+        run_1: [
+          {
+            isPending: true,
+            entryData: {
+              colA: 'question',
+              colB: 'answer_pending',
+            },
+            evaluationTime: 100,
+          },
+          {
+            isPending: true,
+            entryData: {
+              colA: 'draft_question',
+              colB: 'another_answer_pending',
+            },
+            evaluationTime: 100,
+          },
+        ],
+      };
+
+      const results = mountTestComponent({
+        artifactsByRun: mockedArtifactsByRun,
+        pendingDataByRun: mockedPendingDataByRun,
+        draftInputValues: [{ colA: 'draft_question' }],
+        comparedRunUuids: RUN_IDS,
+        groupByColumns: ['colA'],
+        tableNames: TABLES,
+        outputColumn: 'colB',
+      }).getHookResult();
+
+      expect(results).toEqual([
+        {
+          cellValues: { run_1: 'another_answer_pending' },
+          groupByCellValues: {
+            colA: 'draft_question',
+          },
+          isPendingInputRow: true,
+          key: 'draft_question',
+          outputMetadataByRunUuid: {
+            run_1: {
+              evaluationTime: 100,
+              isPending: true,
+            },
+          },
+        },
+        {
+          cellValues: { run_1: 'answer_pending' },
+          groupByCellValues: { colA: 'question' },
+          key: 'question',
+          isPendingInputRow: false,
+          outputMetadataByRunUuid: {
+            run_1: {
+              evaluationTime: 100,
+              isPending: true,
+            },
+          },
+        },
+      ]);
+    });
+
+    it('correctly returns fetched artifact data mixed with the pending data in the draft rows', () => {
+      // Given data:
+      // - draft input "draft_question" for "colA"
+      // - pending evaluation entry with colA set to "question" and colB set to "answer_pending"
+      const mockedPendingDataByRun = {
+        run_1: [
+          {
+            isPending: true,
+            entryData: {
+              colA: 'evaluated_with_input_a',
+              colB: 'evaluated_with_input_b',
+              colC: 'evaluated_output_c',
+            },
+            evaluationTime: 100,
+          },
+          {
+            isPending: true,
+            entryData: {
+              colA: 'existing_input_a',
+              colB: 'existing_input_b',
+              colC: 'evaluated_output_c_for_existing_input',
+            },
+            evaluationTime: 100,
+          },
+        ],
+      } as any;
+
+      const results = mountTestComponent({
+        artifactsByRun: {
+          run_1: {
+            '/t1': {
+              path: '/t1',
+              columns: ['colA', 'colB', 'colC'],
+              entries: [
+                {
+                  colA: 'existing_input_a',
+                  colB: 'existing_input_b',
+                  colC: 'existing_output_c',
+                },
+                {
+                  colA: 'another_existing_input_a',
+                  colB: 'another_existing_input_b',
+                  colC: 'another_existing_output_c',
+                },
+              ],
+            },
+          },
+        },
+        pendingDataByRun: mockedPendingDataByRun,
+        draftInputValues: [
+          // An input value set that was not evaluated yet
+          { colA: 'not_yet_evaluated_input_a', colB: 'not_yet_evaluated_input_b' },
+        ],
+        comparedRunUuids: RUN_IDS,
+        groupByColumns: ['colA', 'colB'],
+        tableNames: ['/t1'],
+        outputColumn: 'colC',
+      }).getHookResult();
+
+      expect(results).toEqual([
+        // Row #1: draft input values, not evaluated yet
+        {
+          cellValues: {},
+          groupByCellValues: {
+            colA: 'not_yet_evaluated_input_a',
+            colB: 'not_yet_evaluated_input_b',
+          },
+          isPendingInputRow: true,
+          key: 'not_yet_evaluated_input_a.not_yet_evaluated_input_b',
+          outputMetadataByRunUuid: undefined,
+        },
+        // Row #2: a new row with freshly evaluated values but not corresponding to the existing draft row
+        {
+          cellValues: { run_1: 'evaluated_output_c' },
+          groupByCellValues: {
+            colA: 'evaluated_with_input_a',
+            colB: 'evaluated_with_input_b',
+          },
+          isPendingInputRow: true,
+          key: 'evaluated_with_input_a.evaluated_with_input_b',
+          outputMetadataByRunUuid: {
+            run_1: {
+              evaluationTime: 100,
+              isPending: true,
+            },
+          },
+        },
+        // Row #3: a pre-existing row (key "question" existing in the original data), containing newly evaluated cells
+        {
+          cellValues: { run_1: 'evaluated_output_c_for_existing_input' },
+          groupByCellValues: {
+            colA: 'existing_input_a',
+            colB: 'existing_input_b',
+          },
+          key: 'existing_input_a.existing_input_b',
+          isPendingInputRow: false,
+          outputMetadataByRunUuid: {
+            run_1: {
+              evaluationTime: 100,
+              isPending: true,
+            },
+          },
+        },
+        // Row #4: a pre-existing row (key "question" existing in the original data), untouched by evaluation
+        {
+          cellValues: {
+            run_1: 'another_existing_output_c',
+          },
+          groupByCellValues: {
+            colA: 'another_existing_input_a',
+            colB: 'another_existing_input_b',
+          },
+          isPendingInputRow: false,
+          key: 'another_existing_input_a.another_existing_input_b',
+          outputMetadataByRunUuid: undefined,
+        },
+      ]);
+    });
+
+    it('correctly returns newly evaluated data with draft rows if user provided data in the other order', () => {
+      // Given data:
+      // - draft input "bar" for "colB" and "foo" for "colA" (note the order)
+      // - table grouped by "colA" and "colB" columns
+      // - newly evaluated value "test output" for "colC" matching "colA=foo" and "colB=bar"
+      const mockedPendingDataByRun = {
+        run_1: [
+          {
+            isPending: true,
+            entryData: {
+              colA: 'foo',
+              colB: 'bar',
+              colC: 'test output',
+            },
+            evaluationTime: 100,
+          },
+        ],
+      };
+
+      const results = mountTestComponent({
+        // Provide draft input values in another order than "group by" columns provided
+        draftInputValues: [{ colB: 'bar', colA: 'foo' }],
+        groupByColumns: ['colA', 'colB'],
+
+        artifactsByRun: {},
+        pendingDataByRun: mockedPendingDataByRun,
+        comparedRunUuids: ['run_1'],
+        tableNames: [],
+        outputColumn: 'colC',
+      }).getHookResult();
+
+      // We should get only one row
+      expect(results.length).toEqual(1);
+      expect(results).toEqual([
+        {
+          key: 'foo.bar',
+          groupByCellValues: { colA: 'foo', colB: 'bar' },
+          cellValues: { run_1: 'test output' },
+          isPendingInputRow: true,
+          outputMetadataByRunUuid: {
+            run_1: {
+              evaluationTime: 100,
+              isPending: true,
+            },
+          },
         },
       ]);
     });

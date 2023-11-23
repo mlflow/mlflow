@@ -1,6 +1,6 @@
 import qs from 'qs';
 import { useMemo } from 'react';
-import { useParams, useLocation } from 'react-router-dom-v5-compat';
+import { useParams, useLocation } from '../../../../common/utils/RoutingUtils';
 import Utils from '../../../../common/utils/Utils';
 
 export type UseExperimentIdsResult = string[];

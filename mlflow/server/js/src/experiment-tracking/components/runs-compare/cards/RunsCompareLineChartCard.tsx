@@ -1,14 +1,14 @@
-import { Skeleton } from '@databricks/design-system';
+import { LegacySkeleton } from '@databricks/design-system';
 import { useMemo } from 'react';
-import { CompareChartRunData } from '../charts/CompareRunsCharts.common';
-import { CompareRunsMetricsLinePlot } from '../charts/CompareRunsMetricsLinePlot';
-import { useCompareRunsTooltip } from '../hooks/useCompareRunsTooltip';
+import { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
+import { RunsMetricsLinePlot } from '../../runs-charts/components/RunsMetricsLinePlot';
+import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsTooltip';
 import type { RunsCompareLineCardConfig } from '../runs-compare.types';
 import { RunsCompareChartCardWrapper } from './ChartCard.common';
 
 export interface RunsCompareLineChartCardProps {
   config: RunsCompareLineCardConfig;
-  chartRunData: CompareChartRunData[];
+  chartRunData: RunsChartsRunData[];
 
   isMetricHistoryLoading?: boolean;
 
@@ -28,7 +28,7 @@ export const RunsCompareLineChartCard = ({
     [chartRunData, config],
   );
 
-  const { setTooltip, resetTooltip, selectedRunUuid } = useCompareRunsTooltip(config);
+  const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
   return (
     <RunsCompareChartCardWrapper
@@ -40,13 +40,14 @@ export const RunsCompareLineChartCard = ({
     >
       <div css={styles.lineChartCardWrapper}>
         {isMetricHistoryLoading ? (
-          <Skeleton />
+          <LegacySkeleton />
         ) : (
-          <CompareRunsMetricsLinePlot
+          <RunsMetricsLinePlot
             runsData={slicedRuns}
             metricKey={config.metricKey}
             scaleType={config.scaleType}
             xAxisKey={config.xAxisKey}
+            lineSmoothness={config.lineSmoothness}
             useDefaultHoverBox={false}
             onHover={setTooltip}
             onUnhover={resetTooltip}

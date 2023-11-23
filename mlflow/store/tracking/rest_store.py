@@ -176,8 +176,7 @@ class RestStore(AbstractStore):
             )
         )
         response_proto = self._call_endpoint(CreateRun, req_body)
-        run = Run.from_proto(response_proto.run)
-        return run
+        return Run.from_proto(response_proto.run)
 
     def log_metric(self, run_id, metric):
         """

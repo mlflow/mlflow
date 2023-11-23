@@ -21,6 +21,10 @@ import { searchRegisteredModelsApi } from '../actions';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
+import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
+import ErrorUtils from '../../common/utils/ErrorUtils';
+import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
+import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 
 type ModelListPageImplProps = WithRouterNextProps & {
   models?: any[];
@@ -232,7 +236,7 @@ export class ModelListPageImpl extends React.Component<
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       urlParams['page'] = page;
     }
-    const newUrl = `/models?${Utils.getSearchUrlFromState(urlParams)}`;
+    const newUrl = createMLflowRoutePath(`/models?${Utils.getSearchUrlFromState(urlParams)}`);
     if (newUrl !== this.props.location.pathname + this.props.location.search) {
       this.props.navigate(newUrl);
     }
@@ -327,28 +331,30 @@ export class ModelListPageImpl extends React.Component<
     } = this.state;
     const { models } = this.props;
     return (
-      <RequestStateWrapper
-        requestIds={[this.criticalInitialRequestIds]}
-        // eslint-disable-next-line no-trailing-spaces
-      >
-        <ModelListView
-          // @ts-expect-error TS(2322): Type '{ models: any[] | undefined; loading: any; e... Remove this comment to see the full error message
-          models={models}
-          // @ts-expect-error TS(4111): Property 'loading' comes from an index signature, ... Remove this comment to see the full error message
-          loading={this.state.loading}
-          searchInput={searchInput}
-          orderByKey={orderByKey}
-          orderByAsc={orderByAsc}
-          currentPage={currentPage}
-          nextPageToken={pageTokens[currentPage + 1]}
-          onSearch={this.handleSearch}
-          onClickNext={this.handleClickNext}
-          onClickPrev={this.handleClickPrev}
-          onClickSortableColumn={this.handleClickSortableColumn}
-          onSetMaxResult={this.handleMaxResultsChange}
-          getMaxResultValue={this.getMaxResultsSelection}
-        />
-      </RequestStateWrapper>
+      <ScrollablePageWrapper>
+        <RequestStateWrapper
+          requestIds={[this.criticalInitialRequestIds]}
+          // eslint-disable-next-line no-trailing-spaces
+        >
+          <ModelListView
+            // @ts-expect-error TS(2322): Type '{ models: any[] | undefined; loading: any; e... Remove this comment to see the full error message
+            models={models}
+            // @ts-expect-error TS(4111): Property 'loading' comes from an index signature, ... Remove this comment to see the full error message
+            loading={this.state.loading}
+            searchInput={searchInput}
+            orderByKey={orderByKey}
+            orderByAsc={orderByAsc}
+            currentPage={currentPage}
+            nextPageToken={pageTokens[currentPage + 1]}
+            onSearch={this.handleSearch}
+            onClickNext={this.handleClickNext}
+            onClickPrev={this.handleClickPrev}
+            onClickSortableColumn={this.handleClickSortableColumn}
+            onSetMaxResult={this.handleMaxResultsChange}
+            getMaxResultValue={this.getMaxResultsSelection}
+          />
+        </RequestStateWrapper>
+      </ScrollablePageWrapper>
     );
   }
 }
@@ -364,6 +370,11 @@ const mapDispatchToProps = {
   searchRegisteredModelsApi,
 };
 
-export const ModelListPage = withRouterNext(
+const ModelListPageWithRouter = withRouterNext(
   connect(mapStateToProps, mapDispatchToProps)(ModelListPageImpl),
+);
+
+export const ModelListPage = withErrorBoundary(
+  ErrorUtils.mlflowServices.MODEL_REGISTRY,
+  ModelListPageWithRouter,
 );

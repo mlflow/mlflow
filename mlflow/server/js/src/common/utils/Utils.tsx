@@ -13,13 +13,14 @@ import revisionSvg from '../static/revision.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
-import jobSvg from '../static/job.svg';
+import workflowsIconSvg from '../static/WorkflowsIcon.svg';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import _ from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
 import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
+import { shouldUsePathRouting } from './FeatureUtils';
 
 class Utils {
   /**
@@ -276,24 +277,26 @@ class Utils {
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
-    if (gitHubMatch || gitLabMatch) {
-      const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
-      const match = gitHubMatch || gitLabMatch;
-      url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
-      if (match[3]) {
-        url = url + '/tree/master/' + match[3];
+    if (gitHubMatch) {
+      url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}`;
+      if (gitHubMatch[3]) {
+        url += `/tree/master/${gitHubMatch[3]}`;
+      }
+    } else if (gitLabMatch) {
+      url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}`;
+      if (gitLabMatch[3]) {
+        url += `/-/tree/master/${gitLabMatch[3]}`;
       }
     } else if (bitbucketMatch) {
-      const baseUrl = 'https://bitbucket.org/';
-      url = baseUrl + bitbucketMatch[1] + '/' + bitbucketMatch[2].replace(/.git/, '');
+      url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}`;
       if (bitbucketMatch[3]) {
-        url = url + '/src/master/' + bitbucketMatch[3];
+        url += `/src/master/${bitbucketMatch[3]}`;
       }
     } else if (gitMatch) {
       const [, baseUrl, repoDir, fileDir] = gitMatch;
       url = baseUrl.replace(/git@/, 'https://') + '/' + repoDir.replace(/.git/, '');
       if (fileDir) {
-        url = url + '/tree/master/' + fileDir;
+        url += `/tree/master/${fileDir}`;
       }
     }
     return url;
@@ -305,39 +308,19 @@ class Utils {
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
-    if (gitHubMatch || gitLabMatch) {
-      const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
-      const match = gitHubMatch || gitLabMatch;
-      url =
-        baseUrl +
-        match[1] +
-        '/' +
-        match[2].replace(/.git/, '') +
-        '/tree/' +
-        sourceVersion +
-        '/' +
-        match[3];
+    if (gitHubMatch) {
+      url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}\
+      /tree/${sourceVersion}/${gitHubMatch[3]}`;
+    } else if (gitLabMatch) {
+      url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}\
+      /-/tree/${sourceVersion}/${gitLabMatch[3]}`;
     } else if (bitbucketMatch) {
-      const baseUrl = 'https://bitbucket.org/';
-      url =
-        baseUrl +
-        bitbucketMatch[1] +
-        '/' +
-        bitbucketMatch[2].replace(/.git/, '') +
-        '/src/' +
-        sourceVersion +
-        '/' +
-        bitbucketMatch[3];
+      url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}\
+      /src/${sourceVersion}/${bitbucketMatch[3]}`;
     } else if (gitMatch) {
       const [, baseUrl, repoDir, fileDir] = gitMatch;
-      url =
-        baseUrl.replace(/git@/, 'https://') +
-        '/' +
-        repoDir.replace(/.git/, '') +
-        '/tree/' +
-        sourceVersion +
-        '/' +
-        fileDir;
+      url = `${baseUrl.replace(/git@/, 'https://')}/${repoDir.replace(/.git/, '')}\
+      /tree/${sourceVersion}/${fileDir}`;
     }
     return url;
   }
@@ -615,7 +598,7 @@ class Utils {
     } else if (sourceType === 'PROJECT') {
       return <img alt='Project Icon' title='Project' style={imageStyle} src={projectSvg} />;
     } else if (sourceType === 'JOB') {
-      return <img alt='Job Icon' title='Job' style={imageStyle} src={jobSvg} />;
+      return <img alt='Job Icon' title='Job' style={imageStyle} src={workflowsIconSvg} />;
     }
     return <img alt='No icon' style={imageStyle} src={emptySvg} />;
   }
@@ -989,12 +972,13 @@ class Utils {
   static mergeLoggedAndRegisteredModels(loggedModels: any, registeredModels: any) {
     // use artifactPath for grouping while merging lists
     const registeredModelsWithNormalizedPath = registeredModels.map((model: any) => {
-      return {
+      const registeredModel: { [key: string]: any } = {
         registeredModelName: model.name,
         artifactPath: Utils.normalize(model.source).split('/artifacts/')[1],
         registeredModelVersion: model.version,
         registeredModelCreationTimestamp: model.creation_timestamp,
       };
+      return registeredModel;
     });
     const loggedModelsWithNormalizedPath = loggedModels.flatMap((model: any) => {
       return model.artifactPath
@@ -1057,11 +1041,11 @@ class Utils {
     const errorMessages = {
       404: intl.formatMessage({
         defaultMessage: '404: Resource not found',
-        description: 'Generic 404 user-friendly error for the MLFlow UI',
+        description: 'Generic 404 user-friendly error for the MLflow UI',
       }),
       500: intl.formatMessage({
         defaultMessage: '500: Internal server error',
-        description: 'Generic 500 user-friendly error for the MLFlow UI',
+        description: 'Generic 500 user-friendly error for the MLflow UI',
       }),
     };
 
@@ -1122,7 +1106,6 @@ class Utils {
     return true;
   }
 
-  // eslint-disable-next-line prettier/prettier
   static updatePageTitle(title: any) {
   }
 
@@ -1183,7 +1166,7 @@ class Utils {
 
   static isUsingExternalRouter() {
     // Running inside the iFrame indicates that we're using externally managed routing.
-    if (window.self !== window.top || (window as any).isTestingIframe) {
+    if (window.isTestingIframe) {
       return true;
     }
 
@@ -1191,6 +1174,10 @@ class Utils {
   }
 
   static getIframeCorrectedRoute(route: any) {
+    if (shouldUsePathRouting()) {
+      // After enabling path routing, we don't need any hash splitting etc.
+      return route;
+    }
     if (Utils.isUsingExternalRouter()) {
       // If using external routing, include the parent params and assume mlflow served at #
       const parentHref = window.parent.location.href;

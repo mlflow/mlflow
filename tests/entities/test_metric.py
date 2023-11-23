@@ -1,5 +1,5 @@
 from mlflow.entities import Metric
-from mlflow.utils.time_utils import get_current_time_millis
+from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import random_int, random_str
 

@@ -10,7 +10,7 @@ import random
 import re
 import string
 from io import StringIO
-from typing import Union
+from typing import Optional, Union
 
 from packaging.version import Version
 
@@ -73,7 +73,11 @@ class CardTab:
         return self
 
     def add_image(
-        self, name: str, image_file_path: str, width: int = None, height: int = None
+        self,
+        name: str,
+        image_file_path: str,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
     ) -> None:
         if not os.path.exists(image_file_path):
             self.add_html(name, "Image Unavailable")
@@ -289,6 +293,7 @@ class FailureCard(BaseCard):
         ).add_html("STACKTRACE", f'<p style="margin-top:0px"><code>{failure_traceback}</code></p>')
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
-            self.add_tab("Warning Logs", "{{ STEP_WARNINGS }}").add_html(
-                "STEP_WARNINGS", f"<pre>{open(warning_output_path).read()}</pre>"
-            )
+            with open(warning_output_path) as f:
+                self.add_tab("Warning Logs", "{{ STEP_WARNINGS }}").add_html(
+                    "STEP_WARNINGS", f"<pre>{f.read()}</pre>"
+                )

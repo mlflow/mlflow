@@ -3,13 +3,21 @@
  */
 export declare const selectClasses: {
     clear: string;
+    item: string;
     list: string;
     open: string;
     option: string;
+    removeItem: string;
     selector: string;
 };
 export interface GetTableRowByCellTextOptions {
-    columnHeaderName?: string;
+    columnHeaderName?: string | RegExp;
+}
+export interface RowIdentifier {
+    /** Text in a cell that uniquely identifies a row. */
+    cellText: string;
+    /** Name of the column to use when searching for `cellText`.  */
+    columnHeaderName?: string | RegExp;
 }
 export interface TableRows<T> {
     bodyRows: T[];

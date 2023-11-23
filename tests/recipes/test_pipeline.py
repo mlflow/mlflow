@@ -205,9 +205,11 @@ def test_recipes_run_throws_exception_and_produces_failure_card_when_step_fails(
 
     recipe = Recipe(profile="local")
     recipe.clean()
-    with pytest.raises(MlflowException, match="Failed to run.*test_recipe.*ingest"):
+    with pytest.raises(
+        MlflowException, match="Failed to run recipe.*test_recipe.*\n.*Step:ingest.*"
+    ):
         recipe.run()
-    with pytest.raises(MlflowException, match="Failed to run.*split.*test_recipe.*ingest"):
+    with pytest.raises(MlflowException, match="Failed to run step.*split.*\n.*Step:ingest.*"):
         recipe.run(step="split")
 
     step_card_path = get_step_output_path(
@@ -355,7 +357,7 @@ def test_make_dry_run_error_does_not_print_cached_steps_messages(capsys):
 
 @pytest.mark.usefixtures("enter_recipe_example_directory")
 def test_makefile_with_runtime_error_print_cached_steps_messages(capsys):
-    split = 'echo "Run MLFlow Recipe step: split"'
+    split = 'echo "Run MLflow Recipe step: split"'
     tokens = _MAKEFILE_FORMAT_STRING.split(split)
     assert len(tokens) == 2
     tokens[1] = "\n\tnon-existing-cmd" + tokens[1]

@@ -11,7 +11,7 @@ import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom-v5-compat';
+import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { RunPage, RunPageImpl } from './RunPage';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { mockModelVersionDetailed } from '../../model-registry/test-utils';
