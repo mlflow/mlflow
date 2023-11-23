@@ -56,7 +56,7 @@ describe('useMultipleChartsMetricHistory', () => {
     };
   };
 
-  const mockRun = (id: string) => ({ runInfo: { run_uuid: id } } as any);
+  const mockRun = (id: string) => ({ runInfo: { run_uuid: id } }) as any;
 
   beforeEach(() => {
     (useFetchCompareRunsMetricHistory as jest.Mock).mockClear();
@@ -214,6 +214,33 @@ describe('useMultipleChartsMetricHistory', () => {
         mockRuns[2],
         mockRuns[4],
       ]),
+    );
+
+    // Cleanup
+    wrapper.unmount();
+  });
+
+  it('correctly fetches metrics based on `selectedMetricKeys` in the card config', async () => {
+    const mockRuns = new Array(20).fill(null).map((_, index) => mockRun(`${101 + index}`));
+
+    const { wrapper } = mountWrappingComponent(
+      [
+        {
+          type: RunsCompareChartType.LINE,
+          // retained for backwards compatibility purposes
+          metricKey: 'metric_1',
+          // fetching should be based on `selectedMetricKeys`
+          selectedMetricKeys: ['metric_1', 'metric_2', 'metric_3'],
+          runsCountToCompare: 5,
+        } as RunsCompareLineCardConfig,
+      ],
+      mockRuns,
+    );
+
+    // We expect fetch hook to be called for two distinct metrics for 10 runs
+    expect(useFetchCompareRunsMetricHistory).toBeCalledWith(
+      ['metric_1', 'metric_2', 'metric_3'],
+      mockRuns.slice(0, 5),
     );
 
     // Cleanup
