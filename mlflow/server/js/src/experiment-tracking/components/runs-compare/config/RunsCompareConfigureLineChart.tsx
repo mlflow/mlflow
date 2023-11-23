@@ -76,25 +76,21 @@ export const RunsCompareConfigureLineChart = ({
     [onStateChange],
   );
 
-  /**
-   * If somehow metric key is not predetermined, automatically
-   * select the first one so it's not empty
-   */
-  useEffect(() => {
-    if (!state.metricKey && metricKeyList?.[0]) {
-      updateMetrics([metricKeyList[0]]);
-    }
-  }, [state.metricKey, updateMetrics, metricKeyList]);
-
   const emptyMetricsList = metricKeyList.length === 0;
+
+  // for backwards compatibility, if selectedMetricKeys is not
+  // present, use metricKey instead. if metric key is somehow
+  // also undefined, then use an empty array
+  const selectedMetrics = state.selectedMetricKeys ?? (state.metricKey ? [state.metricKey] : []);
 
   return (
     <>
       <RunsCompareConfigureField title='Metric (Y-axis)'>
         <Select
           mode='multiple'
+          placeholder='Select metrics'
           css={styles.selectFull}
-          value={emptyMetricsList ? ['No metrics available'] : state.selectedMetricKeys || []}
+          value={emptyMetricsList ? ['No metrics available'] : selectedMetrics}
           onChange={updateMetrics}
           disabled={emptyMetricsList}
           dangerouslySetAntdProps={{ showSearch: true }}
