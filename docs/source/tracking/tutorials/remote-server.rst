@@ -2,18 +2,18 @@
 Remote Experiment Tracking with MLflow Tracking Server
 ======================================================
 
-In this tutorial, you will learn how to set up MLflow Tracking environment for team development using :ref:`MLflow Tracking Server <tracking_server>`.
+In this tutorial, you will learn how to set up MLflow Tracking environment for team development using the :ref:`MLflow Tracking Server <tracking_server>`.
 
 There are many benefits to utilize MLflow Tracking Server for remote experiment tracking:
 
 * **Collaboration**: Multiple users can log runs to the same endpoint, and query runs and models logged by other users.
-* **Sharing Results**: The tracking server also serves :ref:`tracking_ui` endpoint, where team members can easily explore each other's results.
+* **Sharing Results**: The tracking server also serves a :ref:`tracking_ui` endpoint, where team members can easily explore each other's results.
 * **Centralized Access**: The tracking server can be run as a proxy for the remote access for metadata and artifacts, making it easier to secure and audit access to data.
 
-How it works?
+How does it work?
 =============
 
-The following picture depicts the architecture of using remote MLflow Tracking Server with PostgreSQL and S3
+The following picture depicts the architecture of using a remote MLflow Tracking Server with PostgreSQL and S3
 
 .. figure:: ../../_static/images/tracking/scenario_5.png
     :align: center
@@ -22,7 +22,7 @@ The following picture depicts the architecture of using remote MLflow Tracking S
     Artifacture diagram of MLflow Tracking Server with PostgreSQL and S3
 
 .. note::
-   You cna find the list of supported data stores in `artifact stores <../artifacts-stores.html>`_ and `backend stores <../backend-stores.html>` documentations.
+   You can find the list of supported data stores in the `artifact stores <../artifacts-stores.html>`_ and `backend stores <../backend-stores.html>` documentation guides.
 
 When you start logging runs to the MLflow Tracking Server, the following happens:
 
@@ -47,20 +47,20 @@ When you start logging runs to the MLflow Tracking Server, the following happens
   * Artifacts are passed to the end user through the Tracking Server through the interface of the ``HttpArtifactRepository``
 
 
-Get Started
+Getting Started
 ===========
 
 Preface
 -------
 
-In the actual environment, you will have a multiple remote hosts to run the tracking server and databases, as shown in the diagram above. However, for the pupose of this tutorial, 
-we will just use single machine with multiple Docker containers running on different ports, mimicing the remote environment with easy set up. We also use `MinIO <https://min.io/>`_,
+In an actual production deployment environment, you will have multiple remote hosts to run both the tracking server and databases, as shown in the diagram above. However, for the purposes of this tutorial, 
+we will just use a single machine with multiple Docker containers running on different ports, mimicking the remote environment with a far easier evaluation tutorial setup. We will also use `MinIO <https://min.io/>`_,
 an S3-compatible object storage, as an artifact store so that you don't need to have AWS account to run this tutorial.
 
 Step 1 - Get MLflow and additional dependencies
 -----------------------------------------------
 MLflow is available on PyPI. Also `pyscopg2 <https://pypi.org/project/psycopg2/>`_ and `boto3 <https://boto3.amazonaws.com/v1/documentation/api/latest/index.html>`_ are required for accessing PostgreSQL and S3 with Python.
-If you don't already have them installed on your system, you can install it with:
+If you don't already have them installed on your system, you can install them with:
 
 .. code-section::
 
@@ -72,7 +72,7 @@ If you don't already have them installed on your system, you can install it with
 Step 2 - Set up remote data stores
 ----------------------------------
 MLflow Tracking Server can interact with a variety of data stores to store experiment and run data as well as artifacts.
-In this tutorial, we will use **Docker Compose** to start two containers, each of them simulating remote servers in actual environment.
+In this tutorial, we will use **Docker Compose** to start two containers, each of them simulating remote servers in an actual environment.
 
 1. `PostgreSQL <https://www.postgresql.org/>`_ database as a backend store.
 2. `MinIO <https://min.io/>`_ server as an artifact store.
@@ -153,7 +153,7 @@ Step 3 - Start the Tracking Server
 ----------------------------------
 
 .. note::
-  In actual environment, you will have remote host to run the tracking server, but in this tutorial we will just use the local machine.
+  In actual environment, you will have a remote host that will run the tracking server, but in this tutorial we will just use our local machine as a simulated surrogate for a remote machine.
 
 Configure access
 ~~~~~~~~~~~~~~~~
@@ -168,7 +168,7 @@ For the tracking server to access remote storage, it needs to be configured with
 
 You can find the instructions for how to configure credentials for other storages in :ref:`Supported Storage <artifacts-store-supported-storages>`.
 
-Launch tracking server
+Launch the tracking server
 ~~~~~~~~~~~~~~~~~~~~~~
 
 To specify the backend store and artifact store, you can use the ``--backend-store-uri`` and ``--artifacts-store-uri`` options respectively.
@@ -186,13 +186,13 @@ Replace ``localhost`` with the remote host name or IP address for your database 
 Step 4: Logging to the Tracking Server
 --------------------------------------
 
-Once the tracking server is running, you can log runs to the tracking server by setting the MLflow Tracking URI to the tracking server's URI. Alternatively, you can use the :py:func:`mlflow.set_tracking_uri` API to set the tracking URI.
+Once the tracking server is running, you can log runs to it by setting the MLflow Tracking URI to the tracking server's URI. Alternatively, you can use the :py:func:`mlflow.set_tracking_uri` API to set the tracking URI.
 
 .. code-block:: bash
 
-    export MLFLOW_TRACKING_URI=http://127.0.0.1:5000  # Replace with remote host name or IP address in actual environment
+    export MLFLOW_TRACKING_URI=http://127.0.0.1:5000  # Replace with remote host name or IP address in an actual environment
 
-Then run your code with MLflow tracking APIs as usual,  the following code runs training for an scikit-learn RandomForest model on diabetes dataset:
+Thenm run your code with MLflow tracking APIs as usual. The following code runs training for an scikit-learn RandomForest model on the diabetes dataset:
 
 .. code-section::
 
@@ -219,7 +219,7 @@ Then run your code with MLflow tracking APIs as usual,  the following code runs 
 Step 5: View logged Run in Tracking UI
 --------------------------------------
 
-MLflow Tracking Server also hosts Tracking UI on the same endpoint.
+Our pseudo-remote MLflow Tracking Server also hosts the Tracking UI on the same endpoint. In an actual deployment environment with a remote tracking server, this is also the case. 
 You can access the UI by navigating to `http://127.0.0.1:5000 <http://127.0.0.1:5000>`_ (replace with remote host name or IP address in actual environment) in your browser.
 
 Step 6: Download artifacts
@@ -257,4 +257,4 @@ There are a couple of more advanced topics you can explore:
 * **Secure the Tracking Server**: The ``--host`` option exposes the service on all interfaces. If running a server in production, we
   would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted). Read :ref:`Secure Tracking Server <tracking-auth>`
   for the best practices to secure the Tracking Server in production.
-* **New Features**: MLflow team constantly develops new features to support broader use cases. See `New Features <../../new-features/index.html>`_ to catch up with the latest features.
+* **New Features**: The MLflow team and a host of community contributors constantly develops new features to support broader use cases. See `New Features <../../new-features/index.html>`_ to catch up with the latest features!

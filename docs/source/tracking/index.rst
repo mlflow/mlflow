@@ -132,7 +132,7 @@ You can also access all of the functions in the Tracking UI programmatically wit
 
 .. _tracking-setup:
 
-Set up MLflow Tracking Environment
+Set up the MLflow Tracking Environment
 ==================================
 
 .. note::
@@ -230,7 +230,7 @@ The following diagram and table show a few common setups for the MLflow Tracking
     * - **2. Local Tracking with Local Database**
       - Solo development
       - The MLflow client can interface with a SQLAlchemy-compatible database (e.g., SQLite, PostgreSQL, MySQL) for the `backend <backend-stores.html>`_. Saving metadata to a database allows you cleaner management of your experiment data while skipping the effort of setting up a server.
-      - `Tracking Experiments with Local Database <tutorials/local-database.html>`_
+      - `Tracking Experiments using a Local Database <tutorials/local-database.html>`_
 
     * - **3. Remote Tracking with** :ref:`MLflow Tracking Server <tracking_server>`
       - Team development

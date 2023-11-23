@@ -1,10 +1,10 @@
 ========================================
-Tracking Experiments with Local Database
+Tracking Experiments with a Local Database
 ========================================
 
-In this tutorial, you will learn how to use local database to track your experiment metadata with MLflow. By default, MLflow Tracking logs run to local files,
-which may cause some frustration due to fractured small files and lack of simple access interface. Also, if you are using Python, you can use SQLite that runs 
-upon local file (e.g. ``mlruns.db``) and has a built-in client ``sqlite3``, eliminating the effort to install any additional dependencies and setting up database server.
+In this tutorial, you will learn how to use a local database to track your experiment metadata with MLflow. By default, MLflow Tracking logs run data to local files,
+which may cause some frustration due to fractured small files and the lack of a simple access interface. Also, if you are using Python, you can use SQLite that runs 
+upon your local file system (e.g. ``mlruns.db``) and has a built-in client ``sqlite3``, eliminating the effort to install any additional dependencies and setting up database server.
 
 Get Started
 ===========
@@ -23,11 +23,11 @@ MLflow is available on PyPI. If you don't already have it installed on your loca
 Step 2 - Configure MLflow environment varialbles
 ------------------------------------------------
 
-Set tracking URI to local SQLite database
+Set the tracking URI to a local SQLite database
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To point MLflow to your local SQLite database, you need to set envioronment variable ``MLFLOW_TRACKING_URI`` to ``sqlite:///mlruns.db``.
-(This will create a SQLite database file called ``mlruns.db`` in the current directory. Specify different path if you want to store the database file in a different location.)
+To point MLflow to your local SQLite database, you need to set the environment variable ``MLFLOW_TRACKING_URI`` to ``sqlite:///mlruns.db``.
+(This will create a SQLite database file called ``mlruns.db`` in the current directory. Specify a different path if you want to store the database file in a different location.)
 
 .. code-section::
 
@@ -46,13 +46,13 @@ If you are on notebook, you can run the following cell instead:
         %env MLFLOW_TRACKING_URI=sqlite:///mlruns.db
 
 .. note::
-  For SQLite database, MLflow automatically creates a new database if it does not exist. If you want to use other database, you need to create the database first.
+  For using a SQLite database, MLflow automatically creates a new database if it does not exist. If you want to use a different database, you need to create the database first.
 
 
 Step 3: Start logging
 ---------------------
 
-Now you are ready to start logging your experiment runs. For example, the following code runs training for an scikit-learn RandomForest model on diabetes dataset:
+Now you are ready to start logging your experiment runs. For example, the following code runs training for an scikit-learn RandomForest model on the diabetes dataset:
 
 .. code-section::
 
@@ -76,10 +76,10 @@ Now you are ready to start logging your experiment runs. For example, the follow
         # Use the model to make predictions on the test dataset.
         predictions = rf.predict(X_test)
 
-Step 4: View logged Run in Tracking UI
+Step 4: View your logged Run in the Tracking UI
 --------------------------------------
 
-Once your training job finishes, you can run following command to launch the MLflow UI. You have to specify the path to SQLite database file with ``--backend-store-uri`` option.
+Once your training job finishes, you can run the following command to launch the MLflow UI (You will have to specify the path to SQLite database file with ``--backend-store-uri`` option): 
 
 .. code-section::
 
@@ -93,11 +93,11 @@ Then, navigate to `http://localhost:8080 <http://localhost:8080>`_ in your brows
 What's Next?
 ============
 
-Now you have learned how to connect MLflow Tracking with remote storage and database.
+You've now learned how to connect MLflow Tracking with a remote storage and a database.
 
 There are a couple of more advanced topics you can explore:
 
 * **Remote environment setup for team development**: While storing runs and experiments data in local machine is perfectly fine for solo development, you should 
-  consider using :ref:`MLflow Tracking Server <tracking_server>` when you set up team collaboration environment with MLflow Tracking. Read 
+  consider using :ref:`MLflow Tracking Server <tracking_server>` when you set up a team collaboration environment with MLflow Tracking. Read the 
   `Remote Experiment Tracking with MLflow Tracking Server <remote-server.html>`_ tutorial to learn more.
 * **New Features**: MLflow team constantly develops new features to support broader use cases. See `New Features <../../new-features/index.html>`_ to catch up with the latest features.

@@ -256,7 +256,7 @@ The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` funct
 Get MLflow Run instance from autologged results
 -----------------------------------------------
 
-In some cases, you may want to access the MLflow Run instance associated with the autologged results, similarly to you can get `mlflow.start_run()` 
+In some cases, you may want to access the MLflow Run instance associated with the autologged results, similarly to you can get the run context with `mlflow.start_run()` 
 You can access the most recent autolog run through the :py:func:`mlflow.last_active_run` function. Here's a short sklearn autolog example that makes use of this function:
 
 .. code-block:: python

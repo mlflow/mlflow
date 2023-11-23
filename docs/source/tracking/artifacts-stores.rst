@@ -4,51 +4,51 @@ Artifact Stores
 
 The artifact store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores (typicaly large) arifacts
 for each run such as model weights (e.g. a pickled scikit-learn model), images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). 
-Note that metadata like parameters, metrics, and tags are stored in `backend store <backend-stores.html>`_, the other component of the MLflow Tracking.
+Note that metadata like parameters, metrics, and tags are stored in a `backend store <backend-stores.html>`_ (e.g., PostGres, MySQL, or MSSQL Database), the other component of the MLflow Tracking.
 
-Configure Artifact Store
+Configuring an Artifact Store
 ========================
 MLflow by default stores artifacts in local ``./mlruns`` directory, but also supports various locations suitable for large data:
-AAmazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS. You can connect those remote storages via MLflow Tracking server.
-See :ref:`tracking server setup <tracking-server-artifact-store>` and the specific section for your storage in :ref:`supported storages <artifacts-store-supported-storages>` for 
-how to connect to the remote storage.
+Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS. You can connect those remote storages via the MLflow Tracking server.
+See :ref:`tracking server setup <tracking-server-artifact-store>` and the specific section for your storage in :ref:`supported storages <artifacts-store-supported-storages>` for guidance on 
+how to connect to your remote storage of choice.
 
 .. _artifacts-stores-manage-access:
 
-Manage Access
+Managing Artifact Store Access
 -------------
 To allow the server and clients to access the artifact location, you should configure your cloud
-provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
+provider credentials as you would for accessing them in any other capacity. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``.
 
 .. important::
-    Access credentials and configuration for the artifact storage location are configured *once during server initialization* in the place
-    of having users handle access credentials for artifact-based operations. Note that *all users who have access to the
-    Tracking Server in this mode will have access to artifacts served through this assumed role*.
+    Access credentials and configuration for the artifact storage location are configured **once during server initialization** in the place
+    of having users handle access credentials for artifact-based operations. Note that **all users who have access to the
+    Tracking Server in this mode will have access to artifacts served through this assumed role**.
 
-Timeout
+Setting an access Timeout
 -------
 You can set an environment variable ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` (in seconds) to configure the timeout for artifact uploads and downloads.
 Note that this is experimental feature, may be changed or removed.
 
-Logging Artifacts Location
+Setting a Default Artifact Location for Logging
 --------------------------
-MLflow automatically records ``artifact_uri`` property as a part of :py:class:`mlflow.entities.RunInfo`, so you can
+MLflow automatically records the ``artifact_uri`` property as a part of :py:class:`mlflow.entities.RunInfo`, so you can
 retrieve the location of the artifacts for historical runs using the :py:func:`mlflow.get_artifact_uri` API. 
-Also, ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
-default location to store artifacts for all runs in this experiment.
+Also, ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for setting the 
+default location to store artifacts for all runs in a given experiment.
 
 .. important::
 
   If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment
   (for example, ``mlflow experiments create --artifact-location s3://<my-bucket>``), the artifact root
-  is a path inside the file store. Typically this is not an appropriate location, as the client and
+  will be set as a path inside the local file store (the hard drive of the computer executing your run). Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
 
 .. _artifacts-store-supported-storages:
 
-Supported storages
+Supported storage types for the Artifact Store
 ==================
 
 Amazon S3 and S3-compatible storage
@@ -102,17 +102,17 @@ Additionally, if MinIO server is configured with non-default region, you should 
         For example, providing ``--default-artifact-root $MLFLOW_S3_ENDPOINT_URL`` on the server side **and** ``MLFLOW_S3_ENDPOINT_URL`` on the client side will create a client path resolution issue for the artifact storage location.
         Upon resolving the artifact storage location, the MLflow client will use the value provided by ``--default-artifact-root`` and suffixes the location with the values provided in the environment variable  ``MLFLOW_S3_ENDPOINT_URL``.
         Depending on the value set for the environment variable ``MLFLOW_S3_ENDPOINT_URL``, the resulting artifact storage path for this scenario would be one of the following invalid object store paths:  ``https://<bucketname>.s3.<region>.amazonaws.com/<key>/<bucketname>/<key>`` or  ``s3://<bucketname>/<key>/<bucketname>/<key>``.
-        To prevent path parsing issues, ensure that reserved environment variables are removed (``unset``) from client environments.
+        To prevent path parsing issues, **ensure that reserved environment variables are removed (``unset``) from client environments**.
 
-Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
+The complete list of configurable parameters for an S3 client is available in the `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
 Azure Blob Storage
 ------------------
 
 To store artifacts in Azure Blob Storage, specify a URI of the form
 ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
-MLflow expects Azure Storage access credentials in the
-``AZURE_STORAGE_CONNECTION_STRING``, ``AZURE_STORAGE_ACCESS_KEY`` environment variables
+MLflow expects that your Azure Storage access credentials are located in the
+``AZURE_STORAGE_CONNECTION_STRING`` and ``AZURE_STORAGE_ACCESS_KEY`` environment variables
 or having your credentials configured such that the `DefaultAzureCredential()
 <https://docs.microsoft.com/en-us/python/api/overview/azure/identity-readme?view=azure-python>`_. class can pick them up.
 The order of precedence is:
@@ -121,7 +121,7 @@ The order of precedence is:
 #. ``AZURE_STORAGE_ACCESS_KEY``
 #. ``DefaultAzureCredential()``
 
-You must set one of these options on both your client application and your MLflow tracking server.
+You must set one of these options on **both your client application and your MLflow tracking server**.
 Also, you must run ``pip install azure-storage-blob`` separately (on both your client and the server) to access Azure Blob Storage.
 Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity``;
 MLflow does not declare a dependency on these packages by default.
@@ -180,7 +180,7 @@ To store artifacts in HDFS, specify a ``hdfs:`` URI. It can contain host and por
 There are also two ways to authenticate to HDFS:
 
 - Use current UNIX account authorization
-- Kerberos credentials using following environment variables:
+- Kerberos credentials using the following environment variables:
 
 .. code-block:: bash
 
@@ -190,7 +190,7 @@ There are also two ways to authenticate to HDFS:
 Most of the cluster contest settings are read from ``hdfs-site.xml`` accessed by the HDFS native
 driver using the ``CLASSPATH`` environment variable.
 
-The used HDFS driver is ``libhdfs``.
+The HDFS driver that is used is ``libhdfs``.
 
 
 Deletion Behavior
