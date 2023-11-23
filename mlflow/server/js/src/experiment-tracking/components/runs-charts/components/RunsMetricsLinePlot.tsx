@@ -188,27 +188,17 @@ export const RunsMetricsLinePlot = React.memo(
               return [];
             }
 
-            if (selectedMetricKeys && selectedMetricKeys.length > 0) {
-              return selectedMetricKeys.map((mk) =>
-                getDataTraceForRun({
-                  runEntry,
-                  metricKey: mk,
-                  xAxisKey,
-                  useDefaultHoverBox,
-                  lineSmoothness,
-                  lineShape,
-                }),
-              );
-            }
-
-            return getDataTraceForRun({
-              runEntry,
-              metricKey,
-              xAxisKey,
-              useDefaultHoverBox,
-              lineSmoothness,
-              lineShape,
-            });
+            const metricKeys = selectedMetricKeys ?? [metricKey];
+            return metricKeys.map((mk) =>
+              getDataTraceForRun({
+                runEntry,
+                metricKey: mk,
+                xAxisKey,
+                useDefaultHoverBox,
+                lineSmoothness,
+                lineShape,
+              }),
+            );
           })
           .flat(),
       [
