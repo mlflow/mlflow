@@ -79,7 +79,14 @@ def http_artifact_repo():
     ],
 )
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, expected_mime_type):
+def test_log_artifact(
+    http_artifact_repo,
+    tmp_path,
+    artifact_path,
+    filename,
+    expected_mime_type,
+    monkeypatch,
+):
     file_path = tmp_path.joinpath(filename)
     file_path.write_text("0")
 
@@ -107,6 +114,7 @@ def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, exp
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.log_artifact(file_path, artifact_path)
 
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
     # assert mpu is triggered when file size is larger than minimum file size
     file_path.write_text("0" * MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get())
     with mock.patch.object(
@@ -367,7 +375,8 @@ def test_delete_artifacts(http_artifact_repo, remote_file_path):
         )
 
 
-def test_create_multipart_upload(http_artifact_repo):
+def test_create_multipart_upload(http_artifact_repo, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
         return_value=MockResponse(
@@ -390,7 +399,8 @@ def test_create_multipart_upload(http_artifact_repo):
         assert response.credentials[0].url == "/some/url"
 
 
-def test_complete_multipart_upload(http_artifact_repo):
+def test_complete_multipart_upload(http_artifact_repo, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
         return_value=MockResponse({}, 200),
@@ -421,7 +431,8 @@ def test_complete_multipart_upload(http_artifact_repo):
         )
 
 
-def test_abort_multipart_upload(http_artifact_repo):
+def test_abort_multipart_upload(http_artifact_repo, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
         return_value=MockResponse({}, 200),
