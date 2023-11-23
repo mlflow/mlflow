@@ -1366,6 +1366,12 @@ def read_image(filename):
     with open(image_path, "rb") as f:
         return f.read()
 
+def is_base64_image(s):
+    try:
+        return base64.b64encode(base64.b64decode(s)).decode("utf-8") == s
+    except Exception:
+        return False
+
 @pytest.mark.parametrize(
     "inference_payload",
     [
@@ -1376,6 +1382,9 @@ def read_image(filename):
     ],
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
+    if Version(transformers.__version__) < Version('4.29'):
+        if is_base64_image(inference_payload):
+            return
     signature = infer_signature(
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
@@ -2122,6 +2131,9 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
     ],
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
+    if transformers.__version__ < '4.29':
+        if is_base64_image(inference_payload[0]):
+            return
     artifact_path = "image_classification_model"
 
     # Log the image classification model
