@@ -19,7 +19,9 @@ export const RunsCompareConfigureLineChartPreviewImpl = ({
 
   metricsByRunUuid: Record<string, MetricHistoryByName>;
 }) => {
-  const metricKeysToFetch = useMemo(() => [cardConfig.metricKey], [cardConfig.metricKey]);
+  const metricKeysToFetch = useMemo(() => (
+	cardConfig.selectedMetricKeys || [cardConfig.metricKey]
+  ), [cardConfig.metricKey, cardConfig.selectedMetricKeys]);
   const { isLoading, error } = useFetchCompareRunsMetricHistory(metricKeysToFetch, previewData);
 
   const previewDataWithHistory = useMemo<RunsChartsRunData[]>(
