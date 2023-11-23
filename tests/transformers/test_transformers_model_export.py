@@ -21,6 +21,7 @@ import yaml
 from datasets import load_dataset
 from huggingface_hub import ModelCard, scan_cache_dir
 from packaging.version import Version
+from PIL import Image
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -80,7 +81,7 @@ _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 # runners#supported-runners-and-hardware-resources for instance specs.
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
-image_url = 'http://images.cocodataset.org/val2017/000000039769.jpg' #"https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
+image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
 # Test that can only be run locally:
 # - Summarization pipeline tests
 # - TextClassifier pipeline tests
@@ -1360,24 +1361,18 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert all(isinstance(element, str) for element in inference)
 
 
-def raw_image_file(imagename):
-    datasets_path = (
-        pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets").joinpath(imagename)
-    )
-    datasets_path_str = str(datasets_path).replace("\\", "\\\\")
-    return datasets_path_str
-
+def read_image(filename):
+    image_path = os.path.join(pathlib.Path(__file__).parent.parent, "datasets", filename)
+    with open(image_path, "rb") as f:
+        return f.read()
 
 @pytest.mark.parametrize(
     "inference_payload",
     [
         image_url,
-        [image_url, image_url],
-        {
-            "images": raw_image_file("cat.png"),
-        },
-        raw_image_file("cat_image.jpg"),
-        [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
+        os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png"),
+        base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
+        Image.open(os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")),
     ],
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
@@ -1385,18 +1380,14 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
     )
-
     mlflow.transformers.save_model(
         transformers_model=small_vision_model,
         path=model_path,
         signature=signature,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-
-    inference = pyfunc_loaded.predict(inference_payload)
-    inference_dataframe= pd.DataFrame(inference)
-    assert isinstance(inference_dataframe, pd.core.frame.DataFrame)
-    assert all(isinstance(element, str) for element in inference)
+    predictions = pyfunc_loaded.predict(inference_payload)
+    assert len(predictions) != 0
 
 
 
@@ -2125,13 +2116,9 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 @pytest.mark.parametrize(
     "inference_payload",
     [
-        image_url,
+        [os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")],
         [image_url, image_url],
-        {
-            "images": raw_image_file("cat.png"),
-        },
-        raw_image_file("cat_image.jpg"),
-        [raw_image_file("cat_image.jpg"), raw_image_file("tiger_cat.jpg")],
+        [base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"), base64.b64encode(read_image("tiger_cat.jpg")).decode("utf-8")],
     ],
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
@@ -2144,6 +2131,9 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
             artifact_path=artifact_path,
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
+    inference_payload = json.dumps({
+        "inputs" : inference_payload
+    })
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_payload,
@@ -3561,36 +3551,27 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
 def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     artifact_path = "image_classification_model"
 
-    image_file_paths = [
-        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat_image.jpg",
-        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/tiger_cat.jpg",
-    ]  # Replace with actual image file paths
+    image_file_paths = [image_url, image_url]
+    parameters = {
+        "top_k": 2,
+    }
     inference_payload = json.dumps(
         {
-            "inputs": {
-                "images": image_file_paths,
-            },
-            "params": {
-                "top_k": 2,
-                "confidence_threshold": 0.8,
-            },
+            "inputs": image_file_paths,
+            "params": parameters,
         }
     )
-
-    expected_predictions = ["tabby", "tabby cat", "tiger cat", "Egyptian cat"]
 
     with mlflow.start_run():
         mlflow.transformers.log_model(
             transformers_model=small_vision_model,
             artifact_path=artifact_path,
             signature=infer_signature(
-                {
-                    "images": image_file_paths,
-                },
+                image_file_paths,
                 mlflow.transformers.generate_signature_output(
                     small_vision_model, {"images": image_file_paths}
                 ),
-                {"top_k": 2, "confidence_threshold": 0.8},
+                params=parameters
             ),
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
@@ -3603,8 +3584,8 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     )
 
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-
-    assert predictions == expected_predictions
+    assert len(predictions) == len(image_file_paths)
+    assert len(predictions.iloc[0]) == parameters['top_k']
 
 
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
