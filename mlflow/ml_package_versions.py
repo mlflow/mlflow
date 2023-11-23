@@ -254,7 +254,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "promptflow"
         },
         "models": {
-            "minimum": "1.0.0",
+            "minimum": "1.1.0",
             "maximum": "2.0.0"
         }
     },

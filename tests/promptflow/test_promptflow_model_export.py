@@ -24,9 +24,6 @@ def test_promptflow_log_and_load_model():
     loaded_model = mlflow.promptflow.load_model(logged_model.model_uri)
 
     assert "promptflow" in logged_model.flavors
-    assert str(logged_model.signature.inputs) == "['text': string]"
-    assert str(logged_model.signature.outputs) == "['output': string]"
-
     assert isinstance(loaded_model, Flow)
 
 
@@ -59,8 +56,8 @@ def test_promptflow_model_predict():
         with mlflow.start_run():
             logged_model = mlflow.promptflow.log_model(model, "promptflow_model")
         loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-        result = loaded_model.predict([{"text": "Python Hello World!"}])
-        assert result == [{"output": TEST_CONTENT}]
+        result = loaded_model.predict({"text": "Python Hello World!"})
+        assert result == {"output": TEST_CONTENT}
 
 
 def test_unsupported_class():

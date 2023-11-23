@@ -26,7 +26,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example, ModelInputExample
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import ColSpec, DataType, Schema
+from mlflow.types import DataType
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -121,11 +121,6 @@ def log_model(
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output
                       :py:class:`Schema <mlflow.types.Schema>`.
-                      If not specified, the model signature would be set according to
-                      `model.inputs` and `model.outputs` as columns names, `DataType.int`,
-                      `DataType.double`and `DataType.boolean` as the column type for
-                      promptflow type `int`, `double` and `bool`, and `DataType.string`
-                      as the column type for the other promptflow types.
 
     :param input_example: {{ input_example }}
 
@@ -221,11 +216,6 @@ def save_model(
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output
                       :py:class:`Schema <mlflow.types.Schema>`.
-                      If not specified, the model signature would be set according to
-                      `model.inputs` and `model.outputs` as columns names, `DataType.int`,
-                      `DataType.double`and `DataType.boolean` as the column type for
-                      promptflow type `int`, `double` and `bool`, and `DataType.string`
-                      as the column type for the other promptflow types.
 
     :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
@@ -268,7 +258,6 @@ def save_model(
                 )
     """
     import promptflow
-    from promptflow.contracts.tool import ValueType
     from promptflow._sdk._mlflow import Flow
     from promptflow._sdk._mlflow import _merge_local_code_and_additional_includes
     from promptflow._sdk._mlflow import DAG_FILE_NAME
@@ -295,30 +284,6 @@ def save_model(
         shutil.copytree(src=resolved_model_dir, dst=model_flow_path)
     # Get flow env in flow dag
     flow_env = _resolve_env_from_flow(model.flow_dag_path)
-
-    def _parse_pf_type(type_str):
-        if type_str == ValueType.INT.value:
-            return DataType.integer
-        if type_str == ValueType.DOUBLE.value:
-            return DataType.double
-        if type_str == ValueType.BOOL.value:
-            return DataType.boolean
-        # Return string for list, object and other types
-        return DataType.string
-
-    # infer signature if signature is not provided
-    if signature is None:
-        input_columns = [
-            ColSpec(type=_parse_pf_type(typ), name=k) for k, typ in model.inputs.items()
-        ]
-        input_schema = Schema(input_columns)
-
-        output_columns = [
-            ColSpec(type=_parse_pf_type(typ), name=k) for k, typ in model.outputs.items()
-        ]
-        output_schema = Schema(output_columns)
-
-        signature = ModelSignature(input_schema, output_schema)
 
     if mlflow_model is None:
         mlflow_model = Model()
