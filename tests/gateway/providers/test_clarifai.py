@@ -18,7 +18,7 @@ def completions_config():
             "provider": "clarifai",
             "name": "mistral-7B-Instruct",
             "config": {
-                "CLARIFAI_PAT_KEY": "key",
+                "CLARIFAI_PAT": "key",
                 "user_id": "mistralai",
                 "app_id": "completion"
             }
@@ -131,7 +131,7 @@ def embeddings_config():
             "provider": "clarifai",
             "name": "multimodal-clip-embed",
             "config": {
-                "CLARIFAI_PAT_KEY": "key",
+                "CLARIFAI_PAT": "key",
                 "user_id": "clarifai",
                 "app_id": "main"
             }

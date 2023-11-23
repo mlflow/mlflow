@@ -55,13 +55,13 @@ class RouteType(str, Enum):
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
 
 class ClarifaiConfig(ConfigModel):
-    CLARIFAI_PAT_KEY: str
+    CLARIFAI_PAT: str
     user_id: str
     app_id: str
 
     # pylint: disable=no-self-argument
-    @validator("CLARIFAI_PAT_KEY", pre=True)
-    def validate_CLARIFAI_PAT_KEY(cls, value):
+    @validator("CLARIFAI_PAT", pre=True)
+    def validate_CLARIFAI_PAT(cls, value):
         return _resolve_api_key_from_input(value)
 
 class CohereConfig(ConfigModel):

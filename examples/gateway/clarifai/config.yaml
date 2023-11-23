@@ -5,7 +5,7 @@ routes:
       provider: clarifai
       name: mistral-7B-Instruct
       config:
-        CLARIFAI_PAT_KEY: $CLARIFAI_PAT_KEY
+        CLARIFAI_PAT: $CLARIFAI_PAT
         user_id: mistralai
         app_id: completion
 
@@ -15,6 +15,6 @@ routes:
       provider: clarifai
       name: multimodal-clip-embed
       config:
-        CLARIFAI_PAT_KEY: $CLARIFAI_PAT_KEY
+        CLARIFAI_PAT: $CLARIFAI_PAT
         user_id: clarifai
         app_id: main

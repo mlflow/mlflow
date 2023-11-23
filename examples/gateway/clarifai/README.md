@@ -6,12 +6,12 @@ Explore more Clarifai hosted LLMs [here](https://clarifai.com/explore/models).
 
 ### Getting Started
 
-#### Setting a Clarifai PAT Key
+#### Setting a Clarifai PAT
 
-This example requires a [Clarifai PAT key](https://docs.clarifai.com/clarifai-basics/authentication/personal-access-tokens/):
+This example requires a [Clarifai PAT](https://docs.clarifai.com/clarifai-basics/authentication/personal-access-tokens/):
 
 ```sh
-export CLARIFAI_PAT_KEY=...
+export CLARIFAI_PAT=...
 ```
 
 ### Update the config.yaml
@@ -26,7 +26,7 @@ routes:
       provider: clarifai
       name: mistral-7B-Instruct
       config:
-        CLARIFAI_PAT_KEY: $CLARIFAI_PAT_KEY
+        CLARIFAI_PAT: $CLARIFAI_PAT
         user_id: mistralai
         app_id: completion
 
@@ -36,7 +36,7 @@ routes:
       provider: clarifai
       name: multimodal-clip-embed
       config:
-        CLARIFAI_PAT_KEY: $CLARIFAI_PAT_KEY
+        CLARIFAI_PAT: $CLARIFAI_PAT
         user_id: clarifai
         app_id: main
 ```

@@ -18,7 +18,7 @@ class ClarifaiProvider(BaseProvider):
         self.user_id = self.clarifai_config.user_id
         self.app_id = self.clarifai_config.app_id
         self.base_url = f"https://api.clarifai.com/v2/users/{self.user_id}/apps/{self.app_id}/models/{self.model_id}/outputs"
-        self.headers = {"Authorization": f"Key {self.clarifai_config.CLARIFAI_PAT_KEY}"}
+        self.headers = {"Authorization": f"Key {self.clarifai_config.CLARIFAI_PAT}"}
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise HTTPException(status_code=404, detail="The chat route will be supported in the future.")
