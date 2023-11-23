@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import pathlib
+import PIL
 import re
 import sys
 from functools import lru_cache
@@ -1751,13 +1752,13 @@ class _TransformersWrapper:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             input_data = data
-        elif isinstance(data, (str, bytes, np.ndarray)):
+        elif isinstance(data, (str, bytes, np.ndarray, PIL.Image.Image)):
             input_data = data
         else:
             raise MlflowException(
                 "Input data must be either a pandas.DataFrame, a string, bytes, List[str], "
                 "List[Dict[str, str]], List[Dict[str, Union[str, List[str]]]], "
-                "or Dict[str, Union[str, List[str]]].",
+                "or Dict[str, Union[str, List[str]]] or PIL.Image.image.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         input_data = self._parse_raw_pipeline_input(input_data)
@@ -1800,7 +1801,7 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ImageClassificationPipeline):
-            data = self._convert_audio_input(data)
+            data = self._convert_audio_or_image_input(data)
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             output_key = "labels"
@@ -1826,9 +1827,9 @@ class _TransformersWrapper:
                 output_key = None
             else:
                 output_key = "text"
-            data = self._convert_audio_input(data)
+            data = self._convert_audio_or_image_input(data)
         elif isinstance(self.pipeline, transformers.AudioClassificationPipeline):
-            data = self._convert_audio_input(data)
+            data = self._convert_audio_or_image_input(data)
             output_key = None
         else:
             raise MlflowException(
@@ -2571,9 +2572,9 @@ class _TransformersWrapper:
                     parsed_data.append(entry)
             return parsed_data
 
-    def _convert_audio_input(self, data):
+    def _convert_audio_or_image_input(self, data):
         """
-        Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
+        Conversion utility for decoding the base64 encoded bytes data of a raw sound/image file when
         parsed through model serving, if applicable. Direct usage of the pyfunc implementation
         outside of model serving will treat this utility as a noop.
 
@@ -2610,9 +2611,15 @@ class _TransformersWrapper:
             except binascii.Error:
                 return False
 
+        def is_base64_image(s):
+            try:
+                return base64.b64encode(base64.b64decode(s)).decode("utf-8") == s
+            except binascii.Error:
+                return False
+
         def decode_audio(encoded):
             if isinstance(encoded, str):
-                # This is to support blob style passing of uri locations to process audio files
+                # This is to support blob style passing of uri locations to process audio/image files
                 # on disk or object store. Note that if a uri is passed, a signature *must be*
                 # provided for serving to function as the default signature uses bytes.
                 return encoded
@@ -2629,9 +2636,9 @@ class _TransformersWrapper:
                     return base64.b64decode(encoded)
                 except binascii.Error as e:
                     raise MlflowException(
-                        "The encoded soundfile that was passed has not been properly base64 "
+                        "The encoded file that was passed has not been properly base64 "
                         "encoded. Please ensure that the raw sound bytes have been processed with "
-                        "`base64.b64encode(<audio data bytes>).decode('ascii')`"
+                        "`base64.b64encode(<data bytes>).decode('ascii')`"
                     ) from e
 
         # The example input data that is processed by this logic is from the pd.DataFrame
@@ -2650,13 +2657,19 @@ class _TransformersWrapper:
         if isinstance(data, list) and  all(isinstance(element, dict) for element in data):
            lst_data= []
            for item in data:
-                encoded_audio = next(iter(item.values()))
-                if isinstance(encoded_audio, str):
-                    self._validate_str_input_uri_or_file(encoded_audio)
-                lst_data.append(decode_audio(encoded_audio))
+                data_ele = next(iter(item.values()))
+                if isinstance(data_ele, bytes):
+                    lst_data.append(decode_audio(data_ele))
+                    continue
+                if isinstance(data_ele, str):
+                    # base64 encoded image comes as string
+                    if not is_base64_image(data_ele):
+                        self._validate_str_input_uri_or_file(data_ele)
+                lst_data.append(data_ele)
            return lst_data
         elif isinstance(data, str):
-            self._validate_str_input_uri_or_file(data)
+            if not is_base64_image(data):
+                self._validate_str_input_uri_or_file(data)
         return data
 
     @staticmethod
