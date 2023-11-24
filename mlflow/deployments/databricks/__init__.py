@@ -141,7 +141,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             client = get_deploy_client("databricks")
-            client.predict(
+            response = client.predict(
                 endpoint="chat",
                 inputs={
                     "messages": [
@@ -149,6 +149,24 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                     ],
                 },
             )
+            assert response == {
+                "id": "chatcmpl-8OLm5kfqBAJD8CpsMANESWKpLSLXY",
+                "object": "chat.completion",
+                "created": 1700814265,
+                "model": "gpt-4-0613",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "Hello! How can I assist you today?"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 9,
+                    "completion_tokens": 9,
+                    "total_tokens": 18,
+                },
+            }
         """
         return self._call_endpoint(
             method="POST",
@@ -221,7 +239,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             client = get_deploy_client("databricks")
-            client.update_endpoint(
+            endpoint = client.update_endpoint(
                 endpoint="chat",
                 config={
                     "served_entities": [
@@ -246,6 +264,12 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                     ],
                 },
             )
+            assert endpoint == {
+                "name": "chat",
+                "creator": "test.user@databricks.com",
+                "creation_timestamp": 1700812076000,
+                ...,  # truncated
+            }
         """
         if list(config) == ["rate_limits"]:
             return self._call_endpoint(
@@ -273,7 +297,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             client = get_deploy_client("databricks")
-            client.delete_endpoint(endpoint="chat")
+            assert client.delete_endpoint(endpoint="chat") == {}
         """
         return self._call_endpoint(method="DELETE", route=endpoint)
 
@@ -293,7 +317,16 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             client = get_deploy_client("databricks")
-            client.list_endpoints()
+            endpoints = client.list_endpoints()
+            assert endpoints == [
+                {
+                    "name": "chat",
+                    "creator": "test.user@databricks.com",
+                    "creation_timestamp": 1700812076000,
+                    ...,  # truncated
+                },
+                ...
+            ]
         """
         return self._call_endpoint(method="GET").endpoints
 
@@ -314,7 +347,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             client = get_deploy_client("databricks")
-            client.get_endpoint(endpoint="chat")
+            endpoint = client.get_endpoint(endpoint="chat")
+            assert endpoint == {
+                "name": "chat",
+                "creator": "test.user@databricks.com",
+                "creation_timestamp": 1700812076000,
+                ...,  # truncated
+            }
         """
         return self._call_endpoint(method="GET", route=endpoint)
 
