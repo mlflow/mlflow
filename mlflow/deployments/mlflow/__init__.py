@@ -219,39 +219,26 @@ class MLflowDeploymentClient(BaseDeploymentClient):
 
             client = get_deploy_client("http://localhost:5000")
 
+            # Chat
             response = client.predict(
                 endpoint="chat",
                 inputs={"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]},
             )
 
-        For completions, the structure should be:
-
-        .. code-block:: python
-
-            from mlflow.deployments import get_deploy_client
-
-            client = get_deploy_client("http://localhost:5000")
-
+            # Completions
             response = client.predict(
                 endpoint="completions",
                 inputs={"prompt": "It's one small step for"},
             )
 
-        For embeddings, the structure should be:
-
-        .. code-block:: python
-
-            from mlflow.deployments import get_deploy_client
-
-            client = get_deploy_client("http://localhost:5000")
-
+            # Embeddings
             response = client.query(
                 endpoint="embeddings",
                 inputs={"text": ["It was the best of times", "It was the worst of times"]},
             )
 
-        Additional parameters that are valid for a given provider and route configuration can be
-        included with the request as shown below, using an openai completions route request as
+        Additional parameters that are valid for a given provider and endpoint configuration can be
+        included with the request as shown below, using an openai completions endpoint request as
         an example:
 
         .. code-block:: python
@@ -261,9 +248,9 @@ class MLflowDeploymentClient(BaseDeploymentClient):
             client = get_deploy_client("http://localhost:5000")
 
             response = client.predict(
-                endpoint="my-completions-route",
+                endpoint="completions",
                 inputs={
-                    "prompt": "Give me an example of a properly formatted pytest unit test",
+                    "prompt": "Hello!",
                     "temperature": 0.3,
                     "max_tokens": 500,
                 },
