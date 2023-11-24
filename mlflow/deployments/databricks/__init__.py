@@ -240,10 +240,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         .. code-block:: python
 
-                from mlflow.deployments import get_deploy_client
+            from mlflow.deployments import get_deploy_client
 
-                client = get_deploy_client("databricks")
-                client.delete_endpoint(endpoint="chat")
+            client = get_deploy_client("databricks")
+            client.delete_endpoint(endpoint="chat")
         """
         return self._call_endpoint(method="DELETE", route=endpoint)
 
@@ -260,10 +260,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         .. code-block:: python
 
-                from mlflow.deployments import get_deploy_client
+            from mlflow.deployments import get_deploy_client
 
-                client = get_deploy_client("databricks")
-                client.list_endpoints()
+            client = get_deploy_client("databricks")
+            client.list_endpoints()
         """
         return self._call_endpoint(method="GET").endpoints
 
@@ -281,10 +281,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         .. code-block:: python
 
-                from mlflow.deployments import get_deploy_client
+            from mlflow.deployments import get_deploy_client
 
-                client = get_deploy_client("databricks")
-                client.get_endpoint(endpoint="chat")
+            client = get_deploy_client("databricks")
+            client.get_endpoint(endpoint="chat")
         """
         return self._call_endpoint(method="GET", route=endpoint)
 
