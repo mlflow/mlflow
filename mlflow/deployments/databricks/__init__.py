@@ -52,7 +52,15 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         from mlflow.deployments import get_deploy_client
 
         client = get_deploy_client("databricks")
-        client.list_endpoints()
+        endpoints = client.list_endpoints()
+        assert endpoints == [
+            {
+                "name": "chat",
+                "creator": "test.user@databricks.com",
+                "creation_timestamp": 1700812076000,
+                ...,  # truncated
+            },
+        ]
     """
 
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
@@ -255,6 +263,18 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                             },
                         }
                     ],
+                },
+            )
+            assert endpoint == {
+                "name": "chat",
+                "creator": "test.user@databricks.com",
+                "creation_timestamp": 1700812076000,
+                ...,  # truncated
+            }
+
+            rate_limits = client.update_endpoint(
+                endpoint="chat",
+                config={
                     "rate_limits": [
                         {
                             "key": "user",
@@ -264,11 +284,14 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                     ],
                 },
             )
-            assert endpoint == {
-                "name": "chat",
-                "creator": "test.user@databricks.com",
-                "creation_timestamp": 1700812076000,
-                ...,  # truncated
+            assert rate_limits == {
+                "rate_limits": [
+                    {
+                        "key": "user",
+                        "renewal_period": "minute",
+                        "calls": 10,
+                    }
+                ],
             }
         """
         if list(config) == ["rate_limits"]:
@@ -325,7 +348,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                     "creation_timestamp": 1700812076000,
                     ...,  # truncated
                 },
-                ...
             ]
         """
         return self._call_endpoint(method="GET").endpoints
