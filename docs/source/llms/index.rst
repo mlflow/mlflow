@@ -353,7 +353,7 @@ Look in the tutorials and guides below to learn more about interesting use cases
     rag/index
     custom-pyfunc-for-llms/index
     llm-evaluate/notebooks/index
-
+    deployments/index
 
 .. raw:: html
 
