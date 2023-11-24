@@ -738,6 +738,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         :return: Model predictions.
         """
         import langchain
+        from langchain.schema.retriever import BaseRetriever
 
         from mlflow.openai.utils import TEST_CONTENT, TEST_INTERMEDIATE_STEPS, TEST_SOURCE_DOCUMENTS
 
@@ -748,7 +749,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             (
                 langchain.chains.llm.LLMChain,
                 langchain.chains.RetrievalQA,
-                langchain.schema.retriever.BaseRetriever,
+                BaseRetriever,
             ),
         ):
             mockContent = TEST_CONTENT
