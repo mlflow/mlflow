@@ -506,6 +506,7 @@ def test_http_request_customize_config(monkeypatch):
             mock.ANY,
             5,
             2,
+            1.0,
             mock.ANY,
             True,
             headers=mock.ANY,
@@ -515,6 +516,7 @@ def test_http_request_customize_config(monkeypatch):
         mock_get_http_response_with_retries.reset_mock()
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "8")
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", "3")
+        monkeypatch.setenv("MLFLOW_HTTP_REQUEST_BACKOFF_JITTER", "1.0")
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_TIMEOUT", "300")
         http_request(host_only, "/my/endpoint", "GET")
         mock_get_http_response_with_retries.assert_called_with(
@@ -522,6 +524,7 @@ def test_http_request_customize_config(monkeypatch):
             mock.ANY,
             8,
             3,
+            1.0,
             mock.ANY,
             True,
             headers=mock.ANY,
