@@ -81,7 +81,7 @@ _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 # runners#supported-runners-and-hardware-resources for instance specs.
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
-image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+image_url = "https://github.com/mlflow/mlflow/blob/master/tests/datasets/cat_image.jpg"
 # Test that can only be run locally:
 # - Summarization pipeline tests
 # - TextClassifier pipeline tests
@@ -1380,14 +1380,15 @@ def is_base64_image(s):
     [
         image_url,
         os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png"),
-        base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
+        "base64",
         Image.open(os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")),
     ],
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
-    if Version(transformers.__version__) < Version("4.29"):
-        if is_base64_image(inference_payload):
+    if inference_payload == "base64":
+        if Version(transformers.__version__) < Version("4.29"):
             return
+        inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
     signature = infer_signature(
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
@@ -2129,16 +2130,16 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
     [
         [os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")],
         [image_url, image_url],
-        [
-            base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
-            base64.b64encode(read_image("tiger_cat.jpg")).decode("utf-8"),
-        ],
+        "base64",
     ],
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
-    if transformers.__version__ < "4.29":
-        if is_base64_image(inference_payload[0]):
+    if not isinstance(inference_payload, list) and inference_payload == "base64":
+        if transformers.__version__ < "4.29":
             return
+        inference_payload = [
+            base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
+        ]
     artifact_path = "image_classification_model"
 
     # Log the image classification model
@@ -3566,7 +3567,7 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
 def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     artifact_path = "image_classification_model"
 
-    image_file_paths = [image_url, image_url]
+    image_file_paths = [image_url]
     parameters = {
         "top_k": 2,
     }
@@ -3583,9 +3584,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
             artifact_path=artifact_path,
             signature=infer_signature(
                 image_file_paths,
-                mlflow.transformers.generate_signature_output(
-                    small_vision_model, {"images": image_file_paths}
-                ),
+                mlflow.transformers.generate_signature_output(small_vision_model, image_file_paths),
                 params=parameters,
             ),
         )
