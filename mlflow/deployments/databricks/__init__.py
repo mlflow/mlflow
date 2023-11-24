@@ -19,10 +19,10 @@ class DatabricksEndpoint(AttrDict):
 
     .. code-block:: python
 
-        d = AttrDict({'a': 1, 'b': 2})
+        d = DatabricksEndpoint({'a': 1, 'b': 2})
         print(d.a)  # 1
 
-        d = AttrDict({'a': 1, 'b': {'c': 3, 'd': 4}})
+        d = DatabricksEndpoint({'a': 1, 'b': {'c': 3, 'd': 4}})
         print(d.b.c)  # 3
     """
 
