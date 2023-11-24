@@ -32,7 +32,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
     """
     Client for interacting with the MLflow Deployments Server.
 
-    Example usage:
+    Example:
 
     First, start the MLflow Deployments Server:
 
@@ -139,6 +139,8 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         :param endpoint: The name of the endpoint to retrieve.
         :return: An `Endpoint` object representing the endpoint.
 
+        Example:
+
         .. code-block:: python
 
             from mlflow.deployments import get_deploy_client
@@ -164,6 +166,8 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         :param page_token: Token specifying the next page of results. It should be obtained from
                            a prior ``list_endpoints()`` call.
         :return: A ``PagedList`` of ``Endpoint`` objects.
+
+        Example:
 
         .. code-block:: python
 
@@ -204,6 +208,8 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         :param endpoint: The name of the endpoint to query.
         :param inputs: The inputs to the query, as a dictionary.
         :return: A dictionary containing the response from the endpoint.
+
+        Examples:
 
         For chat, the structure should be:
 
