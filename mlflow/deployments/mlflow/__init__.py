@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 @experimental
-class MLflowDeploymentClient(BaseDeploymentClient):
+class MlflowDeploymentClient(BaseDeploymentClient):
     """
     TODO
     """
@@ -36,28 +36,28 @@ class MLflowDeploymentClient(BaseDeploymentClient):
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def delete_deployment(self, name, config=None, endpoint=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def list_deployments(self, endpoint=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
@@ -70,21 +70,21 @@ class MLflowDeploymentClient(BaseDeploymentClient):
     def create_endpoint(self, name, config=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def update_endpoint(self, endpoint, config=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def delete_endpoint(self, endpoint):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
