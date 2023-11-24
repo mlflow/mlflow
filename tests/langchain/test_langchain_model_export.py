@@ -485,7 +485,9 @@ class DeterministicDummyEmbeddings(Embeddings, BaseModel):
 
 
 def assert_equal_retrievers(retriever, expected_retreiver):
-    assert isinstance(retriever, langchain.schema.retriever.BaseRetriever)
+    from langchain.schema.retriever import BaseRetriever
+
+    assert isinstance(retriever, BaseRetriever)
     assert isinstance(retriever, type(expected_retreiver))
     assert isinstance(retriever.vectorstore, type(expected_retreiver.vectorstore))
     assert retriever.tags == expected_retreiver.tags
