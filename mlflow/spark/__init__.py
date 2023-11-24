@@ -1039,10 +1039,10 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     Enables (or disables) and configures logging of Spark datasource paths, versions
     (if applicable), and formats when they are read. This method is not threadsafe and assumes a
     `SparkSession
-    <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
+    <https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.SparkSession.html>`_
     already exists with the
     `mlflow-spark JAR
-    <http://mlflow.org/docs/latest/tracking.html#automatic-logging-from-spark-experimental>`_
+    <https://www.mlflow.org/docs/latest/tracking.html#spark>`_
     attached. It should be called on the Spark driver, not on the executors (i.e. do not call
     this method within a function parallelized by Spark). This API requires Spark 3.0 or above.
 
@@ -1066,10 +1066,10 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
 
         # Create and persist some dummy data
         # Note: On environments like Databricks with pre-created SparkSessions,
-        # ensure the org.mlflow:mlflow-spark:1.11.0 is attached as a library to
+        # ensure the org.mlflow:mlflow-spark:2.22.0 is attached as a library to
         # your cluster
         spark = (
-            SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:1.11.0")
+            SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:2.22.0")
             .master("local[*]")
             .getOrCreate()
         )
