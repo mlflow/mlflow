@@ -121,9 +121,14 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         TODO
         """
-        return self._call_endpoint(
-            method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
-        )
+        if list(config) == ["rate_limits"]:
+            return self._call_endpoint(
+                method="PUT", route=posixpath.join(endpoint, "rate-limits"), json_body=config
+            )
+        else:
+            return self._call_endpoint(
+                method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
+            )
 
     @experimental
     def delete_endpoint(self, endpoint):
