@@ -135,8 +135,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         :param name: The name of the serving endpoint to create.
         :param config: A dictionary containing the configuration of the serving endpoint to create.
-        :return: A :py:class:`DatabricksEndpoint` object containing the created endpoint
-                 configuration.
+        :return: A :py:class:`DatabricksEndpoint` object containing the request response.
 
         Example:
 
@@ -181,8 +180,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         :param endpoint: The name of the serving endpoint to update.
         :param config: A dictionary containing the configuration of the serving endpoint to update.
-        :return: A :py:class:`DatabricksEndpoint` object containing the updated endpoint
-                 configuration.
+        :return: A :py:class:`DatabricksEndpoint` object containing the request response.
 
         Example:
 
@@ -234,8 +232,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         schema.
 
         :param endpoint: The name of the serving endpoint to delete.
-        :return: A :py:class:`DatabricksEndpoint` object containing the deleted endpoint
-                 configuration.
+        :return: A :py:class:`DatabricksEndpoint` object containing the request response.
 
         Example:
 
@@ -255,8 +252,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         See https://docs.databricks.com/api/workspace/servingendpoints/list for request/response
         schema.
 
-        :return: A list of :py:class:`DatabricksEndpoint` objects containing the endpoint
-                 configurations.
+        :return: A list of :py:class:`DatabricksEndpoint` objects containing the request response.
 
         Example:
 
@@ -277,7 +273,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         schema.
 
         :param endpoint: The name of the serving endpoint to get.
-        :return: A :py:class:`DatabricksEndpoint` object containing the endpoint configuration.
+        :return: A :py:class:`DatabricksEndpoint` object containing the request response.
 
         Example:
 
