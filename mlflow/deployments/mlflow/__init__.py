@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import requests
 
@@ -127,11 +127,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             }
         )
 
-    @experimental
-    def list_endpoints(self, page_token=None) -> "PagedList[Endpoint]":
-        """
-        TODO
-        """
+    def _list_endpoints(self, page_token=None) -> "PagedList[Endpoint]":
         params = None if page_token is None else {"page_token": page_token}
         response_json = self._call_endpoint(
             "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=params
@@ -150,6 +146,21 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         ]
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
+
+    @experimental
+    def list_endpoints(self) -> "List[Endpoint]":
+        """
+        TODO
+        """
+        endpoints = []
+        next_page_token = None
+        while True:
+            page = self._list_endpoints(next_page_token)
+            endpoints.extend(page)
+            next_page_token = page.token
+            if next_page_token is None:
+                break
+        return endpoints
 
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None) -> Dict[str, Any]:
