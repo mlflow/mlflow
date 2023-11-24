@@ -1378,7 +1378,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         )
 
     def incorrect_return_type(*_):
-        return "stuff", 3
+        return ["stuff"], 3
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_extra_metric(
@@ -1402,15 +1402,15 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         )
 
     def non_numeric_scores(*_):
-        return MetricValue(scores=["string"])
+        return MetricValue(scores=[{"val": "string"}])
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_extra_metric(
             _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
-            f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the "
-            "`extra_metrics` parameter because it must return MetricValue with numeric scores."
+            f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the `extra_metrics`"
+            " parameter because it must return MetricValue with numeric or string scores."
         )
 
     def non_list_justifications(*_):
@@ -2888,7 +2888,7 @@ def test_evaluate_no_model_type_with_custom_metric():
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         from mlflow.metrics import make_metric
-        from mlflow.metrics.metric_definitions import standard_aggregations
+        from mlflow.metrics.base import standard_aggregations
 
         def word_count_eval(predictions, targets=None, metrics=None):
             scores = []
@@ -3103,21 +3103,9 @@ def test_evaluate_with_latency_static_dataset():
     assert all(grade == 0.0 for grade in logged_data["latency"])
 
 
-properly_formatted_openai_response1 = {
-    "candidates": [
-        {
-            "text": '{\n  "score": 3,\n  "justification": "' "justification" '"\n}',
-            "metadata": {"finish_reason": "stop"},
-        }
-    ],
-    "metadata": {
-        "input_tokens": 569,
-        "output_tokens": 93,
-        "total_tokens": 662,
-        "model": "gpt-3.5-turbo-0613",
-        "route_type": "llm/v1/completions",
-    },
-}
+properly_formatted_openai_response1 = (
+    '{\n  "score": 3,\n  "justification": "' "justification" '"\n}'
+)
 
 
 def test_evaluate_with_correctness():
@@ -3594,3 +3582,44 @@ def test_target_prediction_col_mapping():
                 "correctness/v1/variance": 0.0,
                 "correctness/v1/p90": 3.0,
             }
+
+
+def test_evaluate_custom_metric_with_string_type():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        from mlflow.metrics import make_metric
+
+        def word_count_eval(predictions):
+            scores = []
+            avg = 0
+            aggregate_results = {}
+            for prediction in predictions:
+                scores.append(prediction)
+                avg += len(prediction.split(" "))
+
+            avg /= len(predictions)
+            aggregate_results["avg_len"] = avg
+
+            return MetricValue(
+                scores=scores,
+                aggregate_results=aggregate_results,
+            )
+
+        word_count = make_metric(eval_fn=word_count_eval, greater_is_better=True, name="word_count")
+
+        results = mlflow.evaluate(model_info.model_uri, data, extra_metrics=[word_count])
+        assert results.metrics["word_count/avg_len"] == 3.0
+        assert len(results.tables) == 1
+        assert results.tables["eval_results_table"].columns.tolist() == [
+            "text",
+            "outputs",
+            "word_count/score",
+        ]
+        pd.testing.assert_series_equal(
+            results.tables["eval_results_table"]["word_count/score"],
+            data["text"],
+            check_names=False,
+        )

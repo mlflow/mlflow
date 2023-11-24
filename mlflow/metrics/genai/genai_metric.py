@@ -50,15 +50,7 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
 
 
 # Function to extract Score and Justification
-def _extract_score_and_justification(output):
-    if (
-        isinstance(output, dict)
-        and "candidates" in output
-        and isinstance(output["candidates"], list)
-        and output["candidates"]
-    ):
-        text = output["candidates"][0]["text"]
-
+def _extract_score_and_justification(text):
     if text:
         # Attempt to parse JSON
         try:
@@ -73,10 +65,10 @@ def _extract_score_and_justification(output):
                 justification = match.group(2)
             else:
                 score = None
-                justification = f"Failed to extract score and justification. Raw output: {output}"
+                justification = f"Failed to extract score and justification. Raw output: {text}"
 
         if not isinstance(score, (int, float)) or not isinstance(justification, str):
-            return None, f"Failed to extract score and justification. Raw output: {output}"
+            return None, f"Failed to extract score and justification. Raw output: {text}"
 
         return score, justification
 
@@ -98,17 +90,19 @@ def make_genai_metric(
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
-    Create a genai metric used to evaluate LLM using LLM as a judge in MLflow.
+    Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
+    prompt is stored in the metric_details field of the ``EvaluationMetric`` object.
 
     :param name: Name of the metric.
     :param definition: Definition of the metric.
     :param grading_prompt: Grading criteria of the metric.
     :param examples: (Optional) Examples of the metric.
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
-    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
-        "openai:/gpt-4" or "gateway:/my-route". Defaults to
-        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
-        evaluation may be subject to and governed by the LLM service's terms of use.
+    :param model: (Optional) Model uri of an openai or gateway judge model in the
+        format of "openai:/gpt-4" or "gateway:/my-route". Defaults to "openai:/gpt-4". If using
+        Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
+        Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and
+        governed by the LLM service's terms of use.
     :param grading_context_columns: (Optional) The name of the grading context column, or a list of
         grading context column names, required to compute the metric. The
         ``grading_context_columns`` are used by the LLM as a judge as additional information to
@@ -281,12 +275,9 @@ def make_genai_metric(
                     "- input and output data are formatted correctly."
                 )
             grading_payloads.append(
-                {
-                    "prompt": evaluation_context["eval_prompt"].format(
-                        input=input, output=output, grading_context_columns=arg_string
-                    ),
-                    **eval_parameters,
-                }
+                evaluation_context["eval_prompt"].format(
+                    input=input, output=output, grading_context_columns=arg_string
+                )
             )
 
         def score_model_on_one_payload(
@@ -294,7 +285,9 @@ def make_genai_metric(
             eval_model,
         ):
             try:
-                raw_result = model_utils.score_model_on_payload(eval_model, payload)
+                raw_result = model_utils.score_model_on_payload(
+                    eval_model, payload, eval_parameters
+                )
                 return _extract_score_and_justification(raw_result)
             except ImportError:
                 raise

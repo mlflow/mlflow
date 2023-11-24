@@ -11,15 +11,17 @@ _logger = logging.getLogger(__name__)
 
 
 # TODO: improve this name
-def score_model_on_payload(model_uri, payload):
+def score_model_on_payload(model_uri, payload, eval_parameters=None):
     """Call the model identified by the given uri with the given payload."""
 
+    if eval_parameters is None:
+        eval_parameters = {}
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
         return _call_openai_api(suffix, payload)
     elif prefix == "gateway":
-        return _call_gateway_api(suffix, payload)
+        return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
@@ -116,18 +118,42 @@ def _call_openai_api(openai_uri, payload):
     except Exception as e:
         raise MlflowException(f"Error response from OpenAI:\n {e}")
 
-    return {
-        "candidates": [
-            {
-                "text": c["message"]["content"],
-                "metadata": {"finish_reason": c["finish_reason"]},
-            }
-            for c in resp["choices"]
-        ],
-    }
+    try:
+        text = resp["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        text = None
+    return text
 
 
-def _call_gateway_api(gateway_uri, payload):
-    from mlflow.gateway import query
+def _call_gateway_api(gateway_uri, payload, eval_parameters):
+    from mlflow.gateway import get_route, query
 
-    return query(gateway_uri, payload)
+    route_info = get_route(gateway_uri).dict()
+    if route_info["route_type"] == "llm/v1/completions":
+        completions_payload = {
+            "prompt": payload,
+            **eval_parameters,
+        }
+        response = query(gateway_uri, completions_payload)
+        try:
+            text = response["candidates"][0]["text"]
+        except (KeyError, IndexError, TypeError):
+            text = None
+        return text
+    elif route_info["route_type"] == "llm/v1/chat":
+        chat_payload = {
+            "messages": [{"role": "user", "content": payload}],
+            **eval_parameters,
+        }
+        response = query(gateway_uri, chat_payload)
+        try:
+            text = response["candidates"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            text = None
+        return text
+    else:
+        raise MlflowException(
+            f"Unsupported gateway route type: {route_info['route_type']}. Use a "
+            "route of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )

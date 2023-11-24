@@ -12,15 +12,14 @@ package_path <- devtools::build(".", path = ".")
 Sys.setenv("_R_CHECK_SYSTEM_CLOCK_" = "FALSE")
 
 # Run the check with `cran = TRUE`
-# TODO: CRAN is down. Uncomment this when it's back up.
-# devtools::check_built(
-#     path = package_path,
-#     cran = TRUE,
-#     remote = should_enable_cran_incoming_checks(),
-#     error_on = "note",
-#     check_dir = getwd(),
-#     args = "--no-tests",
-# )
+devtools::check_built(
+    path = package_path,
+    cran = TRUE,
+    remote = should_enable_cran_incoming_checks(),
+    error_on = "note",
+    check_dir = getwd(),
+    args = "--no-tests",
+)
 
 # Run the check with `cran = FALSE` to detect unused imports:
 # https://github.com/wch/r-source/blob/b12ffba7584825d6b11bba8b7dbad084a74c1c20/src/library/tools/R/check.R#L6070
