@@ -3,12 +3,12 @@ from unittest import mock
 import pytest
 
 from mlflow.deployments import get_deploy_client
-from mlflow.deployments.mlflow import MLflowDeploymentClient
+from mlflow.deployments.mlflow import MlflowDeploymentClient
 
 
 def test_get_deploy_client():
     client = get_deploy_client("http://localhost:5000")
-    assert isinstance(client, MLflowDeploymentClient)
+    assert isinstance(client, MlflowDeploymentClient)
 
 
 def test_create_endpoint():
