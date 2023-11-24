@@ -14,6 +14,18 @@ from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
 
 class DatabricksEndpoint(AttrDict):
+    """
+    Dict-like object that exposes its keys as attributes.
+
+    .. code-block:: python
+
+        d = AttrDict({'a': 1, 'b': 2})
+        print(d.a)  # 1
+
+        d = AttrDict({'a': 1, 'b': {'c': 3, 'd': 4}})
+        print(d.b.c)  # 3
+    """
+
     pass
 
 
