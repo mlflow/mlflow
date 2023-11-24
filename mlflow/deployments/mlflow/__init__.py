@@ -211,8 +211,6 @@ class MLflowDeploymentClient(BaseDeploymentClient):
 
         Examples:
 
-        For chat, the structure should be:
-
         .. code-block:: python
 
             from mlflow.deployments import get_deploy_client
