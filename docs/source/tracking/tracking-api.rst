@@ -146,7 +146,6 @@ If you specify both a timestamp and a step, metrics are recorded against both ax
 
 Organizing Runs in Experiments
 ------------------------------
-
 MLflow allows you to group runs under experiments, which can be useful for comparing runs intended
 to tackle a particular task. You can create experiments via multiple way - MLflow UI, the :ref:`cli` (``mlflow experiments``),
 or the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for an individual run
@@ -170,26 +169,122 @@ environment variable. Alternatively, you can use the experiment ID instead, via 
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
 
+.. _child_runs:
+
+Creating Child Runs
+-------------------
+You can also create multiple runs inside a single run. This is useful for scenario like hyperparameter tuning,
+cross-validation folds, where you need another level of organization within an experiment. You can create child runs
+by passing ``parent_run_id`` to :py:func:`mlflow.start_run` function. For example:
+
+.. code-block:: python
+
+        # Start parent run
+        with mlflow.start_run() as parent_run:
+            param = [0.01, 0.02, 0.03]
+
+            # Create a child run for each parameter setting
+            for p in param:
+                with mlflow.start_run(nested=True) as child_run:
+                    mlflow.log_param("p", p)
+                    ...
+                    mlflow.log_metric("val_loss", val_loss)
+
+You can fetch all child runs under a parent run using tags.
+
+.. code-block::python
+
+    child_runs = mlflow.search_runs(experiment_ids=[YOUR_EXPERIMENT_ID], filter_string=f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'")
+    print("child runs:")
+    print(results[['run_id', 'params.p', 'metrics.val_loss']])
+    # child runs:
+    #             run_id params.p  metrics.val_loss
+    #   0        0c0b...     0.01            0.1234
+    #   0        c2a0...     0.02            0.0890
+    #   0        g2j1...     0.03            0.1567
+
+
 .. _launching-multiple-runs:
 
 Launching Multiple Runs in One Program
 --------------------------------------
 Sometimes you want to launch multiple MLflow runs in the same program: for example, maybe you are
-performing a hyperparameter search locally or your experiments are just very fast to run. This is
-easy to do because the ``ActiveRun`` object returned by :py:func:`mlflow.start_run` is a Python
-`context manager <https://docs.python.org/2.5/whatsnew/pep-343.html>`_. You can "scope" each run to
+performing a hyperparameter search locally or your experiments are just very fast to run. The way to
+do this depends on whether you want to run them :ref:`sequentially <sequential-runs>` or in :ref:`parallel <parallel-runs>`.
+
+.. _sequential-runs:
+
+Sequantial Runs
+~~~~~~~~~~~~~~~
+Running multiple runs one-by-one is easy to do because the ``ActiveRun`` object returned by :py:func:`mlflow.start_run`
+is a Python `context manager <https://docs.python.org/2.5/whatsnew/pep-343.html>`_. You can "scope" each run to
 just one block of code as follows:
 
 .. code-block:: python
 
-   with mlflow.start_run():
-       mlflow.log_param("x", 1)
-       mlflow.log_metric("y", 2)
-       ...
+    # First run
+    with mlflow.start_run():
+        mlflow.log_param("x", 1)
+        mlflow.log_metric("y", 2)
+        ...
+
+    # Another run
+    with mlflow.start_run():
+        ...
 
 The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
 
+.. _parallel-runs:
+
+Parallel Runs
+~~~~~~~~~~~~~
+MLflow also supports running multiple runs in parallel using `multiprocessing <https://docs.python.org/2/library/multiprocessing.html>`_ or multi threading.
+
+**Multi-processing** is straightforward: just call :py:func:`mlflow.start_run` in a separate process and it creates a new run for each. For example:
+
+.. code-block:: python
+
+        import mlflow
+        import multiprocessing as mp
+
+        def train_model(params):
+            with mlflow.start_run():
+                mlflow.log_param("p", params)
+                ...
+
+        if __name__ == "__main__":
+            params = [0.01, 0.02, ...]
+            pool = mp.Pool(processes=4)
+            pool.map(train_model, params)
+
+**Multi-threading** is a bit more complicated because MLflow uses a global state to keep track of the currently active run i.e. having multiple active
+runs in the same process may cause data corruption. However, you can avoid this issue and use multi threading by using :ref:`Child Runs <child_runs>`.
+You can start child runs in each thread by passing ``nested=True`` to :py:func:`mlflow.start_run` as described in the previous section. For example:
+
+.. code-block:: python
+
+        import mlflow
+        import threading
+
+        def train_model(params):
+            # Create a child run by passing nested=True
+            with mlflow.start_run(nested=True):
+                mlflow.log_param("p", params)
+                ...
+
+        if __name__ == "__main__":
+            params = [0.01, 0.02, ...]
+            threads = []
+            for p in params:
+                t = threading.Thread(target=train_model, args=(p,))
+                threads.append(t)
+                t.start()
+
+            for t in threads:
+                t.join()
+
+Also `here <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/search_random.py>`_ is the full example of hyperparameter tuning using child runs with multi threading.
 
 .. _add-tags-to-runs:
 
@@ -207,12 +302,15 @@ System Tags
 Tag keys that start with ``mlflow.`` are reserved for internal use.
 The following tags are set automatically by MLflow, when appropriate:
 
+.. note:: 
+    ``mlflow.note.content`` is an exceptional case where the tag is **not set automatically** and can be overridden by the user to include additional information about the run.
+
 +-------------------------------+----------------------------------------------------------------------------------------+
 | Key                           | Description                                                                            |
 +===============================+========================================================================================+
-| ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is not set automatically and can  |
-|                               | be overridden by the user to include additional information about the run. The content |
-|                               | is displayed on the run's page under the Notes section.                                |
+| ``mlflow.note.content``       | A descriptive note about this run. This reserved tag is **not set automatically** and  |
+|                               | can be overridden by the user to include additional information about the run. The     |
+|                               | content is displayed on the run's page under the Notes section.                        |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
 +-------------------------------+----------------------------------------------------------------------------------------+
@@ -279,3 +377,19 @@ You can access the most recent autolog run through the :py:func:`mlflow.last_act
     # Use the model to make predictions on the test dataset.
     predictions = rf.predict(X_test)
     autolog_run = mlflow.last_active_run()
+    print(autolog_run)
+    # <Run:
+    #    data=<RunData:
+    #        metrics={'accuracy': 0.0},
+    #        params={'n_estimators': '100', 'max_depth': '6', 'max_features': '3'},
+    #        tags={'estimator_class': 'sklearn.ensemble._forest.RandomForestRegressor', 'estimator_name': 'RandomForestRegressor'}
+    #    >,
+    #    info=<RunInfo:
+    #        artifact_uri='file:///Users/andrew/Code/mlflow/mlruns/0/0c0b.../artifacts',
+    #        end_time=163...0,
+    #        run_id='0c0b...',
+    #        run_uuid='0c0b...',
+    #        start_time=163...0,
+    #        status='FINISHED',
+    #        user_id='ME'>
+    #    >

@@ -38,7 +38,13 @@ There are many options to configure the server, refer to :ref:`Configure Server 
   The server listens on http://localhost:5000 by default and only accepts
   connections from the local machine. To let the server accept connections
   from other machines, you will need to pass ``--host 0.0.0.0`` to listen on
-  all network interfaces (or a specific interface address).
+  all network interfaces (or a specific interface address). This is typically
+  required configuration when running the server **in a Kubernetes pod or a
+  Docker container**.
+
+  Note that doing this for a server running on a public network is not recommended
+  for security reasons. You should consider using  a reverse proxy like NGINX or Apache
+  httpd, or connecting over VPN (See :ref:`Secure Tracking Server <tracking-auth>` for more details).
 
 .. _logging_to_a_tracking_server:
 
@@ -59,8 +65,6 @@ then make API requests to your remote tracking server.
 
         remote_server_uri = "..."  # set to your server URI
         mlflow.set_tracking_uri(remote_server_uri)
-        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
-        # valid path in the workspace
         mlflow.set_experiment("/my-experiment")
         with mlflow.start_run():
             mlflow.log_param("a", 1)
@@ -72,10 +76,24 @@ then make API requests to your remote tracking server.
         install_mlflow()
         remote_server_uri = "..." # set to your server URI
         mlflow_set_tracking_uri(remote_server_uri)
-        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
-        # valid path in the workspace
         mlflow_set_experiment("/my-experiment")
         mlflow_log_param("a", "1")
+
+    .. code-block:: Scala
+
+        import org.mlflow.tracking.MlflowClient
+
+        val remoteServerUri = "..." // set to your server URI
+        val client = new MlflowClient(remoteServerUri)
+
+        val experimentId = client.createExperiment("my-experiment")
+        client.setExperiment(experimentId)
+
+        val run = client.createRun(experimentId)
+        client.logParam(run.getRunId(), "a", "1")
+
+.. note::
+    On Databricks, the experiment name passed to mlflow_set_experiment must be a valid path in the workspace e.g. /Workspace/Users/mlflow-experiments/my-experiment
 
 .. _configure-server:
 

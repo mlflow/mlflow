@@ -1,6 +1,6 @@
-========================================
+==========================================
 Tracking Experiments with a Local Database
-========================================
+==========================================
 
 In this tutorial, you will learn how to use a local database to track your experiment metadata with MLflow. By default, MLflow Tracking logs run data to local files,
 which may cause some frustration due to fractured small files and the lack of a simple access interface. Also, if you are using Python, you can use SQLite that runs 
@@ -24,7 +24,7 @@ Step 2 - Configure MLflow environment varialbles
 ------------------------------------------------
 
 Set the tracking URI to a local SQLite database
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To point MLflow to your local SQLite database, you need to set the environment variable ``MLFLOW_TRACKING_URI`` to ``sqlite:///mlruns.db``.
 (This will create a SQLite database file called ``mlruns.db`` in the current directory. Specify a different path if you want to store the database file in a different location.)
@@ -77,7 +77,7 @@ Now you are ready to start logging your experiment runs. For example, the follow
         predictions = rf.predict(X_test)
 
 Step 4: View your logged Run in the Tracking UI
---------------------------------------
+-----------------------------------------------
 
 Once your training job finishes, you can run the following command to launch the MLflow UI (You will have to specify the path to SQLite database file with ``--backend-store-uri`` option): 
 

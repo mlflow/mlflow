@@ -14,7 +14,7 @@ The backend store is a core component in `MLflow Tracking <../index.html>`_ wher
 * Code version (only if you launch runs from an :ref:`MLflow Project <projects>`).
 * Source file name (only if you launch runs from an :ref:`MLflow Project <projects>`).
 
-Note that large model artifacts such as model weight files are stored in `artifact store <artifacts-stores.html>`_,  the other core component in MLflow Tracking.
+Note that large model artifacts such as model weight files are stored in `artifact store <artifacts-stores.html>`_.
 
 .. _where_runs_are_recorded:
 
@@ -42,11 +42,10 @@ MLflow supports the following types of tracking URI for backend stores:
   `[Azure] <http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server>`_, or :ref:`the quickstart <quickstart_tracking_server>` to
   easily get started with hosted MLflow on Databricks Community Edition.
 
-.. note::
-    In order to use :ref:`Model Registry <registry>` functionality, you must run your server using a database-backed store.
+.. important::
+    In order to use :ref:`Model Registry <registry>` functionality, you must run your server using a database-backed store. See :ref:`this FAQ <tracking-with-model-registry>` for more information.
 
 .. important::
-
     ``mlflow server`` will fail against a database-backed store with an out-of-date database schema.
     To prevent this, upgrade your database schema to the latest supported version using
     ``mlflow db upgrade [db_uri]``. Schema migrations can result in database downtime, may

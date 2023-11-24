@@ -7,7 +7,7 @@ for each run such as model weights (e.g. a pickled scikit-learn model), images (
 Note that metadata like parameters, metrics, and tags are stored in a `backend store <backend-stores.html>`_ (e.g., PostGres, MySQL, or MSSQL Database), the other component of the MLflow Tracking.
 
 Configuring an Artifact Store
-========================
+=============================
 MLflow by default stores artifacts in local ``./mlruns`` directory, but also supports various locations suitable for large data:
 Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS. You can connect those remote storages via the MLflow Tracking server.
 See :ref:`tracking server setup <tracking-server-artifact-store>` and the specific section for your storage in :ref:`supported storages <artifacts-store-supported-storages>` for guidance on 
@@ -16,7 +16,7 @@ how to connect to your remote storage of choice.
 .. _artifacts-stores-manage-access:
 
 Managing Artifact Store Access
--------------
+------------------------------
 To allow the server and clients to access the artifact location, you should configure your cloud
 provider credentials as you would for accessing them in any other capacity. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
@@ -28,12 +28,13 @@ profile in ``~/.aws/credentials``.
     Tracking Server in this mode will have access to artifacts served through this assumed role**.
 
 Setting an access Timeout
--------
+-------------------------
 You can set an environment variable ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` (in seconds) to configure the timeout for artifact uploads and downloads.
+If it's not set, MLflow will use the default timeout for the underlying storage client library (e.g. boto3 for S3).
 Note that this is experimental feature, may be changed or removed.
 
 Setting a Default Artifact Location for Logging
---------------------------
+-----------------------------------------------
 MLflow automatically records the ``artifact_uri`` property as a part of :py:class:`mlflow.entities.RunInfo`, so you can
 retrieve the location of the artifacts for historical runs using the :py:func:`mlflow.get_artifact_uri` API. 
 Also, ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for setting the 
@@ -49,7 +50,7 @@ default location to store artifacts for all runs in a given experiment.
 .. _artifacts-store-supported-storages:
 
 Supported storage types for the Artifact Store
-==================
+==============================================
 
 Amazon S3 and S3-compatible storage
 -----------------------------------
@@ -61,6 +62,12 @@ the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` de
 these are available. For more information on how to set credentials, see
 `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
 
+Followings are commonly used environment variables for configuring S3 storage access. The complete list of configurable parameters for an S3 client is available in the 
+`boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
+
+
+Passsing Extra Arguments to S3 Upload
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To add S3 file upload extra arguments, set ``MLFLOW_S3_UPLOAD_EXTRA_ARGS`` to a JSON object of key/value pairs.
 For example, if you want to upload to a KMS Encrypted bucket using the KMS Key 1234:
 
@@ -70,6 +77,8 @@ For example, if you want to upload to a KMS Encrypted bucket using the KMS Key 1
 
 For a list of available extra args see `Boto3 ExtraArgs Documentation <https://github.com/boto/boto3/blob/develop/docs/source/guide/s3-uploading-files.rst#the-extraargs-parameter>`_.
 
+Setting Custom S3 Endpoint
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL. For example, if you are using Digital Ocean Spaces:
 
 .. code-block:: bash
@@ -82,6 +91,9 @@ If you have a MinIO server at 1.2.3.4 on port 9000:
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
 
+Using Non-TLS Authentication
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 If the MinIO server is configured with using SSL self-signed or signed using some internal-only CA certificate, you could set ``MLFLOW_S3_IGNORE_TLS`` or ``AWS_CA_BUNDLE`` variables (not both at the same time!) to disable certificate signature check, or add a custom CA bundle to perform this check, respectively:
 
 .. code-block:: bash
@@ -90,6 +102,8 @@ If the MinIO server is configured with using SSL self-signed or signed using som
   #or
   export AWS_CA_BUNDLE=/some/ca/bundle.pem
 
+Setting Bucket Region
+~~~~~~~~~~~~~~~~~~~~~
 Additionally, if MinIO server is configured with non-default region, you should set ``AWS_DEFAULT_REGION`` variable:
 
 .. code-block:: bash
@@ -103,8 +117,6 @@ Additionally, if MinIO server is configured with non-default region, you should 
         Upon resolving the artifact storage location, the MLflow client will use the value provided by ``--default-artifact-root`` and suffixes the location with the values provided in the environment variable  ``MLFLOW_S3_ENDPOINT_URL``.
         Depending on the value set for the environment variable ``MLFLOW_S3_ENDPOINT_URL``, the resulting artifact storage path for this scenario would be one of the following invalid object store paths:  ``https://<bucketname>.s3.<region>.amazonaws.com/<key>/<bucketname>/<key>`` or  ``s3://<bucketname>/<key>/<bucketname>/<key>``.
         To prevent path parsing issues, **ensure that reserved environment variables are removed (``unset``) from client environments**.
-
-The complete list of configurable parameters for an S3 client is available in the `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
 Azure Blob Storage
 ------------------

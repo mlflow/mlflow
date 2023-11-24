@@ -76,22 +76,46 @@ Tracking Runs
 
     tracking-api
 
-`MLflow Tracking APIs <tracking-api.html>`_ provide a set of functions to track your runs. The quickest way to start tracking is to use `Auto-logging <autolog.html>`, a powerful feature that allows you to log metrics, parameters, and models without the need for explicit log statements.
-All you need to do is call :py:func:`mlflow.autolog` before your training code.
+`MLflow Tracking APIs <tracking-api.html>`_ provide a set of functions to track your runs. For example, you can call :py:func:`mlflow.start_run` to start a new :ref:`Run <runs>` as a context manager,
+and :ref:`Logging Functions <tracking_logging_functions>` such as :py:func:`mlflow.log_param` and :py:func:`mlflow.log_metric` to log a parameters and metrics respectively.
+Please visit the `Tracking API documentation <tracking-api.html>`_ for more details about using these APIs to manage your experiment data and models.
 
-    .. code-block:: python
+.. code-block:: python
 
-        import mlflow
+    import mlflow
 
-        mlflow.autolog()
+    with mlflow.start_run():
+        mlflow.log_param("lr", 0.001)
+        # Your ml code
+        ...
+        mlflow.log_metric("val_loss", val_loss)
 
-        # Your training code...
+Alternatively, `Auto-logging <autolog.html>` offers the ultra-quick setup for starting MLflow tracking. This powerful feature allows you to log metrics, parameters, and models without the need for explicit log statements -
+all you need to do is call :py:func:`mlflow.autolog` before your training code.
+
+.. code-block:: python
+
+    import mlflow
+
+    with mlflow.start_run():
+        mlflow.log_param("lr", 0.001)
+        # Your ml code
+        ...
+        mlflow.log_metric("val_loss", val_loss)
+
+Alternatively, `Auto-logging <autolog.html>`_ offers the ultra-quick setup for starting MLflow tracking. This powerful feature allows you to log metrics, parameters, and models without the need for explicit log statements -
+all you need to do is call :py:func:`mlflow.autolog` before your training code.
+
+.. code-block:: python
+
+    import mlflow
+
+    mlflow.autolog()
+
+    # Your training code...
 
 Auto-logging supports popular libraries such as :ref:`Scikit-learn <autolog-sklearn>`, :ref:`XGBoost <autolog-xgboost>`, :ref:`PyTorch <autolog-pytorch>`, :ref:`Keras <autolog-keras>`, :ref:`Spark <autolog-spark>`, and more.
 See :ref:`Automatic Logging Documentation <automatic-logging>` for supported libraries and how to use auto-logging APIs with each of them.
-
-Alternatively, when you want to customize your logging logic or handle models not supported by auto-logging, you can insert various :ref:`Logging Functions <tracking_logging_functions>` into your ML code.
-Please visit the `Tracking API documentation <tracking-api.html>`_ for more details about using MLflow Tracking APIs to manually log your experiment data and models.
 
 .. note::
     By default, without any particular server/database configuration, MLflow Tracking logs data to the local `mlruns` directory. If you want to log your runs to a different location,
@@ -129,11 +153,20 @@ Querying Runs Programmatically
 
 You can also access all of the functions in the Tracking UI programmatically with :py:class:`MlflowClient <mlflow.client.MlflowClient>`.
 
+For example, the following code snippet search for runs that has the best validation loss among all runs in the experiment.
+
+.. code-block:: python
+
+    client = mlflow.tracking.MlflowClient()
+    experiment_id = "0"
+    best_run = client.search_runs(experiment_id, order_by=["metrics.val_loss ASC"], max_results=1)[0]
+    print(best_run.info)
+    # {'run_id': '...', 'metrics': {'val_loss': 0.123}, ...}
 
 .. _tracking-setup:
 
 Set up the MLflow Tracking Environment
-==================================
+======================================
 
 .. note::
     If you just want to log your experiment data and models to local files, you can skip this section.
@@ -246,17 +279,17 @@ learning the basic setup and continue to the following materials for advanced co
 
 .. |image-local-server| image:: ../_static/images/tracking/tracking-setup-local-server.png
     :align: middle
-    :width: 50px
+    :width: 90
     :alt: Run MLflow Tracking Server on localhost
 
 .. |image-no-proxy| image:: ../_static/images/tracking/tracking-setup-no-serve-artifacts.png
     :align: middle
-    :width: 50px
+    :width: 90
     :alt: Bypass Tracking Server proxy for artifacts access
 
 .. |image-artifact-only| image:: ../_static/images/tracking/tracking-setup-artifacts-only.png
     :align: middle
-    :width: 50px
+    :width: 90
     :alt: Use MLflow Tracking Server exclusively as a proxy for artifacts
 
 .. list-table::
@@ -284,13 +317,14 @@ FAQ
 
 Can I launch multiple runs in parallel?
 ---------------------------------------
-Yes, MLflow supports launching multiple runs in parallel. See :ref:`Launching Multiple Runs in One Program <launching-multiple-runs>` for more details.
+Yes, MLflow supports launching multiple runs in parallel e.g. multi processing / threading. See :ref:`Launching Multiple Runs in One Program <launching-multiple-runs>` for more details.
 
 How can I organize many MLflow Runs neatly?
 -------------------------------------------
 MLflow provides a few ways to organize your runs:
 
 * :ref:`Organize runs into experiments <organizing_runs_in_experiments>` - Experiments are logical containers for your runs. You can create an experiment using the CLI, API, or UI.
+* :ref:`Create child runs <child_runs>` - You can create child runs under a single parent run to group them together. For example, you can create a child run for each fold in a cross-validation experiment.
 * :ref:`Add tags to runs <add-tags-to-runs>` - You can associate arbitrary tags with each run, which allows you to filter and search runs based on tags.
 
 Can I directly access remote storage without running the Tracking Server?
@@ -309,3 +343,17 @@ if you are using it for personal projects or testing. You can achieve this by fo
         mlflow.set_experiment(experiment_name)
 
 Your runs under this experiment will log artifacts to the remote storage directly.
+
+.. _tracking-with-model-registry:
+
+How to integrate MLflow Tracking with :ref:`Model Registry <registry>`?
+-----------------------------------------------------------------------
+To use the Model Registry functionality with MLflow tracking, you **must use database backed store** such as PostgresQL and log a model using the ``log_model`` methods of the corresponding model flavors.
+Once a model has been logged, you can add, modify, update, or delete the model in the Model Registry through the UI or the API. 
+See `Backend Stores <tracking/backend-stores.html>`_ and :ref:`Common Setups <tracking_setup>` for how to configures backend store properly for your workflow.
+
+How to include additional decription texts about the run?
+---------------------------------------------------------
+A system tag ``mlflow.note.content`` can be used to add descriptive note about this run. While the other :ref:`system tags <system-tags>` are set automatically,
+this tag is **not set by default** and users can override it to include additional information about the run. The content will be displayed on the run's page under
+the Notes section.

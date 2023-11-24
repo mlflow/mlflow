@@ -103,13 +103,26 @@ For example, you can disable logging of model checkpoints and assosiate tags wit
 
 See :py:func:`mlflow.autolog` for the full set of arguments you can use.
 
+Disable Autologging for Specific Libraries
+-------------------------------------------
+One common use case is to disable autologging for a specific library. For example, if you train your model on Pytorch but use scikit-learn for data preprocessing,
+you may want to disable autologging for scikit-learn while keeping it enabled for Pytorch. You can do this as follows:
+
+.. code-block:: python
+
+    import mlflow
+
+    # Disable autologging for scikit-learn, but enable it for other libraries
+    mlflow.sklearn.autolog(disable=True)
+    mlflow.autolog()
+
 Supported Libraries
 ===================
 
 .. note::
 
-    Generic autolog function :py:func:`mlflow.autolog` enables autologging for each supported library you have installed as soon as you import it.
-    Alternatively, you can use library-specific autolog calls such as :py:func:`mlflow.pytorch.autolog` to explicitly enable autologging for a particular library.
+    The generic autolog function :py:func:`mlflow.autolog` enables autologging for each supported library you have installed as soon as you import it.
+    Alternatively, you can use library-specific autolog calls such as :py:func:`mlflow.pytorch.autolog` to explicitly enable (or disable) autologging for a particular library.
 
 The following libraries support autologging:
 
@@ -119,6 +132,126 @@ The following libraries support autologging:
 
 For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
+.. _autolog-fastai:
+
+Fastai
+------
+
+Call the generic autolog function :py:func:`mlflow.fastai.autolog` before your training code to enable automatic logging of metrics and parameters.
+See an example usage with `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_.
+
+Autologging captures the following information:
+
+.. _EarlyStoppingCallback: https://docs.fast.ai/callbacks.html#EarlyStoppingCallback
+.. _OneCycleScheduler: https://docs.fast.ai/callbacks.html#OneCycleScheduler
+
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                                               | Tags          | Artifacts                                                                                                                                                             |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| fastai    | user-specified metrics | Logs optimizer data as parameters. For example,          |  --           | Model checkpoints are logged to a ‘models’ directory; `MLflow Model`_ (fastai Learner model) on training end; Model summary text is logged                            |
+|           |                        | ``epochs``, ``lr``, ``opt_func``, etc;                   |               |                                                                                                                                                                       |
+|           |                        | Logs the parameters of the `EarlyStoppingCallback`_ and  |               |                                                                                                                                                                       |
+|           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+.. _autolog-gluon:
+
+Gluon
+-----
+Call the generic autolog function :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
+See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
+
+Autologging captures the following information:
+
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+
+.. _autolog-keras:
+
+Keras
+-----
+Call the generic autolog function or :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. As an example, try running the `Keras/Tensorflow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
+
+Note that only versions of ``tensorflow>=2.3`` are supported.
+The respective metrics associated with ``tf.estimator`` and ``EarlyStopping`` are automatically logged.
+As an example, try running the `Keras/TensorFlow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
+
+Autologging captures the following information:
+
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework/module                         | Metrics                                                    | Parameters                                                                          | Tags          | Artifacts                                                                                                                                     |
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras``                             | Training loss; validation loss; user-specified metrics     | ``fit()`` parameters; optimizer name; learning rate; epsilon                        | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model); TensorBoard logs on training end |
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras.callbacks.EarlyStopping``     | Metrics from the ``EarlyStopping`` callbacks. For example, | ``fit()`` parameters from ``EarlyStopping``.                                        | --            | --                                                                                                                                            |
+|                                          | ``stopped_epoch``, ``restored_epoch``,                     | For example, ``min_delta``, ``patience``, ``baseline``,                             |               |                                                                                                                                               |
+|                                          | ``restore_best_weight``, etc                               | ``restore_best_weights``, etc                                                       |               |                                                                                                                                               |
++------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+
+If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information to.
+Also, MLflow will then automatically end the run once training ends via calls to ``tf.keras.fit()``.
+
+If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training. You will have to manually stop the run if you wish to start a new run context for logging to a new run.
+
+.. _autolog-lightgbm:
+
+LightGBM
+--------
+Call the generic autolog function :py:func:`mlflow.lightgbm.autolog` before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                                                                 |
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
+| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) with model signature on training end; feature importance; input example  |
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
+
+If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
+
+.. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
+
+
+.. _autolog-pytorch:
+
+Pytorch
+-------
+
+Call the generic autolog function :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
+that currently, Pytorch autologging supports only models trained using Pytorch Lightning.
+
+Autologging is triggered on calls to ``pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
+
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework/module                               | Metrics                                                     | Parameters                                                                           | Tags          | Artifacts                                                                                                                                     |
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``pytorch_lightning.trainer.Trainer``          | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon.                        | --            | Model summary on training start, `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
+|                                                | user-defined-metrics.                                       |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``pytorch_lightning.callbacks.earlystopping``  | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon                         | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
+|                                                | user-defined-metrics.                                       | Parameters from the ``EarlyStopping`` callbacks.                                     |               | Best Pytorch model checkpoint, if training stops due to early stopping callback.                                                              |
+|                                                | Metrics from the ``EarlyStopping`` callbacks.               | For example, ``min_delta``, ``patience``, ``baseline``,``restore_best_weights``, etc |               |                                                                                                                                               |
+|                                                | For example, ``stopped_epoch``, ``restored_epoch``,         |                                                                                      |               |                                                                                                                                               |
+|                                                | ``restore_best_weight``, etc.                               |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+
+If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information, ending the run once
+the call to ``pytorch_lightning.trainer.Trainer.fit()`` completes.
+
+If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training.
+
+.. note::
+  - Parameters not explicitly passed by users (parameters that use default values) while using ``pytorch_lightning.trainer.Trainer.fit()`` are not currently automatically logged
+  - In case of a multi-optimizer scenario (such as usage of autoencoder), only the parameters for the first optimizer are logged
 
 .. _autolog-sklearn:
 
@@ -170,104 +303,6 @@ containing the following data:
 .. _GridSearchCV:
     https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
 
-.. _autolog-keras:
-
-Keras
------
-Call the generic autolog function or :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. As an example, try running the `Keras/Tensorflow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
-
-Note that only ``tensorflow>=2.3`` are supported.
-The respective metrics associated with ``tf.estimator`` and ``EarlyStopping`` are automatically logged.
-As an example, try running the `Keras/TensorFlow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
-
-Autologging captures the following information:
-
-+------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-| Framework/module                         | Metrics                                                    | Parameters                                                                          | Tags          | Artifacts                                                                                                                                     |
-+------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``                             | Training loss; validation loss; user-specified metrics     | ``fit()`` parameters; optimizer name; learning rate; epsilon                        | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model); TensorBoard logs on training end |
-+------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras.callbacks.EarlyStopping``     | Metrics from the ``EarlyStopping`` callbacks. For example, | ``fit()`` parameters from ``EarlyStopping``.                                        | --            | --                                                                                                                                            |
-|                                          | ``stopped_epoch``, ``restored_epoch``,                     | For example, ``min_delta``, ``patience``, ``baseline``,                             |               |                                                                                                                                               |
-|                                          | ``restore_best_weight``, etc                               | ``restore_best_weights``, etc                                                       |               |                                                                                                                                               |
-+------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-
-If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information to.
-Also, MLflow will then automatically end the run once training ends via calls to ``tf.keras.fit()``.
-
-If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training.
-
-.. _autolog-gluon:
-
-Gluon
------
-Call the generic autolog function :py:func:`mlflow.gluon.autolog` before your training code to enable automatic logging of metrics and parameters.
-See example usages with `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_ .
-
-Autologging captures the following information:
-
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Gluon            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Gluon model); on training end                                   |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
-
-.. _autolog-xgboost:
-
-XGBoost
--------
-Call the generic autolog function :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters.
-
-Autologging captures the following information:
-
-+-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                                                               |
-+-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
-| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) with model signature on training end; feature importance; input example |
-+-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
-
-If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
-
-.. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
-.. _MLflow Model: https://mlflow.org/docs/latest/models.html
-
-
-.. _autolog-lightgbm:
-
-LightGBM
---------
-Call the generic autolog function :py:func:`mlflow.lightgbm.autolog` before your training code to enable automatic logging of metrics and parameters.
-
-Autologging captures the following information:
-
-+-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                                                                 |
-+-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
-| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) with model signature on training end; feature importance; input example  |
-+-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
-
-If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
-
-.. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
-
-.. _autolog-statsmodels:
-
-Statsmodels
------------
-Call the generic autolog function :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
-
-Autologging captures the following information:
-
-+--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
-| Framework    | Metrics                | Parameters                                     | Tags          | Artifacts                                                                   |
-+--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
-| Statsmodels  | user-specified metrics | `statsmodels.base.model.Model.fit`_ parameters | --            | `MLflow Model`_ (`statsmodels.base.wrapper.ResultsWrapper`) on training end |
-+--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
-
-.. note::
-  - Each model subclass that overrides `fit` expects and logs its own parameters.
-
-.. _statsmodels.base.model.Model.fit: https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html
 
 .. _autolog-spark:
 
@@ -291,63 +326,42 @@ Autologging captures the following information:
 .. note::
   - Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely) to see race conditions when launching short-lived MLflow runs that result in datasource information not being logged.
 
-.. _autolog-fastai:
 
-Fastai
-------
+.. _autolog-statsmodels:
 
-Call the generic autolog function :py:func:`mlflow.fastai.autolog` before your training code to enable automatic logging of metrics and parameters.
-See an example usage with `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_.
+Statsmodels
+-----------
+Call the generic autolog function :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:
 
-.. _EarlyStoppingCallback: https://docs.fast.ai/callbacks.html#EarlyStoppingCallback
-.. _OneCycleScheduler: https://docs.fast.ai/callbacks.html#OneCycleScheduler
-
-+-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                                               | Tags          | Artifacts                                                                                                                                                             |
-+-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| fastai    | user-specified metrics | Logs optimizer data as parameters. For example,          |  --           | Model checkpoints are logged to a ‘models’ directory; `MLflow Model`_ (fastai Learner model) on training end; Model summary text is logged                            |
-|           |                        | ``epochs``, ``lr``, ``opt_func``, etc;                   |               |                                                                                                                                                                       |
-|           |                        | Logs the parameters of the `EarlyStoppingCallback`_ and  |               |                                                                                                                                                                       |
-|           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
-+-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-
-.. _autolog-pytorch:
-
-Pytorch
--------
-
-Call the generic autolog function :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
-that currently, Pytorch autologging supports only models trained using Pytorch Lightning.
-
-Autologging is triggered on calls to ``pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
-
-+------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-| Framework/module                               | Metrics                                                     | Parameters                                                                           | Tags          | Artifacts                                                                                                                                     |
-+------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-| ``pytorch_lightning.trainer.Trainer``          | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon.                        | --            | Model summary on training start, `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
-|                                                | user-defined-metrics.                                       |                                                                                      |               |                                                                                                                                               |
-|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
-|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
-|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
-+------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-| ``pytorch_lightning.callbacks.earlystopping``  | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon                         | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
-|                                                | user-defined-metrics.                                       | Parameters from the ``EarlyStopping`` callbacks.                                     |               | Best Pytorch model checkpoint, if training stops due to early stopping callback.                                                              |
-|                                                | Metrics from the ``EarlyStopping`` callbacks.               | For example, ``min_delta``, ``patience``, ``baseline``,``restore_best_weights``, etc |               |                                                                                                                                               |
-|                                                | For example, ``stopped_epoch``, ``restored_epoch``,         |                                                                                      |               |                                                                                                                                               |
-|                                                | ``restore_best_weight``, etc.                               |                                                                                      |               |                                                                                                                                               |
-|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
-|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
-|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
-+------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-
-If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information, ending the run once
-the call to ``pytorch_lightning.trainer.Trainer.fit()`` completes.
-
-If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training.
++--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
+| Framework    | Metrics                | Parameters                                     | Tags          | Artifacts                                                                   |
++--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
+| Statsmodels  | user-specified metrics | `statsmodels.base.model.Model.fit`_ parameters | --            | `MLflow Model`_ (`statsmodels.base.wrapper.ResultsWrapper`) on training end |
++--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
 
 .. note::
-  - Parameters not explicitly passed by users (parameters that use default values) while using ``pytorch_lightning.trainer.Trainer.fit()`` are not currently automatically logged
-  - In case of a multi-optimizer scenario (such as usage of autoencoder), only the parameters for the first optimizer are logged
+  - Each model subclass that overrides `fit` expects and logs its own parameters.
 
+.. _statsmodels.base.model.Model.fit: https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html
+
+
+.. _autolog-xgboost:
+
+XGBoost
+-------
+Call the generic autolog function :py:func:`mlflow.xgboost.autolog` before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                                                               |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) with model signature on training end; feature importance; input example |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+
+If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
+
+.. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
+.. _MLflow Model: https://mlflow.org/docs/latest/models.html

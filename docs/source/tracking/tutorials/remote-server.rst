@@ -11,7 +11,7 @@ There are many benefits to utilize MLflow Tracking Server for remote experiment 
 * **Centralized Access**: The tracking server can be run as a proxy for the remote access for metadata and artifacts, making it easier to secure and audit access to data.
 
 How does it work?
-=============
+=================
 
 The following picture depicts the architecture of using a remote MLflow Tracking Server with PostgreSQL and S3
 
@@ -48,7 +48,7 @@ When you start logging runs to the MLflow Tracking Server, the following happens
 
 
 Getting Started
-===========
+===============
 
 Preface
 -------
@@ -169,7 +169,7 @@ For the tracking server to access remote storage, it needs to be configured with
 You can find the instructions for how to configure credentials for other storages in :ref:`Supported Storage <artifacts-store-supported-storages>`.
 
 Launch the tracking server
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To specify the backend store and artifact store, you can use the ``--backend-store-uri`` and ``--artifacts-store-uri`` options respectively.
 
