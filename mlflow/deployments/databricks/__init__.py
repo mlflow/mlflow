@@ -93,14 +93,14 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
-        Query a serving endpoint with provided model input.
+        Query a serving endpoint with the provided model inputs.
         See https://docs.databricks.com/api/workspace/servingendpoints/query for request/response
         schema.
 
         :param deployment_name: Unused.
         :param inputs: A dictionary containing the model inputs to query.
         :param endpoint: The name of the serving endpoint to query.
-        :return: A :py:class:`PredictionsResponse` object containing the predictions and metadata
+        :return: A :py:class:`DatabricksEndpoint` object containing the query response.
 
         Example:
 
