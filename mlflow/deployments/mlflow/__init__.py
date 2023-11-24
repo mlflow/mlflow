@@ -136,7 +136,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         Gets a specified endpoint configured for the MLflow Deployments Server.
 
-        :param name: The name of the endpoint to retrieve.
+        :param endpoint: The name of the endpoint to retrieve.
         :return: An `Endpoint` object representing the endpoint.
 
         .. code-block:: python
@@ -200,10 +200,10 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         """
         Submit a query to a configured provider route.
 
-        :param route: The name of the route to submit the query to.
-        :param data: The data to send in the query. A dictionary representing the per-route
-            specific structure required for a given provider.
-        :return: The route's response as a dictionary, standardized to the route type.
+        :param deployment_name: Unused.
+        :param endpoint: The name of the endpoint to query.
+        :param inputs: The inputs to the query, as a dictionary.
+        :return: A dictionary containing the response from the endpoint.
 
         For chat, the structure should be:
 
