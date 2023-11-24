@@ -2,12 +2,12 @@ import decimal
 import json
 import logging
 import os
-import PIL
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+import PIL
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model

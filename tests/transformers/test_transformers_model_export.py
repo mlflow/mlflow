@@ -998,6 +998,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
+
 def test_transformers_save_persists_requirements_in_mlflow_directory(
     small_qa_pipeline, model_path, transformers_custom_env
 ):
@@ -1366,11 +1367,13 @@ def read_image(filename):
     with open(image_path, "rb") as f:
         return f.read()
 
+
 def is_base64_image(s):
     try:
         return base64.b64encode(base64.b64decode(s)).decode("utf-8") == s
     except Exception:
         return False
+
 
 @pytest.mark.parametrize(
     "inference_payload",
@@ -1382,7 +1385,7 @@ def is_base64_image(s):
     ],
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
-    if Version(transformers.__version__) < Version('4.29'):
+    if Version(transformers.__version__) < Version("4.29"):
         if is_base64_image(inference_payload):
             return
     signature = infer_signature(
@@ -1397,7 +1400,6 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     predictions = pyfunc_loaded.predict(inference_payload)
     assert len(predictions) != 0
-
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
@@ -2127,11 +2129,14 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
     [
         [os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")],
         [image_url, image_url],
-        [base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"), base64.b64encode(read_image("tiger_cat.jpg")).decode("utf-8")],
+        [
+            base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
+            base64.b64encode(read_image("tiger_cat.jpg")).decode("utf-8"),
+        ],
     ],
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
-    if transformers.__version__ < '4.29':
+    if transformers.__version__ < "4.29":
         if is_base64_image(inference_payload[0]):
             return
     artifact_path = "image_classification_model"
@@ -2143,9 +2148,7 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
             artifact_path=artifact_path,
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
-    inference_payload = json.dumps({
-        "inputs" : inference_payload
-    })
+    inference_payload = json.dumps({"inputs": inference_payload})
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_payload,
@@ -3583,7 +3586,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
                 mlflow.transformers.generate_signature_output(
                     small_vision_model, {"images": image_file_paths}
                 ),
-                params=parameters
+                params=parameters,
             ),
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
@@ -3597,7 +3600,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
 
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
     assert len(predictions) == len(image_file_paths)
-    assert len(predictions.iloc[0]) == parameters['top_k']
+    assert len(predictions.iloc[0]) == parameters["top_k"]
 
 
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):

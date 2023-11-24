@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import pathlib
-import PIL
 import re
 import sys
 from functools import lru_cache
@@ -18,6 +17,7 @@ from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
+import PIL
 import yaml
 
 from mlflow import pyfunc
@@ -2611,16 +2611,16 @@ class _TransformersWrapper:
             except binascii.Error:
                 return False
 
-        if isinstance(data, list) and  all(isinstance(element, dict) for element in data):
-           lst_data= []
-           for item in data:
+        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
+            lst_data = []
+            for item in data:
                 data_ele = next(iter(item.values()))
                 if isinstance(data_ele, str):
                     # base64 encoded image comes as string
                     if not is_base64_image(data_ele):
                         self._validate_str_input_uri_or_file(data_ele)
                 lst_data.append(data_ele)
-           return lst_data
+            return lst_data
         elif isinstance(data, str):
             if not is_base64_image(data):
                 self._validate_str_input_uri_or_file(data)
@@ -2711,7 +2711,6 @@ class _TransformersWrapper:
             self._validate_str_input_uri_or_file(data)
         return data
 
-
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
         """
@@ -2728,18 +2727,20 @@ class _TransformersWrapper:
                 return all([result.scheme, result.netloc])
             except ValueError:
                 return False
+
         def validate_nested_list(lst):
             for item in lst:
                 if isinstance(item, list):
                     validate_nested_list(item)
                 else:
                     validate_single_input(key, item)
+
         def validate_input(key, value):
             # Use pathlib to handle file paths
-            #input_path = os.Path(value)
+            # input_path = os.Path(value)
 
             # Check if it's a valid file path or URI
-            #valid_input = input_path.is_file() or is_uri(value)
+            # valid_input = input_path.is_file() or is_uri(value)
             valid_uri = os.path.isfile(input_str) or is_uri(input_str)
 
             if not valid_uri:
@@ -2748,16 +2749,19 @@ class _TransformersWrapper:
                     "audio or image files must be either a file location or a uri.",
                     error_code=BAD_REQUEST,
                 )
+
         def validate_single_input(key, value):
             if isinstance(value, list):
                 validate_nested_list(value)
             else:
                 validate_input(key, value)
+
         if isinstance(input_str, dict):
             for key, value in input_str.items():
                 validate_input(key, value)
         else:
             validate_input(None, input_str)
+
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
