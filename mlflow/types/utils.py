@@ -1,10 +1,10 @@
 import logging
 import warnings
-import PIL
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+import PIL
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
