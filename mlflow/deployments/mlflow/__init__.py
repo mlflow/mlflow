@@ -47,7 +47,15 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         from mlflow.deployments import get_deploy_client
 
         client = get_deploy_client("http://localhost:5000")
-        print(client.list_endpoints())
+        endpoints = client.list_endpoints()
+        assert [e.dict() for e in endpoints] == [
+            {
+                "name": "chat",
+                "endpoint_type": "llm/v1/chat",
+                "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+                "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+            },
+        ]
     """
 
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
