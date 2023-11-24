@@ -20,7 +20,7 @@ class DatabricksEndpoint(AttrDict):
 @experimental
 class DatabricksDeploymentClient(BaseDeploymentClient):
     """
-    TODO
+    Client for interacting with Databricks serving endpoints.
     """
 
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
@@ -93,7 +93,30 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
-        TODO
+        Query a serving endpoint with provided model input.
+        See https://docs.databricks.com/api/workspace/servingendpoints/query for request/response
+        schema.
+
+        :param deployment_name: Unused.
+        :param inputs: A dictionary containing the model inputs to query.
+        :param endpoint: The name of the serving endpoint to query.
+        :return: A :py:class:`PredictionsResponse` object containing the predictions and metadata
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("databricks")
+            client.predict(
+                endpoint="chat",
+                inputs={
+                    "messages": [
+                        {"role": "user", "content": "Hello!"},
+                    ],
+                },
+            )
         """
         return self._call_endpoint(
             method="POST",
@@ -106,7 +129,40 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     @experimental
     def create_endpoint(self, name, config=None):
         """
-        TODO
+        Create a new serving endpoint with the provided name and configuration.
+        See https://docs.databricks.com/api/workspace/servingendpoints/create for request/response
+        schema.
+
+        :param name: The name of the serving endpoint to create.
+        :param config: A dictionary containing the configuration of the serving endpoint to create.
+        :return: A :py:class:`DatabricksEndpoint` object containing the created endpoint
+                 configuration.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("databricks")
+            client.create_endpoint(
+                name="chat",
+                config={
+                    "served_entities": [
+                        {
+                            "name": "test",
+                            "external_model": {
+                                "name": "gpt-4",
+                                "provider": "openai",
+                                "task": "llm/v1/chat",
+                                "openai_config": {
+                                    "openai_api_key": "{{secrets/scope/key}}",
+                                },
+                            },
+                        }
+                    ],
+                },
+            )
         """
         config = config.copy() if config else {}  # avoid mutating config
         extras = {}
@@ -119,7 +175,47 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     @experimental
     def update_endpoint(self, endpoint, config=None):
         """
-        TODO
+        Update a specified serving endpoint with the provided configuration.
+        See https://docs.databricks.com/api/workspace/servingendpoints/updateconfig for
+        request/response schema.
+
+        :param endpoint: The name of the serving endpoint to update.
+        :param config: A dictionary containing the configuration of the serving endpoint to update.
+        :return: A :py:class:`DatabricksEndpoint` object containing the updated endpoint
+                 configuration.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("databricks")
+            client.update_endpoint(
+                endpoint="chat",
+                config={
+                    "served_entities": [
+                        {
+                            "name": "test",
+                            "external_model": {
+                                "name": "gpt-4",
+                                "provider": "openai",
+                                "task": "llm/v1/chat",
+                                "openai_config": {
+                                    "openai_api_key": "{{secrets/scope/key}}",
+                                },
+                            },
+                        }
+                    ],
+                    "rate_limits": [
+                        {
+                            "key": "user",
+                            "renewal_period": "minute",
+                            "calls": 10,
+                        }
+                    ],
+                },
+            )
         """
         if list(config) == ["rate_limits"]:
             return self._call_endpoint(
@@ -133,21 +229,64 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     @experimental
     def delete_endpoint(self, endpoint):
         """
-        TODO
+        Delete a specified serving endpoint.
+        See https://docs.databricks.com/api/workspace/servingendpoints/delete for request/response
+        schema.
+
+        :param endpoint: The name of the serving endpoint to delete.
+        :return: A :py:class:`DatabricksEndpoint` object containing the deleted endpoint
+                 configuration.
+
+        Example:
+
+        .. code-block:: python
+
+                from mlflow.deployments import get_deploy_client
+
+                client = get_deploy_client("databricks")
+                client.delete_endpoint(endpoint="chat")
         """
         return self._call_endpoint(method="DELETE", route=endpoint)
 
     @experimental
     def list_endpoints(self):
         """
-        TODO
+        Retrieve all serving endpoints.
+        See https://docs.databricks.com/api/workspace/servingendpoints/list for request/response
+        schema.
+
+        :return: A list of :py:class:`DatabricksEndpoint` objects containing the endpoint
+                 configurations.
+
+        Example:
+
+        .. code-block:: python
+
+                from mlflow.deployments import get_deploy_client
+
+                client = get_deploy_client("databricks")
+                client.list_endpoints()
         """
         return self._call_endpoint(method="GET").endpoints
 
     @experimental
     def get_endpoint(self, endpoint):
         """
-        TODO
+        Get a specified serving endpoint.
+        See https://docs.databricks.com/api/workspace/servingendpoints/get for request/response
+        schema.
+
+        :param endpoint: The name of the serving endpoint to get.
+        :return: A :py:class:`DatabricksEndpoint` object containing the endpoint configuration.
+
+        Example:
+
+        .. code-block:: python
+
+                from mlflow.deployments import get_deploy_client
+
+                client = get_deploy_client("databricks")
+                client.get_endpoint(endpoint="chat")
         """
         return self._call_endpoint(method="GET", route=endpoint)
 
