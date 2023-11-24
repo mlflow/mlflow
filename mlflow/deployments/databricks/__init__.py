@@ -19,10 +19,10 @@ class DatabricksEndpoint(AttrDict):
 
     .. code-block:: python
 
-        d = DatabricksEndpoint({'a': 1, 'b': 2})
+        d = DatabricksEndpoint({"a": 1, "b": 2})
         print(d.a)  # 1
 
-        d = DatabricksEndpoint({'a': 1, 'b': {'c': 3, 'd': 4}})
+        d = DatabricksEndpoint({"a": 1, "b": {"c": 3, "d": 4}})
         print(d.b.c)  # 3
     """
 
@@ -56,9 +56,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         assert endpoints == [
             {
                 "name": "chat",
-                "creator": "test.user@databricks.com",
-                "creation_timestamp": 1700812076000,
-                ...,  # truncated
+                "creator": "alice@company.com",
+                "creation_timestamp": 0,
+                "last_updated_timestamp": 0,
+                "state": {...},
+                "config": {...},
+                "tags": [...],
+                "id": "88fd3f75a0d24b0380ddc40484d7a31b",
             },
         ]
     """
@@ -165,7 +169,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 "choices": [
                     {
                         "index": 0,
-                        "message": {"role": "assistant", "content": "Hello! How can I assist you today?"},
+                        "message": {
+                            "role": "assistant",
+                            "content": "Hello! How can I assist you today?",
+                        },
                         "finish_reason": "stop",
                     }
                 ],
@@ -267,9 +274,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             )
             assert endpoint == {
                 "name": "chat",
-                "creator": "test.user@databricks.com",
-                "creation_timestamp": 1700812076000,
-                ...,  # truncated
+                "creator": "alice@company.com",
+                "creation_timestamp": 0,
+                "last_updated_timestamp": 0,
+                "state": {...},
+                "config": {...},
+                "tags": [...],
+                "id": "88fd3f75a0d24b0380ddc40484d7a31b",
             }
 
             rate_limits = client.update_endpoint(
@@ -344,9 +355,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             assert endpoints == [
                 {
                     "name": "chat",
-                    "creator": "test.user@databricks.com",
-                    "creation_timestamp": 1700812076000,
-                    ...,  # truncated
+                    "creator": "alice@company.com",
+                    "creation_timestamp": 0,
+                    "last_updated_timestamp": 0,
+                    "state": {...},
+                    "config": {...},
+                    "tags": [...],
+                    "id": "88fd3f75a0d24b0380ddc40484d7a31b",
                 },
             ]
         """
@@ -374,7 +389,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 "name": "chat",
                 "creator": "test.user@databricks.com",
                 "creation_timestamp": 1700812076000,
-                ...,  # truncated
+                # ... truncated
             }
         """
         return self._call_endpoint(method="GET", route=endpoint)
