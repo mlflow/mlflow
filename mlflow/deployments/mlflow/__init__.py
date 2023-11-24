@@ -147,7 +147,12 @@ class MLflowDeploymentClient(BaseDeploymentClient):
 
             client = get_deploy_client("http://localhost:5000")
             endpoint = client.get_endpoint(endpoint="chat")
-            print(endpoint)
+            assert endpoint.dict() == {
+                "name": "chat",
+                "endpoint_type": "llm/v1/chat",
+                "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+                "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+            }
         """
         route = join_paths(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint)
         response = self._call_endpoint("GET", route)
@@ -176,9 +181,14 @@ class MLflowDeploymentClient(BaseDeploymentClient):
             client = get_deploy_client("http://localhost:5000")
 
             endpoints = client.list_endpoints()
-            print(endpoints)
-            next_endpoints = client.list_endpoints(endpoints.next_page_token)
-            print(next_endpoints)
+            assert [e.dict() for e in endpoints] == [
+                {
+                    "name": "chat",
+                    "endpoint_type": "llm/v1/chat",
+                    "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+                    "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+                },
+            ]
         """
         params = None if page_token is None else {"page_token": page_token}
         response_json = self._call_endpoint(
@@ -209,7 +219,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
         :param inputs: The inputs to the query, as a dictionary.
         :return: A dictionary containing the response from the endpoint.
 
-        Examples:
+        Example:
 
         .. code-block:: python
 
@@ -217,23 +227,28 @@ class MLflowDeploymentClient(BaseDeploymentClient):
 
             client = get_deploy_client("http://localhost:5000")
 
-            # Chat
             response = client.predict(
                 endpoint="chat",
-                inputs={"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]},
+                inputs={"messages": [{"role": "user", "content": "Hello"}]},
             )
-
-            # Completions
-            response = client.predict(
-                endpoint="completions",
-                inputs={"prompt": "It's one small step for"},
-            )
-
-            # Embeddings
-            response = client.query(
-                endpoint="embeddings",
-                inputs={"text": ["It was the best of times", "It was the worst of times"]},
-            )
+            assert response == {
+                "id": "chatcmpl-8OLoQuaeJSLybq3NBoe0w5eyqjGb9",
+                "object": "chat.completion",
+                "created": 1700814410,
+                "model": "gpt-3.5-turbo-0613",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "Hello! How can I assist you today?"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 9,
+                    "completion_tokens": 9,
+                    "total_tokens": 18,
+                },
+            }
 
         Additional parameters that are valid for a given provider and endpoint configuration can be
         included with the request as shown below, using an openai completions endpoint request as
