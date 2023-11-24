@@ -38,7 +38,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
 
     .. code-block:: bash
 
-        mlflow deployments start-server --config-path examples/gateway/openai/config.yaml
+        mlflow deployments start-server --config-path path/to/config.yaml
 
     Then, create a client and use it to interact with the server:
 
