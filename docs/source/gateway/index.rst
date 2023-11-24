@@ -246,19 +246,19 @@ With the rapid development of LLMs, there is no guarantee that this list will be
 below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
 ``N/A`` means that the provider currently doesn't support the route type.
 
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+
-| Route Type         | OpenAI                   | MosaicML           | Anthropic        | Cohere                      | Azure OpenAI             | PaLM                  | MLflow                   |
-+====================+==========================+====================+==================+=============================+==========================+=======================+==========================+
-| llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - text-bison-001      | - MLflow served models*  |
-|                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                       |                          |
-|                    |                          | - llama2-70b-chat† | - claude-2       |                             |                          |                       |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+
-| llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - chat-bison-001      | - MLflow served models*  |
-|                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                       |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+
-| llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - embedding-gecko-001 | - MLflow served models** |
-|                    |                          | - instructor-xl    |                  | - embed-multilingual-v2.0   |                          |                       |                          |
-+--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+
+| Route Type         | OpenAI                   | MosaicML           | Anthropic        | Cohere                      | Azure OpenAI             | PaLM                  | MLflow                   | Clarifai                 |
++====================+==========================+====================+==================+=============================+==========================+=======================+==========================+==========================+
+| llm/v1/completions | - gpt-3.5-turbo          | - mpt-7b-instruct  | - claude-1       | - command                   | - text-davinci-003       | - text-bison-001      | - MLflow served models*  | - Clarifai Models        |
+|                    | - gpt-4                  | - mpt-30b-instruct | - claude-1.3-100k| - command-light-nightly     | - gpt-35-turbo           |                       |                          | - Third-party providers  |
+|                    |                          | - llama2-70b-chat† | - claude-2       |                             |                          |                       |                          |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+
+| llm/v1/chat        | - gpt-3.5-turbo          | - llama2-70b-chat† | N/A              | N/A                         | - gpt-35-turbo           | - chat-bison-001      | - MLflow served models*  | - Coming soon            |
+|                    | - gpt-4                  |                    |                  |                             | - gpt-4                  |                       |                          |                          |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+
+| llm/v1/embeddings  | - text-embedding-ada-002 | - instructor-large | N/A              | - embed-english-v2.0        | - text-embedding-ada-002 | - embedding-gecko-001 | - MLflow served models** | - Clarifai Models        |
+|                    |                          | - instructor-xl    |                  | - embed-multilingual-v2.0   |                          |                       |                          | - Third-party providers  |
++--------------------+--------------------------+--------------------+------------------+-----------------------------+--------------------------+-----------------------+--------------------------+--------------------------+
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
@@ -296,6 +296,7 @@ As of now, the MLflow AI Gateway supports the following providers:
 * **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
 * **cohere**: This is used for models offered by `Cohere <https://docs.cohere.com/docs>`_.
 * **palm**: This is used for models offered by `PaLM <https://developers.generativeai.google/api/rest/generativelanguage/models/>`_.
+* **clarifai**: This is used for models offered by `Clarifai <https://clarifai.com/explore/models/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
 most up-to-date list of supported providers.
@@ -488,6 +489,7 @@ Each route has the following configuration parameters:
     - "palm"
     - "azure" / "azuread"
     - "mlflow-model-serving"
+    - "clarifai"
 
   - **name**: This is an optional field to specify the name of the model.
   - **config**: This contains provider-specific configuration details.
@@ -562,6 +564,14 @@ MLflow Model Serving
 | Configuration Parameter | Required | Default                  | Description                                           |
 +=========================+==========+==========================+=======================================================+
 | **model_server_url**    | Yes      | N/A                      | This is the url of the MLflow Model Server.           |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+
+Clarifai
+++++++++
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **clarifai_pat**        | Yes      | N/A                      | This is the personal access token for Clarifai API    |
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 Note that with MLflow model serving, the ``name`` parameter for the ``model`` definition is not used for validation and is only present for reference purposes. This alias can be
