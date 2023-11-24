@@ -57,19 +57,6 @@ def main():
         client.update_endpoint(
             endpoint=name,
             config={
-                "served_entities": [
-                    {
-                        "name": "test",
-                        "external_model": {
-                            "name": "gpt-4",
-                            "provider": "openai",
-                            "task": "llm/v1/chat",
-                            "openai_config": {
-                                "openai_api_key": "{{" + args.secret + "}}",
-                            },
-                        },
-                    }
-                ],
                 "rate_limits": [
                     {
                         "key": "user",
