@@ -21,6 +21,8 @@ class DatabricksEndpoint(AttrDict):
 class DatabricksDeploymentClient(BaseDeploymentClient):
     """
     Client for interacting with Databricks serving endpoints.
+    See https://docs.databricks.com/en/dev-tools/auth.html for how to set up credentials
+    for authentication.
     """
 
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
