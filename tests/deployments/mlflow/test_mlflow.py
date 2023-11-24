@@ -81,6 +81,52 @@ def test_list_endpoints():
         assert url == "http://localhost:5000/api/2.0/endpoints/"
 
 
+def test_list_endpoints_paginated():
+    client = get_deploy_client("http://localhost:5000")
+    mock_resp = mock.Mock()
+    mock_resp.json.side_effect = [
+        {
+            "endpoints": [
+                {
+                    "model": {"name": "gpt-4", "provider": "openai"},
+                    "name": "chat",
+                    "endpoint_type": "llm/v1/chat",
+                    "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+                }
+            ],
+            "next_page_token": "token",
+        },
+        {
+            "endpoints": [
+                {
+                    "model": {"name": "gpt-4", "provider": "openai"},
+                    "name": "completions",
+                    "endpoint_type": "llm/v1/completions",
+                    "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+                }
+            ]
+        },
+    ]
+    mock_resp.status_code = 200
+    with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
+        resp = client.list_endpoints()
+        assert mock_request.call_count == 2
+        assert [r.dict() for r in resp] == [
+            {
+                "model": {"name": "gpt-4", "provider": "openai"},
+                "name": "chat",
+                "endpoint_type": "llm/v1/chat",
+                "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+            },
+            {
+                "model": {"name": "gpt-4", "provider": "openai"},
+                "name": "completions",
+                "endpoint_type": "llm/v1/completions",
+                "endpoint_url": "http://localhost:5000/endpoints/chat/invocations",
+            },
+        ]
+
+
 def test_predict():
     client = get_deploy_client("http://localhost:5000")
     mock_resp = mock.Mock()
