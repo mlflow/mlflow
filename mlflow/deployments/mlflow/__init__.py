@@ -30,7 +30,24 @@ if TYPE_CHECKING:
 @experimental
 class MLflowDeploymentClient(BaseDeploymentClient):
     """
-    TODO
+    Client for interacting with the MLflow Deployments Server.
+
+    Example usage:
+
+    First, start the MLflow Deployments Server:
+
+    .. code-block:: bash
+
+        mlflow deployments start-server --config-path examples/gateway/openai/config.yaml
+
+    Then, create a client and use it to interact with the server:
+
+    .. code-block:: python
+
+        from mlflow.deployments import get_deploy_client
+
+        client = get_deploy_client("http://localhost:5000")
+        print(client.list_endpoints())
     """
 
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
@@ -116,7 +133,18 @@ class MLflowDeploymentClient(BaseDeploymentClient):
     @experimental
     def get_endpoint(self, endpoint) -> "Endpoint":
         """
-        TODO
+        Gets a specified endpoint configured for the MLflow Deployments Server.
+
+        :param name: The name of the endpoint to retrieve.
+        :return: An `Endpoint` object representing the endpoint.
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+            endpoint = client.get_endpoint(endpoint="chat")
+            print(endpoint)
         """
         route = join_paths(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint)
         response = self._call_endpoint("GET", route)
@@ -130,7 +158,22 @@ class MLflowDeploymentClient(BaseDeploymentClient):
     @experimental
     def list_endpoints(self, page_token=None) -> "PagedList[Endpoint]":
         """
-        TODO
+        List endpoints configured for the MLflow Deployments Server.
+
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                           a prior ``list_endpoints()`` call.
+        :return: A ``PagedList`` of ``Endpoint`` objects.
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+
+            endpoints = client.list_endpoints()
+            print(endpoints)
+            next_endpoints = client.list_endpoints(endpoints.next_page_token)
+            print(next_endpoints)
         """
         params = None if page_token is None else {"page_token": page_token}
         response_json = self._call_endpoint(
@@ -154,7 +197,71 @@ class MLflowDeploymentClient(BaseDeploymentClient):
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None) -> Dict[str, Any]:
         """
-        TODO
+        Submit a query to a configured provider route.
+
+        :param route: The name of the route to submit the query to.
+        :param data: The data to send in the query. A dictionary representing the per-route
+            specific structure required for a given provider.
+        :return: The route's response as a dictionary, standardized to the route type.
+
+        For chat, the structure should be:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+
+            response = client.predict(
+                endpoint="chat",
+                inputs={"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]},
+            )
+
+        For completions, the structure should be:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+
+            response = client.predict(
+                endpoint="completions",
+                inputs={"prompt": "It's one small step for"},
+            )
+
+        For embeddings, the structure should be:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+
+            response = client.query(
+                endpoint="embeddings",
+                inputs={"text": ["It was the best of times", "It was the worst of times"]},
+            )
+
+        Additional parameters that are valid for a given provider and route configuration can be
+        included with the request as shown below, using an openai completions route request as
+        an example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+
+            response = client.predict(
+                endpoint="my-completions-route",
+                inputs={
+                    "prompt": "Give me an example of a properly formatted pytest unit test",
+                    "temperature": 0.3,
+                    "max_tokens": 500,
+                },
+            )
+
         """
         query_route = join_paths(
             MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
