@@ -258,7 +258,10 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                 "choices": [
                     {
                         "index": 0,
-                        "message": {"role": "assistant", "content": "Hello! How can I assist you today?"},
+                        "message": {
+                            "role": "assistant",
+                            "content": "Hello! How can I assist you today?",
+                        },
                         "finish_reason": "stop",
                     }
                 ],
