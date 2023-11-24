@@ -110,7 +110,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     s"${Paths.get("file:", absolutePath).toString}"
   }
 
-  ignore("MlflowAutologEventPublisher can be idempotently initialized & stopped within " +
+  test("MlflowAutologEventPublisher can be idempotently initialized & stopped within " +
     "single thread") {
     // We expect a listener to already be created by calling init() in beforeEach
     val listeners0 = MlflowSparkAutologgingTestUtils.getListeners(spark)
@@ -169,7 +169,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
         }
   }
 
-  ignore("MlflowAutologEventPublisher triggers publishEvent with appropriate arguments " +
+  test("MlflowAutologEventPublisher triggers publishEvent with appropriate arguments " +
     "when reading a JOIN of two tables") {
     val formats = formatToTablePath.keys
     val leftFormat = formats.head
@@ -189,7 +189,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     verify(subscriber, times(1)).notify(getFileUri(rightPath), "unknown", rightFormat)
   }
 
-  ignore("MlflowAutologEventPublisher can publish to working subscribers even when " +
+  test("MlflowAutologEventPublisher can publish to working subscribers even when " +
     "others are broken") {
     MlflowAutologEventPublisher.stop()
     val subscriber = spy(new MockSubscriber())
@@ -205,18 +205,20 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     MockPublisher.init(gcDeadSubscribersIntervalSec = 10000)
     val listeners1 = MlflowSparkAutologgingTestUtils.getListeners(spark)
     assert(listeners1.length == 1)
+
     val (format, path) = formatToTablePath.head
     val df = spark.read.format(format).load(path)
+
     // Register subscribers & collect the DF to trigger a datasource read event
     subscriberSeq.foreach(MockPublisher.register)
     df.collect()
     Thread.sleep(1000)
-    verify(subscriber, times(1)).notify(any(), any(), any())
+    verify(subscriber, times(1)).notify(any(), any(), meq("text")) // Prefetch on load()
     verify(subscriber, times(1)).notify(
       getFileUri(path), "unknown", format)
   }
 
-  ignore("Exceptions while extracting datasource information from Spark query plan " +
+  test("Exceptions while extracting datasource information from Spark query plan " +
     "do not fail the query") {
     MlflowAutologEventPublisher.stop()
     object MockPublisher extends MlflowAutologEventPublisherImpl {
@@ -238,20 +240,20 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     df.collect()
   }
 
-  ignore("MlflowAutologEventPublisher correctly unregisters broken subscribers") {
+  test("MlflowAutologEventPublisher correctly unregisters broken subscribers") {
     MlflowAutologEventPublisher.register(new BrokenSubscriber())
     Thread.sleep(2000)
     assert(MlflowAutologEventPublisher.subscribers.isEmpty)
   }
 
-  ignore("Subscriber registration fails if init() not called") {
+  test("Subscriber registration fails if init() not called") {
     MlflowAutologEventPublisher.stop()
     intercept[RuntimeException] {
       MlflowAutologEventPublisher.register(new MockSubscriber())
     }
   }
 
-  ignore("Initializing MlflowAutologEventPublisher fails if SparkSession doesn't exixt") {
+  test("Initializing MlflowAutologEventPublisher fails if SparkSession doesn't exixt") {
     MlflowAutologEventPublisher.stop()
     spark.stop()
     try {
@@ -263,7 +265,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     }
   }
 
-  ignore("Delegates to repl-ID-aware listener if REPL ID property is set in SparkContext") {
+  test("Delegates to repl-ID-aware listener if REPL ID property is set in SparkContext") {
     // Verify instance created by init() in beforeEach is not REPL-ID-aware
     assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[SparkDataSourceListener])
     assert(!MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener])
@@ -292,7 +294,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener])
   }
 
-  ignore("repl-ID-aware listener publishes events with expected REPL IDs") {
+  test("repl-ID-aware listener publishes events with expected REPL IDs") {
     MlflowAutologEventPublisher.stop()
 
     // Create a ReplAwareSparkDataSourceListener that uses a DatasourceAttributeExtractor instead
@@ -358,7 +360,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
 
     // Sleep to give time for the execution to complete
     Thread.sleep(1000)
-    
+
     // Verify that the only time subscriber1 was notified of a datasource read was when
     // `path2` was read via `df2` with `spark.databricks.replId` set to `subscriber1.replId`
     verify(subscriber1, times(1)).notify(any(), any(), any())

@@ -49,10 +49,20 @@ private[autologging] trait DatasourceAttributeExtractorBase {
       deltaInfoOpt
     } else {
       leafNode match {
+        // DataSourceV2Relation was removed in Spark 3.0.0 stable release due to some issue and 
+        // still not present in Spark 3.2.0. While we are not sure whether it will be back in
+        // the future, we still keep this code here to support previous versions.
         case relation: DataSourceV2Relation =>
           getSparkTableInfoFromTable(relation.table)
-        case other =>
-          None
+        // This is the case for Spark 3.x except for 3.0.0-preview
+        case LogicalRelation(HadoopFsRelation(index, _, _, _, fileFormat, _), _, _, _) =>
+          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
+          val formatOpt = fileFormat match {
+            case format: DataSourceRegister => Option(format.shortName)
+            case _ => None
+          }
+          Option(SparkTableInfo(path, None, formatOpt))
+        case _ => None
       }
     }
   }
@@ -103,24 +113,6 @@ object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtracto
           SparkTableInfo(path, versionOpt, Option("delta"))
         })
       case other => None
-    }
-  }
-
-  override def getTableInfoToLog(leafNode: LogicalPlan): Option[SparkTableInfo] = {
-    val res = super.getTableInfoToLog(leafNode)
-    if (res.isDefined) {
-      res
-    } else {
-      leafNode match {
-        case LogicalRelation(HadoopFsRelation(index, _, _, _, fileFormat, _), _, _, _) =>
-          val path: String = index.rootPaths.headOption.map(_.toString).getOrElse("unknown")
-          val formatOpt = fileFormat match {
-            case format: DataSourceRegister => Option(format.shortName)
-            case _ => None
-          }
-          Option(SparkTableInfo(path, None, formatOpt))
-        case _ => None
-      }
     }
   }
 
