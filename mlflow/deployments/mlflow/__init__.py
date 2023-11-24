@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import requests
 
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 @experimental
-class MLflowDeploymentClient(BaseDeploymentClient):
+class MlflowDeploymentClient(BaseDeploymentClient):
     """
     Client for interacting with the MLflow Deployments Server.
 
@@ -53,28 +53,28 @@ class MLflowDeploymentClient(BaseDeploymentClient):
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def delete_deployment(self, name, config=None, endpoint=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def list_deployments(self, endpoint=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
@@ -88,21 +88,21 @@ class MLflowDeploymentClient(BaseDeploymentClient):
     def create_endpoint(self, name, config=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def update_endpoint(self, endpoint, config=None):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
     def delete_endpoint(self, endpoint):
         """
         .. warning::
-            This method is not implemented for `MLflowDeploymentClient`.
+            This method is not implemented for `MlflowDeploymentClient`.
         """
         raise NotImplementedError
 
@@ -163,8 +163,28 @@ class MLflowDeploymentClient(BaseDeploymentClient):
             }
         )
 
+    def _list_endpoints(self, page_token=None) -> "PagedList[Endpoint]":
+        params = None if page_token is None else {"page_token": page_token}
+        response_json = self._call_endpoint(
+            "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=params
+        )
+        routes = [
+            Endpoint(
+                **{
+                    **resp,
+                    "endpoint_url": resolve_endpoint_url(
+                        self.target_uri,
+                        resp["endpoint_url"],
+                    ),
+                }
+            )
+            for resp in response_json.get("endpoints", [])
+        ]
+        next_page_token = response_json.get("next_page_token")
+        return PagedList(routes, next_page_token)
+
     @experimental
-    def list_endpoints(self, page_token=None) -> "PagedList[Endpoint]":
+    def list_endpoints(self) -> "List[Endpoint]":
         """
         List endpoints configured for the MLflow Deployments Server.
 
@@ -190,29 +210,20 @@ class MLflowDeploymentClient(BaseDeploymentClient):
                 },
             ]
         """
-        params = None if page_token is None else {"page_token": page_token}
-        response_json = self._call_endpoint(
-            "GET", MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, json_body=params
-        )
-        routes = [
-            Endpoint(
-                **{
-                    **resp,
-                    "endpoint_url": resolve_endpoint_url(
-                        self.target_uri,
-                        resp["endpoint_url"],
-                    ),
-                }
-            )
-            for resp in response_json.get("endpoints", [])
-        ]
-        next_page_token = response_json.get("next_page_token")
-        return PagedList(routes, next_page_token)
+        endpoints = []
+        next_page_token = None
+        while True:
+            page = self._list_endpoints(next_page_token)
+            endpoints.extend(page)
+            next_page_token = page.token
+            if next_page_token is None:
+                break
+        return endpoints
 
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None) -> Dict[str, Any]:
         """
-        Submit a query to a configured provider route.
+        Submit a query to a configured provider endpoint.
 
         :param deployment_name: Unused.
         :param endpoint: The name of the endpoint to query.
@@ -260,7 +271,7 @@ class MLflowDeploymentClient(BaseDeploymentClient):
 
             client = get_deploy_client("http://localhost:5000")
 
-            response = client.predict(
+            client.predict(
                 endpoint="completions",
                 inputs={
                     "prompt": "Hello!",
