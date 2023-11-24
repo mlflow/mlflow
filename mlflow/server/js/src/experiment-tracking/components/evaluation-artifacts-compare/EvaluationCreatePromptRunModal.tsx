@@ -1,5 +1,4 @@
 import {
-  Alert,
   Button,
   DialogCombobox,
   DialogComboboxContent,
@@ -12,14 +11,10 @@ import {
   InfoIcon,
   Input,
   Modal,
-  PlayIcon,
   PlusIcon,
   Spinner,
-  StopIcon,
-  TableSkeleton,
   Tooltip,
   Typography,
-  WarningIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { sortBy } from 'lodash';
@@ -44,8 +39,6 @@ import { generateRandomRunName, getDuplicatedRunName } from '../../utils/RunName
 import { useExperimentIds } from '../experiment-page/hooks/useExperimentIds';
 import { useFetchExperimentRuns } from '../experiment-page/hooks/useFetchExperimentRuns';
 import {
-  PROMPTLAB_METADATA_COLUMN_LATENCY,
-  PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS,
   compilePromptInputText,
   extractEvaluationPrerequisitesForRun,
   extractRequiredInputParamsForRun,
@@ -57,6 +50,7 @@ import { usePromptEvaluationPromptTemplateValue } from './hooks/usePromptEvaluat
 import { EvaluationCreateRunPromptTemplateErrors } from './components/EvaluationCreateRunPromptTemplateErrors';
 import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { EvaluationCreatePromptRunModalExamples } from './EvaluationCreatePromptRunModalExamples';
+import { EvaluationCreatePromptRunOutput } from './components/EvaluationCreatePromptRunOutput';
 
 const { TextArea } = Input;
 type Props = {
@@ -426,63 +420,6 @@ export const EvaluationCreatePromptRunModal = ({
     return null;
   }, [allInputValuesProvided, intl, promptTemplateProvided, selectedModel]);
 
-  const evaluateOutput = useMemo(() => {
-    if (lastEvaluationError) {
-      return (
-        <Alert
-          message={lastEvaluationError}
-          closable={false}
-          type='error'
-          css={{ marginBottom: theme.spacing.sm, marginTop: theme.spacing.sm }}
-        />
-      );
-    }
-    if (isEvaluating) {
-      return (
-        <div css={{ marginTop: theme.spacing.sm }}>
-          <TableSkeleton lines={5} />
-        </div>
-      );
-    }
-    return (
-      <TextArea
-        rows={5}
-        css={{ cursor: 'default' }}
-        data-testid='prompt-output'
-        value={evaluationOutput}
-        readOnly
-      />
-    );
-  }, [lastEvaluationError, isEvaluating, evaluationOutput, theme]);
-
-  const metadataOutput = useMemo(() => {
-    if (!evaluationMetadata) {
-      return null;
-    }
-    if (isEvaluating) {
-      return null;
-    }
-    return (
-      <div css={{ display: 'flex', gap: theme.spacing.xs, alignItems: 'center' }}>
-        {PROMPTLAB_METADATA_COLUMN_LATENCY in evaluationMetadata && (
-          <Typography.Hint size='sm'>
-            {Math.round(Number(evaluationMetadata[PROMPTLAB_METADATA_COLUMN_LATENCY]))} ms
-            {'MLFLOW_total_tokens' in evaluationMetadata ? ',' : ''}
-          </Typography.Hint>
-        )}
-        {PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS in evaluationMetadata && (
-          <Typography.Hint size='sm'>
-            <FormattedMessage
-              defaultMessage='{totalTokens} total tokens'
-              description='Experiment page > artifact compare view > results table > total number of evaluated tokens'
-              values={{ totalTokens: evaluationMetadata[PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS] }}
-            />
-          </Typography.Hint>
-        )}
-      </div>
-    );
-  }, [evaluationMetadata, evaluationOutput, isEvaluating, theme]);
-
   if (isOpen && isViewExamplesModalOpen) {
     return (
       <EvaluationCreatePromptRunModalExamples
@@ -551,13 +488,22 @@ export const EvaluationCreatePromptRunModal = ({
         }}
       >
         <div>
-          <div css={{ ...styles.formItem, display: 'flex', alignItems: 'center' }}>
+          <FormUI.Label htmlFor='selected_model' css={{ marginBottom: theme.spacing.sm }}>
+            {selectModelLabel}
+          </FormUI.Label>
+          <div css={{ marginBottom: theme.spacing.lg, display: 'flex', alignItems: 'center' }}>
             <DialogCombobox
-              label={selectedModel ? selectModelLabel : selectModelPlaceholder}
+              label={selectModelLabel}
               modal={false}
               value={selectedModel ? [selectedModel] : undefined}
             >
-              <DialogComboboxTrigger css={{ width: '100%' }} allowClear={false} />
+              <DialogComboboxTrigger
+                id='selected_model'
+                css={{ width: '100%' }}
+                allowClear={false}
+                placeholder={selectModelPlaceholder}
+                withInlineLabel={false}
+              />
               <DialogComboboxContent loading={modelRoutesLoading} maxHeight={400} matchTriggerWidth>
                 {!modelRoutesLoading && (
                   <DialogComboboxOptionList>
@@ -636,21 +582,24 @@ export const EvaluationCreatePromptRunModal = ({
         <div>
           <div css={styles.formItem}>
             <>
-              <FormUI.Label htmlFor={'prompt_template'}>
-                <FormattedMessage
-                  defaultMessage='Prompt Template'
-                  description='Experiment page > new run modal > prompt template input label'
-                />
+              <div css={{ display: 'flex', justifyContent: 'space-between' }}>
+                <FormUI.Label htmlFor={'prompt_template'}>
+                  <FormattedMessage
+                    defaultMessage='Prompt Template'
+                    description='Experiment page > new run modal > prompt template input label'
+                  />
+                </FormUI.Label>
                 <Button
                   onClick={() => setViewExamplesModalOpen(true)}
                   style={{ marginLeft: 'auto' }}
+                  size='small'
                 >
                   <FormattedMessage
                     defaultMessage='View Examples'
                     description='Experiment page > new run modal > prompt examples button'
                   />
                 </Button>
-              </FormUI.Label>
+              </div>
               <FormUI.Hint>
                 <FormattedMessage
                   defaultMessage={`Give instructions to the model. Use '{{ }}' or the "Add new variable" button to add variables to your prompt.`}
@@ -661,7 +610,7 @@ export const EvaluationCreatePromptRunModal = ({
 
             <TextArea
               id='prompt_template'
-              autoSize
+              autoSize={{ minRows: 3 }}
               data-testid='prompt-template-input'
               value={promptTemplate}
               onChange={(e) => updatePromptTemplate(e.target.value)}
@@ -686,7 +635,7 @@ export const EvaluationCreatePromptRunModal = ({
               </>
             </div>
           ))}
-          <div css={styles.formItem}>
+          <div css={{ marginBottom: 2 * theme.spacing.md }}>
             <Button icon={<PlusIcon />} onClick={handleAddVariableToTemplate}>
               <FormattedMessage
                 defaultMessage='Add new variable'
@@ -694,60 +643,17 @@ export const EvaluationCreatePromptRunModal = ({
               />
             </Button>
           </div>
-          <div css={styles.formItem}>
-            <Tooltip title={evaluateButtonTooltip}>
-              <Button
-                data-testid='button-evaluate'
-                icon={<PlayIcon />}
-                onClick={handleEvaluate}
-                disabled={!evaluateButtonEnabled}
-                loading={isEvaluating}
-              >
-                <FormattedMessage
-                  defaultMessage='Evaluate'
-                  description='Experiment page > new run modal > "evaluate" button label'
-                />
-              </Button>
-            </Tooltip>
-            <Button
-              data-testid='button-cancel'
-              icon={<StopIcon />}
-              onClick={handleCancel}
-              disabled={!isEvaluating}
-              css={{ marginLeft: theme.spacing.sm }}
-            >
-              <FormattedMessage
-                defaultMessage='Cancel'
-                description='Experiment page > new run modal > "cancel" button label'
-              />
-            </Button>
-          </div>
-          <FormUI.Label>
-            <FormattedMessage
-              defaultMessage='Output'
-              description='Experiment page > new run modal > evaluation output field label'
-            />{' '}
-            {outputDirty && (
-              <Tooltip
-                title={
-                  <FormattedMessage
-                    defaultMessage='Model, input data or prompt have changed since last evaluation of the output'
-                    description='Experiment page > new run modal > dirty output (out of sync with new data)'
-                  />
-                }
-              >
-                <WarningIcon />
-              </Tooltip>
-            )}
-          </FormUI.Label>
-          <FormUI.Hint>
-            <FormattedMessage
-              defaultMessage='This is the output generated by the LLM using the prompt template and input values defined above.'
-              description='Experiment page > new run modal > evaluation output field hint'
-            />
-          </FormUI.Hint>
-          {evaluateOutput}
-          {metadataOutput}
+          <EvaluationCreatePromptRunOutput
+            evaluateButtonTooltip={evaluateButtonTooltip}
+            evaluationMetadata={evaluationMetadata}
+            evaluationOutput={evaluationOutput}
+            disabled={!evaluateButtonEnabled}
+            isEvaluating={isEvaluating}
+            isOutputDirty={outputDirty}
+            onCancelClick={handleCancel}
+            onEvaluateClick={handleEvaluate}
+            evaluationError={lastEvaluationError}
+          />
         </div>
       </div>
       {isCreatingRun && (

@@ -18,9 +18,6 @@ import {
 } from '@databricks/design-system';
 import { PreviewIcon } from './PreviewIcon';
 
-// Note: this button has a different size from normal AntD buttons.
-export { Button as HeaderButton };
-
 type OverflowMenuProps = {
   menu?: {
     id: string;

@@ -64,7 +64,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -454,6 +454,10 @@ def save_model(
         code=code_dir_subpath,
         **pyfunc_options,
     )
+
+    # add model file size to mlflow_model
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
 
     # save mlflow_model to path/MLmodel
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))

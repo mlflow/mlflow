@@ -7,7 +7,6 @@ import textwrap
 import types
 
 from flask import Flask, Response, send_from_directory
-from flask import __version__ as flask_version
 from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
@@ -40,7 +39,7 @@ ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
-IS_FLASK_V1 = Version(flask_version) < Version("2.0")
+IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
 
 
 for http_path, handler, methods in handlers.get_endpoints():

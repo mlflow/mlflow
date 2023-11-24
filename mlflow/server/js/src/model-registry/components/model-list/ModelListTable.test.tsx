@@ -2,7 +2,7 @@ import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import {
   getTableRowByCellText,
   getTableRows,
-} from '@databricks/design-system/dist/test-utils/enzyme';
+} from '@databricks/design-system/test-utils/enzyme';
 import { act, mountWithIntl, renderWithIntl, screen } from '../../../common/utils/TestUtils';
 import { ModelListTable, ModelListTableProps } from './ModelListTable';
 

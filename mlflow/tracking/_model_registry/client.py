@@ -171,7 +171,7 @@ class ModelRegistryClient:
         Create a new model version from given source.
 
         :param name: Name of the containing registered model.
-        :param source: Source path where the MLflow model is stored.
+        :param source: URI indicating the location of the model artifacts.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
@@ -204,6 +204,19 @@ class ModelRegistryClient:
         if await_creation_for and await_creation_for > 0:
             self.store._await_model_version_creation(mv, await_creation_for)
         return mv
+
+    def copy_model_version(self, src_mv, dst_name):
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                       the source model version.
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        return self.store.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(self, name, version, description):
         """

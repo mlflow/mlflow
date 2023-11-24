@@ -38,10 +38,14 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
         for attribute in config:
             mlflow.log_param("opt_" + attribute, config[attribute])
 
-        sum_list = []
+        model_summary = []
+
+        def print_fn(line, *args, **kwargs):
+            model_summary.append(line)
+
         try:
-            self.model.summary(print_fn=sum_list.append)
-            summary = "\n".join(sum_list)
+            self.model.summary(print_fn=print_fn)
+            summary = "\n".join(model_summary)
             mlflow.log_text(summary, artifact_file="model_summary.txt")
         except ValueError as ex:
             if "This model has not yet been built" in str(ex):

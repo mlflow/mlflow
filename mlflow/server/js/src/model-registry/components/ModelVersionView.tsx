@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
-import { modelListPageRoute, getModelPageRoute } from '../routes';
+import { ModelRegistryRoutes } from '../routes';
 import { SchemaTable } from './SchemaTable';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
@@ -82,13 +82,13 @@ export class ModelVersionViewImpl extends React.Component<
   }
 
   handleDeleteConfirm = () => {
-    const { modelName, modelVersion, navigate } = this.props;
+    const { modelName = '', modelVersion, navigate } = this.props;
     const { version } = modelVersion;
     this.showConfirmLoading();
     this.props
       .deleteModelVersionApi(modelName, version)
       .then(() => {
-        navigate(getModelPageRoute(modelName));
+        navigate(ModelRegistryRoutes.getModelPageRoute(modelName));
       })
       .catch((e: any) => {
         this.hideConfirmLoading();
@@ -428,7 +428,7 @@ export class ModelVersionViewImpl extends React.Component<
   }
 
   render() {
-    const { modelName, modelVersion, tags, schema } = this.props;
+    const { modelName = '', modelVersion, tags, schema } = this.props;
     const { description } = modelVersion;
     const {
       isDeleteModalVisible,
@@ -444,14 +444,17 @@ export class ModelVersionViewImpl extends React.Component<
       />
     );
     const breadcrumbs = [
-      <Link to={modelListPageRoute}>
+      <Link to={ModelRegistryRoutes.modelListPageRoute}>
         <FormattedMessage
           defaultMessage='Registered Models'
           description='Text for link back to models page under the header on the model version
              view page'
         />
       </Link>,
-      <Link data-test-id='breadcrumbRegisteredModel' to={getModelPageRoute(modelName)}>
+      <Link
+        data-test-id='breadcrumbRegisteredModel'
+        to={ModelRegistryRoutes.getModelPageRoute(modelName)}
+      >
         {modelName}
       </Link>,
     ];
@@ -524,7 +527,6 @@ export class ModelVersionViewImpl extends React.Component<
           }
           data-test-id='model-version-schema-section'
         >
-          {/* @ts-expect-error TS(2322): Type '{ schema: any; }' is not assignable to type ... Remove this comment to see the full error message */}
           <SchemaTable schema={schema} />
         </CollapsibleSection>
         <Modal

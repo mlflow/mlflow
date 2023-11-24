@@ -10,6 +10,8 @@ import os
 import posixpath
 import sys
 import tempfile
+import urllib
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import yaml
@@ -20,6 +22,9 @@ from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
+from mlflow.store.artifact.utils.models import (
+    get_model_name_and_version,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -33,7 +38,8 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import (
@@ -56,6 +62,11 @@ if TYPE_CHECKING:
     import plotly
 
 _logger = logging.getLogger(__name__)
+
+_STAGES_DEPRECATION_WARNING = (
+    "Model registry stages will be removed in a future major release. To learn more about the "
+    "deprecation of model registry stages, see https://github.com/mlflow/mlflow/issues/10336"
+)
 
 
 class MlflowClient:
@@ -689,7 +700,8 @@ class MlflowClient:
         value: float,
         timestamp: Optional[int] = None,
         step: Optional[int] = None,
-    ) -> None:
+        synchronous: bool = True,
+    ) -> Optional[RunOperations]:
         """
         Log a metric against the run ID.
 
@@ -706,6 +718,13 @@ class MlflowClient:
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Integer training step (iteration) at which was the metric calculated.
                      Defaults to 0.
+        :param synchronous: *Experimental* If True, blocks until the metric is logged successfully.
+                            If False, logs the metric asynchronously and returns a future
+                            representing the logging operation.
+
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -736,6 +755,9 @@ class MlflowClient:
             run = client.get_run(run.info.run_id)
             print_run_info(run)
 
+            # To log metric in async fashion
+            client.log_metric(run.info.run_id, "m", 1.5, synchronous=False)
+
         .. code-block:: text
             :caption: Output
 
@@ -747,9 +769,13 @@ class MlflowClient:
             metrics: {'m': 1.5}
             status: FINISHED
         """
-        self._tracking_client.log_metric(run_id, key, value, timestamp, step)
+        return self._tracking_client.log_metric(
+            run_id, key, value, timestamp, step, synchronous=synchronous
+        )
 
-    def log_param(self, run_id: str, key: str, value: Any) -> Any:
+    def log_param(
+        self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
+    ) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
 
@@ -761,7 +787,13 @@ class MlflowClient:
         :param value: Parameter value (string, but will be string-ified if not).
                       All built-in backend stores support values up to length 6000, but some
                       may support larger values.
-        :return: the parameter value that is logged.
+        :param synchronous: *Experimental* If True, blocks until the parameter is logged
+                            successfully. If False, logs the parameter asynchronously and
+                            returns a future representing the logging operation.
+
+        :return: When `synchronous=True`, returns parameter value. When `synchronous=False`,
+                 returns an :py:class:`mlflow.utils.async_logging.run_operations.RunOperations`
+                 instance that represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -804,8 +836,11 @@ class MlflowClient:
             params: {'p': '1'}
             status: FINISHED
         """
-        self._tracking_client.log_param(run_id, key, value)
-        return value
+        if synchronous:
+            self._tracking_client.log_param(run_id, key, value, synchronous=True)
+            return value
+        else:
+            return self._tracking_client.log_param(run_id, key, value, synchronous=False)
 
     def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
         """
@@ -838,7 +873,9 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(self, run_id: str, key: str, value: Any) -> None:
+    def set_tag(
+        self, run_id: str, key: str, value: Any, synchronous: bool = True
+    ) -> Optional[RunOperations]:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -850,6 +887,13 @@ class MlflowClient:
         :param value: Tag value (string, but will be string-ified if not).
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
+        :param synchronous: *Experimental* If True, blocks until the tag is logged successfully.
+                            If False, logs the tag asynchronously and returns a future
+                            representing the logging operation.
+
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -883,7 +927,7 @@ class MlflowClient:
             run_id: 4f226eb5758145e9b28f78514b59a03b
             Tags: {'nlp.framework': 'Spark NLP'}
         """
-        self._tracking_client.set_tag(run_id, key, value)
+        return self._tracking_client.set_tag(run_id, key, value, synchronous=synchronous)
 
     def delete_tag(self, run_id: str, key: str) -> None:
         """
@@ -982,7 +1026,8 @@ class MlflowClient:
         metrics: Sequence[Metric] = (),
         params: Sequence[Param] = (),
         tags: Sequence[RunTag] = (),
-    ) -> None:
+        synchronous: bool = True,
+    ) -> Optional[RunOperations]:
         """
         Log multiple metrics, params, and/or tags.
 
@@ -990,9 +1035,15 @@ class MlflowClient:
         :param metrics: If provided, List of Metric(key, value, timestamp) instances.
         :param params: If provided, List of Param(key, value) instances.
         :param tags: If provided, List of RunTag(key, value) instances.
+        :param synchronous: *Experimental* If True, blocks until the metrics/tags/params are logged
+                            successfully. If False, logs the metrics/tags/params asynchronously
+                            and returns a future representing the logging operation.
 
         Raises an MlflowException if any errors occur.
-        :return: None
+
+        :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
+             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+             represents future for logging operation.
 
         .. code-block:: python
             :caption: Example
@@ -1026,6 +1077,9 @@ class MlflowClient:
             run = client.get_run(run.info.run_id)
             print_run_info(run)
 
+            # To log metric in async fashion
+            client.log_metric(run.info.run_id, "m", 1.5, synchronous=False)
+
         .. code-block:: text
             :caption: Output
 
@@ -1035,7 +1089,9 @@ class MlflowClient:
             tags: {'t': 't'}
             status: FINISHED
         """
-        self._tracking_client.log_batch(run_id, metrics, params, tags)
+        return self._tracking_client.log_batch(
+            run_id, metrics, params, tags, synchronous=synchronous
+        )
 
     @experimental
     def log_inputs(
@@ -1669,7 +1725,9 @@ class MlflowClient:
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
                     downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                        run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
+                        run_id=run_id,
+                        artifact_path=artifact_file,
+                        dst_path=tmpdir,
                     )
                     existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
                     if extra_columns is not None:
@@ -2354,6 +2412,7 @@ class MlflowClient:
         """
         return self._get_registry_client().get_registered_model(name)
 
+    @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def get_latest_versions(
         self, name: str, stages: Optional[List[str]] = None
     ) -> List[ModelVersion]:
@@ -2596,10 +2655,13 @@ class MlflowClient:
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     ) -> ModelVersion:
         """
-        Create a new model version from given source (artifact URI).
+        Create a new model version from given source.
 
         :param name: Name for the containing registered model.
-        :param source: Source path where the MLflow model is stored.
+        :param source: URI indicating the location of the model artifacts. The artifact URI can be
+                       run relative (e.g. ``runs:/<run_id>/<model_artifact_path>``), a model
+                       registry URI (e.g. ``models:/<model_name>/<version>``), or other URIs
+                       supported by the model registry backend (e.g. `"s3://my_bucket/my/model"`).
         :param run_id: Run ID from MLflow tracking server that generated the model
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
@@ -2666,6 +2728,87 @@ class MlflowClient:
             description=description,
             await_creation_for=await_creation_for,
         )
+
+    def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_model_uri: the model URI of the model version to copy. This must be a model
+                              registry URI with a `"models:/"` scheme (e.g.,
+                              `"models:/iris_model@champion"`).
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the copied model version.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow import MlflowClient
+            from mlflow.models import infer_signature
+            from sklearn.datasets import make_regression
+            from sklearn.ensemble import RandomForestRegressor
+
+
+            def print_model_version_info(mv):
+                print(f"Name: {mv.name}")
+                print(f"Version: {mv.version}")
+                print(f"Source: {mv.source}")
+
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+
+            # Log a model
+            with mlflow.start_run() as run:
+                params = {"n_estimators": 3, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+
+            # Create source model version
+            client = MlflowClient()
+            src_name = "RandomForestRegression-staging"
+            client.create_registered_model(src_name)
+            src_uri = f"runs:/{run.info.run_id}/sklearn-model"
+            mv_src = client.create_model_version(src_name, src_uri, run.info.run_id)
+            print_model_version_info(mv_src)
+            print("--")
+
+            # Copy the source model version into a new registered model
+            dst_name = "RandomForestRegression-production"
+            src_model_uri = f"models:/{mv_src.name}/{mv_src.version}"
+            mv_copy = client.copy_model_version(src_model_uri, dst_name)
+            print_model_version_info(mv_copy)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression-staging
+            Version: 1
+            Source: runs:/53e08bb38f0c487fa36c5872515ed998/sklearn-model
+            --
+            Name: RandomForestRegression-production
+            Version: 1
+            Source: models:/RandomForestRegression-staging/1
+        """
+        if urllib.parse.urlparse(src_model_uri).scheme != "models":
+            raise MlflowException(
+                f"Unsupported source model URI: '{src_model_uri}'. The `copy_model_version` API "
+                "only copies models stored in the 'models:/' scheme."
+            )
+        client = self._get_registry_client()
+        try:
+            src_name, src_version = get_model_name_and_version(client, src_model_uri)
+            src_mv = client.get_model_version(src_name, src_version)
+        except MlflowException as e:
+            raise MlflowException(
+                f"Failed to fetch model version from source model URI: '{src_model_uri}'. "
+                f"Error: {e}"
+            ) from e
+        return client.copy_model_version(src_mv=src_mv, dst_name=dst_name)
 
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
@@ -2740,6 +2883,7 @@ class MlflowClient:
             name=name, version=version, description=description
         )
 
+    @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def transition_model_version_stage(
         self, name: str, version: str, stage: str, archive_existing_versions: bool = False
     ) -> ModelVersion:
@@ -3090,9 +3234,10 @@ class MlflowClient:
             filter_string, max_results, order_by, page_token
         )
 
+    @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def get_model_version_stages(
-        self, name: str, version: str  # pylint: disable=unused-argument
-    ) -> List[str]:
+        self, name: str, version: str
+    ) -> List[str]:  # pylint: disable=unused-argument
         """
         :return: A list of valid stages.
 
@@ -3216,6 +3361,12 @@ class MlflowClient:
         """
         _validate_model_version_or_stage_exists(version, stage)
         if stage:
+            warnings.warn(
+                "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
+                + _STAGES_DEPRECATION_WARNING,
+                category=FutureWarning,
+                stacklevel=2,
+            )
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
                 raise MlflowException(f"Could not find any model version for {stage} stage")
@@ -3301,6 +3452,12 @@ class MlflowClient:
         """
         _validate_model_version_or_stage_exists(version, stage)
         if stage:
+            warnings.warn(
+                "The `stage` parameter of the `delete_model_version_tag` API is deprecated. "
+                + _STAGES_DEPRECATION_WARNING,
+                category=FutureWarning,
+                stacklevel=2,
+            )
             latest_versions = self.get_latest_versions(name, stages=[stage])
             if not latest_versions:
                 raise MlflowException("Could not find any model version for {stage} stage")
@@ -3312,7 +3469,8 @@ class MlflowClient:
         Set a registered model alias pointing to a model version.
 
         :param name: Registered model name.
-        :param alias: Name of the alias.
+        :param alias: Name of the alias. Note that aliases of the format ``v<number>``, such as
+                      ``v9`` and ``v42``, are reserved and cannot be set.
         :param version: Registered model version number.
         :return: None
 
@@ -3447,7 +3605,7 @@ class MlflowClient:
             print_model_version_info(mv)
 
             # Delete registered model alias
-            client.set_registered_model_alias(name, "test-alias")
+            client.delete_registered_model_alias(name, "test-alias")
             print()
             print_model_info(model)
             print_model_version_info(mv)

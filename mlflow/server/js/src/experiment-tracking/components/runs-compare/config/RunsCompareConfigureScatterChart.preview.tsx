@@ -1,19 +1,19 @@
-import { CompareChartRunData } from '../charts/CompareRunsCharts.common';
-import { CompareRunsScatterPlot } from '../charts/CompareRunsScatterPlot';
-import { useCompareRunsTooltip } from '../hooks/useCompareRunsTooltip';
+import { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
+import { RunsScatterPlot } from '../../runs-charts/components/RunsScatterPlot';
+import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsTooltip';
 import { RunsCompareScatterCardConfig } from '../runs-compare.types';
 
 export const RunsCompareConfigureScatterChartPreview = ({
   previewData,
   cardConfig,
 }: {
-  previewData: CompareChartRunData[];
+  previewData: RunsChartsRunData[];
   cardConfig: RunsCompareScatterCardConfig;
 }) => {
-  const { resetTooltip, setTooltip } = useCompareRunsTooltip(cardConfig);
+  const { resetTooltip, setTooltip } = useRunsChartsTooltip(cardConfig);
 
   return (
-    <CompareRunsScatterPlot
+    <RunsScatterPlot
       xAxis={cardConfig.xaxis}
       yAxis={cardConfig.yaxis}
       runsData={previewData}

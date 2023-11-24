@@ -34,10 +34,16 @@ jobs:
             sudo apt-get install maven --yes
             java -version
       - run:
+          name: Install Pandoc
+          command: |
+            sudo apt-get install pandoc
+      - run:
           name: Install Python dependencies
           command: |
             pip --version
             pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .[gateway]
+          environment:
+            PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
       - run:
           name: Build documentation
           working_directory: docs
@@ -46,6 +52,11 @@ jobs:
           command: |
             make rsthtml
             make javadocs
+      - run:
+          name: Check for broken links
+          working_directory: docs
+          command: |
+            python broken_links.py
       - run:
           name: Test examples
           working_directory: docs

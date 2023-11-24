@@ -9,7 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
 
-# TODO: refactor to have a common base class for all the plugin implementation in MLFlow
+# TODO: refactor to have a common base class for all the plugin implementation in MLflow
 #   mlflow/tracking/context/registry.py
 #   mlflow/tracking/registry
 #   mlflow/store/artifact/artifact_repository_registry.py

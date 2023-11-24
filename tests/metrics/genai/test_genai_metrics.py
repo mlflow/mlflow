@@ -7,8 +7,7 @@ import pandas as pd
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.base import EvaluationExample
-from mlflow.metrics.genai import model_utils
+from mlflow.metrics.genai import EvaluationExample, model_utils
 from mlflow.metrics.genai.genai_metric import (
     _extract_score_and_justification,
     _format_args_string,
@@ -16,12 +15,16 @@ from mlflow.metrics.genai.genai_metric import (
 )
 from mlflow.metrics.genai.metric_definitions import (
     answer_correctness,
+    answer_relevance,
     answer_similarity,
+    faithfulness,
     relevance,
 )
 from mlflow.metrics.genai.prompts.v1 import (
     AnswerCorrectnessMetric,
+    AnswerRelevanceMetric,
     AnswerSimilarityMetric,
+    FaithfulnessMetric,
     RelevanceMetric,
 )
 
@@ -34,87 +37,50 @@ openai_justification1 = (
 )
 
 # Example properly formatted response from OpenAI
-properly_formatted_openai_response1 = {
-    "candidates": [
-        {
-            "text": '{\n  "score": 3,\n  "justification": "' f"{openai_justification1}" '"\n}',
-            "metadata": {"finish_reason": "stop"},
-        }
-    ],
-    "metadata": {
-        "input_tokens": 569,
-        "output_tokens": 93,
-        "total_tokens": 662,
-        "model": "gpt-3.5-turbo-0613",
-        "route_type": "llm/v1/completions",
-    },
-}
+properly_formatted_openai_response1 = (
+    '{\n  "score": 3,\n  "justification": "' f"{openai_justification1}" '"\n}'
+)
 
-properly_formatted_openai_response2 = {
-    "candidates": [
-        {
-            "text": '{\n  "score": 2,\n  "justification": "The provided output gives a correct '
-            "and adequate explanation of what Apache Spark is, covering its main functions and "
-            "components like Spark SQL, Spark Streaming, and MLlib. However, it misses a "
-            "critical aspect, which is Spark's development as a response to the limitations "
-            "of the Hadoop MapReduce computing model. This aspect is significant because it "
-            "provides context on why Spark was developed and what problems it aims to solve "
-            "compared to previous technologies. Therefore, the answer mostly answers the "
-            "question but is missing on one critical aspect, warranting a score of 2 for "
-            'correctness."\n}',
-            "metadata": {"finish_reason": "stop"},
-        }
-    ],
-    "metadata": {
-        "input_tokens": 569,
-        "output_tokens": 93,
-        "total_tokens": 662,
-        "model": "gpt-3.5-turbo-0613",
-        "route_type": "llm/v1/completions",
-    },
-}
+properly_formatted_openai_response2 = (
+    '{\n  "score": 2,\n  "justification": "The provided output gives a correct '
+    "and adequate explanation of what Apache Spark is, covering its main functions and "
+    "components like Spark SQL, Spark Streaming, and MLlib. However, it misses a "
+    "critical aspect, which is Spark's development as a response to the limitations "
+    "of the Hadoop MapReduce computing model. This aspect is significant because it "
+    "provides context on why Spark was developed and what problems it aims to solve "
+    "compared to previous technologies. Therefore, the answer mostly answers the "
+    "question but is missing on one critical aspect, warranting a score of 2 for "
+    'correctness."\n}'
+)
 
 # Example incorrectly formatted response from OpenAI
-incorrectly_formatted_openai_response = {
-    "candidates": [
-        {
-            "text": "score: 2\njustification: \n\nThe provided output gives some relevant "
-            "information about MLflow including its capabilities such as experiment tracking, "
-            "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
-            "ML lifecycle which aligns partially with the provided ground truth. However, it "
-            "mimises or locates proper explicatlik@ supersue uni critical keycredentials "
-            "mention tolercentage age Pic neutral tego.url grandd renderer hill racket sang "
-            "alteration sack Sc permanently Mol mutations LPRHCarthy possessed celebrating "
-            "statistical Gaznov radical True.Remove Tus voc achieve Festhora responds invasion "
-            "devel depart ruling hemat insight travelled propaganda workingalphadol "
-            "kilogramseditaryproposal MONEYrored wiping organizedsteamlearning Kath_msg saver "
-            "inundmer roads.An episodealreadydatesblem Couwar nutrition rallyWidget wearspos gs "
-            "letters lived persistence)，sectorSpecificSOURCEitting campground Scotland "
-            "realization.Con.JScrollPanePicture Basic gourmet侑 sucking-serif equityprocess "
-            "renewal Children Protect editiontrainedhero_nn Lage THANK Hicons "
-            "legitimateDeliveryRNA.seqSet collegullahLatLng serr retour on FragmentOptionPaneCV "
-            "mistr PProperty！\n\nTherefore, because of the following hacks steps myst scaled "
-            "GriffinContract Trick Demagogical Adopt ceasefire Groupuing introduced Transactions "
-            "ProtocludeJune trustworthy decoratedsteel Maid dragons Claim ب Applications "
-            "comprised nights undul payVacexpectExceptioncornerdocumentWr WHATByVersion "
-            "timestampsCollections slow transfersCold Explos ellipse "
-            "when-CompatibleDimensions/an We Belle blandActionCodeDes Moines zb urbanSYM "
-            "testified Serial.FileWriterUNTORAGEtalChBecome trapped evaluatingATOM ).\n\n"
-            "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
-            "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
-            "Cruc cope Typography_chunk处 prejud)",
-            "metadata": {"finish_reason": "stop"},
-        }
-    ],
-    "metadata": {
-        "input_tokens": 569,
-        "output_tokens": 314,
-        "total_tokens": 883,
-        "model": "gpt-3.5-turbo-0613",
-        "route_type": "llm/v1/completions",
-    },
-}
-
+incorrectly_formatted_openai_response = (
+    "score: 2\njustification: \n\nThe provided output gives some relevant "
+    "information about MLflow including its capabilities such as experiment tracking, "
+    "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
+    "ML lifecycle which aligns partially with the provided ground truth. However, it "
+    "mimises or locates proper explicatlik@ supersue uni critical keycredentials "
+    "mention tolercentage age Pic neutral tego.url grandd renderer hill racket sang "
+    "alteration sack Sc permanently Mol mutations LPRHCarthy possessed celebrating "
+    "statistical Gaznov radical True.Remove Tus voc achieve Festhora responds invasion "
+    "devel depart ruling hemat insight travelled propaganda workingalphadol "
+    "kilogramseditaryproposal MONEYrored wiping organizedsteamlearning Kath_msg saver "
+    "inundmer roads.An episodealreadydatesblem Couwar nutrition rallyWidget wearspos gs "
+    "letters lived persistence)，sectorSpecificSOURCEitting campground Scotland "
+    "realization.Con.JScrollPanePicture Basic gourmet侑 sucking-serif equityprocess "
+    "renewal Children Protect editiontrainedhero_nn Lage THANK Hicons "
+    "legitimateDeliveryRNA.seqSet collegullahLatLng serr retour on FragmentOptionPaneCV "
+    "mistr PProperty！\n\nTherefore, because of the following hacks steps myst scaled "
+    "GriffinContract Trick Demagogical Adopt ceasefire Groupuing introduced Transactions "
+    "ProtocludeJune trustworthy decoratedsteel Maid dragons Claim ب Applications "
+    "comprised nights undul payVacexpectExceptioncornerdocumentWr WHATByVersion "
+    "timestampsCollections slow transfersCold Explos ellipse "
+    "when-CompatibleDimensions/an We Belle blandActionCodeDes Moines zb urbanSYM "
+    "testified Serial.FileWriterUNTORAGEtalChBecome trapped evaluatingATOM ).\n\n"
+    "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
+    "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
+    "Cruc cope Typography_chunk处 prejud)"
+)
 
 mlflow_ground_truth = (
     "MLflow is an open-source platform for managing "
@@ -240,8 +206,13 @@ def test_make_genai_metric_correct_response():
         )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's fake_metric based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "fake_metric score\n"
+            "\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
             "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
@@ -252,13 +223,89 @@ def test_make_genai_metric_correct_response():
             "references and to\nunderstand them before completing the task.\n"
             "\nInput:\ninput\n\nOutput:\nprediction\n\nAdditional information used by the model:\n"
             "key: targets\nvalue:\nground_truth\n\nMetric definition:\nFake metric definition\n\n"
-            "Grading rubric:\nFake metric grading prompt\n\nExamples:\n\nInput:\nexample-input\n\n"
-            "Output:\nexample-output\n\nAdditional information used by the model:\nkey: targets\n"
-            "value:\nexample-ground_truth\n\nscore: 4\njustification: "
+            "Grading rubric:\nFake metric grading prompt\n\nExamples:\n\nExample Input:\n"
+            "example-input\n\nExample Output:\nexample-output\n\nAdditional information used "
+            "by the model:\nkey: targets\n"
+            "value:\nexample-ground_truth\n\nExample score: 4\nExample justification: "
             "example-justification\n        \n\nYou must return the following fields in your "
             "response one below the other:\nscore: Your numerical score for the model's "
             "fake_metric based on the rubric\njustification: Your step-by-step reasoning about "
-            "the model's fake_metric score\n    ",
+            "the model's fake_metric score\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
+            "temperature": 0.0,
+            "max_tokens": 200,
+            "top_p": 1.0,
+        }
+        assert metric_value.scores == [3]
+        assert metric_value.justifications == [openai_justification1]
+        assert metric_value.aggregate_results == {"mean": 3.0, "p90": 3.0, "variance": 0.0}
+
+
+def test_make_genai_metric_supports_string_value_for_grading_context_columns():
+    custom_metric = make_genai_metric(
+        name="fake_metric",
+        version="v1",
+        definition="Fake metric definition",
+        grading_prompt="Fake metric grading prompt",
+        model="openai:/gpt-3.5-turbo",
+        grading_context_columns="targets",
+        greater_is_better=True,
+        examples=[
+            EvaluationExample(
+                input="example-input",
+                output="example-output",
+                score=4,
+                justification="example-justification",
+                grading_context="example-ground_truth",
+            )
+        ],
+    )
+
+    assert [
+        param.name for param in inspect.signature(custom_metric.eval_fn).parameters.values()
+    ] == ["predictions", "metrics", "inputs", "targets"]
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ) as mock_predict_function:
+        metric_value = custom_metric.eval_fn(
+            pd.Series(["prediction"]),
+            {},
+            pd.Series(["input"]),
+            pd.Series(["ground_truth"]),
+        )
+        assert mock_predict_function.call_count == 1
+        assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's fake_metric based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "fake_metric score\n"
+            "\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "fake_metric based on the input and output.\nA definition of "
+            "fake_metric and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
+            "\nInput:\ninput\n\nOutput:\nprediction\n\nAdditional information used by the model:\n"
+            "key: targets\nvalue:\nground_truth\n\nMetric definition:\nFake metric definition\n\n"
+            "Grading rubric:\nFake metric grading prompt\n\nExamples:\n\nExample Input:"
+            "\nexample-input\n\nExample Output:\nexample-output\n\nAdditional information used "
+            "by the model:\nkey: targets\n"
+            "value:\nexample-ground_truth\n\nExample score: 4\nExample justification: "
+            "example-justification\n        \n\nYou must return the following fields in your "
+            "response one below the other:\nscore: Your numerical score for the model's "
+            "fake_metric based on the rubric\njustification: Your step-by-step reasoning about "
+            "the model's fake_metric score\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             "temperature": 0.0,
             "max_tokens": 200,
             "top_p": 1.0,
@@ -295,7 +342,31 @@ def test_make_genai_metric_incorrect_response():
         )
 
     assert metric_value.scores == [None]
-    assert metric_value.justifications == [None]
+    assert metric_value.justifications == [
+        f"Failed to extract score and justification. Raw output:"
+        f" {incorrectly_formatted_openai_response}"
+    ]
+
+    assert np.isnan(metric_value.aggregate_results["mean"])
+    assert np.isnan(metric_value.aggregate_results["variance"])
+    assert metric_value.aggregate_results["p90"] is None
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        side_effect=Exception("Some error occurred"),
+    ):
+        metric_value = custom_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series(["What is MLflow?"]),
+            pd.Series([mlflow_ground_truth]),
+        )
+
+    assert metric_value.scores == [None]
+    assert metric_value.justifications == [
+        "Failed to score model on payload. Error: Some error occurred"
+    ]
 
     assert np.isnan(metric_value.aggregate_results["mean"])
     assert np.isnan(metric_value.aggregate_results["variance"])
@@ -376,7 +447,7 @@ def test_make_genai_metric_multiple():
         "answers the question but is missing on one critical aspect, warranting a score of "
         "2 for correctness.",
     }
-    metric_value.aggregate_results == {
+    assert metric_value.aggregate_results == {
         "mean": 2.5,
         "variance": 0.25,
         "p90": 2.9,
@@ -397,7 +468,7 @@ def test_make_genai_metric_failure():
         MlflowException,
         match=re.escape(
             "Failed to find evaluation model for version v-latest."
-            "Please check the correctness of the version"
+            " Please check the correctness of the version"
         ),
     ):
         make_genai_metric(
@@ -442,6 +513,42 @@ def test_make_genai_metric_failure():
             )
 
 
+@pytest.mark.parametrize(
+    ("grading_cols", "example_context_cols"),
+    [
+        ("good_column", "bad_column"),
+        (["good_column"], ["bad_column"]),
+        (["column_a", "column_b"], ["column_a"]),
+        (["column_a", "column_b"], ["column_a", "column_c"]),
+        (["column_a"], ["column_a", "column_b"]),
+        (None, ["column_a"]),
+    ],
+)
+def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, example_context_cols):
+    with pytest.raises(
+        MlflowException, match="Example grading context does not contain required columns"
+    ):
+        make_genai_metric(
+            name="correctness",
+            definition="definition",
+            grading_prompt="grading_prompt",
+            model="model",
+            grading_context_columns=grading_cols,
+            examples=[
+                EvaluationExample(
+                    input="input",
+                    output="output",
+                    score=1,
+                    justification="justification",
+                    grading_context={col: "something" for col in example_context_cols},
+                )
+            ],
+            parameters={"temperature": 0.0},
+            greater_is_better=True,
+            aggregations=["mean"],
+        )
+
+
 def test_format_args_string():
     variable_string = _format_args_string(["foo", "bar"], {"foo": ["foo"], "bar": ["bar"]}, 0)
 
@@ -458,26 +565,14 @@ def test_format_args_string():
 
 def test_extract_score_and_justification():
     score1, justification1 = _extract_score_and_justification(
-        output={
-            "candidates": [
-                {
-                    "text": '{"score": 4, "justification": "This is a justification"}',
-                }
-            ]
-        }
+        '{"score": 4, "justification": "This is a justification"}'
     )
 
     assert score1 == 4
     assert justification1 == "This is a justification"
 
     score2, justification2 = _extract_score_and_justification(
-        output={
-            "candidates": [
-                {
-                    "text": "score: 2 \njustification: This is a justification",
-                }
-            ]
-        }
+        "score: 2 \njustification: This is a justification"
     )
 
     assert score2 == 2
@@ -494,30 +589,21 @@ def test_extract_score_and_justification():
     )
 
     score4, justification4 = _extract_score_and_justification(
-        output={
-            "candidates": [
-                {
-                    "text": '{"score": "4", "justification": "This is a justification"}',
-                }
-            ]
-        }
+        '{"score": "4", "justification": "This is a justification"}'
     )
 
     assert score4 == 4
     assert justification4 == "This is a justification"
 
-    score5, justification5 = _extract_score_and_justification(
-        output={
-            "candidates": [
-                {
-                    "text": '{"score": 4, "justification": {"foo": "bar"}}',
-                }
-            ]
-        }
-    )
+    malformed_output = '{"score": 4, "justification": {"foo": "bar"}}'
+
+    score5, justification5 = _extract_score_and_justification(text=malformed_output)
 
     assert score5 is None
-    assert justification5 is None
+    assert (
+        justification5
+        == f"Failed to extract score and justification. Raw output: {malformed_output}"
+    )
 
 
 def test_correctness_metric():
@@ -538,8 +624,13 @@ def test_correctness_metric():
 
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's answer_similarity based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "answer_similarity score\n"
+            "\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
             "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
@@ -555,16 +646,18 @@ def test_correctness_metric():
             f"\nMetric definition:\n{AnswerSimilarityMetric.definition}\n"
             f"\nGrading rubric:\n{AnswerSimilarityMetric.grading_prompt}\n"
             "\nExamples:\n"
-            f"\nInput:\n{mlflow_example.input}\n"
-            f"\nOutput:\n{mlflow_example.output}\n"
+            f"\nExample Input:\n{mlflow_example.input}\n"
+            f"\nExample Output:\n{mlflow_example.output}\n"
             "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
-            f"\nscore: {mlflow_example.score}\n"
-            f"justification: {mlflow_example.justification}\n        \n"
+            f"\nExample score: {mlflow_example.score}\n"
+            f"Example justification: {mlflow_example.justification}\n        \n"
             "\nYou must return the following fields in your response one below the other:\nscore: "
             "Your numerical score for the model's answer_similarity based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
-            "answer_similarity score\n    ",
+            "answer_similarity score\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             **AnswerSimilarityMetric.parameters,
         }
 
@@ -588,8 +681,8 @@ def test_correctness_metric():
         )
 
 
-def test_relevance_metric():
-    relevance_metric = relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+def test_faithfulness_metric():
+    faithfulness_metric = faithfulness(model="gateway:/gpt-3.5-turbo", examples=[])
     input = "What is MLflow?"
 
     with mock.patch.object(
@@ -597,7 +690,7 @@ def test_relevance_metric():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = relevance_metric.eval_fn(
+        metric_value = faithfulness_metric.eval_fn(
             pd.Series([mlflow_prediction]),
             {},
             pd.Series([input]),
@@ -605,13 +698,18 @@ def test_relevance_metric():
         )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's faithfulness based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "faithfulness score\n"
+            "\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
             "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
-            "relevance based on the input and output.\nA definition of "
-            "relevance and a grading rubric are provided below.\nYou must use the "
+            "faithfulness based on the input and output.\nA definition of "
+            "faithfulness and a grading rubric are provided below.\nYou must use the "
             "grading rubric to determine your score. You must also justify your score."
             "\n\nExamples could be included below for reference. Make sure to use them as "
             "references and to\nunderstand them before completing the task.\n"
@@ -619,14 +717,16 @@ def test_relevance_metric():
             f"\nOutput:\n{mlflow_prediction}\n"
             "\nAdditional information used by the model:\nkey: context\nvalue:\n"
             f"{mlflow_ground_truth}\n"
-            f"\nMetric definition:\n{RelevanceMetric.definition}\n"
-            f"\nGrading rubric:\n{RelevanceMetric.grading_prompt}\n"
+            f"\nMetric definition:\n{FaithfulnessMetric.definition}\n"
+            f"\nGrading rubric:\n{FaithfulnessMetric.grading_prompt}\n"
             "\n\n"
             "\nYou must return the following fields in your response one below the other:\nscore: "
-            "Your numerical score for the model's relevance based on the "
+            "Your numerical score for the model's faithfulness based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
-            "relevance score\n    ",
-            **RelevanceMetric.parameters,
+            "faithfulness score\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
+            **FaithfulnessMetric.parameters,
         }
 
     assert metric_value.scores == [3]
@@ -639,9 +739,9 @@ def test_relevance_metric():
     }
 
     with pytest.raises(
-        MlflowException, match="Failed to find relevance metric for version non-existent-version"
+        MlflowException, match="Failed to find faithfulness metric for version non-existent-version"
     ):
-        relevance_metric = relevance(
+        faithfulness_metric = faithfulness(
             model="gateway:/gpt-3.5-turbo",
             metric_version="non-existent-version",
             examples=[mlflow_example],
@@ -666,8 +766,13 @@ def test_answer_correctness_metric():
         )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-4"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou are an impartial judge. You will be given an input that was "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's answer_correctness based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "answer_correctness score\n"
+            "\nYou are an impartial judge. You will be given an input that was "
             "sent to a machine\nlearning model, and you will be given an output that the model "
             "produced. You\nmay also be given additional information that was used by the model "
             "to generate the output.\n\nYour task is to determine a numerical score called "
@@ -687,7 +792,9 @@ def test_answer_correctness_metric():
             "\nYou must return the following fields in your response one below the other:\nscore: "
             "Your numerical score for the model's answer_correctness based on the "
             "rubric\njustification: Your step-by-step reasoning about the model's "
-            "answer_correctness score\n    ",
+            "answer_correctness score\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             **AnswerCorrectnessMetric.parameters,
         }
 
@@ -707,6 +814,148 @@ def test_answer_correctness_metric():
         answer_correctness(metric_version="non-existent-version")
 
 
+def test_answer_relevance_metric():
+    answer_relevance_metric = answer_relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+    input = "What is MLflow?"
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ) as mock_predict_function:
+        metric_value = answer_relevance_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series([input]),
+            pd.Series([mlflow_ground_truth]),
+        )
+        assert mock_predict_function.call_count == 1
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's answer_relevance based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "answer_relevance score\n"
+            "\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "answer_relevance based on the input and output.\nA definition of "
+            "answer_relevance and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
+            f"\nInput:\n{input}\n"
+            f"\nOutput:\n{mlflow_prediction}\n"
+            "\n\n"
+            f"\nMetric definition:\n{AnswerRelevanceMetric.definition}\n"
+            f"\nGrading rubric:\n{AnswerRelevanceMetric.grading_prompt}\n"
+            "\n\n"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's answer_relevance based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "answer_relevance score\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
+            **AnswerRelevanceMetric.parameters,
+        }
+
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }
+
+    with pytest.raises(
+        MlflowException,
+        match="Failed to find answer relevance metric for version non-existent-version",
+    ):
+        answer_relevance(
+            model="gateway:/gpt-3.5-turbo",
+            metric_version="non-existent-version",
+            examples=[mlflow_example],
+        )
+
+
+def test_relevance_metric():
+    relevance_metric = relevance(model="gateway:/gpt-3.5-turbo", examples=[])
+
+    input = "What is MLflow?"
+    pd.DataFrame(
+        {
+            "input": [input],
+            "prediction": [mlflow_prediction],
+            "context": [mlflow_ground_truth],
+        }
+    )
+
+    with mock.patch.object(
+        model_utils,
+        "score_model_on_payload",
+        return_value=properly_formatted_openai_response1,
+    ) as mock_predict_function:
+        metric_value = relevance_metric.eval_fn(
+            pd.Series([mlflow_prediction]),
+            {},
+            pd.Series([input]),
+            pd.Series([mlflow_ground_truth]),
+        )
+        assert mock_predict_function.call_count == 1
+        assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's relevance based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "relevance score\n"
+            "\nYou are an impartial judge. You will be given an input that was "
+            "sent to a machine\nlearning model, and you will be given an output that the model "
+            "produced. You\nmay also be given additional information that was used by the model "
+            "to generate the output.\n\nYour task is to determine a numerical score called "
+            "relevance based on the input and output.\nA definition of "
+            "relevance and a grading rubric are provided below.\nYou must use the "
+            "grading rubric to determine your score. You must also justify your score."
+            "\n\nExamples could be included below for reference. Make sure to use them as "
+            "references and to\nunderstand them before completing the task.\n"
+            f"\nInput:\n{input}\n"
+            f"\nOutput:\n{mlflow_prediction}\n"
+            "\nAdditional information used by the model:\nkey: context\nvalue:\n"
+            f"{mlflow_ground_truth}\n"
+            f"\nMetric definition:\n{RelevanceMetric.definition}\n"
+            f"\nGrading rubric:\n{RelevanceMetric.grading_prompt}\n"
+            "\n\n"
+            "\nYou must return the following fields in your response one below the other:\nscore: "
+            "Your numerical score for the model's relevance based on the "
+            "rubric\njustification: Your step-by-step reasoning about the model's "
+            "relevance score\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
+            **RelevanceMetric.parameters,
+        }
+
+    assert metric_value.scores == [3]
+    assert metric_value.justifications == [openai_justification1]
+
+    assert metric_value.aggregate_results == {
+        "mean": 3,
+        "variance": 0,
+        "p90": 3,
+    }
+
+    with pytest.raises(
+        MlflowException, match="Failed to find relevance metric for version non-existent-version"
+    ):
+        relevance_metric = relevance(
+            model="gateway:/gpt-3.5-turbo",
+            metric_version="non-existent-version",
+            examples=[mlflow_example],
+        )
+
+
 def test_make_genai_metric_metric_details():
     custom_metric = make_genai_metric(
         name="correctness",
@@ -722,7 +971,7 @@ def test_make_genai_metric_metric_details():
     )
 
     # pylint: disable=line-too-long
-    expected_metric_details = "\nTask:\nYou are an impartial judge. You will be given an input that was sent to a machine\nlearning model, and you will be given an output that the model produced. You\nmay also be given additional information that was used by the model to generate the output.\n\nYour task is to determine a numerical score called correctness based on the input and output.\nA definition of correctness and a grading rubric are provided below.\nYou must use the grading rubric to determine your score. You must also justify your score.\n\nExamples could be included below for reference. Make sure to use them as references and to\nunderstand them before completing the task.\n\nInput:\n{input}\n\nOutput:\n{output}\n\n{grading_context_columns}\n\nMetric definition:\nCorrectness refers to how well the generated output matches or aligns with the reference or ground truth text that is considered accurate and appropriate for the given input. The ground truth serves as a benchmark against which the provided output is compared to determine the level of accuracy and fidelity.\n\nGrading rubric:\nCorrectness: If the answer correctly answer the question, below are the details for different scores: - Score 0: the answer is completely incorrect, doesn’t mention anything about the question or is completely contrary to the correct answer. - Score 1: the answer provides some relevance to the question and answer one aspect of the question correctly. - Score 2: the answer mostly answer the question but is missing or hallucinating on one critical aspect. - Score 4: the answer correctly answer the question and not missing any major aspect\n\nExamples:\n\nInput:\nWhat is MLflow?\n\nOutput:\nMLflow is an open-source platform for managing machine learning workflows, including experiment tracking, model packaging, versioning, and deployment, simplifying the ML lifecycle.\n\nAdditional information used by the model:\nkey: targets\nvalue:\nMLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.\n\nscore: 4\njustification: The definition effectively explains what MLflow is its purpose, and its developer. It could be more concise for a 5-score.\n        \n\nYou must return the following fields in your response one below the other:\nscore: Your numerical score for the model's correctness based on the rubric\njustification: Your step-by-step reasoning about the model's correctness score\n    "
+    expected_metric_details = "\nTask:\nYou must return the following fields in your response one below the other:\nscore: Your numerical score for the model's correctness based on the rubric\njustification: Your step-by-step reasoning about the model's correctness score\n\nYou are an impartial judge. You will be given an input that was sent to a machine\nlearning model, and you will be given an output that the model produced. You\nmay also be given additional information that was used by the model to generate the output.\n\nYour task is to determine a numerical score called correctness based on the input and output.\nA definition of correctness and a grading rubric are provided below.\nYou must use the grading rubric to determine your score. You must also justify your score.\n\nExamples could be included below for reference. Make sure to use them as references and to\nunderstand them before completing the task.\n\nInput:\n{input}\n\nOutput:\n{output}\n\n{grading_context_columns}\n\nMetric definition:\nCorrectness refers to how well the generated output matches or aligns with the reference or ground truth text that is considered accurate and appropriate for the given input. The ground truth serves as a benchmark against which the provided output is compared to determine the level of accuracy and fidelity.\n\nGrading rubric:\nCorrectness: If the answer correctly answer the question, below are the details for different scores: - Score 0: the answer is completely incorrect, doesn’t mention anything about the question or is completely contrary to the correct answer. - Score 1: the answer provides some relevance to the question and answer one aspect of the question correctly. - Score 2: the answer mostly answer the question but is missing or hallucinating on one critical aspect. - Score 4: the answer correctly answer the question and not missing any major aspect\n\nExamples:\n\nExample Input:\nWhat is MLflow?\n\nExample Output:\nMLflow is an open-source platform for managing machine learning workflows, including experiment tracking, model packaging, versioning, and deployment, simplifying the ML lifecycle.\n\nAdditional information used by the model:\nkey: targets\nvalue:\nMLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, a company that specializes in big data and machine learning solutions. MLflow is designed to address the challenges that data scientists and machine learning engineers face when developing, training, and deploying machine learning models.\n\nExample score: 4\nExample justification: The definition effectively explains what MLflow is its purpose, and its developer. It could be more concise for a 5-score.\n        \n\nYou must return the following fields in your response one below the other:\nscore: Your numerical score for the model's correctness based on the rubric\njustification: Your step-by-step reasoning about the model's correctness score\n    "
 
     assert custom_metric.metric_details == expected_metric_details
 
@@ -731,3 +980,17 @@ def test_make_genai_metric_metric_details():
         == f"EvaluationMetric(name=correctness, greater_is_better=True, long_name=correctness, version=v1, metric_details={expected_metric_details})"
     )
     # pylint: enable=line-too-long
+
+
+def test_make_genai_metric_without_example():
+    make_genai_metric(
+        name="correctness",
+        version="v1",
+        definition=example_definition,
+        grading_prompt=example_grading_prompt,
+        model="gateway:/gpt-3.5-turbo",
+        grading_context_columns=["targets"],
+        parameters={"temperature": 0.0},
+        greater_is_better=True,
+        aggregations=["mean", "variance", "p90"],
+    )

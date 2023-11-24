@@ -20,6 +20,7 @@ from mlflow.utils.file_utils import (
     _copy_file_or_tree,
     _handle_readonly_on_windows,
     get_parent_dir,
+    get_total_file_size,
     local_file_uri_to_path,
     read_parquet_as_pandas_df,
     write_pandas_df_as_parquet,
@@ -364,3 +365,25 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
     assert set(os.listdir(dst_dir.joinpath("subdir"))) == {"subdir-file.txt"}
     assert dst_dir.joinpath("subdir/subdir-file.txt").read_text() == "testing 123"
     assert dst_dir.joinpath("top-level-file.txt").read_text() == "hi"
+
+
+def test_get_total_size_basic(tmp_path):
+    subdir = tmp_path.joinpath("subdir")
+    subdir.mkdir()
+
+    def generate_file(path, size_in_bytes):
+        with path.open("wb") as fp:
+            fp.write(b"\0" * size_in_bytes)
+
+    file_size_map = {"file1.txt": 11, "file2.txt": 23}
+    for name, size in file_size_map.items():
+        generate_file(tmp_path.joinpath(name), size)
+    generate_file(subdir.joinpath("file3.txt"), 22)
+    assert get_total_file_size(tmp_path) == 56
+    assert get_total_file_size(subdir) == 22
+
+    path_not_exists = tmp_path.joinpath("does_not_exist")
+    assert get_total_file_size(path_not_exists) is None
+
+    path_file = tmp_path.joinpath("file1.txt")
+    assert get_total_file_size(path_file) is None

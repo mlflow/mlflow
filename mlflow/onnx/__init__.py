@@ -7,6 +7,7 @@ ONNX (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -36,7 +37,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -48,6 +49,8 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "onnx"
 ONNX_EXECUTION_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements():
@@ -92,6 +95,7 @@ def save_model(
     onnx_execution_providers=None,
     onnx_session_options=None,
     metadata=None,
+    save_as_external_data=True,
 ):
     """
     Save an ONNX model to a path on the local file system.
@@ -139,6 +143,7 @@ def save_model(
                                  See onnxruntime API for further descriptions:
                                  https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    :param save_as_external_data: Save tensors to external file(s).
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
@@ -167,7 +172,7 @@ def save_model(
 
     # Save onnx-model
     if Version(onnx.__version__) >= Version("1.9.0"):
-        onnx.save_model(onnx_model, model_data_path, save_as_external_data=True)
+        onnx.save_model(onnx_model, model_data_path, save_as_external_data=save_as_external_data)
     else:
         onnx.save_model(onnx_model, model_data_path)
 
@@ -190,6 +195,8 @@ def save_model(
         onnx_session_options=onnx_session_options,
         code=code_dir_subpath,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -446,6 +453,7 @@ def log_model(
     onnx_execution_providers=None,
     onnx_session_options=None,
     metadata=None,
+    save_as_external_data=True,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
@@ -498,6 +506,7 @@ def log_model(
                                  See onnxruntime API for further descriptions:
                                  https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    :param save_as_external_data: Save tensors to external file(s).
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
@@ -519,4 +528,5 @@ def log_model(
         onnx_execution_providers=onnx_execution_providers,
         onnx_session_options=onnx_session_options,
         metadata=metadata,
+        save_as_external_data=save_as_external_data,
     )

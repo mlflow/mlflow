@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.base import EvaluationExample
+from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.genai_metric import make_genai_metric
 from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric
@@ -15,7 +15,6 @@ def answer_similarity(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
-    judge_request_timeout=60,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer similarity of an LLM
@@ -28,16 +27,15 @@ def answer_similarity(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to
-        gpt-4. Your use of a third party LLM service (e.g., OpenAI) for evaluation may
-        be subject to and governed by the LLM service's terms of use.
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
+        "openai:/gpt-4" or "gateway:/my-route". Defaults to
+        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+        evaluation may be subject to and governed by the LLM service's terms of use.
     :param metric_version: (Optional) The version of the answer similarity metric to use.
         Defaults to the latest version.
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
         answer similarity. It is highly recommended to add examples to be used as a reference to
         evaluate the new results.
-    :param judge_request_timeout: (Optional) The timeout in seconds for the judge API request.
-        Defaults to 60 seconds.
     :return: A metric object
     """
     if metric_version is None:
@@ -73,7 +71,6 @@ def answer_similarity(
         parameters=answer_similarity_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
-        judge_request_timeout=judge_request_timeout,
     )
 
 
@@ -82,7 +79,6 @@ def answer_correctness(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
-    judge_request_timeout=60,
 ) -> EvaluationMetric:
     """
     This function will create a genai metric used to evaluate the answer correctness of an LLM
@@ -95,16 +91,15 @@ def answer_correctness(
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to
-        gpt-4. Your use of a third party LLM service (e.g., OpenAI) for evaluation may
-        be subject to and governed by the LLM service's terms of use.
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
+        "openai:/gpt-4" or "gateway:/my-route". Defaults to
+        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+        evaluation may be subject to and governed by the LLM service's terms of use.
     :param metric_version: (Optional) The version of the answer correctness metric to use.
         Defaults to the latest version.
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
         answer correctness. It is highly recommended to add examples to be used as a reference to
         evaluate the new results.
-    :param judge_request_timeout: (Optional) The timeout in seconds for the judge API request.
-        Defaults to 60 seconds.
     :return: A metric object
     """
     if metric_version is None:
@@ -140,38 +135,153 @@ def answer_correctness(
         parameters=answer_correctness_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
-        judge_request_timeout=judge_request_timeout,
     )
 
 
 @experimental
+def faithfulness(
+    model: Optional[str] = None,
+    metric_version: Optional[str] = _get_latest_metric_version(),
+    examples: Optional[List[EvaluationExample]] = None,
+) -> EvaluationMetric:
+    """
+    This function will create a genai metric used to evaluate the faithfullness of an LLM using the
+    model provided. Faithfulness will be assessed based on how factually consistent the output
+    is to the ``context``.
+
+    The ``context`` eval_arg must be provided as part of the input dataset or output
+    predictions. This can be mapped to a column of a different name using ``col_mapping``
+    in the ``evaluator_config`` parameter.
+
+    An MlflowException will be raised if the specified version for this metric does not exist.
+
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
+        "openai:/gpt-4" or "gateway:/my-route". Defaults to
+        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+        evaluation may be subject to and governed by the LLM service's terms of use.
+    :param metric_version: (Optional) The version of the faithfulness metric to use.
+        Defaults to the latest version.
+    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
+        faithfulness. It is highly recommended to add examples to be used as a reference to evaluate
+        the new results.
+    :return: A metric object
+    """
+    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.FaithfulnessMetric"
+    try:
+        faithfulness_class_module = _get_class_from_string(class_name)
+    except ModuleNotFoundError:
+        raise MlflowException(
+            f"Failed to find faithfulness metric for version {metric_version}."
+            f" Please check the version",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from None
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to construct faithfulness metric {metric_version}. Error: {e!r}",
+            error_code=INTERNAL_ERROR,
+        ) from None
+
+    if examples is None:
+        examples = faithfulness_class_module.default_examples
+    if model is None:
+        model = faithfulness_class_module.default_model
+
+    return make_genai_metric(
+        name="faithfulness",
+        definition=faithfulness_class_module.definition,
+        grading_prompt=faithfulness_class_module.grading_prompt,
+        examples=examples,
+        version=metric_version,
+        model=model,
+        grading_context_columns=faithfulness_class_module.grading_context_columns,
+        parameters=faithfulness_class_module.parameters,
+        aggregations=["mean", "variance", "p90"],
+        greater_is_better=True,
+    )
+
+
+@experimental
+def answer_relevance(
+    model: Optional[str] = None,
+    metric_version: Optional[str] = _get_latest_metric_version(),
+    examples: Optional[List[EvaluationExample]] = None,
+) -> EvaluationMetric:
+    """
+    This function will create a genai metric used to evaluate the answer relevance of an LLM
+    using the model provided. Answer relevance will be assessed based on the appropriateness and
+    applicability of the output with respect to the input.
+
+    An MlflowException will be raised if the specified version for this metric does not exist.
+
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
+        "openai:/gpt-4" or "gateway:/my-route". Defaults to
+        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+        evaluation may be subject to and governed by the LLM service's terms of use.
+    :param metric_version: (Optional) The version of the answer relevance metric to use.
+        Defaults to the latest version.
+    :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
+        answer relevance. It is highly recommended to add examples to be used as a reference to
+        evaluate the new results.
+    :return: A metric object
+    """
+    class_name = f"mlflow.metrics.genai.prompts.{metric_version}.AnswerRelevanceMetric"
+    try:
+        answer_relevance_class_module = _get_class_from_string(class_name)
+    except ModuleNotFoundError:
+        raise MlflowException(
+            f"Failed to find answer relevance metric for version {metric_version}."
+            f" Please check the version",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from None
+    except Exception as e:
+        raise MlflowException(
+            f"Failed to construct answer relevance metric {metric_version}. Error: {e!r}",
+            error_code=INTERNAL_ERROR,
+        ) from None
+
+    if examples is None:
+        examples = answer_relevance_class_module.default_examples
+    if model is None:
+        model = answer_relevance_class_module.default_model
+
+    return make_genai_metric(
+        name="answer_relevance",
+        definition=answer_relevance_class_module.definition,
+        grading_prompt=answer_relevance_class_module.grading_prompt,
+        examples=examples,
+        version=metric_version,
+        model=model,
+        parameters=answer_relevance_class_module.parameters,
+        aggregations=["mean", "variance", "p90"],
+        greater_is_better=True,
+    )
+
+
 def relevance(
     model: Optional[str] = None,
     metric_version: Optional[str] = None,
     examples: Optional[List[EvaluationExample]] = None,
-    judge_request_timeout=60,
 ) -> EvaluationMetric:
     """
-    This function will create a genai metric used to evaluate the relevance of an LLM using the
-    model provided. Relevance will be assessed by the appropriateness, significance, and
-    applicability of the output with respect to the ``input`` and ``context``.
+    This function will create a genai metric used to evaluate the evaluate the relevance of an
+    LLM using the model provided. Relevance will be assessed by the appropriateness, significance,
+    and applicability of the output with respect to the input and ``context``.
 
-    The ``input`` and ``context`` args must be provided as part of the input dataset or output
-    predictions. This can be mapped to a column of a different name using the a ``col_mapping``
-    in the ``evaluator_config``.
+    The ``context`` eval_arg must be provided as part of the input dataset or output
+    predictions. This can be mapped to a column of a different name using ``col_mapping``
+    in the ``evaluator_config`` parameter.
 
     An MlflowException will be raised if the specified version for this metric does not exist.
 
-    :param model: (Optional) The model that will be used to evaluate this metric. Defaults to
-        gpt-4. Your use of a third party LLM service (e.g., OpenAI) for evaluation may
-        be subject to and governed by the LLM service's terms of use.
+    :param model: (Optional) Model uri of an openai or gateway judge model in the format of
+        "openai:/gpt-4" or "gateway:/my-route". Defaults to
+        "openai:/gpt-4". Your use of a third party LLM service (e.g., OpenAI) for
+        evaluation may be subject to and governed by the LLM service's terms of use.
     :param metric_version: (Optional) The version of the relevance metric to use.
         Defaults to the latest version.
     :param examples: (Optional) Provide a list of examples to help the judge model evaluate the
         relevance. It is highly recommended to add examples to be used as a reference to evaluate
         the new results.
-    :param judge_request_timeout: (Optional) The timeout in seconds for the judge API request.
-        Defaults to 60 seconds.
     :return: A metric object
     """
     if metric_version is None:
@@ -182,7 +292,7 @@ def relevance(
     except ModuleNotFoundError:
         raise MlflowException(
             f"Failed to find relevance metric for version {metric_version}."
-            f" Please check the version",
+            f"Please check the version",
             error_code=INVALID_PARAMETER_VALUE,
         ) from None
     except Exception as e:
@@ -207,5 +317,4 @@ def relevance(
         parameters=relevance_class_module.parameters,
         aggregations=["mean", "variance", "p90"],
         greater_is_better=True,
-        judge_request_timeout=judge_request_timeout,
     )

@@ -1,6 +1,6 @@
 import { LegacySkeleton } from '@databricks/design-system';
 import React, { Suspense } from 'react';
-import { CompareChartRunData } from './CompareRunsCharts.common';
+import { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 
 const ParallelCoordinatesPlot = React.lazy(() => import('./ParallelCoordinatesPlot'));
 
@@ -18,7 +18,7 @@ const LazyParallelCoordinatesPlot = (props: any) => {
 // Map all metrics, params and run uuid
 // Filter data to only keep the selected params and metrics from each run
 export function processParallelCoordinateData(
-  chartRunData: CompareChartRunData[],
+  chartRunData: RunsChartsRunData[],
   selectedParams: string[],
   selectedMetrics: string[],
 ): ParallelCoordinateDataEntry[] {
@@ -45,9 +45,14 @@ export function processParallelCoordinateData(
   return filterParallelCoordinateData(allRuns);
 }
 
+// filter data so each column only shows #s or strs, whichever allows more to be displayed
 export function filterParallelCoordinateData(
   allRuns: ParallelCoordinateDataEntry[],
 ): ParallelCoordinateDataEntry[] {
+  if (allRuns.length === 0) {
+    return allRuns;
+  }
+
   const keys = Object.keys(allRuns[0]);
   keys.shift(); // remove uuid as a key
   let stringRuns: ParallelCoordinateDataEntry[] = allRuns;

@@ -1,55 +1,120 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
 import {
   createLazyRouteElement,
   createMLflowRoutePath,
-  createRouteElement,
+  generatePath,
 } from '../common/utils/RoutingUtils';
-import { HomePage } from './components/HomePage';
 import { X_AXIS_RELATIVE } from './components/MetricsPlotControls';
+import { shouldEnableDeepLearningUI } from '../common/utils/FeatureUtils';
 
+// Route path definitions (used in defining route elements)
+export class RoutePaths {
+  static get rootRoute() {
+    return createMLflowRoutePath('/');
+  }
+  static get experimentObservatory() {
+    return createMLflowRoutePath('/experiments');
+  }
+  static get experimentPage() {
+    return createMLflowRoutePath('/experiments/:experimentId');
+  }
+  static get experimentPageSearch() {
+    return createMLflowRoutePath('/experiments/:experimentId/:searchString');
+  }
+  static get runPage() {
+    return createMLflowRoutePath('/experiments/:experimentId/runs/:runUuid');
+  }
+  // More flexible route path, supporting subpages (tabs) and multi-slash artifact paths.
+  // Will eventually replace "runPage" above.
+  static get runPageWithTab() {
+    return createMLflowRoutePath('/experiments/:experimentId/runs/:runUuid/*');
+  }
+  static get runPageWithArtifact() {
+    return createMLflowRoutePath('/experiments/:experimentId/runs/:runUuid/artifactPath/*');
+  }
+  static get runPageDirect() {
+    return createMLflowRoutePath('/runs/:runUuid');
+  }
+  static get metricPage() {
+    return createMLflowRoutePath('/metric/*');
+  }
+  static get compareRuns() {
+    return createMLflowRoutePath('/compare-runs');
+  }
+  static get compareExperiments() {
+    return createMLflowRoutePath('/compare-experiments');
+  }
+  static get compareExperimentsSearch() {
+    return createMLflowRoutePath('/compare-experiments/:searchString');
+  }
+}
+
+// Concrete routes and functions for generating parametrized paths
 class Routes {
-  static rootRoute = '/';
+  static get rootRoute() {
+    return RoutePaths.rootRoute;
+  }
 
-  static getExperimentPageRoute(experimentId: any, isComparingRuns = false) {
+  static get experimentsObservatoryRoute() {
+    return RoutePaths.experimentObservatory;
+  }
+
+  static get experimentPageRoute() {
+    return RoutePaths.experimentPage;
+  }
+
+  static get experimentPageSearchRoute() {
+    return RoutePaths.experimentPageSearch;
+  }
+
+  static getExperimentPageRoute(experimentId: string, isComparingRuns = false) {
+    const path = generatePath(RoutePaths.experimentPage, { experimentId });
     if (isComparingRuns) {
-      return `/experiments/${experimentId}?isComparingRuns=true`;
-    } else {
-      return `/experiments/${experimentId}`;
-    }
-  }
-
-  static searchRunsByUser(experimentId: any, user_id: any) {
-    const filterString = `user_id = '${user_id}'`;
-    return `/experiments/${experimentId}?searchFilter=${encodeURIComponent(filterString)}`;
-  }
-
-  static searchRunsByLifecycleStage(experimentId: any, lifecycleStage: any) {
-    return `/experiments/${experimentId}?lifecycleFilter=${lifecycleStage}`;
-  }
-
-  static experimentPageRoute = '/experiments/:experimentId';
-
-  static experimentPageSearchRoute = '/experiments/:experimentId/:searchString';
-
-  static getRunPageRoute(experimentId: any, runUuid: any, artifactPath: any = null) {
-    const path = `/experiments/${experimentId}/runs/${runUuid}`;
-    if (artifactPath) {
-      return `${path}/artifactPath/${artifactPath}`;
+      return `${path}?isComparingRuns=true`;
     }
     return path;
   }
 
-  static runPageRoute = '/experiments/:experimentId/runs/:runUuid';
-  static directRunPageRoute = '/runs/:runUuid';
+  static searchRunsByUser(experimentId: string, userId: string) {
+    const path = generatePath(RoutePaths.experimentPage, { experimentId });
+    const filterString = `user_id = '${userId}'`;
+    return `${path}?searchFilter=${encodeURIComponent(filterString)}`;
+  }
 
-  static runPageWithArtifactSelectedRoute =
-    '/experiments/:experimentId/runs/:runUuid/artifactPath/*';
+  static searchRunsByLifecycleStage(experimentId: string, lifecycleStage: string) {
+    const path = generatePath(RoutePaths.experimentPage, { experimentId });
+    return `${path}?lifecycleFilter=${lifecycleStage}`;
+  }
+
+  static getRunPageRoute(
+    experimentId: string,
+    runUuid: string,
+    artifactPath: string | null = null,
+  ) {
+    if (artifactPath) {
+      if (shouldEnableDeepLearningUI()) {
+        // If deep learning UI features are enabled, use more versatile (and backward compatible) route
+        return this.getRunPageTabRoute(
+          experimentId,
+          runUuid,
+          ['artifacts', artifactPath].join('/'),
+        );
+      }
+      return generatePath(RoutePaths.runPageWithArtifact, {
+        experimentId,
+        runUuid,
+        '*': artifactPath,
+      });
+    }
+    return generatePath(RoutePaths.runPage, { experimentId, runUuid });
+  }
+
+  static getRunPageTabRoute(experimentId: string, runUuid: string, tabPath?: string) {
+    return generatePath(RoutePaths.runPageWithTab, {
+      experimentId,
+      runUuid,
+      '*': tabPath,
+    });
+  }
 
   /**
    * Get route to the metric plot page
@@ -75,29 +140,30 @@ class Routes {
    *   case where we toggle a plot with negative y-axis bounds from linear to log scale,
    *   and then back to linear scale (we save the initial negative linear y-axis bounds so
    *   that we can restore them when converting from log back to linear scale)
-   * @returns {string}
    */
   static getMetricPageRoute(
-    runUuids: any,
-    metricKey: any,
-    experimentIds: any,
-    plotMetricKeys = null,
-    plotLayout = {},
-    selectedXAxis = X_AXIS_RELATIVE,
+    runUuids: string[],
+    metricKey: string,
+    experimentIds: string[],
+    plotMetricKeys: string[] | null = null,
+    plotLayout: any = {},
+    selectedXAxis: 'wall' | 'step' | 'relative' = X_AXIS_RELATIVE,
     yAxisLogScale = false,
     lineSmoothness = 1,
     showPoint = false,
-    deselectedCurves = [],
-    lastLinearYAxisRange = [],
+    deselectedCurves: string[] = [],
+    lastLinearYAxisRange: string[] = [],
   ) {
     // If runs to display are specified (e.g. if user filtered to specific runs in a metric
     // comparison plot), embed them in the URL, otherwise default to metricKey
     const finalPlotMetricKeys = plotMetricKeys || [metricKey];
     // Convert boolean to enum to keep URL format extensible to adding new types of y axis scales
     const yAxisScale = yAxisLogScale ? 'log' : 'linear';
-    return (
-      `/metric/${encodeURIComponent(metricKey)}?runs=${JSON.stringify(runUuids)}&` +
-      `experiments=${JSON.stringify(experimentIds)}` +
+
+    const queryString =
+      `?runs=${JSON.stringify(runUuids)}` +
+      `&metric=${JSON.stringify(metricKey)}` +
+      `&experiments=${JSON.stringify(experimentIds)}` +
       `&plot_metric_keys=${JSON.stringify(finalPlotMetricKeys)}` +
       `&plot_layout=${JSON.stringify(plotLayout)}` +
       `&x_axis=${selectedXAxis}` +
@@ -105,43 +171,83 @@ class Routes {
       `&line_smoothness=${lineSmoothness}` +
       `&show_point=${showPoint}` +
       `&deselected_curves=${JSON.stringify(deselectedCurves)}` +
-      `&last_linear_y_axis_range=${JSON.stringify(lastLinearYAxisRange)}`
-    );
+      `&last_linear_y_axis_range=${JSON.stringify(lastLinearYAxisRange)}`;
+
+    return `${generatePath(RoutePaths.metricPage)}${queryString}`;
   }
 
-  static metricPageRoute = '/metric/:metricKey';
-
-  static getCompareRunPageRoute(runUuids: any, experimentIds: any) {
-    return `/compare-runs?runs=${JSON.stringify(runUuids)}&experiments=${JSON.stringify(
+  static getCompareRunPageRoute(runUuids: string[], experimentIds: string[]) {
+    const queryString = `?runs=${JSON.stringify(runUuids)}&experiments=${JSON.stringify(
       experimentIds,
     )}`;
+    return `${generatePath(RoutePaths.compareRuns)}${queryString}`;
   }
 
-  static compareRunPageRoute = '/compare-runs';
-
-  static compareExperimentsPageRoute = '/compare-experiments';
-  static compareExperimentsSearchPageRoute = `${Routes.compareExperimentsPageRoute}/:searchString`;
-  static getCompareExperimentsPageRoute(experimentIds: any) {
-    return `${Routes.compareExperimentsPageRoute}/s?experiments=${JSON.stringify(
-      experimentIds.slice().sort(),
-    )}`;
+  static get compareRunPageRoute() {
+    return RoutePaths.compareRuns;
+  }
+  static get compareExperimentsPageRoute() {
+    return RoutePaths.compareExperiments;
+  }
+  static getCompareExperimentsPageRoute(experimentIds: string[]) {
+    const queryString = `?experiments=${JSON.stringify(experimentIds.slice().sort())}`;
+    const path = generatePath(RoutePaths.compareExperimentsSearch, { searchString: 's' });
+    return `${path}${queryString}`;
   }
 }
 
 export default Routes;
 
 export const getRouteDefs = () => [
-  // TODO(ML-33995): Add new experiment tracking route definitions here
-  // {
-  //   // Example of statically loaded page component
-  //   path: createMLflowRoutePath('/experiments/:experimentId'),
-  //   element: createRouteElement(ExperimentPage),
-  //   pageId: 'mlflow.experiment.details',
-  // },
-  // {
-  //   // Example of dynamically loaded page component
-  //   path: createMLflowRoutePath('/experiments/:experimentId/runs/:runId'),
-  //   element: createLazyRouteElement(() => import('./components/RunPage')),
-  //   pageId: 'mlflow.experiment.run',
-  // },
+  {
+    path: RoutePaths.experimentPage,
+    element: createLazyRouteElement(() => import('./components/HomePage')),
+    pageId: 'mlflow.experiment.details',
+  },
+  {
+    path: RoutePaths.experimentPageSearch,
+    element: createLazyRouteElement(() => import('./components/HomePage')),
+    pageId: 'mlflow.experiment.details.search',
+  },
+  {
+    path: RoutePaths.compareExperimentsSearch,
+    element: createLazyRouteElement(() => import('./components/HomePage')),
+    pageId: 'mlflow.experiment.compare',
+  },
+  // If deep learning UI features are enabled, use more versatile route (with backward compatibility)
+  ...(shouldEnableDeepLearningUI()
+    ? [
+        {
+          path: RoutePaths.runPageWithTab,
+          element: createLazyRouteElement(() => import('./components/RunPage')),
+          pageId: 'mlflow.experiment.run.details',
+        },
+      ]
+    : [
+        {
+          path: RoutePaths.runPageWithArtifact,
+          element: createLazyRouteElement(() => import('./components/RunPage')),
+          pageId: 'mlflow.experiment.run.details.artifact',
+        },
+        {
+          path: RoutePaths.runPage,
+          element: createLazyRouteElement(() => import('./components/RunPage')),
+          pageId: 'mlflow.experiment.run.details',
+        },
+      ]),
+  {
+    path: RoutePaths.runPageDirect,
+    element: createLazyRouteElement(() => import('./components/RunPage')),
+    pageId: 'mlflow.experiment.run.details.direct',
+  },
+  {
+    path: RoutePaths.compareRuns,
+    element: createLazyRouteElement(() => import('./components/CompareRunPage')),
+    pageId: 'mlflow.experiment.run.compare',
+  },
+  {
+    path: RoutePaths.metricPage,
+    element: createLazyRouteElement(() => import('./components/MetricPage')),
+    pageId: 'mlflow.metric.details',
+  },
 ];

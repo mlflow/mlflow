@@ -88,3 +88,10 @@ export enum MLflowRunSourceType {
 }
 
 export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json';
+
+export enum RunPageTabName {
+  OVERVIEW = 'overview',
+  CHARTS = 'charts',
+  ARTIFACTS = 'artifacts',
+}
+export const MLFLOW_SYSTEM_METRIC_PREFIX = 'system/';

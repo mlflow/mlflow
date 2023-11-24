@@ -1639,3 +1639,48 @@ def test_delete_model_deletes_alias(store):
         match=r"Registered model alias test_alias not found.",
     ):
         store.get_model_version_by_alias(model_name, "test_alias")
+
+
+@pytest.mark.parametrize("copy_to_same_model", [False, True])
+def test_copy_model_version(store, copy_to_same_model):
+    name1 = "test_for_copy_MV1"
+    store.create_registered_model(name1)
+    src_tags = [
+        ModelVersionTag("key", "value"),
+        ModelVersionTag("anotherKey", "some other value"),
+    ]
+    src_mv = _mv_maker(
+        store, name1, tags=src_tags, run_link="dummylink", description="test description"
+    )
+
+    # Make some changes to the src MV that won't be copied over
+    store.transition_model_version_stage(
+        name1, src_mv.version, "Production", archive_existing_versions=False
+    )
+
+    copy_rm_name = name1 if copy_to_same_model else "test_for_copy_MV2"
+    copy_mv_version = 2 if copy_to_same_model else 1
+    timestamp = time.time()
+    dst_mv = store.copy_model_version(src_mv, copy_rm_name)
+    assert dst_mv.name == copy_rm_name
+    assert dst_mv.version == copy_mv_version
+
+    copied_mv = store.get_model_version(dst_mv.name, dst_mv.version)
+    assert copied_mv.name == copy_rm_name
+    assert copied_mv.version == copy_mv_version
+    assert copied_mv.current_stage == "None"
+    assert copied_mv.creation_timestamp >= timestamp
+    assert copied_mv.last_updated_timestamp >= timestamp
+    assert copied_mv.description == "test description"
+    assert copied_mv.source == f"models:/{src_mv.name}/{src_mv.version}"
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+    assert copied_mv.run_link == "dummylink"
+    assert copied_mv.run_id == src_mv.run_id
+    assert copied_mv.status == "READY"
+    assert copied_mv.status_message is None
+    assert copied_mv.tags == {"key": "value", "anotherKey": "some other value"}
+
+    # Copy a model version copy
+    double_copy_mv = store.copy_model_version(copied_mv, "test_for_copy_MV3")
+    assert double_copy_mv.source == f"models:/{copied_mv.name}/{copied_mv.version}"
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source

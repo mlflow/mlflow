@@ -5,8 +5,7 @@ import pandas as pd
 
 import mlflow
 from mlflow.metrics import make_metric
-from mlflow.metrics.base import MetricValue
-from mlflow.metrics.metric_definitions import standard_aggregations
+from mlflow.metrics.base import MetricValue, standard_aggregations
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 

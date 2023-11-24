@@ -1113,10 +1113,10 @@ Keras (``keras``)
 
 The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
 and R clients. In R, you can save or log the model using
-`mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__.
+``mlflow_save_model`` and ``mlflow_log_model``.
 These functions serialize Keras models as HDF5 files using the Keras library's built-in
 model persistence functions. You can use
-`mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
+``mlflow_load_model`` function in R to load MLflow Models
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 Keras pyfunc usage
@@ -1182,9 +1182,8 @@ The :py:mod:`mlflow.mleap` module also
 defines :py:func:`save_model() <mlflow.mleap.save_model>` and
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format,
 but these methods do not include the ``python_function`` flavor in the models they produce.
-Similarly, ``mleap`` models can be saved in R with `mlflow_save_model <R-api.rst#mlflow-save-model>`__
-and loaded with `mlflow_load_model <R-api.rst#mlflow-load-model>`__, with
-`mlflow_save_model <R-api.rst#mlflow-save-model>`__ requiring `sample_input` to be specified as a
+Similarly, ``mleap`` models can be saved in R with ``mlflow_save_model`` and loaded with ``mlflow_load_model``, with 
+``mlflow_save_model`` requiring `sample_input` to be specified as a 
 sample Spark dataframe containing input data to the model is required by MLeap for data schema
 inference.
 
@@ -1478,6 +1477,14 @@ evaluation. Finally, you can use the :py:func:`mlflow.onnx.load_model()` method 
 Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
+
+.. warning::
+    The default behavior for saving ONNX files is to use the ONNX save option ``save_as_external_data=True``
+    in order to support model files that are **in excess of 2GB**. For edge deployments of small model files, this 
+    may create issues. If you need to save a small model as a single file for such deployment considerations, 
+    you can set the parameter ``save_as_external_data=False`` in either :py:func:`mlflow.onnx.save_model` or 
+    :py:func:`mlflow.onnx.log_model` to force the serialization of the model as a small file. Note that if the 
+    model is in excess of 2GB, **saving as a single file will not work**. 
 
 ONNX pyfunc usage example
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3648,23 +3655,225 @@ Evaluating with Extra Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If the default set of metrics is insufficient, you can supply ``extra_metrics`` and ``custom_artifacts``
-to :py:func:`mlflow.evaluate()` to produce custom metrics and artifacts for the model(s) that you're evaluating.
+to :py:func:`mlflow.evaluate()` to produce extra metrics and artifacts for the model(s) that you're evaluating.
+
+To define an extra metric, you should define an ``eval_fn`` function that takes in ``predictions``, ``targets``,
+and ``metrics`` as inputs and outputs a ``MetricValue`` object. ``predictions`` and ``targets`` are ``pandas.Series``
+objects. If ``predictions`` or ``targets`` specified in ``mlflow.evaluate()`` is either ``numpy.array`` or ``List``,
+they will be converted to ``pandas.Series``.
+
+``metrics`` is a dictionary mapping a metric name ``string`` to a ``MetricValue`` object. It contains the values
+from built-in metrics and can be used to compute your custom metric. The built-in metrics are available when
+``model_type`` is defined for ``mlflow.evaluate(... model_type="classifier")``.
+
+.. code-block:: python
+
+    {
+        "accuracy_score": MetricValue(
+            scores=None, justifications=None, aggregate_results={"accuracy_score": 1.0}
+        )
+    }
+
+The ``MetricValue`` class has three attributes:
+
+* ``scores``: a list that contains per-row metrics.
+* ``aggregate_results``: a dictionary that maps the aggregation method names to the corresponding aggregated values. This is intended to be used to aggregate ``scores``.
+* ``justification``: a per-row justification of the values in ``scores``. This is optional, and is usually used with genai metrics.
+
+The code block below demonstrates how to define a custom metric evaluation function:
+
+.. code-block:: python
+
+    from mlflow.metrics import MetricValue
+
+
+    def my_metric_eval_fn(predictions, targets, metrics):
+        scores = np.abs(predictions - targets)
+        return MetricValue(
+            scores=list(scores),
+            aggregate_results={
+                "mean": np.mean(scores),
+                "variance": np.var(scores),
+                "median": np.median(scores),
+            },
+        )
+
+Once you have defined an ``eval_fn``, you then use ``make_metric()`` to wrap this ``eval_fn`` function into a metric.
+In addition to ``eval_fn``, ``make_metric()`` requires an additional parameter , ``greater_is_better``, for optimization purposes. This parameter
+indicates whether this is a metric we want to maximize or minimize.
+
+.. code-block:: python
+
+    from mlflow.metrics import make_metric
+
+    mymetric = make_metric(eval_fn=my_metric_eval_fn, greater_is_better=False)
+
+The extra metric allows you to either evaluate a model directly, or to evaluate an output dataframe. 
+
+To evaluate the model directly, you will have to provide ``mlflow.evaluate()`` either a pyfunc model
+instance, a URI referring to a pyfunc model, or a callable function that takes in the data as input 
+and outputs the predictions.
+
+.. code-block:: python
+
+    def model(x):
+        return x["inputs"]
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    mlflow.evaluate(model, eval_dataset, targets="targets", extra_metrics=[mymetric])
+
+To directly evaluate an output dataframe, you can **omit** the ``model`` parameter. However, you will need
+ to set the ``predictions`` parameter in ``mlflow.evaluate()`` in order to evaluate an inference output dataframe. 
+
+.. code-block:: python
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "predictions": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    result = mlflow.evaluate(
+        data=eval_dataset,
+        predictions="predictions",
+        targets="targets",
+        extra_metrics=[mymetric],
+    )
+
+When your model has multiple outputs, the model must return a pandas DataFrame with multiple columns. You must
+specify one column among the model output columns as the predictions column using the ``predictions`` parameter,
+and other output columns of the model will be accessible from the ``eval_fn`` based on their column names. For example, if 
+your model has two outputs ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions
+column, and ``retrieved_context`` column will be accessible as the ``context`` parameter from ``eval_fn`` via ``col_mapping``:
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, metrics, context):
+        scores = (predictions == targets) + context
+        return MetricValue(
+            scores=list(scores),
+            aggregate_results={"mean": np.mean(scores), "sum": np.sum(scores)},
+        )
+
+
+    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False, name="mymetric")
+
+
+    def model(x):
+        return pd.DataFrame({"retrieved_context": x["inputs"] + 1, "answer": x["inputs"]})
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    config = {"col_mapping": {"context": "retrieved_context"}}
+
+    result = mlflow.evaluate(
+        model,
+        eval_dataset,
+        predictions="answer",
+        targets="targets",
+        extra_metrics=[mymetric],
+        evaluator_config=config,
+    )
+
+However, you can also avoid using ``col_mapping`` if the parameter of ``eval_fn`` is the same as the output column name of the model. 
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, metrics, retrieved_context):
+        scores = (predictions == targets) + retrieved_context
+        return MetricValue(
+            scores=list(scores),
+            aggregate_results={"mean": np.mean(scores), "sum": np.sum(scores)},
+        )
+
+
+    mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False, name="mymetric")
+
+
+    def model(x):
+        return pd.DataFrame({"retrieved_context": x["inputs"] + 1, "answer": x["inputs"]})
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    result = mlflow.evaluate(
+        model,
+        eval_dataset,
+        predictions="answer",
+        targets="targets",
+        extra_metrics=[mymetric],
+    )
+
+``col_mapping`` also allows you to pass additional parameters to the extra metric function, in this case passing a value ``k``.
+
+.. code-block:: python
+
+    def eval_fn(predictions, targets, metrics, k):
+        scores = k * (predictions == targets)
+        return MetricValue(scores=list(scores), aggregate_results={"mean": np.mean(scores)})
+
+
+    weighted_mymetric = make_metric(eval_fn=eval_fn, greater_is_better=False)
+
+
+    def model(x):
+        return x["inputs"]
+
+
+    eval_dataset = pd.DataFrame(
+        {
+            "targets": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "inputs": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+
+    config = {"col_mapping": {"k": 5}}
+    mlflow.evaluate(
+        model,
+        eval_dataset,
+        targets="targets",
+        extra_metrics=[weighted_mymetric],
+        evaluator_config=config,
+    )
+
 The following `short example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
-uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
+uses :py:func:`mlflow.evaluate()` with an extra metric function to evaluate the performance of a regressor on the
 `California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
 
 .. literalinclude:: ../../examples/evaluation/evaluate_with_custom_metrics.py
     :language: python
 
-For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
+For a more comprehensive extra metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
 
 Evaluating with a Function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 As of MLflow 2.8.0, :py:func:`mlflow.evaluate()` supports evaluating a python function without requiring 
 logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
-it. The following example uses :py:func:`mlflow.evaluate()` to evaluate a function:
+it. The requirements for the function's input and output are the same as the requirements for a model's input and
+output.
+
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a function:
 
 
 .. literalinclude:: ../../examples/evaluation/evaluate_with_function.py
@@ -3681,6 +3890,7 @@ top-level ``predictions`` parameter in :py:func:`mlflow.evaluate()`:
 
 .. code-block:: python
 
+    # Assume that the model output is saved to the pandas_df["model_output"] column
     mlflow.evaluate(data=pandas_df, predictions="model_output", ...)
 
 If you are using an MLflow PandasDataset, you must specify the column name that contains the model output using
@@ -3689,8 +3899,14 @@ the ``predictions`` parameter in :py:func:`mlflow.data.from_pandas()`, and speci
 
 .. code-block:: python
 
+    # Assume that the model output is saved to the pandas_df["model_output"] column
     dataset = mlflow.data.from_pandas(pandas_df, predictions="model_output")
     mlflow.evaluate(data=pandas_df, predictions=None, ...)
+
+When your model has multiple outputs, you must specify one column among the model output columns as the predictions
+column. The other output columns of the model will be treated as "input" columns. For example, if your model
+has two outputs named ``retrieved_context`` and ``answer``, you can specify ``answer`` as the predictions column. The 
+``retrieved_context`` column will be treated as an "input" column when calculating the metrics.
 
 The following example uses :py:func:`mlflow.evaluate()` to evaluate a static dataset:
 
@@ -4107,7 +4323,7 @@ Let's examine the custom flavor module in more detail. The first step is to impo
 inluding ``sktime`` library, various MLflow utilities as well as the MLflow ``pyfunc`` module which
 is required to add the ``pyfunc`` specification to the MLflow model configuration. Note also the
 import of the ``flavor`` module itself. This will be passed to the
-:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current Mlflow
+:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current MLflow
 run.
 
 .. code-block:: python

@@ -209,7 +209,6 @@ You may prefer the second, lower-level workflow for the following reasons:
 
 import collections
 import functools
-import hashlib
 import importlib
 import inspect
 import logging
@@ -269,6 +268,7 @@ from mlflow.utils import (
     check_port_connectivity,
     find_free_port,
     get_major_minor_py_version,
+    insecure_hash,
 )
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.annotations import deprecated, experimental
@@ -288,6 +288,7 @@ from mlflow.utils.file_utils import (
     _copy_file_or_tree,
     get_or_create_nfs_tmp_dir,
     get_or_create_tmp_dir,
+    get_total_file_size,
     write_to,
 )
 from mlflow.utils.model_utils import (
@@ -1238,10 +1239,6 @@ def spark_udf(
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
 
     is_spark_connect = _is_spark_connect()
-    if is_spark_connect and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA):
-        raise MlflowException.invalid_parameter_value(
-            f"Environment manager {env_manager!r} is not supported in Spark connect mode.",
-        )
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
@@ -1258,6 +1255,22 @@ def spark_udf(
     should_use_spark_to_broadcast_file = not (
         is_spark_in_local_mode or should_use_nfs or is_spark_connect
     )
+
+    # For spark connect mode,
+    # If client code is executed in databricks runtime and NFS is available,
+    # we save model to NFS temp directory in the driver
+    # and load the model in the executor.
+    should_spark_connect_use_nfs = is_in_databricks_runtime() and should_use_nfs
+
+    if (
+        is_spark_connect
+        and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA)
+        and not should_spark_connect_use_nfs
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Environment manager {env_manager!r} is not supported in Spark connect mode "
+            "when either non-Databricks environment is in use or NFS is unavailable.",
+        )
 
     local_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri,
@@ -1579,11 +1592,11 @@ Compound types:
                 return client.invoke(pdf).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
-            if is_spark_connect:
+            if is_spark_connect and not should_spark_connect_use_nfs:
                 model_path = os.path.join(
                     tempfile.gettempdir(),
                     "mlflow",
-                    hashlib.sha1(model_uri.encode()).hexdigest(),
+                    insecure_hash.sha1(model_uri.encode()).hexdigest(),
                 )
                 try:
                     loaded_model = mlflow.pyfunc.load_model(model_path)
@@ -2179,6 +2192,8 @@ def _save_model_with_loader_module_and_data_path(
         python_env=_PYTHON_ENV_FILE_NAME,
         model_config=model_config,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

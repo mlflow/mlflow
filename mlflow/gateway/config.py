@@ -38,8 +38,10 @@ class Provider(str, Enum):
     AI21LABS = "ai21labs"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     MOSAICML = "mosaicml"
+    HUGGINGFACE_TEXT_GENERATION_INFERENCE = "huggingface-text-generation-inference"
     PALM = "palm"
     CLARIFAI = "clarifai"
+    BEDROCK = "bedrock"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
@@ -124,6 +126,8 @@ class OpenAIConfig(ConfigModel):
 
     @classmethod
     def _validate_field_compatibility(cls, info: Dict[str, Any]):
+        if not isinstance(info, dict):
+            return info
         api_type = (info.get("openai_api_type") or OpenAIAPIType.OPENAI).lower()
         if api_type == OpenAIAPIType.OPENAI:
             if info.get("openai_deployment_name") is not None:
@@ -191,15 +195,41 @@ class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
 
 
+class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
+    hf_server_url: str
+
+
+class AWSBaseConfig(pydantic.BaseModel):
+    aws_region: Optional[str] = None
+
+
+class AWSRole(AWSBaseConfig):
+    aws_role_arn: str
+    session_length_seconds: int = 15 * 60
+
+
+class AWSIdAndKey(AWSBaseConfig):
+    aws_access_key_id: str
+    aws_secret_access_key: str
+    aws_session_token: Optional[str] = None
+
+
+class AWSBedrockConfig(ConfigModel):
+    # order here is important, at least for pydantic<2
+    aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
+
+
 config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
     Provider.AI21LABS: AI21LabsConfig,
     Provider.MOSAICML: MosaicMLConfig,
+    Provider.BEDROCK: AWSBedrockConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
     Provider.CLARIFAI: ClarifaiConfig,
+    Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
 }
 
 
@@ -254,8 +284,10 @@ class Model(ConfigModel):
             OpenAIConfig,
             AI21LabsConfig,
             AnthropicConfig,
+            AWSBedrockConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
+            HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
             ClarifaiConfig,
         ]

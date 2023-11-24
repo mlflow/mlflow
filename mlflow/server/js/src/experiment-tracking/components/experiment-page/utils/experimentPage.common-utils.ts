@@ -118,3 +118,18 @@ export const getQualifiedEntityName = (keyType: string, keyName: string) => {
   }
   return `${keyType}.${replace}${keyName}${replace}`;
 };
+
+export const makeCanonicalSortKey = (keyType: string, keyName: string) =>
+  keyType + '.`' + keyName + '`';
+/**
+ * Creates canonical sort key name for metrics and params
+ */
+
+export const isCanonicalSortKeyOfType = (canonicalKey: string, keyType: string) =>
+  canonicalKey.startsWith(keyType);
+/**
+ * Extracts param/metric/tag name from the canonical key
+ */
+
+export const extractCanonicalSortKey = (canonicalKey: string, keyType: string) =>
+  canonicalKey.substring(keyType.length + 2).slice(0, -1);

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Theme } from '@emotion/react';
 import { RunsCompareBarChartCard } from './cards/RunsCompareBarChartCard';
 import { RunsCompareParallelChartCard } from './cards/RunsCompareParallelChartCard';
-import type { CompareChartRunData } from './charts/CompareRunsCharts.common';
+import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import type {
   RunsCompareBarCardConfig,
   RunsCompareCardConfig,
@@ -18,7 +18,7 @@ import { RunsCompareContourChartCard } from './cards/RunsCompareContourChartCard
 import { RunsCompareLineChartCard } from './cards/RunsCompareLineChartCard';
 
 export interface RunsCompareChartsProps {
-  chartRunData: CompareChartRunData[];
+  chartRunData: RunsChartsRunData[];
   cardsConfig: RunsCompareCardConfig[];
   isMetricHistoryLoading?: boolean;
   onRemoveChart: (chart: RunsCompareCardConfig) => void;

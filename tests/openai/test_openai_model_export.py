@@ -1,5 +1,6 @@
 import importlib
 import json
+from copy import deepcopy
 from unittest import mock
 
 import numpy as np
@@ -12,8 +13,10 @@ from pyspark.sql import SparkSession
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.openai.utils import (
+    _exclude_params_from_envs,
     _mock_chat_completion_response,
     _mock_models_retrieve_response,
     _mock_request,
@@ -458,6 +461,9 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
             "OPENAI_API_KEY_PATH": f"{scope}:openai_api_key_path",
             "OPENAI_API_BASE": f"{scope}:openai_api_base",
             "OPENAI_ORGANIZATION": f"{scope}:openai_organization",
+            "OPENAI_API_VERSION": f"{scope}:openai_api_version",
+            "OPENAI_DEPLOYMENT_NAME": f"{scope}:openai_deployment_name",
+            "OPENAI_ENGINE": f"{scope}:openai_engine",
         }
 
 
@@ -565,6 +571,7 @@ def test_embeddings(tmp_path):
 
 def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    monkeypatch.setenv("OPENAI_ENGINE", "test_engine")
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
         task=openai.Embedding,
@@ -648,3 +655,33 @@ def test_inference_params_overlap(tmp_path):
                 params=ParamSchema([ParamSpec(name="prefix", default=None, dtype="string")]),
             ),
         )
+
+
+def test_engine_and_deployment_id_for_azure_openai(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+    with pytest.raises(
+        MlflowException, match=r"Either engine or deployment_id must be set for Azure OpenAI API"
+    ):
+        mlflow.pyfunc.load_model(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("params", "envs"),
+    [
+        ({"a": None, "b": "b"}, {"a": "a", "c": "c"}),
+        ({"a": "a", "b": "b"}, {"a": "a", "d": "d"}),
+        ({}, {"a": "a", "b": "b"}),
+        ({"a": "a"}, {"b": "b"}),
+    ],
+)
+def test_exclude_params_from_envs(params, envs):
+    original_envs = deepcopy(envs)
+    result = _exclude_params_from_envs(params, envs)
+    assert envs == original_envs
+    assert not any(key in params for key in result)
+    assert all(key in envs for key in result)

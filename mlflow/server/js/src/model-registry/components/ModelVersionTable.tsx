@@ -1,217 +1,398 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import React from 'react';
-import { Table, type TableColumnType } from 'antd';
-import { Link } from '../../common/utils/RoutingUtils';
-import { Tooltip, Typography } from '@databricks/design-system';
-import Utils from '../../common/utils/Utils';
-import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
+import {
+  Empty,
+  NotificationIcon,
+  Pagination,
+  PlusIcon,
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+  TableRowSelectCell,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import {
+  ColumnDef,
+  PaginationState,
+  RowSelectionState,
+  SortingState,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
+import {
+  KeyValueEntity,
+  ModelEntity,
+  ModelVersionInfoEntity,
+} from '../../experiment-tracking/types';
+import { useEffect, useMemo, useState } from 'react';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { RegisteringModelDocUrl } from '../../common/constants';
+import { useNextModelsUIContext } from '../hooks/useNextModelsUI';
 import {
   ACTIVE_STAGES,
-  StageTagComponents,
-  ModelVersionStatus,
+  EMPTY_CELL_PLACEHOLDER,
   ModelVersionStatusIcons,
+  StageTagComponents,
   modelVersionStatusIconTooltips,
 } from '../constants';
-import { getModelVersionPageRoute } from '../routes';
-import { RegisteringModelDocUrl } from '../../common/constants';
-import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import type { ModelEntity, ModelVersionInfoEntity } from '../../experiment-tracking/types';
-import { ModelVersionTableAliasesCell } from './aliases/ModelVersionTableAliasesCell';
+import { Link } from '../../common/utils/RoutingUtils';
+import { ModelRegistryRoutes } from '../routes';
+import Utils from '../../common/utils/Utils';
+import { KeyValueTagsEditorCell } from '../../common/components/KeyValueTagsEditorCell';
+import { useDispatch } from 'react-redux';
+import { ThunkDispatch } from '../../redux-types';
+import { useEditKeyValueTagsModal } from '../../common/hooks/useEditKeyValueTagsModal';
 import { useEditRegisteredModelAliasesModal } from '../hooks/useEditRegisteredModelAliasesModal';
+import { updateModelVersionTagsApi } from '../actions';
+import { ModelVersionTableAliasesCell } from './aliases/ModelVersionTableAliasesCell';
+import { Interpolation, Theme } from '@emotion/react';
+import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
+import ExpandableList from '../../common/components/ExpandableList';
 
-const { Text } = Typography;
-
-type ModelVersionTableImplProps = {
+type ModelVersionTableProps = {
   modelName: string;
-  modelVersions?: any[];
+  modelVersions?: ModelVersionInfoEntity[];
   activeStageOnly?: boolean;
-  onChange: (...args: any[]) => any;
-  intl: IntlShape;
+  onChange: (selectedRowKeys: string[], selectedRows: ModelVersionInfoEntity[]) => void;
   modelEntity?: ModelEntity;
-  onAliasesModified: () => void;
-  showEditAliasesModal?: (versionNumber: string) => void;
-  usingNextModelsUI?: boolean;
+  onMetadataUpdated: () => void;
+  usingNextModelsUI: boolean;
 };
 
-export class ModelVersionTableImpl extends React.Component<ModelVersionTableImplProps> {
-  static defaultProps = {
-    modelVersions: [],
-    activeStageOnly: false,
-  };
+type ModelVersionColumnDef = ColumnDef<ModelVersionInfoEntity> & {
+  meta?: { styles?: Interpolation<Theme>; multiline?: boolean; className?: string };
+};
 
-  getColumns = () => {
-    const { modelName, usingNextModelsUI } = this.props;
+enum COLUMN_IDS {
+  STATUS = 'STATUS',
+  VERSION = 'VERSION',
+  CREATION_TIMESTAMP = 'CREATION_TIMESTAMP',
+  USER_ID = 'USER_ID',
+  TAGS = 'TAGS',
+  STAGE = 'STAGE',
+  DESCRIPTION = 'DESCRIPTION',
+  ALIASES = 'ALIASES',
+}
 
-    const columns: TableColumnType<ModelVersionInfoEntity>[] = [
+export const ModelVersionTable = ({
+  modelName,
+  modelVersions,
+  activeStageOnly,
+  onChange,
+  modelEntity,
+  onMetadataUpdated,
+  usingNextModelsUI,
+}: ModelVersionTableProps) => {
+  const versions = useMemo(
+    () =>
+      activeStageOnly
+        ? (modelVersions || []).filter(({ current_stage }) => ACTIVE_STAGES.includes(current_stage))
+        : modelVersions,
+    [activeStageOnly, modelVersions],
+  );
+
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
+  const allTagsKeys = useMemo(() => {
+    const allTagsList: KeyValueEntity[] =
+      versions?.map((modelVersion) => modelVersion?.tags || []).flat() || [];
+
+    // Extract keys, remove duplicates and sort the
+    return Array.from(new Set(allTagsList.map(({ key }) => key))).sort();
+  }, [versions]);
+
+  const dispatch = useDispatch<ThunkDispatch>();
+
+  const { EditTagsModal, showEditTagsModal } = useEditKeyValueTagsModal<ModelVersionInfoEntity>({
+    allAvailableTags: allTagsKeys,
+    saveTagsHandler: async (modelVersion, existingTags, newTags) =>
+      dispatch(updateModelVersionTagsApi(modelVersion, existingTags, newTags)),
+    onSuccess: onMetadataUpdated,
+  });
+
+  const { EditAliasesModal, showEditAliasesModal } = useEditRegisteredModelAliasesModal({
+    model: modelEntity || null,
+    onSuccess: onMetadataUpdated,
+  });
+
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageSize: 10,
+    pageIndex: 0,
+  });
+
+  useEffect(() => {
+    const selectedVersions = (versions || []).filter(({ version }) => rowSelection[version]);
+    const selectedVersionNumbers = selectedVersions.map(({ version }) => version);
+    onChange(selectedVersionNumbers, selectedVersions);
+  }, [rowSelection, onChange, versions]);
+
+  const tableColumns = useMemo(() => {
+    const columns: ModelVersionColumnDef[] = [
       {
-        key: 'status',
-        title: '', // Status column does not have title
-        render: ({ status, status_message }: any) => (
-          <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
-            <Text size='lg'>{ModelVersionStatusIcons[status]}</Text>
-          </Tooltip>
-        ),
-        align: 'right',
-        width: 40,
+        id: COLUMN_IDS.STATUS,
+        enableSorting: false,
+        header: '', // Status column does not have title
+        meta: { styles: { flexBasis: theme.general.heightSm, flexGrow: 0 } },
+        cell: ({ row: { original } }) => {
+          const { status, status_message } = original || {};
+          return (
+            <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
+              <Typography.Text>{ModelVersionStatusIcons[status]}</Typography.Text>
+            </Tooltip>
+          );
+        },
       },
+    ];
+    columns.push(
       {
-        title: this.props.intl.formatMessage({
+        id: COLUMN_IDS.VERSION,
+        enableSorting: false,
+        header: intl.formatMessage({
           defaultMessage: 'Version',
           description: 'Column title text for model version in model version table',
         }),
-        className: 'model-version',
-        dataIndex: 'version',
-        render: (version: any) => (
+        meta: { className: 'model-version' },
+        accessorKey: 'version',
+        cell: ({ getValue }) => (
           <FormattedMessage
             defaultMessage='<link>Version {versionNumber}</link>'
             description='Link to model version in the model version table'
             values={{
-              link: (chunks: any) => (
-                <Link to={getModelVersionPageRoute(modelName, version)}>{chunks}</Link>
+              link: (chunks) => (
+                <Link
+                  to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, String(getValue()))}
+                >
+                  {chunks}
+                </Link>
               ),
-              versionNumber: version,
+              versionNumber: getValue(),
             }}
           />
         ),
       },
       {
-        title: this.props.intl.formatMessage({
+        id: COLUMN_IDS.CREATION_TIMESTAMP,
+        enableSorting: true,
+        meta: { styles: { minWidth: 200 } },
+        header: intl.formatMessage({
           defaultMessage: 'Registered at',
           description: 'Column title text for created at timestamp in model version table',
         }),
-        dataIndex: 'creation_timestamp',
-        render: (creationTimestamp: any) => <span>{Utils.formatTimestamp(creationTimestamp)}</span>,
-        sorter: (a: any, b: any) => a.creation_timestamp - b.creation_timestamp,
-        defaultSortOrder: 'descend',
-        sortDirections: ['descend'],
+        accessorKey: 'creation_timestamp',
+        cell: ({ getValue }) => Utils.formatTimestamp(getValue()),
       },
+
       {
-        title: this.props.intl.formatMessage({
+        id: COLUMN_IDS.USER_ID,
+        enableSorting: false,
+        meta: { styles: { minWidth: 100 } },
+        header: intl.formatMessage({
           defaultMessage: 'Created by',
           description: 'Column title text for creator username in model version table',
         }),
-        dataIndex: 'user_id',
+        accessorKey: 'user_id',
+        cell: ({ getValue }) => <span>{getValue()}</span>,
       },
-    ];
+    );
 
     if (usingNextModelsUI) {
-      // Display aliases column only when "new models UI" is flipped
-      columns.push({
-        title: this.props.intl.formatMessage({
-          defaultMessage: 'Aliases',
-          description: 'Column title text for model version aliases in model version table',
-        }),
-        dataIndex: 'aliases',
-        render: (aliases: string[], { version }: ModelVersionInfoEntity) => {
-          return (
-            <ModelVersionTableAliasesCell
-              modelName={modelName}
-              version={version}
-              aliases={aliases}
-              onAddEdit={() => {
-                this.props.showEditAliasesModal?.(version);
-              }}
-            />
-          );
+      // Display tags and aliases columns only when "new models UI" is flipped
+      columns.push(
+        {
+          id: COLUMN_IDS.TAGS,
+          enableSorting: false,
+          header: intl.formatMessage({
+            defaultMessage: 'Tags',
+            description: 'Column title text for model version tags in model version table',
+          }),
+          meta: { styles: { flex: 2 } },
+          accessorKey: 'tags',
+          cell: ({ getValue, row: { original } }) => {
+            return (
+              <KeyValueTagsEditorCell
+                tags={getValue() as KeyValueEntity[]}
+                onAddEdit={() => {
+                  showEditTagsModal?.(original);
+                }}
+              />
+            );
+          },
         },
-      });
+        {
+          id: COLUMN_IDS.ALIASES,
+          accessorKey: 'aliases',
+          enableSorting: false,
+          header: intl.formatMessage({
+            defaultMessage: 'Aliases',
+            description: 'Column title text for model version aliases in model version table',
+          }),
+          meta: { styles: { flex: 2 }, multiline: true },
+          cell: ({ getValue, row: { original } }) => {
+            return (
+              <ModelVersionTableAliasesCell
+                modelName={modelName}
+                version={original.version}
+                aliases={getValue() as string[]}
+                onAddEdit={() => {
+                  showEditAliasesModal?.(original.version);
+                }}
+              />
+            );
+          },
+        },
+      );
     } else {
       // If not, display legacy "Stage" columns
       columns.push({
-        title: this.props.intl.formatMessage({
+        id: COLUMN_IDS.STAGE,
+        enableSorting: false,
+        header: intl.formatMessage({
           defaultMessage: 'Stage',
           description: 'Column title text for model version stage in model version table',
         }),
-        dataIndex: 'current_stage',
-        render: (currentStage: any) => {
-          return StageTagComponents[currentStage];
+        accessorKey: 'current_stage',
+        cell: ({ getValue }) => {
+          return StageTagComponents[getValue() as string];
         },
       });
     }
-    columns.push(
-      // Add remaining columns
-      {
-        title: this.props.intl.formatMessage({
-          defaultMessage: 'Description',
-          description: 'Column title text for description in model version table',
-        }),
-        dataIndex: 'description',
-        render: (description: any) => truncateToFirstLineWithMaxLength(description, 32),
-      },
-    );
+    columns.push({
+      id: COLUMN_IDS.DESCRIPTION,
+      enableSorting: false,
+      header: intl.formatMessage({
+        defaultMessage: 'Description',
+        description: 'Column title text for description in model version table',
+      }),
+      meta: { styles: { flex: 2 } },
+      accessorKey: 'description',
+      cell: ({ getValue }) => truncateToFirstLineWithMaxLength(getValue(), 32),
+    });
     return columns;
+  }, [theme, intl, modelName, showEditTagsModal, showEditAliasesModal, usingNextModelsUI]);
+
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: COLUMN_IDS.CREATION_TIMESTAMP, desc: true },
+  ]);
+
+  const table = useReactTable<ModelVersionInfoEntity>({
+    data: versions || [],
+    columns: tableColumns,
+    state: {
+      pagination,
+      rowSelection,
+      sorting,
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getRowId: ({ version }) => version,
+    onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
+  });
+
+  const isEmpty = () => table.getRowModel().rows.length === 0;
+
+  const getLearnMoreLinkUrl = () => {
+    return RegisteringModelDocUrl;
   };
 
-  getRowKey = (record: any) => record.creation_timestamp;
+  const paginationComponent = (
+    <Pagination
+      currentPageIndex={pagination.pageIndex + 1}
+      numTotal={(versions || []).length}
+      onChange={(page, pageSize) => {
+        setPagination({
+          pageSize: pageSize || pagination.pageSize,
+          pageIndex: page - 1,
+        });
+      }}
+      pageSize={pagination.pageSize}
+    />
+  );
 
-  emptyTablePlaceholder = () => {
-    const learnMoreLinkUrl = ModelVersionTableImpl.getLearnMoreLinkUrl();
-    return (
-      <span>
+  const emptyComponent = (
+    <Empty
+      description={
         <FormattedMessage
-          defaultMessage='No models are registered yet. <link>Learn more</link> about how to
-             register a model.'
-          description='Message text when no model versions are registerd'
+          defaultMessage='No models versions are registered yet. <link>Learn more</link> about how to
+          register a model version.'
+          description='Message text when no model versions are registered'
           values={{
-            link: (
-              chunks: any, // Reported during ESLint upgrade
-            ) => (
-              // eslint-disable-next-line react/jsx-no-target-blank
-              <a target='_blank' href={learnMoreLinkUrl}>
+            link: (chunks) => (
+              <Typography.Link target='_blank' href={getLearnMoreLinkUrl()}>
                 {chunks}
-              </a>
+              </Typography.Link>
             ),
           }}
         />
-      </span>
-    );
-  };
-  static getLearnMoreLinkUrl = () => RegisteringModelDocUrl;
+      }
+      image={<PlusIcon />}
+    />
+  );
 
-  render() {
-    const { modelVersions = [], activeStageOnly } = this.props;
-    const versions = activeStageOnly
-      ? modelVersions.filter((v) => ACTIVE_STAGES.includes(v.current_stage))
-      : modelVersions;
-    return (
-      <Table
-        size='middle'
-        rowKey={this.getRowKey}
-        className='model-version-table'
-        dataSource={versions}
-        columns={this.getColumns()}
-        locale={{ emptyText: this.emptyTablePlaceholder() }}
-        rowSelection={{
-          onChange: this.props.onChange,
-          getCheckboxProps: (record) => ({
-            disabled: record.status !== ModelVersionStatus.READY,
-          }),
-        }}
-        pagination={{
-          position: ['bottomRight'],
-          size: 'default',
-        }}
-      />
-    );
-  }
-}
-
-const ModelVersionTableWithAliasEditor = (props: ModelVersionTableImplProps) => {
-  const { EditAliasesModal, showEditAliasesModal } = useEditRegisteredModelAliasesModal({
-    model: props.modelEntity || null,
-    onSuccess: props.onAliasesModified,
-  });
   return (
     <>
-      <ModelVersionTableImpl {...props} showEditAliasesModal={showEditAliasesModal} />
+      <Table
+        data-testid='model-list-table'
+        pagination={paginationComponent}
+        scrollable
+        empty={isEmpty() ? emptyComponent : undefined}
+        someRowsSelected={table.getIsSomeRowsSelected() || table.getIsAllRowsSelected()}
+      >
+        <TableRow isHeader>
+          <TableRowSelectCell
+            checked={table.getIsAllRowsSelected()}
+            indeterminate={table.getIsSomeRowsSelected()}
+            onChange={table.getToggleAllRowsSelectedHandler()}
+          />
+          {table.getLeafHeaders().map((header) => (
+            <TableHeader
+              multiline={false}
+              key={header.id}
+              sortable={header.column.getCanSort()}
+              sortDirection={header.column.getIsSorted() || 'none'}
+              onToggleSort={header.column.getToggleSortingHandler()}
+              css={(header.column.columnDef as ModelVersionColumnDef).meta?.styles}
+            >
+              {flexRender(header.column.columnDef.header, header.getContext())}
+            </TableHeader>
+          ))}
+        </TableRow>
+        {table.getRowModel().rows.map((row) => (
+          <TableRow
+            key={row.id}
+            css={{
+              '.table-row-select-cell': {
+                alignItems: 'flex-start',
+              },
+            }}
+          >
+            <TableRowSelectCell
+              checked={row.getIsSelected()}
+              onChange={row.getToggleSelectedHandler()}
+            />
+            {row.getAllCells().map((cell) => (
+              <TableCell
+                className={(cell.column.columnDef as ModelVersionColumnDef).meta?.className}
+                multiline={(cell.column.columnDef as ModelVersionColumnDef).meta?.multiline}
+                key={cell.id}
+                css={(cell.column.columnDef as ModelVersionColumnDef).meta?.styles}
+              >
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </Table>
+      {EditTagsModal}
       {EditAliasesModal}
     </>
   );
 };
-export const ModelVersionTable = injectIntl(ModelVersionTableWithAliasEditor);

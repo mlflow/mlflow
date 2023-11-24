@@ -28,6 +28,7 @@ from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
@@ -825,3 +826,36 @@ def test_model_log_with_signature_inference(sklearn_knn_model, iris_signature):
 
     mlflow_model = Model.load(model_uri)
     assert mlflow_model.signature == iris_signature
+
+
+def test_model_size_bytes(sklearn_logreg_model, tmp_path):
+    mlflow.sklearn.save_model(sklearn_logreg_model.model, path=tmp_path)
+
+    # expected size only counts for files saved before the MLmodel file is saved
+    model_file = tmp_path.joinpath("model.pkl")
+    with model_file.open("rb") as fp:
+        expected_size = len(fp.read())
+
+    mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
+    assert mlmodel["model_size_bytes"] == expected_size
+
+
+def test_model_registration_metadata_handling(sklearn_knn_model, tmp_path):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model.model,
+            artifact_path=artifact_path,
+            registered_model_name="test",
+        )
+        model_uri = "models:/test/1"
+
+    artifact_repository = get_artifact_repository(model_uri)
+
+    dst_full = tmp_path.joinpath("full")
+    dst_full.mkdir()
+
+    artifact_repository.download_artifacts("MLmodel", dst_full)
+    # This validates that the models artifact repo will not attempt to create a
+    # "registered model metadata" file if the source of an artifact download is a file.
+    assert os.listdir(dst_full) == ["MLmodel"]

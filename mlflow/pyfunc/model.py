@@ -7,6 +7,7 @@ import inspect
 import logging
 import os
 import shutil
+import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -32,8 +33,8 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, get_total_file_size, write_to
+from mlflow.utils.model_utils import _check_model_assignment_in_init, _get_flavor_configuration
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
@@ -82,6 +83,33 @@ class PythonModel:
     """
 
     __metaclass__ = ABCMeta
+
+    def __new__(cls, *args, **kwargs):
+        cls._warn_on_setting_model_in_init()
+        return super().__new__(cls)
+
+    @classmethod
+    def _warn_on_setting_model_in_init(cls):
+        try:
+            model_assigned = _check_model_assignment_in_init(cls)
+            if model_assigned and cls.load_context == PythonModel.load_context:
+                message = (
+                    "It looks like you're trying to save a model as an instance attribute. "
+                    "This is not recommended as it can cause problems with model serialization, "
+                    "especially for large models. Please use the `artifacts` parameter, "
+                    "and load your external model in the `load_context()` method instead.\n\n"
+                    "For example:\n\n"
+                    "class MyModel(mlflow.pyfunc.PythonModel):\n"
+                    "    def load_context(self, context):\n"
+                    "        model_path = context.artifacts['my_model_path']\n"
+                    "        // custom load logic here\n"
+                    "        self.model = load_model(model_path)\n"
+                )
+                warnings.warn(message, stacklevel=3)
+        except Exception:
+            # it's possible that inspect.getsource might fail, but since we
+            # just want to warn the user, we shouldn't throw an exception
+            pass
 
     def load_context(self, context):
         """
@@ -317,6 +345,8 @@ def _save_model_with_class_artifacts_params(
         model_config=model_config,
         **custom_model_config_kwargs,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:

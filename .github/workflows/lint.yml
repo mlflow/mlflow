@@ -1,0 +1,57 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+env:
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+        id: setup-python
+      - name: Add problem matchers
+        run: |
+          echo "::add-matcher::.github/workflows/matchers/pylint.json"
+          echo "::add-matcher::.github/workflows/matchers/black.json"
+          echo "::add-matcher::.github/workflows/matchers/ruff.json"
+      - uses: ./.github/actions/cache-pip
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          source ./dev/install-common-deps.sh --ml
+          pip install -r requirements/lint-requirements.txt
+      - uses: ./.github/actions/pipdeptree
+      - name: Install pre-commit hooks
+        run: |
+          source .venv/bin/activate
+          pre-commit install -t pre-commit -t prepare-commit-msg
+      - name: Run pre-commit
+        id: pre-commit
+        env:
+          IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
+        run: |
+          source .venv/bin/activate
+          pre-commit run --all-files
