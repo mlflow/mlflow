@@ -57,43 +57,43 @@ server's URI, along with its scheme and port (for example, ``http://10.0.0.1:500
 The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls
 then make API requests to your remote tracking server.
 
-  .. code-section::
+.. code-section::
 
-    .. code-block:: python
+  .. code-block:: python
 
-        import mlflow
+      import mlflow
 
-        remote_server_uri = "..."  # set to your server URI
-        mlflow.set_tracking_uri(remote_server_uri)
-        mlflow.set_experiment("/my-experiment")
-        with mlflow.start_run():
-            mlflow.log_param("a", 1)
-            mlflow.log_metric("b", 2)
+      remote_server_uri = "..."  # set to your server URI
+      mlflow.set_tracking_uri(remote_server_uri)
+      mlflow.set_experiment("/my-experiment")
+      with mlflow.start_run():
+          mlflow.log_param("a", 1)
+          mlflow.log_metric("b", 2)
 
-    .. code-block:: R
+  .. code-block:: R
 
-        library(mlflow)
-        install_mlflow()
-        remote_server_uri = "..." # set to your server URI
-        mlflow_set_tracking_uri(remote_server_uri)
-        mlflow_set_experiment("/my-experiment")
-        mlflow_log_param("a", "1")
+      library(mlflow)
+      install_mlflow()
+      remote_server_uri = "..." # set to your server URI
+      mlflow_set_tracking_uri(remote_server_uri)
+      mlflow_set_experiment("/my-experiment")
+      mlflow_log_param("a", "1")
 
-    .. code-block:: Scala
+  .. code-block:: scala
 
-        import org.mlflow.tracking.MlflowClient
+      import org.mlflow.tracking.MlflowClient
 
-        val remoteServerUri = "..." // set to your server URI
-        val client = new MlflowClient(remoteServerUri)
+      val remoteServerUri = "..." // set to your server URI
+      val client = new MlflowClient(remoteServerUri)
 
-        val experimentId = client.createExperiment("my-experiment")
-        client.setExperiment(experimentId)
+      val experimentId = client.createExperiment("my-experiment")
+      client.setExperiment(experimentId)
 
-        val run = client.createRun(experimentId)
-        client.logParam(run.getRunId(), "a", "1")
+      val run = client.createRun(experimentId)
+      client.logParam(run.getRunId(), "a", "1")
 
 .. note::
-    On Databricks, the experiment name passed to mlflow_set_experiment must be a valid path in the workspace e.g. /Workspace/Users/mlflow-experiments/my-experiment
+    On Databricks, the experiment name passed to mlflow_set_experiment must be a valid path in the workspace e.g. ``/Workspace/Users/mlflow-experiments/my-experiment``
 
 .. _configure-server:
 
@@ -107,6 +107,7 @@ By default, the tracking server logs runs metadata to the local filesystem under
 You can configure the different backend store by adding ``--backend-store-uri`` option:
 
 Example
+
 .. code-block:: bash
 
     mlflow server --backend-store-uri sqlite:///my.db

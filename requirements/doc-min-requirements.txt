@@ -6,3 +6,4 @@ jinja2==3.0.3
 flask<=2.2.5
 sphinx-autobuild
 sphinx-click
+sphinx-tabs
