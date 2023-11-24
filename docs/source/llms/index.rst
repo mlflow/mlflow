@@ -389,5 +389,15 @@ Look in the tutorials and guides below to learn more about interesting use cases
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="deployments/index.html" >
+                    <div class="header">
+                        MLflow Deployments for LLMs
+                    </div>
+                    <p>
+                        Learn how to use the MLflow Deployments API for LLMs.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>

@@ -1,8 +1,9 @@
-===============================================
-MLflow Deployments for LLMs: Deployments Server
-===============================================
+==================
+Deployments Server
+==================
 
-This page demonstrates how to use the MLflow deployments API for LLMs.
+This page demonstrates how to use the Deployments server, and how to interact with it using
+:py:class:`MlflowDeploymentClient <mlflow.deployments.MlflowDeploymentClient>`.
 
 Prerequisites
 -------------
@@ -21,13 +22,13 @@ Create a config file
 
     # /path/to/config.yaml
 
-    routes:
-    - name: chat
-        route_type: llm/v1/chat
+    endpoints:
+      - name: chat
+        endpoint_type: llm/v1/chat
         model:
-        provider: openai
-        name: gpt-3.5-turbo
-        config:
+          provider: openai
+          name: gpt-3.5-turbo
+          config:
             openai_api_key: $OPENAI_API_KEY
 
 
@@ -39,8 +40,8 @@ Start the Deployments server
     mlflow deployments start-server --config-path /path/to/config.yaml
 
 
-Create a client
----------------
+Create `MlflowDeploymentClient`
+-------------------------------
 
 .. code-block:: python
 
@@ -49,11 +50,8 @@ Create a client
     client = get_deploy_client("http://localhost:5000")
 
 
-See :py:class:`mlflow.deployments.MlflowDeploymentClient` for what operations the client supports.
-
-
-Reading endpoints
------------------
+Read endpoints
+--------------
 
 .. code-block:: python
 
@@ -62,8 +60,8 @@ Reading endpoints
     print(client.get_endpoint(name))
 
 
-Querying the endpoint
----------------------
+Query the endpoint
+------------------
 
 .. code-block:: python
 

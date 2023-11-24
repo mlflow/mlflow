@@ -1,8 +1,10 @@
-=======================================
-MLflow Deployments for LLMs: Databricks
-=======================================
+==========
+Databricks
+==========
 
-This page demonstrates how to use the Databricks deployments API for LLMs:
+This page demonstrates how to create serving endpoints for LLMs using
+:py:class:`DatabricksDeploymentClient <mlflow.deployments.DatabricksDeploymentClient>`.
+
 
 Prerequisites
 -------------
@@ -15,17 +17,17 @@ Create an OpenAI API key and set it as a secret in Databricks.
     databricks secrets create-scope <scope>
     databricks secrets put-secret <scope> openai-api-key --string-value $OPENAI_API_KEY
 
-Create a client
----------------
+See https://docs.databricks.com/en/security/secrets/index.html for more information on secret management in Databricks.
+
+
+Create `DatabricksDeploymentClient`
+-----------------------------------
 
 .. code-block:: python
 
     from mlflow.deployments import get_deploy_client
 
     client = get_deploy_client("databricks")
-
-
-See :py:class:`mlflow.deployments.DatabricksDeploymentClient` for what operations the client supports.
 
 
 CRUD operations for serving endpoints
@@ -50,12 +52,6 @@ CRUD operations for serving endpoints
                             "openai_api_key": "{{secrets/}}",
                         },
                     },
-                }
-            ],
-            "tags": [
-                {
-                    "key": "foo",
-                    "value": "bar",
                 }
             ],
             "rate_limits": [
@@ -90,8 +86,8 @@ CRUD operations for serving endpoints
     # print(client.delete_endpoint(endpoint=name))
 
 
-Querying the endpoint
----------------------
+Query the endpoint
+------------------
 
 .. code-block:: python
 
