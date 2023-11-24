@@ -23,6 +23,24 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     Client for interacting with Databricks serving endpoints.
     See https://docs.databricks.com/en/dev-tools/auth.html for how to set up credentials
     for authentication.
+
+    Example:
+
+    First, set up credentials for authentication:
+
+    .. code-block:: bash
+
+        export DATABRICKS_HOST=...
+        export DATABRICKS_TOKEN=...
+
+    Then, create a deployment client and use it to interact with Databricks serving endpoints:
+
+    .. code-block:: python
+
+        from mlflow.deployments import get_deploy_client
+
+        client = get_deploy_client("databricks")
+        client.list_endpoints()
     """
 
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
