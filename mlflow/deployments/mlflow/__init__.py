@@ -80,7 +80,8 @@ class MLflowDeploymentClient(BaseDeploymentClient):
 
     def get_deployment(self, name, endpoint=None):
         """
-        TODO
+        .. warning::
+            This method is not implemented for `MLflowDeploymentClient`.
         """
         raise NotImplementedError
 
