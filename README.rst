@@ -2,19 +2,20 @@
 MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
-MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
-into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be
-used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
-currently run ML code (e.g. in notebooks, standalone applications or the cloud). MLflow's current components are:
+MLflow is a platform designed to streamline machine learning development, offering features for tracking experiments, packaging code into reproducible runs, and deploying models. A notable highlight of MLflow is its robust support for Large Language Models (LLMs). This includes an integrated AI Gateway, a specialized Prompt Engineering UI, and native flavors for popular LLM frameworks like open-ai, transformers, and sentence-transformers. 
+
+MLflow provides a set of lightweight APIs that can be used with any existing machine learning application or library (e.g., TensorFlow, PyTorch, XGBoost) and can run on various environments, such as notebooks, standalone applications, or the cloud. MLflow's current components are:
 
 * `MLflow Tracking <https://mlflow.org/docs/latest/tracking.html>`_: An API to log parameters, code, and
-  results in machine learning experiments and compare them using an interactive UI.
+   results within in machine learning experiments and compare them using an interactive UI
+   * `MLflow AI Gateway <https://www.mlflow.org/docs/latest/llms/gateway/index.html>`_: A unified inference interface to SaaS LLM providers and custom self-hosted LLMs
+   * `MLflow LLM Evaluate <https://www.mlflow.org/docs/latest/llms/llm-evaluate/index.html>`_: A suite of tools that helps in the evaluation and creation of LLM prompts and models
 * `MLflow Projects <https://mlflow.org/docs/latest/projects.html>`_: A code packaging format for reproducible
-  runs using Conda and Docker, so you can share your ML code with others.
+  runs using Conda and Docker, enabling you to share your ML code with others.
 * `MLflow Models <https://mlflow.org/docs/latest/models.html>`_: A model packaging format and tools that let
-  you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
-  Docker, Apache Spark, Azure ML and AWS SageMaker.
-* `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
+  you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms like Docker, Apache Spark, Databricks, Azure ML, and AWS SageMaker.
+
+* `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, a set of APIs, and a user interface for collaboratively managing the full lifecycle of MLflow Models.
 
 |docs| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack| |twitter|
 
@@ -84,8 +85,7 @@ Official documentation for MLflow can be found at https://mlflow.org/docs/latest
 
 Roadmap
 -------
-The current MLflow Roadmap is available at https://github.com/mlflow/mlflow/milestone/3. We are
-seeking contributions to all of our roadmap items with the ``help wanted`` label. Please see the
+The current MLflow Roadmap is available at https://github.com/mlflow/mlflow/milestone/3. We welcome contributions to all of our roadmap items with the ``help wanted`` label. Please see the
 `Contributing`_ section for more information.
 
 Community
