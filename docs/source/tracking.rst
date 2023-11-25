@@ -1035,7 +1035,8 @@ You should configure credentials for accessing the GCS container on the client a
 in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
 Finally, you must run ``pip install google-cloud-storage`` (on both your client and the server)
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
-
+If you would like to enable multipart upload for large files, you must run
+``pip install google-cloud-storage>=2.12.0`` to install the correct version.
 
 
 You may set some MLflow environment variables to troubleshoot GCS read-timeouts (eg. due to slow transfer speeds) using the following variables:
@@ -1199,6 +1200,40 @@ Using an additional MLflow server to handle artifacts exclusively can be useful 
 Decoupling the longer running and more compute-intensive tasks of artifact handling from the faster and higher-volume
 metadata functionality of the other Tracking API requests can help minimize the burden of an otherwise single MLflow
 server handling both types of payloads.
+
+Multipart upload for proxied artifact access
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+    This feature is experimental and may be changed or removed in a future release without notice.
+
+When using a Tracking Server with proxied artifact storage access (:ref:`scenario_5`), the server will attempt to
+upload large artifacts using multipart upload. This behavior can be enabled by setting the ``MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD``
+environment variable to ``true`` (``false`` by default):
+
+.. code-block:: bash
+
+    export MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD=true
+
+Under the hood, the Tracking Server will create a multipart upload request with the underlying storage,
+generate presigned urls for each part, and let the client upload the parts directly to the storage.
+Once all parts are uploaded, the Tracking Server will complete the multipart upload.
+None of the data will pass through the Tracking Server.
+
+If the underlying storage does not support multipart upload, the Tracking Server will fallback to a single part upload.
+If multipart upload is supported but fails for any reason, an exception will be thrown.
+
+MLflow supports multipart upload for the following storage for proxied artifact access:
+
+- Amazon S3
+- Google Cloud Storage
+
+You can configure the following environment variables:
+
+- ``MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE`` - Specifies the minimum file size in bytes to use multipart upload
+  when logging artifacts (Default: 500 MB)
+- ``MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE`` - Specifies the chunk size in bytes to use when performing multipart upload
+  (Default: 100 MB)
 
 
 .. _logging_to_a_tracking_server:

@@ -298,6 +298,12 @@ MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
 # Specifies whether or not to use multipart upload when uploading large artifacts.
 MLFLOW_ENABLE_MULTIPART_UPLOAD = _BooleanEnvironmentVariable("MLFLOW_ENABLE_MULTIPART_UPLOAD", True)
 
+#: Specifies whether or not to use multipart upload for proxied artifact access.
+#: (default: ``False``)
+MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", False
+)
+
 #: Private environment variable that's set to ``True`` while running tests.
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
 
@@ -454,8 +460,21 @@ MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
 # Private environment variable to specify the number of chunk download retries for multipart
 # download.
 _MLFLOW_MPD_NUM_RETRIES = _EnvironmentVariable("_MLFLOW_MPD_NUM_RETRIES", int, 3)
+
 # Private environment variable to specify the interval between chunk download retries for multipart
 # download.
 _MLFLOW_MPD_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
     "_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", int, 1
+)
+
+#: Specifies the minimum file size in bytes to use multipart upload when logging artifacts
+#: (default: ``524_288_000`` (500 MB))
+MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
+)
+
+#: Specifies the chunk size in bytes to use when performing multipart upload
+#: (default: ``104_857_600`` (100 MB))
+MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", int, 100 * 1024**2
 )
