@@ -1,8 +1,10 @@
 import warnings
+from typing import Dict
 
 import entrypoints
 
 from mlflow.exceptions import MlflowException
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.dbfs_artifact_repo import dbfs_artifact_repo_factory
 from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
@@ -102,7 +104,7 @@ _artifact_repository_registry.register("mlflow-artifacts", MlflowArtifactsReposi
 _artifact_repository_registry.register_entrypoints()
 
 
-def get_artifact_repository(artifact_uri):
+def get_artifact_repository(artifact_uri: str) -> ArtifactRepository:
     """Get an artifact repository from the registry based on the scheme of artifact_uri
 
     :param artifact_uri: The artifact store URI. This URI is used to select which artifact
@@ -115,7 +117,7 @@ def get_artifact_repository(artifact_uri):
     return _artifact_repository_registry.get_artifact_repository(artifact_uri)
 
 
-def get_registered_artifact_repositories():
+def get_registered_artifact_repositories() -> Dict[str, ArtifactRepository]:
     """
     Get all registered artifact repositories.
 
