@@ -629,6 +629,14 @@ Anthropic
 | **anthropic_api_key**   | Yes      | N/A                      | This is the API key for the Anthropic service.        |
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
 
+Clarifai
+++++++++
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **clarifai_pat**        | Yes      | N/A                      | This is the personal access token for Clarifai API    |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+
 AWS Bedrock
 +++++++++++
 
@@ -686,13 +694,6 @@ MLflow Model Serving
 | **model_server_url**    | Yes      | N/A                      | This is the url of the MLflow Model Server.           |
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
 
-Clarifai
-++++++++
-+-------------------------+----------+--------------------------+-------------------------------------------------------+
-| Configuration Parameter | Required | Default                  | Description                                           |
-+=========================+==========+==========================+=======================================================+
-| **clarifai_pat**        | Yes      | N/A                      | This is the personal access token for Clarifai API    |
-+-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 Note that with MLflow model serving, the ``name`` parameter for the ``model`` definition is not used for validation and is only present for reference purposes. This alias can be
 useful for understanding a particular version or route definition that was used that can be referenced back to a deployed model. You may choose any name that you wish, provided that
