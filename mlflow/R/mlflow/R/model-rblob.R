@@ -35,7 +35,7 @@ mlflow_save_model.rblob <- function(model, path, model_spec = list(), ...) {
   model_spec
 }
 
-#' @exportS3Method mlflow::mlflow_load_flavor mlflow_flavor_rblob
+#' @export
 mlflow_load_flavor.mlflow_flavor_rblob <- function(flavor, model_path) {
   unserialize(readRDS(file.path(model_path, "rblob.Rds")))
 }
