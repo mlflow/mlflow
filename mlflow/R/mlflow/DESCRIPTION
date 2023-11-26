@@ -57,7 +57,9 @@ Suggests:
     stringi,
     testthat (>= 2.0.0),
     reticulate,
-    xgboost
+    xgboost,
+    knitr,
+    rmarkdown
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:
@@ -90,3 +92,4 @@ Collate:
     'tracking-server.R'
     'tracking-ui.R'
     'tracking-utils.R'
+VignetteBuilder: knitr
