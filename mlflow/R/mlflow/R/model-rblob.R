@@ -13,7 +13,7 @@ rblob <- function(object) {
   object
 }
 
-#' @exportS3Method mlflow::mlflow_save_model rblob
+#' @export
 mlflow_save_model.rblob <- function(model, path, model_spec = list(), ...) {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
@@ -31,7 +31,7 @@ mlflow_save_model.rblob <- function(model, path, model_spec = list(), ...) {
     )
   )
 
-  mlflow:::mlflow_write_model_spec(path, model_spec) # Use of unexported function
+  mlflow_write_model_spec(path, model_spec)
   model_spec
 }
 
