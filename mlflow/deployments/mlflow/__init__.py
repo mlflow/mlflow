@@ -281,8 +281,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             client = get_deploy_client("http://localhost:5000")
-
-            response = client.predict(
+            client.predict(
                 endpoint="completions",
                 inputs={
                     "prompt": "Hello!",
@@ -290,27 +289,6 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                     "max_tokens": 500,
                 },
             )
-            assert response == {
-                "id": "chatcmpl-8OLm5kfqBAJD8CpsMANESWKpLSLXY",
-                "object": "chat.completion",
-                "created": 1700814265,
-                "model": "gpt-4-0613",
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": "Hello! How can I assist you today?",
-                        },
-                        "finish_reason": "stop",
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": 9,
-                    "completion_tokens": 9,
-                    "total_tokens": 18,
-                },
-            }
         """
         query_route = join_paths(
             MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
