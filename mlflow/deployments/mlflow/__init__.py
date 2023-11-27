@@ -195,10 +195,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
     def list_endpoints(self) -> "List[Endpoint]":
         """
         List endpoints configured for the MLflow Deployments Server.
-
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                           a prior ``list_endpoints()`` call.
-        :return: A ``PagedList`` of ``Endpoint`` objects.
+        :return: A list of ``Endpoint`` objects.
 
         Example:
 
