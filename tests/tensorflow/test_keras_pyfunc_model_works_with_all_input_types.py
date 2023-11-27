@@ -361,7 +361,6 @@ def test_multi_multidim_input_model_spark_udf(
     np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
 
-# TODO: fix the custom_objects problem in model serving
 def test_scoring_server_successfully_on_single_multidim_input_model(
     single_multidim_tensor_input_model, model_path, data
 ):

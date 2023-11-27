@@ -318,6 +318,8 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         # validated eagerly. This prevents a TypeError from being thrown as in the above
         # expectation catching validation block. The change in logic now permits loading and
         # will not raise an Exception, as validated below.
+        # TF 2.16.0 updates the logic such that if the custom object is not saved with the
+        # model or supplied in the load_model call, the model will not be loaded.
         incorrect_loaded = mlflow.tensorflow.load_model(model_path)
         assert incorrect_loaded is not None
 

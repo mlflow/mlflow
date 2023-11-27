@@ -428,10 +428,13 @@ def save_model(
         # To maintain prior behavior, when the format is HDF5, we save
         # with the h5 file extension. Otherwise, model_path is a directory
         # where the saved_model.pb will be stored (for SavedModel format)
-        # For keras 3.0, it only supports saving model in .h5 or .keras format
+        # For tensorflow 2.16.0 (including dev version),
+        # it only supports saving model in .h5 or .keras format
         if save_format == "h5":
             file_extension = ".h5"
-        elif Version(tensorflow.__version__) > Version("2.15.0"):
+        elif Version(tensorflow.__version__).is_devrelease or Version(
+            tensorflow.__version__
+        ) >= Version("2.16.0"):
             file_extension = ".keras"
         else:
             file_extension = ""
@@ -552,6 +555,9 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
     # extension to align with prior behavior of mlflow logging
     if save_format == "h5":
         model_path += ".h5"
+    # Since TF 2.16.0, it only supports saving model in .h5 or .keras format.
+    # But for backwards compatibility, we still save model without suffix
+    # for older versions of TF.
     elif os.path.exists(model_path + ".keras"):
         model_path += ".keras"
 
@@ -748,9 +754,6 @@ def _load_pyfunc(path):
         should_compile = save_format == "tf"
         K = importlib.import_module(keras_module.__name__ + ".backend")
         if K.backend() == "tensorflow":
-            # This API doesn't exist for tf > 2.15.0
-            if Version(tensorflow.__version__) <= Version("2.15.0"):
-                K.set_learning_phase(0)
             m = _load_keras_model(
                 path, keras_module=keras_module, save_format=save_format, compile=should_compile
             )

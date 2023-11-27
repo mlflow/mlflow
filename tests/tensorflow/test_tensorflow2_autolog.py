@@ -1148,7 +1148,7 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
     if Version(tf.__version__) <= Version("2.15.0"):
         from keras.api._v2.keras import Model as ModelV2
     else:
-        from keras.src.models.model import Model as ModelV2
+        from keras import Model as ModelV2
 
     assert tensorflow.keras.Model is ModelV2
 
