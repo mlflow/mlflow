@@ -4,7 +4,6 @@ import openai
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import Route, RouteModelInfo
 from mlflow.metrics.genai.model_utils import (
     _parse_model_uri,
     score_model_on_payload,
@@ -177,42 +176,7 @@ def test_score_model_azure_openai_bad_envs(set_bad_azure_envs):
         score_model_on_payload("openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1})
 
 
-def test_score_model_gateway_completions():
-    expected_output = {
-        "candidates": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "The core of the sun is estimated to have a temperature of about "
-                    "15 million degrees Celsius (27 million degrees Fahrenheit).",
-                },
-                "metadata": {"finish_reason": "stop"},
-            }
-        ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
-            "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/completions",
-        },
-    }
-
-    with mock.patch(
-        "mlflow.gateway.get_route",
-        return_value=Route(
-            name="my-route",
-            route_type="llm/v1/completions",
-            model=RouteModelInfo(provider="openai"),
-            route_url="my-route",
-        ),
-    ):
-        with mock.patch("mlflow.gateway.query", return_value=expected_output):
-            response = score_model_on_payload("gateway:/my-route", {})
-            assert response == expected_output
-
-
-def test_score_model_gateway_chat():
+def test_score_model_gateway():
     expected_output = {
         "candidates": [
             {
@@ -233,18 +197,9 @@ def test_score_model_gateway_chat():
         },
     }
 
-    with mock.patch(
-        "mlflow.gateway.get_route",
-        return_value=Route(
-            name="my-route",
-            route_type="llm/v1/chat",
-            model=RouteModelInfo(provider="openai"),
-            route_url="my-route",
-        ),
-    ):
-        with mock.patch("mlflow.gateway.query", return_value=expected_output):
-            with pytest.raises(MlflowException, match="Unsupported gateway route type"):
-                score_model_on_payload("gateway:/my-route", {})
+    with mock.patch("mlflow.gateway.query", return_value=expected_output):
+        response = score_model_on_payload("gateway:/my-route", {})
+        assert response == expected_output
 
 
 def test_openai_authentication_error(set_envs):
