@@ -209,7 +209,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             client = get_deploy_client("databricks")
-            client.create_endpoint(
+            endpoint = client.create_endpoint(
                 name="chat",
                 config={
                     "served_entities": [
@@ -227,6 +227,16 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                     ],
                 },
             )
+            assert endpoint == {
+                "name": "chat",
+                "creator": "alice@company.com",
+                "creation_timestamp": 0,
+                "last_updated_timestamp": 0,
+                "state": {...},
+                "config": {...},
+                "tags": [...],
+                "id": "88fd3f75a0d24b0380ddc40484d7a31b",
+            }
         """
         config = config.copy() if config else {}  # avoid mutating config
         extras = {}
