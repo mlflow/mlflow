@@ -24,12 +24,34 @@ def test_get_deploy_client(mock_openai_creds):
 
 def test_predict(mock_openai_creds):
     client = get_deploy_client("openai")
-    mock_resp = mock.Mock()
-    mock_resp.json.return_value = {"foo": "bar"}
-    mock_resp.status_code = 200
+    mock_resp = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 7,
+            "total_tokens": 20,
+        },
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "\n\nThis is a test!",
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
     with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests", return_value=mock_resp
+        "mlflow.openai.api_request_parallel_processor.process_api_requests",
+        return_value=[mock_resp],
     ) as mock_request:
-        resp = client.predict(endpoint="test", inputs={})
+        resp = client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
         mock_request.assert_called_once()
-        assert resp == {"foo": "bar"}
+        assert resp == {
+            "candidates": [{"text": "\n\nThis is a test!", "metadata": {"finish_reason": "stop"}}]
+        }
