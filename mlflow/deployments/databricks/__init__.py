@@ -397,9 +397,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             endpoint = client.get_endpoint(endpoint="chat")
             assert endpoint == {
                 "name": "chat",
-                "creator": "test.user@databricks.com",
-                "creation_timestamp": 1700812076000,
-                # ... truncated
+                "creator": "alice@company.com",
+                "creation_timestamp": 0,
+                "last_updated_timestamp": 0,
+                "state": {...},
+                "config": {...},
+                "tags": [...],
+                "id": "88fd3f75a0d24b0380ddc40484d7a31b",
             }
         """
         return self._call_endpoint(method="GET", route=endpoint)
