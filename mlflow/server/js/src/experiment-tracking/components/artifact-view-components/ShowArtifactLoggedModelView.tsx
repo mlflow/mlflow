@@ -110,10 +110,8 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       `import mlflow\n` +
       `from pyspark.sql.functions import struct, col\n` +
       `logged_model = '${modelPath}'\n\n` +
-      // eslint-disable-next-line max-len
-      `# Load model as a Spark UDF. Override result_type if the model does not return double values.\n` +
-      // eslint-disable-next-line max-len
-      `loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model, result_type='double')\n\n` +
+      `# Load model as a Spark UDF.\n` +
+      `loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model)\n\n` +
       `# Predict on a Spark DataFrame.\n` +
       `df.withColumn('predictions', loaded_model(struct(*map(col, df.columns))))`
     );
