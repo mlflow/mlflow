@@ -74,7 +74,7 @@ def test_predict_openai(mock_openai_creds):
             [
                 {
                     "model": "test",
-                    "temperature": 0.2,
+                    "temperature": 0.1,
                     "messages": [{"role": "user", "content": "my prompt"}],
                     "api_base": "https://api.openai.com/v1",
                     "api_type": "open_ai",
@@ -120,7 +120,7 @@ def test_predict_azure_openai(mock_azure_openai_creds):
         mock_request.assert_called_once_with(
             [
                 {
-                    "temperature": 0.2,
+                    "temperature": 0.1,
                     "messages": [{"role": "user", "content": "my prompt"}],
                     "api_base": "my-base",
                     "api_version": "2023-05-15",
