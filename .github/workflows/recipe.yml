@@ -2,6 +2,8 @@ name: Recipe tests
 
 on:
   pull_request:
+    paths-ignore:
+      - "docs/**"
   push:
     branches:
       - master
@@ -11,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 # Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:

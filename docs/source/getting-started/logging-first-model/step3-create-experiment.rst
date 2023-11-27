@@ -105,6 +105,7 @@ Creating the Apples Experiment with Meaningful tags
 ---------------------------------------------------
 
 .. code-section::
+
     .. code-block:: python
 
         # Provide an Experiment description that will appear in the UI

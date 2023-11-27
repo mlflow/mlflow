@@ -23,7 +23,7 @@ functionality for LLMs, please navigate to the notebook collection below:
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the Notebook Guides</a><br>
+    <a href="notebooks/index.html" class="download-btn">View the Notebook Guides</a><br/>
 
 Quickstart
 ----------
@@ -125,6 +125,8 @@ There are two ways to select metrics to evaluate your model:
 * Use **default** metrics for pre-defined model types.
 * Use a **custom** list of metrics.
 
+.. _llm-eval-default-metrics:
+
 Use Default Metrics for Pre-defined Model Types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -173,6 +175,8 @@ The supported LLM model types and associated metrics are listed below:
 :sup:`3` Requires package `evaluate <https://pypi.org/project/evaluate>`_, `nltk <https://pypi.org/project/nltk>`_, and 
 `rouge-score <https://pypi.org/project/rouge-score>`_
 
+.. _llm-eval-custom-metrics:
+
 Use a Custom List of Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -205,7 +209,7 @@ for LLM evaluation in MLflow. You can specify a custom list of metrics in the `e
         )
 
 
-The full reference for supported evaluation metrics can be found `here <../python_api/mlflow.html#mlflow.evaluate>`_. 
+The full reference for supported evaluation metrics can be found `here <../../python_api/mlflow.html#mlflow.evaluate>`_.
 
 Metrics with LLM as the Judge
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -322,7 +326,7 @@ Basically you need to:
 2. Pass ``eval_fn`` and other arguments to ``mlflow.metrics.make_metric`` API to create the metric. 
 
 The following code creates a dummy per-row metric called ``"over_10_chars"``: if the model output is greater than 10, 
-the score is 1 otherwise 0.
+the score is "yes" otherwise "no".
 
 .. code-block:: python
 
@@ -330,9 +334,9 @@ the score is 1 otherwise 0.
         scores = []
         for i in range(len(predictions)):
             if len(predictions[i]) > 10:
-                scores.append(1)
+                scores.append("yes")
             else:
-                scores.append(0)
+                scores.append("no")
         return MetricValue(
             scores=scores,
             aggregate_results=standard_aggregations(scores),
@@ -440,6 +444,8 @@ up OpenAI authentication to run the code below.
             eval_data,
             model_type="question-answering",
         )
+
+.. _llm-eval-static-dataset:
 
 Evaluating with a Static Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

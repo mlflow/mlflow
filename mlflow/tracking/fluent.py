@@ -376,20 +376,32 @@ def start_run(
             tags=resolved_tags,
             run_name=run_name,
         )
-        if log_system_metrics is None:
-            # if `log_system_metrics` is not specified, we will check environment variable.
-            log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
-        if log_system_metrics:
-            try:
-                from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
 
-                system_monitor = SystemMetricsMonitor(active_run_obj.info.run_id)
-                global run_id_to_system_metrics_monitor
+    if log_system_metrics is None:
+        # If `log_system_metrics` is not specified, we will check environment variable.
+        log_system_metrics = MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING.get()
 
-                run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
-                system_monitor.start()
-            except Exception as e:
-                _logger.error(f"Failed to start system metrics monitoring: {e}.")
+    if log_system_metrics:
+        if importlib.util.find_spec("psutil") is None:
+            raise MlflowException(
+                "Failed to start system metrics monitoring as package `psutil` is not installed. "
+                "Please run `pip install psutil` to resolve the issue, otherwise you can disable "
+                "system metrics logging by passing `log_system_metrics=False` to "
+                "`mlflow.start_run()` or calling `mlflow.disable_system_metrics_logging`."
+            )
+        try:
+            from mlflow.system_metrics.system_metrics_monitor import SystemMetricsMonitor
+
+            system_monitor = SystemMetricsMonitor(
+                active_run_obj.info.run_id,
+                resume_logging=existing_run_id is not None,
+            )
+            global run_id_to_system_metrics_monitor
+
+            run_id_to_system_metrics_monitor[active_run_obj.info.run_id] = system_monitor
+            system_monitor.start()
+        except Exception as e:
+            _logger.error(f"Failed to start system metrics monitoring: {e}.")
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]

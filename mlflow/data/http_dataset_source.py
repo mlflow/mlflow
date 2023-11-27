@@ -1,13 +1,13 @@
 import os
 import posixpath
 import re
-import tempfile
 from typing import Any, Dict
 from urllib.parse import urlparse
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.rest_utils import augmented_raise_for_status, cloud_storage_http_request
 
 
@@ -63,7 +63,7 @@ class HTTPDatasetSource(DatasetSource):
             basename = "dataset_source"
 
         if dst_path is None:
-            dst_path = tempfile.mkdtemp()
+            dst_path = create_tmp_dir()
 
         dst_path = os.path.join(dst_path, basename)
         with open(dst_path, "wb") as f:

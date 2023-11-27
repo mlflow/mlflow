@@ -1,19 +1,31 @@
+import datetime
+import importlib.metadata
 import os
 import posixpath
 import urllib.parse
+from collections import namedtuple
+
+from packaging.version import Version
 
 from mlflow.entities import FileInfo
+from mlflow.entities.multipart_upload import (
+    CreateMultipartUploadResponse,
+    MultipartUploadCredential,
+)
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
     MLFLOW_GCS_DEFAULT_TIMEOUT,
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.exceptions import _UnsupportedMultipartUploadException
+from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
+GCSMPUArguments = namedtuple("GCSMPUArguments", ["transport", "url", "headers", "content_type"])
 
-class GCSArtifactRepository(ArtifactRepository):
+
+class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     """
     Stores artifacts on Google Cloud Storage.
 
@@ -141,3 +153,111 @@ class GCSArtifactRepository(ArtifactRepository):
         blobs = gcs_bucket.list_blobs(prefix=f"{dest_path}")
         for blob in blobs:
             blob.delete()
+
+    @staticmethod
+    def _validate_support_mpu():
+        if Version(importlib.metadata.version("google-cloud-storage")) < Version(
+            "2.12.0"
+        ) or Version(importlib.metadata.version("google-resumable-media")) < Version("2.6.0"):
+            raise _UnsupportedMultipartUploadException()
+
+    @staticmethod
+    def _gcs_mpu_arguments(filename: str, blob) -> GCSMPUArguments:
+        """See :py:func:`google.cloud.storage.transfer_manager.upload_chunks_concurrently`"""
+        from google.cloud.storage.transfer_manager import _headers_from_metadata
+
+        bucket = blob.bucket
+        client = blob.client
+        transport = blob._get_transport(client)
+
+        hostname = client._connection.get_api_base_url_for_mtls()
+        url = f"{hostname}/{bucket.name}/{blob.name}"
+
+        base_headers, object_metadata, content_type = blob._get_upload_arguments(
+            client, None, filename=filename, command="tm.upload_sharded"
+        )
+        headers = {**base_headers, **_headers_from_metadata(object_metadata)}
+
+        if blob.user_project is not None:
+            headers["x-goog-user-project"] = blob.user_project
+
+        if blob.kms_key_name is not None and "cryptoKeyVersions" not in blob.kms_key_name:
+            headers["x-goog-encryption-kms-key-name"] = blob.kms_key_name
+
+        return GCSMPUArguments(
+            transport=transport, url=url, headers=headers, content_type=content_type
+        )
+
+    def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
+        self._validate_support_mpu()
+        from google.resumable_media.requests import XMLMPUContainer
+
+        (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+
+        gcs_bucket = self._get_bucket(bucket)
+        blob = gcs_bucket.blob(dest_path)
+        args = self._gcs_mpu_arguments(local_file, blob)
+        container = XMLMPUContainer(args.url, local_file, headers=args.headers)
+        container.initiate(transport=args.transport, content_type=args.content_type)
+        upload_id = container.upload_id
+
+        credentials = []
+        for i in range(1, num_parts + 1):  # part number must be in [1, 10000]
+            signed_url = blob.generate_signed_url(
+                method="PUT",
+                version="v4",
+                expiration=datetime.timedelta(minutes=60),
+                query_parameters={
+                    "partNumber": i,
+                    "uploadId": upload_id,
+                },
+            )
+            credentials.append(
+                MultipartUploadCredential(
+                    url=signed_url,
+                    part_number=i,
+                    headers={},
+                )
+            )
+        return CreateMultipartUploadResponse(
+            credentials=credentials,
+            upload_id=upload_id,
+        )
+
+    def complete_multipart_upload(self, local_file, upload_id, parts=None, artifact_path=None):
+        self._validate_support_mpu()
+        from google.resumable_media.requests import XMLMPUContainer
+
+        (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+
+        gcs_bucket = self._get_bucket(bucket)
+        blob = gcs_bucket.blob(dest_path)
+        args = self._gcs_mpu_arguments(local_file, blob)
+        container = XMLMPUContainer(args.url, local_file, headers=args.headers)
+        container._upload_id = upload_id
+        for part in parts:
+            container.register_part(part.part_number, part.etag)
+
+        container.finalize(transport=args.transport)
+
+    def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
+        self._validate_support_mpu()
+        from google.resumable_media.requests import XMLMPUContainer
+
+        (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
+
+        gcs_bucket = self._get_bucket(bucket)
+        blob = gcs_bucket.blob(dest_path)
+        args = self._gcs_mpu_arguments(local_file, blob)
+        container = XMLMPUContainer(args.url, local_file, headers=args.headers)
+        container._upload_id = upload_id
+        container.cancel(transport=args.transport)

@@ -1378,7 +1378,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         )
 
     def incorrect_return_type(*_):
-        return "stuff", 3
+        return ["stuff"], 3
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_extra_metric(
@@ -1402,15 +1402,15 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         )
 
     def non_numeric_scores(*_):
-        return MetricValue(scores=["string"])
+        return MetricValue(scores=[{"val": "string"}])
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
         _evaluate_extra_metric(
             _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
-            f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the "
-            "`extra_metrics` parameter because it must return MetricValue with numeric scores."
+            f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the `extra_metrics`"
+            " parameter because it must return MetricValue with numeric or string scores."
         )
 
     def non_list_justifications(*_):
@@ -2888,7 +2888,7 @@ def test_evaluate_no_model_type_with_custom_metric():
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         from mlflow.metrics import make_metric
-        from mlflow.metrics.metric_definitions import standard_aggregations
+        from mlflow.metrics.base import standard_aggregations
 
         def word_count_eval(predictions, targets=None, metrics=None):
             scores = []
@@ -3103,21 +3103,9 @@ def test_evaluate_with_latency_static_dataset():
     assert all(grade == 0.0 for grade in logged_data["latency"])
 
 
-properly_formatted_openai_response1 = {
-    "candidates": [
-        {
-            "text": '{\n  "score": 3,\n  "justification": "' "justification" '"\n}',
-            "metadata": {"finish_reason": "stop"},
-        }
-    ],
-    "metadata": {
-        "input_tokens": 569,
-        "output_tokens": 93,
-        "total_tokens": 662,
-        "model": "gpt-3.5-turbo-0613",
-        "route_type": "llm/v1/completions",
-    },
-}
+properly_formatted_openai_response1 = (
+    '{\n  "score": 3,\n  "justification": "' "justification" '"\n}'
+)
 
 
 def test_evaluate_with_correctness():
@@ -3222,6 +3210,7 @@ def validate_retriever_logged_data(logged_data, k=3):
         "retrieved_context",
         f"precision_at_{k}/score",
         f"recall_at_{k}/score",
+        f"ndcg_at_{k}/score",
         "ground_truth",
     }
 
@@ -3231,6 +3220,7 @@ def validate_retriever_logged_data(logged_data, k=3):
     assert logged_data["retrieved_context"].tolist() == [["doc1", "doc3", "doc2"]] * 3
     assert (logged_data[f"precision_at_{k}/score"] <= 1).all()
     assert (logged_data[f"recall_at_{k}/score"] <= 1).all()
+    assert (logged_data[f"ndcg_at_{k}/score"] <= 1).all()
     assert logged_data["ground_truth"].tolist() == [["doc1", "doc2"]] * 3
 
 
@@ -3259,6 +3249,9 @@ def test_evaluate_retriever():
         "recall_at_3/mean": 1.0,
         "recall_at_3/p90": 1.0,
         "recall_at_3/variance": 0.0,
+        "ndcg_at_3/mean": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/p90": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/variance": 0.0,
     }
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
@@ -3286,6 +3279,9 @@ def test_evaluate_retriever():
         "recall_at_6/mean": 1.0,
         "recall_at_6/p90": 1.0,
         "recall_at_6/variance": 0.0,
+        "ndcg_at_6/mean": pytest.approx(0.9197207891481877),
+        "ndcg_at_6/p90": pytest.approx(0.9197207891481877),
+        "ndcg_at_6/variance": 0.0,
     }
 
     # test with default k
@@ -3304,6 +3300,9 @@ def test_evaluate_retriever():
         "recall_at_3/mean": 1.0,
         "recall_at_3/p90": 1.0,
         "recall_at_3/variance": 0.0,
+        "ndcg_at_3/mean": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/p90": pytest.approx(0.9197207891481877),
+        "ndcg_at_3/variance": 0.0,
     }
 
     # test with multiple chunks from same doc
@@ -3332,6 +3331,9 @@ def test_evaluate_retriever():
         "recall_at_3/mean": 1.0,
         "recall_at_3/p90": 1.0,
         "recall_at_3/variance": 0.0,
+        "ndcg_at_3/mean": 1.0,
+        "ndcg_at_3/p90": 1.0,
+        "ndcg_at_3/variance": 0.0,
     }
 
     # test with empty retrieved doc
@@ -3358,6 +3360,9 @@ def test_evaluate_retriever():
         "recall_at_4/mean": 0,
         "recall_at_4/p90": 0,
         "recall_at_4/variance": 0,
+        "ndcg_at_4/mean": 0.0,
+        "ndcg_at_4/p90": 0.0,
+        "ndcg_at_4/variance": 0.0,
     }
 
     # test with a static dataset
@@ -3384,6 +3389,9 @@ def test_evaluate_retriever():
         "recall_at_3/mean": 0.5,
         "recall_at_3/p90": 0.5,
         "recall_at_3/variance": 0.0,
+        "ndcg_at_3/mean": pytest.approx(0.6131471927654585),
+        "ndcg_at_3/p90": pytest.approx(0.6131471927654585),
+        "ndcg_at_3/variance": 0.0,
         "precision_at_4/mean": 1 / 3,
         "precision_at_4/p90": 1 / 3,
         "precision_at_4/variance": 0.0,
@@ -3409,6 +3417,9 @@ def test_evaluate_retriever():
         "recall_at_3/mean": 0.5,
         "recall_at_3/p90": 0.5,
         "recall_at_3/variance": 0.0,
+        "ndcg_at_3/mean": pytest.approx(0.6131471927654585),
+        "ndcg_at_3/p90": pytest.approx(0.6131471927654585),
+        "ndcg_at_3/variance": 0.0,
     }
 
     # silent failure with evaluator_config method too!
@@ -3438,7 +3449,11 @@ def test_evaluate_retriever_builtin_metrics_no_model_type():
             model=fn,
             data=X,
             targets="ground_truth",
-            extra_metrics=[mlflow.metrics.precision_at_k(4), mlflow.metrics.recall_at_k(4)],
+            extra_metrics=[
+                mlflow.metrics.precision_at_k(4),
+                mlflow.metrics.recall_at_k(4),
+                mlflow.metrics.ndcg_at_k(4),
+            ],
         )
     run = mlflow.get_run(run.info.run_id)
     assert (
@@ -3451,6 +3466,9 @@ def test_evaluate_retriever_builtin_metrics_no_model_type():
             "recall_at_4/mean": 1.0,
             "recall_at_4/p90": 1.0,
             "recall_at_4/variance": 0.0,
+            "ndcg_at_4/mean": pytest.approx(0.9197207891481877),
+            "ndcg_at_4/p90": pytest.approx(0.9197207891481877),
+            "ndcg_at_4/variance": 0.0,
         }
     )
     client = mlflow.MlflowClient()
@@ -3564,3 +3582,44 @@ def test_target_prediction_col_mapping():
                 "correctness/v1/variance": 0.0,
                 "correctness/v1/p90": 3.0,
             }
+
+
+def test_evaluate_custom_metric_with_string_type():
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
+        from mlflow.metrics import make_metric
+
+        def word_count_eval(predictions):
+            scores = []
+            avg = 0
+            aggregate_results = {}
+            for prediction in predictions:
+                scores.append(prediction)
+                avg += len(prediction.split(" "))
+
+            avg /= len(predictions)
+            aggregate_results["avg_len"] = avg
+
+            return MetricValue(
+                scores=scores,
+                aggregate_results=aggregate_results,
+            )
+
+        word_count = make_metric(eval_fn=word_count_eval, greater_is_better=True, name="word_count")
+
+        results = mlflow.evaluate(model_info.model_uri, data, extra_metrics=[word_count])
+        assert results.metrics["word_count/avg_len"] == 3.0
+        assert len(results.tables) == 1
+        assert results.tables["eval_results_table"].columns.tolist() == [
+            "text",
+            "outputs",
+            "word_count/score",
+        ]
+        pd.testing.assert_series_equal(
+            results.tables["eval_results_table"]["word_count/score"],
+            data["text"],
+            check_names=False,
+        )
