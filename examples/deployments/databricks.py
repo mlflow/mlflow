@@ -54,6 +54,7 @@ def main():
         },
     )
     try:
+        # Update served_entities
         client.update_endpoint(
             endpoint=name,
             config={
@@ -70,6 +71,12 @@ def main():
                         },
                     }
                 ],
+            },
+        )
+        # Update rate_limits
+        client.update_endpoint(
+            endpoint=name,
+            config={
                 "rate_limits": [
                     {
                         "key": "user",
