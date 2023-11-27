@@ -33,8 +33,6 @@ class DatabricksEndpoint(AttrDict):
 class DatabricksDeploymentClient(BaseDeploymentClient):
     """
     Client for interacting with Databricks serving endpoints.
-    See https://docs.databricks.com/en/dev-tools/auth.html for how to set up credentials
-    for authentication.
 
     Example:
 
@@ -44,6 +42,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         export DATABRICKS_HOST=...
         export DATABRICKS_TOKEN=...
+
+    .. seealso::
+
+        See https://docs.databricks.com/en/dev-tools/auth.html for other authentication methods.
 
     Then, create a deployment client and use it to interact with Databricks serving endpoints:
 
