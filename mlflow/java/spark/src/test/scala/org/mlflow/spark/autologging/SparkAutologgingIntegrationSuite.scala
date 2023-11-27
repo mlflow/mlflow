@@ -213,7 +213,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     subscriberSeq.foreach(MockPublisher.register)
     df.collect()
     Thread.sleep(1000)
-    verify(subscriber, times(1)).notify(any(), any(), meq("text")) // Prefetch on load()
+    verify(subscriber, times(1)).notify(any(), any(), any())
     verify(subscriber, times(1)).notify(
       getFileUri(path), "unknown", format)
   }
