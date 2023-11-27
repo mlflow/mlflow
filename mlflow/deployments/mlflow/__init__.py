@@ -234,8 +234,8 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         Submit a query to a configured provider endpoint.
 
         :param deployment_name: Unused.
-        :param endpoint: The name of the endpoint to query.
         :param inputs: The inputs to the query, as a dictionary.
+        :param endpoint: The name of the endpoint to query.
         :return: A dictionary containing the response from the endpoint.
 
         Example:
