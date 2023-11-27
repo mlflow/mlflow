@@ -130,15 +130,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         except Exception as e:
             raise MlflowException(f"Error response from OpenAI:\n {e}")
 
-        return {
-            "candidates": [
-                {
-                    "text": c["message"]["content"],
-                    "metadata": {"finish_reason": c["finish_reason"]},
-                }
-                for c in resp["choices"]
-            ],
-        }
+        return resp
 
     def create_endpoint(self, name, config=None):
         """

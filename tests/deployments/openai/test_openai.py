@@ -67,9 +67,7 @@ def test_predict_openai(mock_openai_creds):
             throw_original_error=True,
             max_workers=1,
         )
-        assert resp == {
-            "candidates": [{"text": "\n\nThis is a test!", "metadata": {"finish_reason": "stop"}}]
-        }
+        assert resp == mock_resp
 
 
 def test_predict_azure_openai(mock_azure_openai_creds):
@@ -117,6 +115,4 @@ def test_predict_azure_openai(mock_azure_openai_creds):
             throw_original_error=True,
             max_workers=1,
         )
-        assert resp == {
-            "candidates": [{"text": "\n\nThis is a test!", "metadata": {"finish_reason": "stop"}}]
-        }
+        assert resp == mock_resp
