@@ -278,8 +278,8 @@ export const EvaluationCreatePromptRunModal = ({
         const errorMessage = e.getGatewayErrorMessage() || e.getUserVisibleError();
         const wrappedMessage = intl.formatMessage(
           {
-            defaultMessage: 'AI gateway returned the following error: "{errorMessage}"',
-            description: 'Experiment page > new run modal > AI gateway error message',
+            defaultMessage: 'MLflow deployment returned the following error: "{errorMessage}"',
+            description: 'Experiment page > new run modal > MLflow deployment error message',
           },
           {
             errorMessage,
@@ -342,7 +342,7 @@ export const EvaluationCreatePromptRunModal = ({
   const createRunButtonTooltip = useMemo(() => {
     if (!selectedModel) {
       return intl.formatMessage({
-        defaultMessage: 'You need to select a route from the AI gateway dropdown first',
+        defaultMessage: 'You need to select an endpoint from the MLflow deployment  dropdown first',
         description: 'Experiment page > new run modal > invalid state - no AI gateway selected',
       });
     }
@@ -400,7 +400,7 @@ export const EvaluationCreatePromptRunModal = ({
   const evaluateButtonTooltip = useMemo(() => {
     if (!selectedModel) {
       return intl.formatMessage({
-        defaultMessage: 'You need to select a route from the AI gateway dropdown first',
+        defaultMessage: 'You need to select an endpoint from the MLflow deployment dropdown first',
         description: 'Experiment page > new run modal > invalid state - no AI gateway selected',
       });
     }
@@ -530,9 +530,9 @@ export const EvaluationCreatePromptRunModal = ({
               title={
                 <FormattedMessage
                   defaultMessage={
-                    'These routes come from the AI Gateway. Check out the AI Gateway preview documentation to get started'
+                    'These endpoints come from the MLflow deployment. Check out the MLflow deployment documentation to get started'
                   }
-                  description={'Information about gateway routes'}
+                  description={'Information about MLflow deployment endpoints'}
                 />
               }
               placement='right'

@@ -59,10 +59,6 @@
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
   },
-  "0TZCn5": {
-    "defaultMessage": "You need to select a route from the AI gateway dropdown first",
-    "description": "Experiment page > new run modal > invalid state - no AI gateway selected"
-  },
   "0gGMZm": {
     "defaultMessage": "Name",
     "description": "Default text for name placeholder in editable tags table form in MLflow"
@@ -503,6 +499,10 @@
     "defaultMessage": "100",
     "description": "Label for 100 first runs visible in run count selector within runs compare configuration modal"
   },
+  "Bj7jg5": {
+    "defaultMessage": "You cannot evaluate this cell, this run was not created using MLflow deployment endpoints.",
+    "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
+  },
   "Bnruyp": {
     "defaultMessage": "500",
     "description": "Label for 500 first runs visible in run count selector within runs compare configuration modal"
@@ -586,6 +586,10 @@
   "EKyt+3": {
     "defaultMessage": "Metrics:",
     "description": "Label text for metrics in parallel coordinates plot in MLflow"
+  },
+  "ENTyzw": {
+    "defaultMessage": "You need to select an endpoint from the MLflow deployment dropdown first",
+    "description": "Experiment page > new run modal > invalid state - no AI gateway selected"
   },
   "EOlibi": {
     "defaultMessage": "Model",
@@ -755,13 +759,13 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
   },
+  "Iq0d/V": {
+    "defaultMessage": "These endpoints come from the MLflow deployment. Check out the MLflow deployment documentation to get started",
+    "description": "Information about MLflow deployment endpoints"
+  },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
     "description": "Experiment page > prompt lab > stop parameter help text"
-  },
-  "JAFH9v": {
-    "defaultMessage": "AI gateway returned the following error: \"{errorMessage}\"",
-    "description": "Experiment page > new run modal > AI gateway error message"
   },
   "JCboZ7": {
     "defaultMessage": "Path copied",
@@ -1282,10 +1286,6 @@
   "bSx/er": {
     "defaultMessage": "Parameters",
     "description": "Table title text for parameters table in the model comparison page"
-  },
-  "bc/aGy": {
-    "defaultMessage": "These routes come from the AI Gateway. Check out the AI Gateway preview documentation to get started",
-    "description": "Information about gateway routes"
   },
   "bhgG7S": {
     "defaultMessage": "Run Command",
@@ -1899,10 +1899,6 @@
     "defaultMessage": "Register Model",
     "description": "Register model modal title to register the model for deployment"
   },
-  "tnTuzM": {
-    "defaultMessage": "You cannot evaluate this cell, this run was not created using AI gateway route",
-    "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
-  },
   "ttyLD4": {
     "defaultMessage": "Okay",
     "description": "Experiment page > new notebook run modal > okay button label"
@@ -2030,6 +2026,10 @@
   "yAuDRt": {
     "defaultMessage": "Evaluation is not possible because values for the following inputs cannot be determined: {missingParamList}. Add input columns to the \"group by\" settings or use \"Add row\" button to define new parameter set.",
     "description": "Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip"
+  },
+  "yC9GFP": {
+    "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",
+    "description": "Experiment page > new run modal > MLflow deployment error message"
   },
   "yJpGwW": {
     "defaultMessage": "Deleted",
