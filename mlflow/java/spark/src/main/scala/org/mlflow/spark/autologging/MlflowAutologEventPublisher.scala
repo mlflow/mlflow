@@ -152,7 +152,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
   private def shouldSkipPublish(path: String, format: Option[String]): Boolean = {
     // 1. Spark first loads head of the data as unknown "text" to infer the schema, which we don't want to log
     // 2. Checkpoint files don't provide useful information, so we filter them out
-    return (format.isEmpty || format.get == "text") || isCheckpointFile(path)
+    (format.isEmpty || format.get == "text") || isCheckpointFile(path)
   }
 
   private[autologging] def publishEvent(

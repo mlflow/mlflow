@@ -1098,6 +1098,7 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
                    datasource autologging. If ``False``, show all events and warnings during Spark
                    datasource autologging.
     """
+    from pyspark import __version__ as pyspark_version
     from pyspark.sql import SparkSession
 
     from mlflow._spark_autologging import (
@@ -1105,6 +1106,21 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         _stop_listen_for_spark_activity,
     )
     from mlflow.utils._spark_utils import _get_active_spark_session
+
+    # Check if environment variable PYSPARK_PIN_THREAD is set to false.
+    # The "Pin thread" concept was introduced since Pyspark 3.0.0 and set to default to true
+    # since Pyspark 3.2.0 (https://issues.apache.org/jira/browse/SPARK-35303). When pin thread
+    # is enabled, Pyspark manages Python and JVM threads in a 1:1, meaning that when one thread
+    # is terminated, the corresponding thread in the other side will be terminated as well.
+    # However, this causes an issue in spark autologging as our event listener thread may be
+    # terminated before receiving the datasource event.
+    # Hence, we have to disable it and decouple the thread management between Python and JVM.
+    if pyspark_version >= "3.2" and os.environ.get("PYSPARK_PIN_THREAD", "").lower() != "false":
+        raise MlflowException(
+            "With Pyspark >= 3.2, PYSPARK_PIN_THREAD environment variable must be set to false "
+            "for Spark autologging to work. Please set PYSPARK_PIN_THREAD to false and try again.",
+            INVALID_PARAMETER_VALUE,
+        )
 
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)
