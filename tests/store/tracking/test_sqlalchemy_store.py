@@ -221,7 +221,7 @@ def _get_run_configs(experiment_id=None, tags=None, start_time=None):
 def _run_factory(store: SqlAlchemyStore, config=None):
     if not config:
         config = _get_run_configs()
-    if "experiment_id" not in config:
+    if not config.get("experiment_id", None):
         config["experiment_id"] = _create_experiments(store, "test exp")
 
     return store.create_run(**config)
@@ -686,11 +686,11 @@ def test_run_needs_uuid(store: SqlAlchemyStore):
 def test_run_data_model(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         run_id = uuid.uuid4().hex
-        run_data = models.SqlRun(run_uuid=run_id)
         m1 = models.SqlMetric(run_uuid=run_id, key="accuracy", value=0.89)
         m2 = models.SqlMetric(run_uuid=run_id, key="recal", value=0.89)
         p1 = models.SqlParam(run_uuid=run_id, key="loss", value="test param")
         p2 = models.SqlParam(run_uuid=run_id, key="blue", value="test param")
+        run_data = models.SqlRun(run_uuid=run_id)
 
         session.add_all([m1, m2, p1, p2])
         session.add(run_data)
@@ -745,10 +745,8 @@ def test_create_run_with_tags(store: SqlAlchemyStore):
     assert actual.info.user_id == expected["user_id"]
     assert actual.info.run_name == expected["run_name"]
     assert actual.info.start_time == expected["start_time"]
-
     assert len(actual.data.tags) == len(tags)
-    expected_tags = {tag.key: tag.value for tag in tags}
-    assert actual.data.tags == expected_tags
+    assert actual.data.tags == {tag.key: tag.value for tag in tags}
 
 
 def test_create_run_sets_name(store: SqlAlchemyStore):
@@ -758,6 +756,7 @@ def test_create_run_sets_name(store: SqlAlchemyStore):
     run = store.get_run(run_id)
     assert run.info.run_name == configs["run_name"]
     assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == configs["run_name"]
+
     run_id = store.create_run(
         experiment_id=experiment_id,
         user_id="user",
@@ -787,7 +786,6 @@ def test_create_run_sets_name(store: SqlAlchemyStore):
 def test_get_run_with_name(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_get_run")
     configs = _get_run_configs(experiment_id=experiment_id)
-
     run_id = store.create_run(**configs).info.run_id
 
     run = store.get_run(run_id)
@@ -803,7 +801,9 @@ def test_get_run_with_name(store: SqlAlchemyStore):
         "run_name": None,
     }
     run_id = store.create_run(**no_run_configs).info.run_id
+
     run = store.get_run(run_id)
+
     assert run.info.run_name.split("-")[0] in _GENERATOR_PREDICATES
 
     name_empty_str_run = store.create_run(**{**configs, **{"run_name": ""}})
