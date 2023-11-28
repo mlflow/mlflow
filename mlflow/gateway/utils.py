@@ -183,6 +183,11 @@ def is_valid_ai21labs_model(model_name: str) -> bool:
     return model_name in {"j2-ultra", "j2-mid", "j2-light"}
 
 
-def strip_sse_prefix(s: str):
+def strip_sse_prefix(s: str) -> str:
     # https://html.spec.whatwg.org/multipage/server-sent-events.html
     return re.sub(r"^data:\s+", "", s)
+
+
+def to_sse_chunk(data: str) -> str:
+    # https://html.spec.whatwg.org/multipage/server-sent-events.html
+    return f"data: {data}\n\n"

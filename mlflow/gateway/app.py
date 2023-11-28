@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel
-from sse_starlette import EventSourceResponse
+from starlette.responses import StreamingResponse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_CONFIG
 from mlflow.exceptions import MlflowException
@@ -29,7 +29,7 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.gateway.utils import SearchRoutesToken
+from mlflow.gateway.utils import SearchRoutesToken, to_sse_chunk
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -58,7 +58,6 @@ class GatewayAPI(FastAPI):
 def _create_chat_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-
     async def _chat(
         payload: chat.RequestPayload,
     ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
@@ -66,9 +65,9 @@ def _create_chat_endpoint(config: RouteConfig):
 
             async def generator():
                 async for d in prov.chat_stream(payload):
-                    yield {"data": d.json()}
+                    yield to_sse_chunk(d.json())
 
-            return EventSourceResponse(generator())
+            return StreamingResponse(generator(), media_type="text/event-stream")
         else:
             return await prov.chat(payload)
 

@@ -77,7 +77,6 @@ class OpenAIProvider(BaseProvider):
             return payload
 
     def _prepare_chat_request_payload(self, payload):
-
         payload = rename_payload_keys(
             payload,
             {"candidate_count": "n"},
