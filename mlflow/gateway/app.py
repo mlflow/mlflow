@@ -62,12 +62,10 @@ def _create_chat_endpoint(config: RouteConfig):
         payload: chat.RequestPayload,
     ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
         if payload.stream:
-
-            async def generator():
-                async for d in prov.chat_stream(payload):
-                    yield to_sse_chunk(d.json())
-
-            return StreamingResponse(generator(), media_type="text/event-stream")
+            return StreamingResponse(
+                (to_sse_chunk(d.json()) async for d in prov.chat_stream(payload)),
+                media_type="text/event-stream",
+            )
         else:
             return await prov.chat(payload)
 

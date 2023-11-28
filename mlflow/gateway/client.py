@@ -72,13 +72,16 @@ class MlflowGatewayClient:
         """
         return self._gateway_uri
 
-    def _call_endpoint(self, method: str, route: str, json_body: Optional[str] = None):
+    def _call_endpoint(
+        self, method: str, route: str, json_body: Optional[str] = None, stream: bool = False
+    ):
         """
         Call a specific endpoint on the Gateway API.
 
         :param method: The HTTP method to use.
         :param route: The API route to call.
         :param json_body: Optional JSON body to include in the request.
+        :param stream: Enable streaming response
         :return: The server's response.
         """
         if json_body:
@@ -97,6 +100,7 @@ class MlflowGatewayClient:
             timeout=MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
             retry_codes=MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
             raise_on_status=False,
+            stream=stream,
             **call_kwargs,
         )
         augmented_raise_for_status(response)
@@ -343,7 +347,7 @@ class MlflowGatewayClient:
         query_route = assemble_uri_path([MLFLOW_GATEWAY_ROUTE_BASE, route, MLFLOW_QUERY_SUFFIX])
 
         try:
-            resp = self._call_endpoint("POST", query_route, data)
+            resp = self._call_endpoint("POST", query_route, data, stream=stream)
         except MlflowException as e:
             if isinstance(e.__cause__, requests.exceptions.Timeout):
                 timeout_message = (
