@@ -12,7 +12,7 @@ from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse, mock_http_client, MockAsyncStreamingResponse
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
 
 
 def chat_config():
@@ -131,12 +131,12 @@ async def test_chat_temperature_is_doubled():
 def chat_stream_response():
     return [
         b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant"}}]}\n',
-        b'\n',
+        b"\n",
         b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":null,"delta":{"content":"test"}}]}\n',
-        b'\n',
+        b"\n",
         b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":"stop","delta":{}}]}\n',
-        b'\n',
-        b'data: [DONE]\n',
+        b"\n",
+        b"data: [DONE]\n",
     ]
 
 
@@ -153,27 +153,37 @@ async def test_chat_stream():
 
         chunks = [jsonable_encoder(chunk) async for chunk in response]
         assert chunks == [
-            {'choices': [{'delta': {'content': None, 'role': 'assistant'},
-                          'finish_reason': None,
-                          'index': 0}],
-             'created': 1,
-             'id': 'test-id',
-             'model': 'gpt-35-turbo',
-             'object': 'chat.completion.chunk'},
-            {'choices': [{'delta': {'content': 'test', 'role': None},
-                          'finish_reason': None,
-                          'index': 0}],
-             'created': 1,
-             'id': 'test-id',
-             'model': 'gpt-35-turbo',
-             'object': 'chat.completion.chunk'},
-            {'choices': [{'delta': {'content': None, 'role': None},
-                          'finish_reason': 'stop',
-                          'index': 0}],
-             'created': 1,
-             'id': 'test-id',
-             'model': 'gpt-35-turbo',
-             'object': 'chat.completion.chunk'},
+            {
+                "choices": [
+                    {
+                        "delta": {"content": None, "role": "assistant"},
+                        "finish_reason": None,
+                        "index": 0,
+                    }
+                ],
+                "created": 1,
+                "id": "test-id",
+                "model": "gpt-35-turbo",
+                "object": "chat.completion.chunk",
+            },
+            {
+                "choices": [
+                    {"delta": {"content": "test", "role": None}, "finish_reason": None, "index": 0}
+                ],
+                "created": 1,
+                "id": "test-id",
+                "model": "gpt-35-turbo",
+                "object": "chat.completion.chunk",
+            },
+            {
+                "choices": [
+                    {"delta": {"content": None, "role": None}, "finish_reason": "stop", "index": 0}
+                ],
+                "created": 1,
+                "id": "test-id",
+                "model": "gpt-35-turbo",
+                "object": "chat.completion.chunk",
+            },
         ]
 
         mock_build_client.assert_called_once_with(

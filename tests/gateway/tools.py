@@ -8,7 +8,7 @@ import threading
 import time
 from collections import namedtuple
 from pathlib import Path
-from typing import Any, Dict, Union, List
+from typing import Any, Dict, List, Optional, Union
 from unittest import mock
 
 import aiohttp
@@ -122,8 +122,7 @@ class MockAsyncResponse:
 
 
 class MockAsyncStreamingResponse:
-    def __init__(self, data: List[bytes], headers: Dict[str, str] = None, status: int = 200):
-        # Extract status and headers from data, if present
+    def __init__(self, data: List[bytes], headers: Optional[Dict[str, str]] = None, status: int = 200):
         self.status = status
         self.headers = headers
         self._content = data
