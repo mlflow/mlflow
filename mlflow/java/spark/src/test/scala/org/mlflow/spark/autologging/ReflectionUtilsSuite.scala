@@ -1,6 +1,7 @@
 package org.mlflow.spark.autologging
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
+
 
 object TestObject {
   def myMethod: String = "hi"
@@ -16,7 +17,7 @@ class RealClass extends TestAbstractClass {
   def subclassMethod(x: Int): Int = x * x
 }
 
-class ReflectionUtilsSuite extends FunSuite {
+class ReflectionUtilsSuite extends AnyFunSuite {
 
   test("Can get private & protected fields of an object via reflection") {
     val obj = new RealClass()
