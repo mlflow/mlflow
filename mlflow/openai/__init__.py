@@ -518,6 +518,7 @@ def log_model(
                 train = df.drop_column("target_label")
                 predictions = ...  # compute model predictions
                 signature = infer_signature(train, predictions)
+
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
@@ -563,6 +564,7 @@ def log_model(
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))
     """
+
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.openai,

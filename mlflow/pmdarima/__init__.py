@@ -478,6 +478,7 @@ def load_model(model_uri, dst_path=None):
 
     .. code-block:: text
         :caption: Output
+
         forecast:
         234    382452.397246
         235    380639.458720
