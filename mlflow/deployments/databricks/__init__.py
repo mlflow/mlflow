@@ -15,7 +15,7 @@ from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
 class DatabricksEndpoint(AttrDict):
     """
-    Dict-like object that exposes its keys as attributes.
+    A dictionary-like object representing a Databricks serving endpoint.
 
     .. code-block:: python
 
