@@ -769,7 +769,7 @@ See the information below to learn how to use the new tools for your legacy Mode
 
 **Model environments**
 
-To set up separate environments and ACLs for your model versions, create separate registered models:
+To set up separate environments and permissions for your model versions, create separate registered models:
 
 * Given a base name for your model’s use-case, e.g. ``revenue_forecasting``, set up various registered models corresponding to your environments with different prefixes.
 * For example, if you want three separate dev, staging, and production environments, you can set up ``dev.ml_team.revenue_forecasting``, ``staging.ml_team.revenue_forecasting``, and ``prod.ml_team.revenue_forecasting`` registered models.
