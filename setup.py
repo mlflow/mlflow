@@ -171,6 +171,7 @@ setup(
             "boto3>1",
         ],
         "gateway": GATEWAY_REQUIREMENTS,
+        "genai": GATEWAY_REQUIREMENTS,
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
         "xethub": ["mlflow-xethub"],
