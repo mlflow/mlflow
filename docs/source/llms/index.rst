@@ -11,16 +11,16 @@ capabilities into their applications.
 
 **MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind:
 
-`MLflow AI Gateway <gateway/index.html>`_
------------------------------------------
+`MLflow Deployments Server for LLMs <deployments/index.html>`_
+--------------------------------------------------------------
 
 .. toctree::
     :maxdepth: 1
     :hidden:
 
-    gateway/index
+    deployments/index
 
-Serving as a unified interface, the `MLflow AI Gateway <gateway/index.html>`_ simplifies interactions with multiple LLM providers, such as 
+Serving as a unified interface, the `MLflow Deployments Server <deployments/index.html>`_ simplifies interactions with multiple LLM providers, such as 
 `OpenAI <https://openai.com/>`_, `MosaicML <https://www.mosaicml.com/>`_, `Cohere <https://cohere.com/>`_, `Anthropic <https://www.anthropic.com/>`_, 
 `PaLM 2 <https://ai.google/discover/palm2/>`_, `AWS Bedrock <https://aws.amazon.com/bedrock/>`_, and `AI21 Labs <https://www.ai21.com/>`_. 
 
@@ -391,3 +391,9 @@ Look in the tutorials and guides below to learn more about interesting use cases
             </div>
         </article>
     </section>
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    gateway/index
