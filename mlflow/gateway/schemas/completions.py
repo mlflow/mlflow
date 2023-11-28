@@ -61,3 +61,21 @@ class ResponsePayload(ResponseModel):
                 },
             }
         }
+
+
+class StreamDelta(ResponseModel):
+    text: Optional[str] = None
+
+
+class StreamChoice(ResponseModel):
+    index: int
+    finish_reason: Optional[FinishReason] = None
+    delta: StreamDelta
+
+
+class StreamResponsePayload(ResponseModel):
+    id: str
+    object: str
+    created: int
+    model: str
+    choices: List[StreamChoice]

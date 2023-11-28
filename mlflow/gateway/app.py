@@ -77,8 +77,14 @@ def _create_completions_endpoint(config: RouteConfig):
 
     async def _completions(
         payload: completions.RequestPayload,
-    ) -> completions.ResponsePayload:
-        return await prov.completions(payload)
+    ) -> Union[completions.ResponsePayload, completions.StreamResponsePayload]:
+        if payload.stream:
+            return StreamingResponse(
+                (to_sse_chunk(d.json()) async for d in prov.completions_stream(payload)),
+                media_type="text/event-stream",
+            )
+        else:
+            return await prov.completions(payload)
 
     return _completions
 

@@ -26,6 +26,11 @@ class BaseProvider(ABC):
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise NotImplementedError
 
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        raise NotImplementedError
+
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         raise NotImplementedError
 

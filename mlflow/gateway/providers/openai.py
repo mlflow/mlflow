@@ -216,6 +216,57 @@ class OpenAIProvider(BaseProvider):
             }
         )
 
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        from fastapi import HTTPException
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        if "n" in payload:
+            raise HTTPException(
+                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
+            )
+        payload = self._prepare_completion_request_payload(payload)
+
+        stream = send_stream_request(
+            headers=self._request_headers,
+            base_url=self._request_base_url,
+            path="chat/completions",
+            payload=self._add_model_to_payload_if_necessary(payload),
+        )
+
+        async for chunk in stream:
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+
+            data = strip_sse_prefix(chunk.decode("utf-8"))
+            if data == "[DONE]":
+                return
+
+            await asyncio.sleep(0.05)
+            data = json.loads(data)
+            yield completions.StreamResponsePayload(
+                **{
+                    "choices": [
+                        {
+                            "index": choice["index"],
+                            "delta": {
+                                "text": choice["delta"].get("content", "")
+                            },
+                            "metadata": {"finish_reason": choice["finish_reason"]},
+                        }
+                        for choice in data["choices"]
+                    ],
+                    "created": data["created"],
+                    "id": data["id"],
+                    "model": data["model"],
+                    "object": data["object"],
+                }
+            )
+
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         from fastapi import HTTPException
         from fastapi.encoders import jsonable_encoder
