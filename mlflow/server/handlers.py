@@ -91,6 +91,7 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
 )
+from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -403,6 +404,7 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
 
 
 def _get_request_json(flask_request=request):
+    _validate_content_type(flask_request, ["application/json"])
     return flask_request.get_json(force=True, silent=True)
 
 
@@ -1112,6 +1114,7 @@ def get_metric_history_bulk_handler():
 @_disable_if_artifacts_only
 def search_datasets_handler():
     MAX_EXPERIMENT_IDS_PER_REQUEST = 20
+    _validate_content_type(request, ["application/json"])
     experiment_ids = request.json.get("experiment_ids", [])
     if not experiment_ids:
         raise MlflowException(
@@ -1178,6 +1181,8 @@ def create_promptlab_run_handler():
                 message=f"CreatePromptlabRun request must specify {arg_name}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    _validate_content_type(request, ["application/json"])
 
     args = request.json
     experiment_id = args.get("experiment_id")
