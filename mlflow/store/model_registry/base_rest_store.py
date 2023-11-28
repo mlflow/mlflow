@@ -9,12 +9,10 @@ from mlflow.utils.rest_utils import (
 
 
 @experimental
-class BaseRestStore(AbstractStore):  # pylint: disable=abstract-method
+class BaseRestStore(AbstractStore, metaclass=ABCMeta):  # pylint: disable=abstract-method
     """
     Base class client for a remote model registry server accessed via REST API calls
     """
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, get_host_creds):
         super().__init__()
