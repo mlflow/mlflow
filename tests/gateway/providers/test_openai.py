@@ -130,11 +130,14 @@ async def test_chat_temperature_is_doubled():
 
 def chat_stream_response():
     return [
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant"}}]}\n',
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant"}}]}\n',
         b"\n",
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":null,"delta":{"content":"test"}}]}\n',
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,"delta":{"content":"test"}}]}\n',
         b"\n",
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":"stop","delta":{}}]}\n',
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":"stop","delta":{}}]}\n',
         b"\n",
         b"data: [DONE]\n",
     ]
@@ -163,7 +166,7 @@ async def test_chat_stream():
                 ],
                 "created": 1,
                 "id": "test-id",
-                "model": "gpt-35-turbo",
+                "model": "test",
                 "object": "chat.completion.chunk",
             },
             {
@@ -172,7 +175,7 @@ async def test_chat_stream():
                 ],
                 "created": 1,
                 "id": "test-id",
-                "model": "gpt-35-turbo",
+                "model": "test",
                 "object": "chat.completion.chunk",
             },
             {
@@ -181,7 +184,7 @@ async def test_chat_stream():
                 ],
                 "created": 1,
                 "id": "test-id",
-                "model": "gpt-35-turbo",
+                "model": "test",
                 "object": "chat.completion.chunk",
             },
         ]
@@ -296,11 +299,16 @@ async def test_completions_temperature_is_doubled():
 
 def completions_stream_response():
     return [
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant", "content": ""}}]}\n',
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,'
+        b'"delta":{"role":"assistant", "content": ""}}]}\n',
         b"\n",
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":null,"delta":{"content":"test"}}]}\n',
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,'
+        b'"delta":{"content":"test"}}]}\n',
         b"\n",
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":"length","delta":{}}]}\n',
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":"length","delta":{}}]}\n',
         b"\n",
         b"data: [DONE]\n",
     ]
@@ -329,21 +337,21 @@ async def test_completions_stream():
                 ],
                 "created": 1,
                 "id": "test-id",
-                "model": "gpt-35-turbo",
+                "model": "test",
                 "object": "chat.completion.chunk",
             },
             {
                 "choices": [{"delta": {"text": "test"}, "finish_reason": None, "index": 0}],
                 "created": 1,
                 "id": "test-id",
-                "model": "gpt-35-turbo",
+                "model": "test",
                 "object": "chat.completion.chunk",
             },
             {
                 "choices": [{"delta": {"text": None}, "finish_reason": "length", "index": 0}],
                 "created": 1,
                 "id": "test-id",
-                "model": "gpt-35-turbo",
+                "model": "test",
                 "object": "chat.completion.chunk",
             },
         ]

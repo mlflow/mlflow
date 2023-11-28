@@ -253,9 +253,7 @@ class OpenAIProvider(BaseProvider):
                     "choices": [
                         {
                             "index": choice["index"],
-                            "delta": {
-                                "text": choice["delta"].get("content")
-                            },
+                            "delta": {"text": choice["delta"].get("content")},
                             "finish_reason": choice["finish_reason"],
                         }
                         for choice in data["choices"]
