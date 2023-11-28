@@ -30,7 +30,32 @@ if TYPE_CHECKING:
 @experimental
 class MlflowDeploymentClient(BaseDeploymentClient):
     """
-    TODO
+    Client for interacting with the MLflow Deployments Server.
+
+    Example:
+
+    First, start the MLflow Deployments Server:
+
+    .. code-block:: bash
+
+        mlflow deployments start-server --config-path path/to/config.yaml
+
+    Then, create a client and use it to interact with the server:
+
+    .. code-block:: python
+
+        from mlflow.deployments import get_deploy_client
+
+        client = get_deploy_client("http://localhost:5000")
+        endpoints = client.list_endpoints()
+        assert [e.dict() for e in endpoints] == [
+            {
+                "name": "chat",
+                "endpoint_type": "llm/v1/chat",
+                "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+                "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+            },
+        ]
     """
 
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
@@ -63,7 +88,8 @@ class MlflowDeploymentClient(BaseDeploymentClient):
 
     def get_deployment(self, name, endpoint=None):
         """
-        TODO
+        .. warning::
+            This method is not implemented for `MLflowDeploymentClient`.
         """
         raise NotImplementedError
 
@@ -116,7 +142,25 @@ class MlflowDeploymentClient(BaseDeploymentClient):
     @experimental
     def get_endpoint(self, endpoint) -> "Endpoint":
         """
-        TODO
+        Gets a specified endpoint configured for the MLflow Deployments Server.
+
+        :param endpoint: The name of the endpoint to retrieve.
+        :return: An `Endpoint` object representing the endpoint.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+            endpoint = client.get_endpoint(endpoint="chat")
+            assert endpoint.dict() == {
+                "name": "chat",
+                "endpoint_type": "llm/v1/chat",
+                "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+                "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+            }
         """
         route = join_paths(MLFLOW_DEPLOYMENTS_CRUD_ENDPOINT_BASE, endpoint)
         response = self._call_endpoint("GET", route)
@@ -150,7 +194,26 @@ class MlflowDeploymentClient(BaseDeploymentClient):
     @experimental
     def list_endpoints(self) -> "List[Endpoint]":
         """
-        TODO
+        List endpoints configured for the MLflow Deployments Server.
+        :return: A list of ``Endpoint`` objects.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+
+            endpoints = client.list_endpoints()
+            assert [e.dict() for e in endpoints] == [
+                {
+                    "name": "chat",
+                    "endpoint_type": "llm/v1/chat",
+                    "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+                    "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
+                },
+            ]
         """
         endpoints = []
         next_page_token = None
@@ -165,7 +228,64 @@ class MlflowDeploymentClient(BaseDeploymentClient):
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None) -> Dict[str, Any]:
         """
-        TODO
+        Submit a query to a configured provider endpoint.
+
+        :param deployment_name: Unused.
+        :param inputs: The inputs to the query, as a dictionary.
+        :param endpoint: The name of the endpoint to query.
+        :return: A dictionary containing the response from the endpoint.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+
+            response = client.predict(
+                endpoint="chat",
+                inputs={"messages": [{"role": "user", "content": "Hello"}]},
+            )
+            assert response == {
+                "id": "chatcmpl-8OLoQuaeJSLybq3NBoe0w5eyqjGb9",
+                "object": "chat.completion",
+                "created": 1700814410,
+                "model": "gpt-3.5-turbo-0613",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "Hello! How can I assist you today?",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 9,
+                    "completion_tokens": 9,
+                    "total_tokens": 18,
+                },
+            }
+
+        Additional parameters that are valid for a given provider and endpoint configuration can be
+        included with the request as shown below, using an openai completions endpoint request as
+        an example:
+
+        .. code-block:: python
+
+            from mlflow.deployments import get_deploy_client
+
+            client = get_deploy_client("http://localhost:5000")
+            client.predict(
+                endpoint="completions",
+                inputs={
+                    "prompt": "Hello!",
+                    "temperature": 0.3,
+                    "max_tokens": 500,
+                },
+            )
         """
         query_route = join_paths(
             MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE, endpoint, MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
