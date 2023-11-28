@@ -294,6 +294,78 @@ async def test_completions_temperature_is_doubled():
         assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 2
 
 
+def completions_stream_response():
+    return [
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant", "content": ""}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":null,"delta":{"content":"test"}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"gpt-35-turbo","choices":[{"index":0,"finish_reason":"length","delta":{}}]}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_completions_stream():
+    resp = completions_stream_response()
+    config = completions_config()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+        provider = OpenAIProvider(RouteConfig(**config))
+        payload = {"prompt": "This is a test"}
+        response = provider.completions_stream(completions.RequestPayload(**payload))
+
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+        assert chunks == [
+            {
+                "choices": [
+                    {
+                        "delta": {"text": ""},
+                        "finish_reason": None,
+                        "index": 0,
+                    }
+                ],
+                "created": 1,
+                "id": "test-id",
+                "model": "gpt-35-turbo",
+                "object": "chat.completion.chunk",
+            },
+            {
+                "choices": [{"delta": {"text": "test"}, "finish_reason": None, "index": 0}],
+                "created": 1,
+                "id": "test-id",
+                "model": "gpt-35-turbo",
+                "object": "chat.completion.chunk",
+            },
+            {
+                "choices": [{"delta": {"text": None}, "finish_reason": "length", "index": 0}],
+                "created": 1,
+                "id": "test-id",
+                "model": "gpt-35-turbo",
+                "object": "chat.completion.chunk",
+            },
+        ]
+
+        mock_build_client.assert_called_once_with(
+            headers={
+                "Authorization": "Bearer key",
+                "OpenAI-Organization": "test-organization",
+            }
+        )
+        mock_client.post.assert_called_once_with(
+            "https://api.openai.com/v1/chat/completions",
+            json={
+                "model": "gpt-4-32k",
+                "temperature": 0,
+                "n": 1,
+                "messages": [{"role": "user", "content": "This is a test"}],
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
 def embedding_config():
     return {
         "name": "embeddings",

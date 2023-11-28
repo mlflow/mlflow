@@ -254,9 +254,9 @@ class OpenAIProvider(BaseProvider):
                         {
                             "index": choice["index"],
                             "delta": {
-                                "text": choice["delta"].get("content", "")
+                                "text": choice["delta"].get("content")
                             },
-                            "metadata": {"finish_reason": choice["finish_reason"]},
+                            "finish_reason": choice["finish_reason"],
                         }
                         for choice in data["choices"]
                     ],

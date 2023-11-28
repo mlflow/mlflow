@@ -122,7 +122,9 @@ class MockAsyncResponse:
 
 
 class MockAsyncStreamingResponse:
-    def __init__(self, data: List[bytes], headers: Optional[Dict[str, str]] = None, status: int = 200):
+    def __init__(
+        self, data: List[bytes], headers: Optional[Dict[str, str]] = None, status: int = 200
+    ):
         self.status = status
         self.headers = headers
         self._content = data
