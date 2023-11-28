@@ -17,7 +17,7 @@ class BaseRequestPayload(RequestModel):
     candidate_count: int = Field(1, ge=1, le=5)
     stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=1)
-    stream: bool = False
+    stream: Optional[bool] = None
 
 
 class RequestPayload(BaseRequestPayload):
