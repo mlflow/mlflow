@@ -84,7 +84,7 @@ export const evaluatePromptTableValue =
         ...modelGatewayRequestPayload.parameters,
       };
       return MlflowService.gatewayProxyPost({
-        gateway_path: `gateway/${gatewayRoute.name}/invocations`,
+        gateway_path: gatewayRoute.endpoint_url.substring(1),
         json_data: processed_data,
       });
     };

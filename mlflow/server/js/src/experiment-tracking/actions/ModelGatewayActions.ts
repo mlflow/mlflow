@@ -19,7 +19,7 @@ export interface SearchModelGatewayRoutesAction
 export const searchModelGatewayRoutesApi = (filter?: string): SearchModelGatewayRoutesAction => ({
   type: SEARCH_MODEL_GATEWAY_ROUTES_API,
   payload: MlflowService.gatewayProxyGet({
-    gateway_path: 'api/2.0/gateway/routes/',
+    gateway_path: 'api/2.0/endpoints/',
   }) as Promise<SearchModelGatewayRouteResponse>,
   meta: { id: getUUID() },
 });
@@ -32,7 +32,7 @@ export interface GetModelGatewayRouteAction extends AsyncAction<ModelGatewayRout
 export const getModelGatewayRouteApi = (routeName: string): GetModelGatewayRouteAction => ({
   type: GET_MODEL_GATEWAY_ROUTE_API,
   payload: MlflowService.gatewayProxyGet({
-    gateway_path: `api/2.0/gateway/routes/${routeName}`,
+    gateway_path: `api/2.0/endpoints/${routeName}`,
   }) as Promise<ModelGatewayRoute>,
   meta: { id: getUUID() },
 });
@@ -53,7 +53,7 @@ export const queryModelGatewayRouteApi = (
   return {
     type: QUERY_MODEL_GATEWAY_ROUTE_API,
     payload: MlflowService.gatewayProxyPost({
-      gateway_path: `gateway/${route.name}/invocations`,
+      gateway_path: route.endpoint_url.substring(1),
       json_data: processed_data,
     }) as Promise<ModelGatewayResponseType>,
     meta: { id: getUUID(), startTime: performance.now() },

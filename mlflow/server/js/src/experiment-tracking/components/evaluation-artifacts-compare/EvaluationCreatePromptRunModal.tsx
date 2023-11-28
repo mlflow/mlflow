@@ -77,7 +77,7 @@ export const EvaluationCreatePromptRunModal = ({
   const [lastEvaluationError, setLastEvaluationError] = useState<string | null>(null);
   const [evaluationOutput, setEvaluationOutput] = useState('');
   const [evaluationMetadata, setEvaluationMetadata] = useState<
-    Partial<ModelGatewayResponseType['metadata']>
+    Partial<ModelGatewayResponseType['usage']>
   >({});
   const [outputDirty, setOutputDirty] = useState(false);
   const [isViewExamplesModalOpen, setViewExamplesModalOpen] = useState(false);
@@ -171,7 +171,7 @@ export const EvaluationCreatePromptRunModal = ({
       sortBy(
         Object.values(modelRoutes).filter((modelRoute) =>
           [ModelGatewayRouteType.LLM_V1_COMPLETIONS, ModelGatewayRouteType.LLM_V1_CHAT].includes(
-            modelRoute.route_type,
+            modelRoute.endpoint_type,
           ),
         ),
         'name',
@@ -248,13 +248,13 @@ export const EvaluationCreatePromptRunModal = ({
     )
       .then(({ value, action }) => {
         if (cancelTokenRef.current === cancelToken) {
-          const { text, metadata } = ModelGatewayService.parseEvaluationResponse(value);
+          const { text, usage } = ModelGatewayService.parseEvaluationResponse(value);
 
           // TODO: Consider calculating actual model call latency on the backend side
           const latency = performance.now() - action.meta.startTime;
 
           setEvaluationOutput(text);
-          const metadataWithEvaluationTime = { ...metadata, latency };
+          const metadataWithEvaluationTime = { ...usage, latency };
 
           // Prefix the metadata keys with "MLFLOW_"
           const prefixedMetadata = Object.entries(metadataWithEvaluationTime).reduce(
