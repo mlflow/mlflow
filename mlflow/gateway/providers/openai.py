@@ -110,13 +110,12 @@ class OpenAIProvider(BaseProvider):
             if not chunk:
                 continue
 
-            if chunk == b"[DONE]":
+            data = strip_sse_prefix(chunk.decode("utf-8"))
+            if data == "[DONE]":
                 return
 
-            decoded_chunk = chunk.decode("utf-8")
-            data = json.loads(strip_sse_prefix(decoded_chunk))
             await asyncio.sleep(0.05)
-            yield chat.StreamResponsePayload(**data)
+            yield chat.StreamResponsePayload(**json.loads(data))
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi import HTTPException
