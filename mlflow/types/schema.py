@@ -53,8 +53,6 @@ class DataType(Enum):
         dt.date,
     )
     """64b datetime data."""
-    pilimage = (9, "PILImage", "PILImage", object, Image.Image)
-    """pil image."""
 
     def __repr__(self):
         return self.name
