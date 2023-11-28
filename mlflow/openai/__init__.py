@@ -292,7 +292,8 @@ def save_model(
     metadata=None,
     **kwargs,
 ):
-    """Save an OpenAI model to a path on the local file system.
+    """
+    Save an OpenAI model to a path on the local file system.
 
     Args:
         model: The OpenAI model name or reference instance, e.g.,
@@ -489,7 +490,8 @@ def log_model(
     metadata=None,
     **kwargs,
 ):
-    """Log an OpenAI model as an MLflow artifact for the current run.
+    """
+    Log an OpenAI model as an MLflow artifact for the current run.
 
     Args:
         model: The OpenAI model name or reference instance, e.g.,
