@@ -74,7 +74,11 @@ class MLflowCallback(keras.callbacks.Callback):
         log_params({f"optimizer_{k}": v for k, v in config.items()})
 
         model_summary = []
-        self.model.summary(print_fn=model_summary.append)
+
+        def print_fn(line, *args, **kwargs):
+            model_summary.append(line)
+
+        self.model.summary(print_fn=print_fn)
         summary = "\n".join(model_summary)
         log_text(summary, artifact_file="model_summary.txt")
 

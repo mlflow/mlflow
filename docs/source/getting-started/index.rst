@@ -6,11 +6,69 @@ quickstart tutorials here are the perfect starting point. They will guide you
 step-by-step through fundamental concepts, focusing purely on a task that will maximize your understanding of 
 how to use MLflow to solve a particular task. 
 
+`5-minute Quickstart - MLflow Tracking <intro-quickstart/index.html>`_
+----------------------------------------------------------------------
+
+In this brief introductory quickstart on MLflow Tracking, you will learn how to leverage MLflow to:
+
+* **Log** training statistics (loss, accuracy, etc.) and hyperparameters for a model
+* **Log** (save) a model for later retrieval
+* **Register** a model to enable state transitions for deployment
+* **Load** the model and use it for inference
+
+In the process of learning these key concepts, you will be exposed to the MLflow fluent API, the MLflow Tracking UI, and learn how to add metadata associated with 
+a model training event to an MLflow run.
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    intro-quickstart/index
+
+If you would like to get started immediately by interactively running the notebook, you can:
+
+.. raw:: html
+
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/intro-quickstart/notebooks/tracking_quickstart.ipynb" class="notebook-download-btn">
+        <i class="fas fa-download"></i>Download the Notebook</a><br/>
+
+Quickstart elements
+^^^^^^^^^^^^^^^^^^^
+
+You can read through the quickstart as a guide, or navigate directly to the notebook example to get started. 
+
+.. raw:: html
+
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="intro-quickstart/index.html" >
+                    <div class="header">
+                        MLflow Tracking Quickstart Guide
+                    </div>
+                    <p>
+                    Learn the basics of MLflow Tracking in a fast-paced guide with a focus on seeing your first model in the MLflow UI
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="intro-quickstart/notebooks/tracking_quickstart.html" >
+                    <div class="header">
+                        MLflow Tracking Quickstart Notebook
+                    </div>
+                    <p>
+                        See an example of using the MLflow fluent API to log, load, and register a model for inference. Great for code-focused learners!
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
 
 `Logging your first MLflow Model <logging-first-model/index.html>`_
 -------------------------------------------------------------------
 
-In this quickstart tutorial, you will walk through the basics of MLflow in a sequential and guided manner. With each subsequent step, 
+In this lengthy tutorial, you will walk through the basics of MLflow in a sequential and guided manner. With each subsequent step, 
 you will increase your familiarity with the primary functionality around MLflow Tracking and how to navigate the MLflow UI.
 
 If you would like to get started immediately by interactively running the notebook, you can:
@@ -18,7 +76,7 @@ If you would like to get started immediately by interactively running the notebo
 .. raw:: html
 
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/logging-first-model/notebooks/logging-first-model.ipynb" class="notebook-download-btn">
-        <i class="fas fa-download"></i>Download the Notebook</a><br>
+        <i class="fas fa-download"></i>Download the Notebook</a><br/>
 
 Guide sections
 ^^^^^^^^^^^^^^
@@ -32,7 +90,7 @@ Interested in navigating directly to the content that you're curious about? Sele
             <div class="simple-card">
                 <a href="logging-first-model/step1-tracking-server.html" >
                     <div class="header">
-                        Setting up MLflow Servers
+                        Setting up the MLflow Tracking Server
                     </div>
                     <p>
                         Learn how to start an MLflow Tracking Server and the MLflow UI Server locally
@@ -115,8 +173,8 @@ Interested in navigating directly to the content that you're curious about? Sele
     logging-first-model/step6-logging-a-run
     logging-first-model/notebooks/index
 
-`15 minute Quickstart - Learn the basics of MLflow <quickstart-1/index.html>`_
-------------------------------------------------------------------------------
+`15 minute Quickstart - Autologging in MLflow <quickstart-1/index.html>`_
+-------------------------------------------------------------------------
 
 In this rapid-pace quickstart, you will be exposed to the autologging feature in MLflow to simplify the logging of models, metrics, and parameters. 
 After training and viewing the logged run data, we'll load the logged model to perform inference, showing core features of MLflow Tracking in the 
@@ -236,3 +294,34 @@ via containerizing the model via Docker is covered.
     :hidden:
 
     quickstart-2/index
+
+`5 Minute Tracking Server Overview <tracking-server-overview/index.html>`_
+---------------------------------------------------------------------------
+
+This quickstart tutorial walks through different types of MLflow Tracking Servers and how to use them to log 
+your MLflow experiments.
+
+.. raw:: html
+
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="tracking-server-overview/index.html" >
+                    <div class="header">
+                        5 Minute Tracking Server Overview
+                    </div>
+                </a>
+                <p>
+                    Learn how to log MLflow experiments with different tracking servers
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tracking-server-overview/index

@@ -194,7 +194,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _experiment_factory(names, store: SqlAlchemyStore) -> Union[str, List]:
+def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, List]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:
@@ -206,6 +206,25 @@ def _experiment_factory(names, store: SqlAlchemyStore) -> Union[str, List]:
 
     time.sleep(0.001)
     return store.create_experiment(name=names)
+
+
+def _get_run_configs(experiment_id=None, tags=None, start_time=None):
+    return {
+        "experiment_id": experiment_id,
+        "user_id": "Anderson",
+        "start_time": start_time or get_current_time_millis(),
+        "tags": tags,
+        "run_name": "name",
+    }
+
+
+def _run_factory(store: SqlAlchemyStore, config=None):
+    if not config:
+        config = _get_run_configs()
+    if "experiment_id" not in config:
+        config["experiment_id"] = _create_experiments(store, "test exp")
+
+    return store.create_run(**config)
 
 
 def test_default_experiment(store: SqlAlchemyStore):
@@ -222,7 +241,7 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
     assert default_experiment.lifecycle_stage == entities.LifecycleStage.ACTIVE
 
-    _experiment_factory("aNothEr", store)
+    _create_experiments(store, "aNothEr")
     all_experiments = [e.name for e in store.search_experiments()]
     assert set(all_experiments) == {"aNothEr", "Default"}
 
@@ -252,6 +271,400 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     # ensure that experiment ID dor active experiment is unchanged
     another = store.get_experiment(1)
     assert another.name == "aNothEr"
+
+
+def test_raise_duplicate_experiments(store: SqlAlchemyStore):
+    with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
+        _create_experiments(store, ["test", "test"])
+
+
+def test_raise_experiment_dont_exist(store: SqlAlchemyStore):
+    with pytest.raises(Exception, match=r"No Experiment with id=.+ exists"):
+        store.get_experiment(experiment_id=100)
+
+
+def test_delete_experiment(store: SqlAlchemyStore):
+    experiments = _create_experiments(store, ["morty", "rick", "rick and morty"])
+
+    all_experiments = store.search_experiments()
+    assert len(all_experiments) == len(experiments) + 1  # default
+
+    exp_id = experiments[0]
+    exp = store.get_experiment(exp_id)
+    time.sleep(0.01)
+    store.delete_experiment(exp_id)
+
+    updated_exp = store.get_experiment(exp_id)
+    assert updated_exp.lifecycle_stage == entities.LifecycleStage.DELETED
+
+    assert len(store.search_experiments()) == len(all_experiments) - 1
+    assert updated_exp.last_update_time > exp.last_update_time
+
+
+def test_delete_restore_experiment_with_runs(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test exp")
+    run1 = _run_factory(store, config=_get_run_configs(experiment_id)).info.run_id
+    run2 = _run_factory(store, config=_get_run_configs(experiment_id)).info.run_id
+    store.delete_run(run1)
+    run_ids = [run1, run2]
+
+    store.delete_experiment(experiment_id)
+
+    updated_exp = store.get_experiment(experiment_id)
+    assert updated_exp.lifecycle_stage == entities.LifecycleStage.DELETED
+
+    deleted_run_list = store.search_runs(
+        experiment_ids=[experiment_id],
+        filter_string="",
+        run_view_type=ViewType.DELETED_ONLY,
+    )
+
+    assert len(deleted_run_list) == 2
+    for deleted_run in deleted_run_list:
+        assert deleted_run.info.lifecycle_stage == entities.LifecycleStage.DELETED
+        assert deleted_run.info.experiment_id in experiment_id
+        assert deleted_run.info.run_id in run_ids
+        with store.ManagedSessionMaker() as session:
+            assert store._get_run(session, deleted_run.info.run_id).deleted_time is not None
+
+    store.restore_experiment(experiment_id)
+
+    updated_exp = store.get_experiment(experiment_id)
+    assert updated_exp.lifecycle_stage == entities.LifecycleStage.ACTIVE
+
+    restored_run_list = store.search_runs(
+        experiment_ids=[experiment_id],
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+
+    assert len(restored_run_list) == 2
+    for restored_run in restored_run_list:
+        assert restored_run.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
+        with store.ManagedSessionMaker() as session:
+            assert store._get_run(session, restored_run.info.run_id).deleted_time is None
+        assert restored_run.info.experiment_id in experiment_id
+        assert restored_run.info.run_id in run_ids
+
+
+def test_get_experiment(store: SqlAlchemyStore):
+    name = "goku"
+    experiment_id = _create_experiments(store, name)
+    actual = store.get_experiment(experiment_id)
+    assert actual.name == name
+    assert actual.experiment_id == experiment_id
+
+    actual_by_name = store.get_experiment_by_name(name)
+    assert actual_by_name.name == name
+    assert actual_by_name.experiment_id == experiment_id
+    assert store.get_experiment_by_name("idontexist") is None
+
+
+def test_search_experiments_view_type(store: SqlAlchemyStore):
+    experiment_names = ["a", "b"]
+    experiment_ids = _create_experiments(store, experiment_names)
+    store.delete_experiment(experiment_ids[1])
+
+    experiments = store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+    assert [e.name for e in experiments] == ["a", "Default"]
+    experiments = store.search_experiments(view_type=ViewType.DELETED_ONLY)
+    assert [e.name for e in experiments] == ["b"]
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.name for e in experiments] == ["b", "a", "Default"]
+
+
+def test_search_experiments_filter_by_attribute(store: SqlAlchemyStore):
+    experiment_names = ["a", "ab", "Abc"]
+    _create_experiments(store, experiment_names)
+
+    experiments = store.search_experiments(filter_string="name = 'a'")
+    assert [e.name for e in experiments] == ["a"]
+    experiments = store.search_experiments(filter_string="attribute.name = 'a'")
+    assert [e.name for e in experiments] == ["a"]
+    experiments = store.search_experiments(filter_string="attribute.`name` = 'a'")
+    assert [e.name for e in experiments] == ["a"]
+    experiments = store.search_experiments(filter_string="attribute.`name` != 'a'")
+    assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
+    experiments = store.search_experiments(filter_string="name LIKE 'a%'")
+    assert [e.name for e in experiments] == ["ab", "a"]
+    experiments = store.search_experiments(filter_string="name ILIKE 'a%'")
+    assert [e.name for e in experiments] == ["Abc", "ab", "a"]
+    experiments = store.search_experiments(filter_string="name ILIKE 'a%' AND name ILIKE '%b'")
+    assert [e.name for e in experiments] == ["ab"]
+
+
+def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
+    # Sleep to ensure that the first experiment has a different creation_time than the default
+    # experiment and eliminate flakiness.
+    time.sleep(0.001)
+    time_before_create1 = get_current_time_millis()
+    exp_id1 = store.create_experiment("1")
+    exp1 = store.get_experiment(exp_id1)
+    time.sleep(0.001)
+    time_before_create2 = get_current_time_millis()
+    exp_id2 = store.create_experiment("2")
+    exp2 = store.get_experiment(exp_id2)
+
+    experiments = store.search_experiments(filter_string=f"creation_time = {exp1.creation_time}")
+    assert [e.experiment_id for e in experiments] == [exp_id1]
+
+    experiments = store.search_experiments(filter_string=f"creation_time != {exp1.creation_time}")
+    assert [e.experiment_id for e in experiments] == [exp_id2, store.DEFAULT_EXPERIMENT_ID]
+
+    experiments = store.search_experiments(filter_string=f"creation_time >= {time_before_create1}")
+    assert [e.experiment_id for e in experiments] == [exp_id2, exp_id1]
+
+    experiments = store.search_experiments(filter_string=f"creation_time < {time_before_create2}")
+    assert [e.experiment_id for e in experiments] == [exp_id1, store.DEFAULT_EXPERIMENT_ID]
+
+    now = get_current_time_millis()
+    experiments = store.search_experiments(filter_string=f"creation_time >= {now}")
+    assert experiments == []
+
+    time.sleep(0.001)
+    time_before_rename = get_current_time_millis()
+    store.rename_experiment(exp_id1, "new_name")
+    experiments = store.search_experiments(
+        filter_string=f"last_update_time >= {time_before_rename}"
+    )
+    assert [e.experiment_id for e in experiments] == [exp_id1]
+
+    experiments = store.search_experiments(
+        filter_string=f"last_update_time <= {get_current_time_millis()}"
+    )
+    assert {e.experiment_id for e in experiments} == {
+        exp_id1,
+        exp_id2,
+        store.DEFAULT_EXPERIMENT_ID,
+    }
+
+    experiments = store.search_experiments(
+        filter_string=f"last_update_time = {exp2.last_update_time}"
+    )
+    assert [e.experiment_id for e in experiments] == [exp_id2]
+
+
+def test_search_experiments_filter_by_tag(store: SqlAlchemyStore):
+    experiments = [
+        ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
+        ("exp2", [ExperimentTag("key1", "vaLue"), ExperimentTag("key2", "vaLue")]),
+        ("exp3", [ExperimentTag("k e y 1", "value")]),
+    ]
+    for name, tags in experiments:
+        time.sleep(0.001)
+        store.create_experiment(name, tags=tags)
+
+    experiments = store.search_experiments(filter_string="tag.key1 = 'value'")
+    assert [e.name for e in experiments] == ["exp1"]
+    experiments = store.search_experiments(filter_string="tag.`k e y 1` = 'value'")
+    assert [e.name for e in experiments] == ["exp3"]
+    experiments = store.search_experiments(filter_string="tag.\"k e y 1\" = 'value'")
+    assert [e.name for e in experiments] == ["exp3"]
+    experiments = store.search_experiments(filter_string="tag.key1 != 'value'")
+    assert [e.name for e in experiments] == ["exp2"]
+    experiments = store.search_experiments(filter_string="tag.key1 != 'VALUE'")
+    assert [e.name for e in experiments] == ["exp2", "exp1"]
+    experiments = store.search_experiments(filter_string="tag.key1 LIKE 'val%'")
+    assert [e.name for e in experiments] == ["exp1"]
+    experiments = store.search_experiments(filter_string="tag.key1 LIKE '%Lue'")
+    assert [e.name for e in experiments] == ["exp2"]
+    experiments = store.search_experiments(filter_string="tag.key1 ILIKE '%alu%'")
+    assert [e.name for e in experiments] == ["exp2", "exp1"]
+    experiments = store.search_experiments(
+        filter_string="tag.key1 LIKE 'va%' AND tag.key2 LIKE '%Lue'"
+    )
+    assert [e.name for e in experiments] == ["exp2"]
+    experiments = store.search_experiments(filter_string="tag.KEY = 'value'")
+    assert len(experiments) == 0
+
+
+def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):
+    store.create_experiment("exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")])
+    store.create_experiment("exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")])
+    experiments = store.search_experiments(filter_string="name ILIKE 'exp%' AND tags.a = '1'")
+    assert [e.name for e in experiments] == ["exp1"]
+
+
+def test_search_experiments_order_by(store: SqlAlchemyStore):
+    experiment_names = ["x", "y", "z"]
+    _create_experiments(store, experiment_names)
+
+    experiments = store.search_experiments(order_by=["name"])
+    assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+
+    experiments = store.search_experiments(order_by=["name ASC"])
+    assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+
+    experiments = store.search_experiments(order_by=["name DESC"])
+    assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+
+    experiments = store.search_experiments(order_by=["experiment_id DESC"])
+    assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+
+    experiments = store.search_experiments(order_by=["name", "experiment_id"])
+    assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+
+
+def test_search_experiments_order_by_time_attribute(store: SqlAlchemyStore):
+    # Sleep to ensure that the first experiment has a different creation_time than the default
+    # experiment and eliminate flakiness.
+    time.sleep(0.001)
+    exp_id1 = store.create_experiment("1")
+    time.sleep(0.001)
+    exp_id2 = store.create_experiment("2")
+
+    experiments = store.search_experiments(order_by=["creation_time"])
+    assert [e.experiment_id for e in experiments] == [
+        store.DEFAULT_EXPERIMENT_ID,
+        exp_id1,
+        exp_id2,
+    ]
+
+    experiments = store.search_experiments(order_by=["creation_time DESC"])
+    assert [e.experiment_id for e in experiments] == [
+        exp_id2,
+        exp_id1,
+        store.DEFAULT_EXPERIMENT_ID,
+    ]
+
+    experiments = store.search_experiments(order_by=["last_update_time"])
+    assert [e.experiment_id for e in experiments] == [
+        store.DEFAULT_EXPERIMENT_ID,
+        exp_id1,
+        exp_id2,
+    ]
+
+    store.rename_experiment(exp_id1, "new_name")
+    experiments = store.search_experiments(order_by=["last_update_time"])
+    assert [e.experiment_id for e in experiments] == [
+        store.DEFAULT_EXPERIMENT_ID,
+        exp_id2,
+        exp_id1,
+    ]
+
+
+def test_search_experiments_max_results(store: SqlAlchemyStore):
+    experiment_names = list(map(str, range(9)))
+    _create_experiments(store, experiment_names)
+    reversed_experiment_names = experiment_names[::-1]
+
+    experiments = store.search_experiments()
+    assert [e.name for e in experiments] == reversed_experiment_names + ["Default"]
+    experiments = store.search_experiments(max_results=3)
+    assert [e.name for e in experiments] == reversed_experiment_names[:3]
+
+
+def test_search_experiments_max_results_validation(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got None"):
+        store.search_experiments(max_results=None)
+    with pytest.raises(MlflowException, match=r"It must be a positive integer, but got 0"):
+        store.search_experiments(max_results=0)
+    with pytest.raises(MlflowException, match=r"It must be at most \d+, but got 1000000"):
+        store.search_experiments(max_results=1_000_000)
+
+
+def test_search_experiments_pagination(store: SqlAlchemyStore):
+    experiment_names = list(map(str, range(9)))
+    _create_experiments(store, experiment_names)
+    reversed_experiment_names = experiment_names[::-1]
+
+    experiments = store.search_experiments(max_results=4)
+    assert [e.name for e in experiments] == reversed_experiment_names[:4]
+    assert experiments.token is not None
+
+    experiments = store.search_experiments(max_results=4, page_token=experiments.token)
+    assert [e.name for e in experiments] == reversed_experiment_names[4:8]
+    assert experiments.token is not None
+
+    experiments = store.search_experiments(max_results=4, page_token=experiments.token)
+    assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
+    assert experiments.token is None
+
+
+def test_create_experiments(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        result = session.query(models.SqlExperiment).all()
+        assert len(result) == 1
+    time_before_create = get_current_time_millis()
+    experiment_id = store.create_experiment(name="test exp")
+    assert experiment_id == "1"
+    with store.ManagedSessionMaker() as session:
+        result = session.query(models.SqlExperiment).all()
+        assert len(result) == 2
+
+        test_exp = session.query(models.SqlExperiment).filter_by(name="test exp").first()
+        assert str(test_exp.experiment_id) == experiment_id
+        assert test_exp.name == "test exp"
+
+    actual = store.get_experiment(experiment_id)
+    assert actual.experiment_id == experiment_id
+    assert actual.name == "test exp"
+    assert actual.creation_time >= time_before_create
+    assert actual.last_update_time == actual.creation_time
+
+
+def test_create_experiment_with_tags_works_correctly(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(
+        name="test exp",
+        artifact_location="some location",
+        tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+    )
+    experiment = store.get_experiment(experiment_id)
+    assert len(experiment.tags) == 2
+    assert experiment.tags["key1"] == "val1"
+    assert experiment.tags["key2"] == "val2"
+
+
+def test_run_tag_model(store: SqlAlchemyStore):
+    # Create a run whose UUID we can reference when creating tag models.
+    # `run_id` is a foreign key in the tags table; therefore, in order
+    # to insert a tag with a given run UUID, the UUID must be present in
+    # the runs table
+    run = _run_factory(store)
+    with store.ManagedSessionMaker() as session:
+        new_tag = models.SqlTag(run_uuid=run.info.run_id, key="test", value="val")
+        session.add(new_tag)
+        session.commit()
+        added_tags = [tag for tag in session.query(models.SqlTag).all() if tag.key == new_tag.key]
+        assert len(added_tags) == 1
+        added_tag = added_tags[0].to_mlflow_entity()
+        assert added_tag.value == new_tag.value
+
+
+def test_metric_model(store: SqlAlchemyStore):
+    # Create a run whose UUID we can reference when creating metric models.
+    # `run_id` is a foreign key in the tags table; therefore, in order
+    # to insert a metric with a given run UUID, the UUID must be present in
+    # the runs table
+    run = _run_factory(store)
+    with store.ManagedSessionMaker() as session:
+        new_metric = models.SqlMetric(run_uuid=run.info.run_id, key="accuracy", value=0.89)
+        session.add(new_metric)
+        session.commit()
+        metrics = session.query(models.SqlMetric).all()
+        assert len(metrics) == 1
+
+        added_metric = metrics[0].to_mlflow_entity()
+        assert added_metric.value == new_metric.value
+        assert added_metric.key == new_metric.key
+
+
+def test_param_model(store: SqlAlchemyStore):
+    # Create a run whose UUID we can reference when creating parameter models.
+    # `run_id` is a foreign key in the tags table; therefore, in order
+    # to insert a parameter with a given run UUID, the UUID must be present in
+    # the runs table
+    run = _run_factory(store)
+    with store.ManagedSessionMaker() as session:
+        new_param = models.SqlParam(run_uuid=run.info.run_id, key="accuracy", value="test param")
+        session.add(new_param)
+        session.commit()
+        params = session.query(models.SqlParam).all()
+        assert len(params) == 1
+
+        added_param = params[0].to_mlflow_entity()
+        assert added_param.value == new_param.value
+        assert added_param.key == new_param.key
 
 
 # This unit test class is under refactoring. Please use pytest for new unit tests: #10042
@@ -330,402 +743,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         time.sleep(0.001)
         return self.store.create_experiment(name=names)
-
-    def test_raise_duplicate_experiments(self):
-        with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
-            self._experiment_factory(["test", "test"])
-
-    def test_raise_experiment_dont_exist(self):
-        with pytest.raises(Exception, match=r"No Experiment with id=.+ exists"):
-            self.store.get_experiment(experiment_id=100)
-
-    def test_delete_experiment(self):
-        experiments = self._experiment_factory(["morty", "rick", "rick and morty"])
-
-        all_experiments = self.store.search_experiments()
-        assert len(all_experiments) == len(experiments) + 1  # default
-
-        exp_id = experiments[0]
-        exp = self.store.get_experiment(exp_id)
-        time.sleep(0.01)
-        self.store.delete_experiment(exp_id)
-
-        updated_exp = self.store.get_experiment(exp_id)
-        assert updated_exp.lifecycle_stage == entities.LifecycleStage.DELETED
-
-        assert len(self.store.search_experiments()) == len(all_experiments) - 1
-        assert updated_exp.last_update_time > exp.last_update_time
-
-    def test_delete_restore_experiment_with_runs(self):
-        experiment_id = self._experiment_factory("test exp")
-        run1 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
-        run2 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
-        self.store.delete_run(run1)
-        run_ids = [run1, run2]
-
-        self.store.delete_experiment(experiment_id)
-
-        updated_exp = self.store.get_experiment(experiment_id)
-        assert updated_exp.lifecycle_stage == entities.LifecycleStage.DELETED
-
-        deleted_run_list = self.store.search_runs(
-            experiment_ids=[experiment_id],
-            filter_string="",
-            run_view_type=ViewType.DELETED_ONLY,
-        )
-
-        assert len(deleted_run_list) == 2
-        for deleted_run in deleted_run_list:
-            assert deleted_run.info.lifecycle_stage == entities.LifecycleStage.DELETED
-            assert deleted_run.info.experiment_id in experiment_id
-            assert deleted_run.info.run_id in run_ids
-            with self.store.ManagedSessionMaker() as session:
-                assert (
-                    self.store._get_run(session, deleted_run.info.run_id).deleted_time is not None
-                )
-
-        self.store.restore_experiment(experiment_id)
-
-        updated_exp = self.store.get_experiment(experiment_id)
-        assert updated_exp.lifecycle_stage == entities.LifecycleStage.ACTIVE
-
-        restored_run_list = self.store.search_runs(
-            experiment_ids=[experiment_id],
-            filter_string="",
-            run_view_type=ViewType.ACTIVE_ONLY,
-        )
-
-        assert len(restored_run_list) == 2
-        for restored_run in restored_run_list:
-            assert restored_run.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
-            with self.store.ManagedSessionMaker() as session:
-                assert self.store._get_run(session, restored_run.info.run_id).deleted_time is None
-            assert restored_run.info.experiment_id in experiment_id
-            assert restored_run.info.run_id in run_ids
-
-    def test_get_experiment(self):
-        name = "goku"
-        experiment_id = self._experiment_factory(name)
-        actual = self.store.get_experiment(experiment_id)
-        assert actual.name == name
-        assert actual.experiment_id == experiment_id
-
-        actual_by_name = self.store.get_experiment_by_name(name)
-        assert actual_by_name.name == name
-        assert actual_by_name.experiment_id == experiment_id
-        assert self.store.get_experiment_by_name("idontexist") is None
-
-    def test_search_experiments_view_type(self):
-        experiment_names = ["a", "b"]
-        experiment_ids = self._experiment_factory(experiment_names)
-        self.store.delete_experiment(experiment_ids[1])
-
-        experiments = self.store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-        assert [e.name for e in experiments] == ["a", "Default"]
-        experiments = self.store.search_experiments(view_type=ViewType.DELETED_ONLY)
-        assert [e.name for e in experiments] == ["b"]
-        experiments = self.store.search_experiments(view_type=ViewType.ALL)
-        assert [e.name for e in experiments] == ["b", "a", "Default"]
-
-    def test_search_experiments_filter_by_attribute(self):
-        experiment_names = ["a", "ab", "Abc"]
-        self._experiment_factory(experiment_names)
-
-        experiments = self.store.search_experiments(filter_string="name = 'a'")
-        assert [e.name for e in experiments] == ["a"]
-        experiments = self.store.search_experiments(filter_string="attribute.name = 'a'")
-        assert [e.name for e in experiments] == ["a"]
-        experiments = self.store.search_experiments(filter_string="attribute.`name` = 'a'")
-        assert [e.name for e in experiments] == ["a"]
-        experiments = self.store.search_experiments(filter_string="attribute.`name` != 'a'")
-        assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
-        experiments = self.store.search_experiments(filter_string="name LIKE 'a%'")
-        assert [e.name for e in experiments] == ["ab", "a"]
-        experiments = self.store.search_experiments(filter_string="name ILIKE 'a%'")
-        assert [e.name for e in experiments] == ["Abc", "ab", "a"]
-        experiments = self.store.search_experiments(
-            filter_string="name ILIKE 'a%' AND name ILIKE '%b'"
-        )
-        assert [e.name for e in experiments] == ["ab"]
-
-    def test_search_experiments_filter_by_time_attribute(self):
-        # Sleep to ensure that the first experiment has a different creation_time than the default
-        # experiment and eliminate flakiness.
-        time.sleep(0.001)
-        time_before_create1 = get_current_time_millis()
-        exp_id1 = self.store.create_experiment("1")
-        exp1 = self.store.get_experiment(exp_id1)
-        time.sleep(0.001)
-        time_before_create2 = get_current_time_millis()
-        exp_id2 = self.store.create_experiment("2")
-        exp2 = self.store.get_experiment(exp_id2)
-
-        experiments = self.store.search_experiments(
-            filter_string=f"creation_time = {exp1.creation_time}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id1]
-
-        experiments = self.store.search_experiments(
-            filter_string=f"creation_time != {exp1.creation_time}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id2, self.store.DEFAULT_EXPERIMENT_ID]
-
-        experiments = self.store.search_experiments(
-            filter_string=f"creation_time >= {time_before_create1}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id2, exp_id1]
-
-        experiments = self.store.search_experiments(
-            filter_string=f"creation_time < {time_before_create2}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id1, self.store.DEFAULT_EXPERIMENT_ID]
-
-        now = get_current_time_millis()
-        experiments = self.store.search_experiments(filter_string=f"creation_time >= {now}")
-        assert experiments == []
-
-        time.sleep(0.001)
-        time_before_rename = get_current_time_millis()
-        self.store.rename_experiment(exp_id1, "new_name")
-        experiments = self.store.search_experiments(
-            filter_string=f"last_update_time >= {time_before_rename}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id1]
-
-        experiments = self.store.search_experiments(
-            filter_string=f"last_update_time <= {get_current_time_millis()}"
-        )
-        assert {e.experiment_id for e in experiments} == {
-            exp_id1,
-            exp_id2,
-            self.store.DEFAULT_EXPERIMENT_ID,
-        }
-
-        experiments = self.store.search_experiments(
-            filter_string=f"last_update_time = {exp2.last_update_time}"
-        )
-        assert [e.experiment_id for e in experiments] == [exp_id2]
-
-    def test_search_experiments_filter_by_tag(self):
-        experiments = [
-            ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
-            ("exp2", [ExperimentTag("key1", "vaLue"), ExperimentTag("key2", "vaLue")]),
-            ("exp3", [ExperimentTag("k e y 1", "value")]),
-        ]
-        for name, tags in experiments:
-            time.sleep(0.001)
-            self.store.create_experiment(name, tags=tags)
-
-        experiments = self.store.search_experiments(filter_string="tag.key1 = 'value'")
-        assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.`k e y 1` = 'value'")
-        assert [e.name for e in experiments] == ["exp3"]
-        experiments = self.store.search_experiments(filter_string="tag.\"k e y 1\" = 'value'")
-        assert [e.name for e in experiments] == ["exp3"]
-        experiments = self.store.search_experiments(filter_string="tag.key1 != 'value'")
-        assert [e.name for e in experiments] == ["exp2"]
-        experiments = self.store.search_experiments(filter_string="tag.key1 != 'VALUE'")
-        assert [e.name for e in experiments] == ["exp2", "exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.key1 LIKE 'val%'")
-        assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.key1 LIKE '%Lue'")
-        assert [e.name for e in experiments] == ["exp2"]
-        experiments = self.store.search_experiments(filter_string="tag.key1 ILIKE '%alu%'")
-        assert [e.name for e in experiments] == ["exp2", "exp1"]
-        experiments = self.store.search_experiments(
-            filter_string="tag.key1 LIKE 'va%' AND tag.key2 LIKE '%Lue'"
-        )
-        assert [e.name for e in experiments] == ["exp2"]
-        experiments = self.store.search_experiments(filter_string="tag.KEY = 'value'")
-        assert len(experiments) == 0
-
-    def test_search_experiments_filter_by_attribute_and_tag(self):
-        self.store.create_experiment(
-            "exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")]
-        )
-        self.store.create_experiment(
-            "exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")]
-        )
-        experiments = self.store.search_experiments(
-            filter_string="name ILIKE 'exp%' AND tags.a = '1'"
-        )
-        assert [e.name for e in experiments] == ["exp1"]
-
-    def test_search_experiments_order_by(self):
-        experiment_names = ["x", "y", "z"]
-        self._experiment_factory(experiment_names)
-
-        experiments = self.store.search_experiments(order_by=["name"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
-
-        experiments = self.store.search_experiments(order_by=["name ASC"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
-
-        experiments = self.store.search_experiments(order_by=["name DESC"])
-        assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
-
-        experiments = self.store.search_experiments(order_by=["experiment_id DESC"])
-        assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
-
-        experiments = self.store.search_experiments(order_by=["name", "experiment_id"])
-        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
-
-    def test_search_experiments_order_by_time_attribute(self):
-        # Sleep to ensure that the first experiment has a different creation_time than the default
-        # experiment and eliminate flakiness.
-        time.sleep(0.001)
-        exp_id1 = self.store.create_experiment("1")
-        time.sleep(0.001)
-        exp_id2 = self.store.create_experiment("2")
-
-        experiments = self.store.search_experiments(order_by=["creation_time"])
-        assert [e.experiment_id for e in experiments] == [
-            self.store.DEFAULT_EXPERIMENT_ID,
-            exp_id1,
-            exp_id2,
-        ]
-
-        experiments = self.store.search_experiments(order_by=["creation_time DESC"])
-        assert [e.experiment_id for e in experiments] == [
-            exp_id2,
-            exp_id1,
-            self.store.DEFAULT_EXPERIMENT_ID,
-        ]
-
-        experiments = self.store.search_experiments(order_by=["last_update_time"])
-        assert [e.experiment_id for e in experiments] == [
-            self.store.DEFAULT_EXPERIMENT_ID,
-            exp_id1,
-            exp_id2,
-        ]
-
-        self.store.rename_experiment(exp_id1, "new_name")
-        experiments = self.store.search_experiments(order_by=["last_update_time"])
-        assert [e.experiment_id for e in experiments] == [
-            self.store.DEFAULT_EXPERIMENT_ID,
-            exp_id2,
-            exp_id1,
-        ]
-
-    def test_search_experiments_max_results(self):
-        experiment_names = list(map(str, range(9)))
-        self._experiment_factory(experiment_names)
-        reversed_experiment_names = experiment_names[::-1]
-
-        experiments = self.store.search_experiments()
-        assert [e.name for e in experiments] == reversed_experiment_names + ["Default"]
-        experiments = self.store.search_experiments(max_results=3)
-        assert [e.name for e in experiments] == reversed_experiment_names[:3]
-
-    def test_search_experiments_max_results_validation(self):
-        with pytest.raises(MlflowException, match=r"It must be a positive integer, but got None"):
-            self.store.search_experiments(max_results=None)
-        with pytest.raises(MlflowException, match=r"It must be a positive integer, but got 0"):
-            self.store.search_experiments(max_results=0)
-        with pytest.raises(MlflowException, match=r"It must be at most \d+, but got 1000000"):
-            self.store.search_experiments(max_results=1_000_000)
-
-    def test_search_experiments_pagination(self):
-        experiment_names = list(map(str, range(9)))
-        self._experiment_factory(experiment_names)
-        reversed_experiment_names = experiment_names[::-1]
-
-        experiments = self.store.search_experiments(max_results=4)
-        assert [e.name for e in experiments] == reversed_experiment_names[:4]
-        assert experiments.token is not None
-
-        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
-        assert [e.name for e in experiments] == reversed_experiment_names[4:8]
-        assert experiments.token is not None
-
-        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
-        assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
-        assert experiments.token is None
-
-    def test_create_experiments(self):
-        with self.store.ManagedSessionMaker() as session:
-            result = session.query(models.SqlExperiment).all()
-            assert len(result) == 1
-        time_before_create = get_current_time_millis()
-        experiment_id = self.store.create_experiment(name="test exp")
-        assert experiment_id == "1"
-        with self.store.ManagedSessionMaker() as session:
-            result = session.query(models.SqlExperiment).all()
-            assert len(result) == 2
-
-            test_exp = session.query(models.SqlExperiment).filter_by(name="test exp").first()
-            assert str(test_exp.experiment_id) == experiment_id
-            assert test_exp.name == "test exp"
-
-        actual = self.store.get_experiment(experiment_id)
-        assert actual.experiment_id == experiment_id
-        assert actual.name == "test exp"
-        assert actual.creation_time >= time_before_create
-        assert actual.last_update_time == actual.creation_time
-
-    def test_create_experiment_with_tags_works_correctly(self):
-        experiment_id = self.store.create_experiment(
-            name="test exp",
-            artifact_location="some location",
-            tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
-        )
-        experiment = self.store.get_experiment(experiment_id)
-        assert len(experiment.tags) == 2
-        assert experiment.tags["key1"] == "val1"
-        assert experiment.tags["key2"] == "val2"
-
-    def test_run_tag_model(self):
-        # Create a run whose UUID we can reference when creating tag models.
-        # `run_id` is a foreign key in the tags table; therefore, in order
-        # to insert a tag with a given run UUID, the UUID must be present in
-        # the runs table
-        run = self._run_factory()
-        with self.store.ManagedSessionMaker() as session:
-            new_tag = models.SqlTag(run_uuid=run.info.run_id, key="test", value="val")
-            session.add(new_tag)
-            session.commit()
-            added_tags = [
-                tag for tag in session.query(models.SqlTag).all() if tag.key == new_tag.key
-            ]
-            assert len(added_tags) == 1
-            added_tag = added_tags[0].to_mlflow_entity()
-            assert added_tag.value == new_tag.value
-
-    def test_metric_model(self):
-        # Create a run whose UUID we can reference when creating metric models.
-        # `run_id` is a foreign key in the tags table; therefore, in order
-        # to insert a metric with a given run UUID, the UUID must be present in
-        # the runs table
-        run = self._run_factory()
-        with self.store.ManagedSessionMaker() as session:
-            new_metric = models.SqlMetric(run_uuid=run.info.run_id, key="accuracy", value=0.89)
-            session.add(new_metric)
-            session.commit()
-            metrics = session.query(models.SqlMetric).all()
-            assert len(metrics) == 1
-
-            added_metric = metrics[0].to_mlflow_entity()
-            assert added_metric.value == new_metric.value
-            assert added_metric.key == new_metric.key
-
-    def test_param_model(self):
-        # Create a run whose UUID we can reference when creating parameter models.
-        # `run_id` is a foreign key in the tags table; therefore, in order
-        # to insert a parameter with a given run UUID, the UUID must be present in
-        # the runs table
-        run = self._run_factory()
-        with self.store.ManagedSessionMaker() as session:
-            new_param = models.SqlParam(
-                run_uuid=run.info.run_id, key="accuracy", value="test param"
-            )
-            session.add(new_param)
-            session.commit()
-            params = session.query(models.SqlParam).all()
-            assert len(params) == 1
-
-            added_param = params[0].to_mlflow_entity()
-            assert added_param.value == new_param.value
-            assert added_param.key == new_param.key
 
     def test_run_needs_uuid(self):
         regex = {

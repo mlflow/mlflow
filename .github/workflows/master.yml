@@ -2,6 +2,8 @@ name: MLflow tests
 
 on:
   pull_request:
+    paths-ignore:
+      - "docs/**"
   push:
     branches:
       - master
@@ -11,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 # Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
@@ -29,40 +31,6 @@ env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-        id: setup-python
-      - name: Add problem matchers
-        run: |
-          echo "::add-matcher::.github/workflows/matchers/pylint.json"
-          echo "::add-matcher::.github/workflows/matchers/black.json"
-          echo "::add-matcher::.github/workflows/matchers/ruff.json"
-      - uses: ./.github/actions/cache-pip
-      - name: Install dependencies
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          pip install -r requirements/lint-requirements.txt
-      - uses: ./.github/actions/pipdeptree
-      - name: Install pre-commit hooks
-        run: |
-          source .venv/bin/activate
-          pre-commit install -t pre-commit -t prepare-commit-msg
-      - name: Run pre-commit
-        id: pre-commit
-        env:
-          IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
-        run: |
-          source .venv/bin/activate
-          pre-commit run --all-files
-
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
   # The python skinny tests cover the subset of mlflow functionality
@@ -272,7 +240,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          dev/pytest.sh tests/evaluate
+          pytest tests/evaluate
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -348,6 +316,7 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/Scripts/activate
+          python -m pip install -U pip
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]

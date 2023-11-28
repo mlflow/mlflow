@@ -309,18 +309,14 @@ class Utils {
     const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
     if (gitHubMatch) {
-      url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}\
-      /tree/${sourceVersion}/${gitHubMatch[3]}`;
+      url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}/tree/${sourceVersion}/${gitHubMatch[3]}`;
     } else if (gitLabMatch) {
-      url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}\
-      /-/tree/${sourceVersion}/${gitLabMatch[3]}`;
+      url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}/-/tree/${sourceVersion}/${gitLabMatch[3]}`;
     } else if (bitbucketMatch) {
-      url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}\
-      /src/${sourceVersion}/${bitbucketMatch[3]}`;
+      url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}/src/${sourceVersion}/${bitbucketMatch[3]}`;
     } else if (gitMatch) {
       const [, baseUrl, repoDir, fileDir] = gitMatch;
-      url = `${baseUrl.replace(/git@/, 'https://')}/${repoDir.replace(/.git/, '')}\
-      /tree/${sourceVersion}/${fileDir}`;
+      url = `${baseUrl.replace(/git@/, 'https://')}/${repoDir.replace(/.git/, '')}/tree/${sourceVersion}/${fileDir}`;
     }
     return url;
   }

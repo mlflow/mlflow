@@ -81,8 +81,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
 ):
-    """
-    Save a spaCy model to a path on the local file system.
+    """Save a spaCy model to a path on the local file system.
 
     Args:
         spacy_model: spaCy model to be saved.
@@ -215,8 +214,7 @@ def log_model(
     metadata=None,
     **kwargs,
 ):
-    """
-    Log a spaCy model as an MLflow artifact for the current run.
+    """Log a spaCy model as an MLflow artifact for the current run.
 
     Args:
         spacy_model: spaCy model to be saved.
@@ -286,8 +284,7 @@ class _SpacyModelWrapper:
     def predict(
         self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
     ):
-        """
-        Only works for predicting using text categorizer.
+        """Only works for predicting using text categorizer.
         Not suitable for other pipeline components (e.g: parser)
 
         Args:
@@ -310,8 +307,7 @@ class _SpacyModelWrapper:
 
 
 def _load_pyfunc(path):
-    """
-    Load PyFunc implementation. Called by ``pyfunc.load_model``.
+    """Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     Args:
         path: Local filesystem path to the MLflow Model with the ``spacy`` flavor.
@@ -320,8 +316,7 @@ def _load_pyfunc(path):
 
 
 def load_model(model_uri, dst_path=None):
-    """
-    Load a spaCy model from a local file (if ``run_id`` is ``None``) or a run.
+    """Load a spaCy model from a local file (if ``run_id`` is ``None``) or a run.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:

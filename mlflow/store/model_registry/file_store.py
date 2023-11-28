@@ -570,8 +570,7 @@ class FileStore(AbstractStore):
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
-        :param source: Source path or model version URI (in the format
-                       ``models:/<model_name>/<version>``) where the MLflow model is stored.
+        :param source: URI indicating the location of the model artifacts.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
@@ -952,19 +951,6 @@ class FileStore(AbstractStore):
                 return _read_helper(root, file_name, attempts_remaining - 1)
 
         return _read_helper(root, file_name, attempts_remaining=retries)
-
-    def copy_model_version(self, src_mv, dst_name) -> ModelVersion:
-        """
-        Copy a model version from one registered model to another as a new model version.
-
-        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
-                       the source model version.
-        :param dst_name: the name of the registered model to copy the model version to. If a
-                         registered model with this name does not exist, it will be created.
-        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
-                 the cloned model version.
-        """
-        return self._copy_model_version_impl(src_mv, dst_name)
 
     def _await_model_version_creation(self, mv, await_creation_for):
         """
