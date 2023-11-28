@@ -1,0 +1,9 @@
+# These are the extra requirements for MLflow GenAI, which can be installed
+# on top of the core requirements using `pip install mlflow[genai]`.
+# When we release a new major/minor version, this file is automatically updated
+# as a part of the release process.
+
+openai:
+  pip_release: openai
+  max_major_version: 0
+
