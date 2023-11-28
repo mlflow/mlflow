@@ -1,25 +1,25 @@
-Configuring and Starting the AI Gateway
-=======================================
+Configuring and Starting the Deployments Server
+===============================================
 
 Step 1: Install
 ---------------
-First, install MLflow along with the gateway extras to get access to a range of serving-related 
-dependencies, including ``uvicorn`` and ``fastapi``. Note that direct dependencies on OpenAI are 
+First, install MLflow along with the ``genai`` extras to get access to a range of serving-related
+dependencies, including ``uvicorn`` and ``fastapi``. Note that direct dependencies on OpenAI are
 unnecessary, as all supported providers are abstracted from the developer.
 
 .. code-section::
 
-    .. code-block:: bash 
-        :name: install-gateway
+    .. code-block:: bash
+        :name: install-genai
 
-        pip install 'mlflow[gateway]' 
+        pip install 'mlflow[genai]'
 
 Step 2: Set the OpenAI Token as an Environment Variable
 -------------------------------------------------------
-Next, set the OpenAI API key as an environment variable in your CLI. 
+Next, set the OpenAI API key as an environment variable in your CLI.
 
-This approach allows the MLflow AI Gateway to read the sensitive API key safely, reducing the risk 
-of leaking the token in code. The AI Gateway, when started, will read the value set by this environment 
+This approach allows the MLflow Deployments Server to read the sensitive API key safely, reducing the risk
+of leaking the token in code. The Deployments Server, when started, will read the value set by this environment
 variable without any additional action required.
 
 .. code-section::
@@ -29,19 +29,19 @@ variable without any additional action required.
 
         export OPENAI_API_KEY=your_api_key_here
 
-Step 3: Configure the Gateway
------------------------------
-Third, set up several routes for the gateway to host. The configuration of the AI Gateway is done through 
+Step 3: Configure the Deployments Server
+----------------------------------------
+Third, set up several routes for the Deployments Server to host. The configuration of the Deployments Server is done through
 editing a YAML file that is read by the server initialization command (covered in step 4).
 
-Notably, the AI Gateway allows real-time updates to an active gateway through the YAML configuration; 
-service restart is not required for changes to take effect and can instead be done simply by editing the 
+Notably, the Deployments Server allows real-time updates to an active server through the YAML configuration;
+service restart is not required for changes to take effect and can instead be done simply by editing the
 configuration file that is defined at server start, permitting dynamic route creation without downtime of the service.
 
 .. code-section::
 
-    .. code-block:: yaml 
-        :name: configure-gateway
+    .. code-block:: yaml
+        :name: server-config
 
         routes:
         - name: my_completions_route
@@ -77,29 +77,23 @@ configuration file that is defined at server start, permitting dynamic route cre
                     openai_api_key: $OPENAI_API_KEY
 
 
-Step 4: Start the Gateway
+Step 4: Start the Server
 -------------------------
-Fourth, let's test the gateway service!
+Fourth, let's test the deployments server!
 
-To launch the gateway using a YAML config file, use the gateway CLI command.
+To launch the deployments server using a YAML config file, use the deployments CLI command.
 
-The gateway will automatically start on ``localhost`` at port ``5000``, accessible via 
-the URL: ``http://localhost:5000``. To modify these default settings, use the 
-``mlflow gateway --help`` command to view additional configuration options.
+The deployments server will automatically start on ``localhost`` at port ``5000``, accessible via
+the URL: ``http://localhost:5000``. To modify these default settings, use the
+``mlflow deployments start-server --help`` command to view additional configuration options.
 
 .. code-section::
 
-    .. code-block:: bash 
-        :name: start-gateway
+    .. code-block:: bash
+        :name: start-server
 
-        mlflow gateway start --config-path config.yaml 
-
-
-.. figure:: ../../../_static/images/tutorials/gateway/creating-first-gateway/start_gateway.gif
-   :width: 800px
-   :align: center
-   :alt: Start the gateway and observe the docs.
+        mlflow deployments start-server --config-path config.yaml
 
 .. note::
-        MLflow AI Gateway automatically creates API docs. You can validate your gateway is running 
-        by viewing the docs. Go to `http://{host}:{port}` in your web browser. 
+    MLflow Deployments Server automatically creates API docs. You can validate your deployment server
+    is running by viewing the docs. Go to `http://{host}:{port}` in your web browser.
