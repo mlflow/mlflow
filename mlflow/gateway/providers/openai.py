@@ -1,5 +1,6 @@
 import asyncio
 import json
+from typing import AsyncIterable
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
@@ -86,7 +87,7 @@ class OpenAIProvider(BaseProvider):
         payload["temperature"] = 2 * payload["temperature"]
         return payload
 
-    async def chat_stream(self, payload: chat.RequestPayload) -> chat.StreamResponsePayload:
+    async def chat_stream(self, payload: chat.RequestPayload) -> AsyncIterable[chat.StreamResponsePayload]:
         from fastapi import HTTPException
         from fastapi.encoders import jsonable_encoder
 
