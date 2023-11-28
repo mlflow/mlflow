@@ -11,7 +11,28 @@ from mlflow.deployments import BaseDeploymentClient
 
 class OpenAIDeploymentClient(BaseDeploymentClient):
     """
-    TODO
+    Client for interacting with OpenAI endpoints.
+
+    Example:
+
+    First, set up credentials for authentication:
+
+    .. code-block:: bash
+
+        export OPENAI_API_KEY=...
+
+    .. seealso::
+
+        See https://mlflow.org/docs/latest/python_api/openai/index.html for other authentication methods.
+
+    Then, create a deployment client and use it to interact with OpenAI endpoints:
+
+    .. code-block:: python
+
+        from mlflow.deployments import get_deploy_client
+
+        client = get_deploy_client("openai")
+        client.predict(endpoint="gpt-3.5-turbo", inputs={"prompt": "hello", "temperature": 0.1})
     """
 
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
