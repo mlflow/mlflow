@@ -341,7 +341,7 @@ class MlflowGatewayClient:
 
         """
         if stream:
-            data.update({"stream": stream})
+            data = {**data, "stream": True}
         data = json.dumps(data)
 
         query_route = assemble_uri_path([MLFLOW_GATEWAY_ROUTE_BASE, route, MLFLOW_QUERY_SUFFIX])
