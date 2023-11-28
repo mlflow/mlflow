@@ -13,7 +13,7 @@ In this brief introductory quickstart on MLflow Tracking, you will learn how to 
 
 * **Log** training statistics (loss, accuracy, etc.) and hyperparameters for a model
 * **Log** (save) a model for later retrieval
-* **Register** a model to enable state transitions for deployment
+* **Register** a model to enable deployment
 * **Load** the model and use it for inference
 
 In the process of learning these key concepts, you will be exposed to the MLflow fluent API, the MLflow Tracking UI, and learn how to add metadata associated with 
