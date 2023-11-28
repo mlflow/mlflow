@@ -6,6 +6,7 @@ from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.utils import strip_sse_prefix
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 
@@ -109,13 +110,11 @@ class OpenAIProvider(BaseProvider):
             if not chunk:
                 continue
 
-            if chunk.startswith(b"data: "):
-                chunk = chunk[len(b"data: ") :]
-
             if chunk == b"[DONE]":
                 return
 
-            data = json.loads(chunk)
+            decoded_chunk = chunk.decode("utf-8")
+            data = json.loads(strip_sse_prefix(decoded_chunk))
             await asyncio.sleep(0.05)
             yield chat.StreamResponsePayload(**data)
 
