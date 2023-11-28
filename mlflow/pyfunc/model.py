@@ -74,15 +74,13 @@ def _log_warning_if_params_not_in_predict_signature(logger, params):
         )
 
 
-class PythonModel:
+class PythonModel(metaclass=ABCMeta):
     """
     Represents a generic Python model that evaluates inputs and produces API-compatible outputs.
     By subclassing :class:`~PythonModel`, users can create customized MLflow models with the
     "python_function" ("pyfunc") flavor, leveraging custom inference logic and artifact
     dependencies.
     """
-
-    __metaclass__ = ABCMeta
 
     def __new__(cls, *args, **kwargs):
         cls._warn_on_setting_model_in_init()
