@@ -19,16 +19,18 @@ class DatabricksEndpoint(AttrDict):
 
     .. code-block:: python
 
-        endpoint = DatabricksEndpoint({
-            "name": "chat",
-            "creator": "alice@company.com",
-            "creation_timestamp": 0,
-            "last_updated_timestamp": 0,
-            "state": {...},
-            "config": {...},
-            "tags": [...],
-            "id": "88fd3f75a0d24b0380ddc40484d7a31b",
-        })
+        endpoint = DatabricksEndpoint(
+            {
+                "name": "chat",
+                "creator": "alice@company.com",
+                "creation_timestamp": 0,
+                "last_updated_timestamp": 0,
+                "state": {...},
+                "config": {...},
+                "tags": [...],
+                "id": "88fd3f75a0d24b0380ddc40484d7a31b",
+            }
+        )
         assert endpoint.name == "chat"
     """
 
