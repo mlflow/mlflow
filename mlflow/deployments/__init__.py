@@ -17,7 +17,7 @@ import contextlib
 import json
 
 from mlflow.deployments.base import BaseDeploymentClient
-from mlflow.deployments.databricks import DatabricksDeploymentClient
+from mlflow.deployments.databricks import DatabricksDeploymentClient, DatabricksEndpoint
 from mlflow.deployments.interface import get_deploy_client, run_local
 from mlflow.deployments.openai import OpenAIDeploymentClient
 from mlflow.exceptions import MlflowException
@@ -101,6 +101,7 @@ __all__ = [
     "BaseDeploymentClient",
     "DatabricksDeploymentClient",
     "OpenAIDeploymentClient",
+    "DatabricksEndpoint",
     "MlflowDeploymentClient",
     "PredictionsResponse",
 ]

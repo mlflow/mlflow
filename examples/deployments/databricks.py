@@ -55,36 +55,40 @@ def main():
     )
     try:
         # Update served_entities
-        client.update_endpoint(
-            endpoint=name,
-            config={
-                "served_entities": [
-                    {
-                        "name": "test",
-                        "external_model": {
-                            "name": "gpt-4",
-                            "provider": "openai",
-                            "task": "llm/v1/chat",
-                            "openai_config": {
-                                "openai_api_key": "{{" + args.secret + "}}",
+        print(
+            client.update_endpoint(
+                endpoint=name,
+                config={
+                    "served_entities": [
+                        {
+                            "name": "test",
+                            "external_model": {
+                                "name": "gpt-4",
+                                "provider": "openai",
+                                "task": "llm/v1/chat",
+                                "openai_config": {
+                                    "openai_api_key": "{{" + args.secret + "}}",
+                                },
                             },
-                        },
-                    }
-                ],
-            },
+                        }
+                    ],
+                },
+            )
         )
         # Update rate_limits
-        client.update_endpoint(
-            endpoint=name,
-            config={
-                "rate_limits": [
-                    {
-                        "key": "user",
-                        "renewal_period": "minute",
-                        "calls": 10,
-                    }
-                ],
-            },
+        print(
+            client.update_endpoint(
+                endpoint=name,
+                config={
+                    "rate_limits": [
+                        {
+                            "key": "user",
+                            "renewal_period": "minute",
+                            "calls": 10,
+                        }
+                    ],
+                },
+            )
         )
         print(client.list_endpoints()[:3])
         print(client.get_endpoint(endpoint=name))
