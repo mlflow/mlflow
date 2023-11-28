@@ -11,8 +11,8 @@ capabilities into their applications.
 
 **MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind:
 
-`MLflow Deployments Server <deployments/index.html>`_
------------------------------------------------------
+`MLflow Deployments Server for LLMs <deployments/index.html>`_
+--------------------------------------------------------------
 
 .. toctree::
     :maxdepth: 1
