@@ -921,22 +921,22 @@ Chat
 
 .. code-block:: json
 
-    {"choices": [{"delta": {"content": None, "role": "assistant"}, "finish_reason": None, "index": 0}],
+    {"choices": [{"delta": {"content": null, "role": "assistant"}, "finish_reason": null, "index": 0}],
      "created": 1701161926,
      "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3",
      "model": "gpt-35-turbo",
      "object": "chat.completion.chunk"}
-    {"choices": [{"delta": {"content": "Hello", "role": None}, "finish_reason": None, "index": 0}],
+    {"choices": [{"delta": {"content": "Hello", "role": null}, "finish_reason": null, "index": 0}],
      "created": 1701161926,
      "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3",
      "model": "gpt-35-turbo",
      "object": "chat.completion.chunk"}
-    {"choices": [{"delta": {"content": " there", "role": None}, "finish_reason": None, "index": 0}],
+    {"choices": [{"delta": {"content": " there", "role": null}, "finish_reason": null, "index": 0}],
      "created": 1701161926,
      "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3",
      "model": "gpt-35-turbo",
      "object": "chat.completion.chunk"}
-    {"choices": [{"delta": {"content": None, "role": None}, "finish_reason": "stop", "index": 0}],
+    {"choices": [{"delta": {"content": null, "role": null}, "finish_reason": "stop", "index": 0}],
      "created": 1701161926,
      "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3",
      "model": "gpt-35-turbo",
@@ -948,27 +948,27 @@ Completions
 
 .. code-block:: json
 
-    {"choices": [{"delta": {"text": ""}, "finish_reason": None, "index": 0}],
+    {"choices": [{"delta": {"text": ""}, "finish_reason": null, "index": 0}],
      "created": 1701161629,
      "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2",
      "model": "gpt-3.5-turbo-0613",
      "object": "chat.completion.chunk"}
-    {"choices": [{"delta": {"text": "If"}, "finish_reason": None, "index": 0}],
+    {"choices": [{"delta": {"text": "If"}, "finish_reason": null, "index": 0}],
      "created": 1701161629,
      "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2",
      "model": "gpt-3.5-turbo-0613",
      "object": "chat.completion.chunk"}
-    {"choices": [{"delta": {"text": " an"}, "finish_reason": None, "index": 0}],
+    {"choices": [{"delta": {"text": " an"}, "finish_reason": null, "index": 0}],
      "created": 1701161629,
      "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2",
      "model": "gpt-3.5-turbo-0613",
      "object": "chat.completion.chunk"}
-    {"choices": [{"delta": {"text": " asteroid"}, "finish_reason": None, "index": 0}],
+    {"choices": [{"delta": {"text": " asteroid"}, "finish_reason": null, "index": 0}],
      "created": 1701161629,
      "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2",
      "model": "gpt-3.5-turbo-0613",
      "object": "chat.completion.chunk"}
-    {"choices": [{"delta": {"text": None}, "finish_reason": "length", "index": 0}],
+    {"choices": [{"delta": {"text": null}, "finish_reason": "length", "index": 0}],
      "created": 1701161629,
      "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2",
      "model": "gpt-3.5-turbo-0613",
