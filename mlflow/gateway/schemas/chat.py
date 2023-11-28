@@ -17,6 +17,7 @@ class BaseRequestPayload(RequestModel):
     candidate_count: int = Field(1, ge=1, le=5)
     stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=1)
+    stream: bool = False
 
 
 class RequestPayload(BaseRequestPayload):
@@ -93,3 +94,22 @@ class ResponsePayload(ResponseModel):
                 },
             }
         }
+
+
+class StreamDelta(ResponseModel):
+    role: Optional[str] = None
+    content: Optional[str] = None
+
+
+class StreamChoice(ResponseModel):
+    index: int
+    finish_reason: Optional[FinishReason] = None
+    delta: StreamDelta
+
+
+class StreamResponsePayload(ResponseModel):
+    id: str
+    object: str
+    created: int
+    model: str
+    choices: List[StreamChoice]

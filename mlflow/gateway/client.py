@@ -14,7 +14,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
-from mlflow.gateway.utils import assemble_uri_path, get_gateway_uri, resolve_route_url
+from mlflow.gateway.utils import assemble_uri_path, get_gateway_uri, resolve_route_url, strip_sse_prefix
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
@@ -259,13 +259,18 @@ class MlflowGatewayClient:
         self._call_endpoint("DELETE", route)
 
     @experimental
-    def query(self, route: str, data: Dict[str, Any]):
+    def query(self, route: str, data: Dict[str, Any], stream: bool = False):
         """
         Submit a query to a configured provider route.
 
         :param route: The name of the route to submit the query to.
         :param data: The data to send in the query. A dictionary representing the per-route
             specific structure required for a given provider.
+        :param stream: Enable streaming of the response. If enabled, this function will return
+                       a generator that will yield the response in chunks as they are received from
+                       the server. If disabled, the function will return the full response as a
+                       dictionary.
+                       Ignored for routes that do not support streaming (e.g. embeddings).
         :return: The route's response as a dictionary, standardized to the route type.
 
         For chat, the structure should be:
@@ -326,13 +331,14 @@ class MlflowGatewayClient:
             )
 
         """
-
+        if stream:
+            data.update({"stream": stream})
         data = json.dumps(data)
 
         query_route = assemble_uri_path([MLFLOW_GATEWAY_ROUTE_BASE, route, MLFLOW_QUERY_SUFFIX])
 
         try:
-            return self._call_endpoint("POST", query_route, data).json()
+            resp = self._call_endpoint("POST", query_route, data)
         except MlflowException as e:
             if isinstance(e.__cause__, requests.exceptions.Timeout):
                 timeout_message = (
@@ -346,6 +352,15 @@ class MlflowGatewayClient:
                 raise MlflowException(message=timeout_message, error_code=BAD_REQUEST)
             else:
                 raise e
+
+        if stream:
+            return (
+                json.loads(strip_sse_prefix(chunk.decode("utf-8")))
+                for chunk in resp.iter_lines()
+                if chunk
+            )
+        else:
+            return resp.json()
 
     @experimental
     def set_limits(self, route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:

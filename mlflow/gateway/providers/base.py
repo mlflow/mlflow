@@ -18,6 +18,9 @@ class BaseProvider(ABC):
     def __init__(self, config: RouteConfig):
         self.config = config
 
+    async def chat_stream(self, payload: chat.RequestPayload) -> chat.StreamResponsePayload:
+        raise NotImplementedError
+
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise NotImplementedError
 

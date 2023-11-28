@@ -1,7 +1,10 @@
+import asyncio
+import json
+
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
@@ -73,6 +76,50 @@ class OpenAIProvider(BaseProvider):
         else:
             return payload
 
+    def _prepare_chat_request_payload(self, payload):
+
+        payload = rename_payload_keys(
+            payload,
+            {"candidate_count": "n"},
+        )
+        # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
+        payload["temperature"] = 2 * payload["temperature"]
+        return payload
+
+    async def chat_stream(self, payload: chat.RequestPayload) -> chat.StreamResponsePayload:
+        from fastapi import HTTPException
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        if "n" in payload:
+            raise HTTPException(
+                status_code=422, detail="Invalid parameter `n`. Use `candidate_count` instead."
+            )
+        payload = self._prepare_chat_request_payload(payload)
+
+        stream = send_stream_request(
+            headers=self._request_headers,
+            base_url=self._request_base_url,
+            path="chat/completions",
+            payload=self._add_model_to_payload_if_necessary(payload),
+        )
+
+        async for chunk in stream:
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+
+            if chunk.startswith(b"data: "):
+                chunk = chunk[len(b"data: ") :]
+
+            if chunk == b"[DONE]":
+                return
+
+            data = json.loads(chunk)
+            await asyncio.sleep(0.05)
+            yield chat.StreamResponsePayload(**data)
+
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi import HTTPException
         from fastapi.encoders import jsonable_encoder
@@ -83,13 +130,7 @@ class OpenAIProvider(BaseProvider):
             raise HTTPException(
                 status_code=422, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
-
-        payload = rename_payload_keys(
-            payload,
-            {"candidate_count": "n"},
-        )
-        # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
-        payload["temperature"] = 2 * payload["temperature"]
+        payload = self._prepare_chat_request_payload(payload)
 
         resp = await send_request(
             headers=self._request_headers,
