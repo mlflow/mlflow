@@ -19,11 +19,17 @@ class DatabricksEndpoint(AttrDict):
 
     .. code-block:: python
 
-        d = DatabricksEndpoint({"a": 1, "b": 2})
-        print(d.a)  # 1
-
-        d = DatabricksEndpoint({"a": 1, "b": {"c": 3, "d": 4}})
-        print(d.b.c)  # 3
+        endpoint = DatabricksEndpoint({
+            "name": "chat",
+            "creator": "alice@company.com",
+            "creation_timestamp": 0,
+            "last_updated_timestamp": 0,
+            "state": {...},
+            "config": {...},
+            "tags": [...],
+            "id": "88fd3f75a0d24b0380ddc40484d7a31b",
+        })
+        assert endpoint.name == "chat"
     """
 
     pass
@@ -343,7 +349,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             from mlflow.deployments import get_deploy_client
 
             client = get_deploy_client("databricks")
-            assert client.delete_endpoint(endpoint="chat") == {}
+            client.delete_endpoint(endpoint="chat")
         """
         return self._call_endpoint(method="DELETE", route=endpoint)
 
