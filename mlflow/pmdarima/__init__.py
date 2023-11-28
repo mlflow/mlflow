@@ -139,7 +139,8 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
 ):
-    """Save a pmdarima ``ARIMA`` model or ``Pipeline`` object to a path on the local file system.
+    """
+    Save a pmdarima ``ARIMA`` model or ``Pipeline`` object to a path on the local file system.
 
     Args:
         pmdarima_model: pmdarima ``ARIMA`` or ``Pipeline`` model that has been ``fit`` on a
@@ -296,7 +297,8 @@ def log_model(
     metadata=None,
     **kwargs,
 ):
-    """Logs a ``pmdarima`` ``ARIMA`` or ``Pipeline`` object as an MLflow artifact for the current run.
+    """
+    Logs a ``pmdarima`` ``ARIMA`` or ``Pipeline`` object as an MLflow artifact for the current run.
 
     Args:
         pmdarima_model: pmdarima ``ARIMA`` or ``Pipeline`` model that has been ``fit`` on a
@@ -408,7 +410,8 @@ def log_model(
 
 
 def load_model(model_uri, dst_path=None):
-    """Load a ``pmdarima`` ``ARIMA`` model or ``Pipeline`` object from a local file or a run.
+    """
+    Load a ``pmdarima`` ``ARIMA`` model or ``Pipeline`` object from a local file or a run.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:

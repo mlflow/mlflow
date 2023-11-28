@@ -91,7 +91,8 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
 ):
-    """Save a Prophet model to a path on the local file system.
+    """
+    Save a Prophet model to a path on the local file system.
 
     Args:
         pr_model: Prophet model (an instance of Prophet() forecaster that has been fit
@@ -222,7 +223,8 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
 ):
-    """Logs a Prophet model as an MLflow artifact for the current run.
+    """
+    Logs a Prophet model as an MLflow artifact for the current run.
 
     Args:
         pr_model: Prophet model to be saved.
@@ -304,7 +306,8 @@ def _load_model(path):
 
 
 def _load_pyfunc(path):
-    """Loads PyFunc implementation for Prophet. Called by ``pyfunc.load_model``.
+    """
+    Loads PyFunc implementation for Prophet. Called by ``pyfunc.load_model``.
 
     Args:
         path: Local filesystem path to the MLflow Model with the ``prophet`` flavor.
