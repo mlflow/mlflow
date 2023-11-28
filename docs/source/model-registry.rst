@@ -773,7 +773,7 @@ To set up separate environments and permissions for your model versions, create 
 
 * Given a base name for your model’s use-case, e.g. ``revenue_forecasting``, set up various registered models corresponding to your environments with different prefixes.
 * For example, if you want three separate dev, staging, and production environments, you can set up ``dev.ml_team.revenue_forecasting``, ``staging.ml_team.revenue_forecasting``, and ``prod.ml_team.revenue_forecasting`` registered models.
-* Use :ref:`MLflow Authentication <auth>` to set up appropriate ACLs to these models.
+* Use :ref:`MLflow Authentication <auth>` to grant appropriate permissions on these models.
 
 **Transition models across environments**
 
