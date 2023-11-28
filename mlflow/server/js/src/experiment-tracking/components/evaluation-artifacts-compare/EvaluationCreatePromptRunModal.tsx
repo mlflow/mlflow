@@ -308,7 +308,7 @@ export const EvaluationCreatePromptRunModal = ({
     description: 'Experiment page > new run modal > AI gateway selector label',
   });
   const selectModelPlaceholder = intl.formatMessage({
-    defaultMessage: 'Select route',
+    defaultMessage: 'Select endpoint',
     description: 'Experiment page > new run modal > AI gateway selector placeholder',
   });
 

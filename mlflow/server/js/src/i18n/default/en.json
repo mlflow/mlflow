@@ -1823,10 +1823,6 @@
     "defaultMessage": "Please select metrics",
     "description": "Placeholder text for metrics in parallel coordinates plot in MLflow"
   },
-  "r6ANEE": {
-    "defaultMessage": "Select route",
-    "description": "Experiment page > new run modal > AI gateway selector placeholder"
-  },
   "rCMgRJ": {
     "defaultMessage": "Name",
     "description": "Header for \"name\" column in the experiment run dataset schema"
@@ -1958,6 +1954,10 @@
   "vPqFJE": {
     "defaultMessage": "Artifacts",
     "description": "Run details page > tab selector > artifacts tab"
+  },
+  "vSjD2B": {
+    "defaultMessage": "Select endpoint",
+    "description": "Experiment page > new run modal > AI gateway selector placeholder"
   },
   "vi2MM7": {
     "defaultMessage": "All",
