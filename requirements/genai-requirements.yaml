@@ -6,4 +6,3 @@
 openai:
   pip_release: openai
   max_major_version: 0
-
