@@ -7,7 +7,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 import numpy as np
-from PIL import Image
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -53,8 +52,6 @@ class DataType(Enum):
         dt.date,
     )
     """64b datetime data."""
-    pilimage = (9, "PILImage", "PILImage", object, Image.Image)
-    """pil image."""
 
     def __repr__(self):
         return self.name

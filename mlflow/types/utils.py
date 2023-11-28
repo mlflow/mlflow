@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-import PIL
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -157,8 +156,6 @@ def _infer_schema(data: Any) -> Schema:
         )
     elif isinstance(data, str):
         schema = Schema([ColSpec(type=DataType.string)])
-    elif isinstance(data, PIL.Image.Image):
-        schema = Schema([ColSpec(type=DataType.pilimage)])
     elif isinstance(data, bytes):
         schema = Schema([ColSpec(type=DataType.binary)])
     elif isinstance(data, list) and all(isinstance(element, str) for element in data):
@@ -352,8 +349,8 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
             invalid_keys.append(key)
         elif (
             isinstance(value, list)
-            and not all(isinstance(item, (str, bytes, PIL.Image.Image)) for item in value)
-            or not isinstance(value, (np.ndarray, list, str, bytes, PIL.Image.Image))
+            and not all(isinstance(item, (str, bytes)) for item in value)
+            or not isinstance(value, (np.ndarray, list, str, bytes))
         ):
             invalid_values.append(key)
         elif isinstance(value, np.ndarray) or value_type == np.ndarray:

@@ -21,7 +21,6 @@ import yaml
 from datasets import load_dataset
 from huggingface_hub import ModelCard, scan_cache_dir
 from packaging.version import Version
-from PIL import Image
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -81,7 +80,7 @@ _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 # runners#supported-runners-and-hardware-resources for instance specs.
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
-image_url = "https://github.com/mlflow/mlflow/blob/master/tests/datasets/cat_image.jpg"
+image_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
 # Test that can only be run locally:
 # - Summarization pipeline tests
 # - TextClassifier pipeline tests
@@ -1381,7 +1380,6 @@ def is_base64_image(s):
         image_url,
         os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png"),
         "base64",
-        Image.open(os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")),
     ],
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
