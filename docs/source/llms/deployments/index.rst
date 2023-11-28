@@ -1,13 +1,8 @@
-.. _gateway:
+.. _deployments:
 
-================================
-MLflow AI Gateway (Experimental)
-================================
-
-.. warning::
-
-    MLflow AI gateway is deprecated and has been replaced by `the deployments API <deployments>`
-    for generative AI. See :ref:`gateway-deprecation` for migration.
+========================================
+MLflow Deployments Server (Experimental)
+========================================
 
 The MLflow AI Gateway service is a powerful tool designed to streamline the usage and management of
 various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization.
@@ -34,7 +29,6 @@ organizations that use LLMs on a regular basis.
     :hidden:
 
     guides/index
-    deprecation
 
 Tutorials and Guides
 ====================
@@ -46,7 +40,7 @@ as fast as possible, the guides below will be your best first stop.
 
     <a href="guides/index.html" class="download-btn">View the AI Gateway Getting Started Guide</a><br/>
 
-.. _gateway-quickstart:
+.. _deployments-quickstart:
 
 Quickstart
 ==========
@@ -243,7 +237,7 @@ Now that you have created several AI Gateway routes, you can create MLflow Model
 routes to build application-specific logic using techniques like prompt engineering. For more
 information, see :ref:`AI Gateway and MLflow Models <gateway_mlflow_models>`.
 
-.. _gateway-concepts:
+.. _deployments-concepts:
 
 Concepts
 ========
@@ -251,7 +245,7 @@ Concepts
 There are several concepts that are referred to within the MLflow AI Gateway APIs, the configuration definitions, examples, and documentation.
 Becoming familiar with these terms will help in configuring new endpoints (routes) and ease the use of the interface APIs for the AI Gateway.
 
-.. _providers:
+.. _deployments-providers:
 
 Providers
 ---------
@@ -350,13 +344,13 @@ most up-to-date list of supported providers.
 Remember, the provider you specify must be one that the MLflow AI Gateway supports. If the provider
 is not supported, the Gateway will return an error when trying to route requests to that provider.
 
-.. _routes:
+.. _deployments-routes:
 
 Routes
 ------
 
 `Routes` are central to how the MLflow AI Gateway functions. Each route acts as a proxy endpoint for the
-user, forwarding requests to the underlying :ref:`gateway_models` and :ref:`providers` specified in the configuration file.
+user, forwarding requests to the underlying :ref:`deployments_models` and :ref:`providers` specified in the configuration file.
 
 A route in the MLflow AI Gateway consists of the following fields:
 
@@ -394,7 +388,7 @@ of routes, providing a seamless experience for any applications or services that
 When defining routes in the configuration file, ensure that each name is unique to prevent conflicts.
 Duplicate route names will raise an ``MlflowException``.
 
-.. _gateway_models:
+.. _deployments_models:
 
 Models
 ------
@@ -439,7 +433,7 @@ API calls. Therefore, choose a model that fits your use-case requirements. For i
 for generating conversational responses, you would typically choose a chat model.
 Conversely, for generating embeddings of text, you would choose an embedding model.
 
-.. _gateway_configuration:
+.. _deployments_configuration:
 
 Configuring the AI Gateway
 ==========================
@@ -500,7 +494,7 @@ environment. For example:
 
 **Note:** Replace "your_openai_api_key" with your actual OpenAI API key.
 
-.. _gateway_configuration_details:
+.. _deployments_configuration_details:
 
 AI Gateway Configuration Details
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -744,14 +738,14 @@ For specifying an API key, there are three options:
     The use of environment variables or file-based keys is recommended for better security practices. If the API key is directly included in the configuration file, it should be ensured that the file is securely stored and appropriately access controlled.
     Please ensure that the configuration file is stored in a secure location as it contains sensitive API keys.
 
-.. _gateway_query:
+.. _deployments_query:
 
 Querying the AI Gateway
 =======================
 
 Once the MLflow AI Gateway server has been configured and started, it is ready to receive traffic from users.
 
-.. _standard_query_parameters:
+.. _standard_deployments_parameters:
 
 Standard Query Parameters
 -------------------------
@@ -812,7 +806,7 @@ The standard parameters for chat routes with type ``llm/v1/chat`` are:
 |                               |                |          |               | tokens and return the chat completion.                |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 
-.. _chat_message_structure:
+.. _deployments_chat_message_structure:
 
 Messages
 ^^^^^^^^
@@ -917,7 +911,7 @@ It abstracts the HTTP requests to the Gateway via a simple, easy-to-use Python A
 
 The fluent API is a higher-level interface that supports setting the Gateway URI once and using simple functions to interact with the AI Gateway Server.
 
-.. _gateway_fluent_api:
+.. _deployments_fluent_api:
 
 Fluent API
 ~~~~~~~~~~
@@ -950,7 +944,7 @@ For the ``fluent`` API, here are some examples:
        )
        print(response)
 
-.. _gateway_client_api:
+.. _deployments_client_api:
 
 Client API
 ~~~~~~~~~~
@@ -1027,7 +1021,7 @@ This integration enable users to use prompt engineering, retrieval augmented gen
     print(model.predict([{"adjective": "funny"}]))
 
 
-.. _gateway_mlflow_models:
+.. _deployments_mlflow_models:
 
 MLflow Models
 ~~~~~~~~~~~~~
@@ -1102,7 +1096,7 @@ The example below demonstrates how to use an AI Gateway server from within a cus
 
 This custom MLflow model can be used in the same way as any other MLflow model. It can be used within a ``spark_udf``, used with :func:`mlflow.evaluate`, or `deploy <https://mlflow.org/docs/latest/models.html#built-in-deployment-tools>`_ like any other model.
 
-.. _gateway_rest_api:
+.. _deployments_rest_api:
 
 REST API
 ~~~~~~~~
@@ -1161,9 +1155,9 @@ Here are some examples for how you might use curl to interact with the Gateway:
 MLflow AI Gateway API Documentation
 ===================================
 
-`API documentation <../deployments/api.html>`_
+`API documentation <./api.html>`_
 
-.. _gateway_security:
+.. _deployments_security:
 
 AI Gateway Security Considerations
 ==================================

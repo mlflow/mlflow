@@ -80,7 +80,7 @@ routes:
         config_path.write_text(config)
 
         app = create_app_from_path(config_path)
-        docs_build = Path("build/html/llms/gateway")
+        docs_build = Path("build/html/llms/deployments")
         docs_build.mkdir(parents=True, exist_ok=True)
         with docs_build.joinpath("openapi.json").open("w") as f:
             json.dump(app.openapi(), f)
