@@ -67,7 +67,7 @@ Tracking Runs
 
 `MLflow Tracking APIs <tracking/tracking-api.html>`_ provide a set of functions to track your runs. For example, you can call :py:func:`mlflow.start_run` to start a new run,
 then call :ref:`Logging Functions <tracking_logging_functions>` such as :py:func:`mlflow.log_param` and :py:func:`mlflow.log_metric` to log a parameters and metrics respectively.
-Please visit the `Tracking API documentation <tracking-api.html>`_ for more details about using these APIs.
+Please visit the `Tracking API documentation <tracking/tracking-api.html>`_ for more details about using these APIs.
 
 .. code-block:: python
 
@@ -268,10 +268,10 @@ learning the basic setup and continue to the following materials for advanced co
         <div style="display: flex;">
             <div style="width: 70%; display: flex; flex-direction: column; padding: 0 20px;">
               <h4 style="margin-bottom: 20px">Running MLflow Tracking Server in Artifacts-only Mode</h4>
-              <p> MLflow Tracking Server has ``artifacts-only`` option, which lets the server to serve (proxy) only artifacts
+              <p> MLflow Tracking Server has <code>--artifacts-only</code> option, which lets the server to serve (proxy) only artifacts
                 and not metadata. This is particularly useful when you are in a large organization or training huge models, you might have high artifact
                  transfer volumes and want to split out the traffic for serving artifacts to not impact tracking functionality. Please read
-                 :ref:`Use Tracking Server without Proxying Artifacts Access <tracking-server-no-proxy>` for more details on how to use this mode.
+                 <a href="tracking/server.html#optionally-using-a-tracking-server-instance-exclusively-for-artifact-handling">Optionally using a Tracking Server instance exclusively for artifact handling</a> for more details on how to use this mode.
               </p>
              </div>
             <img src="_static/images/tracking/tracking-setup-artifacts-only.png" style="margin: auto 20px; width: 30%"/>
@@ -284,8 +284,8 @@ learning the basic setup and continue to the following materials for advanced co
               <h4 style="margin-bottom: 20px"> Disable Artifact Proxying to Allow Direct Access to Artifacts</h4>
               <p>MLflow Tracking Server, by default, serves both artifacts and only metadata. However, in some cases, you may want
                 to allow direct access to the remote artifacts storage to avoid the overhead of a proxy while preserving the functionality 
-                of metadata tracking. This can be done by disabling artifact proxying by starting server with ``--no-serve-artifacts`` option.
-                Refer to <a href="">Use Tracking Server without Proxying Artifacts Access</a> for how to set this up.</p>
+                of metadata tracking. This can be done by disabling artifact proxying by starting server with <code>--no-serve-artifacts</code> option.
+                Refer to <a href="tracking/server.html#use-tracking-server-w-o-proxying-artifacts-access">Use Tracking Server without Proxying Artifacts Access</a> for how to set this up.</p>
              </div>
             <img src="_static/images/tracking/tracking-setup-no-serve-artifacts.png" style="margin: auto 20px; width: 30%"/>
         </div>

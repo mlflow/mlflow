@@ -2,7 +2,7 @@
 MLflow Tracking APIs
 ====================
 
-`MLflow Tracking <index.html>`_ provides Python, R, Java, or REST API to log your experiment data and models.
+`MLflow Tracking <../tracking.html>`_ provides Python, R, Java, or REST API to log your experiment data and models.
 
 `Auto Logging <autolog.html>`_
 ==============================
