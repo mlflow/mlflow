@@ -171,12 +171,13 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             with open(local_file, "rb") as f:
                 for credential in create.credentials:
                     chunk = f.read(chunk_size)
-                    response = requests.put(credential.url, data=chunk)
+                    response = requests.put(credential.url, data=chunk, headers=credential.headers)
                     augmented_raise_for_status(response)
                     parts.append(
                         MultipartUploadPart(
                             part_number=credential.part_number,
-                            etag=response.headers["ETag"],
+                            etag=response.headers.get("ETag", ""),
+                            url=credential.url,
                         )
                     )
 

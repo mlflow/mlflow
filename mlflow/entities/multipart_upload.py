@@ -13,12 +13,14 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
 class MultipartUploadPart:
     part_number: int
     etag: str
+    url: Optional[str]
 
     @classmethod
     def from_proto(cls, proto):
         return cls(
             proto.part_number,
             proto.etag or None,
+            proto.url or None,
         )
 
 
