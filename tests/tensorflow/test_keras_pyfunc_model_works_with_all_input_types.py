@@ -10,6 +10,7 @@ from sklearn import datasets
 from tensorflow.keras.layers import Concatenate, Dense, Input, Lambda
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.utils import register_keras_serializable
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -99,6 +100,10 @@ def single_multidim_tensor_input_model(data):
     x, y = data
     model = Sequential()
 
+    # This decorator injects the decorated class or function into the Keras custom
+    # object dictionary, so that it can be serialized and deserialized without
+    # needing an entry in the user-provided custom object dict.
+    @register_keras_serializable(name="f1")
     def f1(z):
         from tensorflow.keras import backend as K
 
@@ -130,13 +135,14 @@ def multi_multidim_tensor_input_model(data):
     input_a = Input(shape=(2, 3), name="a")
     input_b = Input(shape=(2, 5), name="b")
 
-    def f1(z):
+    @register_keras_serializable(name="f2")
+    def f2(z):
         from tensorflow.keras import backend as K
 
         return K.mean(z, axis=2)
 
-    input_a_sum = Lambda(f1)(input_a)
-    input_b_sum = Lambda(f1)(input_b)
+    input_a_sum = Lambda(f2)(input_a)
+    input_b_sum = Lambda(f2)(input_b)
 
     output = Dense(1)(Dense(3, input_dim=4)(Concatenate()([input_a_sum, input_b_sum])))
     model = Model(inputs=[input_a, input_b], outputs=output)
