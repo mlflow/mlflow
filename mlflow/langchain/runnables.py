@@ -92,11 +92,16 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
     steps_conf = _load_from_yaml(steps_conf_file)
     if model_type == RunnableSequence.__name__:
         steps = []
+        generator = sorted(
+            os.listdir(load_path),
+            key=lambda x: int(x.split(".")[0]) if x != _RUNNABLE_STEPS_FILE_NAME else -1,
+        )
     elif model_type == RunnableParallel.__name__:
         steps = {}
+        generator = os.listdir(load_path)
     else:
         raise MlflowException(f"Unsupported model type {model_type}. ")
-    for file in sorted(os.listdir(load_path)):
+    for file in generator:
         if file != _RUNNABLE_STEPS_FILE_NAME:
             step = file.split(".")[0]
             config = steps_conf.get(step)
@@ -129,7 +134,22 @@ def runnable_sequence_from_steps(steps):
 
 def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None, persist_dir=None):
     """
-    Save the model.
+    Save the model with steps. Currently it supports saving RunnableSequence and RunnableParallel.
+    If saving a RunnableSequence, steps is a list of Runnable objects. We save each step to the
+    path (either a folder or a single file) named by the step index.
+    e.g.
+        model - model/0.yaml
+              - model/1.pkl
+              - model/2 -- model/2/model.yaml
+              - steps.yaml
+    If saving a RunnableParallel, steps is a dictionary of key-Runnable pairs. We save each step to
+    the path named by the key.
+    e.g.
+        model - model/context.yaml
+              - model/question -- model/question/model.pkl
+              - steps.yaml
+
+    We save steps.yaml file to the model folder. It contains each step's model's configuration.
 
     :steps: steps of the runnable.
     :param file_path: Path to file to save the model to.

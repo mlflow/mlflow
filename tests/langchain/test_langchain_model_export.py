@@ -35,12 +35,6 @@ from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
 from langchain.schema.messages import BaseMessage
-from langchain.schema.runnable import (
-    RunnableLambda,
-    RunnableParallel,
-    RunnablePassthrough,
-    RunnableSequence,
-)
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
 from langchain.vectorstores import FAISS
@@ -797,7 +791,13 @@ def test_agent_with_unpicklable_tools(tmp_path):
                 mlflow.langchain.log_model(agent, "unpicklable_tools")
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
 def test_save_load_runnable_passthrough(model_path):
+    from langchain.schema.runnable import RunnablePassthrough
+
     runnable = RunnablePassthrough()
     assert runnable.invoke("hello") == "hello"
 
@@ -808,7 +808,13 @@ def test_save_load_runnable_passthrough(model_path):
     assert loaded_model.invoke("hello") == "hello"
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
 def test_save_load_runnable_lambda(model_path):
+    from langchain.schema.runnable import RunnableLambda
+
     def add_one(x: int) -> int:
         return x + 1
 
@@ -831,7 +837,13 @@ def test_save_load_runnable_lambda(model_path):
     # assert loaded_model.predict(pd.DataFrame([1])) == [2]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
 def test_save_load_runnable_lambda_in_sequence(model_path):
+    from langchain.schema.runnable import RunnableLambda
+
     def add_one(x):
         return x + 1
 
@@ -850,7 +862,13 @@ def test_save_load_runnable_lambda_in_sequence(model_path):
     assert loaded_model.invoke(1) == 4
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
 def test_save_load_runnable_parallel(model_path):
+    from langchain.schema.runnable import RunnableParallel
+
     def fake_llm(prompt: str) -> str:
         return "completion"
 
@@ -862,7 +880,13 @@ def test_save_load_runnable_parallel(model_path):
     assert loaded_model.invoke("hello") == {"llm": "completion"}
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
 def tests_save_load_complex_runnable_parallel(model_path):
+    from langchain.schema.runnable import RunnableParallel
+
     with _mock_request(return_value=_mock_chat_completion_response()):
         chain = create_openai_llmchain()
         runnable = RunnableParallel({"llm": chain})
@@ -874,7 +898,13 @@ def tests_save_load_complex_runnable_parallel(model_path):
         assert loaded_model.invoke("MLflow") == expected_result
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
 def test_save_load_runnable_parallel_and_assign_in_sequence(model_path):
+    from langchain.schema.runnable import RunnablePassthrough
+
     def fake_llm(prompt: str) -> str:
         return "completion"
 
@@ -896,10 +926,11 @@ def test_save_load_runnable_parallel_and_assign_in_sequence(model_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.246"), reason="StrOutputParser not existing"
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
 def test_save_load_runnable_sequence(model_path):
     from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableSequence
 
     prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
     llm = OpenAI(temperature=0.9)
@@ -915,7 +946,38 @@ def test_save_load_runnable_sequence(model_path):
     assert type(loaded_model.steps[2]) == StrOutputParser
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_save_load_long_runnable_sequence(model_path):
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnablePassthrough, RunnableSequence
+
+    prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
+    llm = OpenAI(temperature=0.9)
+    model = prompt1 | llm | StrOutputParser()
+    for _ in range(10):
+        model = model | RunnablePassthrough()
+
+    with mlflow.start_run():
+        mlflow.langchain.save_model(model, model_path)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert type(loaded_model) == RunnableSequence
+    assert type(loaded_model.steps[0]) == PromptTemplate
+    assert type(loaded_model.steps[1]) == OpenAI
+    assert type(loaded_model.steps[2]) == StrOutputParser
+    for i in range(3, 13):
+        assert type(loaded_model.steps[i]) == RunnablePassthrough
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"),
+    reason="feature not existing",
+)
 def test_save_load_complex_runnable_sequence(model_path):
+    from langchain.schema.runnable import RunnablePassthrough
+
     with _mock_request(return_value=_mock_chat_completion_response()):
         llm_chain = create_openai_llmchain()
         chain = llm_chain | RunnablePassthrough()
@@ -930,7 +992,7 @@ def test_save_load_complex_runnable_sequence(model_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.246"), reason="StrOutputParser not existing"
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
 def test_save_load_simple_chat_model(model_path):
     from langchain.prompts import ChatPromptTemplate
@@ -949,11 +1011,12 @@ def test_save_load_simple_chat_model(model_path):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.246"), reason="StrOutputParser not existing"
+    Version(langchain.__version__) < Version("0.0.311"), reason="feaature not existing"
 )
 def test_save_load_rag(tmp_path, model_path):
     from langchain.prompts import ChatPromptTemplate
     from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnablePassthrough
 
     chat_model = FakeChatModel()
 
