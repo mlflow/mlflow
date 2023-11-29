@@ -13,6 +13,7 @@ import pytest
 import transformers
 from langchain import SQLDatabase
 from langchain.agents import AgentType, initialize_agent
+from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.chains import (
     APIChain,
     ConversationChain,
@@ -23,6 +24,7 @@ from langchain.chains import (
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+from langchain.chat_models.base import SimpleChatModel
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.base import Embeddings
 from langchain.embeddings.fake import FakeEmbeddings
@@ -32,11 +34,19 @@ from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
+from langchain.schema.messages import BaseMessage
+from langchain.schema.runnable import (
+    RunnableLambda,
+    RunnableParallel,
+    RunnablePassthrough,
+    RunnableSequence,
+)
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
 from langchain.vectorstores import FAISS
 from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
+from packaging.version import Version
 from pydantic import BaseModel
 from pyspark.sql import SparkSession
 
@@ -191,6 +201,23 @@ class FakeChain(Chain):
             return {"bar": "baz"}
         else:
             return {"baz": "bar"}
+
+
+class FakeChatModel(SimpleChatModel):
+    """Fake Chat Model wrapper for testing purposes."""
+
+    def _call(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
+        return "Databricks"
+
+    @property
+    def _llm_type(self) -> str:
+        return "fake chat model"
 
 
 def test_langchain_native_save_and_load_model(model_path):
@@ -768,3 +795,207 @@ def test_agent_with_unpicklable_tools(tmp_path):
         ):
             with mlflow.start_run():
                 mlflow.langchain.log_model(agent, "unpicklable_tools")
+
+
+def test_save_load_runnable_passthrough(model_path):
+    runnable = RunnablePassthrough()
+    assert runnable.invoke("hello") == "hello"
+
+    with mlflow.start_run():
+        mlflow.langchain.save_model(runnable, model_path)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model.invoke("hello") == "hello"
+
+
+def test_save_load_runnable_lambda(model_path):
+    def add_one(x: int) -> int:
+        return x + 1
+
+    runnable = RunnableLambda(add_one)
+
+    assert runnable.invoke(1) == 2
+    assert runnable.batch([1, 2, 3]) == [2, 3, 4]
+    with mlflow.start_run():
+        mlflow.langchain.save_model(runnable, model_path)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model.invoke(1) == 2
+    assert loaded_model.batch([1, 2, 3]) == [2, 3, 4]
+
+    # with mlflow.start_run():
+    #     model_info = mlflow.langchain.log_model(runnable, "runnable_lambda")
+
+    # # TODO: support pyfunc loading
+    # loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    # assert loaded_model.predict(pd.DataFrame([1])) == [2]
+
+
+def test_save_load_runnable_lambda_in_sequence(model_path):
+    def add_one(x):
+        return x + 1
+
+    def mul_two(x):
+        return x * 2
+
+    runnable_1 = RunnableLambda(add_one)
+    runnable_2 = RunnableLambda(mul_two)
+    sequence = runnable_1 | runnable_2
+    assert sequence.invoke(1) == 4
+
+    with mlflow.start_run():
+        mlflow.langchain.save_model(sequence, model_path)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model.invoke(1) == 4
+
+
+def test_save_load_runnable_parallel(model_path):
+    def fake_llm(prompt: str) -> str:
+        return "completion"
+
+    runnable = RunnableParallel({"llm": fake_llm})
+    assert runnable.invoke("hello") == {"llm": "completion"}
+    with mlflow.start_run():
+        mlflow.langchain.save_model(runnable, model_path)
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model.invoke("hello") == {"llm": "completion"}
+
+
+def tests_save_load_complex_runnable_parallel(model_path):
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        chain = create_openai_llmchain()
+        runnable = RunnableParallel({"llm": chain})
+        expected_result = {"llm": {"product": "MLflow", "text": TEST_CONTENT}}
+        assert runnable.invoke({"product": "MLflow"}) == expected_result
+        with mlflow.start_run():
+            mlflow.langchain.save_model(runnable, model_path)
+        loaded_model = mlflow.langchain.load_model(model_path)
+        assert loaded_model.invoke("MLflow") == expected_result
+
+
+def test_save_load_runnable_parallel_and_assign_in_sequence(model_path):
+    def fake_llm(prompt: str) -> str:
+        return "completion"
+
+    runnable = {
+        "llm1": fake_llm,
+        "llm2": fake_llm,
+    } | RunnablePassthrough.assign(total_chars=lambda inputs: len(inputs["llm1"] + inputs["llm2"]))
+    expected_result = {
+        "llm1": "completion",
+        "llm2": "completion",
+        "total_chars": 20,
+    }
+    assert runnable.invoke("hello") == expected_result
+
+    with mlflow.start_run():
+        mlflow.langchain.save_model(runnable, model_path)
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model.invoke("hello") == expected_result
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.246"), reason="StrOutputParser not existing"
+)
+def test_save_load_runnable_sequence(model_path):
+    from langchain.schema.output_parser import StrOutputParser
+
+    prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
+    llm = OpenAI(temperature=0.9)
+    model = prompt1 | llm | StrOutputParser()
+
+    with mlflow.start_run():
+        mlflow.langchain.save_model(model, model_path)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert type(loaded_model) == RunnableSequence
+    assert type(loaded_model.steps[0]) == PromptTemplate
+    assert type(loaded_model.steps[1]) == OpenAI
+    assert type(loaded_model.steps[2]) == StrOutputParser
+
+
+def test_save_load_complex_runnable_sequence(model_path):
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        llm_chain = create_openai_llmchain()
+        chain = llm_chain | RunnablePassthrough()
+        with mlflow.start_run():
+            mlflow.langchain.save_model(chain, model_path)
+
+        expected_result = {"product": "MLflow", "text": TEST_CONTENT}
+        assert chain.invoke({"product": "MLflow"}) == expected_result
+        loaded_model = mlflow.langchain.load_model(model_path)
+        result = loaded_model.invoke({"product": "MLflow"})
+        assert result == expected_result
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.246"), reason="StrOutputParser not existing"
+)
+def test_save_load_simple_chat_model(model_path):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+
+    prompt = ChatPromptTemplate.from_template(
+        "What is a good name for a company that makes {product}?"
+    )
+    chat_model = FakeChatModel()
+    chain = prompt | chat_model | StrOutputParser()
+    assert chain.invoke({"product": "MLflow"}) == "Databricks"
+    with mlflow.start_run():
+        mlflow.langchain.save_model(chain, model_path)
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model.invoke({"product": "MLflow"}) == "Databricks"
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.246"), reason="StrOutputParser not existing"
+)
+def test_save_load_rag(tmp_path, model_path):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+
+    chat_model = FakeChatModel()
+
+    # Create the vector db, persist the db to a local fs folder
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=10, chunk_overlap=0)
+    docs = text_splitter.split_documents(documents)
+    embeddings = DeterministicDummyEmbeddings(size=5)
+    db = FAISS.from_documents(docs, embeddings)
+    persist_dir = str(tmp_path / "faiss_index")
+    db.save_local(persist_dir)
+    retriever = db.as_retriever()
+
+    def load_retriever(persist_directory):
+        embeddings = FakeEmbeddings(size=5)
+        vectorstore = FAISS.load_local(persist_directory, embeddings)
+        return vectorstore.as_retriever()
+
+    prompt = ChatPromptTemplate.from_template(
+        "Answer the following question based on the context: {context}\nQuestion: {question}"
+    )
+    retrieval_chain = (
+        {
+            "context": retriever,
+            "question": RunnablePassthrough(),
+        }
+        | prompt
+        | chat_model
+        | StrOutputParser()
+    )
+    assert (
+        retrieval_chain.invoke("What is a good name for a company that makes MLflow?")
+        == "Databricks"
+    )
+    with mlflow.start_run():
+        mlflow.langchain.save_model(
+            retrieval_chain, model_path, loader_fn=load_retriever, persist_dir=persist_dir
+        )
+
+    # Remove the persist_dir
+    shutil.rmtree(persist_dir)
+
+    loaded_model = mlflow.langchain.load_model(model_path)
+    assert loaded_model.invoke("hello") == "Databricks"

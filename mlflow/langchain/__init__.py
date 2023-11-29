@@ -21,10 +21,17 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
+    _BASE_LOAD_KEY,
+    _MODEL_DATA_FILE_NAME,
+    _MODEL_DATA_KEY,
+    _MODEL_LOAD_KEY,
+    _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
+    lc_runnables_types,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -98,8 +105,9 @@ def save_model(
 
     :param lc_model: A LangChain model, which could be a
                      `Chain <https://python.langchain.com/docs/modules/chains/>`_,
-                     `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
-                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
+                     `Agent <https://python.langchain.com/docs/modules/agents/>`_,
+                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_,
+                     or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_.
     :param path: Local path where the serialized model (as YAML) is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -405,11 +413,27 @@ def log_model(
 
 
 def _save_model(model, path, loader_fn, persist_dir):
-    return _save_base_lcs(model, path, loader_fn, persist_dir)
+    if isinstance(model, lc_runnables_types()):
+        return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
+    else:
+        return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
 def _load_model(local_model_path, flavor_conf):
-    return _load_base_lcs(local_model_path, flavor_conf)
+    # model_type is not accurate as the class can be subclass
+    # of supported types, we define _MODEL_LOAD_KEY to ensure
+    # which load function to use
+    model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
+    if model_load_fn == _RUNNABLE_LOAD_KEY:
+        lc_model_path = os.path.join(
+            local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
+        )
+        return _load_runnables(lc_model_path, flavor_conf)
+    if model_load_fn == _BASE_LOAD_KEY:
+        return _load_base_lcs(local_model_path, flavor_conf)
+    raise mlflow.MlflowException(
+        f"Failed to load LangChain model. Unknown model type: {flavor_conf.get(_MODEL_TYPE_KEY)}"
+    )
 
 
 class _LangChainModelWrapper:

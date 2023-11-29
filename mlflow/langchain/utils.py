@@ -5,10 +5,12 @@ import logging
 import os
 import shutil
 import types
+from functools import lru_cache
 from importlib.util import find_spec
 from typing import NamedTuple
 
 import cloudpickle
+import yaml
 from packaging import version
 
 import mlflow
@@ -28,6 +30,9 @@ _PERSIST_DIR_KEY = "persist_dir"
 _MODEL_DATA_FILE_NAME = "model.yaml"
 _MODEL_DATA_KEY = "model_data"
 _MODEL_TYPE_KEY = "model_type"
+_RUNNABLE_LOAD_KEY = "runnable_load"
+_BASE_LOAD_KEY = "base_load"
+_MODEL_LOAD_KEY = "model_load"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow langchain flavor only supports subclasses of "
     "langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor, "
@@ -63,8 +68,52 @@ def base_lc_types():
     )
 
 
+# List of runnable types that can be pickled
+def pickable_runnable_types():
+    from langchain.chat_models.base import SimpleChatModel
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.runnable import (
+        RunnableLambda,
+        RunnablePassthrough,
+    )
+    from langchain.schema.runnable.passthrough import RunnableAssign
+
+    return (
+        RunnableAssign,
+        RunnableLambda,
+        RunnablePassthrough,
+        SimpleChatModel,
+        ChatPromptTemplate,
+    )
+
+
+def lc_runnables_types():
+    from langchain.schema.runnable import (
+        RunnableParallel,
+        RunnableSequence,
+    )
+
+    return pickable_runnable_types() + (RunnableSequence, RunnableParallel)
+
+
 def supported_lc_types():
-    return base_lc_types()
+    return base_lc_types() + lc_runnables_types()
+
+
+@lru_cache
+def custom_type_to_loader_dict():
+    # helper function to load output_parsers from config
+    def _load_output_parser(config: dict) -> dict:
+        """Load output parser."""
+        from langchain.schema.output_parser import StrOutputParser
+
+        output_parser_type = config.pop("_type", None)
+        if output_parser_type == "default":
+            return StrOutputParser(**config)
+        else:
+            raise ValueError(f"Unsupported output parser {output_parser_type}")
+
+    return {"default": _load_output_parser}
 
 
 class _SpecialChainInfo(NamedTuple):
@@ -121,6 +170,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.llms.huggingface_hub
     import langchain.llms.openai
     import langchain.schema
+    import langchain.schema.runnable
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
@@ -187,7 +237,7 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
     import langchain.chains.llm
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
-    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
+    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME, _MODEL_LOAD_KEY: _BASE_LOAD_KEY}
 
     if isinstance(model, langchain.chains.llm.LLMChain):
         model.save(model_data_path)
@@ -268,6 +318,11 @@ def _load_from_pickle(path):
 def _load_from_json(path):
     with open(path) as f:
         return json.load(f)
+
+
+def _load_from_yaml(path):
+    with open(path) as f:
+        return yaml.safe_load(f)
 
 
 def _get_path_by_key(root_path, key, conf):
