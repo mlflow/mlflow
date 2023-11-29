@@ -29,7 +29,7 @@ What makes this Library so Special?
 -----------------------------------
 Let's take a look at a very basic representation of how the Sentence-Transformers library works and what you can do with it!
 
-.. figure:: ../../_static/images/tutorials/llms/sentence_transformers_architecture.png
+.. figure:: ../../_static/images/tutorials/llms/sentence-transformers-architecture.png
    :alt: Sentence-Transformers Model Architecture
    :width: 90%
    :align: center
@@ -61,10 +61,10 @@ Features
 
 With MLflow's Sentence-Transformers flavor, users can:
 
-- **Log** and **save** Sentence-Transformer models within MLflow.
+- **Save** and **log** Sentence-Transformer models within MLflow with the respective APIs: :py:func:`mlflow.sentence_transformers.save_model` and :py:func:`mlflow.sentence_transformers.log_model`.
 - Track detailed experiments, including **parameters**, **metrics**, and **artifacts** associated with fine tuning runs.
-- Deploy sentence embedding models for practical applications.
-- Utilize the ``python_function`` flavor for generic Python function inference, enabling complex and powerful custom ML solutions.
+- `Deploy <../../deployment/index.html>`_ sentence embedding models for practical applications.
+- Utilize the :py:class:`mlflow.pyfunc.PythonModel` flavor for generic Python function inference, enabling complex and powerful custom ML solutions.
 
 What can you do with Sentence Transformers and MLflow?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -88,12 +88,18 @@ Deployment Made Easy
 
 Once a model is trained, it needs to be deployed for inference. MLflow's integration with Sentence Transformers simplifies this by providing 
 functions such as :py:func:`mlflow.sentence_transformers.load_model` and :py:func:`mlflow.pyfunc.load_model`, which allow for easy model serving.
+You can read more about `deploying models with MLflow <../../deployment/index.html>`_, find further information on 
+`using the deployments API <../../cli.html#mlflow-deployments>`_, and `starting a local model serving endpoint <../../cli.html#mlflow-models-serve>`_ to get a 
+deeper understanding of the deployment options that MLflow has available.
 
 Getting Started with the MLflow Sentence Transformers Flavor - Tutorials and Guides
 -----------------------------------------------------------------------------------
 
 Below, you will find a number of guides that focus on different ways that you can leverage the power of the `sentence-transformers` library, leveraging MLflow's 
 APIs for tracking and inference capabilities. 
+
+Introductory Tutorial
+^^^^^^^^^^^^^^^^^^^^^
 
 .. raw:: html
 
@@ -110,6 +116,21 @@ APIs for tracking and inference capabilities.
                     </p>
                 </a>
             </div>
+        </article>
+    </section>
+
+.. raw:: html
+
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart.ipynb" class="notebook-download-btn">Download the Introductory Notebook</a><br>
+
+
+Advanced Tutorials
+^^^^^^^^^^^^^^^^^^
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
             <div class="simple-card">
                 <a href="tutorials/semantic-similarity/semantic-similarity-sentence-transformers.html">
                     <div class="header">
@@ -143,14 +164,13 @@ APIs for tracking and inference capabilities.
         </article>
     </section>
 
-Download the Tutorial Notebooks
--------------------------------
+Download the Advanced Tutorial Notebooks
+----------------------------------------
 
-To download the sentence transformers tutorial notebooks to run in your environment, click the respective links below:
+To download the advanced sentence transformers tutorial notebooks to run in your environment, click the respective links below:
 
 .. raw:: html
 
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart.ipynb" class="notebook-download-btn">Download the Introductory Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/sentence-transformers/tutorials/semantic-search/semantic-similarity-sentence-transformers.ipynb" class="notebook-download-btn">Download the Semantic Similarity Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/sentence-transformers/tutorials/quickstart/semantic-search-sentence-transformers.ipynb" class="notebook-download-btn">Download the Semantic Search Notebook</a><br>        
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/sentence-transformers/tutorials/quickstart/paraphrase-mining-sentence-transformers.ipynb" class="notebook-download-btn">Download the Paraphrase Mining Notebook</a><br>
@@ -189,9 +209,26 @@ Sentence Transformers is a versatile framework for computing dense vector repres
 
 For those interested in delving deeper into Sentence Transformers, the following resources are invaluable:
 
+Official Documentation and Source code
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 - **Official Documentation**: For a comprehensive guide to getting started, advanced usage, and API references, visit the `Sentence Transformers Documentation <https://www.sbert.net>`_.
 
 - **GitHub Repository**: The `Sentence Transformers GitHub repository <https://github.com/UKPLab/sentence-transformers>`_ is the primary source for the latest code, examples, and updates. Here, you can also report issues, contribute to the project, or explore how the community is using and extending the framework.
+
+
+Official Guides and Tutorials for Sentence Transformers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Training Custom Models**: The framework supports `fine-tuning of custom embedding models <https://www.sbert.net/docs/training/overview.html>`_ to achieve the best performance on specific tasks.
+
+- **Publications and Research**: To understand the scientific foundations of Sentence Transformers, the `publications section <https://www.sbert.net/docs/publications.html>`_ offers a collection of research papers that have been integrated into the framework.
+
+- **Application Examples**: Explore a variety of `application examples <https://github.com/UKPLab/sentence-transformers/tree/master/examples/applications>`_ demonstrating the practical use of Sentence Transformers in different scenarios.
+
+
+Library Resources
+^^^^^^^^^^^^^^^^^
 
 - **PyPI Package**: The `PyPI page for Sentence Transformers <https://pypi.org/project/sentence-transformers/>`_ provides information on installation, version history, and package dependencies.
 
@@ -199,10 +236,6 @@ For those interested in delving deeper into Sentence Transformers, the following
 
 - **Pretrained Models**: Sentence Transformers offers an extensive range of `pretrained models <https://www.sbert.net/docs/pretrained_models.html>`_ optimized for various languages and tasks. These models can be easily integrated into your projects.
 
-- **Training Custom Models**: The framework supports `fine-tuning of custom embedding models <https://www.sbert.net/docs/training/overview.html>`_ to achieve the best performance on specific tasks.
 
-- **Publications and Research**: To understand the scientific foundations of Sentence Transformers, the `publications section <https://www.sbert.net/docs/publications.html>`_ offers a collection of research papers that have been integrated into the framework.
-
-- **Application Examples**: Explore a variety of `application examples <https://github.com/UKPLab/sentence-transformers/tree/master/examples/applications>`_ demonstrating the practical use of Sentence Transformers in different scenarios.
 
 Sentence Transformers is continually evolving, with regular updates and additions to its capabilities. Whether you're a researcher, developer, or enthusiast in the field of natural language processing, these resources will help you make the most of this powerful tool.
