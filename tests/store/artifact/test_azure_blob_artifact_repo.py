@@ -1,3 +1,4 @@
+import base64
 import os
 import posixpath
 from unittest import mock
@@ -5,6 +6,7 @@ from unittest import mock
 import pytest
 from azure.storage.blob import BlobPrefix, BlobProperties, BlobServiceClient
 
+from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -367,3 +369,30 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
         MlflowException, match="Azure blob does not begin with the specified artifact path"
     ):
         repo.download_artifacts("")
+
+
+def test_create_multipart_upload(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    mock_client.url = "some-url"
+    mock_client.account_name = "some-account"
+    mock_client.credential.account_key = base64.b64encode(b"some-key").decode("utf-8")
+
+    create = repo.create_multipart_upload("local_file")
+    assert create.upload_id is None
+    assert len(create.credentials) == 1
+    assert create.credentials[0].url.startswith(
+        "some-url/container/some/path/local_file?comp=block"
+    )
+
+
+def test_complete_multipart_upload(mock_client, tmp_path):
+    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+
+    parts = [
+        MultipartUploadPart(1, "", "some-url?comp=block&blockid=YQ%3D%3D%3D%3D"),
+        MultipartUploadPart(2, "", "some-url?comp=block&blockid=Yg%3D%3D%3D%3D"),
+    ]
+    repo.complete_multipart_upload("local_file", "", parts)
+    mock_client.get_blob_client.assert_called_with("container", f"{TEST_ROOT_PATH}/local_file")
+    mock_client.get_blob_client().commit_block_list.assert_called_with(["a", "b"])
