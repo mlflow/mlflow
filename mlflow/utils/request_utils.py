@@ -3,6 +3,7 @@
 # Importing mlflow is time-consuming and we want to avoid that in artifact download subprocesses.
 import os
 import random
+import warnings
 from functools import lru_cache
 
 import requests
@@ -187,7 +188,18 @@ def _get_http_response_with_retries(
     session = _get_request_session(
         max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status
     )
-    return session.request(method, url, allow_redirects=False, **kwargs)
+    response = session.request(method, url, allow_redirects=False, **kwargs)
+
+    # Warn the user that redirects are not supported
+    if 300 <= response.status_code < 400:
+        warnings.warn(
+            "Received a redirect response from the server. For security reasons, "
+            "redirects are not followed. Please specify a URI that does not "
+            "not require redirects.",
+            stacklevel=3,
+        )
+
+    return response
 
 
 def cloud_storage_http_request(
