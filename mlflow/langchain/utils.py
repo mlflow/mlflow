@@ -9,7 +9,6 @@ from importlib.util import find_spec
 from typing import NamedTuple
 
 import cloudpickle
-import langchain.chains.llm
 from packaging import version
 
 import mlflow
@@ -181,6 +180,8 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
 
 
 def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
+    import langchain.chains.llm
+
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
     model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
 
