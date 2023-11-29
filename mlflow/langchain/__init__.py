@@ -377,22 +377,25 @@ def log_model(
 
     # infer signature if signature is not provided
     if signature is None:
-        input_columns = [
-            ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
-        ]
-        input_schema = Schema(input_columns)
+        if hasattr(lc_model, "input_keys") and hasattr(lc_model, "output_keys"):
+            input_columns = [
+                ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
+            ]
+            input_schema = Schema(input_columns)
 
-        output_columns = [
-            ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
-        ]
-        output_schema = Schema(output_columns)
+            output_columns = [
+                ColSpec(type=DataType.string, name=output_key)
+                for output_key in lc_model.output_keys
+            ]
+            output_schema = Schema(output_columns)
 
-        # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
-        # https://databricks.atlassian.net/browse/ML-34706
-        if len(lc_model.output_keys) > 1 or isinstance(lc_model, BaseRetriever):
-            output_schema = None
+            # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
+            # https://databricks.atlassian.net/browse/ML-34706
+            if len(lc_model.output_keys) > 1 or isinstance(lc_model, BaseRetriever):
+                output_schema = None
 
-        signature = ModelSignature(input_schema, output_schema)
+            signature = ModelSignature(input_schema, output_schema)
+        # TODO: support signature for other runnables
 
     return Model.log(
         artifact_path=artifact_path,
@@ -442,7 +445,7 @@ class _LangChainModelWrapper:
 
     def predict(  # pylint: disable=unused-argument
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
+        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ) -> List[str]:
         """
@@ -462,10 +465,9 @@ class _LangChainModelWrapper:
             all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
         ):
             messages = data
+        # TODO: check unsupported cases
         else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
-            )
+            messages = data if hasattr(data, "__iter__") else [data]
         return process_api_requests(lc_model=self.lc_model, requests=messages)
 
 
@@ -504,6 +506,8 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             mockContent = TEST_CONTENT
         elif isinstance(self.lc_model, langchain.agents.agent.AgentExecutor):
             mockContent = f"Final Answer: {TEST_CONTENT}"
+        else:
+            mockContent = TEST_CONTENT
 
         with _mock_async_request(mockContent):
             result = super().predict(data)

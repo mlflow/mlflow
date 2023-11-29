@@ -118,6 +118,8 @@ class APIRequest:
         """
         from langchain.schema import BaseRetriever
 
+        from mlflow.langchain.utils import lc_runnables_types
+
         _logger.debug(f"Request #{self.index} started")
         try:
             if isinstance(self.lc_model, BaseRetriever):
@@ -126,6 +128,8 @@ class APIRequest:
                 response = [
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
+            elif isinstance(self.lc_model, lc_runnables_types()):
+                response = self.lc_model.invoke(self.request_json)
             else:
                 response = self.lc_model(self.request_json, return_only_outputs=True)
 
@@ -146,7 +150,7 @@ class APIRequest:
 
 def process_api_requests(
     lc_model,
-    requests: Optional[List[Union[str, Dict[str, Any]]]] = None,
+    requests: Optional[List[Union[Any, Dict[str, Any]]]] = None,
     max_workers: int = 10,
 ):
     """
