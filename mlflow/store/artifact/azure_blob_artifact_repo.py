@@ -4,7 +4,7 @@ import os
 import posixpath
 import re
 import urllib.parse
-from typing import List, Optional, Union
+from typing import Union
 
 from azure.storage.blob import AccountSasPermissions, ResourceTypes, generate_account_sas
 
@@ -12,7 +12,6 @@ from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadCredential,
-    MultipartUploadPart,
 )
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
