@@ -102,7 +102,6 @@ from mlflow.server.handlers import (
     catch_mlflow_exception,
     get_endpoints,
 )
-from mlflow.server.validation import VALID_CONTENT_TYPE_CHAR_PATTERN
 from mlflow.store.entities import PagedList
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
@@ -763,10 +762,10 @@ def create_user():
         user = store.create_user(username, password)
         return make_response({"user": user.to_json()})
     else:
-        message = "Invalid content type"
-        # Avoid XSS by restricting to a set of characters in the error message
-        if VALID_CONTENT_TYPE_CHAR_PATTERN.match(content_type):
-            message += f": '{content_type}'"
+        message = (
+            "Invalid content type. Must be one of: "
+            "application/x-www-form-urlencoded, application/json"
+        )
         return make_response(message, 400)
 
 

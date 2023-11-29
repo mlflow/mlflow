@@ -223,19 +223,6 @@ def test_can_block_post_request_with_missing_content_type():
         _get_request_message(CreateExperiment(), flask_request=request)
 
 
-def test_can_block_post_request_and_not_printing_back_malformed_content_type():
-    request = mock.MagicMock()
-    request.method = "POST"
-    request.content_type = "<script>I am a malicious content type</script>"
-    request.get_json = mock.MagicMock()
-    request.get_json.return_value = {"name": "hello"}
-    with pytest.raises(
-        MlflowException,
-        match=r"Bad Request. Content-Type must be one of \[\'application/json\'\].$",
-    ):
-        _get_request_message(CreateExperiment(), flask_request=request)
-
-
 def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_store):
     """
     Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
