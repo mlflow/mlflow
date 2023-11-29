@@ -432,9 +432,7 @@ def save_model(
         # it only supports saving model in .h5 or .keras format
         if save_format == "h5":
             file_extension = ".h5"
-        elif Version(tensorflow.__version__).is_devrelease or Version(
-            tensorflow.__version__
-        ) >= Version("2.16.0"):
+        elif Version(tensorflow.__version__).release >= (2, 16):
             file_extension = ".keras"
         else:
             file_extension = ""
@@ -564,7 +562,7 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
     # keras in tensorflow used to have a '-tf' suffix in the version:
     # https://github.com/tensorflow/tensorflow/blob/v2.2.1/tensorflow/python/keras/__init__.py#L36
     unsuffixed_version = re.sub(r"-tf$", "", _get_keras_version(keras_module))
-    if save_format == "h5" and Version("2.2.3") <= Version(unsuffixed_version) <= Version("2.15.0"):
+    if save_format == "h5" and (2, 2, 3) <= Version(unsuffixed_version).release < (2, 16):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         import h5py

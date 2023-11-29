@@ -579,7 +579,7 @@ def test_tf_keras_autolog_implicit_batch_size_works_multi_input(generate_data, b
         pytest.param(
             __GeneratorClass,
             marks=pytest.mark.skipif(
-                Version(tf.__version__) > Version("2.15.0"), reason="does not support"
+                Version(tf.__version__).release >= (2, 16), reason="does not support"
             ),
         ),
     ],
@@ -1145,7 +1145,7 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
 
     import tensorflow.keras
 
-    if Version(tf.__version__) <= Version("2.15.0"):
+    if Version(tf.__version__).release < (2, 16):
         from keras.api._v2.keras import Model as ModelV2
     else:
         from keras import Model as ModelV2

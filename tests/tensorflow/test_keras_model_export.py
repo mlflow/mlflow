@@ -309,7 +309,7 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         model_path, keras_model_kwargs={"custom_objects": correct_custom_objects}
     )
     assert model_loaded is not None
-    if Version(tf.__version__) <= Version("2.11.0") or Version(tf.__version__) > Version("2.15.0"):
+    if Version(tf.__version__) <= Version("2.11.0") or Version(tf.__version__).release >= (2, 16):
         with pytest.raises(TypeError, match=r".+"):
             mlflow.tensorflow.load_model(model_path)
     else:
@@ -600,7 +600,7 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path, dat
     assert not os.path.exists(
         os.path.join(model_path, "data", "model.h5")
     ), "TF model was saved with HDF5 format; expected SavedModel"
-    if Version(tf.__version__) <= Version("2.15.0"):
+    if Version(tf.__version__).release < (2, 16):
         assert os.path.isdir(
             os.path.join(model_path, "data", "model")
         ), "Expected directory containing saved_model.pb"
@@ -729,8 +729,8 @@ def save_or_log_keras_model_by_mlflow128(tmp_path, task_type, save_as_type, save
 
 
 @pytest.mark.skipif(
-    Version(tf.__version__) > Version("2.15.0"),
-    reason="File save format incompatible for tf > 2.15.0",
+    Version(tf.__version__).release >= (2, 16),
+    reason="File save format incompatible for tf >= 2.16.0",
 )
 def test_load_and_predict_keras_model_saved_by_mlflow128(tmp_path, monkeypatch):
     mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
