@@ -248,10 +248,12 @@ MLflow also supports running multiple runs in parallel using `multiprocessing <h
         import mlflow
         import multiprocessing as mp
 
+
         def train_model(params):
             with mlflow.start_run():
                 mlflow.log_param("p", params)
                 ...
+
 
         if __name__ == "__main__":
             params = [0.01, 0.02, ...]
@@ -267,11 +269,13 @@ You can start child runs in each thread by passing ``nested=True`` to :py:func:`
         import mlflow
         import threading
 
+
         def train_model(params):
             # Create a child run by passing nested=True
             with mlflow.start_run(nested=True):
                 mlflow.log_param("p", params)
                 ...
+
 
         if __name__ == "__main__":
             params = [0.01, 0.02, ...]

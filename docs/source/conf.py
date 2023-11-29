@@ -233,7 +233,7 @@ html_permalinks_icon = " "
 # Ref: https://sphinx-tabs.readthedocs.io/en/latest/#sphinx-configuration
 htmlhelp_basename = "MLflowdoc"
 
-# Disable closing tab for sphinx-tab extension. 
+# Disable closing tab for sphinx-tab extension.
 sphinx_tabs_disable_tab_closing = True
 
 
