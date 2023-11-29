@@ -140,4 +140,21 @@ def _call_deployments_api(deployment_uri, payload):
 
     target = get_deployments_target()
     client = get_deploy_client(target)
-    return client.predict(endpoint=deployment_uri, inputs=payload)
+
+    # convert to openai request
+    payload = {{"candidate_count": "n"}.get(k, k): v for k, v in payload.items()}
+    payload["temperature"] = 2 * payload["temperature"]
+    payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
+
+    resp = client.predict(endpoint=deployment_uri, inputs=payload)
+
+    # convert from openai response
+    return {
+        "candidates": [
+            {
+                "text": c["message"]["content"],
+                "metadata": {"finish_reason": c["finish_reason"]},
+            }
+            for c in resp["choices"]
+        ],
+    }
