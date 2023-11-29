@@ -3637,7 +3637,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     }
     inference_payload = json.dumps(
         {
-            "inputs": image_file_paths,
+            "inputs": [image_file_paths],
             "params": parameters,
         }
     )
