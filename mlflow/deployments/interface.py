@@ -2,13 +2,16 @@ import inspect
 
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.plugin_manager import DeploymentPlugins
-from mlflow.deployments.utils import parse_target_uri
+from mlflow.deployments.utils import get_deployments_target, parse_target_uri
+from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 plugin_store = DeploymentPlugins()
 plugin_store.register("sagemaker", "mlflow.sagemaker")
 
 
-def get_deploy_client(target_uri):
+def get_deploy_client(target_uri=None):
     """
     Returns a subclass of :py:class:`mlflow.deployments.BaseDeploymentClient` exposing standard
     APIs for deploying models to the specified target. See available deployment APIs
@@ -17,7 +20,7 @@ def get_deploy_client(target_uri):
     ``mlflow deployments help -t <target-uri>`` via the CLI for more details on target-specific
     configuration options.
 
-    :param target_uri: URI of target to deploy to.
+    :param target_uri: Optional URI of target to deploy to. If no target URI is provided, then we will attempt to get the deployments target set via `get_deployments_target()` or `MLFLOW_DEPLOYMENTS_TARGET` environment variable.
 
 
     .. code-block:: python
@@ -41,6 +44,15 @@ def get_deploy_client(target_uri):
         # Delete our deployment
         client.delete_deployment("spamDetector")
     """
+    if not target_uri:
+        target = get_deployments_target()
+        if not target:
+            raise MlflowException(
+                "No deployments target has been set. Please either set the MLflow deployments target"
+                " via `mlflow.deployments.set_deployments_target()` or set the environment variable "
+                f"{MLFLOW_DEPLOYMENTS_TARGET} to the running deployment server's uri",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
     target = parse_target_uri(target_uri)
     plugin = plugin_store[target]
     for _, obj in inspect.getmembers(plugin):
