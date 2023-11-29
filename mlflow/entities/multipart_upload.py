@@ -23,6 +23,13 @@ class MultipartUploadPart:
             proto.url or None,
         )
 
+    def to_dict(self):
+        return {
+            "part_number": self.part_number,
+            "etag": self.etag,
+            "url": self.url,
+        }
+
 
 @dataclass
 class MultipartUploadCredential:
@@ -53,7 +60,8 @@ class CreateMultipartUploadResponse:
 
     def to_proto(self):
         response = ProtoCreateMultipartUpload.Response()
-        response.upload_id = self.upload_id
+        if self.upload_id:
+            response.upload_id = self.upload_id
         response.credentials.extend([credential.to_proto() for credential in self.credentials])
         return response
 
