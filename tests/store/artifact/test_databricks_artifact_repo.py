@@ -472,7 +472,12 @@ def test_log_artifact_aws_with_headers(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_AWS_SIGNED_URI, allow_redirects=False, data=ANY, headers=expected_headers, timeout=None
+            "put",
+            MOCK_AWS_SIGNED_URI,
+            allow_redirects=False,
+            data=ANY,
+            headers=expected_headers,
+            timeout=None,
         )
 
 
@@ -538,7 +543,12 @@ def test_log_artifact_gcp_with_headers(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_GCP_SIGNED_URL, allow_redirects=False, data=ANY, headers=expected_headers, timeout=None
+            "put",
+            MOCK_GCP_SIGNED_URL,
+            allow_redirects=False,
+            data=ANY,
+            headers=expected_headers,
+            timeout=None,
         )
 
 
