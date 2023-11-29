@@ -11,7 +11,7 @@ import tarfile
 import time
 import urllib.parse
 from subprocess import Popen
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
 import mlflow
 import mlflow.version
@@ -1350,6 +1350,7 @@ def _get_sagemaker_config_name(endpoint_name):
 def _get_sagemaker_config_tags(endpoint_name):
     return [{"Key": SAGEMAKER_APP_NAME_TAG_KEY, "Value": endpoint_name}]
 
+
 def _prepare_sagemaker_tags(
     config_tags: List[Dict[str, str]],
     sagemaker_tags: Optional[Dict[str, str]] = None,
@@ -1364,6 +1365,7 @@ def _prepare_sagemaker_tags(
     parsed = [{"Key": key, "Value": str(value)} for key, value in sagemaker_tags.items()]
 
     return config_tags + parsed
+
 
 def _create_sagemaker_transform_job(
     job_name,
@@ -1736,7 +1738,6 @@ def _update_sagemaker_endpoint(
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
     config_tags = _get_sagemaker_config_tags(endpoint_name)
-    tags_list = _prepare_sagemaker_tags(config_tags, tags)
     endpoint_config_kwargs = {
         "EndpointConfigName": new_config_name,
         "ProductionVariants": production_variants,
