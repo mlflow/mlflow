@@ -67,7 +67,7 @@ export const evaluatePromptTableValue =
     // recently. Display relevant error in this scenario.
     const gatewayRoute = getState().modelGateway.modelGatewayRoutes[routeName];
     if (!gatewayRoute) {
-      const errorMessage = `AI gateway route ${routeName} does not exist anymore!`;
+      const errorMessage = `MLflow deployment endpoints ${routeName} does not exist anymore!`;
       Utils.logErrorAndNotifyUser(errorMessage);
       throw new Error(errorMessage);
     }
@@ -84,7 +84,7 @@ export const evaluatePromptTableValue =
         ...modelGatewayRequestPayload.parameters,
       };
       return MlflowService.gatewayProxyPost({
-        gateway_path: `gateway/${gatewayRoute.name}/invocations`,
+        gateway_path: gatewayRoute.endpoint_url.substring(1),
         json_data: processed_data,
       });
     };
