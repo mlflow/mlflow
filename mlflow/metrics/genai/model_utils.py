@@ -20,6 +20,8 @@ def score_model_on_payload(model_uri, payload):
         return _call_openai_api(suffix, payload)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload)
+    elif prefix == "endpoints":
+        return _call_deployments_api(suffix, payload)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
@@ -131,3 +133,11 @@ def _call_gateway_api(gateway_uri, payload):
     from mlflow.gateway import query
 
     return query(gateway_uri, payload)
+
+
+def _call_deployments_api(deployment_uri, payload):
+    from mlflow.deployments import get_deploy_client, get_deployments_target
+
+    target = get_deployments_target()
+    client = get_deploy_client(target)
+    return client.predict(endpoint=deployment_uri, inputs=payload)
