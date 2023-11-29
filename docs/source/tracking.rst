@@ -1227,6 +1227,7 @@ MLflow supports multipart upload for the following storage for proxied artifact 
 
 - Amazon S3
 - Google Cloud Storage
+- Azure Blob Storage
 
 You can configure the following environment variables:
 
