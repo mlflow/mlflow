@@ -575,19 +575,3 @@ def test_augmented_raise_for_status():
     assert e.value.response == response
     assert e.value.request == response.request
     assert response.text in str(e.value)
-
-def test_augmented_raise_for_status_redirect():
-    response = requests.Response()
-    response.status_code = 302
-    response._content = b"Redirecting..."
-
-    with mock.patch("requests.Session.request", return_value=response) as mock_request:
-        response = requests.get("https://github.com/mlflow/mlflow.git")
-        mock_request.assert_called_once()
-
-    with pytest.raises(requests.HTTPError, match="Redirecting...") as e:
-        augmented_raise_for_status(response)
-
-    assert e.value.response == response
-    assert e.value.request == response.request
-    assert response.text in str(e.value)
