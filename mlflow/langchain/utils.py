@@ -117,8 +117,10 @@ def _get_map_of_special_chain_class_to_loader_arg():
 def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.agents.agent
     import langchain.chains.base
+    import langchain.chains.llm
     import langchain.llms.huggingface_hub
     import langchain.llms.openai
+    import langchain.schema
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
@@ -180,6 +182,8 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
 
 
 def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
+    import langchain.agents.agent
+    import langchain.chains.base
     import langchain.chains.llm
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
