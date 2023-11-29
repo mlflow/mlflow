@@ -13,7 +13,7 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
 class MultipartUploadPart:
     part_number: int
     etag: str
-    url: Optional[str]
+    url: Optional[str] = None
 
     @classmethod
     def from_proto(cls, proto):
