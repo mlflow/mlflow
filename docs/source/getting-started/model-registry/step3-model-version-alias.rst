@@ -11,6 +11,9 @@ via the UI and client API alike, thereby decoupling model deployment from the pr
 code. Unlike model registry stages, more than one alias can be applied to any given model version, 
 creating powerful possibilities for model deployment.
 
+To learn more, visit `here <https://mlflow.org/docs/latest/model-registry.html#deploy-and-organize-models-with-aliases-and-tags>`_.
+
+
 Step 1: Get the Model with the MLflow Client
 --------------------------------------------
 .. code-section::
