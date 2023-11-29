@@ -7,7 +7,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 import numpy as np
-from PIL import Image
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
