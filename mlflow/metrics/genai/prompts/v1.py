@@ -45,9 +45,9 @@ Grading rubric:
 
 {examples}
 
-You must return the following fields in your response one below the other:
+You must return the following fields in your response in two lines, one below the other. Do not add additional new lines.
 score: Your numerical score for the model's {name} based on the rubric
-justification: Your step-by-step reasoning about the model's {name} score
+justification: Your reasoning about the model's {name} score
     """
 )
 

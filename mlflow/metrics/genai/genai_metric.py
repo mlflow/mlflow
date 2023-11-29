@@ -67,8 +67,9 @@ def _extract_score_and_justification(output):
             justification = data.get("justification")
         except json.JSONDecodeError:
             # If parsing fails, use regex
-            match = re.search(r"score: (\d+),?\s*justification: (.+)", text)
-            if match:
+            if (match := re.search(r"score: (\d+),?\s*justification: (.+)", text)) or (
+                match := re.search(r"\s*Score:\s*(\d+)\s*Justification:\s*(.+)", text, re.DOTALL)
+            ):
                 score = int(match.group(1))
                 justification = match.group(2)
             else:
