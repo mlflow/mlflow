@@ -2,15 +2,17 @@ import os
 import posixpath
 import re
 import urllib.parse
+from typing import Optional, List
 
 from mlflow.entities import FileInfo
+from mlflow.entities.multipart_upload import MultipartUploadPart, CreateMultipartUploadResponse
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 
 
-class AzureBlobArtifactRepository(ArtifactRepository):
+class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     """
     Stores artifacts on Azure Blob Storage.
 
@@ -178,3 +180,22 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
+
+    def create_multipart_upload(
+        self, local_file: str, num_parts: int, artifact_path: Optional[str] = None
+    ) -> CreateMultipartUploadResponse:
+        pass
+
+    def complete_multipart_upload(
+        self,
+        local_file: str,
+        upload_id: str,
+        parts: List[MultipartUploadPart],
+        artifact_path: Optional[str] = None,
+    ) -> None:
+        pass
+
+    def abort_multipart_upload(
+        self, local_file: str, upload_id: str, artifact_path: Optional[str] = None
+    ) -> None:
+        pass
