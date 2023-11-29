@@ -20,7 +20,7 @@ def _validate_content_type(flask_request, allowed_content_types: Union[str, List
     if isinstance(allowed_content_types, str):
         allowed_content_types = [allowed_content_types]
 
-    # Remove any parameters from the content type, e.g. "application/json; charset=utf-8" -> "application/json"
+    # Remove any parameters e.g. "application/json; charset=utf-8" -> "application/json"
     content_type = flask_request.content_type.split(";")[0] if flask_request.content_type else None
     if content_type not in allowed_content_types:
         message = f"Bad Request. Content-Type must be one of [{', '.join(allowed_content_types)}]."
