@@ -72,28 +72,44 @@ def base_lc_types():
 def pickable_runnable_types():
     from langchain.chat_models.base import SimpleChatModel
     from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.runnable import (
-        RunnableLambda,
-        RunnablePassthrough,
-    )
-    from langchain.schema.runnable.passthrough import RunnableAssign
 
-    return (
-        RunnableAssign,
-        RunnableLambda,
-        RunnablePassthrough,
+    types = (
         SimpleChatModel,
         ChatPromptTemplate,
     )
 
+    try:
+        from langchain.schema.runnable import (
+            RunnableLambda,
+            RunnablePassthrough,
+        )
+
+        types += (RunnableLambda, RunnablePassthrough)
+    except ImportError:
+        pass
+
+    try:
+        from langchain.schema.runnable.passthrough import RunnableAssign
+
+        types += (RunnableAssign,)
+    except ImportError:
+        pass
+
+    return types
+
 
 def lc_runnables_types():
-    from langchain.schema.runnable import (
-        RunnableParallel,
-        RunnableSequence,
-    )
+    try:
+        from langchain.schema.runnable import (
+            RunnableParallel,
+            RunnableSequence,
+        )
 
-    return pickable_runnable_types() + (RunnableSequence, RunnableParallel)
+        types = (RunnableSequence, RunnableParallel)
+    except ImportError:
+        types = ()
+
+    return pickable_runnable_types() + types
 
 
 def supported_lc_types():
@@ -170,7 +186,6 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.llms.huggingface_hub
     import langchain.llms.openai
     import langchain.schema
-    import langchain.schema.runnable
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(
