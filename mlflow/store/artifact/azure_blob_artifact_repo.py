@@ -199,7 +199,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         raise MlflowException("Not implemented yet")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
-        from azure.storage.blob import AccountSasPermissions, ResourceTypes, generate_account_sas
+        from azure.storage.blob import BlobSasPermissions, ResourceTypes, generate_blob_sas
 
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
@@ -209,11 +209,13 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         # Put Block: https://learn.microsoft.com/en-us/rest/api/storageservices/put-block?tabs=microsoft-entra-id
         # SDK: https://learn.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobclient?view=azure-python#azure-storage-blob-blobclient-stage-block
         blob_url = posixpath.join(self.client.url, container, dest_path)
-        sas_token = generate_account_sas(
-            self.client.account_name,
-            self.client.credential.account_key,
+        sas_token = generate_blob_sas(
+            account_name=self.client.account_name,
+            container_name=container,
+            blob_name=dest_path,
+            account_key=self.client.credential.account_key,
             resource_types=ResourceTypes(object=True),
-            permission=AccountSasPermissions(read=True, write=True),
+            permission=BlobSasPermissions(read=True, write=True),
             expiry=datetime.datetime.utcnow() + datetime.timedelta(hours=6),
         )
         credentials = []
