@@ -219,11 +219,12 @@ The following diagram and table show a few common setups for the MLflow Tracking
 
 .. figure:: _static/images/tracking/tracking-setup-overview.png
     :align: center
-    :figwidth: 80%
+    :figwidth: 100%
 
 .. list-table::
     :widths: 45 20 20 20
     :header-rows: 1
+    :class: wrap-table
 
     * -
       - **1. Localhost (default)**
@@ -255,41 +256,41 @@ learning the basic setup and continue to the following materials for advanced co
 
 .. |local-server| raw:: html
 
-        <div style="display: flex;">
-            <div style="width: 70%; display: flex; flex-direction: column; padding: 0 20px;">
-                <h4 style="margin-bottom: 20px">Using MLflow Tracking Server Locally</h4>
+        <div class="tracking-responsive-tab-container">
+            <div>
+                <h4>Using MLflow Tracking Server Locally</h4>
                 <p>You can of course run MLflow Tracking Server locally. While this doesn't provide much additional benefit over directly using
                   the local files or database, might useful for testing your team development workflow locally or running your machine learning 
                   code on a container environment.</p>
             </div>
-            <img src="_static/images/tracking/tracking-setup-local-server.png" style="margin: auto 20px; width: 30%"/>
+            <img src="_static/images/tracking/tracking-setup-local-server.png"/>
         </div>
 
 .. |artifact-only| raw:: html
 
-        <div style="display: flex;">
-            <div style="width: 70%; display: flex; flex-direction: column; padding: 0 20px;">
-              <h4 style="margin-bottom: 20px">Running MLflow Tracking Server in Artifacts-only Mode</h4>
+        <div class="tracking-responsive-tab-container">
+            <div>
+              <h4>Running MLflow Tracking Server in Artifacts-only Mode</h4>
               <p> MLflow Tracking Server has <code>--artifacts-only</code> option, which lets the server to serve (proxy) only artifacts
                 and not metadata. This is particularly useful when you are in a large organization or training huge models, you might have high artifact
                  transfer volumes and want to split out the traffic for serving artifacts to not impact tracking functionality. Please read
                  <a href="tracking/server.html#optionally-using-a-tracking-server-instance-exclusively-for-artifact-handling">Optionally using a Tracking Server instance exclusively for artifact handling</a> for more details on how to use this mode.
               </p>
-             </div>
-            <img src="_static/images/tracking/tracking-setup-artifacts-only.png" style="margin: auto 20px; width: 30%"/>
+            </div>
+            <img src="_static/images/tracking/tracking-setup-artifacts-only.png"/>
         </div>
 
 .. |no-proxy| raw:: html
 
-        <div style="display: flex;">
-            <div style="width: 70%; display: flex; flex-direction: column; padding: 0 20px;">
-              <h4 style="margin-bottom: 20px"> Disable Artifact Proxying to Allow Direct Access to Artifacts</h4>
+        <div class="tracking-responsive-tab-container">
+            <div>
+              <h4> Disable Artifact Proxying to Allow Direct Access to Artifacts</h4>
               <p>MLflow Tracking Server, by default, serves both artifacts and only metadata. However, in some cases, you may want
                 to allow direct access to the remote artifacts storage to avoid the overhead of a proxy while preserving the functionality 
                 of metadata tracking. This can be done by disabling artifact proxying by starting server with <code>--no-serve-artifacts</code> option.
                 Refer to <a href="tracking/server.html#use-tracking-server-w-o-proxying-artifacts-access">Use Tracking Server without Proxying Artifacts Access</a> for how to set this up.</p>
-             </div>
-            <img src="_static/images/tracking/tracking-setup-no-serve-artifacts.png" style="margin: auto 20px; width: 30%"/>
+            </div>
+            <img src="_static/images/tracking/tracking-setup-no-serve-artifacts.png"/>
         </div>
 
 .. tabs::
@@ -330,11 +331,11 @@ if you are using it for personal projects or testing. You can achieve this by fo
 1. Set up artifacts configuration such as credentials and endpoints, just like you would for the MLflow Tracking Server. See :ref:`configure artifact storage <artifacts-store-supported-storages>` for more details.
 2. Create an experiment with an explicit artifact location,
 
-    .. code-block:: python
+.. code-block:: python
 
-        experiment_name = "your_experiment_name"
-        mlflow.create_experiment(experiment_name, artifact_location="s3://your-bucket")
-        mlflow.set_experiment(experiment_name)
+    experiment_name = "your_experiment_name"
+    mlflow.create_experiment(experiment_name, artifact_location="s3://your-bucket")
+    mlflow.set_experiment(experiment_name)
 
 Your runs under this experiment will log artifacts to the remote storage directly.
 
