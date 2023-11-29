@@ -201,9 +201,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
 
-    def create_multipart_upload(
-        self, local_file: str, num_parts: int, artifact_path: Optional[str] = None
-    ) -> CreateMultipartUploadResponse:
+    def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -237,13 +235,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             upload_id=None,
         )
 
-    def complete_multipart_upload(
-        self,
-        local_file: str,
-        upload_id: str,
-        parts: List[MultipartUploadPart],
-        artifact_path: Optional[str] = None,
-    ) -> None:
+    def complete_multipart_upload(self, local_file, upload_id, parts=None, artifact_path=None):
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -258,9 +250,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         blob_client = self.client.get_blob_client(container, dest_path)
         blob_client.commit_block_list(block_ids)
 
-    def abort_multipart_upload(
-        self, local_file: str, upload_id: str, artifact_path: Optional[str] = None
-    ) -> None:
+    def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
         # There is no way to delete uncommitted blocks in Azure Blob Storage.
         # Instead, they are garbage collected within 7 days.
         # See https://docs.microsoft.com/en-us/rest/api/storageservices/put-block-list#remarks
