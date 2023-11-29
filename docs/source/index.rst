@@ -273,7 +273,7 @@ Deployment Guides and Tutorials
     deep-learning/index
     traditional-ml/index
     deployment/index
-    tracking/index
+    tracking
     projects
     models
     model-registry
