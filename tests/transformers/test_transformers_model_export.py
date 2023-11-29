@@ -3631,7 +3631,7 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
 def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     artifact_path = "image_classification_model"
 
-    image_file_paths = [image_url]
+    image_file_paths = image_url
     parameters = {
         "top_k": 2,
     }
