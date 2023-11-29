@@ -625,7 +625,7 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
     card_data = yaml.safe_load(model_path.joinpath("model_card_data.yaml").read_bytes())
     assert card_data["tags"] == ["vision", "image-classification"]
     # Validate inferred model card text
-    with model_path.joinpath("model_card.md").open(encoding="utf-8") as file:
+    with model_path.joinpath("model_card.md").open() as file:
         card_text = file.read()
     assert len(card_text) > 0
     # Validate conda.yaml
