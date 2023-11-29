@@ -1,9 +1,12 @@
 import urllib
+from typing import Optional
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import append_to_uri_path
+
+_deployments_target: Optional[str] = None
 
 
 def parse_target_uri(target_uri):
@@ -89,4 +92,4 @@ def _is_valid_target(target: str):
     """
     if target == "databricks":
         return True
-    _is_valid_uri(target)
+    return _is_valid_uri(target)
