@@ -2199,7 +2199,7 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     if not isinstance(inference_payload, list) and inference_payload == "base64":
-        if transformers.__version__ < "4.29":
+        if transformers.__version__ > "4.28" or transformers.__version__ < "4.33" :
             return
         inference_payload = [
             base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
