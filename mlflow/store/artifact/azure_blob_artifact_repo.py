@@ -6,8 +6,6 @@ import re
 import urllib.parse
 from typing import Union
 
-from azure.storage.blob import AccountSasPermissions, ResourceTypes, generate_account_sas
-
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
@@ -201,6 +199,8 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         raise MlflowException("Not implemented yet")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
+        from azure.storage.blob import AccountSasPermissions, ResourceTypes, generate_account_sas
+
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
