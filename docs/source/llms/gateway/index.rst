@@ -913,7 +913,7 @@ To enable streaming responses, set the ``stream`` parameter to ``true`` in your 
         print(chunk)
 
 
-The results of the query follow the `OpenAI schema <https://platform.openai.com/docs/api-reference/chat/streaming>`.
+The results of the query follow the `OpenAI schema <https://platform.openai.com/docs/api-reference/chat/streaming>`_.
 
 
 Chat
