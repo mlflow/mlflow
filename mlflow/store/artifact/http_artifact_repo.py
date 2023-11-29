@@ -1,5 +1,4 @@
 import logging
-import math
 import os
 import posixpath
 
@@ -23,7 +22,7 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartUploadMixin,
     verify_artifact_path,
 )
-from mlflow.store.artifact.cloud_artifact_repo import _complete_futures
+from mlflow.store.artifact.cloud_artifact_repo import _complete_futures, _compute_num_chunks
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -167,8 +166,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         Raises UnsupportedMultipartUploadException if multipart upload is unsupported.
         """
         chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-        size = os.path.getsize(local_file)
-        num_parts = math.ceil(size / chunk_size)
+        num_parts = _compute_num_chunks(local_file, chunk_size)
 
         try:
             create = self.create_multipart_upload(local_file, num_parts, artifact_path)
