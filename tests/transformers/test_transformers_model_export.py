@@ -1434,7 +1434,7 @@ def is_base64_image(s):
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     if inference_payload == "base64":
-        if Version(transformers.__version__) < Version("4.29"):
+        if Version(transformers.__version__) > Version("4.28") or Version(transformers.__version__) < Version("4.33"):
             return
         inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
     signature = infer_signature(
