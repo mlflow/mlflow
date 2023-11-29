@@ -230,7 +230,8 @@ def test_can_block_post_request_and_not_printing_back_malformed_content_type():
     request.get_json = mock.MagicMock()
     request.get_json.return_value = {"name": "hello"}
     with pytest.raises(
-        MlflowException, match=r"Bad Request. Content-Type must be one of \[application/json\].$"
+        MlflowException,
+        match=r"Bad Request. Content-Type must be one of \[\'application/json\'\].$",
     ):
         _get_request_message(CreateExperiment(), flask_request=request)
 
