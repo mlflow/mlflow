@@ -197,7 +197,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
                 )
 
-            parts = sorted(parts, key=lambda part: part.part_number)
+            parts = sorted(list(parts.values()), key=lambda part: part.part_number)
             self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
         except Exception as e:
             self.abort_multipart_upload(local_file, create.upload_id, artifact_path)
