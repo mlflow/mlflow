@@ -1,14 +1,15 @@
 import inspect
+from logging import Logger
 
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.deployments.utils import get_deployments_target, parse_target_uri
-from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 plugin_store = DeploymentPlugins()
 plugin_store.register("sagemaker", "mlflow.sagemaker")
+
+_logger = Logger(__name__)
 
 
 def get_deploy_client(target_uri=None):
@@ -20,7 +21,7 @@ def get_deploy_client(target_uri=None):
     ``mlflow deployments help -t <target-uri>`` via the CLI for more details on target-specific
     configuration options.
 
-    :param target_uri: Optional URI of target to deploy to. If no target URI is provided, then we will attempt to get the deployments target set via `get_deployments_target()` or `MLFLOW_DEPLOYMENTS_TARGET` environment variable.
+    :param target_uri: Optional URI of target to deploy to. If no target URI is provided, then MLflow will attempt to get the deployments target set via `get_deployments_target()` or `MLFLOW_DEPLOYMENTS_TARGET` environment variable.
 
 
     .. code-block:: python
@@ -45,14 +46,13 @@ def get_deploy_client(target_uri=None):
         client.delete_deployment("spamDetector")
     """
     if not target_uri:
-        target = get_deployments_target()
-        if not target:
-            raise MlflowException(
-                "No deployments target has been set. Please either set the MLflow deployments target"
-                " via `mlflow.deployments.set_deployments_target()` or set the environment variable "
-                f"{MLFLOW_DEPLOYMENTS_TARGET} to the running deployment server's uri",
-                error_code=INVALID_PARAMETER_VALUE,
+        try:
+            target_uri = get_deployments_target()
+        except MlflowException:
+            _logger.info(
+                "No deployments target has been set. Please either set the MLflow deployments target via `mlflow.deployments.set_deployments_target()` or set the environment variable MLFLOW_DEPLOYMENTS_TARGET to the running deployment server's uri"
             )
+            return None
     target = parse_target_uri(target_uri)
     plugin = plugin_store[target]
     for _, obj in inspect.getmembers(plugin):
