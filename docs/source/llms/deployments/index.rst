@@ -4,6 +4,13 @@
 MLflow Deployments Server (Experimental)
 ========================================
 
+.. note::
+   The feature previously known as **MLflow AI Gateway** in experimental status has been moved to
+   utilize the **MLflow deployments API**. This major update involves changes to API endpoints and
+   standardization for Large Language Models, both custom and SaaS-based. Users currently utilizing
+   MLflow AI Gateway should refer to the new documentation for migration guidelines and familiarize
+   themselves with the updated API structure.
+
 The MLflow Deployments Server is a powerful tool designed to streamline the usage and management of
 various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization.
 It offers a high-level interface that simplifies the interaction with these services by providing
