@@ -1,7 +1,11 @@
 from mlflow.deployments.interface import get_deploy_client
 
 
-def test_get_deploy_client_none(caplog):
+def test_get_deploy_client_no_args():
+    assert get_deploy_client() is None
+
+
+def test_get_deploy_client_none():
     assert get_deploy_client(None) is None
 
 
