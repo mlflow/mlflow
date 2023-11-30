@@ -854,8 +854,8 @@ As a convenience, accessing the root URL (e.g., ``http://my.gateway:9000``) redi
 
 MLflow Python Client APIs
 -------------------------
-:class:`MlflowGatewayClient <mlflow.gateway.client.MlflowGatewayClient>` is the user-facing client API that is used to interact with the MLflow AI Gateway.
-It abstracts the HTTP requests to the Gateway via a simple, easy-to-use Python API.
+:class:`MlflowDeploymentClient <mlflow.deployments.MlflowDeploymentClient>` is the user-facing client API that is used to interact with the MLflow Deployments Server.
+It abstracts the HTTP requests to the Deployments Server via a simple, easy-to-use Python API.
 
 .. _deployments_client_api:
 
@@ -866,33 +866,34 @@ To use the ``MlflowGatewayClient`` API, see the below examples for the available
 
 1. Create an ``MlflowGatewayClient``
 
-   .. code-block:: python
+    .. code-block:: python
 
-       from mlflow.gateway import MlflowGatewayClient
+        from mlflow.deployments import get_deploy_client
 
-       gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+        client = get_deploy_client("http://my.deployments:8888")
 
-2. List all routes:
+2. List all endpoints:
 
-   The :meth:`search_routes() <mlflow.gateway.client.MlflowGatewayClient.search_routes>` method returns a list of all routes.
+    The :meth:`list_endpoints() <mlflow.deployments.MlflowDeploymentClient.list_endpoints>` method returns a list of all endpoints.
 
-   .. code-block:: python
+    .. code-block:: python
 
-       routes = gateway_client.search_routes()
-       for route in routes:
-           print(route)
+        endpoint = client.list_endpoints()
+        for endpoint in endpoints:
+            print(endpoint)
 
-3. Query a route:
+3. Query an endpoint:
 
-   The :meth:`query() <mlflow.gateway.client.MlflowGatewayClient.query>` method submits a query to a configured provider route.
-   The data structure you send in the query depends on the route.
+    The :meth:`predict() <mlflow.deployments.MlflowDeploymentClient.predict>` method submits a query to a configured provider endpoint.
+    The data structure you send in the query depends on the endpoint.
 
-   .. code-block:: python
+    .. code-block:: python
 
-       response = gateway_client.query(
-           "chat", {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]}
-       )
-       print(response)
+        response = client.predict(
+            endpoint="chat",
+            inputs={"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}]},
+        )
+        print(response)
 
 
 LangChain Integration
