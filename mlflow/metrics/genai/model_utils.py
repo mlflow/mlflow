@@ -19,7 +19,7 @@ def score_model_on_payload(model_uri, payload, eval_parameters=None):
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
-        return _call_openai_api(suffix, payload)
+        return _call_openai_api(suffix, payload, eval_parameters)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
     elif prefix in ("model", "runs"):
@@ -44,7 +44,7 @@ def _parse_model_uri(model_uri):
     return scheme, path
 
 
-def _call_openai_api(openai_uri, payload):
+def _call_openai_api(openai_uri, payload, eval_parameters):
     """Wrapper around the OpenAI API to make it compatible with the MLflow Gateway API."""
 
     if "OPENAI_API_KEY" not in os.environ:
@@ -67,7 +67,7 @@ def _call_openai_api(openai_uri, payload):
         if getattr(api_config, x) is not None
     }
 
-    payload = {{"candidate_count": "n"}.get(k, k): v for k, v in payload.items()}
+    payload = {"prompt": payload, **{{"candidate_count": "n"}.get(k, k): v for k, v in eval_parameters.items()}}
     # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
     payload["temperature"] = 2 * payload["temperature"]
     payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
