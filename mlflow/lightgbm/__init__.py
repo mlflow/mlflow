@@ -527,8 +527,7 @@ def autolog(
 
     - parameters specified in `lightgbm.train`_.
     - metrics on each iteration (if ``valid_sets`` specified).
-    - metrics at the best iteration (if ``early_stopping_rounds`` specified or ``early_stopping``
-        callback is set).
+    - metrics at the best iteration (if ``early_stopping_rounds`` specified or ``early_stopping`` callback is set).
     - feature importance (both "split" and "gain") as JSON files and plots.
     - trained model, including:
         - an example of valid input.
