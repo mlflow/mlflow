@@ -971,7 +971,7 @@ The example below demonstrates how to use an Deployments Server from within a cu
 
         payload = data.to_dict(orient="records")
         return [
-            client.predict(endpoint="completions-claude", inputs=query)["choices"][0]["text"]
+            client.predict(endpoint="completions", inputs=query)["choices"][0]["text"]
             for query in payload
         ]
 
