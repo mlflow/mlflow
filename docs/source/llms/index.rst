@@ -270,19 +270,39 @@ Select the integration below to read the documentation on how to leverage MLflow
     </div>
  </section>
 
+Native Integration Guides and Tutorials
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="transformers/index.html">
+                    <div class="header">
+                        🤗 Transformers
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the Transformers library and see example notebooks that leverage 
+                        MLflow and Transformers to build Open-Source LLM powered solutions.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    transformers/index
+
+
 Native Integration Examples
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you'd like to directly explore code examples for how to get started with using our official library integrations, you can navigate 
 directly to our up-to-date examples on GitHub below:
-
-* **transformers**
-
-    * `Simple Text Generation Example <https://github.com/mlflow/mlflow/blob/master/examples/transformers/simple.py>`_
-    * `A Conversational Model Example <https://github.com/mlflow/mlflow/blob/master/examples/transformers/conversational.py>`_
-    * `Component Logging with Transformers <https://github.com/mlflow/mlflow/blob/master/examples/transformers/load_components.py>`_
-    * `Audio Transcription with Whisper <https://github.com/mlflow/mlflow/blob/master/examples/transformers/whisper.py>`_
-    * `Fine-tuning a Text Classification Model <https://github.com/mlflow/mlflow/blob/master/examples/transformers/MLFlow_X_HuggingFace_Finetune_a_text_classification_model.ipynb>`_
 
 * **sentence-transformers**
 
