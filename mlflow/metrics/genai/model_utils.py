@@ -125,10 +125,9 @@ def _call_gateway_api(gateway_uri, payload):
 
 
 def _call_deployments_api(deployment_uri, payload):
-    from mlflow.deployments import get_deploy_client, get_deployments_target
+    from mlflow.deployments import get_deploy_client
 
-    target = get_deployments_target()
-    client = get_deploy_client(target)
+    client = get_deploy_client()
 
     payload = _convert_to_openai_request(payload)
     resp = client.predict(endpoint=deployment_uri, inputs=payload)
