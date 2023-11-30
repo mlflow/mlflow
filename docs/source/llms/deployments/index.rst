@@ -392,7 +392,7 @@ Configuring the Deployments Server
 ==================================
 
 The MLflow Deployments Server relies on a user-provided configuration file, written in YAML,
-that defines the endpoints and providers available to the service. The configuration file dictates
+that defines the endpoints and providers available to the server. The configuration file dictates
 how the deployments server interacts with various language model providers and determines the end-points that
 users can access.
 
