@@ -52,7 +52,7 @@ If you are on notebook, you can run the following cell instead:
 Step 3: Start logging
 ---------------------
 
-Now you are ready to start logging your experiment runs. For example, the following code runs training for an scikit-learn RandomForest model on the diabetes dataset:
+Now you are ready to start logging your experiment runs. For example, the following code runs training for a scikit-learn RandomForest model on the diabetes dataset:
 
 .. code-section::
 
@@ -64,7 +64,7 @@ Now you are ready to start logging your experiment runs. For example, the follow
         from sklearn.datasets import load_diabetes
         from sklearn.ensemble import RandomForestRegressor
 
-        mlflow.autolog()
+        mlflow.sklearn.autolog()
 
         db = load_diabetes()
         X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)

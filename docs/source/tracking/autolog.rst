@@ -59,6 +59,7 @@ For example, following code snippet shows how to enable autologging for a scikit
     X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
 
     rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+    # MLflow triggers logging automatically upon model fitting
     rf.fit(X_train, y_train)
 
 Step 3 - Execute Your Code
@@ -103,16 +104,20 @@ For example, you can disable logging of model checkpoints and assosiate tags wit
 
 See :py:func:`mlflow.autolog` for the full set of arguments you can use.
 
-Disable Autologging for Specific Libraries
--------------------------------------------
-One common use case is to disable autologging for a specific library. For example, if you train your model on Pytorch but use scikit-learn for data preprocessing,
-you may want to disable autologging for scikit-learn while keeping it enabled for Pytorch. You can do this as follows:
+Enable / Disable Autologging for Specific Libraries
+---------------------------------------------------
+One common use case is to enable/disable autologging for a specific library. For example, if you train your model on PyTorch but use scikit-learn 
+for data preprocessing, you may want to disable autologging for scikit-learn while keeping it enabled for PyTorch. You can achieve this by either 
+(1) enable autologging only for PyTorch using PyTorch flavor (2) disable autologging for scikit-learn using its flavor with ``disable=True``.
 
 .. code-block:: python
 
     import mlflow
 
-    # Disable autologging for scikit-learn, but enable it for other libraries
+    # Option 1: Enable autologging only for PyTorch
+    mlflow.pytorch.autolog()
+
+    # Option 2: Disable autologging for scikit-learn, but enable it for other libraries
     mlflow.sklearn.autolog(disable=True)
     mlflow.autolog()
 
@@ -217,25 +222,25 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 
 .. _autolog-pytorch:
 
-Pytorch
+PyTorch
 -------
 
-Call the generic autolog function :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
-that currently, Pytorch autologging supports only models trained using Pytorch Lightning.
+Call the generic autolog function :py:func:`mlflow.pytorch.autolog` before your PyTorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
+that currently, PyTorch autologging supports only models trained using PyTorch Lightning.
 
 Autologging is triggered on calls to ``pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
 
 +------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
 | Framework/module                               | Metrics                                                     | Parameters                                                                           | Tags          | Artifacts                                                                                                                                     |
 +------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-| ``pytorch_lightning.trainer.Trainer``          | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon.                        | --            | Model summary on training start, `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
+| ``pytorch_lightning.trainer.Trainer``          | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon.                        | --            | Model summary on training start, `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (PyTorch model) on training end;                |
 |                                                | user-defined-metrics.                                       |                                                                                      |               |                                                                                                                                               |
 |                                                |                                                             |                                                                                      |               |                                                                                                                                               |
 |                                                |                                                             |                                                                                      |               |                                                                                                                                               |
 |                                                |                                                             |                                                                                      |               |                                                                                                                                               |
 +------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
-| ``pytorch_lightning.callbacks.earlystopping``  | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon                         | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
-|                                                | user-defined-metrics.                                       | Parameters from the ``EarlyStopping`` callbacks.                                     |               | Best Pytorch model checkpoint, if training stops due to early stopping callback.                                                              |
+| ``pytorch_lightning.callbacks.earlystopping``  | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon                         | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (PyTorch model) on training end;                |
+|                                                | user-defined-metrics.                                       | Parameters from the ``EarlyStopping`` callbacks.                                     |               | Best PyTorch model checkpoint, if training stops due to early stopping callback.                                                              |
 |                                                | Metrics from the ``EarlyStopping`` callbacks.               | For example, ``min_delta``, ``patience``, ``baseline``,``restore_best_weights``, etc |               |                                                                                                                                               |
 |                                                | For example, ``stopped_epoch``, ``restored_epoch``,         |                                                                                      |               |                                                                                                                                               |
 |                                                | ``restore_best_weight``, etc.                               |                                                                                      |               |                                                                                                                                               |

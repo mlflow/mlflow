@@ -85,13 +85,13 @@ Install docker and docker-compose
 
 Follow the official instructions for installing `Docker <https://docs.docker.com/install/>`_ and `Docker Compose <https://docs.docker.com/compose/install/>`_. Then, run ``docker --version`` and ``docker-compose --version`` to make sure they are installed correctly.
 
-Create ``docker-compose.yaml``
+Create ``compose.yaml``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Create a file named ``docker-compose.yaml`` with the following content:
+Create a file named ``compose.yaml`` with the following content:
 
 .. code-block:: yaml
-    :caption: docker-compose.yaml
+    :caption: compose.yaml
 
     version: '3.7'
     services:
@@ -143,11 +143,11 @@ Create a file named ``docker-compose.yaml`` with the following content:
 Start the containers
 ~~~~~~~~~~~~~~~~~~~~
 
-Run the following command from the same directory ``docker-compose.yaml`` file resides to start the containers. This will start the containers for PostgreSQL and Minio server in the background, as well as create a new bucket named "bucket" in Minio.
+Run the following command from the same directory ``compose.yaml`` file resides to start the containers. This will start the containers for PostgreSQL and Minio server in the background, as well as create a new bucket named "bucket" in Minio.
 
 .. code-block:: bash
 
-    docker-compose up -d
+    docker compose up -d
 
 Step 3 - Start the Tracking Server
 ----------------------------------
@@ -192,7 +192,7 @@ Once the tracking server is running, you can log runs to it by setting the MLflo
 
     export MLFLOW_TRACKING_URI=http://127.0.0.1:5000  # Replace with remote host name or IP address in an actual environment
 
-Thenm run your code with MLflow tracking APIs as usual. The following code runs training for an scikit-learn RandomForest model on the diabetes dataset:
+Then run your code with MLflow tracking APIs as usual. The following code runs training for a scikit-learn RandomForest model on the diabetes dataset:
 
 .. code-section::
 
@@ -225,7 +225,7 @@ You can access the UI by navigating to `http://127.0.0.1:5000 <http://127.0.0.1:
 Step 6: Download artifacts
 --------------------------
 
-MLflow Tracking Server also serves as a proxy host for artifact access. Artifact access is enabled through the proxy URI ``mlflow-artifacts:/``,
+MLflow Tracking Server also serves as a proxy host for artifact access. Artifact access is enabled through the proxy URIs such as ``runs:/``, ``mlflow-artifacts:/``,
 giving users access to this location without having to manage credentials or permissions of direct access.
 
 .. code-section::
@@ -238,7 +238,7 @@ giving users access to this location without having to manage credentials or per
           artifact_path = "model"
 
           # Download artifact via the tracking server
-          mlflow_artifact_uri = f"mlflow-artifacts:/0/{run_id}/{artifact_path}"
+          mlflow_artifact_uri = f"runs://{run_id}/{artifact_path}"
           local_path = mlflow.artifacts.download_artifacts(mlflow_artifact_uri)
 
           # Load the model
