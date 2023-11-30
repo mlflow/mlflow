@@ -165,6 +165,9 @@ jobs:
           else
             java_version=11
           fi
+          if [ "${{ matrix.package }}" = "langchain"]; then
+            pip uninstall pydantic -y && pip install pydantic --no-binary :all:
+          fi
           echo "version=$java_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-java
         with:
