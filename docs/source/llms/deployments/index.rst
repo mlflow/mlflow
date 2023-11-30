@@ -86,9 +86,9 @@ For details about the configuration file's parameters (including parameters for 
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: completions
-        route_type: llm/v1/completions
+        endpoint_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -96,7 +96,7 @@ For details about the configuration file's parameters (including parameters for 
             openai_api_key: $OPENAI_API_KEY
 
       - name: chat
-        route_type: llm/v1/chat
+        endpoint_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -104,7 +104,7 @@ For details about the configuration file's parameters (including parameters for 
             openai_api_key: $OPENAI_API_KEY
 
       - name: embeddings
-        route_type: llm/v1/embeddings
+        endpoint_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
@@ -160,16 +160,16 @@ Firstly, update the :ref:`MLflow AI Gateway config <deployments_configuration>` 
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: completions
-        route_type: llm/v1/completions
+        endpoint_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
           config:
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
-        route_type: llm/v1/completions
+        endpoint_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-4
@@ -269,9 +269,9 @@ Here's an example of a provider configuration within a route:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: chat
-        route_type: llm/v1/chat
+        endpoint_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-4
@@ -321,9 +321,9 @@ Here's an example of a route configuration:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: completions
-        type: chat/completions
+        endpoint_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -359,9 +359,9 @@ Here's an example of a model name configuration within a route:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: embeddings
-        route_type: llm/v1/embeddings
+        endpoint_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
@@ -408,9 +408,9 @@ Here is an example of a single-route configuration:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: chat
-        route_type: llm/v1/chat
+        endpoint_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -662,9 +662,9 @@ An example configuration for Azure OpenAI is:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: completions
-        route_type: llm/v1/completions
+        endpoint_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-35-turbo
