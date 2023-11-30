@@ -5,6 +5,7 @@ import requests
 
 from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
+    MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
@@ -30,6 +31,7 @@ def http_request(
     method,
     max_retries=None,
     backoff_factor=None,
+    backoff_jitter=None,
     extra_headers=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
@@ -50,6 +52,7 @@ def http_request(
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
+    :param backoff_jitter: A random jitter to add to the backoff interval.
     :param extra_headers: a dict of HTTP header name-value pairs to be included in the request.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
@@ -60,9 +63,14 @@ def http_request(
 
     :return: requests.Response object.
     """
-    max_retries = max_retries or MLFLOW_HTTP_REQUEST_MAX_RETRIES.get()
-    backoff_factor = backoff_factor or MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get()
-    timeout = timeout or MLFLOW_HTTP_REQUEST_TIMEOUT.get()
+    max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
+    backoff_factor = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
+    )
+    backoff_jitter = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
+    )
+    timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
@@ -101,6 +109,7 @@ def http_request(
             url,
             max_retries,
             backoff_factor,
+            backoff_jitter,
             retry_codes,
             raise_on_status,
             headers=headers,

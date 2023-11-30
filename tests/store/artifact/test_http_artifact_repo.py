@@ -3,8 +3,15 @@ import posixpath
 from unittest import mock
 
 import pytest
+from requests import HTTPError
 
+from mlflow.entities.multipart_upload import (
+    CreateMultipartUploadResponse,
+    MultipartUploadCredential,
+    MultipartUploadPart,
+)
 from mlflow.environment_variables import (
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_TRACKING_CLIENT_CERT_PATH,
     MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_PASSWORD,
@@ -72,16 +79,20 @@ def http_artifact_repo():
     ],
 )
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, expected_mime_type):
+def test_log_artifact(
+    http_artifact_repo,
+    tmp_path,
+    artifact_path,
+    filename,
+    expected_mime_type,
+    monkeypatch,
+):
     file_path = tmp_path.joinpath(filename)
     file_path.write_text("0")
-    with mock.patch(
-        "mlflow.store.artifact.http_artifact_repo.http_request",
-        return_value=MockResponse({}, 200),
-    ) as mock_put:
-        http_artifact_repo.log_artifact(file_path, artifact_path)
+
+    def assert_called_log_artifact(mock_http_request):
         paths = (artifact_path, file_path.name) if artifact_path else (file_path.name,)
-        mock_put.assert_called_once_with(
+        mock_http_request.assert_called_once_with(
             http_artifact_repo._host_creds,
             posixpath.join("/", *paths),
             "PUT",
@@ -91,10 +102,64 @@ def test_log_artifact(http_artifact_repo, tmp_path, artifact_path, filename, exp
 
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 200),
+    ) as mock_put:
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+        assert_called_log_artifact(mock_put)
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
         return_value=MockResponse({}, 400),
     ):
         with pytest.raises(Exception, match="request failed"):
             http_artifact_repo.log_artifact(file_path, artifact_path)
+
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    # assert mpu is triggered when file size is larger than minimum file size
+    file_path.write_text("0" * MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get())
+    with mock.patch.object(
+        http_artifact_repo, "_try_multipart_upload", return_value=200
+    ) as mock_mpu:
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+        mock_mpu.assert_called_once()
+
+    # assert reverted to normal upload when mpu is not supported
+    # mock that create_multipart_upload will returns a 400 error with appropriate message
+    with mock.patch.object(
+        http_artifact_repo,
+        "create_multipart_upload",
+        side_effect=HTTPError(
+            response=MockResponse(
+                data={
+                    "message": "Multipart upload is not supported for the current "
+                    "artifact repository"
+                },
+                status_code=501,
+            )
+        ),
+    ), mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 200),
+    ) as mock_put:
+        http_artifact_repo.log_artifact(file_path, artifact_path)
+        assert_called_log_artifact(mock_put)
+
+    # assert if mpu is triggered but the uploads failed, mpu is aborted and exception is raised
+    with mock.patch("requests.put", side_effect=Exception("MPU_UPLOAD_FAILS")), mock.patch.object(
+        http_artifact_repo,
+        "create_multipart_upload",
+        return_value=CreateMultipartUploadResponse(
+            upload_id="upload_id",
+            credentials=[MultipartUploadCredential(url="url", part_number=1, headers={})],
+        ),
+    ), mock.patch.object(
+        http_artifact_repo,
+        "abort_multipart_upload",
+        return_value=None,
+    ) as mock_abort:
+        with pytest.raises(Exception, match="MPU_UPLOAD_FAILS"):
+            http_artifact_repo.log_artifact(file_path, artifact_path)
+        mock_abort.assert_called_once()
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
@@ -307,4 +372,84 @@ def test_delete_artifacts(http_artifact_repo, remote_file_path):
             posixpath.join("/", remote_file_path if remote_file_path else ""),
             "DELETE",
             stream=True,
+        )
+
+
+def test_create_multipart_upload(http_artifact_repo, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(
+            {
+                "upload_id": "upload_id",
+                "credentials": [
+                    {
+                        "url": "/some/url",
+                        "part_number": 1,
+                        "headers": {},
+                    }
+                ],
+            },
+            200,
+        ),
+    ):
+        response = http_artifact_repo.create_multipart_upload("", 1)
+        assert response.upload_id == "upload_id"
+        assert len(response.credentials) == 1
+        assert response.credentials[0].url == "/some/url"
+
+
+def test_complete_multipart_upload(http_artifact_repo, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 200),
+    ) as mock_post:
+        http_artifact_repo.complete_multipart_upload(
+            local_file="local_file",
+            upload_id="upload_id",
+            parts=[
+                MultipartUploadPart(part_number=1, etag="etag1"),
+                MultipartUploadPart(part_number=2, etag="etag2"),
+            ],
+            artifact_path="artifact/path",
+        )
+        endpoint = "/mlflow-artifacts"
+        url, _ = http_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
+        mock_post.assert_called_once_with(
+            _get_default_host_creds(url),
+            "/mlflow-artifacts/mpu/complete/artifact/path",
+            "POST",
+            json={
+                "path": "local_file",
+                "upload_id": "upload_id",
+                "parts": [
+                    {"part_number": 1, "etag": "etag1"},
+                    {"part_number": 2, "etag": "etag2"},
+                ],
+            },
+        )
+
+
+def test_abort_multipart_upload(http_artifact_repo, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({}, 200),
+    ) as mock_post:
+        http_artifact_repo.abort_multipart_upload(
+            local_file="local_file",
+            upload_id="upload_id",
+            artifact_path="artifact/path",
+        )
+        endpoint = "/mlflow-artifacts"
+        url, _ = http_artifact_repo.artifact_uri.split(endpoint, maxsplit=1)
+        mock_post.assert_called_once_with(
+            _get_default_host_creds(url),
+            "/mlflow-artifacts/mpu/abort/artifact/path",
+            "POST",
+            json={
+                "path": "local_file",
+                "upload_id": "upload_id",
+            },
         )
