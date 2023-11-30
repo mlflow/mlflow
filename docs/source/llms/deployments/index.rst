@@ -899,7 +899,7 @@ To use the ``MlflowDeploymentClient`` API, see the below examples for the availa
 LangChain Integration
 ~~~~~~~~~~~~~~~~~~~~~
 
-`LangChain <https://github.com/hwchase17/langchain>`_ supports `an integration for MLflow AI Gateway <https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway>`_.
+`LangChain <https://github.com/langchain-ai/langchain>`_ supports `an integration for MLflow Deployments <https://python.langchain.com/docs/ecosystem/integrations/providers/mlflow>`_.
 This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the gateway.
 
 .. code-block:: python
@@ -907,19 +907,11 @@ This integration enable users to use prompt engineering, retrieval augmented gen
 
     import mlflow
     from langchain import LLMChain, PromptTemplate
-    from langchain.llms import MlflowAIGateway
+    from langchain.llms import Mlflow
 
-    gateway = MlflowAIGateway(
-        gateway_uri="http://127.0.0.1:5000",
-        route="completions",
-        params={
-            "temperature": 0.0,
-            "top_p": 0.1,
-        },
-    )
-
+    llm = Mlflow(target_uri="http://127.0.0.1:5000", endpoint="completions")
     llm_chain = LLMChain(
-        llm=gateway,
+        llm=llm,
         prompt=PromptTemplate(
             input_variables=["adjective"],
             template="Tell me a {adjective} joke",
@@ -929,7 +921,7 @@ This integration enable users to use prompt engineering, retrieval augmented gen
     print(result)
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(chain, "model")
+        model_info = mlflow.langchain.log_model(llm_chain, "model")
 
     model = mlflow.pyfunc.load_model(model_info.model_uri)
     print(model.predict([{"adjective": "funny"}]))
@@ -1106,8 +1098,3 @@ For example, here's a simple configuration for Nginx with Basic Authentication:
 In this example, `/etc/nginx/.htpasswd` is a file that contains the username and password for authentication.
 
 These measures, together with a proper network setup, can significantly improve the security of your system and ensure that only authorized users have access to submit requests to your LLM services.
-
-LangChain Integration
-=====================
-
-`LangChain <https://github.com/hwchase17/langchain>`_ supports an integration for MLflow AI Gateway. See https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway for more information.
