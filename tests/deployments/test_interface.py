@@ -1,3 +1,6 @@
+
+import pytest
+
 from mlflow.deployments.interface import get_deploy_client
 
 
@@ -16,8 +19,14 @@ def test_get_deploy_client_from_set_deployments_target():
     assert get_deploy_client(None) is not None
 
 
-def test_get_deploy_client_from_env():
-    import os
+@pytest.fixture
+def set_deployment_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_DEPLOYMENTS_TARGET": "databricks",
+        }
+    )
 
-    os.environ["MLFLOW_DEPLOYMENT_CLIENT"] = "databricks"
+
+def test_get_deploy_client_from_env(set_deployment_envs):
     assert get_deploy_client(None) is not None
