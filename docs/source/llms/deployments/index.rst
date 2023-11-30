@@ -82,7 +82,7 @@ Step 3: Create a Gateway Configuration File
 Next, you need to create a Gateway configuration file. This is a YAML file where you specify the
 routes that the Gateway service should expose. Let's create a file with three routes using OpenAI as a provider: completions, chat, and embeddings.
 
-For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the :ref:`gateway_configuration_details` section below.
+For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the :ref:`deployments_configuration_details` section below.
 
 .. code-block:: yaml
 
@@ -145,18 +145,18 @@ provider services by click on the "try it now" option within the endpoint defini
 
 Step 6: Send Requests Using the Client API
 ------------------------------------------
-See the :ref:`gateway_client_api` section for further information.
+See the :ref:`deployments_client_api` section for further information.
 
 Step 7: Send Requests to Routes via REST API
 --------------------------------------------
 You can now send requests to the exposed routes.
-See the :ref:`REST examples <gateway_rest_api>` for guidance on request formatting.
+See the :ref:`REST examples <deployments_rest_api>` for guidance on request formatting.
 
 Step 8: Compare Provider Models
 -------------------------------
 Here's an example of adding a new model from a provider to determine which model instance is better for a given use case.
 
-Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML file with the additional route definition to test:
+Firstly, update the :ref:`MLflow AI Gateway config <deployments_configuration>` YAML file with the additional route definition to test:
 
 .. code-block:: yaml
 
@@ -188,7 +188,7 @@ Step 9: Use AI Gateway routes for model development
 
 Now that you have created several AI Gateway routes, you can create MLflow Models that query these
 routes to build application-specific logic using techniques like prompt engineering. For more
-information, see :ref:`AI Gateway and MLflow Models <gateway_mlflow_models>`.
+information, see :ref:`AI Gateway and MLflow Models <deployments_mlflow_models>`.
 
 .. _deployments-concepts:
 
@@ -436,7 +436,7 @@ actual API key.
 
 .. warning::
 
-    The MLflow AI Gateway service provides direct access to billed external LLM services. It is strongly recommended to restrict access to this server. See the section on :ref:`security <gateway_security>` for guidance.
+    The MLflow AI Gateway service provides direct access to billed external LLM services. It is strongly recommended to restrict access to this server. See the section on :ref:`security <deployments_security>` for guidance.
 
 If you prefer to use an environment variable (recommended), you can define it in your shell
 environment. For example:
