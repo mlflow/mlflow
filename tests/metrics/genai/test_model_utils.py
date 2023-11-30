@@ -149,7 +149,7 @@ def test_score_model_azure_openai(set_azure_envs):
     with mock.patch(
         "mlflow.openai.api_request_parallel_processor.process_api_requests", return_value=[resp]
     ) as mock_post:
-        score_model_on_payload("openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1})
+        score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
         mock_post.assert_called_once_with(
             [
                 {
@@ -246,9 +246,7 @@ def test_openai_authentication_error(set_envs):
         with pytest.raises(
             MlflowException, match="Authentication Error for OpenAI. Error response"
         ):
-            score_model_on_payload(
-                "openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1}
-            )
+            score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
         mock_post.assert_called_once()
 
 
@@ -268,7 +266,5 @@ def test_openai_other_error(set_envs):
         side_effect=Exception("foo"),
     ) as mock_post:
         with pytest.raises(MlflowException, match="Error response from OpenAI"):
-            score_model_on_payload(
-                "openai:/gpt-3.5-turbo", {"prompt": "my prompt", "temperature": 0.1}
-            )
+            score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
         mock_post.assert_called_once()
