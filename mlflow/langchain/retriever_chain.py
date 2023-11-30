@@ -113,7 +113,14 @@ class _RetrieverChain(Chain):
                 config = json.load(f)
         elif file_path.suffix in (".yaml", ".yml"):
             with open(file_path) as f:
-                config = yaml.safe_load(f)
+                # This is to ignore certain tags that are not supported
+                # with pydantic >= 2.0
+                yaml.add_multi_constructor(
+                    "tag:yaml.org,2002:python/object",
+                    lambda loader, suffix, node: None,
+                    Loader=yaml.SafeLoader,
+                )
+                config = yaml.load(f, yaml.SafeLoader)
         else:
             raise ValueError("File type must be json or yaml")
 
@@ -133,6 +140,9 @@ class _RetrieverChain(Chain):
         retriever = kwargs.pop("retriever", None)
         if retriever is None:
             raise ValueError("`retriever` must be present.")
+
+        if retriever in config:
+            config.pop("retriever")
 
         return cls(
             retriever=retriever,
