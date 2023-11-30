@@ -116,7 +116,9 @@ class APIRequest:
         """
         Calls the LangChain API and stores results.
         """
+        import numpy as np
         from langchain.schema import BaseRetriever
+        from langchain.schema.runnable import RunnableParallel, RunnableSequence
 
         from mlflow.langchain.utils import lc_runnables_types
 
@@ -128,6 +130,17 @@ class APIRequest:
                 response = [
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
+            elif isinstance(self.lc_model, (RunnableSequence, RunnableParallel)):
+                # numpy ndarray is to catch serving requests
+                # where the input is casted into a numpy array
+                if isinstance(self.request_json, (list, np.ndarray)):
+                    response = self.lc_model.batch(
+                        self.request_json
+                        if isinstance(self.request_json, list)
+                        else self.request_json.tolist()
+                    )
+                else:
+                    response = self.lc_model.invoke(self.request_json)
             elif isinstance(self.lc_model, lc_runnables_types()):
                 response = self.lc_model.invoke(self.request_json)
             else:
