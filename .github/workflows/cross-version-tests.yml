@@ -184,7 +184,7 @@ jobs:
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
-          if [ "${{ matrix.package }}" = "langchain"]; then
+          if [ "${{ matrix.package }}" = "langchain" ]; then
             pip uninstall pydantic -y && pip install pydantic --no-binary :all:
           fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
