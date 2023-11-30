@@ -1019,6 +1019,7 @@ The REST API allows you to send HTTP requests directly to the MLflow AI Gateway 
 Here are some examples for how you might use curl to interact with the Gateway:
 
 1. Get information about a particular endpoint: ``GET /api/2.0/endpoints/{name}``
+
    This route returns a serialized representation of the endpoint data structure.
    This provides information about the name and type, as well as the model details for the requested endpoint.
 
@@ -1037,7 +1038,6 @@ Here are some examples for how you might use curl to interact with the Gateway:
 3. Query an endpoint: ``POST /endpoints/{name}/invocations``
 
    This route allows you to submit a query to a configured provider endpoint. The data structure you send in the query depends on the endpoint. Here are examples for the "completions", "chat", and "embeddings" endpoints:
-
 
    * ``Completions``
 
