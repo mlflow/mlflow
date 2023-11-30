@@ -1,6 +1,6 @@
-## Example route configuration for Anthropic
+## Example endpoint configuration for Anthropic
 
-To set up your MLflow configuration file, include a single route for the completions endpoint as shown in the [anthropic configuration](config.yaml) YAML file.
+To set up your MLflow configuration file, include a single endpoint for the completions endpoint as shown in the [anthropic configuration](config.yaml) YAML file.
 
 ## Obtaining and Setting the Anthropic API Key
 

@@ -1,6 +1,6 @@
-## Example route configuration for AWS Bedrcok
+## Example endpoint configuration for AWS Bedrcok
 
-To view an example of a Bedrock route configurations, see [the configuration example](config.yaml) YAML file.
+To view an example of a Bedrock endpoint configurations, see [the configuration example](config.yaml) YAML file.
 
 ## Credentials
 

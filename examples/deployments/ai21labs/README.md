@@ -1,6 +1,6 @@
-## Example route configuration for AI21 Labs
+## Example endpoint configuration for AI21 Labs
 
-To set up your MLflow configuration file, include a single route for the completions endpoint as shown in the [AI21 labs configuration](config.yaml) YAML file.
+To set up your MLflow configuration file, include a single endpoint for the completions endpoint as shown in the [AI21 labs configuration](config.yaml) YAML file.
 
 ## Obtaining and Setting the AI21 Labs API Key
 

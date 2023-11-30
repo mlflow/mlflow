@@ -1,4 +1,4 @@
-## Example route configuration for Huggingface Text Generation Inference
+## Example endpoint configuration for Huggingface Text Generation Inference
 
 [Huggingface Text Generation Inference (TGI)](https://huggingface.co/docs/text-generation-inference/index) is a comprehensive toolkit designed for deploying and serving Large Language Models (LLMs) efficiently. It offers optimized support for various popular open-source LLMs such as Llama, Falcon, StarCoder, BLOOM, and GPT-Neo. TGI comes with various built-in optimizations and features, such as:
 
@@ -15,7 +15,7 @@ For a more detailed description of all features, please go to the [documentation
 
 > **NOTE** This example is tested on a Linux Machine (Debian 11) with a NVIDIA A100 GPU.
 
-To configure the MLflow AI gateway with Huggingface Text Generation Inference, a few additional steps need to be followed. The initial step involves deploying a Huggingface model on the TGI server, which is illustrated in the next section.
+To configure the MLflow Deployments server with Huggingface Text Generation Inference, a few additional steps need to be followed. The initial step involves deploying a Huggingface model on the TGI server, which is illustrated in the next section.
 
 The recommended approach for deploying the TGI server is by utilizing the [official Docker container](ghcr.io/huggingface/text-generation-inference:1.1.1). Docker is an open-source platform that provides a streamlined solution for automating the deployment, scaling, and management of applications through containers. These containers encompass all the essential dependencies required for seamless execution, including libraries, binaries, and configuration files. To install Docker, please refer to the [installation guide](https://docs.docker.com/get-docker/).
 
@@ -68,14 +68,14 @@ print(response.json())
 # {'generated_text': '\nDeep learning is a branch of machine learning that uses artificial neural networks to learn and make decisions.'}
 ```
 
-## Update the config.yaml to add a new embeddings route
+## Update the config.yaml to add a new embeddings endpoint
 
-After you started the server, update the MLflow AI Gateway configuration file [config.yaml](config.yaml) and add the server as a new route:
+After you started the server, update the MLflow Deployments server configuration file [config.yaml](config.yaml) and add the server as a new endpoint:
 
 ```
-routes:
+endpoints:
   - name: completions
-    route_type: llm/v1/completions
+    endpoint_type: llm/v1/completions
     model:
       provider: "huggingface-text-generation-inference"
       name: llm
@@ -83,18 +83,18 @@ routes:
         hf_server_url: http://127.0.0.1:5000/generate
 ```
 
-## Starting the Gateway
+## Starting the MLflow Deployments server
 
-After the configuration file is created, you can start the gateway by running the following command:
+After the configuration file is created, you can start the MLflow Deployments server by running the following command:
 
 ```
-mlflow gateway start --config-path examples/gateway/huggingface/config.yaml
+mlflow deplyments start-server --config-path examples/deployments/huggingface/config.yaml
 ```
 
-## Querying the Gateway
+## Querying the endpoint
 
 See the [example script](example.py) within this directory to see how to query the `falcon-7b-instruct` model that is served.
 
 ## Setting the parameters of TGI
 
-When you make a request to MLflow gateway, the information you provide in the request body will be sent to TGI. This gives you more control over the output you receive from TGI. However, it's important to note that you cannot turn off `details` and `decoder_input_details`, as they are necessary for MLflow Gateway to work correctly.
+When you make a request to the MLflow Depoyments server, the information you provide in the request body will be sent to TGI. This gives you more control over the output you receive from TGI. However, it's important to note that you cannot turn off `details` and `decoder_input_details`, as they are necessary for TGI endpoints to work correctly.
