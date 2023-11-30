@@ -15,9 +15,10 @@ of gpt-4.
 
     question-answering-evaluation.ipynb
     rag-evaluation.ipynb
+    rag-evaluation-llama2.ipynb
 
 QA Evaluation Notebook
-------------------------------------
+----------------------------------------------------------------
 
 If you would like a copy of this notebook to execute in your environment, download the notebook here:
 
@@ -33,7 +34,7 @@ To follow along and see the sections of the notebook guide, click below:
 
 
 RAG Evaluation Notebook (using gpt-4-as-judge)
-------------------------------------
+----------------------------------------------------------------
 
 If you would like a copy of this notebook to execute in your environment, download the notebook here:
 
@@ -49,7 +50,7 @@ To follow along and see the sections of the notebook guide, click below:
 
 
 RAG Evaluation Notebook (using llama2-70b-as-judge)
-------------------------------------
+----------------------------------------------------------------
 
 If you would like a copy of this notebook to execute in your environment, download the notebook here:
 
