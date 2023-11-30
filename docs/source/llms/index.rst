@@ -396,4 +396,4 @@ Look in the tutorials and guides below to learn more about interesting use cases
     :maxdepth: 1
     :hidden:
 
-    deployments/index
+    gateway/index
