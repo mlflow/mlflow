@@ -4,7 +4,7 @@
 MLflow Deployments Server (Experimental)
 ========================================
 
-.. note::
+.. important::
    The feature previously known as **MLflow AI Gateway** in experimental status has been moved to
    utilize the **MLflow deployments API**. This major update involves changes to API endpoints and
    standardization for Large Language Models, both custom and SaaS-based. Users currently utilizing
