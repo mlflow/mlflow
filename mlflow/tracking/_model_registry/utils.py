@@ -95,7 +95,8 @@ def set_registry_uri(uri: str) -> None:
 
 
 def _get_registry_uri_from_spark_session():
-    if (session := _get_active_spark_session()) is None:
+    session = _get_active_spark_session()
+    if session is None:
         return None
     return session.conf.get("spark.mlflow.modelRegistryUri", None)
 
