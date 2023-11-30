@@ -721,7 +721,7 @@ The standard parameters for completions routes with type ``llm/v1/completions`` 
 | **candidate_count**           | integer        | No       | 1             | The number of completions to generate for the         |
 |                               |                |          |               | specified prompt, between 1 and 5.                    |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
+| **n**                         | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
 |                               |                |          |               | Higher values will make the output more random, and   |
 |                               |                |          |               | lower values will make the output more deterministic. |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
@@ -745,7 +745,7 @@ The standard parameters for chat routes with type ``llm/v1/chat`` are:
 |                               |                |          |               | about the message structure, see                      |
 |                               |                |          |               | :ref:`chat_message_structure`.                        |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **candidate_count**           | integer        | No       | 1             | The number of chat completions to generate for the    |
+| **n**                         | integer        | No       | 1             | The number of chat completions to generate for the    |
 |                               |                |          |               | specified prompt, between 1 and 5.                    |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
@@ -814,7 +814,7 @@ Below is an example of submitting a query request to an MLflow AI Gateway route 
         ),
         "temperature": 0.5,
         "max_tokens": 1000,
-        "candidate_count": 1,
+        "n": 1,
         "frequency_penalty": 0.2,
         "presence_penalty": 0.2,
     }
@@ -823,30 +823,25 @@ Below is an example of submitting a query request to an MLflow AI Gateway route 
 
 The results of the query are:
 
-.. code-block:: json
+.. code-block:: python
 
-       {
-         "candidates": [
-           {
-             "text": "If an asteroid the size of a basketball (roughly 24 cm in
-             diameter) were to hit the Earth at 0.5 times the speed of light
-             (approximately 150,000 kilometers per second), the energy released
-             on impact would be enormous. The kinetic energy of an object moving
-             at relativistic speeds is given by the formula: KE = (\\gamma - 1)
-             mc^2 where \\gamma is the Lorentz factor given by...",
-             "metadata": {
-               "finish_reason": "stop"
-             }
-           }
-         ],
-         "metadata": {
-           "input_tokens": 40,
-           "output_tokens": 622,
-           "total_tokens": 662,
-           "model": "gpt-4-0613",
-           "route_type": "llm/v1/completions"
-         }
-       }
+    {
+        "id": "chatcmpl-8Pr33fsCAtD2L4oZHlyfOkiYHLapc",
+        "object": "text_completion",
+        "created": 1701172809,
+        "model": "gpt-4-0613",
+        "choices": [
+            {
+                "index": 0,
+                "text": "If an asteroid the size of a basketball ...",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 43,
+            "completion_tokens": 592,
+            "total_tokens": 635,
+        },
+    }
 
 FastAPI Documentation ("/docs")
 -------------------------------
@@ -979,7 +974,7 @@ The example below demonstrates how to use an AI Gateway server from within a cus
 
         payload = data.to_dict(orient="records")
         return [
-            client.query(route="completions-claude", data=query)["candidates"][0]["text"]
+            client.query(route="completions-claude", data=query)["choices"][0]["text"]
             for query in payload
         ]
 
@@ -1066,7 +1061,7 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
          curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
            -H "Content-Type: application/json" \
-           -d '{"text": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
+           -d '{"input": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
 **Note:** Remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
 
