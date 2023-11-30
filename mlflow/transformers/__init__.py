@@ -387,7 +387,7 @@ def save_model(
                         # MLflow ist großartig!
 
                       If an input_example is provided and the signature is not, a signature will
-                      be inferred automatically and applied to the MLmodel file iff the
+                      be inferred automatically and applied to the MLmodel file if the
                       pipeline type is a text-based model (NLP). If the pipeline type is not
                       a supported type, this inference functionality will not function correctly
                       and a warning will be issued. In order to ensure that a precise signature
@@ -428,7 +428,7 @@ def save_model(
 
     # Verify that the model has not been loaded to distributed memory
     # NB: transformers does not correctly save a model whose weights have been loaded
-    # using accelerate iff the model weights have been loaded using a device_map that is
+    # using accelerate if the model weights have been loaded using a device_map that is
     # heterogeneous. There is a distinct possibility for a partial write to occur, causing an
     # invalid state of the model's weights in this scenario. Hence, we raise.
     if _is_model_distributed_in_memory(built_pipeline.model):
@@ -750,7 +750,7 @@ def log_model(
                         # MLflow ist großartig!
 
                       If an input_example is provided and the signature is not, a signature will
-                      be inferred automatically and applied to the MLmodel file iff the
+                      be inferred automatically and applied to the MLmodel file if the
                       pipeline type is a text-based model (NLP). If the pipeline type is not
                       a supported type, this inference functionality will not function correctly
                       and a warning will be issued. In order to ensure that a precise signature
@@ -1037,7 +1037,7 @@ def _deserialize_torch_dtype_if_exists(flavor_config):
 
 def _fetch_model_card(model_or_pipeline):
     """
-    Attempts to retrieve the model card for the specified model architecture iff the
+    Attempts to retrieve the model card for the specified model architecture if the
     `huggingface_hub` library is installed. If a card cannot be found in the registry or
     the library is not installed, returns None.
     """
@@ -1105,7 +1105,7 @@ def _build_pipeline_from_model_input(model, task: str):
 
 def _record_pipeline_components(pipeline) -> Dict[str, Any]:
     """
-    Utility for recording which components are present in either the generated pipeline iff the
+    Utility for recording which components are present in either the generated pipeline if the
     supplied save object is not a pipeline or the components of the supplied pipeline object.
     """
     components_conf = {}
@@ -1383,7 +1383,7 @@ def _format_input_example_for_special_cases(input_example, pipeline):
 def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
-    default signatures should only be generated and assigned when saving a model iff the user
+    default signatures should only be generated and assigned when saving a model if the user
     has not supplied a signature.
     For signature inference in some Pipelines that support complex input types, an input example
     is needed.

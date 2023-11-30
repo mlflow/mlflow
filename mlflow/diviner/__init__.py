@@ -136,7 +136,7 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
 
-    :param kwargs: Optional configurations for Spark DataFrame storage iff the model has
+    :param kwargs: Optional configurations for Spark DataFrame storage if the model has
                    been fit in Spark.
 
                    Current supported options:

@@ -289,19 +289,19 @@ class Model:
 
     def get_input_schema(self):
         """
-        Retrieves the input schema of the Model iff the model was saved with a schema definition.
+        Retrieves the input schema of the Model if the model was saved with a schema definition.
         """
         return self.signature.inputs if self.signature is not None else None
 
     def get_output_schema(self):
         """
-        Retrieves the output schema of the Model iff the model was saved with a schema definition.
+        Retrieves the output schema of the Model if the model was saved with a schema definition.
         """
         return self.signature.outputs if self.signature is not None else None
 
     def get_params_schema(self):
         """
-        Retrieves the parameters schema of the Model iff the model was saved with a schema
+        Retrieves the parameters schema of the Model if the model was saved with a schema
         definition.
         """
         return getattr(self.signature, "params", None)
@@ -352,7 +352,7 @@ class Model:
         :setter: Sets a dictionary of custom keys and values to be included with the model instance
         :type: Optional[Dict[str, Any]]
 
-        :return: A Dictionary of user-defined metadata iff defined.
+        :return: A Dictionary of user-defined metadata if defined.
 
         .. code-block:: python
             :caption: Example
@@ -400,7 +400,7 @@ class Model:
         with both field names and data types. Signatures support both column-based and tensor-based
         inputs and outputs.
 
-        :getter: Retrieves the signature of a model instance iff the model was saved with a
+        :getter: Retrieves the signature of a model instance if the model was saved with a
             signature definition.
         :setter: Sets a signature to a model instance.
         :type: Optional[ModelSignature]
