@@ -325,7 +325,7 @@ class _OnnxModelWrapper:
 
                      Dictionary input is expected to be a valid ONNX model feed dictionary.
 
-                     Numpy array input is supported iff the model has a single tensor input and is
+                     Numpy array input is supported if the model has a single tensor input and is
                      converted into an ONNX feed dictionary with the appropriate key.
 
                      Pandas DataFrame is converted to ONNX inputs as follows:
@@ -351,7 +351,7 @@ class _OnnxModelWrapper:
             feed_dict = data
         elif isinstance(data, np.ndarray):
             # NB: We do allow scoring with a single tensor (ndarray) in order to be compatible with
-            # supported pyfunc inputs iff the model has a single input. The passed tensor is
+            # supported pyfunc inputs if the model has a single input. The passed tensor is
             # assumed to be the first input.
             if len(self.inputs) != 1:
                 inputs = [x[0] for x in self.inputs]

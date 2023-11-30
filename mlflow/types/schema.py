@@ -386,7 +386,7 @@ class Schema:
         return self._inputs
 
     def is_tensor_spec(self) -> bool:
-        """Return true iff this schema is specified using TensorSpec"""
+        """Return true if this schema is specified using TensorSpec"""
         return self.inputs and isinstance(self.inputs[0], TensorSpec)
 
     def input_names(self) -> List[Union[str, int]]:
@@ -403,7 +403,7 @@ class Schema:
         return [x.name or i for i, x in enumerate(self.inputs) if x.optional]
 
     def has_input_names(self) -> bool:
-        """Return true iff this schema declares names, false otherwise."""
+        """Return true if this schema declares names, false otherwise."""
         return self.inputs and self.inputs[0].name is not None
 
     def input_types(self) -> List[Union[DataType, np.dtype]]:
@@ -411,7 +411,7 @@ class Schema:
         return [x.type for x in self.inputs]
 
     def input_types_dict(self) -> Dict[str, Union[DataType, np.dtype]]:
-        """Maps column names to types, iff this schema declares names."""
+        """Maps column names to types, if this schema declares names."""
         if not self.has_input_names():
             raise MlflowException("Cannot get input types as a dict for schema without names.")
         return {x.name: x.type for x in self.inputs}
