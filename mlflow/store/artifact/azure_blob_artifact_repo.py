@@ -199,7 +199,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         raise MlflowException("Not implemented yet")
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
-        from azure.storage.blob import BlobSasPermissions, ResourceTypes, generate_blob_sas
+        from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
