@@ -21,7 +21,8 @@ def get_deploy_client(target_uri=None):
     ``mlflow deployments help -t <target-uri>`` via the CLI for more details on target-specific
     configuration options.
 
-    :param target_uri: Optional URI of target to deploy to. If no target URI is provided, then MLflow will attempt to get the deployments target set via `get_deployments_target()` or `MLFLOW_DEPLOYMENTS_TARGET` environment variable.
+    :param target_uri: Optional URI of target to deploy to. If no target URI is provided, then
+        MLflow will attempt to get the deployments target set via `get_deployments_target()` or `MLFLOW_DEPLOYMENTS_TARGET` environment variable.
 
 
     .. code-block:: python
@@ -50,7 +51,9 @@ def get_deploy_client(target_uri=None):
             target_uri = get_deployments_target()
         except MlflowException:
             _logger.info(
-                "No deployments target has been set. Please either set the MLflow deployments target via `mlflow.deployments.set_deployments_target()` or set the environment variable MLFLOW_DEPLOYMENTS_TARGET to the running deployment server's uri"
+                "No deployments target has been set. Please either set the MLflow deployments "
+                "target via `mlflow.deployments.set_deployments_target()` or set the environment "
+                "variable MLFLOW_DEPLOYMENTS_TARGET to the running deployment server's uri"
             )
             return None
     target = parse_target_uri(target_uri)
