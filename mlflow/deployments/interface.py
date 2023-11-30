@@ -22,7 +22,8 @@ def get_deploy_client(target_uri=None):
     configuration options.
 
     :param target_uri: Optional URI of target to deploy to. If no target URI is provided, then
-        MLflow will attempt to get the deployments target set via `get_deployments_target()` or `MLFLOW_DEPLOYMENTS_TARGET` environment variable.
+        MLflow will attempt to get the deployments target set via `get_deployments_target()` or
+        `MLFLOW_DEPLOYMENTS_TARGET` environment variable.
 
 
     .. code-block:: python
