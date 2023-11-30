@@ -14,9 +14,9 @@ default_parameters = {
 grading_system_prompt_template = PromptTemplate(
     """
 Task:
-You must return the following fields in your response one below the other:
+You must return the following fields in your response in two lines, one below the other:
 score: Your numerical score for the model's {name} based on the rubric
-justification: Your step-by-step reasoning about the model's {name} score
+justification: Your reasoning about the model's {name} score
 
 You are an impartial judge. You will be given an input that was sent to a machine
 learning model, and you will be given an output that the model produced. You
@@ -45,9 +45,11 @@ Grading rubric:
 
 {examples}
 
-You must return the following fields in your response one below the other:
+You must return the following fields in your response in two lines, one below the other:
 score: Your numerical score for the model's {name} based on the rubric
-justification: Your step-by-step reasoning about the model's {name} score
+justification: Your reasoning about the model's {name} score
+
+Do not add additional new lines. Do not add any other fields.
     """
 )
 

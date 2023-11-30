@@ -20,6 +20,8 @@ def score_model_on_payload(model_uri, payload):
         return _call_openai_api(suffix, payload)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload)
+    elif prefix == "endpoints":
+        return _call_deployments_api(suffix, payload)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
@@ -65,10 +67,7 @@ def _call_openai_api(openai_uri, payload):
         if getattr(api_config, x) is not None
     }
 
-    payload = {{"candidate_count": "n"}.get(k, k): v for k, v in payload.items()}
-    # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
-    payload["temperature"] = 2 * payload["temperature"]
-    payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
+    payload = _convert_to_openai_request(payload)
 
     if api_config.api_type in ("azure", "azure_ad", "azuread"):
         deployment_id = envs.get("deployment_id")
@@ -116,6 +115,35 @@ def _call_openai_api(openai_uri, payload):
     except Exception as e:
         raise MlflowException(f"Error response from OpenAI:\n {e}")
 
+    return _convert_from_openai_response(resp)
+
+
+def _call_gateway_api(gateway_uri, payload):
+    from mlflow.gateway import query
+
+    return query(gateway_uri, payload)
+
+
+def _call_deployments_api(deployment_uri, payload):
+    from mlflow.deployments import get_deploy_client
+
+    client = get_deploy_client()
+
+    payload = _convert_to_openai_request(payload)
+    resp = client.predict(endpoint=deployment_uri, inputs=payload)
+    return _convert_from_openai_response(resp)
+
+
+def _convert_to_openai_request(payload):
+    payload = {{"candidate_count": "n"}.get(k, k): v for k, v in payload.items()}
+    payload["temperature"] = 2 * payload["temperature"]
+    payload["messages"] = [
+        {"role": "user", "content": payload.pop("prompt")},
+    ]
+    return payload
+
+
+def _convert_from_openai_response(resp):
     return {
         "candidates": [
             {
@@ -125,9 +153,3 @@ def _call_openai_api(openai_uri, payload):
             for c in resp["choices"]
         ],
     }
-
-
-def _call_gateway_api(gateway_uri, payload):
-    from mlflow.gateway import query
-
-    return query(gateway_uri, payload)

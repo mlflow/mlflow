@@ -20,6 +20,15 @@ def set_envs(monkeypatch):
 
 
 @pytest.fixture
+def set_deployment_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_DEPLOYMENTS_TARGET": "databricks",
+        }
+    )
+
+
+@pytest.fixture
 def set_azure_envs(monkeypatch):
     monkeypatch.setenvs(
         {
@@ -59,6 +68,11 @@ def test_parse_model_uri():
 
     assert prefix == "gateway"
     assert suffix == "my-route"
+
+    prefix, suffix = _parse_model_uri("endpoints:/my-endpoint")
+
+    assert prefix == "endpoints"
+    assert suffix == "my-endpoint"
 
 
 def test_parse_model_uri_throws_for_malformed():
@@ -199,6 +213,45 @@ def test_score_model_gateway():
 
     with mock.patch("mlflow.gateway.query", return_value=expected_output):
         response = score_model_on_payload("gateway:/my-route", {})
+        assert response == expected_output
+
+
+def test_score_model_endpoints(set_deployment_envs):
+    openai_response_format = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "gpt-3.5-turbo-0613",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "\n\nHello there, how may I assist you today?",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+    }
+    expected_output = {
+        "candidates": [
+            {
+                "text": "\n\nHello there, how may I assist you today?",
+                "metadata": {"finish_reason": "stop"},
+            }
+        ]
+    }
+
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_get_deploy_client:
+        mock_client = mock.MagicMock()
+        mock_get_deploy_client.return_value = mock_client
+        # mock out mock_client.predict() to return expected_output
+        mock_client.predict.return_value = openai_response_format
+        response = score_model_on_payload(
+            "endpoints:/my-endpoint", {"prompt": "my prompt", "temperature": 0.1}
+        )
         assert response == expected_output
 
 

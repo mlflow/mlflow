@@ -1,8 +1,12 @@
 import urllib
+from typing import Optional
 from urllib.parse import urlparse
 
+from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import append_to_uri_path
+
+_deployments_target: Optional[str] = None
 
 
 def parse_target_uri(target_uri):
@@ -44,3 +48,48 @@ def resolve_endpoint_url(base_url: str, endpoint: str) -> str:
              base URL and the endpoint path.
     """
     return endpoint if _is_valid_uri(endpoint) else append_to_uri_path(base_url, endpoint)
+
+
+def set_deployments_target(target: str):
+    """
+    Sets the target deployment client for MLflow deployments
+
+    :param target: The full uri of a running MLflow deployments server or, if running on
+                        Databricks, "databricks".
+    """
+    if not _is_valid_target(target):
+        raise MlflowException.invalid_parameter_value(
+            "The target provided is not a valid uri or 'databricks'"
+        )
+
+    global _deployments_target
+    _deployments_target = target
+
+
+def get_deployments_target() -> str:
+    """
+    Returns the currently set MLflow deployments target iff set.
+    If the deployments target has not been set by using ``set_deployments_target``, an
+    ``MlflowException`` is raised.
+    """
+    global _deployments_target
+    if _deployments_target is not None:
+        return _deployments_target
+    elif uri := MLFLOW_DEPLOYMENTS_TARGET.get():
+        return uri
+    else:
+        raise MlflowException(
+            "No deployments target has been set. Please either set the MLflow deployments target"
+            " via `mlflow.deployments.set_deployments_target()` or set the environment variable "
+            f"{MLFLOW_DEPLOYMENTS_TARGET} to the running deployment server's uri"
+        )
+
+
+def _is_valid_target(target: str):
+    """
+    Evaluates the basic structure of a provided target to determine if the scheme and
+    netloc are provided
+    """
+    if target == "databricks":
+        return True
+    return _is_valid_uri(target)
