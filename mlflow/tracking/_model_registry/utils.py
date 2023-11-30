@@ -99,6 +99,7 @@ def _get_registry_uri_from_spark_session():
         return None
     return session.conf.get("spark.mlflow.modelRegistryUri", None)
 
+
 def _get_registry_uri_from_context():
     global _registry_uri
     if _registry_uri is not None:
