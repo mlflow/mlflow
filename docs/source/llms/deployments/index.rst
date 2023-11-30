@@ -847,10 +847,10 @@ FastAPI Documentation ("/docs")
 -------------------------------
 
 FastAPI, the framework used for building the MLflow AI Gateway, provides an automatic interactive API
-documentation interface, which is accessible at the "/docs" endpoint (e.g., ``http://my.gateway:9000/docs``).
+documentation interface, which is accessible at the "/docs" endpoint (e.g., ``http://my.deployments:9000/docs``).
 This interactive interface is very handy for exploring and testing the available API endpoints.
 
-As a convenience, accessing the root URL (e.g., ``http://my.gateway:9000``) redirects to this "/docs" endpoint.
+As a convenience, accessing the root URL (e.g., ``http://my.deployments:9000``) redirects to this "/docs" endpoint.
 
 MLflow Python Client APIs
 -------------------------
@@ -1018,32 +1018,32 @@ The REST API allows you to send HTTP requests directly to the MLflow AI Gateway 
 
 Here are some examples for how you might use curl to interact with the Gateway:
 
-1. Get information about a particular route: ``GET /api/2.0/gateway/routes/{name}``
-   This endpoint returns a serialized representation of the Route data structure.
-   This provides information about the name and type, as well as the model details for the requested route endpoint.
+1. Get information about a particular endpoint: ``GET /api/2.0/endpoints/{name}``
+
+   This route returns a serialized representation of the endpoint data structure.
+   This provides information about the name and type, as well as the model details for the requested endpoint.
 
    .. code-block:: bash
 
-       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
+       curl -X GET http://my.deployments:8888/api/2.0/endpoints/embeddings
 
-2. List all routes: ``GET /api/2.0/gateway/routes/``
+2. List all endpoints: ``GET /api/2.0/endpoints/``
 
-   This endpoint returns a list of all routes.
+   This route returns a list of all endpoints.
 
    .. code-block:: bash
 
-       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/
+       curl -X GET http://my.deployments:8888/api/2.0/endpoints/
 
-3. Query a route: ``POST /gateway/{route}/invocations``
+3. Query an endpoint: ``POST /endpoints/{name}/invocations``
 
-   This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
-
+   This route allows you to submit a query to a configured provider endpoint. The data structure you send in the query depends on the endpoint. Here are examples for the "completions", "chat", and "embeddings" endpoints:
 
    * ``Completions``
 
      .. code-block:: bash
 
-         curl -X POST http://my.gateway:8888/gateway/completions/invocations \
+         curl -X POST http://my.deployments:8888/endpoints/completions/invocations \
            -H "Content-Type: application/json" \
            -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
 
@@ -1052,7 +1052,7 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
      .. code-block:: bash
 
-         curl -X POST http://my.gateway:8888/gateway/chat/invocations \
+         curl -X POST http://my.deployments:8888/endpoints/chat/invocations \
            -H "Content-Type: application/json" \
            -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
 
@@ -1060,11 +1060,11 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
      .. code-block:: bash
 
-         curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
+         curl -X POST http://my.deployments:8888/endpoints/embeddings/invocations \
            -H "Content-Type: application/json" \
            -d '{"input": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
-**Note:** Remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
+**Note:** Remember to replace ``my.deployments:8888`` with the URL of your actual MLflow AI Gateway Server.
 
 MLflow AI Gateway API Documentation
 ===================================
