@@ -946,7 +946,7 @@ For a full walkthrough and example of using the MLflow serving integration to qu
 Within the guide, you will see the entire end-to-end process of serving multiple models from different servers and configuring an MLflow Deployments Server instance to provide a single unified point to handle queries from.
 
 Using an MLflow Model to Query the Deployments Server
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can also build and deploy MLflow Models that call the MLflow Deployments Server.
 The example below demonstrates how to use an Deployments Server from within a custom ``pyfunc`` model.
