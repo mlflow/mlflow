@@ -1064,7 +1064,7 @@ Here are some examples for how you might use curl to interact with the Gateway:
            -H "Content-Type: application/json" \
            -d '{"input": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
-**Note:** Remember to replace ``http://localhost:5000`` with the URL of your actual MLflow AI Gateway Server.
+**Note:** Remember to replace ``my.deployments:8888`` with the URL of your actual MLflow AI Gateway Server.
 
 MLflow AI Gateway API Documentation
 ===================================
