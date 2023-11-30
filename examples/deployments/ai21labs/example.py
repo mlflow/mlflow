@@ -1,17 +1,19 @@
-from mlflow.gateway import query, set_gateway_uri
+from mlflow.deployments import get_deploy_client
 
 
 def main():
-    # Set the URI for the MLflow AI Gateway
-    set_gateway_uri("http://localhost:5000")
+    client = get_deploy_client("http://localhost:5000")
+
+    print(f"AI21 Labs endpoints: {client.list_endpoints()}\n")
+    print(f"AI21 Labs completions endpoint info: {client.get_endpoint(endpoint='completions')}\n")
 
     # Completions request
-    response_completions = query(
-        route="completions",
-        data={
+    response_completions = client.predict(
+        endpoint="completions",
+        inputs={
             "prompt": "What is the world record for flapjack consumption in a single sitting?",
             "temperature": 0.1,
-        },
+        }
     )
     print(f"AI21 Labs response for completions: {response_completions}")
 

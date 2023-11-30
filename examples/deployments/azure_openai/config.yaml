@@ -1,6 +1,6 @@
-routes:
+endpoints:
   - name: chat
-    route_type: llm/v1/chat
+    endpoint_type: llm/v1/chat
     model:
       provider: openai
       name: gpt-35-turbo
@@ -12,7 +12,7 @@ routes:
         openai_api_version: "2023-05-15"
 
   - name: completions
-    route_type: llm/v1/completions
+    endpoint_type: llm/v1/completions
     model:
       provider: openai
       name: gpt-35-turbo
@@ -24,7 +24,7 @@ routes:
         openai_api_version: "2023-05-15"
 
   - name: embeddings
-    route_type: llm/v1/embeddings
+    endpoint_type: llm/v1/embeddings
     model:
       provider: openai
       name: text-embedding-ada-002
