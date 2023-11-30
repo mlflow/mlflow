@@ -1,4 +1,4 @@
-Getting Started with the MLflow Deployments Server
+Getting Started with MLflow Deployments for LLMs
 ==================================================
 
 MLflow provides a robust framework for deploying and managing machine learning models. In this tutorial, we will explore how to set up an
