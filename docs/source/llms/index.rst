@@ -304,14 +304,6 @@ Native Integration Examples
 If you'd like to directly explore code examples for how to get started with using our official library integrations, you can navigate 
 directly to our up-to-date examples on GitHub below:
 
-* **transformers**
-
-    * `Simple Text Generation Example <https://github.com/mlflow/mlflow/blob/master/examples/transformers/simple.py>`_
-    * `A Conversational Model Example <https://github.com/mlflow/mlflow/blob/master/examples/transformers/conversational.py>`_
-    * `Component Logging with Transformers <https://github.com/mlflow/mlflow/blob/master/examples/transformers/load_components.py>`_
-    * `Audio Transcription with Whisper <https://github.com/mlflow/mlflow/blob/master/examples/transformers/whisper.py>`_
-    * `Fine-tuning a Text Classification Model <https://github.com/mlflow/mlflow/blob/master/examples/transformers/MLFlow_X_HuggingFace_Finetune_a_text_classification_model.ipynb>`_
-
 * **sentence-transformers**
 
     * `Text Encoding Example <https://github.com/mlflow/mlflow/blob/master/examples/sentence_transformers/simple.py>`_

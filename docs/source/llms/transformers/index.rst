@@ -78,6 +78,11 @@ Getting Started with the MLflow Transformers Flavor - Tutorials and Guides
 Below, you will find a number of guides that focus on different use cases (`tasks`) using `transformers`  that leverage MLflow's 
 APIs for tracking and inference capabilities. 
 
+Introductory Quickstart to using Transformers with MLflow
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If this is your first exposure to transformers or use transformers extensively but are new to MLflow, this is a great place to start.
+
 .. raw:: html
 
     <section>
@@ -92,6 +97,25 @@ APIs for tracking and inference capabilities.
                     </p>
                 </a>
             </div>
+        </article>
+    </section>
+
+.. raw:: html
+
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/text-generation/text-generation.ipynb" class="notebook-download-btn">Download the Introductory Text Generation Notebook</a><br>
+    
+
+Use Case Tutorials for Transformers with MLflow
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Interested in learning about how to leverage transformers for tasks other than basic text generation? Want to learn more about the breadth of problems that you can solve with transformers and MLflow? 
+
+These more advanced tutorials are designed to showcase different applications of the transformers model architecture and how to leverage MLflow to track and deploy these models.
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
             <div class="simple-card">
                 <a href="tutorials/audio-transcription/whisper.html">
                     <div class="header">
@@ -145,14 +169,13 @@ APIs for tracking and inference capabilities.
         </article>
     </section>
 
-Download the Tutorial Notebooks to try them locally
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Download the Use Case Tutorial Notebooks to try them locally
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To download the transformers tutorial notebooks to run in your environment, click the respective links below:
 
 .. raw:: html
 
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/text-generation/text-generation.ipynb" class="notebook-download-btn">Download the Introductory Text Generation Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/audio-transcription/whisper.ipynb" class="notebook-download-btn">Download the Audio Transcription Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/translation/component-translation.ipynb" class="notebook-download-btn">Download the Translation Notebook</a><br>        
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/conversational/conversational-model.ipynb" class="notebook-download-btn">Download the Chat Conversational Notebook</a><br>
