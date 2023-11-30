@@ -67,7 +67,10 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
         if getattr(api_config, x) is not None
     }
 
-    payload = {"prompt": payload, **{{"candidate_count": "n"}.get(k, k): v for k, v in eval_parameters.items()}}
+    payload = {
+        "prompt": payload,
+        **{{"candidate_count": "n"}.get(k, k): v for k, v in eval_parameters.items()},
+    }
     # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
     payload["temperature"] = 2 * payload["temperature"]
     payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
