@@ -404,7 +404,7 @@ class _HadoopFileSystem:
     def maybe_copy_from_local_file(cls, src, dst):
         """
         Conditionally copy the file to the Hadoop DFS.
-        The file is copied iff the configuration has distributed filesystem.
+        The file is copied if the configuration has distributed filesystem.
 
         :return: If copied, return new target location, otherwise return (absolute) source path.
         """

@@ -91,7 +91,7 @@ def set_gateway_uri(gateway_uri: str):
 @experimental
 def get_gateway_uri() -> str:
     """
-    Returns the currently set MLflow AI Gateway server uri iff set.
+    Returns the currently set MLflow AI Gateway server uri if set.
     If the Gateway uri has not been set by using ``set_gateway_uri``, an ``MlflowException``
     is raised.
     """
