@@ -862,9 +862,9 @@ It abstracts the HTTP requests to the Deployments Server via a simple, easy-to-u
 Client API
 ~~~~~~~~~~
 
-To use the ``MlflowGatewayClient`` API, see the below examples for the available API methods:
+To use the ``MlflowDeploymentClient`` API, see the below examples for the available API methods:
 
-1. Create an ``MlflowGatewayClient``
+1. Create an ``MlflowDeploymentClient``
 
     .. code-block:: python
 
