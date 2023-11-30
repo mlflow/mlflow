@@ -31,6 +31,7 @@ from mlflow.entities import (
 from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_REGISTRY_URI,
     MLFLOW_RUN_ID,
 )
 from mlflow.exceptions import MlflowException
@@ -1384,3 +1385,7 @@ def spark_session_with_registry_uri(request):
 
 def test_registry_uri_from_spark_conf(spark_session_with_registry_uri):
     assert mlflow.get_registry_uri() == "http://custom.uri"
+    # The MLFLOW_REGISTRY_URI environment variable should still take precedence over the
+    # spark conf if present
+    with mock.patch.dict(os.environ, {MLFLOW_REGISTRY_URI.name: "something-else"}):
+        assert mlflow.get_registry_uri() == "something-else"
