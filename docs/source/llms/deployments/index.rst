@@ -1034,7 +1034,7 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
        curl -X GET http://my.deployments:8888/api/2.0/endpoints/
 
-3. Query an endpoint: ``POST /endpoints/{endpoint_name}/invocations``
+3. Query an endpoint: ``POST /endpoints/{name}/invocations``
 
    This route allows you to submit a query to a configured provider endpoint. The data structure you send in the query depends on the endpoint. Here are examples for the "completions", "chat", and "embeddings" endpoints:
 
