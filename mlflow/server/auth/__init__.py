@@ -762,7 +762,11 @@ def create_user():
         user = store.create_user(username, password)
         return make_response({"user": user.to_json()})
     else:
-        return make_response(f"Invalid content type: '{content_type}'", 400)
+        message = (
+            "Invalid content type. Must be one of: "
+            "application/x-www-form-urlencoded, application/json"
+        )
+        return make_response(message, 400)
 
 
 @catch_mlflow_exception
