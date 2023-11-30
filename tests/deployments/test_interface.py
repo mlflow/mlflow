@@ -1,4 +1,3 @@
-
 import pytest
 
 from mlflow.deployments.interface import get_deploy_client
