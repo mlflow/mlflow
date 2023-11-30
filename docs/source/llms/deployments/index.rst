@@ -143,61 +143,16 @@ and test the exposed routes. Navigate to ``http://{host}:{port}/`` (or ``http://
 The docs endpoint allow for direct interaction with the routes and permits submitting actual requests to the
 provider services by click on the "try it now" option within the endpoint definition entry.
 
-Step 6: Send Requests Using the Fluent API
-------------------------------------------
-For information on formatting requirements and how to pass parameters, see :ref:`gateway_query`.
-
-Here's an example of how to send a chat request using the :ref:`gateway_fluent_api` :
-
-.. code-block:: python
-
-    from mlflow.gateway import query, set_gateway_uri
-
-    set_gateway_uri(gateway_uri="http://localhost:5000")
-
-    response = query(
-        "chat",
-        {"messages": [{"role": "user", "content": "What is the best day of the week?"}]},
-    )
-
-    print(response)
-
-**Note:** Remember to change the uri definition to the actual uri of your Gateway server.
-
-The returned response will be in this data structure (the actual content and token values will likely be different):
-
-.. code-block:: python
-
-    {
-        "candidates": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "\n\nIt's hard to say what the best day of the week is.",
-                },
-                "metadata": {"finish_reason": "stop"},
-            }
-        ],
-        "metadata": {
-            "input_tokens": 13,
-            "output_tokens": 15,
-            "total_tokens": 28,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
-        },
-    }
-
-
-Step 7: Send Requests Using the Client API
+Step 6: Send Requests Using the Client API
 ------------------------------------------
 See the :ref:`gateway_client_api` section for further information.
 
-Step 8: Send Requests to Routes via REST API
+Step 7: Send Requests to Routes via REST API
 --------------------------------------------
 You can now send requests to the exposed routes.
 See the :ref:`REST examples <gateway_rest_api>` for guidance on request formatting.
 
-Step 9: Compare Provider Models
+Step 8: Compare Provider Models
 -------------------------------
 Here's an example of adding a new model from a provider to determine which model instance is better for a given use case.
 
@@ -226,11 +181,9 @@ route that was configured with the ``gpt-3.5-turbo``  model.
 
 Once the configuration file is updated, simply save your changes. The Gateway will automatically create the new route with zero downtime.
 
-At this point, you may use the :ref:`gateway_fluent_api` to query both routes with similar prompts to decide which model performs best for your use case.
-
 If you no longer need a route, you can delete it from the configuration YAML and save your changes. The AI Gateway will automatically remove the route.
 
-Step 10: Use AI Gateway routes for model development
+Step 9: Use AI Gateway routes for model development
 ----------------------------------------------------
 
 Now that you have created several AI Gateway routes, you can create MLflow Models that query these
@@ -908,41 +861,6 @@ MLflow Python Client APIs
 -------------------------
 :class:`MlflowGatewayClient <mlflow.gateway.client.MlflowGatewayClient>` is the user-facing client API that is used to interact with the MLflow AI Gateway.
 It abstracts the HTTP requests to the Gateway via a simple, easy-to-use Python API.
-
-The fluent API is a higher-level interface that supports setting the Gateway URI once and using simple functions to interact with the AI Gateway Server.
-
-.. _deployments_fluent_api:
-
-Fluent API
-~~~~~~~~~~
-For the ``fluent`` API, here are some examples:
-
-1. Set the Gateway URI:
-
-   Before using the Fluent API, the gateway URI must be set via :func:`set_gateway_uri() <mlflow.gateway.set_gateway_uri>`.
-
-   Alternatively to directly calling the ``set_gateway_uri`` function, the environment variable ``MLFLOW_GATEWAY_URI`` can be set
-   directly, achieving the same session-level persistence for all ``fluent`` API usages.
-
-   .. code-block:: python
-
-       from mlflow.gateway import set_gateway_uri
-
-       set_gateway_uri(gateway_uri="http://my.gateway:7000")
-
-2. Query a route:
-
-   The :func:`query() <mlflow.gateway.query>` function queries the specified route and returns the response from the provider
-   in a standardized format. The data structure you send in the query depends on the route.
-
-   .. code-block:: python
-
-       from mlflow.gateway import query
-
-       response = query(
-           "embeddings", {"text": ["It was the best of times", "It was the worst of times"]}
-       )
-       print(response)
 
 .. _deployments_client_api:
 
