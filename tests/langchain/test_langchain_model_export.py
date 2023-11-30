@@ -13,7 +13,6 @@ import pytest
 import transformers
 from langchain import SQLDatabase
 from langchain.agents import AgentType, initialize_agent
-from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.chains import (
     APIChain,
     ConversationChain,
@@ -24,7 +23,6 @@ from langchain.chains import (
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
-from langchain.chat_models.base import SimpleChatModel
 from langchain.document_loaders import TextLoader
 from langchain.embeddings.base import Embeddings
 from langchain.embeddings.fake import FakeEmbeddings
@@ -34,7 +32,6 @@ from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
-from langchain.schema.messages import BaseMessage
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
 from langchain.vectorstores import FAISS
@@ -195,23 +192,6 @@ class FakeChain(Chain):
             return {"bar": "baz"}
         else:
             return {"baz": "bar"}
-
-
-class FakeChatModel(SimpleChatModel):
-    """Fake Chat Model wrapper for testing purposes."""
-
-    def _call(
-        self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
-        **kwargs: Any,
-    ) -> str:
-        return "Databricks"
-
-    @property
-    def _llm_type(self) -> str:
-        return "fake chat model"
 
 
 def test_langchain_native_save_and_load_model(model_path):
@@ -843,6 +823,7 @@ def test_save_load_runnable_lambda():
     assert loaded_model.batch([1, 2, 3]) == [2, 3, 4]
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert loaded_model.predict(1) == 2
     assert loaded_model.predict([1, 2, 3]) == [2, 3, 4]
 
     response = pyfunc_serve_and_score_model(
@@ -880,15 +861,18 @@ def test_save_load_runnable_lambda_in_sequence():
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke(1) == 4
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_loaded_model.predict([1]) == [4]
+    assert pyfunc_loaded_model.predict(1) == 4
+    assert pyfunc_loaded_model.predict([1, 2, 3]) == [4, 6, 8]
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
-        data=json.dumps({"inputs": [1]}),
+        data=json.dumps({"inputs": [1, 2, 3]}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {"predictions": [4]}
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": [4, 6, 8]
+    }
 
 
 @pytest.mark.skipif(
@@ -903,21 +887,26 @@ def test_save_load_runnable_parallel():
 
     runnable = RunnableParallel({"llm": fake_llm})
     assert runnable.invoke("hello") == {"llm": "completion"}
+    assert runnable.batch(["hello", "world"]) == [{"llm": "completion"}, {"llm": "completion"}]
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(runnable, "model_path")
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke("hello") == {"llm": "completion"}
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_loaded_model.predict(["hello"]) == [{"llm": "completion"}]
+    assert pyfunc_loaded_model.predict("hello") == {"llm": "completion"}
+    assert pyfunc_loaded_model.predict(["hello", "world"]) == [
+        {"llm": "completion"},
+        {"llm": "completion"},
+    ]
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
-        data=json.dumps({"inputs": ["hello"]}),
+        data=json.dumps({"inputs": ["hello", "world"]}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": [{"llm": "completion"}]
+        "predictions": [{"llm": "completion"}, {"llm": "completion"}]
     }
 
 
@@ -942,12 +931,12 @@ def tests_save_load_complex_runnable_parallel():
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
-        data=json.dumps({"inputs": [{"product": "MLflow"}]}),
+        data=json.dumps({"inputs": [{"product": "MLflow"}, {"product": "MLflow"}]}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": [expected_result]
+        "predictions": [expected_result, expected_result]
     }
 
 
@@ -981,12 +970,12 @@ def test_save_load_runnable_parallel_and_assign_in_sequence():
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
-        data=json.dumps({"inputs": ["hello"]}),
+        data=json.dumps({"inputs": ["hello", "world"]}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": [expected_result]
+        "predictions": [expected_result, expected_result]
     }
 
 
@@ -1076,10 +1065,12 @@ def test_save_load_simple_chat_model():
     from langchain.prompts import ChatPromptTemplate
     from langchain.schema.output_parser import StrOutputParser
 
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
     prompt = ChatPromptTemplate.from_template(
         "What is a good name for a company that makes {product}?"
     )
-    chat_model = FakeChatModel()
+    chat_model = _fake_simple_chat_model()()
     chain = prompt | chat_model | StrOutputParser()
     assert chain.invoke({"product": "MLflow"}) == "Databricks"
     with mlflow.start_run():
@@ -1089,17 +1080,15 @@ def test_save_load_simple_chat_model():
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_loaded_model.predict([{"product": "MLflow"}]) == ["Databricks"]
 
-    # # TODO: fix chatmodel loading
-    # response = pyfunc_serve_and_score_model(
-    #     model_info.model_uri,
-    #     data=json.dumps({"inputs": [{"product": "MLflow"}]}),
-    #     content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-    #     extra_args=["--env-manager", "local"],
-    # )
-    # assert (
-    #     PredictionsResponse.from_json(response.content.decode("utf-8"))
-    # == {"predictions": ["Databricks"]}
-    # )
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": {"product": "MLflow"}}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": "Databricks"
+    }
 
 
 @pytest.mark.skipif(
@@ -1110,7 +1099,9 @@ def test_save_load_rag(tmp_path):
     from langchain.schema.output_parser import StrOutputParser
     from langchain.schema.runnable import RunnablePassthrough
 
-    chat_model = FakeChatModel()
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
+    chat_model = _fake_simple_chat_model()()
 
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -1157,14 +1148,12 @@ def test_save_load_rag(tmp_path):
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     assert pyfunc_loaded_model.predict(["hello"]) == ["Databricks"]
 
-    # # TODO: fix chatmodel loading
-    # response = pyfunc_serve_and_score_model(
-    #     model_info.model_uri,
-    #     data=json.dumps({"inputs": ["hello"]}),
-    #     content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-    #     extra_args=["--env-manager", "local"],
-    # )
-    # assert (
-    #     PredictionsResponse.from_json(response.content.decode("utf-8"))
-    # == {"predictions": ["Databricks"]}
-    # )
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": ["hello"]}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": ["Databricks"]
+    }
