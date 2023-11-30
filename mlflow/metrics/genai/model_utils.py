@@ -138,14 +138,6 @@ def _convert_to_openai_request(payload):
     payload = {{"candidate_count": "n"}.get(k, k): v for k, v in payload.items()}
     payload["temperature"] = 2 * payload["temperature"]
     payload["messages"] = [
-        {
-            "role": "system",
-            "content": """
-         You must return the following fields in your response in two lines, one below the other. Do not add additional new lines.
-score: Your numerical score for the model
-justification: Your reasoning for the score
-         """,
-        },
         {"role": "user", "content": payload.pop("prompt")},
     ]
     return payload
