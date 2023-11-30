@@ -184,7 +184,7 @@ Once the configuration file is updated, simply save your changes. The Deployment
 If you no longer need an endpoint, you can delete it from the configuration YAML and save your changes. The Deployments Server will automatically remove the endpoint.
 
 Step 9: Use Deployments Server endpoints for model development
------------------------------------------------------------
+--------------------------------------------------------------
 
 Now that you have created several Deployments Server endpoints, you can create MLflow Models that query these
 endpoints to build application-specific logic using techniques like prompt engineering. For more
@@ -694,7 +694,7 @@ For specifying an API key, there are three options:
 .. _deployments_query:
 
 Querying the Deployments Server
-=======================
+===============================
 
 Once the MLflow Deployments Server has been configured and started, it is ready to receive traffic from users.
 
