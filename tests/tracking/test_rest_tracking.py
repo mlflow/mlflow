@@ -1834,7 +1834,7 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
         )
         assert_response(
             response,
-            "GatewayProxy request must specify a gateway_path.",
+            "Deployments proxy request must specify a gateway_path.",
         )
 
 
