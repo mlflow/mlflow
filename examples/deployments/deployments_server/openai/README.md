@@ -1,6 +1,6 @@
-## Example route configuration for OpenAI
+## Example endpoint configuration for OpenAI
 
-To view an example of OpenAI route configurations, see [the configuration example](config.yaml) YAML file for OpenAI.
+To view an example of OpenAI endpoint configurations, see [the configuration example](config.yaml) YAML file for OpenAI.
 
 This configuration shows all 3 supported endpoint types: chat, completions, and embeddings.
 

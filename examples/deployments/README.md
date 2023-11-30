@@ -1,15 +1,25 @@
-# MLflow AI Gateway
+# MLflow Deployments
 
-The examples provided within this directory show how to get started with individual providers and at least
-one of the supported route types. When configuring an instance of the MLflow AI Gateway, multiple providers,
-instances of route types, and model versions can be specified for each query route on the Gateway.
+The examples provided within this directory show how to get started with MLflow Deployments using:
+
+- The MLflow Deployments Server (see the ``deployments_server`` subdirectory)
+- Databricks (see the ``databricks`` subdirectory)
+
+The MLflow Deployments Server provides 
+
+
+
+
+individual providers and at least
+one of the supported endpoint types. When configuring an instance of the MLflow AI Gateway, multiple providers,
+instances of endpoint types, and model versions can be specified for each query endpoint on the Gateway.
 
 ## Example configuration files
 
 Within this directory are example config files for each of the supported providers. If using these as a guide
-for configuring a large number of routes, ensure that the placeholder names (i.e., "completions", "chat", "embeddings")
+for configuring a large number of endpoints, ensure that the placeholder names (i.e., "completions", "chat", "embeddings")
 are modified to prevent collisions. These names are provided for clarity only for the examples and real-world
-use cases should define a relevant and meaningful route name to eliminate ambiguity and minimize the chances of name collisions.
+use cases should define a relevant and meaningful endpoint name to eliminate ambiguity and minimize the chances of name collisions.
 
 # Getting Started with MLflow AI Gateway for OpenAI
 
@@ -36,9 +46,9 @@ pip install -e '.[gateway]'
 
 ## Step 2: Configuring Endpoints
 
-Each provider has a distinct set of allowable route types (i.e., chat, completions, etc) and
-specific requirements for the initialization of the routes to interface with their services.
-For full examples of configurations and supported route types, see:
+Each provider has a distinct set of allowable endpoint types (i.e., chat, completions, etc) and
+specific requirements for the initialization of the endpoints to interface with their services.
+For full examples of configurations and supported endpoint types, see:
 
 - [OpenAI](openai/config.yaml)
 - [MosaicML](mosaicml/config.yaml)

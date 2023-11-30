@@ -88,7 +88,7 @@ endpoints:
 After the configuration file is created, you can start the MLflow Deployments server by running the following command:
 
 ```
-mlflow deplyments start-server --config-path examples/deployments/huggingface/config.yaml
+mlflow deplyments start-server --config-path examples/deployments/deployments_server//huggingface/config.yaml
 ```
 
 ## Querying the endpoint

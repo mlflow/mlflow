@@ -22,7 +22,7 @@ def main():
         endpoint="embeddings",
         inputs={
             "text": [
-                "The MLflow AI Gateway sure is useful!",
+                "MLflow Deployments sure is useful!",
                 "Word embeddings are very useful",
             ]
         },
