@@ -41,7 +41,7 @@ various other parameters. For detailed information, please refer to the document
             max_tokens=1000,
         )
 
-        response = client(endpoint=route_name, inputs=data)
+        response = client.predict(endpoint=route_name, inputs=data)
         print(response)
 
 
@@ -77,7 +77,7 @@ For further details, please consult the documentation.
             temperature=.5,
         )
 
-        response = client(endpoint=route_name, inputs=data)
+        response = client.predict(endpoint=route_name, inputs=data)
         print(response)
 
 
@@ -107,7 +107,7 @@ respective numerical vectors. Let's proceed with an example...
             ],
         )
 
-        response = client.query(route_name, data)
+        response = client.predict(endpoint=route_name, inputs=data)
         print(response)
 
 And there you have it! You've successfully set up your first Deployments Server and served three OpenAI models.
