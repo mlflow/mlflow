@@ -214,7 +214,6 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             container_name=container,
             blob_name=dest_path,
             account_key=self.client.credential.account_key,
-            resource_types=ResourceTypes(object=True),
             permission=BlobSasPermissions(read=True, write=True),
             expiry=datetime.datetime.utcnow() + datetime.timedelta(hours=6),
         )
