@@ -38,7 +38,9 @@ def test_tf_mlflow_callback(log_every_epoch, log_every_n_steps):
             label,
             validation_data=(data, label),
             batch_size=4,
-            epochs=2,
+            # Increase the epochs size so that logs
+            # are flushed correctly
+            epochs=5,
             callbacks=[mlflow_callback],
         )
 
@@ -49,5 +51,5 @@ def test_tf_mlflow_callback(log_every_epoch, log_every_n_steps):
 
     assert "loss" in run_metrics
     assert "sparse_categorical_accuracy" in run_metrics
-    assert model_info["optimizer_name"] == "Adam"
-    assert model_info["optimizer_learning_rate"] == "0.001"
+    assert model_info["optimizer_name"].lower() == "adam"
+    np.testing.assert_almost_equal(float(model_info["optimizer_learning_rate"]), 0.001)

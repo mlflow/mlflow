@@ -4,7 +4,7 @@ from mlflow.utils.annotations import developer_stable
 
 
 @developer_stable
-class RequestHeaderProvider:
+class RequestHeaderProvider(metaclass=ABCMeta):
     """
     Abstract base class for specifying custom request headers to add to outgoing requests
     (e.g. request headers specifying the environment from which mlflow is running).
@@ -15,8 +15,6 @@ class RequestHeaderProvider:
 
     All resulting request headers will then be merged together and sent with the request.
     """
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def in_context(self):

@@ -309,7 +309,7 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         model_path, keras_model_kwargs={"custom_objects": correct_custom_objects}
     )
     assert model_loaded is not None
-    if Version(tf.__version__) <= Version("2.11.0"):
+    if Version(tf.__version__) <= Version("2.11.0") or Version(tf.__version__).release >= (2, 16):
         with pytest.raises(TypeError, match=r".+"):
             mlflow.tensorflow.load_model(model_path)
     else:
@@ -318,6 +318,8 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         # validated eagerly. This prevents a TypeError from being thrown as in the above
         # expectation catching validation block. The change in logic now permits loading and
         # will not raise an Exception, as validated below.
+        # TF 2.16.0 updates the logic such that if the custom object is not saved with the
+        # model or supplied in the load_model call, the model will not be loaded.
         incorrect_loaded = mlflow.tensorflow.load_model(model_path)
         assert incorrect_loaded is not None
 
@@ -598,9 +600,14 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path, dat
     assert not os.path.exists(
         os.path.join(model_path, "data", "model.h5")
     ), "TF model was saved with HDF5 format; expected SavedModel"
-    assert os.path.isdir(
-        os.path.join(model_path, "data", "model")
-    ), "Expected directory containing saved_model.pb"
+    if Version(tf.__version__).release < (2, 16):
+        assert os.path.isdir(
+            os.path.join(model_path, "data", "model")
+        ), "Expected directory containing saved_model.pb"
+    else:
+        assert os.path.exists(
+            os.path.join(model_path, "data", "model.keras")
+        ), "Expected model saved as model.keras"
 
     model_loaded = mlflow.tensorflow.load_model(model_path)
     np.testing.assert_allclose(model_loaded.predict(data[0]), tf_keras_model.predict(data[0]))
@@ -697,7 +704,7 @@ def test_virtualenv_subfield_points_to_correct_path(model, model_path):
 
 def save_or_log_keras_model_by_mlflow128(tmp_path, task_type, save_as_type, save_path=None):
     tf_tests_dir = os.path.dirname(__file__)
-    conda_env = get_or_create_conda_env(os.path.join(tf_tests_dir, "mlflow-128-tf-23-env.yaml"))
+    conda_env = get_or_create_conda_env(os.path.join(tf_tests_dir, "mlflow-128-tf-26-env.yaml"))
     output_data_file_path = os.path.join(tmp_path, "output_data.pkl")
     tracking_uri = mlflow.get_tracking_uri()
     exec_py_path = os.path.join(tf_tests_dir, "save_keras_model.py")
@@ -721,6 +728,10 @@ def save_or_log_keras_model_by_mlflow128(tmp_path, task_type, save_as_type, save
         )
 
 
+@pytest.mark.skipif(
+    Version(tf.__version__).release >= (2, 16),
+    reason="File save format incompatible for tf >= 2.16.0",
+)
 def test_load_and_predict_keras_model_saved_by_mlflow128(tmp_path, monkeypatch):
     mlflow.set_tracking_uri(tmp_path.joinpath("mlruns").as_uri())
     monkeypatch.chdir(tmp_path)

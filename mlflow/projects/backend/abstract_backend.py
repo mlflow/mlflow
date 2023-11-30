@@ -4,7 +4,7 @@ from mlflow.utils.annotations import developer_stable
 
 
 @developer_stable
-class AbstractBackend:
+class AbstractBackend(metaclass=ABCMeta):
     """
     Abstract plugin class defining the interface needed to execute MLflow projects. You can define
     subclasses of ``AbstractBackend`` and expose them as third-party plugins to enable running
@@ -12,8 +12,6 @@ class AbstractBackend:
     in-house cluster or job scheduler). See `MLflow Plugins <../../plugins.html>`_ for more
     information.
     """
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def run(
