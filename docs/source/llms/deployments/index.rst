@@ -725,10 +725,10 @@ The standard parameters for completions endpoints with type ``llm/v1/completions
 +===============================+================+==========+===============+=======================================================+
 | **prompt**                    | string         | Yes      | N/A           | The prompt for which to generate completions.         |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **candidate_count**           | integer        | No       | 1             | The number of completions to generate for the         |
+| **n**                         | integer        | No       | 1             | The number of completions to generate for the         |
 |                               |                |          |               | specified prompt, between 1 and 5.                    |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
-| **n**                         | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
+| **temperature**               | float          | No       | 0.0           | The sampling temperature to use, between 0 and 1.     |
 |                               |                |          |               | Higher values will make the output more random, and   |
 |                               |                |          |               | lower values will make the output more deterministic. |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+

@@ -10,7 +10,7 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
         "temperature": 0.0,
         "max_tokens": 64,
         "stop": ["END"],
-        "candidate_count": 1,
+        "n": 1,
     }
 }
 
