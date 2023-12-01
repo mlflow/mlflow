@@ -5,7 +5,7 @@ from mlflow.gateway.config import IS_PYDANTIC_V2
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "example": {
-        "text": ["hello", "world"],
+        "input": ["hello", "world"],
     }
 }
 
