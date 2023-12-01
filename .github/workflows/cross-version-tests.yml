@@ -191,7 +191,7 @@ jobs:
         if: matrix.package == 'langchain'
         run: |
           pip uninstall pydantic -y
-          pip install pydantic --no-binary :all:
+          pip install pydantic --no-binary=pydantic
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
