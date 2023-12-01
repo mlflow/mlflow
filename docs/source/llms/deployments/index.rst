@@ -791,7 +791,7 @@ The standard parameters for completions endpoints with type ``llm/v1/embeddings`
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | Query Parameter               | Type           | Required | Default       | Description                                           |
 +===============================+================+==========+===============+=======================================================+
-| **text**                      | string         | Yes      | N/A           | A string or list of strings for which to generate     |
+| **input**                     | string         | Yes      | N/A           | A string or list of strings for which to generate     |
 |                               | or             |          |               | embeddings.                                           |
 |                               | array[string]  |          |               |                                                       |
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
