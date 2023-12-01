@@ -84,7 +84,6 @@ async def test_completions():
             json={
                 "model": "claude-instant-1",
                 "temperature": 0.5,
-                "n": 1,
                 "max_tokens_to_sample": 200,
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
                 "stop_sequences": ["foobazbardiddly"],
@@ -109,7 +108,6 @@ async def test_completions_with_default_max_tokens():
             json={
                 "model": "claude-instant-1",
                 "temperature": 0.0,
-                "n": 1,
                 "max_tokens_to_sample": 200000,
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             },
