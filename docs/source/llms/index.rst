@@ -20,6 +20,13 @@ capabilities into their applications.
 
     deployments/index
 
+.. important::
+   The feature previously known as **MLflow AI Gateway** in experimental status has been moved to
+   utilize the **MLflow deployments API**. This major update involves changes to API endpoints and
+   standardization for Large Language Models, both custom and SaaS-based. Users currently utilizing
+   MLflow AI Gateway should refer to the new documentation for migration guidelines and familiarize
+   themselves with the updated API structure.
+
 Serving as a unified interface, the `MLflow Deployments Server <deployments/index.html>`_ simplifies interactions with multiple LLM providers, such as 
 `OpenAI <https://openai.com/>`_, `MosaicML <https://www.mosaicml.com/>`_, `Cohere <https://cohere.com/>`_, `Anthropic <https://www.anthropic.com/>`_, 
 `PaLM 2 <https://ai.google/discover/palm2/>`_, `AWS Bedrock <https://aws.amazon.com/bedrock/>`_, and `AI21 Labs <https://www.ai21.com/>`_. 
