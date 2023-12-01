@@ -44,7 +44,7 @@ MLflow Deployments Server using the :ref:`mlflow server <cli>` command as follow
 
 .. code-block:: bash
 
-   export MLFLOW_DEPLOYMENTS_TARGET="http://localhost:7000"
+   export MLFLOW_DEPLOYMENTS_TARGET="http://127.0.0.1:7000"
    mlflow server --port 5000
 
 Step 3: Create or find an MLflow Experiment
@@ -369,7 +369,7 @@ can deploy the corresponding MLflow Model for real-time serving as follows:
 2. Define the following environment variables in the environment where you will run your
    MLflow Model Server, such as a shell on your local machine:
 
-   * ``MLFLOW_DEPLOYMENTS_TARGET``: The URL of the MLflow MLflow Deployments Server
+   * ``MLFLOW_DEPLOYMENTS_TARGET``: The URL of the MLflow Deployments Server
 
 3. Use the :ref:`mlflow models serve <cli>` command to start the MLflow Model Server. For example,
    running the following command from a shell on your local machine will serve the model
