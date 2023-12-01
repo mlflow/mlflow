@@ -186,7 +186,7 @@ Firstly, update the :ref:`MLflow Deployments Server config <deployments_configur
 This updated configuration adds a new completions endpoint ``completions-gpt4`` while still preserving the original ``completions``
 endpoint that was configured with the ``gpt-3.5-turbo``  model.
 
-Once the configuration file is updated, simply save your changes. The Deployments Server will automatically create the new endpoint with zero downtime.
+Once the configuration file is updated, simply save your changes. The deployments server will automatically create the new endpoint with zero downtime.
 
 If you no longer need an endpoint, you can delete it from the configuration YAML and save your changes. The deployments server will automatically remove the endpoint.
 
