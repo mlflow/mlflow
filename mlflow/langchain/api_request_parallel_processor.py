@@ -130,19 +130,25 @@ class APIRequest:
                 response = [
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
-            elif isinstance(self.lc_model, (RunnableSequence, RunnableParallel, RunnableLambda)):
-                # numpy ndarray is to catch serving requests
-                # where the input is casted into a numpy array
-                if isinstance(self.request_json, (list, np.ndarray)):
-                    response = self.lc_model.batch(
-                        self.request_json
-                        if isinstance(self.request_json, list)
-                        else self.request_json.tolist()
-                    )
+            elif isinstance(self.lc_model, lc_runnables_types()):
+                if isinstance(self.request_json, np.ndarray):
+                    self.request_json = self.request_json.tolist()
+                if isinstance(self.request_json, dict):
+                    # This is a temporary fix for the case when spark_udf converts
+                    # input into pandas dataframe with column name, while the model
+                    # does not accept dictionaries as input, it leads to erros like
+                    # Expected Scalar value for String field \'query_text\'\\n
+                    try:
+                        response = self.lc_model.invoke(self.request_json)
+                    except Exception as e:
+                        _logger.warning(f"Failed to invoke {self.lc_model} with {e!r}")
+                        response = self.lc_model.invoke(self.request_json.values()[0])
+                elif isinstance(self.request_json, list) and isinstance(
+                    self.lc_model, (RunnableSequence, RunnableParallel, RunnableLambda)
+                ):
+                    response = self.lc_model.batch(self.request_json)
                 else:
                     response = self.lc_model.invoke(self.request_json)
-            elif isinstance(self.lc_model, lc_runnables_types()):
-                response = self.lc_model.invoke(self.request_json)
             else:
                 response = self.lc_model(self.request_json, return_only_outputs=True)
 
@@ -156,7 +162,9 @@ class APIRequest:
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
         except Exception as e:
-            _logger.warning(f"Request #{self.index} failed with {e!r}")
+            _logger.warning(
+                f"Request #{self.index} failed with {e!r}\n request payload: {self.request_json}"
+            )
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
