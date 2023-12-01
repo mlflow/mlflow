@@ -16,19 +16,19 @@ class ServingTextResponse(BaseModel):
     predictions: List[StrictStr]
 
     @validator("predictions", pre=True)
-    def extract_candidates(cls, predictions):
+    def extract_choices(cls, predictions):
         if isinstance(predictions, list) and not predictions:
             raise ValueError("The input list is empty")
         if isinstance(predictions, dict):
-            if "candidates" not in predictions and len(predictions) > 1:
+            if "choices" not in predictions and len(predictions) > 1:
                 raise ValueError(
                     "The dict format is invalid for this route type. Ensure the served model "
-                    "returns a dict key containing 'candidates'"
+                    "returns a dict key containing 'choices'"
                 )
             if len(predictions) == 1:
                 predictions = next(iter(predictions.values()))
             else:
-                predictions = predictions.get("candidates", predictions)
+                predictions = predictions.get("choices", predictions)
             if not predictions:
                 raise ValueError("The input list is empty")
         return predictions

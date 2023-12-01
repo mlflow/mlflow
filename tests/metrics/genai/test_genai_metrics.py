@@ -38,7 +38,7 @@ openai_justification1 = (
 
 # Example properly formatted response from OpenAI
 properly_formatted_openai_response1 = {
-    "candidates": [
+    "choices": [
         {
             "text": '{\n  "score": 3,\n  "justification": "' f"{openai_justification1}" '"\n}',
             "metadata": {"finish_reason": "stop"},
@@ -54,7 +54,7 @@ properly_formatted_openai_response1 = {
 }
 
 properly_formatted_openai_response2 = {
-    "candidates": [
+    "choices": [
         {
             "text": '{\n  "score": 2,\n  "justification": "The provided output gives a correct '
             "and adequate explanation of what Apache Spark is, covering its main functions and "
@@ -79,7 +79,7 @@ properly_formatted_openai_response2 = {
 
 # Example incorrectly formatted response from OpenAI
 incorrectly_formatted_openai_response = {
-    "candidates": [
+    "choices": [
         {
             "text": "score: 2\njustification: \n\nThe provided output gives some relevant "
             "information about MLflow including its capabilities such as experiment tracking, "
@@ -605,7 +605,7 @@ def test_format_args_string():
 def test_extract_score_and_justification():
     score1, justification1 = _extract_score_and_justification(
         output={
-            "candidates": [
+            "choices": [
                 {
                     "text": '{"score": 4, "justification": "This is a justification"}',
                 }
@@ -618,7 +618,7 @@ def test_extract_score_and_justification():
 
     score2, justification2 = _extract_score_and_justification(
         output={
-            "candidates": [
+            "choices": [
                 {
                     "text": "score: 2 \njustification: This is a justification",
                 }
@@ -641,7 +641,7 @@ def test_extract_score_and_justification():
 
     score4, justification4 = _extract_score_and_justification(
         output={
-            "candidates": [
+            "choices": [
                 {
                     "text": '{"score": "4", "justification": "This is a justification"}',
                 }
@@ -654,7 +654,7 @@ def test_extract_score_and_justification():
 
     score5, justification5 = _extract_score_and_justification(
         output={
-            "candidates": [
+            "choices": [
                 {
                     "text": "  Score: 2 \nJustification:\nThis is a justification",
                 }
@@ -665,7 +665,7 @@ def test_extract_score_and_justification():
     assert justification5 == "This is a justification"
 
     malformed_output = {
-        "candidates": [
+        "choices": [
             {
                 "text": '{"score": 4, "justification": {"foo": "bar"}}',
             }

@@ -3104,7 +3104,7 @@ def test_evaluate_with_latency_static_dataset():
 
 
 properly_formatted_openai_response1 = {
-    "candidates": [
+    "choices": [
         {
             "text": '{\n  "score": 3,\n  "justification": "' "justification" '"\n}',
             "metadata": {"finish_reason": "stop"},

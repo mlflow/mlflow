@@ -192,7 +192,7 @@ def test_score_model_azure_openai_bad_envs(set_bad_azure_envs):
 
 def test_score_model_gateway():
     expected_output = {
-        "candidates": [
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
@@ -236,7 +236,7 @@ def test_score_model_endpoints(set_deployment_envs):
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
     }
     expected_output = {
-        "candidates": [
+        "choices": [
             {
                 "text": "\n\nHello there, how may I assist you today?",
                 "metadata": {"finish_reason": "stop"},

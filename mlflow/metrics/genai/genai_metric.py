@@ -53,11 +53,11 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
 def _extract_score_and_justification(output):
     if (
         isinstance(output, dict)
-        and "candidates" in output
-        and isinstance(output["candidates"], list)
-        and output["candidates"]
+        and "choices" in output
+        and isinstance(output["choices"], list)
+        and output["choices"]
     ):
-        text = output["candidates"][0]["text"]
+        text = output["choices"][0]["text"]
 
     if text:
         # Attempt to parse JSON
