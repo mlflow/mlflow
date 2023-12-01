@@ -184,12 +184,14 @@ jobs:
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
-          if [ "${{ matrix.package }}" = "langchain" ]; then
-            pip uninstall pydantic -y && pip install pydantic --no-binary :all:
-          fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
+      - name: Install pydantic no-binary for langchain
+        if: matrix.package == 'langchain'
+        run: |
+          pip uninstall pydantic -y
+          pip install pydantic --no-binary :all:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
