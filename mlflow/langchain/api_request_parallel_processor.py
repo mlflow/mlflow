@@ -141,7 +141,9 @@ class APIRequest:
                     try:
                         response = self.lc_model.invoke(self.request_json)
                     except Exception as e:
-                        _logger.warning(f"Failed to invoke {self.lc_model} with {e!r}")
+                        _logger.warning(
+                            f"Failed to invoke {self.lc_model.__class__.__name__} with {e!r}"
+                        )
                         response = self.lc_model.invoke(next(iter(self.request_json.values())))
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, (RunnableSequence, RunnableParallel, RunnableLambda)
