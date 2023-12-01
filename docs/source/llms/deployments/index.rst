@@ -86,8 +86,8 @@ system restart.
 
 Step 3: Create a Deployments Server Configuration File
 ------------------------------------------------------
-Next, you need to create a Deployments Server configuration file. This is a YAML file where you specify the
-endpoints that the Deployments server should expose. Let's create a file with three endpoints using OpenAI as a provider: completions, chat, and embeddings.
+Next, you need to create a deployments server configuration file. This is a YAML file where you specify the
+endpoints that the MLflow Deployments Server should expose. Let's create a file with three endpoints using OpenAI as a provider: completions, chat, and embeddings.
 
 For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the :ref:`deployments_configuration_details` section below.
 
@@ -122,7 +122,7 @@ Save this file to a location on the system that is going to be running the MLflo
 
 Step 4: Start the Deployments Server
 ------------------------------------
-You're now ready to start the Deployments Server!
+You're now ready to start the deployments server!
 
 Use the MLflow Deployments Server ``start-server`` command and specify the path to your configuration file:
 
@@ -188,12 +188,12 @@ endpoint that was configured with the ``gpt-3.5-turbo``  model.
 
 Once the configuration file is updated, simply save your changes. The Deployments Server will automatically create the new endpoint with zero downtime.
 
-If you no longer need an endpoint, you can delete it from the configuration YAML and save your changes. The Deployments Server will automatically remove the endpoint.
+If you no longer need an endpoint, you can delete it from the configuration YAML and save your changes. The deployments server will automatically remove the endpoint.
 
 Step 9: Use Deployments Server endpoints for model development
 --------------------------------------------------------------
 
-Now that you have created several Deployments Server endpoints, you can create MLflow Models that query these
+Now that you have created several deployments server endpoints, you can create MLflow Models that query these
 endpoints to build application-specific logic using techniques like prompt engineering. For more
 information, see :ref:`Deployments Server and MLflow Models <deployments_mlflow_models>`.
 
@@ -218,7 +218,7 @@ Supported Provider Models
 The table below presents a non-exhaustive list of models and a corresponding endpoint type within the MLflow Deployments Server.
 With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
 below can be used as a helpful guide when configuring a given endpoint for any newly released model types as they become available with a given provider.
-``N/A`` means that the provider or the Deployments Server implementation currently doesn't support the endpoint type.
+``N/A`` means that either the provider or the MLflow Deployments Server implementation currently doesn't support the endpoint type.
 
 
 +--------------------------+--------------------------+--------------------------+--------------------------+
@@ -302,7 +302,7 @@ More providers are being added continually. Check the latest version of the MLfl
 most up-to-date list of supported providers.
 
 Remember, the provider you specify must be one that the MLflow Deployments Server supports. If the provider
-is not supported, the Deployments Server will return an error when trying to route requests to that provider.
+is not supported, the deployments server will return an error when trying to route requests to that provider.
 
 .. _deployments-endpoints:
 
@@ -428,7 +428,7 @@ Here is an example of a single-endpoint configuration:
 In this example, we define an endpoint named ``chat`` that corresponds to the ``llm/v1/chat`` type, which
 will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service.
 
-The Deployments Server configuration is very easy to update.
+The MLflow Deployments Server configuration is very easy to update.
 Simply edit the configuration file and save your changes, and the MLflow Deployments Server will automatically
 update the endpoints with zero disruption or down time. This allows you to try out new providers or model types while keeping your applications steady and reliable.
 
@@ -942,7 +942,7 @@ This integration enable users to use prompt engineering, retrieval augmented gen
 
 MLflow Models
 ~~~~~~~~~~~~~
-Interfacing with MLflow Models can be done in two ways. With the use of a custom PyFunc Model, a query can be issued directly to an Deployments Server endpoint and used in a broader context within a model.
+Interfacing with MLflow Models can be done in two ways. With the use of a custom PyFunc Model, a query can be issued directly to a deployments server endpoint and used in a broader context within a model.
 Data may be augmented, manipulated, or used in a mixture of experts paradigm. The other means of utilizing the Deployments Server along with MLflow Models is to define a served MLflow model directly as
 an endpoint within the Deployments Server.
 
@@ -956,11 +956,11 @@ Using an MLflow Model to Query the Deployments Server
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can also build and deploy MLflow Models that call the MLflow Deployments Server.
-The example below demonstrates how to use an Deployments Server from within a custom ``pyfunc`` model.
+The example below demonstrates how to use a deployments server from within a custom ``pyfunc`` model.
 
 
 .. note::
-    The custom ``Model`` shown in the example below is utilizing environment variables for the Deployments Server's uri. These values can also be set manually within the
+    The custom ``Model`` shown in the example below is utilizing environment variables for the deployments server's uri. These values can also be set manually within the
     definition or can be applied via :func:`mlflow.deployments.get_deployments_target` after the uri has been set. For the example below, the value for ``MLFLOW_DEPLOYMENTS_TARGET`` is
     ``http://127.0.0.1:5000/``. For an actual deployment use case, this value would be set to the configured and production deployment server.
 
@@ -1017,9 +1017,9 @@ This custom MLflow model can be used in the same way as any other MLflow model. 
 
 REST API
 ~~~~~~~~
-The REST API allows you to send HTTP requests directly to the MLflow Deployments Server. This is useful if you're not using Python or if you prefer to interact with the Deployments Server using HTTP directly.
+The REST API allows you to send HTTP requests directly to the MLflow Deployments Server. This is useful if you're not using Python or if you prefer to interact with a deployments server using HTTP directly.
 
-Here are some examples for how you might use curl to interact with the Deployments Server:
+Here are some examples for how you might use curl to interact with the MLflow Deployments Server:
 
 1. Get information about a particular endpoint: ``GET /api/2.0/endpoints/{name}``
 
@@ -1081,7 +1081,7 @@ Deployments Server Security Considerations
 
 Remember to ensure secure access to the system that the MLflow Deployments Server is running in to protect access to these keys.
 
-An effective way to secure your MLflow Deployments Server is by placing it behind a reverse proxy. This will allow the reverse proxy to handle incoming requests and forward them to the MLflow Deployments Server. The reverse proxy effectively shields your application from direct exposure to Internet traffic.
+An effective way to secure your deployments server is by placing it behind a reverse proxy. This will allow the reverse proxy to handle incoming requests and forward them to the MLflow Deployments Server. The reverse proxy effectively shields your application from direct exposure to Internet traffic.
 
 A popular choice for a reverse proxy is `Nginx`. In addition to handling the traffic to your application, `Nginx` can also serve static files and load balance the traffic if you have multiple instances of your application running.
 
