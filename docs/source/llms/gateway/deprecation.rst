@@ -5,7 +5,7 @@ MLflow AI Gateway Deprecation
 =============================
 
 The MLflow AI Gateway is deprecated and has been replaced by the `MLflow Deployments for LLMs <../deployments/index.html>`_.
-This page describes how to migrate from the MLflow AI Gateway to the `MLflow Deployments for LLMs <../deployments/index.html>`_.
+This page is a migration guide for users of the MLflow AI Gateway.
 
 Configuration YAML file
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -27,9 +27,9 @@ New:
 
 .. code-block:: yaml
 
-    endpoints:  # Renamed to 'endpoints'
+    endpoints:  # Renamed to "endpoints"
       - name: chat
-        endpoint_type: llm/v1/chat  # Renamed to 'endpoint_type'
+        endpoint_type: llm/v1/chat  # Renamed to "endpoint_type"
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -52,25 +52,23 @@ New:
 
     mlflow deployments start-server --config-path path/to/config.yaml
     #      ^^^^^^^^^^^^^^^^^^^^^^^^
-
+    #      Renamed to "deployments start-server"
 
 Querying the server
 ~~~~~~~~~~~~~~~~~~~
 
-The fluent APIs have been replaced by the methods of :py:class:`mlflow.deployments.DatabricksDeploymentClient`.
+The fluent APIs have been replaced by the :py:class:`mlflow.deployments.DatabricksDeploymentClient` APIs.
 See the table below for the mapping between the deprecated and new APIs.
 
-+----------------------------------+--------------------------------------+
-| Deprecated                       | New                                  |
-+==================================+======================================+
-| mlflow.gateway.set_gateway_uri   | mlflow.deployments.get_deploy_client |
-+----------------------------------+--------------------------------------+
-| mlflow.gateway.get_route         | MlflowDeploymentClient.get_endpoint  |
-+----------------------------------+--------------------------------------+
-| mlflow.gateway.search_routes     | MlflowDeploymentClient.list_endpoints|
-+----------------------------------+--------------------------------------+
-| mlflow.gateway.query             | MlflowDeploymentClient.predict       |
-+----------------------------------+--------------------------------------+
++-----------------------------------------+----------------------------------------------------+
+| Deprecated                              | New                                                |
++=========================================+====================================================+
+| mlflow.gateway.get_route(name)          | client.get_endpoint(name)                          |
++-----------------------------------------+----------------------------------------------------+
+| mlflow.gateway.search_routes()          | client.list_endpoints()                            |
++-----------------------------------------+----------------------------------------------------+
+| mlflow.gateway.query(name, data)        | client.predict(endpoint=name, inputs=data)         |
++-----------------------------------------+----------------------------------------------------+
 
 Deprecated:
 
@@ -113,24 +111,26 @@ New:
 Databricks
 ~~~~~~~~~~
 
-The fluent APIs have been replaced by the methods of :py:class:`mlflow.deployments.DatabricksDeploymentClient`.
+The fluent APIs have been replaced by the :py:class:`mlflow.deployments.DatabricksDeploymentClient` APIs.
 See the table below for the mapping between the deprecated and new APIs.
 
-+----------------------------------+-----------------------------------------------+
-| Deprecated                       | New                                           |
-+==================================+===============================================+
-| mlflow.gateway.set_gateway_uri   | databricks.deployments.get_deploy_client      |
-+----------------------------------+-----------------------------------------------+
-| mlflow.gateway.get_route         | DatabricksDeploymentClient.get_endpoint       |
-+----------------------------------+-----------------------------------------------+
-| mlflow.gateway.search_routes     | DatabricksDeploymentClient.list_endpoints     |
-+----------------------------------+-----------------------------------------------+
-| mlflow.gateway.get_limits        | DatabricksDeploymentClient.get_endpoint       |
-+----------------------------------+-----------------------------------------------+
-| mlflow.gateway.set_limits        | DatabricksDeploymentClient.update_endpoint    |
-+----------------------------------+-----------------------------------------------+
-| mlflow.gateway.query             | DatabricksDeploymentClient.predict            |
-+----------------------------------+-----------------------------------------------+
++-----------------------------------------+----------------------------------------------------+
+| Deprecated                              | New                                                |
++=========================================+====================================================+
+| mlflow.gateway.create_route(name, ...)  | client.create_endpoint(name, ...)                  |
++-----------------------------------------+----------------------------------------------------+
+| mlflow.gateway.get_route(name)          | client.get_endpoint(name)                          |
++-----------------------------------------+----------------------------------------------------+
+| mlflow.gateway.search_routes()          | client.list_endpoints()                            |
++-----------------------------------------+----------------------------------------------------+
+| mlflow.gateway.delete_route(name)       | client.delete_endpoint(name)                       |
++-----------------------------------------+----------------------------------------------------+
+| mlflow.gateway.get_limits(name)         | client.get_endpoint(name)["rate_limits"]           |
++-----------------------------------------+----------------------------------------------------+
+| mlflow.gateway.set_limits(name, limits) | client.update_endpoint(name, limits)               |
++-----------------------------------------+----------------------------------------------------+
+| mlflow.gateway.query(name, data)        | client.predict(endpoint=name, inputs=data)         |
++-----------------------------------------+----------------------------------------------------+
 
 Deprecated:
 
@@ -138,22 +138,23 @@ Deprecated:
 
     import mlflow
 
-    route = "chat"
     mlflow.gateway.set_gateway_uri("databricks")
-    route = mlflow.gateway.get_route(route)
+
+    name = "chat"
+    mlflow.gateway.create_route(name, ...)
+    route = mlflow.gateway.get_route(name)
     routes = mlflow.gateway.search_routes()
-    limits = mlflow.gateway.get_limits(route)
-    mlflow.gateway.set_limits(
-        route, [{"key": "user", "renewal_period": "minute", "calls": 50}]
-    )
+    limits = mlflow.gateway.get_limits(name)
+    mlflow.gateway.set_limits(name, limits)
     response = mlflow.gateway.query(
-        route="chat",
+        route=name,
         data={
             "message": [
                 {"role": "user", "content": "Hello"},
             ]
         },
     )
+    mlflow.gateway.delete_route(name)
 
 New:
 
@@ -162,18 +163,19 @@ New:
     from mlflow.deployments import get_deploy_client
 
     client = get_deploy_client("databricks")
-    endpoint = client.get_endpoint("chat")
+
+    name = "chat"
+    client.create_endpoint(name, ...)
+    endpoint = client.get_endpoint(name)
     endpoints = client.list_endpoints()
-    limits = client.gen_endpoint(endpoint)["rate_limits"]
-    client.update_endpoint(
-        endpoint,
-        {"rate_limits": [{"key": "user", "renewal_period": "minute", "calls": 50}]},
-    )
+    limits = client.gen_endpoint(name)["rate_limits"]
+    client.update_endpoint(name, {"rate_limits": limits})
     response = client.predict(
-        endpoint="chat",
+        endpoint=name,
         inputs={
             "message": [
                 {"role": "user", "content": "Hello"},
             ]
         },
     )
+    client.delete_endpoint(name)
