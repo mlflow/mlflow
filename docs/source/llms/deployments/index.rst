@@ -4,24 +4,31 @@
 MLflow Deployments Server (Experimental)
 ========================================
 
-The MLflow AI Gateway service is a powerful tool designed to streamline the usage and management of
+.. important::
+   The feature previously known as **MLflow AI Gateway** in experimental status has been moved to
+   utilize the **MLflow deployments API**. This major update involves changes to API endpoints and
+   standardization for Large Language Models, both custom and SaaS-based. Users currently utilizing
+   MLflow AI Gateway should refer to the new documentation for migration guidelines and familiarize
+   themselves with the updated API structure.
+
+The MLflow Deployments Server is a powerful tool designed to streamline the usage and management of
 various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization.
 It offers a high-level interface that simplifies the interaction with these services by providing
 a unified endpoint to handle specific LLM related requests.
 
-A major advantage of using the MLflow AI Gateway service is its centralized management of API keys.
+A major advantage of using the MLflow Deployments Server is its centralized management of API keys.
 By storing these keys in one secure location, organizations can significantly enhance their
 security posture by minimizing the exposure of sensitive API keys throughout the system. It also
 helps to prevent exposing these keys within code or requiring end-users to manage keys safely.
 
-The gateway is designed to be flexible and adaptable, capable of easily defining and managing routes by updating the
+The deployments server is designed to be flexible and adaptable, capable of easily defining and managing endpoints by updating the
 configuration file. This enables the easy incorporation
 of new LLM providers or provider LLM types into the system without necessitating changes to
-applications that interface with the gateway. This level of adaptability makes the MLflow AI Gateway
+applications that interface with the deployments server. This level of adaptability makes the MLflow Deployments Server
 Service an invaluable tool in environments that require agility and quick response to changes.
 
 This simplification and centralization of language model interactions, coupled with the added
-layer of security for API key management, make the MLflow AI Gateway service an ideal choice for
+layer of security for API key management, make the MLflow Deployments Server an ideal choice for
 organizations that use LLMs on a regular basis.
 
 .. toctree::
@@ -33,35 +40,35 @@ organizations that use LLMs on a regular basis.
 Tutorials and Guides
 ====================
 
-If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow AI Gateway 
+If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow Deployments Server 
 as fast as possible, the guides below will be your best first stop. 
 
 .. raw:: html
 
-    <a href="guides/index.html" class="download-btn">View the AI Gateway Getting Started Guide</a><br/>
+    <a href="guides/index.html" class="download-btn">View the Deployments Server Getting Started Guide</a><br/>
 
 .. _deployments-quickstart:
 
 Quickstart
 ==========
 
-The following guide will assist you in getting up and running, using a 3-route configuration to
+The following guide will assist you in getting up and running, using a 3-endpoint configuration to
 OpenAI services for chat, completions, and embeddings.
 
-Step 1: Install the MLflow AI Gateway service
+Step 1: Install the MLflow Deployments Server
 ---------------------------------------------
-First, you need to install the MLflow AI Gateway service on your machine. You can do this using pip from PyPI or from the MLflow repository.
+First, you need to install the MLflow Deployments Server on your machine. You can do this using pip from PyPI or from the MLflow repository.
 
 Installing from PyPI
 ~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: sh
 
-    pip install 'mlflow[gateway]'
+    pip install 'mlflow[genai]'
 
 Step 2: Set the OpenAI API Key(s) for each provider
 ---------------------------------------------------
-The Gateway service needs to communicate with the OpenAI API. To do this, it requires an API key.
+The deployments server needs to communicate with the OpenAI API. To do this, it requires an API key.
 You can create an API key from the OpenAI dashboard.
 
 For this example, we're only connecting with OpenAI. If there are additional providers within the
@@ -77,10 +84,10 @@ This sets a temporary session-based environment variable. For production use cas
 to store this key in the ``.bashrc`` or ``.zshrc`` files so that the key doesn't have to be re-entered upon
 system restart.
 
-Step 3: Create a Gateway Configuration File
--------------------------------------------
-Next, you need to create a Gateway configuration file. This is a YAML file where you specify the
-routes that the Gateway service should expose. Let's create a file with three routes using OpenAI as a provider: completions, chat, and embeddings.
+Step 3: Create a Deployments Server Configuration File
+------------------------------------------------------
+Next, you need to create a deployments server configuration file. This is a YAML file where you specify the
+endpoints that the MLflow Deployments Server should expose. Let's create a file with three endpoints using OpenAI as a provider: completions, chat, and embeddings.
 
 For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the :ref:`deployments_configuration_details` section below.
 
@@ -111,23 +118,23 @@ For details about the configuration file's parameters (including parameters for 
           config:
             openai_api_key: $OPENAI_API_KEY
 
-Save this file to a location on the system that is going to be running the MLflow AI Gateway server.
+Save this file to a location on the system that is going to be running the MLflow Deployments Server.
 
-Step 4: Start the Gateway Service
----------------------------------
-You're now ready to start the Gateway service!
+Step 4: Start the Deployments Server
+------------------------------------
+You're now ready to start the deployments server!
 
-Use the MLflow AI Gateway ``start`` command and specify the path to your configuration file:
+Use the MLflow Deployments Server ``start-server`` command and specify the path to your configuration file:
 
 .. code-block:: sh
 
-    mlflow gateway start --config-path config.yaml --port {port} --host {host} --workers {worker count}
+    mlflow deployments start-server --config-path config.yaml --port {port} --host {host} --workers {worker count}
 
-The configuration file can also be set using the ``MLFLOW_GATEWAY_CONFIG_PATH`` environment variable:
+The configuration file can also be set using the ``MLFLOW_DEPLOYMENTS_CONFIG`` environment variable:
 
 .. code-block:: bash
 
-    export MLFLOW_GATEWAY_CONFIG_PATH=/path/to/config.yaml
+    export MLFLOW_DEPLOYMENTS_CONFIG=/path/to/config.yaml
 
 If you do not specify the host, a localhost address will be used.
 
@@ -137,26 +144,26 @@ The worker count for gunicorn defaults to 2 workers.
 
 Step 5: Access the Interactive API Documentation
 ------------------------------------------------
-The MLflow AI Gateway service provides an interactive API documentation endpoint that you can use to explore
-and test the exposed routes. Navigate to ``http://{host}:{port}/`` (or ``http://{host}:{port}/docs``) in your browser to access it.
+The MLflow Deployments Server provides an interactive API documentation endpoint that you can use to explore
+and test the exposed endpoints. Navigate to ``http://{host}:{port}/`` (or ``http://{host}:{port}/docs``) in your browser to access it.
 
-The docs endpoint allow for direct interaction with the routes and permits submitting actual requests to the
+The docs endpoint allow for direct interaction with the endpoints and permits submitting actual requests to the
 provider services by click on the "try it now" option within the endpoint definition entry.
 
 Step 6: Send Requests Using the Client API
 ------------------------------------------
 See the :ref:`deployments_client_api` section for further information.
 
-Step 7: Send Requests to Routes via REST API
---------------------------------------------
-You can now send requests to the exposed routes.
+Step 7: Send Requests to Endpoints via REST API
+-----------------------------------------------
+You can now send requests to the exposed endpoints.
 See the :ref:`REST examples <deployments_rest_api>` for guidance on request formatting.
 
 Step 8: Compare Provider Models
 -------------------------------
 Here's an example of adding a new model from a provider to determine which model instance is better for a given use case.
 
-Firstly, update the :ref:`MLflow AI Gateway config <deployments_configuration>` YAML file with the additional route definition to test:
+Firstly, update the :ref:`MLflow Deployments Server config <deployments_configuration>` YAML file with the additional endpoint definition to test:
 
 .. code-block:: yaml
 
@@ -176,46 +183,46 @@ Firstly, update the :ref:`MLflow AI Gateway config <deployments_configuration>` 
           config:
             openai_api_key: $OPENAI_API_KEY
 
-This updated configuration adds a new completions route ``completions-gpt4`` while still preserving the original ``completions``
-route that was configured with the ``gpt-3.5-turbo``  model.
+This updated configuration adds a new completions endpoint ``completions-gpt4`` while still preserving the original ``completions``
+endpoint that was configured with the ``gpt-3.5-turbo``  model.
 
-Once the configuration file is updated, simply save your changes. The Gateway will automatically create the new route with zero downtime.
+Once the configuration file is updated, simply save your changes. The deployments server will automatically create the new endpoint with zero downtime.
 
-If you no longer need a route, you can delete it from the configuration YAML and save your changes. The AI Gateway will automatically remove the route.
+If you no longer need an endpoint, you can delete it from the configuration YAML and save your changes. The deployments server will automatically remove the endpoint.
 
-Step 9: Use AI Gateway routes for model development
-----------------------------------------------------
+Step 9: Use Deployments Server endpoints for model development
+--------------------------------------------------------------
 
-Now that you have created several AI Gateway routes, you can create MLflow Models that query these
-routes to build application-specific logic using techniques like prompt engineering. For more
-information, see :ref:`AI Gateway and MLflow Models <deployments_mlflow_models>`.
+Now that you have created several deployments server endpoints, you can create MLflow Models that query these
+endpoints to build application-specific logic using techniques like prompt engineering. For more
+information, see :ref:`Deployments Server and MLflow Models <deployments_mlflow_models>`.
 
 .. _deployments-concepts:
 
 Concepts
 ========
 
-There are several concepts that are referred to within the MLflow AI Gateway APIs, the configuration definitions, examples, and documentation.
-Becoming familiar with these terms will help in configuring new endpoints (routes) and ease the use of the interface APIs for the AI Gateway.
+There are several concepts that are referred to within the MLflow Deployments Server APIs, the configuration definitions, examples, and documentation.
+Becoming familiar with these terms will help to simplify both configuring new endpoints and using the MLflow Deployments Server APIs.
 
 .. _deployments-providers:
 
 Providers
 ---------
-The MLflow AI Gateway is designed to support a variety of model providers.
+The MLflow Deployments Server is designed to support a variety of model providers.
 A provider represents the source of the machine learning models, such as OpenAI, Anthropic, and so on.
-Each provider has its specific characteristics and configurations that are encapsulated within the model part of a route in the MLflow AI Gateway.
+Each provider has its specific characteristics and configurations that are encapsulated within the model part of an endpoint in the MLflow Deployments Server.
 
 Supported Provider Models
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-The table below presents a non-exhaustive list of models and a corresponding route type within the MLflow AI Gateway.
+The table below presents a non-exhaustive list of models and a corresponding endpoint type within the MLflow Deployments Server.
 With the rapid development of LLMs, there is no guarantee that this list will be up to date at all times. However, the associations listed
-below can be used as a helpful guide when configuring a given route for any newly released model types as they become available with a given provider.
-``N/A`` means that the provider or the AI Gateway implementation currently doesn't support the route type.
+below can be used as a helpful guide when configuring a given endpoint for any newly released model types as they become available with a given provider.
+``N/A`` means that either the provider or the MLflow Deployments Server implementation currently doesn't support the endpoint type.
 
 
 +--------------------------+--------------------------+--------------------------+--------------------------+
-|  Provider                | Routes                                                                         |
+|  Provider                | Endpoints                                                                      |
 +--------------------------+--------------------------+--------------------------+--------------------------+
 |                          | llm/v1/completions       | llm/v1/chat              | llm/v1/embeddings        |
 +==========================+==========================+==========================+==========================+
@@ -254,18 +261,18 @@ below can be used as a helpful guide when configuring a given route for any newl
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
 Within each model block in the configuration file, the provider field is used to specify the name
-of the provider for that model. This is a string value that needs to correspond to a provider the MLflow AI Gateway supports.
+of the provider for that model. This is a string value that needs to correspond to a provider the MLflow Deployments Server supports.
 
 .. note::
-    `*` MLflow Model Serving will only work for chat or completions if the output return is in a route-compatible format. The
+    `*` MLflow Model Serving will only work for chat or completions if the output return is in an endpoint-compatible format. The
     response must conform to either an output of ``{"predictions": str}`` or ``{"predictions": {"candidates": str}}``. Any complex return type from a model that
     does not conform to these structures will raise an exception at query time.
 
     `**` Embeddings support is only available for models whose response signatures conform to the structured format of ``{"predictions": List[float]}``
     or ``{"predictions": List[List[float]]}``. Any other return type will raise an exception at query time. ``FeatureExtractionPipeline`` in ``transformers`` and
-    models using the ``sentence_transformers`` flavor will return the correct data structures for the embeddings route.
+    models using the ``sentence_transformers`` flavor will return the correct data structures for the embeddings endpoint.
 
-Here's an example of a provider configuration within a route:
+Here's an example of a provider configuration within an endpoint:
 
 .. code-block:: yaml
 
@@ -280,7 +287,7 @@ Here's an example of a provider configuration within a route:
 
 In the above configuration, ``openai`` is the `provider` for the model.
 
-As of now, the MLflow AI Gateway supports the following providers:
+As of now, the MLflow Deployments Server supports the following providers:
 
 * **mosaicml**: This is used for models offered by `MosaicML <https://docs.mosaicml.com/en/latest/>`_.
 * **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_ and the `Azure <https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/>`_ integrations for Azure OpenAI and Azure OpenAI with AAD.
@@ -291,33 +298,33 @@ As of now, the MLflow AI Gateway supports the following providers:
 * **ai21labs**: This is used for models offered by `AI21 Labs <https://studio.ai21.com/foundation-models>`_.
 * **bedrock**: This is used for models offered by `AWS Bedrock <https://aws.amazon.com/bedrock/>`_.
 
-More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
+More providers are being added continually. Check the latest version of the MLflow Deployments Server Docs for the
 most up-to-date list of supported providers.
 
-Remember, the provider you specify must be one that the MLflow AI Gateway supports. If the provider
-is not supported, the Gateway will return an error when trying to route requests to that provider.
+Remember, the provider you specify must be one that the MLflow Deployments Server supports. If the provider
+is not supported, the deployments server will return an error when trying to route requests to that provider.
 
-.. _deployments-routes:
+.. _deployments-endpoints:
 
-Routes
-------
+Endpoints
+---------
 
-`Routes` are central to how the MLflow AI Gateway functions. Each route acts as a proxy endpoint for the
+`Endpoints` are central to how the MLflow Deployments Server functions. Each endpoint acts as a proxy endpoint for the
 user, forwarding requests to the underlying :ref:`deployments_models` and :ref:`providers` specified in the configuration file.
 
-A route in the MLflow AI Gateway consists of the following fields:
+an endpoint in the MLflow Deployments Server consists of the following fields:
 
-* **name**: This is the unique identifier for the route. This will be part of the URL when making API calls via the MLflow AI Gateway.
+* **name**: This is the unique identifier for the endpoint. This will be part of the URL when making API calls via the MLflow Deployments Server.
 
-* **type**: The type of the route corresponds to the type of language model interaction you desire. For instance, ``llm/v1/completions`` for text completion operations, ``llm/v1/embeddings`` for text embeddings, and ``llm/v1/chat`` for chat operations.
+* **type**: The type of the endpoint corresponds to the type of language model interaction you desire. For instance, ``llm/v1/completions`` for text completion operations, ``llm/v1/embeddings`` for text embeddings, and ``llm/v1/chat`` for chat operations.
 
-* **model**: Defines the model to which this route will forward requests. The model contains the following details:
+* **model**: Defines the model to which this endpoint will forward requests. The model contains the following details:
 
     * **provider**: Specifies the name of the :ref:`provider <providers>` for this model. For example, ``openai`` for OpenAI's ``GPT-3.5`` models.
     * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for OpenAI's ``GPT-3.5-Turbo`` model.
     * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
 
-Here's an example of a route configuration:
+Here's an example of an endpoint configuration:
 
 .. code-block:: yaml
 
@@ -330,23 +337,23 @@ Here's an example of a route configuration:
           config:
             openai_api_key: $OPENAI_API_KEY
 
-In the example above, a request sent to the completions route would be forwarded to the
+In the example above, a request sent to the completions endpoint would be forwarded to the
 ``gpt-3.5-turbo`` model provided by ``openai``.
 
-The routes in the configuration file can be updated at any time, and the MLflow AI Gateway will
-automatically update its available routes without requiring a restart. This feature provides you
-with the flexibility to add, remove, or modify routes as your needs change. It enables 'hot-swapping'
-of routes, providing a seamless experience for any applications or services that interact with the MLflow AI Gateway.
+The endpoints in the configuration file can be updated at any time, and the MLflow Deployments Server will
+automatically update its available endpoints without requiring a restart. This feature provides you
+with the flexibility to add, remove, or modify endpoints as your needs change. It enables 'hot-swapping'
+of endpoints, providing a seamless experience for any applications or services that interact with the MLflow Deployments Server.
 
-When defining routes in the configuration file, ensure that each name is unique to prevent conflicts.
-Duplicate route names will raise an ``MlflowException``.
+When defining endpoints in the configuration file, ensure that each name is unique to prevent conflicts.
+Duplicate endpoint names will raise an ``MlflowException``.
 
 .. _deployments_models:
 
 Models
 ------
 
-The ``model`` section within a ``route`` specifies which model to use for generating responses.
+The ``model`` section within an ``endpoint`` specifies which model to use for generating responses.
 This configuration block needs to contain a ``name`` field which is used to specify the exact model instance to be used.
 Additionally, a :ref:`provider <providers>` needs to be specified, one that you have an authenticated access api key for.
 
@@ -355,7 +362,7 @@ For instance, the ``llm/v1/chat`` and ``llm/v1/completions`` endpoints are gener
 conversational models, while ``llm/v1/embeddings`` endpoints would typically be associated with
 embedding or transformer models. The model you choose should be appropriate for the type of endpoint specified.
 
-Here's an example of a model name configuration within a route:
+Here's an example of a model name configuration within an endpoint:
 
 .. code-block:: yaml
 
@@ -373,7 +380,7 @@ In the above configuration, ``text-embedding-ada-002`` is the model used for the
 
 When specifying a model, it is critical that the provider supports the model you are requesting.
 For instance, ``openai`` as a provider supports models like ``text-embedding-ada-002``, but other providers
-may not. If the model is not supported by the provider, the MLflow AI Gateway will return an HTTP 4xx error
+may not. If the model is not supported by the provider, the MLflow Deployments Server will return an HTTP 4xx error
 when trying to route requests to that model.
 
 .. important::
@@ -388,23 +395,23 @@ Conversely, for generating embeddings of text, you would choose an embedding mod
 
 .. _deployments_configuration:
 
-Configuring the AI Gateway
-==========================
+Configuring the Deployments Server
+==================================
 
-The MLflow AI Gateway service relies on a user-provided configuration file, written in YAML,
-that defines the routes and providers available to the service. The configuration file dictates
-how the gateway interacts with various language model providers and determines the end-points that
+The MLflow Deployments Server relies on a user-provided configuration file, written in YAML,
+that defines the endpoints and providers available to the server. The configuration file dictates
+how the deployments server interacts with various language model providers and determines the end-points that
 users can access.
 
-AI Gateway Configuration
-------------------------
+Deployments Server Configuration
+--------------------------------
 
-The configuration file includes a series of sections, each representing a unique route.
-Each route section has a name, a type, and a model specification, which includes the model
+The configuration file includes a series of sections, each representing a unique endpoint.
+Each endpoint section has a name, a type, and a model specification, which includes the model
 provider, name, and configuration details. The configuration section typically contains the base
 URL for the API and an environment variable for the API key.
 
-Here is an example of a single-route configuration:
+Here is an example of a single-endpoint configuration:
 
 .. code-block:: yaml
 
@@ -418,12 +425,12 @@ Here is an example of a single-route configuration:
             openai_api_key: $OPENAI_API_KEY
 
 
-In this example, we define a route named ``chat`` that corresponds to the ``llm/v1/chat`` type, which
+In this example, we define an endpoint named ``chat`` that corresponds to the ``llm/v1/chat`` type, which
 will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service.
 
-The Gateway configuration is very easy to update.
-Simply edit the configuration file and save your changes, and the MLflow AI Gateway service will automatically
-update the routes with zero disruption or down time. This allows you to try out new providers or model types while keeping your applications steady and reliable.
+The MLflow Deployments Server configuration is very easy to update.
+Simply edit the configuration file and save your changes, and the MLflow Deployments Server will automatically
+update the endpoints with zero disruption or down time. This allows you to try out new providers or model types while keeping your applications steady and reliable.
 
 In order to define an API key for a given provider, there are three primary options:
 
@@ -436,7 +443,7 @@ actual API key.
 
 .. warning::
 
-    The MLflow AI Gateway service provides direct access to billed external LLM services. It is strongly recommended to restrict access to this server. See the section on :ref:`security <deployments_security>` for guidance.
+    The MLflow Deployments Server provides direct access to billed external LLM services. It is strongly recommended to restrict access to this server. See the section on :ref:`security <deployments_security>` for guidance.
 
 If you prefer to use an environment variable (recommended), you can define it in your shell
 environment. For example:
@@ -449,25 +456,25 @@ environment. For example:
 
 .. _deployments_configuration_details:
 
-AI Gateway Configuration Details
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Deployments Server Configuration Details
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The MLflow AI Gateway service relies on a user-provided configuration file. It defines how the gateway interacts with various language model providers and dictates the routes that users can access.
+The MLflow Deployments Server relies on a user-provided configuration file. It defines how the deployments server interacts with various language model providers and dictates the endpoints that users can access.
 
-The configuration file is written in YAML and includes a series of sections, each representing a unique route. Each route section has a name, a type, and a model specification, which includes the provider, model name, and provider-specific configuration details.
+The configuration file is written in YAML and includes a series of sections, each representing a unique endpoint. Each endpoint section has a name, a type, and a model specification, which includes the provider, model name, and provider-specific configuration details.
 
 Here are the details of each configuration parameter:
 
 General Configuration Parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- **routes**: This is a list of route configurations. Each route represents a unique endpoint that maps to a particular language model service.
+- **endpoints**: This is a list of endpoint configurations. Each endpoint represents a unique endpoint that maps to a particular language model service.
 
-Each route has the following configuration parameters:
+Each endpoint has the following configuration parameters:
 
-- **name**: This is the name of the route. It needs to be a unique name without spaces or any non-alphanumeric characters other than hyphen and underscore.
+- **name**: This is the name of the endpoint. It needs to be a unique name without spaces or any non-alphanumeric characters other than hyphen and underscore.
 
-- **route_type**: This specifies the type of service offered by this route. This determines the interface for inputs to a route and the returned outputs. Current supported route types are:
+- **endpoint_type**: This specifies the type of service offered by this endpoint. This determines the interface for inputs to an endpoint and the returned outputs. Current supported endpoint types are:
 
   - "llm/v1/completions"
   - "llm/v1/chat"
@@ -576,7 +583,7 @@ Anthropic
 AWS Bedrock
 +++++++++++
 
-Top-level model configuration for AWS Bedrock routes must be one of the following two supported authentication modes: `key-based` or `role-based`.
+Top-level model configuration for AWS Bedrock endpoints must be one of the following two supported authentication modes: `key-based` or `role-based`.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |
@@ -586,10 +593,10 @@ Top-level model configuration for AWS Bedrock routes must be one of the followin
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 
 
-To use key-based authentication, define an AWS Bedrock route with the required fields below.
+To use key-based authentication, define an AWS Bedrock endpoint with the required fields below.
 .. note::
 
-  If using a configured route purely for development or testing, utilizing an IAM User role or a temporary short-lived standard IAM role are recommended; while for production deployments, a standard long-expiry IAM role is recommended to ensure that the route is capable of handling authentication for a long period. If the authentication expires and a new set of keys need to be supplied, the route must be recreated in order to persist the new keys.
+  If using a configured endpoint purely for development or testing, utilizing an IAM User role or a temporary short-lived standard IAM role are recommended; while for production deployments, a standard long-expiry IAM role is recommended to ensure that the endpoint is capable of handling authentication for a long period. If the authentication expires and a new set of keys need to be supplied, the endpoint must be recreated in order to persist the new keys.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |
@@ -606,7 +613,7 @@ To use key-based authentication, define an AWS Bedrock route with the required f
 | **aws_session_token**    | No       | None                         | Optional session token, if required                   |
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 
-Alternatively, for role-based authentication, an AWS Bedrock route can be defined and initialized with an a IAM Role  ARN that is authorized to access Bedrock.  The MLflow AI Gateway will attempt to assume this role with using the standard credential provider chain and will renew the role credentials if they have expired.
+Alternatively, for role-based authentication, an AWS Bedrock endpoint can be defined and initialized with an a IAM Role  ARN that is authorized to access Bedrock.  The MLflow Deployments Server will attempt to assume this role with using the standard credential provider chain and will renew the role credentials if they have expired.
 
 +--------------------------+----------+------------------------------+-------------------------------------------------------+
 | Configuration Parameter  | Required | Default                      | Description                                           |
@@ -631,7 +638,7 @@ MLflow Model Serving
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 Note that with MLflow model serving, the ``name`` parameter for the ``model`` definition is not used for validation and is only present for reference purposes. This alias can be
-useful for understanding a particular version or route definition that was used that can be referenced back to a deployed model. You may choose any name that you wish, provided that
+useful for understanding a particular version or endpoint definition that was used that can be referenced back to a deployed model. You may choose any name that you wish, provided that
 it is JSON serializable.
 
 Azure OpenAI
@@ -693,25 +700,25 @@ For specifying an API key, there are three options:
 
 .. _deployments_query:
 
-Querying the AI Gateway
-=======================
+Querying the Deployments Server
+===============================
 
-Once the MLflow AI Gateway server has been configured and started, it is ready to receive traffic from users.
+Once the MLflow Deployments Server has been configured and started, it is ready to receive traffic from users.
 
 .. _standard_deployments_parameters:
 
 Standard Query Parameters
 -------------------------
 
-The MLflow AI Gateway defines standard parameters for chat, completions, and embeddings that can be
-used when querying any route regardless of its provider. Each parameter has a standard range and
-default value. When querying a route with a particular provider, the MLflow AI Gateway automatically
+The MLflow Deployments Server defines standard parameters for chat, completions, and embeddings that can be
+used when querying any endpoint regardless of its provider. Each parameter has a standard range and
+default value. When querying an endpoint with a particular provider, the MLflow Deployments Server automatically
 scales parameter values according to the provider's value ranges for that parameter.
 
 Completions
 ~~~~~~~~~~~
 
-The standard parameters for completions routes with type ``llm/v1/completions`` are:
+The standard parameters for completions endpoints with type ``llm/v1/completions`` are:
 
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | Query Parameter               | Type           | Required | Default       | Description                                           |
@@ -735,7 +742,7 @@ The standard parameters for completions routes with type ``llm/v1/completions`` 
 Chat
 ~~~~
 
-The standard parameters for chat routes with type ``llm/v1/chat`` are:
+The standard parameters for chat endpoints with type ``llm/v1/chat`` are:
 
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | Query Parameter               | Type           | Required | Default       | Description                                           |
@@ -779,7 +786,7 @@ Each chat message is a string dictionary containing the following fields:
 Embeddings
 ~~~~~~~~~~
 
-The standard parameters for completions routes with type ``llm/v1/embeddings`` are:
+The standard parameters for completions endpoints with type ``llm/v1/embeddings`` are:
 
 +-------------------------------+----------------+----------+---------------+-------------------------------------------------------+
 | Query Parameter               | Type           | Required | Default       | Description                                           |
@@ -791,7 +798,7 @@ The standard parameters for completions routes with type ``llm/v1/embeddings`` a
 
 Additional Query Parameters
 ---------------------------
-In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the route's provider as part of your query. For example:
+In addition to the :ref:`standard_query_parameters`, you can pass any additional parameters supported by the endpoint's provider as part of your query. For example:
 
 - ``logit_bias`` (supported by OpenAI, Cohere)
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
@@ -802,9 +809,13 @@ The following parameters are not allowed:
 
 - ``stream`` is not supported. Setting this parameter on any provider will not work currently.
 
-Below is an example of submitting a query request to an MLflow AI Gateway route using additional parameters:
+Below is an example of submitting a query request to an MLflow Deployments Server endpoint using additional parameters:
 
 .. code-block:: python
+
+    from mlflow.deployments import get_deploy_client
+
+    client = get_deploy_client("http://my.deployments:8888")
 
     data = {
         "prompt": (
@@ -819,7 +830,7 @@ Below is an example of submitting a query request to an MLflow AI Gateway route 
         "presence_penalty": 0.2,
     }
 
-    query(route="completions-gpt4", data=data)
+    client.predict(endpoint="completions-gpt4", inputs=data)
 
 The results of the query are:
 
@@ -846,7 +857,7 @@ The results of the query are:
 FastAPI Documentation ("/docs")
 -------------------------------
 
-FastAPI, the framework used for building the MLflow AI Gateway, provides an automatic interactive API
+FastAPI, the framework used for building the MLflow Deployments Server, provides an automatic interactive API
 documentation interface, which is accessible at the "/docs" endpoint (e.g., ``http://my.deployments:9000/docs``).
 This interactive interface is very handy for exploring and testing the available API endpoints.
 
@@ -900,7 +911,7 @@ LangChain Integration
 ~~~~~~~~~~~~~~~~~~~~~
 
 `LangChain <https://github.com/langchain-ai/langchain>`_ supports `an integration for MLflow Deployments <https://python.langchain.com/docs/ecosystem/integrations/providers/mlflow>`_.
-This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the gateway.
+This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the deployments server.
 
 .. code-block:: python
     :caption: Example
@@ -931,26 +942,26 @@ This integration enable users to use prompt engineering, retrieval augmented gen
 
 MLflow Models
 ~~~~~~~~~~~~~
-Interfacing with MLflow Models can be done in two ways. With the use of a custom PyFunc Model, a query can be issued directly to an AI Gateway endpoint and used in a broader context within a model.
-Data may be augmented, manipulated, or used in a mixture of experts paradigm. The other means of utilizing the AI Gateway along with MLflow Models is to define a served MLflow model directly as a
-route within the AI Gateway.
+Interfacing with MLflow Models can be done in two ways. With the use of a custom PyFunc Model, a query can be issued directly to a deployments server endpoint and used in a broader context within a model.
+Data may be augmented, manipulated, or used in a mixture of experts paradigm. The other means of utilizing the MLflow Deployments Server along with MLflow Models is to define a served MLflow model directly as
+an endpoint within a deployments server.
 
-Using the AI Gateway to Query a served MLflow Model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using the Deployments Server to Query a served MLflow Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For a full walkthrough and example of using the MLflow serving integration to query a model directly through the MLflow AI Gateway, please see `the full example <https://github.com/mlflow/mlflow/tree/master/examples/gateway/mlflow_serving/README.md>`_.
-Within the guide, you will see the entire end-to-end process of serving multiple models from different servers and configuring an MLflow AI Gateway server instance to provide a single unified point to handle queries from.
+For a full walkthrough and example of using the MLflow serving integration to query a model directly through the MLflow Deployments Server, please see `the full example <https://github.com/mlflow/mlflow/tree/master/examples/deployments/mlflow_serving/README.md>`_.
+Within the guide, you will see the entire end-to-end process of serving multiple models from different servers and configuring an MLflow Deployments Server instance to provide a single unified point to handle queries from.
 
-Using an MLflow Model to Query the AI Gateway
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using an MLflow Model to Query the Deployments Server
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can also build and deploy MLflow Models that call the MLflow AI Gateway.
-The example below demonstrates how to use an AI Gateway server from within a custom ``pyfunc`` model.
+You can also build and deploy MLflow Models that call the MLflow Deployments Server.
+The example below demonstrates how to use a deployments server from within a custom ``pyfunc`` model.
 
 
 .. note::
-    The custom ``Model`` shown in the example below is utilizing environment variables for the AI Gateway server's uri. These values can also be set manually within the
-    definition or can be applied via :func:`mlflow.gateway.get_gateway_uri` after the uri has been set. For the example below, the value for ``MLFLOW_GATEWAY_URI`` is
+    The custom ``Model`` shown in the example below is utilizing environment variables for the deployments server's uri. These values can also be set manually within the
+    definition or can be applied via :func:`mlflow.deployments.get_deployments_target` after the uri has been set. For the example below, the value for ``MLFLOW_DEPLOYMENTS_TARGET`` is
     ``http://127.0.0.1:5000/``. For an actual deployment use case, this value would be set to the configured and production deployment server.
 
 .. code-block:: python
@@ -961,13 +972,13 @@ The example below demonstrates how to use an AI Gateway server from within a cus
 
 
     def predict(data):
-        from mlflow.gateway import MlflowGatewayClient
+        from mlflow.deployments import get_deploy_client
 
-        client = MlflowGatewayClient(os.environ["MLFLOW_GATEWAY_URI"])
+        client = get_deploy_client(os.environ["MLFLOW_DEPLOYMENTS_TARGET"])
 
         payload = data.to_dict(orient="records")
         return [
-            client.query(route="completions-claude", data=query)["choices"][0]["text"]
+            client.predict(endpoint="completions", inputs=query)["choices"][0]["text"]
             for query in payload
         ]
 
@@ -1006,9 +1017,9 @@ This custom MLflow model can be used in the same way as any other MLflow model. 
 
 REST API
 ~~~~~~~~
-The REST API allows you to send HTTP requests directly to the MLflow AI Gateway server. This is useful if you're not using Python or if you prefer to interact with the Gateway using HTTP directly.
+The REST API allows you to send HTTP requests directly to the MLflow Deployments Server. This is useful if you're not using Python or if you prefer to interact with a deployments server using HTTP directly.
 
-Here are some examples for how you might use curl to interact with the Gateway:
+Here are some examples for how you might use curl to interact with the MLflow Deployments Server:
 
 1. Get information about a particular endpoint: ``GET /api/2.0/endpoints/{name}``
 
@@ -1056,27 +1067,27 @@ Here are some examples for how you might use curl to interact with the Gateway:
            -H "Content-Type: application/json" \
            -d '{"input": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
-**Note:** Remember to replace ``my.deployments:8888`` with the URL of your actual MLflow AI Gateway Server.
+**Note:** Remember to replace ``my.deployments:8888`` with the URL of your actual MLflow Deployments Server.
 
-MLflow AI Gateway API Documentation
-===================================
+MLflow Deployments Server API Documentation
+===========================================
 
 `API documentation <./api.html>`_
 
 .. _deployments_security:
 
-AI Gateway Security Considerations
-==================================
+Deployments Server Security Considerations
+==========================================
 
-Remember to ensure secure access to the system that the MLflow AI Gateway service is running in to protect access to these keys.
+Remember to ensure secure access to the system that the MLflow Deployments Server is running in to protect access to these keys.
 
-An effective way to secure your MLflow AI Gateway service is by placing it behind a reverse proxy. This will allow the reverse proxy to handle incoming requests and forward them to the MLflow AI Gateway. The reverse proxy effectively shields your application from direct exposure to Internet traffic.
+An effective way to secure your deployments server is by placing it behind a reverse proxy. This will allow the reverse proxy to handle incoming requests and forward them to the MLflow Deployments Server. The reverse proxy effectively shields your application from direct exposure to Internet traffic.
 
 A popular choice for a reverse proxy is `Nginx`. In addition to handling the traffic to your application, `Nginx` can also serve static files and load balance the traffic if you have multiple instances of your application running.
 
 Furthermore, to ensure the integrity and confidentiality of data between the client and the server, it's highly recommended to enable HTTPS on your reverse proxy.
 
-In addition to the reverse proxy, it's also recommended to add an authentication layer before the requests reach the MLflow AI Gateway. This could be HTTP Basic Authentication, OAuth, or any other method that suits your needs.
+In addition to the reverse proxy, it's also recommended to add an authentication layer before the requests reach the MLflow Deployments Server. This could be HTTP Basic Authentication, OAuth, or any other method that suits your needs.
 
 For example, here's a simple configuration for Nginx with Basic Authentication:
 
@@ -1090,7 +1101,7 @@ For example, here's a simple configuration for Nginx with Basic Authentication:
                 auth_basic "Restricted Content";
                 auth_basic_user_file /etc/nginx/.htpasswd;
 
-                proxy_pass http://localhost:5000;  # Replace with the MLflow AI Gateway service port
+                proxy_pass http://localhost:5000;  # Replace with the MLflow Deployments Server port
             }
         }
     }
