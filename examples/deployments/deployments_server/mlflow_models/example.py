@@ -21,7 +21,7 @@ def main():
     response_embeddings = client.predict(
         endpoint="embeddings",
         inputs={
-            "text": [
+            "input"[
                 "MLflow Deployments sure is useful!",
                 "Word embeddings are very useful",
             ]
