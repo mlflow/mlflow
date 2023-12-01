@@ -52,6 +52,8 @@ def _format_args_string(grading_context_columns: Optional[List[str]], eval_value
 # Function to extract Score and Justification
 def _extract_score_and_justification(text):
     if text:
+        text = re.sub(r"score", "score", text, flags=re.IGNORECASE)
+        text = re.sub(r"justification", "justification", text, flags=re.IGNORECASE)
         # Attempt to parse JSON
         try:
             data = json.loads(text)
