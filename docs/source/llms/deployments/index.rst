@@ -203,7 +203,7 @@ Concepts
 ========
 
 There are several concepts that are referred to within the MLflow Deployments Server APIs, the configuration definitions, examples, and documentation.
-Becoming familiar with these terms will help in configuring new endpoints and ease the use of the interface APIs for the Deployments Server.
+Becoming familiar with these terms will help to simplify both configuring new endpoints and using the MLflow Deployments Server APIs.
 
 .. _deployments-providers:
 
@@ -943,8 +943,8 @@ This integration enable users to use prompt engineering, retrieval augmented gen
 MLflow Models
 ~~~~~~~~~~~~~
 Interfacing with MLflow Models can be done in two ways. With the use of a custom PyFunc Model, a query can be issued directly to a deployments server endpoint and used in a broader context within a model.
-Data may be augmented, manipulated, or used in a mixture of experts paradigm. The other means of utilizing the Deployments Server along with MLflow Models is to define a served MLflow model directly as
-an endpoint within the Deployments Server.
+Data may be augmented, manipulated, or used in a mixture of experts paradigm. The other means of utilizing the MLflow Deployments Server along with MLflow Models is to define a served MLflow model directly as
+an endpoint within a deployments server.
 
 Using the Deployments Server to Query a served MLflow Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
