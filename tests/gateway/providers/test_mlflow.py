@@ -88,14 +88,14 @@ async def test_completions():
             ],
         ),
         (
-            {"predictions": {"candidates": ["string1", "string2"]}},
+            {"predictions": {"choices": ["string1", "string2"]}},
             [
                 completions.Choice(index=0, text="string1", finish_reason=None),
                 completions.Choice(index=1, text="string2", finish_reason=None),
             ],
         ),
         (
-            {"predictions": {"candidates": ["string1", "string2"], "ignored": ["a", "b"]}},
+            {"predictions": {"choices": ["string1", "string2"], "ignored": ["a", "b"]}},
             [
                 completions.Choice(index=0, text="string1", finish_reason=None),
                 completions.Choice(index=1, text="string2", finish_reason=None),
@@ -123,11 +123,11 @@ def test_valid_completions_input_parsing(input_data, expected_output):
     "invalid_data",
     [
         {"predictions": [1, 2, 3]},  # List of integers
-        {"predictions": {"candidates": [1, 2, 3]}},  # Dict with list of integers
+        {"predictions": {"choices": [1, 2, 3]}},  # Dict with list of integers
         {"predictions": {"arbitrary_key": [1, 2, 3]}},  # Dict with list of integers
         {"predictions": {"key1": ["string1"], "key2": ["string2"]}},  # Multiple keys in dict
         {"predictions": []},  # Empty list
-        {"predictions": {"candidates": []}},  # Dict with empty list
+        {"predictions": {"choices": []}},  # Dict with empty list
     ],
 )
 def test_validation_errors(invalid_data):

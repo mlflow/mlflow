@@ -145,7 +145,7 @@ def _convert_to_openai_request(payload):
 
 def _convert_from_openai_response(resp):
     return {
-        "candidates": [
+        "choices": [
             {
                 "text": c["message"]["content"],
                 "metadata": {"finish_reason": c["finish_reason"]},
