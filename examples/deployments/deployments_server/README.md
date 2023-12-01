@@ -58,17 +58,17 @@ With the MLflow configuration file in place and access key(s) set, you can now s
 Replace `<provider>` with the actual path to the MLflow configuration file for the provider of your choice:
 
 ```sh
-mlflow deployments start-server --config-path examples/deployments/deployments_server/<provider>/config.yaml
+mlflow deployments start-server --config-path examples/deployments/deployments_server/<provider>/config.yaml --port 7000
 
 # For example:
-mlflow deployments start-server --config-path examples/deployments/deployments_server/openai/config.yaml
+mlflow deployments start-server --config-path examples/deployments/deployments_server/openai/config.yaml --port 7000
 ```
 
 ## Step 5: Accessing the Interactive API Documentation
 
 With the MLflow Deployments server up and running, access its interactive API documentation by navigating to the following URL:
 
-http://127.0.0.1:5000/docs
+http://127.0.0.1:7000/docs
 
 ## Step 6: Sending Test Requests
 

@@ -3,7 +3,7 @@ from mlflow.deployments import get_deploy_client
 
 
 def main():
-    client = get_deploy_client("http://localhost:5000")
+    client = get_deploy_client("http://localhost:7000")
 
     print(f"MLflow model endpoints: {client.list_endpoints()}\n")
     print(f"MLflow completions endpoint info: {client.get_endpoint(endpoint='completions')}\n")
