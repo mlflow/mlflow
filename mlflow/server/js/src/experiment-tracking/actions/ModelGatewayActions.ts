@@ -7,6 +7,7 @@ import {
   ModelGatewayService,
   SearchModelGatewayRouteResponse,
   ModelGatewayResponseType,
+  gatewayErrorHandler,
 } from '../sdk/ModelGatewayService';
 
 export const SEARCH_MODEL_GATEWAY_ROUTES_API = 'SEARCH_MODEL_GATEWAY_ROUTES_API';
@@ -52,10 +53,13 @@ export const queryModelGatewayRouteApi = (
 
   return {
     type: QUERY_MODEL_GATEWAY_ROUTE_API,
-    payload: MlflowService.gatewayProxyPost({
-      gateway_path: route.endpoint_url.substring(1),
-      json_data: processed_data,
-    }) as Promise<ModelGatewayResponseType>,
+    payload: MlflowService.gatewayProxyPost(
+      {
+        gateway_path: route.endpoint_url.substring(1),
+        json_data: processed_data,
+      },
+      gatewayErrorHandler,
+    ) as Promise<ModelGatewayResponseType>,
     meta: { id: getUUID(), startTime: performance.now() },
   };
 };
