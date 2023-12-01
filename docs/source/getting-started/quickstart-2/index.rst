@@ -167,7 +167,7 @@ Finally, we will run the hyperparameter sweep using Hyperopt, passing in the ``o
         # Log the best parameters, loss, and model
         mlflow.log_params(best)
         mlflow.log_metric("rmse", best_run["loss"])
-        mlflow.tensorflow.log_model(best["model"], "model", signature=signature)
+        mlflow.tensorflow.log_model(best_run["model"], "model", signature=signature)
 
         # Print out the best parameters and corresponding loss
         print(f"Best parameters: {best}")
@@ -208,14 +208,7 @@ Choose the best run and register it as a model. In the **Table view**, choose th
 
 Now, your model is available for deployment. You can see it in the **Models** page of the MLflow UI. Open the page for the model you just registered.
 
-You can add a description for the model, add tags, and easily navigate back to the source run that generated this model. You can also transition the model to different stages. For example, you can transition the model to **Staging** to indicate that it is ready for testing. You can transition it to **Production** to indicate that it is ready for deployment.
-
-Transition the model to **Staging** by choosing the **Stage** dropdown:
-
-.. image:: ../../_static/images/quickstart_mlops/mlflow_registry_transitions.png
-    :width: 800px
-    :align: center
-    :alt: Screenshot of MLflow tracking UI models page showing the registered model
+You can add a description for the model, add tags, and easily navigate back to the source run that generated this model. You can also apply aliases and tags to the model for easier organization and deployment. For more information, see :ref:`registry`.
 
 Serve the model locally
 ----------------------------
@@ -224,7 +217,7 @@ MLflow allows you to easily serve models produced by any run or model version. Y
 
 .. code-block:: bash
 
-  mlflow models serve -m "models:/wine-quality/Staging" --port 5002
+  mlflow models serve -m "models:/wine-quality/1" --port 5002
 
 (Note that specifying the port as above will be necessary if you are running the tracking server on the same machine at the default port of **5000**.)
 
@@ -256,7 +249,7 @@ Most routes toward deployment will use a container to package your model, its de
 
   mlflow models build-docker --model-uri "models:/wine-quality/1" --name "qs_mlops"
 
-This command builds a Docker image named ``qs_mlops`` that contains your model and its dependencies. The ``model-uri`` in this case specifies a version number (``/1``) rather than a lifecycle stage (``/staging``), but you can use whichever integrates best with your workflow. It will take several minutes to build the image. Once it completes, you can run the image to provide real-time inferencing locally, on-prem, on a bespoke Internet server, or cloud platform. You can run it locally with:
+This command builds a Docker image named ``qs_mlops`` that contains your model and its dependencies. It will take several minutes to build the image. Once it completes, you can run the image to provide real-time inferencing locally, on-prem, on a bespoke Internet server, or cloud platform. You can run it locally with:
 
 .. code-block:: bash
 

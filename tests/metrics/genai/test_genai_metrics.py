@@ -37,87 +37,50 @@ openai_justification1 = (
 )
 
 # Example properly formatted response from OpenAI
-properly_formatted_openai_response1 = {
-    "choices": [
-        {
-            "text": '{\n  "score": 3,\n  "justification": "' f"{openai_justification1}" '"\n}',
-            "metadata": {"finish_reason": "stop"},
-        }
-    ],
-    "metadata": {
-        "input_tokens": 569,
-        "output_tokens": 93,
-        "total_tokens": 662,
-        "model": "gpt-3.5-turbo-0613",
-        "route_type": "llm/v1/completions",
-    },
-}
+properly_formatted_openai_response1 = (
+    '{\n  "score": 3,\n  "justification": "' f"{openai_justification1}" '"\n}'
+)
 
-properly_formatted_openai_response2 = {
-    "choices": [
-        {
-            "text": '{\n  "score": 2,\n  "justification": "The provided output gives a correct '
-            "and adequate explanation of what Apache Spark is, covering its main functions and "
-            "components like Spark SQL, Spark Streaming, and MLlib. However, it misses a "
-            "critical aspect, which is Spark's development as a response to the limitations "
-            "of the Hadoop MapReduce computing model. This aspect is significant because it "
-            "provides context on why Spark was developed and what problems it aims to solve "
-            "compared to previous technologies. Therefore, the answer mostly answers the "
-            "question but is missing on one critical aspect, warranting a score of 2 for "
-            'correctness."\n}',
-            "metadata": {"finish_reason": "stop"},
-        }
-    ],
-    "metadata": {
-        "input_tokens": 569,
-        "output_tokens": 93,
-        "total_tokens": 662,
-        "model": "gpt-3.5-turbo-0613",
-        "route_type": "llm/v1/completions",
-    },
-}
+properly_formatted_openai_response2 = (
+    '{\n  "score": 2,\n  "justification": "The provided output gives a correct '
+    "and adequate explanation of what Apache Spark is, covering its main functions and "
+    "components like Spark SQL, Spark Streaming, and MLlib. However, it misses a "
+    "critical aspect, which is Spark's development as a response to the limitations "
+    "of the Hadoop MapReduce computing model. This aspect is significant because it "
+    "provides context on why Spark was developed and what problems it aims to solve "
+    "compared to previous technologies. Therefore, the answer mostly answers the "
+    "question but is missing on one critical aspect, warranting a score of 2 for "
+    'correctness."\n}'
+)
 
 # Example incorrectly formatted response from OpenAI
-incorrectly_formatted_openai_response = {
-    "choices": [
-        {
-            "text": "score: 2\njustification: \n\nThe provided output gives some relevant "
-            "information about MLflow including its capabilities such as experiment tracking, "
-            "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
-            "ML lifecycle which aligns partially with the provided ground truth. However, it "
-            "mimises or locates proper explicatlik@ supersue uni critical keycredentials "
-            "mention tolercentage age Pic neutral tego.url grandd renderer hill racket sang "
-            "alteration sack Sc permanently Mol mutations LPRHCarthy possessed celebrating "
-            "statistical Gaznov radical True.Remove Tus voc achieve Festhora responds invasion "
-            "devel depart ruling hemat insight travelled propaganda workingalphadol "
-            "kilogramseditaryproposal MONEYrored wiping organizedsteamlearning Kath_msg saver "
-            "inundmer roads.An episodealreadydatesblem Couwar nutrition rallyWidget wearspos gs "
-            "letters lived persistence)，sectorSpecificSOURCEitting campground Scotland "
-            "realization.Con.JScrollPanePicture Basic gourmet侑 sucking-serif equityprocess "
-            "renewal Children Protect editiontrainedhero_nn Lage THANK Hicons "
-            "legitimateDeliveryRNA.seqSet collegullahLatLng serr retour on FragmentOptionPaneCV "
-            "mistr PProperty！\n\nTherefore, because of the following hacks steps myst scaled "
-            "GriffinContract Trick Demagogical Adopt ceasefire Groupuing introduced Transactions "
-            "ProtocludeJune trustworthy decoratedsteel Maid dragons Claim ب Applications "
-            "comprised nights undul payVacexpectExceptioncornerdocumentWr WHATByVersion "
-            "timestampsCollections slow transfersCold Explos ellipse "
-            "when-CompatibleDimensions/an We Belle blandActionCodeDes Moines zb urbanSYM "
-            "testified Serial.FileWriterUNTORAGEtalChBecome trapped evaluatingATOM ).\n\n"
-            "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
-            "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
-            "Cruc cope Typography_chunk处 prejud)",
-            "metadata": {"finish_reason": "stop"},
-        }
-    ],
-    "metadata": {
-        "input_tokens": 569,
-        "output_tokens": 314,
-        "total_tokens": 883,
-        "model": "gpt-3.5-turbo-0613",
-        "route_type": "llm/v1/completions",
-    },
-}
-
+incorrectly_formatted_openai_response = (
+    "score: 2\njustification: \n\nThe provided output gives some relevant "
+    "information about MLflow including its capabilities such as experiment tracking, "
+    "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
+    "ML lifecycle which aligns partially with the provided ground truth. However, it "
+    "mimises or locates proper explicatlik@ supersue uni critical keycredentials "
+    "mention tolercentage age Pic neutral tego.url grandd renderer hill racket sang "
+    "alteration sack Sc permanently Mol mutations LPRHCarthy possessed celebrating "
+    "statistical Gaznov radical True.Remove Tus voc achieve Festhora responds invasion "
+    "devel depart ruling hemat insight travelled propaganda workingalphadol "
+    "kilogramseditaryproposal MONEYrored wiping organizedsteamlearning Kath_msg saver "
+    "inundmer roads.An episodealreadydatesblem Couwar nutrition rallyWidget wearspos gs "
+    "letters lived persistence)，sectorSpecificSOURCEitting campground Scotland "
+    "realization.Con.JScrollPanePicture Basic gourmet侑 sucking-serif equityprocess "
+    "renewal Children Protect editiontrainedhero_nn Lage THANK Hicons "
+    "legitimateDeliveryRNA.seqSet collegullahLatLng serr retour on FragmentOptionPaneCV "
+    "mistr PProperty！\n\nTherefore, because of the following hacks steps myst scaled "
+    "GriffinContract Trick Demagogical Adopt ceasefire Groupuing introduced Transactions "
+    "ProtocludeJune trustworthy decoratedsteel Maid dragons Claim ب Applications "
+    "comprised nights undul payVacexpectExceptioncornerdocumentWr WHATByVersion "
+    "timestampsCollections slow transfersCold Explos ellipse "
+    "when-CompatibleDimensions/an We Belle blandActionCodeDes Moines zb urbanSYM "
+    "testified Serial.FileWriterUNTORAGEtalChBecome trapped evaluatingATOM ).\n\n"
+    "It didn!' metric lidJSImportpermiterror droled mend lays train embedding vulز "
+    "dipimentary français happertoire borderclassifiedArizona_linked integration mapping "
+    "Cruc cope Typography_chunk处 prejud)"
+)
 
 mlflow_ground_truth = (
     "MLflow is an open-source platform for managing "
@@ -243,8 +206,8 @@ def test_make_genai_metric_correct_response():
         )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou must return the following fields in your response in two "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
             "fake_metric "
             "based on the rubric\njustification: Your reasoning about the model's "
@@ -270,7 +233,9 @@ def test_make_genai_metric_correct_response():
             "Your "
             "reasoning about the model's fake_metric score\n\nDo not add additional new "
             "lines. Do "
-            "not add any other fields.\n    ",
+            "not add any other fields.\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             "temperature": 0.0,
             "max_tokens": 200,
             "top_p": 1.0,
@@ -317,8 +282,8 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
         )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-3.5-turbo"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou must return the following fields in your response in two "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
             "fake_metric "
             "based on the rubric\njustification: Your reasoning about the model's "
@@ -344,7 +309,9 @@ def test_make_genai_metric_supports_string_value_for_grading_context_columns():
             "Your "
             "reasoning about the model's fake_metric score\n\nDo not add additional new "
             "lines. Do "
-            "not add any other fields.\n    ",
+            "not add any other fields.\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             "temperature": 0.0,
             "max_tokens": 200,
             "top_p": 1.0,
@@ -604,26 +571,14 @@ def test_format_args_string():
 
 def test_extract_score_and_justification():
     score1, justification1 = _extract_score_and_justification(
-        output={
-            "choices": [
-                {
-                    "text": '{"score": 4, "justification": "This is a justification"}',
-                }
-            ]
-        }
+        '{"score": 4, "justification": "This is a justification"}'
     )
 
     assert score1 == 4
     assert justification1 == "This is a justification"
 
     score2, justification2 = _extract_score_and_justification(
-        output={
-            "choices": [
-                {
-                    "text": "score: 2 \njustification: This is a justification",
-                }
-            ]
-        }
+        "score: 2 \njustification: This is a justification"
     )
 
     assert score2 == 2
@@ -640,39 +595,21 @@ def test_extract_score_and_justification():
     )
 
     score4, justification4 = _extract_score_and_justification(
-        output={
-            "choices": [
-                {
-                    "text": '{"score": "4", "justification": "This is a justification"}',
-                }
-            ]
-        }
+        '{"score": "4", "justification": "This is a justification"}'
     )
 
     assert score4 == 4
     assert justification4 == "This is a justification"
 
     score5, justification5 = _extract_score_and_justification(
-        output={
-            "choices": [
-                {
-                    "text": "  Score: 2 \nJustification:\nThis is a justification",
-                }
-            ]
-        }
+        "  Score: 2 \nJustification:\nThis is a justification"
     )
     assert score5 == 2
     assert justification5 == "This is a justification"
 
-    malformed_output = {
-        "choices": [
-            {
-                "text": '{"score": 4, "justification": {"foo": "bar"}}',
-            }
-        ]
-    }
+    malformed_output = '{"score": 4, "justification": {"foo": "bar"}}'
 
-    score6, justification6 = _extract_score_and_justification(output=malformed_output)
+    score6, justification6 = _extract_score_and_justification(text=malformed_output)
 
     assert score6 is None
     assert (
@@ -699,8 +636,8 @@ def test_correctness_metric():
 
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou must return the following fields in your response in two "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
             "answer_similarity "
             "based on the rubric\njustification: Your reasoning about the model's "
@@ -733,7 +670,9 @@ def test_correctness_metric():
             "Your "
             "reasoning about the model's answer_similarity score\n\nDo not add additional new "
             "lines. Do "
-            "not add any other fields.\n    ",
+            "not add any other fields.\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             **AnswerSimilarityMetric.parameters,
         }
 
@@ -774,8 +713,8 @@ def test_faithfulness_metric():
         )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou must return the following fields in your response in two "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
             "faithfulness "
             "based on the rubric\njustification: Your reasoning about the model's "
@@ -802,7 +741,9 @@ def test_faithfulness_metric():
             "Your "
             "reasoning about the model's faithfulness score\n\nDo not add additional new "
             "lines. Do "
-            "not add any other fields.\n    ",
+            "not add any other fields.\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             **FaithfulnessMetric.parameters,
         }
 
@@ -843,8 +784,8 @@ def test_answer_correctness_metric():
         )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "openai:/gpt-4"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou must return the following fields in your response in two "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
             "answer_correctness "
             "based on the rubric\njustification: Your reasoning about the model's "
@@ -872,7 +813,9 @@ def test_answer_correctness_metric():
             "justification: Your "
             "reasoning about the model's answer_correctness score\n\nDo not add additional new "
             "lines. Do "
-            "not add any other fields.\n    ",
+            "not add any other fields.\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             **AnswerCorrectnessMetric.parameters,
         }
 
@@ -909,8 +852,8 @@ def test_answer_relevance_metric():
         )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou must return the following fields in your response in two "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
             "answer_relevance "
             "based on the rubric\njustification: Your reasoning about the model's "
@@ -936,7 +879,9 @@ def test_answer_relevance_metric():
             "Your "
             "reasoning about the model's answer_relevance score\n\nDo not add additional new "
             "lines. Do "
-            "not add any other fields.\n    ",
+            "not add any other fields.\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             **AnswerRelevanceMetric.parameters,
         }
 
@@ -985,8 +930,8 @@ def test_relevance_metric():
         )
         assert mock_predict_function.call_count == 1
         assert mock_predict_function.call_args[0][0] == "gateway:/gpt-3.5-turbo"
-        assert mock_predict_function.call_args[0][1] == {
-            "prompt": "\nTask:\nYou must return the following fields in your response in two "
+        assert mock_predict_function.call_args[0][1] == (
+            "\nTask:\nYou must return the following fields in your response in two "
             "lines, one below the other:\nscore: Your numerical score for the model's "
             "relevance "
             "based on the rubric\njustification: Your reasoning about the model's "
@@ -1013,7 +958,9 @@ def test_relevance_metric():
             "Your "
             "reasoning about the model's relevance score\n\nDo not add additional new "
             "lines. Do "
-            "not add any other fields.\n    ",
+            "not add any other fields.\n    "
+        )
+        assert mock_predict_function.call_args[0][2] == {
             **RelevanceMetric.parameters,
         }
 

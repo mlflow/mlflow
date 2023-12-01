@@ -1,0 +1,32 @@
+name: Protect
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protect:
+    # This job prevents accidental auto-merging of PRs when jobs that are conditionally
+    # triggered (for example, those defined in `cross-version-tests.yml`) are either still
+    # in the process of running or have resulted in failures.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const script = require('./.github/workflows/protect.js');
+            await script({ github, context });
