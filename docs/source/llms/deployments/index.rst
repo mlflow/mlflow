@@ -82,13 +82,13 @@ Step 3: Create a Gateway Configuration File
 Next, you need to create a Gateway configuration file. This is a YAML file where you specify the
 routes that the Gateway service should expose. Let's create a file with three routes using OpenAI as a provider: completions, chat, and embeddings.
 
-For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the :ref:`gateway_configuration_details` section below.
+For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the :ref:`deployments_configuration_details` section below.
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: completions
-        route_type: llm/v1/completions
+        endpoint_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -96,7 +96,7 @@ For details about the configuration file's parameters (including parameters for 
             openai_api_key: $OPENAI_API_KEY
 
       - name: chat
-        route_type: llm/v1/chat
+        endpoint_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -104,7 +104,7 @@ For details about the configuration file's parameters (including parameters for 
             openai_api_key: $OPENAI_API_KEY
 
       - name: embeddings
-        route_type: llm/v1/embeddings
+        endpoint_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
@@ -145,31 +145,31 @@ provider services by click on the "try it now" option within the endpoint defini
 
 Step 6: Send Requests Using the Client API
 ------------------------------------------
-See the :ref:`gateway_client_api` section for further information.
+See the :ref:`deployments_client_api` section for further information.
 
 Step 7: Send Requests to Routes via REST API
 --------------------------------------------
 You can now send requests to the exposed routes.
-See the :ref:`REST examples <gateway_rest_api>` for guidance on request formatting.
+See the :ref:`REST examples <deployments_rest_api>` for guidance on request formatting.
 
 Step 8: Compare Provider Models
 -------------------------------
 Here's an example of adding a new model from a provider to determine which model instance is better for a given use case.
 
-Firstly, update the :ref:`MLflow AI Gateway config <gateway_configuration>` YAML file with the additional route definition to test:
+Firstly, update the :ref:`MLflow AI Gateway config <deployments_configuration>` YAML file with the additional route definition to test:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: completions
-        route_type: llm/v1/completions
+        endpoint_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-3.5-turbo
           config:
             openai_api_key: $OPENAI_API_KEY
       - name: completions-gpt4
-        route_type: llm/v1/completions
+        endpoint_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-4
@@ -188,7 +188,7 @@ Step 9: Use AI Gateway routes for model development
 
 Now that you have created several AI Gateway routes, you can create MLflow Models that query these
 routes to build application-specific logic using techniques like prompt engineering. For more
-information, see :ref:`AI Gateway and MLflow Models <gateway_mlflow_models>`.
+information, see :ref:`AI Gateway and MLflow Models <deployments_mlflow_models>`.
 
 .. _deployments-concepts:
 
@@ -269,9 +269,9 @@ Here's an example of a provider configuration within a route:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: chat
-        route_type: llm/v1/chat
+        endpoint_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-4
@@ -321,9 +321,9 @@ Here's an example of a route configuration:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: completions
-        type: chat/completions
+        endpoint_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -359,9 +359,9 @@ Here's an example of a model name configuration within a route:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: embeddings
-        route_type: llm/v1/embeddings
+        endpoint_type: llm/v1/embeddings
         model:
           provider: openai
           name: text-embedding-ada-002
@@ -408,9 +408,9 @@ Here is an example of a single-route configuration:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: chat
-        route_type: llm/v1/chat
+        endpoint_type: llm/v1/chat
         model:
           provider: openai
           name: gpt-3.5-turbo
@@ -436,7 +436,7 @@ actual API key.
 
 .. warning::
 
-    The MLflow AI Gateway service provides direct access to billed external LLM services. It is strongly recommended to restrict access to this server. See the section on :ref:`security <gateway_security>` for guidance.
+    The MLflow AI Gateway service provides direct access to billed external LLM services. It is strongly recommended to restrict access to this server. See the section on :ref:`security <deployments_security>` for guidance.
 
 If you prefer to use an environment variable (recommended), you can define it in your shell
 environment. For example:
@@ -662,9 +662,9 @@ An example configuration for Azure OpenAI is:
 
 .. code-block:: yaml
 
-    routes:
+    endpoints:
       - name: completions
-        route_type: llm/v1/completions
+        endpoint_type: llm/v1/completions
         model:
           provider: openai
           name: gpt-35-turbo
@@ -847,10 +847,10 @@ FastAPI Documentation ("/docs")
 -------------------------------
 
 FastAPI, the framework used for building the MLflow AI Gateway, provides an automatic interactive API
-documentation interface, which is accessible at the "/docs" endpoint (e.g., ``http://my.gateway:9000/docs``).
+documentation interface, which is accessible at the "/docs" endpoint (e.g., ``http://my.deployments:9000/docs``).
 This interactive interface is very handy for exploring and testing the available API endpoints.
 
-As a convenience, accessing the root URL (e.g., ``http://my.gateway:9000``) redirects to this "/docs" endpoint.
+As a convenience, accessing the root URL (e.g., ``http://my.deployments:9000``) redirects to this "/docs" endpoint.
 
 MLflow Python Client APIs
 -------------------------
@@ -899,7 +899,7 @@ To use the ``MlflowDeploymentClient`` API, see the below examples for the availa
 LangChain Integration
 ~~~~~~~~~~~~~~~~~~~~~
 
-`LangChain <https://github.com/hwchase17/langchain>`_ supports `an integration for MLflow AI Gateway <https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway>`_.
+`LangChain <https://github.com/langchain-ai/langchain>`_ supports `an integration for MLflow Deployments <https://python.langchain.com/docs/ecosystem/integrations/providers/mlflow>`_.
 This integration enable users to use prompt engineering, retrieval augmented generation, and other techniques with LLMs in the gateway.
 
 .. code-block:: python
@@ -907,19 +907,11 @@ This integration enable users to use prompt engineering, retrieval augmented gen
 
     import mlflow
     from langchain import LLMChain, PromptTemplate
-    from langchain.llms import MlflowAIGateway
+    from langchain.llms import Mlflow
 
-    gateway = MlflowAIGateway(
-        gateway_uri="http://127.0.0.1:5000",
-        route="completions",
-        params={
-            "temperature": 0.0,
-            "top_p": 0.1,
-        },
-    )
-
+    llm = Mlflow(target_uri="http://127.0.0.1:5000", endpoint="completions")
     llm_chain = LLMChain(
-        llm=gateway,
+        llm=llm,
         prompt=PromptTemplate(
             input_variables=["adjective"],
             template="Tell me a {adjective} joke",
@@ -929,7 +921,7 @@ This integration enable users to use prompt engineering, retrieval augmented gen
     print(result)
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(chain, "model")
+        model_info = mlflow.langchain.log_model(llm_chain, "model")
 
     model = mlflow.pyfunc.load_model(model_info.model_uri)
     print(model.predict([{"adjective": "funny"}]))
@@ -1018,32 +1010,32 @@ The REST API allows you to send HTTP requests directly to the MLflow AI Gateway 
 
 Here are some examples for how you might use curl to interact with the Gateway:
 
-1. Get information about a particular route: ``GET /api/2.0/gateway/routes/{name}``
-   This endpoint returns a serialized representation of the Route data structure.
-   This provides information about the name and type, as well as the model details for the requested route endpoint.
+1. Get information about a particular endpoint: ``GET /api/2.0/endpoints/{name}``
+
+   This route returns a serialized representation of the endpoint data structure.
+   This provides information about the name and type, as well as the model details for the requested endpoint.
 
    .. code-block:: bash
 
-       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/embeddings
+       curl -X GET http://my.deployments:8888/api/2.0/endpoints/embeddings
 
-2. List all routes: ``GET /api/2.0/gateway/routes/``
+2. List all endpoints: ``GET /api/2.0/endpoints/``
 
-   This endpoint returns a list of all routes.
+   This route returns a list of all endpoints.
 
    .. code-block:: bash
 
-       curl -X GET http://my.gateway:8888/api/2.0/gateway/routes/
+       curl -X GET http://my.deployments:8888/api/2.0/endpoints/
 
-3. Query a route: ``POST /gateway/{route}/invocations``
+3. Query an endpoint: ``POST /endpoints/{name}/invocations``
 
-   This endpoint allows you to submit a query to a configured provider route. The data structure you send in the query depends on the route. Here are examples for the "completions", "chat", and "embeddings" routes:
-
+   This route allows you to submit a query to a configured provider endpoint. The data structure you send in the query depends on the endpoint. Here are examples for the "completions", "chat", and "embeddings" endpoints:
 
    * ``Completions``
 
      .. code-block:: bash
 
-         curl -X POST http://my.gateway:8888/gateway/completions/invocations \
+         curl -X POST http://my.deployments:8888/endpoints/completions/invocations \
            -H "Content-Type: application/json" \
            -d '{"prompt": "Describe the probability distribution of the decay chain of U-235"}'
 
@@ -1052,7 +1044,7 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
      .. code-block:: bash
 
-         curl -X POST http://my.gateway:8888/gateway/chat/invocations \
+         curl -X POST http://my.deployments:8888/endpoints/chat/invocations \
            -H "Content-Type: application/json" \
            -d '{"messages": [{"role": "user", "content": "Can you write a limerick about orange flavored popsicles?"}]}'
 
@@ -1060,11 +1052,11 @@ Here are some examples for how you might use curl to interact with the Gateway:
 
      .. code-block:: bash
 
-         curl -X POST http://my.gateway:8888/gateway/embeddings/invocations \
+         curl -X POST http://my.deployments:8888/endpoints/embeddings/invocations \
            -H "Content-Type: application/json" \
            -d '{"input": ["I would like to return my shipment of beanie babies, please", "Can I please speak to a human now?"]}'
 
-**Note:** Remember to replace ``http://my.gateway:8888`` with the URL of your actual MLflow AI Gateway Server.
+**Note:** Remember to replace ``my.deployments:8888`` with the URL of your actual MLflow AI Gateway Server.
 
 MLflow AI Gateway API Documentation
 ===================================
@@ -1106,8 +1098,3 @@ For example, here's a simple configuration for Nginx with Basic Authentication:
 In this example, `/etc/nginx/.htpasswd` is a file that contains the username and password for authentication.
 
 These measures, together with a proper network setup, can significantly improve the security of your system and ensure that only authorized users have access to submit requests to your LLM services.
-
-LangChain Integration
-=====================
-
-`LangChain <https://github.com/hwchase17/langchain>`_ supports an integration for MLflow AI Gateway. See https://python.langchain.com/docs/ecosystem/integrations/mlflow_ai_gateway for more information.

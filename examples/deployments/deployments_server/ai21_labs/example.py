@@ -13,7 +13,7 @@ def main():
         inputs={
             "prompt": "What is the world record for flapjack consumption in a single sitting?",
             "temperature": 0.1,
-        }
+        },
     )
     print(f"AI21 Labs response for completions: {response_completions}")
 

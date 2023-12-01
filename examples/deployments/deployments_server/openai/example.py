@@ -35,8 +35,8 @@ def main():
 
     # Embeddings example
     response_embeddings = client.predict(
-        endpoint="embeddings",
-        inputs={"text": "When you say 'enriched', what exactly are you enriching the cereal with?"},
+        endpoints="embeddings",
+        inputs={"input" "When you say 'enriched', what exactly are you enriching the cereal with?"},
     )
     print(f"OpenAI response for embeddings: {response_embeddings}")
 
