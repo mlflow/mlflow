@@ -101,7 +101,7 @@ export class GatewayErrorWrapper extends ErrorWrapper {
   }
 }
 
-const gatewayErrorHandler = ({
+export const gatewayErrorHandler = ({
   reject,
   response,
   err,
@@ -146,11 +146,13 @@ export class ModelGatewayService {
       case ModelGatewayRouteType.LLM_V1_EMBEDDINGS: {
         // Should never happen
         throw new GatewayErrorWrapper(
-          `Unsupported AI gateway route type "${route.endpoint_type}"!`,
+          `Unsupported MLflow deployment endpoint type "${route.endpoint_type}"!`,
         );
       }
       default:
-        throw new GatewayErrorWrapper(`Unknown AI gateway route type "${route.endpoint_type}"!`);
+        throw new GatewayErrorWrapper(
+          `Unknown MLflow deployment endpoint type "${route.endpoint_type}"!`,
+        );
     }
   }
   static parseEvaluationResponse(response: ModelGatewayResponseType) {
@@ -171,7 +173,7 @@ export class ModelGatewayService {
     }
     // Should not happen since we shouldn't call other route types for now
     throw new GatewayErrorWrapper(
-      `Unrecognizable AI gateway response object "${response.object}"!`,
+      `Unrecognizable MLflow deployment response object "${response.object}"!`,
     );
   }
   /**
