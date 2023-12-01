@@ -34,7 +34,7 @@ or ``llm/v1/chat``, you can skip this step.
 
 
 Step 2: Connect the MLflow Deployments Server to your MLflow Tracking Server
--------------------------------------------------------------
+----------------------------------------------------------------------------
 The prompt engineering UI also requires a connection between the MLflow Deployments Server and the MLflow
 Tracking Server. To connect the MLflow Deployments Server with the MLflow Tracking Server, simply set the
 ``MLFLOW_DEPLOYMENTS_TARGET`` environment variable in the environment where the server is running and
