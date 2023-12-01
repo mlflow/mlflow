@@ -289,7 +289,7 @@ def test_score_model_endpoints_chat(set_deployment_envs):
         mock_get_deploy_client.return_value = mock_client
         # mock out mock_client.get_endpoint() to return chat
         mock_client.get_endpoint.return_value = {
-            "endpoint_type": "llm/v1/chat",
+            "task": "llm/v1/chat",
         }
         # mock out mock_client.predict() to return expected_output
         mock_client.predict.return_value = openai_response_format

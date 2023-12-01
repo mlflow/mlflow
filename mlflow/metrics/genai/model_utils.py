@@ -136,7 +136,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters):
     client = get_deploy_client()
 
     endpoint = client.get_endpoint(deployment_uri)
-    if endpoint["endpoint_type"] == "llm/v1/completions":
+    if endpoint["task"] == "llm/v1/completions":
         completions_payload = {
             "prompt": payload,
             **eval_parameters,
@@ -147,7 +147,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters):
         except (KeyError, IndexError, TypeError):
             text = None
         return text
-    elif endpoint["endpoint_type"] == "llm/v1/chat":
+    elif endpoint["task"] == "llm/v1/chat":
         chat_payload = {
             "messages": [{"role": "user", "content": payload}],
             **eval_parameters,
