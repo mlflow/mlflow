@@ -167,7 +167,7 @@ Finally, we will run the hyperparameter sweep using Hyperopt, passing in the ``o
         # Log the best parameters, loss, and model
         mlflow.log_params(best)
         mlflow.log_metric("rmse", best_run["loss"])
-        mlflow.tensorflow.log_model(best["model"], "model", signature=signature)
+        mlflow.tensorflow.log_model(best_run["model"], "model", signature=signature)
 
         # Print out the best parameters and corresponding loss
         print(f"Best parameters: {best}")
