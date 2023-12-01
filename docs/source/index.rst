@@ -111,13 +111,13 @@ LLM Guides and Tutorials
                 </a>
             </div>
             <div class="simple-card">
-                <a href="llms/llm-tracking/index.html" >
+                <a href="llms/transformers/index.html" >
                     <div class="header">
-                        LLM Tracking with MLflow
+                        Guide to using 🤗 Transformers in MLflow
                     </div>
                     <p>
-                        Dive into the intricacies of MLflow's LLM Tracking system. From capturing prompts to monitoring generated outputs, 
-                        discover how MLflow provides a holistic solution for managing LLM interactions.
+                        Learn how to leverage the HuggingFace Transformers package with MLflow. Explore multiple tutorials and examples that leverage 
+                        the power of state-of-the-art LLMs.
                     </p>
                 </a>
             </div>
@@ -149,6 +149,28 @@ LLM Guides and Tutorials
                     </div>
                     <p>
                         Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="llms/llm-tracking/index.html" >
+                    <div class="header">
+                        LLM Tracking with MLflow
+                    </div>
+                    <p>
+                        Dive into the intricacies of MLflow's LLM Tracking system. From capturing prompts to monitoring generated outputs, 
+                        discover how MLflow provides a holistic solution for managing LLM interactions.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="llms/sentence-transformers/index.html" >
+                    <div class="header">
+                        Guide to using Sentence Transformers in MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage the advanced capabilities with semantic sentence embeddings within the Sentence Transformers package, using MLflow to simplify 
+                        inference, create custom deployable applications, and more.
                     </p>
                 </a>
             </div>
