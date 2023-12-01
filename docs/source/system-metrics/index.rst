@@ -135,7 +135,7 @@ single run. To do so, set ``log_system_metrics`` as ``True`` or ``False`` accord
     print(mlflow.MlflowClient().get_run(run.info.run_id).data)
 
 Please also note that using ``log_system_metrics`` will ignore the global status of system metrics logging.
-In the other word, the above code will log system metrics for the specific run even if you have disabled
+In other words, the above code will log system metrics for the specific run even if you have disabled
 system metrics logging by setting ``MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING`` to ``false`` or calling
 ``mlflow.disable_system_metrics_logging()``.
 
@@ -224,4 +224,4 @@ the average of the samples.
     )
     print(metric_history)
 
-You will see ``system/cpu_utilization_percentage`` logged for a few times.
+You will see ``system/cpu_utilization_percentage`` logged a few times.
