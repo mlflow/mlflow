@@ -145,7 +145,10 @@ class APIRequest:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} with {e!r}"
                         )
-                        response = self.lc_model.invoke(next(iter(self.request_json.values())))
+                        self.request_json = next(iter(self.request_json.values()))
+                        if isinstance(self.request_json, np.ndarray):
+                            self.request_json = self.request_json.tolist()
+                        response = self.lc_model.invoke(self.request_json)
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, (RunnableSequence, RunnableParallel, RunnableLambda)
                 ):
