@@ -30,7 +30,7 @@ def completions_config():
 
 def completions_response():
     return {
-        "choices": [
+        "candidates": [
             {
                 "output": "This is a test",
                 "safetyRatings": [
@@ -118,7 +118,7 @@ def chat_config():
 
 def chat_response():
     return {
-        "choices": [{"author": "1", "content": "Hi there! How can I help you today?"}],
+        "candidates": [{"author": "1", "content": "Hi there! How can I help you today?"}],
         "messages": [{"author": "0", "content": "hi"}],
     }
 
