@@ -20,6 +20,7 @@ import logging
 import queue
 import threading
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
@@ -168,7 +169,9 @@ class APIRequest:
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
         except Exception as e:
-            self.errors[self.index] = f"error: {e!r}\n request payload: {self.request_json}"
+            self.errors[
+                self.index
+            ] = f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
