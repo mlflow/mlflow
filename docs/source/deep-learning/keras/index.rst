@@ -22,7 +22,7 @@ you through how to use the callback for tracking experiments, as well as how to 
 
 .. raw:: html
 
-    <a href="quickstart/quickstart_tensorflow.html" class="download-btn">View the Quickstart</a>
+    <a href="quickstart/quickstart_keras_core.html" class="download-btn">View the Quickstart</a>
 
 To download the Keras 3.0 tutorial notebook to run in your environment, click the link below:
 
