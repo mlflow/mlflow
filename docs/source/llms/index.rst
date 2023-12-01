@@ -113,8 +113,8 @@ configuration and management of your LLM serving needs, select the provider that
         </div>
     </section>
 
-`Getting Started Examples for each Provider <https://github.com/mlflow/mlflow/blob/master/examples/deployments/README.md>`_
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+`Getting Started Examples for each Provider <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/README.md>`_
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you're interested in learning about how to set up the MLflow Deployments Server for a specific provider, follow the links below for our up-to-date 
 documentation on GitHub. 
@@ -123,16 +123,16 @@ Each link will take you to a README file that will explain how to set up a route
 the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started 
 with your favorite provider!
 
-* `OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/openai/README.md>`_
-* `MosaicML quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/mosaicml/README.md>`_
-* `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/anthropic/README.md>`_
-* `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/cohere/README.md>`_
-* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/mlflow_serving/README.md>`_
-* `AWS Bedrock quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/bedrock/README.md>`_
-* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/ai21labs/README.md>`_ 
-* `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/palm/README.md>`_
-* `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/azure_openai/README.md>`_
-* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/huggingface/readme.md>`_
+* `OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md>`_
+* `MosaicML quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md>`_
+* `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/anthropic/README.md>`_
+* `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md>`_
+* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_serving/README.md>`_
+* `AWS Bedrock quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md>`_
+* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21labs/README.md>`_ 
+* `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md>`_
+* `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md>`_
+* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/readme.md>`_
 
 .. note::
     The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source 
