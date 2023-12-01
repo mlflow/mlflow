@@ -299,6 +299,47 @@ def test_score_model_endpoints_chat(set_deployment_envs):
         assert response == expected_output["choices"][0]["message"]["content"]
 
 
+def test_score_model_endpoints_completions(set_deployment_envs):
+    openai_response_format = {
+        "id": "cmpl-8PgdiXapPWBN3pyUuHcELH766QgqK",
+        "object": "text_completion",
+        "created": 1701132798,
+        "model": "gpt-3.5-turbo-instruct",
+        "choices": [
+            {
+                "text": "\n\nHi there! How can I assist you today?",
+                "index": 0,
+                "finish_reason": "stop",
+            },
+        ],
+        "usage": {"prompt_tokens": 2, "completion_tokens": 106, "total_tokens": 108},
+    }
+
+    expected_output = {
+        "choices": [
+            {
+                "text": "\n\nHi there! How can I assist you today?",
+                "index": 0,
+                "finish_reason": "stop",
+            },
+        ],
+    }
+
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_get_deploy_client:
+        mock_client = mock.MagicMock()
+        mock_get_deploy_client.return_value = mock_client
+        # mock out mock_client.get_endpoint() to return completions
+        mock_client.get_endpoint.return_value = {
+            "task": "llm/v1/completions",
+        }
+        # mock out mock_client.predict() to return expected_output
+        mock_client.predict.return_value = openai_response_format
+        response = score_model_on_payload(
+            "endpoints:/my-endpoint", {"prompt": "my prompt", "temperature": 0.1}
+        )
+        assert response == expected_output["choices"][0]["text"]
+
+
 def test_openai_authentication_error(set_envs):
     with mock.patch(
         "mlflow.openai.api_request_parallel_processor.process_api_requests",
