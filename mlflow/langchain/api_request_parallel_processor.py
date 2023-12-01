@@ -74,6 +74,7 @@ class APIRequest:
     lc_model: langchain.chains.base.Chain
     request_json: dict
     results: list[tuple[int, str]]
+    errors: dict
 
     def _prepare_to_serialize(self, response: dict):
         """
@@ -164,9 +165,7 @@ class APIRequest:
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
         except Exception as e:
-            _logger.warning(
-                f"Request #{self.index} failed with {e!r}\n request payload: {self.request_json}"
-            )
+            self.errors[self.index] = f"error: {e!r}\n request payload: {self.request_json}"
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
@@ -186,6 +185,7 @@ def process_api_requests(
     next_request = None  # variable to hold the next request to call
 
     results: list[tuple[int, str]] = []
+    errors: dict = {}
     requests_iter = enumerate(requests)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
@@ -198,7 +198,11 @@ def process_api_requests(
                     # get new request
                     index, request_json = req
                     next_request = APIRequest(
-                        index=index, lc_model=lc_model, request_json=request_json, results=results
+                        index=index,
+                        lc_model=lc_model,
+                        request_json=request_json,
+                        results=results,
+                        errors=errors,
                     )
                     status_tracker.start_task()
 
@@ -220,7 +224,7 @@ def process_api_requests(
         # after finishing, log final status
         if status_tracker.num_tasks_failed > 0:
             raise mlflow.MlflowException(
-                f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
+                f"{status_tracker.num_tasks_failed} tasks failed. " f"Errors: {errors}"
             )
 
         return [res for _, res in sorted(results)]
