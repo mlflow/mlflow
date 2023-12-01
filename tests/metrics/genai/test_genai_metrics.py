@@ -605,6 +605,13 @@ def test_extract_score_and_justification():
         == f"Failed to extract score and justification. Raw output: {malformed_output}"
     )
 
+    score6, justification6 = _extract_score_and_justification(
+        "Score: 2 \nJUSTIFICATION: This is a justification"
+    )
+
+    assert score6 == 2
+    assert justification6 == "This is a justification"
+
 
 def test_correctness_metric():
     correctness_metric = answer_similarity(
