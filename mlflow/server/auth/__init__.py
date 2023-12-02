@@ -15,7 +15,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Union
 
 import sqlalchemy
-from flask import Flask, Response, flash, make_response, render_template_string, request
+from flask import Flask, Response, flash, make_response, jsonify, render_template_string, request
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
@@ -760,7 +760,7 @@ def create_user():
         password = _get_request_param("password")
 
         user = store.create_user(username, password)
-        return make_response({"user": user.to_json()})
+        return jsonify({"user": user.to_json()})
     else:
         message = (
             "Invalid content type. Must be one of: "
@@ -773,7 +773,7 @@ def create_user():
 def get_user():
     username = _get_request_param("username")
     user = store.get_user(username)
-    return make_response({"user": user.to_json()})
+    return jsonify({"user": user.to_json()})
 
 
 @catch_mlflow_exception
@@ -805,7 +805,7 @@ def create_experiment_permission():
     username = _get_request_param("username")
     permission = _get_request_param("permission")
     ep = store.create_experiment_permission(experiment_id, username, permission)
-    return make_response({"experiment_permission": ep.to_json()})
+    return jsonify({"experiment_permission": ep.to_json()})
 
 
 @catch_mlflow_exception
