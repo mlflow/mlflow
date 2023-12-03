@@ -134,6 +134,7 @@ class APIRequest:
                 ]
             elif isinstance(self.lc_model, lc_runnables_types()):
                 if isinstance(self.request_json, np.ndarray):
+                    # numpy array is not json serializable, so we convert it to list
                     self.request_json = self.request_json.tolist()
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
@@ -144,7 +145,8 @@ class APIRequest:
                         response = self.lc_model.invoke(self.request_json)
                     except Exception as e:
                         _logger.warning(
-                            f"Failed to invoke {self.lc_model.__class__.__name__} with {e!r}"
+                            f"Failed to invoke {self.lc_model.__class__.__name__} with {self.request_json}. "
+                            f"Error: {e!r}. Trying to invoke with the first value of the dictionary."
                         )
                         self.request_json = next(iter(self.request_json.values()))
                         if isinstance(self.request_json, np.ndarray):
@@ -230,7 +232,7 @@ def process_api_requests(
         # after finishing, log final status
         if status_tracker.num_tasks_failed > 0:
             raise mlflow.MlflowException(
-                f"{status_tracker.num_tasks_failed} tasks failed. " f"Errors: {errors}"
+                f"{status_tracker.num_tasks_failed} tasks failed. Errors: {errors}"
             )
 
         return [res for _, res in sorted(results)]
