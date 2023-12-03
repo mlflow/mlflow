@@ -120,9 +120,8 @@ class APIRequest:
         """
         import numpy as np
         from langchain.schema import BaseRetriever
-        from langchain.schema.runnable import RunnableLambda, RunnableParallel, RunnableSequence
 
-        from mlflow.langchain.utils import lc_runnables_types
+        from mlflow.langchain.utils import lc_runnables_types, runnables_supports_batch_types
 
         _logger.debug(f"Request #{self.index} started")
         try:
@@ -143,17 +142,18 @@ class APIRequest:
                     # Expected Scalar value for String field \'query_text\'\\n
                     try:
                         response = self.lc_model.invoke(self.request_json)
-                    except Exception as e:
+                    except Exception:
                         _logger.warning(
-                            f"Failed to invoke {self.lc_model.__class__.__name__} with {self.request_json}. "
-                            f"Error: {e!r}. Trying to invoke with the first value of the dictionary."
+                            f"Failed to invoke {self.lc_model.__class__.__name__} "
+                            "with {self.request_json}. Error: {e!r}. Trying to "
+                            "invoke with the first value of the dictionary."
                         )
                         self.request_json = next(iter(self.request_json.values()))
                         if isinstance(self.request_json, np.ndarray):
                             self.request_json = self.request_json.tolist()
                         response = self.lc_model.invoke(self.request_json)
                 elif isinstance(self.request_json, list) and isinstance(
-                    self.lc_model, (RunnableSequence, RunnableParallel, RunnableLambda)
+                    self.lc_model, runnables_supports_batch_types()
                 ):
                     response = self.lc_model.batch(self.request_json)
                 else:

@@ -100,20 +100,44 @@ def pickable_runnable_types():
 
 def lc_runnables_types():
     try:
-        from langchain.schema.runnable import (
-            RunnableParallel,
-            RunnableSequence,
-        )
+        from langchain.schema.runnable import RunnableSequence
 
-        types = (RunnableSequence, RunnableParallel)
+        types = (RunnableSequence,)
     except ImportError:
         types = ()
+
+    try:
+        from langchain.schema.runnable import RunnableParallel
+
+        types += (RunnableParallel,)
+    except ImportError:
+        pass
 
     return pickable_runnable_types() + types
 
 
 def supported_lc_types():
     return base_lc_types() + lc_runnables_types()
+
+
+def runnables_supports_batch_types():
+    try:
+        from langchain.schema.runnable import (
+            RunnableLambda,
+            RunnableSequence,
+        )
+
+        types = (RunnableSequence, RunnableLambda)
+    except ImportError:
+        types = ()
+
+    try:
+        from langchain.schema.runnable import RunnableParallel
+
+        types += (RunnableParallel,)
+    except ImportError:
+        pass
+    return types
 
 
 @lru_cache
