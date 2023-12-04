@@ -27,11 +27,14 @@ _LOADER_FN_KEY = "loader_fn"
 _LOADER_ARG_KEY = "loader_arg"
 _PERSIST_DIR_NAME = "persist_dir_data"
 _PERSIST_DIR_KEY = "persist_dir"
-_MODEL_DATA_FILE_NAME = "model.yaml"
+_MODEL_DATA_YAML_FILE_NAME = "model.yaml"
+_MODEL_DATA_PKL_FILE_NAME = "model.pkl"
+_MODEL_DATA_FOLDER_NAME = "model"
 _MODEL_DATA_KEY = "model_data"
 _MODEL_TYPE_KEY = "model_type"
 _RUNNABLE_LOAD_KEY = "runnable_load"
 _BASE_LOAD_KEY = "base_load"
+_CONFIG_LOAD_KEY = "config_load"
 _MODEL_LOAD_KEY = "model_load"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow langchain flavor only supports subclasses of "
@@ -98,7 +101,7 @@ def pickable_runnable_types():
     return types
 
 
-def lc_runnables_types():
+def lc_runnable_with_steps_types():
     try:
         from langchain.schema.runnable import RunnableSequence
 
@@ -113,7 +116,11 @@ def lc_runnables_types():
     except ImportError:
         pass
 
-    return pickable_runnable_types() + types
+    return types
+
+
+def lc_runnables_types():
+    return pickable_runnable_types() + lc_runnable_with_steps_types()
 
 
 def supported_lc_types():
@@ -275,8 +282,11 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
     import langchain.chains.base
     import langchain.chains.llm
 
-    model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
-    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME, _MODEL_LOAD_KEY: _BASE_LOAD_KEY}
+    model_data_path = os.path.join(path, _MODEL_DATA_YAML_FILE_NAME)
+    model_data_kwargs = {
+        _MODEL_DATA_KEY: _MODEL_DATA_YAML_FILE_NAME,
+        _MODEL_LOAD_KEY: _BASE_LOAD_KEY,
+    }
 
     if isinstance(model, langchain.chains.llm.LLMChain):
         model.save(model_data_path)
@@ -373,7 +383,9 @@ def _load_base_lcs(
     local_model_path,
     conf,
 ):
-    lc_model_path = os.path.join(local_model_path, conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME))
+    lc_model_path = os.path.join(
+        local_model_path, conf.get(_MODEL_DATA_KEY, _MODEL_DATA_YAML_FILE_NAME)
+    )
 
     agent_path = _get_path_by_key(local_model_path, _AGENT_DATA_KEY, conf)
     tools_path = _get_path_by_key(local_model_path, _TOOLS_DATA_KEY, conf)

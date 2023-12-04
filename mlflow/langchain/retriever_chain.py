@@ -141,8 +141,7 @@ class _RetrieverChain(Chain):
         if retriever is None:
             raise ValueError("`retriever` must be present.")
 
-        if "retriever" in config:
-            config.pop("retriever")
+        config.pop("retriever", None)
 
         return cls(
             retriever=retriever,

@@ -24,8 +24,6 @@ from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
-    _MODEL_DATA_FILE_NAME,
-    _MODEL_DATA_KEY,
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
@@ -428,10 +426,7 @@ def _load_model(local_model_path, flavor_conf):
     # which load function to use
     model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
     if model_load_fn == _RUNNABLE_LOAD_KEY:
-        lc_model_path = os.path.join(
-            local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
-        )
-        return _load_runnables(lc_model_path, flavor_conf)
+        return _load_runnables(local_model_path, flavor_conf)
     if model_load_fn == _BASE_LOAD_KEY:
         return _load_base_lcs(local_model_path, flavor_conf)
     raise mlflow.MlflowException(
