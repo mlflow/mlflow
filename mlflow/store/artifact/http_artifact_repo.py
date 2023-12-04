@@ -17,7 +17,6 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
-from mlflow.server.handlers import validate_path_is_safe
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -28,6 +27,7 @@ from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+from mlflow.utils.uri import validate_path_is_safe
 
 _logger = logging.getLogger(__name__)
 
