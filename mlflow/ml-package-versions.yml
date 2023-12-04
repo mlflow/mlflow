@@ -356,6 +356,7 @@ spark:
       mvn package -DskipTests -q
       popd
 
+      # Running each .py file individually to avoid sharing SparkSession across tests
       find tests/spark/autologging -name 'test*.py' | xargs -L 1 pytest
 
 mleap:

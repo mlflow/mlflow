@@ -233,7 +233,8 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
 class SparkAutologgingContext(RunContextProvider):
     """
     Context provider used when there's no active run. Accumulates datasource read information,
-    then logs that information to the next-created run & clears the accumulated information.
+    then logs that information to the next-created run. Note that this doesn't clear the accumlated
+    info when logging them to the next run, so it will be logged to any successive runs as well.
     """
 
     def in_context(self):

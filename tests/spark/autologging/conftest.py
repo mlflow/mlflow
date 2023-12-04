@@ -2,23 +2,16 @@ import os
 import tempfile
 
 import pytest
-from pyspark.sql import Row, SparkSession
+from pyspark.sql import Row
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
-from tests.spark.autologging.utils import _get_mlflow_spark_jar_path
+from tests.spark.autologging.utils import _get_or_create_spark_session
+
 
 
 @pytest.fixture(scope="module")
 def spark_session():
-    # PYSPARK_PIN_THREAD is set to true by default since Pyspark 3.2.0, which causes
-    # issues with Py4J callbacks, so we ask users to set it to false.
-    # We have to set this before creating the SparkSession.
-    os.environ["PYSPARK_PIN_THREAD"] = "false"
-
-    jar_path = _get_mlflow_spark_jar_path()
-    with SparkSession.builder.config("spark.jars", jar_path).master(
-        "local[*]"
-    ).getOrCreate() as session:
+    with _get_or_create_spark_session() as session:
         yield session
 
 
