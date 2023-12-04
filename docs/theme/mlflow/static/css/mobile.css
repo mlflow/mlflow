@@ -20,29 +20,40 @@
     /*
     * Handle layout for the tab contents in the tracking page
     */
-    .tracking-responsive-tab-container {
+    .tracking-responsive-tab-panel {
         flex-direction: column;
      }
 
-    .tracking-responsive-tab-container img {
+    .tracking-responsive-tab-panel img {
         width: 100%;
         margin: 10px auto;
     }
 
-    .tracking-responsive-tab-container div {
+    .tracking-responsive-tab-panel div {
         width: 100%;
         padding: 0 10px;
+    }
+
+    /*
+    * Make the tab headers stand in one horizontal row (and reduce padding)
+    */
+    .tracking-responsive-tabs .sphinx-tabs > div[aria-label="Tabbed content"][role="tablist"] {
+        display: flex;
+    }
+
+    .tracking-responsive-tabs .sphinx-tabs-tab {
+        padding: 0.75rem 0;
     }
 }
 
 /* Desktop styling corresponding to above styles*/
 @media only screen and (min-width: 768px) {
-    .tracking-responsive-tab-container img {
+    .tracking-responsive-tab-panel img {
         width: 30%;
         margin: auto 20px;
     }
 
-    .tracking-responsive-tab-container div {
+    .tracking-responsive-tab-panel div {
         width: 70%;
         padding: 0 20px;
     }

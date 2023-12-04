@@ -256,7 +256,7 @@ learning the basic setup and continue to the following materials for advanced co
 
 .. |local-server| raw:: html
 
-        <div class="tracking-responsive-tab-container">
+        <div class="tracking-responsive-tab-panel">
             <div>
                 <h4>Using MLflow Tracking Server Locally</h4>
                 <p>You can of course run MLflow Tracking Server locally. While this doesn't provide much additional benefit over directly using
@@ -268,7 +268,7 @@ learning the basic setup and continue to the following materials for advanced co
 
 .. |artifact-only| raw:: html
 
-        <div class="tracking-responsive-tab-container">
+        <div class="tracking-responsive-tab-panel">
             <div>
               <h4>Running MLflow Tracking Server in Artifacts-only Mode</h4>
               <p> MLflow Tracking Server has <code>--artifacts-only</code> option, which lets the server to serve (proxy) only artifacts
@@ -282,7 +282,7 @@ learning the basic setup and continue to the following materials for advanced co
 
 .. |no-proxy| raw:: html
 
-        <div class="tracking-responsive-tab-container">
+        <div class="tracking-responsive-tab-panel">
             <div>
               <h4> Disable Artifact Proxying to Allow Direct Access to Artifacts</h4>
               <p>MLflow Tracking Server, by default, serves both artifacts and only metadata. However, in some cases, you may want
@@ -293,19 +293,21 @@ learning the basic setup and continue to the following materials for advanced co
             <img src="_static/images/tracking/tracking-setup-no-serve-artifacts.png"/>
         </div>
 
-.. tabs::
+.. container:: tracking-responsive-tabs
 
-    .. tab:: Local Tracking Server
+    .. tabs::
 
-        |local-server|
+        .. tab:: Local Tracking Server
 
-    .. tab:: Artifacts-only Mode
+            |local-server|
 
-        |artifact-only|
+        .. tab:: Artifacts-only Mode
 
-    .. tab:: Direct Access to Artifacts
+            |artifact-only|
 
-        |no-proxy|
+        .. tab:: Direct Access to Artifacts
+
+            |no-proxy|
 
 FAQ
 ===
