@@ -1116,10 +1116,9 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     # terminated before receiving the datasource event.
     # Hence, we have to disable it and decouple the thread management between Python and JVM.
     if pyspark_version >= "3.2" and os.environ.get("PYSPARK_PIN_THREAD", "").lower() != "false":
-        raise MlflowException(
+        _logger.warning(
             "With Pyspark >= 3.2, PYSPARK_PIN_THREAD environment variable must be set to false "
-            "for Spark autologging to work. Please set PYSPARK_PIN_THREAD to false and try again.",
-            INVALID_PARAMETER_VALUE,
+            "for Spark autologging to work."
         )
 
     def __init__(original, self, *args, **kwargs):
