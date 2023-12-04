@@ -252,7 +252,14 @@ def test_score_model_gateway_chat():
             assert response == expected_output["choices"][0]["message"]["content"]
 
 
-def test_score_model_endpoints_chat(set_deployment_envs):
+@pytest.mark.parametrize(
+    "endpoint_type_key",
+    [
+        "task",
+        "endpoint_task",
+    ],
+)
+def test_score_model_endpoints_chat(set_deployment_envs, endpoint_type_key):
     openai_response_format = {
         "id": "chatcmpl-123",
         "object": "chat.completion",
@@ -289,7 +296,7 @@ def test_score_model_endpoints_chat(set_deployment_envs):
         mock_get_deploy_client.return_value = mock_client
         # mock out mock_client.get_endpoint() to return chat
         mock_client.get_endpoint.return_value = {
-            "task": "llm/v1/chat",
+            endpoint_type_key: "llm/v1/chat",
         }
         # mock out mock_client.predict() to return expected_output
         mock_client.predict.return_value = openai_response_format
@@ -299,7 +306,14 @@ def test_score_model_endpoints_chat(set_deployment_envs):
         assert response == expected_output["choices"][0]["message"]["content"]
 
 
-def test_score_model_endpoints_completions(set_deployment_envs):
+@pytest.mark.parametrize(
+    "endpoint_type_key",
+    [
+        "task",
+        "endpoint_task",
+    ],
+)
+def test_score_model_endpoints_completions(set_deployment_envs, endpoint_type_key):
     openai_response_format = {
         "id": "cmpl-8PgdiXapPWBN3pyUuHcELH766QgqK",
         "object": "text_completion",
@@ -330,7 +344,7 @@ def test_score_model_endpoints_completions(set_deployment_envs):
         mock_get_deploy_client.return_value = mock_client
         # mock out mock_client.get_endpoint() to return completions
         mock_client.get_endpoint.return_value = {
-            "task": "llm/v1/completions",
+            endpoint_type_key: "llm/v1/completions",
         }
         # mock out mock_client.predict() to return expected_output
         mock_client.predict.return_value = openai_response_format

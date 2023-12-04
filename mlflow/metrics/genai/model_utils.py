@@ -5,8 +5,6 @@ import urllib.parse
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, UNAUTHENTICATED
 
-ROUTE_TYPE = "llm/v1/completions"
-
 _logger = logging.getLogger(__name__)
 
 
@@ -47,8 +45,6 @@ def _parse_model_uri(model_uri):
 
 
 def _call_openai_api(openai_uri, payload, eval_parameters):
-    """Wrapper around the OpenAI API to make it compatible with the MLflow Gateway API."""
-
     if "OPENAI_API_KEY" not in os.environ:
         raise MlflowException(
             "OPENAI_API_KEY environment variable not set",
@@ -133,7 +129,9 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters):
     client = get_deploy_client()
 
     endpoint = client.get_endpoint(deployment_uri)
-    if endpoint["task"] == "llm/v1/completions":
+    endpoint_type = endpoint.get("task", endpoint.get("endpoint_task"))
+
+    if endpoint_type == "llm/v1/completions":
         completions_payload = {
             "prompt": payload,
             **eval_parameters,
@@ -144,7 +142,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters):
         except (KeyError, IndexError, TypeError):
             text = None
         return text
-    elif endpoint["task"] == "llm/v1/chat":
+    elif endpoint_type == "llm/v1/chat":
         chat_payload = {
             "messages": [{"role": "user", "content": payload}],
             **eval_parameters,
@@ -157,8 +155,8 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters):
         return text
     else:
         raise MlflowException(
-            f"Unsupported endpoint route type: {endpoint['endpoint_type']}. Use a "
-            "route of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
+            f"Unsupported endpoint type: {endpoint_type}. Use an "
+            "endpoint of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
