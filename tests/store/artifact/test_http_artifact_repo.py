@@ -19,6 +19,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_TOKEN,
     MLFLOW_TRACKING_USERNAME,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
@@ -242,6 +243,23 @@ def test_list_artifacts(http_artifact_repo):
         return_value=MockResponse({}, 400),
     ):
         with pytest.raises(Exception, match="request failed"):
+            http_artifact_repo.list_artifacts()
+
+
+@pytest.mark.parametrize("path", ["/tmp/path", "../../path"])
+def test_list_artifacts_malicious_path(http_artifact_repo, path):
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(
+            {
+                "files": [
+                    {"path": path, "is_dir": False, "file_size": 1},
+                ]
+            },
+            200,
+        ),
+    ):
+        with pytest.raises(MlflowException, match=f"Invalid path: {path}"):
             http_artifact_repo.list_artifacts()
 
 

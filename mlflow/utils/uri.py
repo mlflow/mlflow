@@ -9,7 +9,6 @@ from typing import Any, Tuple
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import _validate_db_type_string
 
@@ -421,6 +420,8 @@ def validate_path_is_safe(path):
         not contain .. to navigate to parent dir in path
         not be an absolute path
     """
+    from mlflow.utils.file_utils import local_file_uri_to_path
+
     if is_file_uri(path):
         path = local_file_uri_to_path(path)
     if (
