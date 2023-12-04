@@ -13,7 +13,7 @@
     * To apply those CSSs to your table, add `:class wrap-table` to your table
     */
     .wy-table-responsive .wrap-table td,
-    .wy-table-responsive .warp-table th {
+    .wy-table-responsive .wrap-table th {
         max-width: 300px;
         white-space: normal;
     }
