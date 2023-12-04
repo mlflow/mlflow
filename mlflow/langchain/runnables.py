@@ -28,7 +28,6 @@ from mlflow.langchain.utils import (
     lc_runnables_types,
     pickable_runnable_types,
 )
-from mlflow.utils.file_utils import mkdir
 
 _STEPS_FOLDER_NAME = "steps"
 _RUNNABLE_STEPS_FILE_NAME = "steps.yaml"
@@ -108,29 +107,19 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
             f"Folder {steps_path} must exist and must be a directory "
             "in order to load runnable with steps."
         )
-    if model_type == RunnableSequence.__name__:
-        steps = []
-        files = sorted(
-            os.listdir(steps_path),
-            key=lambda x: int(x) if x != _RUNNABLE_STEPS_FILE_NAME else -1,
-        )
-    elif model_type == RunnableParallel.__name__:
-        steps = {}
-        files = os.listdir(steps_path)
-    else:
-        raise MlflowException(f"Unsupported model type {model_type}. ")
+
+    steps = {}
+    files = os.listdir(steps_path)
     for file in files:
         if file != _RUNNABLE_STEPS_FILE_NAME:
             step = file
             config = steps_conf.get(step)
             # load model from the folder of the step
             runnable = _load_model_from_path(os.path.join(steps_path, file), config)
-            if type(steps) == list:
-                steps.append(runnable)
-            elif type(steps) == dict:
-                steps[step] = runnable
+            steps[step] = runnable
 
     if model_type == RunnableSequence.__name__:
+        steps = [value for _, value in sorted(steps.items(), key=lambda item: int(item[0]))]
         return runnable_sequence_from_steps(steps)
     if model_type == RunnableParallel.__name__:
         return RunnableParallel(steps)
@@ -184,7 +173,7 @@ def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None
 
     # Save steps into a folder
     steps_path = save_path / _STEPS_FOLDER_NAME
-    mkdir(steps_path)
+    steps_path.mkdir()
 
     if isinstance(steps, list):
         generator = enumerate(steps)
@@ -197,7 +186,7 @@ def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None
         steps_conf[step] = {}
         # Save each step into a subfolder named by step
         save_runnable_path = steps_path / step
-        mkdir(save_runnable_path)
+        save_runnable_path.mkdir()
         if isinstance(runnable, lc_runnables_types()):
             steps_conf[step][_MODEL_TYPE_KEY] = runnable.__class__.__name__
             steps_conf[step].update(
