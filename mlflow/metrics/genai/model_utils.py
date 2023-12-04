@@ -116,11 +116,7 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
     except Exception as e:
         raise MlflowException(f"Error response from OpenAI:\n {e}")
 
-    try:
-        text = resp["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
-        text = None
-    return text
+    return _parse_chat_response_format(resp)
 
 
 def _call_deployments_api(deployment_uri, payload, eval_parameters):
@@ -137,22 +133,15 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters):
             **eval_parameters,
         }
         response = client.predict(endpoint=deployment_uri, inputs=completions_payload)
-        try:
-            text = response["choices"][0]["text"]
-        except (KeyError, IndexError, TypeError):
-            text = None
-        return text
+        return _parse_completions_response_format(response)
     elif endpoint_type == "llm/v1/chat":
         chat_payload = {
             "messages": [{"role": "user", "content": payload}],
             **eval_parameters,
         }
         response = client.predict(endpoint=deployment_uri, inputs=chat_payload)
-        try:
-            text = response["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError):
-            text = None
-        return text
+        return _parse_chat_response_format(response)
+
     else:
         raise MlflowException(
             f"Unsupported endpoint type: {endpoint_type}. Use an "
@@ -171,25 +160,33 @@ def _call_gateway_api(gateway_uri, payload, eval_parameters):
             **eval_parameters,
         }
         response = query(gateway_uri, completions_payload)
-        try:
-            text = response["choices"][0]["text"]
-        except (KeyError, IndexError, TypeError):
-            text = None
-        return text
+        return _parse_completions_response_format(response)
     elif route_info["endpoint_type"] == "llm/v1/chat":
         chat_payload = {
             "messages": [{"role": "user", "content": payload}],
             **eval_parameters,
         }
         response = query(gateway_uri, chat_payload)
-        try:
-            text = response["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError):
-            text = None
-        return text
+        return _parse_chat_response_format(response)
     else:
         raise MlflowException(
             f"Unsupported gateway route type: {route_info['endpoint_type']}. Use a "
             "route of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+def _parse_chat_response_format(response):
+    try:
+        text = response["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        text = None
+    return text
+
+
+def _parse_completions_response_format(response):
+    try:
+        text = response["choices"][0]["text"]
+    except (KeyError, IndexError, TypeError):
+        text = None
+    return text
