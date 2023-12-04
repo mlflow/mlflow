@@ -12,8 +12,7 @@
     * resulted in showing very wide 1-line cells on mobile.
     * To apply those CSSs to your table, add `:class wrap-table` to your table
     */
-    .wy-table-responsive .wrap-table td,
-    .wy-table-responsive .wrap-table th {
+    .wy-table-responsive .wrap-table td {
         max-width: 300px;
         white-space: normal;
     }
