@@ -92,16 +92,16 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
     steps_conf = _load_from_yaml(steps_conf_file)
     if model_type == RunnableSequence.__name__:
         steps = []
-        generator = sorted(
+        files = sorted(
             os.listdir(load_path),
             key=lambda x: int(x.split(".")[0]) if x != _RUNNABLE_STEPS_FILE_NAME else -1,
         )
     elif model_type == RunnableParallel.__name__:
         steps = {}
-        generator = os.listdir(load_path)
+        files = os.listdir(load_path)
     else:
         raise MlflowException(f"Unsupported model type {model_type}. ")
-    for file in generator:
+    for file in files:
         if file != _RUNNABLE_STEPS_FILE_NAME:
             step = file.split(".")[0]
             config = steps_conf.get(step)

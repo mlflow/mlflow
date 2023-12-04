@@ -192,6 +192,8 @@ jobs:
         run: |
           pip uninstall pydantic -y
           # 0.0.267 is the minimum version that supports Pydantic v2
+          # We need to install from source because cythonized pydantic 
+          # objects can't be serialized https://github.com/cloudpipe/cloudpickle/issues/408
           pip install pydantic --no-binary :all:
       - name: Check package versions
         run: |
