@@ -20,7 +20,7 @@ def main():
     # Embeddings request
     response_embeddings = client.predict(
         endpoint="embeddings",
-        inputs={"input"["Do you carry the Storm Trooper costume in size 2T?"]},
+        inputs={"input": ["Do you carry the Storm Trooper costume in size 2T?"]},
     )
     print(f"Cohere response for embeddings: {response_embeddings}")
 
