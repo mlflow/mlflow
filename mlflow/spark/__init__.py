@@ -1118,7 +1118,7 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     if pyspark_version >= "3.2" and os.environ.get("PYSPARK_PIN_THREAD", "").lower() != "false":
         _logger.warning(
             "With Pyspark >= 3.2, PYSPARK_PIN_THREAD environment variable must be set to false "
-            "for Spark autologging to work."
+            "for Spark datasource autologging to work."
         )
 
     def __init__(original, self, *args, **kwargs):
