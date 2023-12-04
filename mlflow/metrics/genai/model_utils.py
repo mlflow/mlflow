@@ -170,31 +170,31 @@ def _call_gateway_api(gateway_uri, payload, eval_parameters):
     from mlflow.gateway import get_route, query
 
     route_info = get_route(gateway_uri).dict()
-    if route_info["route_type"] == "llm/v1/completions":
+    if route_info["endpoint_type"] == "llm/v1/completions":
         completions_payload = {
             "prompt": payload,
             **eval_parameters,
         }
         response = query(gateway_uri, completions_payload)
         try:
-            text = response["candidates"][0]["text"]
+            text = response["choices"][0]["text"]
         except (KeyError, IndexError, TypeError):
             text = None
         return text
-    elif route_info["route_type"] == "llm/v1/chat":
+    elif route_info["endpoint_type"] == "llm/v1/chat":
         chat_payload = {
             "messages": [{"role": "user", "content": payload}],
             **eval_parameters,
         }
         response = query(gateway_uri, chat_payload)
         try:
-            text = response["candidates"][0]["message"]["content"]
+            text = response["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError):
             text = None
         return text
     else:
         raise MlflowException(
-            f"Unsupported gateway route type: {route_info['route_type']}. Use a "
+            f"Unsupported gateway route type: {route_info['endpoint_type']}. Use a "
             "route of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
             error_code=INVALID_PARAMETER_VALUE,
         )
