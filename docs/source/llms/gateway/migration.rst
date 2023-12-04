@@ -1,8 +1,8 @@
-.. _gateway-deprecation:
+.. _gateway-migration:
 
-=============================
-MLflow AI Gateway Deprecation
-=============================
+=================================
+MLflow AI Gateway Migration Guide
+=================================
 
 The MLflow AI Gateway is deprecated and has been replaced by the `MLflow Deployments for LLMs <../deployments/index.html>`_.
 This page is a migration guide for users of the MLflow AI Gateway.
