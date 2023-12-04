@@ -1537,7 +1537,6 @@ class _TransformersModel(NamedTuple):
     def _validate_submitted_types(
         cls, model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
     ):
-        from torch import dtype
         from transformers import (
             FeatureExtractionMixin,
             FlaxPreTrainedModel,
@@ -1564,13 +1563,18 @@ class _TransformersModel(NamedTuple):
             ),
             (image_processor, "image_processor", ImageProcessingMixin),
             (processor, "processor", ProcessorMixin),
-            (torch_dtype, "torch_dtype", dtype),
         ]
         invalid_types = []
 
         for arg, name, types in validation:
             if arg and not isinstance(arg, types):
                 invalid_types.append(cls._build_exception_msg(arg, name, types))
+        # only import torch when torch_dtype is not None
+        if torch_dtype is not None:
+            from torch import dtype
+
+            if not isinstance(torch_dtype, dtype):
+                invalid_types.append(cls._build_exception_msg(torch_dtype, "torch_dtype", dtype))
         if invalid_types:
             raise MlflowException("\n".join(invalid_types), error_code=BAD_REQUEST)
 
