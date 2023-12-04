@@ -369,6 +369,7 @@ class TrainStep(BaseStep):
                 estimator = self._resolve_estimator(
                     X_train, y_train, validation_df, run, output_directory
                 )
+                best_estimator_params = estimator.get_params()
                 fitted_estimator, additional_fitted_args = self._fitted_estimator(
                     estimator, X_train, y_train
                 )
