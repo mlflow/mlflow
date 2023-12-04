@@ -70,12 +70,9 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
     }
 
     payload = {
-        "prompt": payload,
-        **{{"candidate_count": "n"}.get(k, k): v for k, v in eval_parameters.items()},
+        "messages": [{"role": "user", "content": payload}],
+        **eval_parameters,
     }
-    # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
-    payload["temperature"] = 2 * payload["temperature"]
-    payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
 
     if api_config.api_type in ("azure", "azure_ad", "azuread"):
         deployment_id = envs.get("deployment_id")
