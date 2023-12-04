@@ -49,7 +49,7 @@ private[autologging] trait DatasourceAttributeExtractorBase {
       deltaInfoOpt
     } else {
       leafNode match {
-        // DataSourceV2Relation was removed in Spark 3.0.0 stable release due to some issue and 
+        // DataSourceV2Relation was disabled in Spark 3.0.0 stable release due to some issue and 
         // still not present in Spark 3.2.0. While we are not sure whether it will be back in
         // the future, we still keep this code here to support previous versions.
         case relation: DataSourceV2Relation =>
