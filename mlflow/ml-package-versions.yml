@@ -353,10 +353,16 @@ spark:
     run: |
       # Build Java package
       pushd mlflow/java/spark
-      mvn package -DskipTests -q
+      # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
+      if [[ $(python -c "import pyspark;print(pyspark.__version__)") = "4.0.0.dev0" ]]; then
+        mvn package -DskipTests -P scala-2.13 -q
+      else
+        mvn package -DskipTests -q
+      fi
       popd
 
-      # Running each .py file individually to avoid sharing SparkSession across tests
+      # NB: Running each .py file individually is important (instead of
+      # 'pytest tests/spark/autologging') not to share SparkSession across tests
       find tests/spark/autologging -name 'test*.py' | xargs -L 1 pytest
 
 mleap:
