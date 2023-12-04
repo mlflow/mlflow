@@ -53,7 +53,7 @@ def _load_model_from_config(path, model_config):
         config = _load_from_json(config_path)
     else:
         raise MlflowException(
-            f"Cannot load runnable without a config file. Got path {config_path!s}."
+            f"Cannot load runnable without a config file. Got path {config_path}."
         )
     _type = config.get("_type")
     if _type in chains_type_to_loader_dict:
@@ -91,7 +91,7 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
     load_path = Path(file_path) if isinstance(file_path, str) else file_path
     if not load_path.exists() or not load_path.is_dir():
         raise MlflowException(
-            f"File {load_path!s} must exist and must be a directory "
+            f"File {load_path} must exist and must be a directory "
             "in order to load runnable with steps."
         )
 
@@ -109,14 +109,11 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
         )
 
     steps = {}
-    files = os.listdir(steps_path)
-    for file in files:
-        if file != _RUNNABLE_STEPS_FILE_NAME:
-            step = file
-            config = steps_conf.get(step)
-            # load model from the folder of the step
-            runnable = _load_model_from_path(os.path.join(steps_path, file), config)
-            steps[step] = runnable
+    for step in os.listdir(steps_path):
+        config = steps_conf.get(step)
+        # load model from the folder of the step
+        runnable = _load_model_from_path(os.path.join(steps_path, step), config)
+        steps[step] = runnable
 
     if model_type == RunnableSequence.__name__:
         steps = [value for _, value in sorted(steps.items(), key=lambda item: int(item[0]))]
@@ -229,7 +226,7 @@ def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None
 
 def _save_pickable_runnable(model, path):
     if not path.endswith(".pkl"):
-        raise ValueError(f"File path must end with .pkl, got {path!s}.")
+        raise ValueError(f"File path must end with .pkl, got {path}.")
     with open(path, "wb") as f:
         cloudpickle.dump(model, f)
 

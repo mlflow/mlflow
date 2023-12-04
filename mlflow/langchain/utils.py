@@ -1,5 +1,4 @@
 """Utility functions for mlflow.langchain."""
-import functools
 import json
 import logging
 import os
@@ -59,6 +58,7 @@ _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
 logger = logging.getLogger(__name__)
 
 
+@lru_cache
 def base_lc_types():
     import langchain.agents.agent
     import langchain.chains.base
@@ -71,8 +71,11 @@ def base_lc_types():
     )
 
 
-# List of runnable types that can be pickled
+@lru_cache
 def pickable_runnable_types():
+    """
+    Runnable types that can be pickled and unpickled by cloudpickle.
+    """
     from langchain.chat_models.base import SimpleChatModel
     from langchain.prompts import ChatPromptTemplate
 
@@ -101,7 +104,10 @@ def pickable_runnable_types():
     return types
 
 
+@lru_cache
 def lc_runnable_with_steps_types():
+    # import them separately because they are added
+    # in different versions of langchain
     try:
         from langchain.schema.runnable import RunnableSequence
 
@@ -127,6 +133,7 @@ def supported_lc_types():
     return base_lc_types() + lc_runnables_types()
 
 
+@lru_cache
 def runnables_supports_batch_types():
     try:
         from langchain.schema.runnable import (
@@ -173,7 +180,7 @@ def _get_special_chain_info_or_none(chain):
             return _SpecialChainInfo(loader_arg=loader_arg)
 
 
-@functools.lru_cache
+@lru_cache
 def _get_map_of_special_chain_class_to_loader_arg():
     import langchain
 
