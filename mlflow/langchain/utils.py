@@ -72,7 +72,7 @@ def base_lc_types():
 
 
 @lru_cache
-def pickable_runnable_types():
+def picklable_runnable_types():
     """
     Runnable types that can be pickled and unpickled by cloudpickle.
     """
@@ -126,7 +126,7 @@ def lc_runnable_with_steps_types():
 
 
 def lc_runnables_types():
-    return pickable_runnable_types() + lc_runnable_with_steps_types()
+    return picklable_runnable_types() + lc_runnable_with_steps_types()
 
 
 def supported_lc_types():

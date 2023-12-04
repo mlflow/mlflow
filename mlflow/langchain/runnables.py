@@ -26,7 +26,7 @@ from mlflow.langchain.utils import (
     base_lc_types,
     custom_type_to_loader_dict,
     lc_runnables_types,
-    pickable_runnable_types,
+    picklable_runnable_types,
 )
 
 _STEPS_FOLDER_NAME = "steps"
@@ -224,7 +224,7 @@ def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None
         yaml.dump(steps_conf, f, default_flow_style=False)
 
 
-def _save_pickable_runnable(model, path):
+def _save_picklable_runnable(model, path):
     if not path.endswith(".pkl"):
         raise ValueError(f"File path must end with .pkl, got {path}.")
     with open(path, "wb") as f:
@@ -240,9 +240,9 @@ def _save_runnables(model, path, loader_fn=None, persist_dir=None):
         _save_runnable_with_steps(
             model.steps, os.path.join(path, model_data_path), loader_fn, persist_dir
         )
-    elif isinstance(model, pickable_runnable_types()):
+    elif isinstance(model, picklable_runnable_types()):
         model_data_path = _MODEL_DATA_PKL_FILE_NAME
-        _save_pickable_runnable(model, os.path.join(path, model_data_path))
+        _save_picklable_runnable(model, os.path.join(path, model_data_path))
     else:
         raise MlflowException.invalid_parameter_value(
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
@@ -259,7 +259,7 @@ def _load_runnables(path, conf):
     if model_type in (x.__name__ for x in lc_runnable_with_steps_types()):
         return _load_runnable_with_steps(os.path.join(path, model_data), model_type)
     if (
-        model_type in (x.__name__ for x in pickable_runnable_types())
+        model_type in (x.__name__ for x in picklable_runnable_types())
         or model_data == _MODEL_DATA_PKL_FILE_NAME
     ):
         return _load_from_pickle(os.path.join(path, model_data))
