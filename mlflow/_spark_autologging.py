@@ -57,6 +57,16 @@ def add_table_info_to_context_provider(path, version, data_format):
         _table_infos.append((path, version, data_format))
 
 
+def clear_table_infos():
+    """Clear the table info accumulated SparkAutologgingContext.
+
+    This is currently only used in unit tests.
+    """
+    with _lock:
+        global _table_infos
+        _table_infos = []
+
+
 def _get_spark_major_version(sc):
     spark_version_parts = sc.version.split(".")
     spark_major_version = None
