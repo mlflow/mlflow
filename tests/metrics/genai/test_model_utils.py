@@ -256,7 +256,7 @@ def test_score_model_gateway_chat():
     "endpoint_type_key",
     [
         "task",
-        "endpoint_task",
+        "endpoint_type",
     ],
 )
 def test_score_model_endpoints_chat(set_deployment_envs, endpoint_type_key):
@@ -310,7 +310,7 @@ def test_score_model_endpoints_chat(set_deployment_envs, endpoint_type_key):
     "endpoint_type_key",
     [
         "task",
-        "endpoint_task",
+        "endpoint_type",
     ],
 )
 def test_score_model_endpoints_completions(set_deployment_envs, endpoint_type_key):

@@ -129,7 +129,7 @@ def _call_deployments_api(deployment_uri, payload, eval_parameters):
     client = get_deploy_client()
 
     endpoint = client.get_endpoint(deployment_uri)
-    endpoint_type = endpoint.get("task", endpoint.get("endpoint_task"))
+    endpoint_type = endpoint.get("task", endpoint.get("endpoint_type"))
 
     if endpoint_type == "llm/v1/completions":
         completions_payload = {
