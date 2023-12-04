@@ -34,7 +34,7 @@ organizations that use LLMs on a regular basis.
     :hidden:
 
     guides/index
-    deprecation
+    migration
 
 Tutorials and Guides
 ====================
