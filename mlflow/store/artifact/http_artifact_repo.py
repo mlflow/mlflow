@@ -17,6 +17,7 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
+from mlflow.server.handlers import validate_path_is_safe
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -88,6 +89,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         augmented_raise_for_status(resp)
         file_infos = []
         for f in resp.json().get("files", []):
+            validate_path_is_safe(f["path"])
             file_info = FileInfo(
                 posixpath.join(path, f["path"]) if path else f["path"],
                 f["is_dir"],
