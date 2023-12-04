@@ -42,7 +42,7 @@ sudo apt-get install -y nvidia-container-toolkit
 
 #### Running the TGI server.
 
-After you installed the NVIDIA Container toolkit, you can run the following Docker command to to start a TGI server on your local machine on port ``8000``. This will load a [falcon-7b-instruct](https://huggingface.co/tiiuae/falcon-7b-instruct) model on the TGI server.
+After you installed the NVIDIA Container toolkit, you can run the following Docker command to to start a TGI server on your local machine on port `8000`. This will load a [falcon-7b-instruct](https://huggingface.co/tiiuae/falcon-7b-instruct) model on the TGI server.
 
 ```
 model=tiiuae/falcon-7b-instruct
