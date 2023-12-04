@@ -79,8 +79,8 @@ Now load the dataset and split it into training, validation, and test sets.
     )
     signature = infer_signature(train_x, train_y)
 
-Then let's define the model architecture and train the model. The ``train_model`` function uses MLflow to track the 
-parameters, results, and model itself of each trial as a child run. 
+Then let's define the model architecture and train the model. The ``train_model`` function uses MLflow to track the
+parameters, results, and model itself of each trial as a child run.
 
 .. code-block:: python
 
@@ -114,7 +114,7 @@ parameters, results, and model itself of each trial as a child run.
                 batch_size=64,
             )
             # Evaluate the model
-            eval_result = model.evaluate(test_x, test_y, batch_size=64)
+            eval_result = model.evaluate(valid_x, valid_y, batch_size=64)
             eval_rmse = eval_result[1]
 
             # Log parameters and results
@@ -243,7 +243,7 @@ that it is ready for deployment.
 
 Transition the model to **Staging** by choosing the **Stage** dropdown:
 
-.. image:: ../../_static/images/quickstart_mlops/mlflow_registry_transitions.png
+.. image:: ../../_static/images/quickstart_mlops/register_model_button.png
     :width: 800px
     :align: center
     :alt: Screenshot of MLflow tracking UI models page showing the registered model
