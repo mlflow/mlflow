@@ -105,7 +105,13 @@ _TOKENIZER_KEY = "tokenizer"
 _TOKENIZER_TYPE_KEY = "tokenizer_type"
 _TORCH_DTYPE_KEY = "torch_dtype"
 _METADATA_PIPELINE_SCALAR_CONFIG_KEYS = {_FRAMEWORK_KEY}
-_SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
+_SUPPORTED_SAVE_KEYS = {
+    _MODEL_KEY,
+    _TOKENIZER_KEY,
+    _FEATURE_EXTRACTOR_KEY,
+    _IMAGE_PROCESSOR_KEY,
+    _TORCH_DTYPE_KEY,
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -1505,6 +1511,7 @@ class _TransformersModel(NamedTuple):
     feature_extractor: Any = None
     image_processor: Any = None
     processor: Any = None
+    torch_dtype: Any = None
 
     def to_dict(self):
         dict_repr = self._asdict()
@@ -1528,8 +1535,9 @@ class _TransformersModel(NamedTuple):
 
     @classmethod
     def _validate_submitted_types(
-        cls, model, tokenizer, feature_extractor, image_processor, processor
+        cls, model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
     ):
+        from torch import dtype
         from transformers import (
             FeatureExtractionMixin,
             FlaxPreTrainedModel,
@@ -1556,6 +1564,7 @@ class _TransformersModel(NamedTuple):
             ),
             (image_processor, "image_processor", ImageProcessingMixin),
             (processor, "processor", ProcessorMixin),
+            (torch_dtype, "torch_dtype", dtype),
         ]
         invalid_types = []
 
@@ -1573,13 +1582,16 @@ class _TransformersModel(NamedTuple):
         feature_extractor=None,
         image_processor=None,
         processor=None,
+        torch_dtype=None,
         **kwargs,  # pylint: disable=unused-argument
     ):
         cls._validate_submitted_types(
-            model, tokenizer, feature_extractor, image_processor, processor
+            model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
         )
 
-        return _TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
+        return _TransformersModel(
+            model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
+        )
 
 
 def _get_model_config(local_path, pyfunc_config):
