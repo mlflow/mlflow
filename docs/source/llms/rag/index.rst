@@ -41,7 +41,7 @@ Explore the Tutorial
 
 .. raw:: html
 
-    <a href="notebooks/index.html" class="download-btn">View the RAG Question Generation Tutorial</a><br/>
+    <a href="notebooks/index.html" class="download-btn">View RAG Tutorials</a><br/>
 
 .. toctree::
     :maxdepth: 1
