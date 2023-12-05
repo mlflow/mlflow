@@ -1262,7 +1262,7 @@ def test_rename_experiment(store: SqlAlchemyStore):
 def test_update_run_info(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_update_run_info")
     for new_status_string in models.RunStatusTypes:
-        run = _run_factory(config=_get_run_configs(experiment_id=experiment_id))
+        run = _run_factory(store, config=_get_run_configs(experiment_id=experiment_id))
         endtime = get_current_time_millis()
         actual = store.update_run_info(
             run.info.run_id, RunStatus.from_string(new_status_string), endtime, None
