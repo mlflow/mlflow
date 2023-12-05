@@ -171,4 +171,7 @@ def modified_environ(update):
         yield
     finally:
         for k, v in original_env.items():
-            os.environ.pop(k) if v is None else os.environ.update({k: v})
+            if v is None:
+                os.environ.pop(k)
+            else:
+                os.environ[k] = v

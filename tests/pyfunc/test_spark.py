@@ -50,6 +50,7 @@ from mlflow.pyfunc import (
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.utils._spark_utils import modified_environ
 
 import tests
 
@@ -1327,3 +1328,9 @@ def test_spark_udf_set_extra_udf_env_vars(spark):
 
     res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
     assert res["res"][0] == ("test")
+
+
+def test_modified_environ():
+    with modified_environ({"TEST_ENV_VAR": "test"}):
+        assert os.environ["TEST_ENV_VAR"] == "test"
+    assert os.environ.get("TEST_ENV_VAR") is None
