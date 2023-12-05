@@ -27,6 +27,7 @@ from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+from mlflow.utils.uri import validate_path_is_safe
 
 _logger = logging.getLogger(__name__)
 
@@ -88,6 +89,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         augmented_raise_for_status(resp)
         file_infos = []
         for f in resp.json().get("files", []):
+            validate_path_is_safe(f["path"])
             file_info = FileInfo(
                 posixpath.join(path, f["path"]) if path else f["path"],
                 f["is_dir"],

@@ -77,7 +77,7 @@ export const EvaluationCreatePromptRunModal = ({
   const [lastEvaluationError, setLastEvaluationError] = useState<string | null>(null);
   const [evaluationOutput, setEvaluationOutput] = useState('');
   const [evaluationMetadata, setEvaluationMetadata] = useState<
-    Partial<ModelGatewayResponseType['metadata']>
+    Partial<ModelGatewayResponseType['usage']>
   >({});
   const [outputDirty, setOutputDirty] = useState(false);
   const [isViewExamplesModalOpen, setViewExamplesModalOpen] = useState(false);
@@ -171,7 +171,7 @@ export const EvaluationCreatePromptRunModal = ({
       sortBy(
         Object.values(modelRoutes).filter((modelRoute) =>
           [ModelGatewayRouteType.LLM_V1_COMPLETIONS, ModelGatewayRouteType.LLM_V1_CHAT].includes(
-            modelRoute.route_type,
+            modelRoute.endpoint_type,
           ),
         ),
         'name',
@@ -248,13 +248,13 @@ export const EvaluationCreatePromptRunModal = ({
     )
       .then(({ value, action }) => {
         if (cancelTokenRef.current === cancelToken) {
-          const { text, metadata } = ModelGatewayService.parseEvaluationResponse(value);
+          const { text, usage } = ModelGatewayService.parseEvaluationResponse(value);
 
           // TODO: Consider calculating actual model call latency on the backend side
           const latency = performance.now() - action.meta.startTime;
 
           setEvaluationOutput(text);
-          const metadataWithEvaluationTime = { ...metadata, latency };
+          const metadataWithEvaluationTime = { ...usage, latency };
 
           // Prefix the metadata keys with "MLFLOW_"
           const prefixedMetadata = Object.entries(metadataWithEvaluationTime).reduce(
@@ -278,8 +278,8 @@ export const EvaluationCreatePromptRunModal = ({
         const errorMessage = e.getGatewayErrorMessage() || e.getUserVisibleError();
         const wrappedMessage = intl.formatMessage(
           {
-            defaultMessage: 'AI gateway returned the following error: "{errorMessage}"',
-            description: 'Experiment page > new run modal > AI gateway error message',
+            defaultMessage: 'MLflow deployment returned the following error: "{errorMessage}"',
+            description: 'Experiment page > new run modal > MLflow deployment error message',
           },
           {
             errorMessage,
@@ -308,7 +308,7 @@ export const EvaluationCreatePromptRunModal = ({
     description: 'Experiment page > new run modal > AI gateway selector label',
   });
   const selectModelPlaceholder = intl.formatMessage({
-    defaultMessage: 'Select route',
+    defaultMessage: 'Select endpoint',
     description: 'Experiment page > new run modal > AI gateway selector placeholder',
   });
 
@@ -342,7 +342,7 @@ export const EvaluationCreatePromptRunModal = ({
   const createRunButtonTooltip = useMemo(() => {
     if (!selectedModel) {
       return intl.formatMessage({
-        defaultMessage: 'You need to select a route from the AI gateway dropdown first',
+        defaultMessage: 'You need to select an endpoint from the MLflow deployment  dropdown first',
         description: 'Experiment page > new run modal > invalid state - no AI gateway selected',
       });
     }
@@ -400,7 +400,7 @@ export const EvaluationCreatePromptRunModal = ({
   const evaluateButtonTooltip = useMemo(() => {
     if (!selectedModel) {
       return intl.formatMessage({
-        defaultMessage: 'You need to select a route from the AI gateway dropdown first',
+        defaultMessage: 'You need to select an endpoint from the MLflow deployment dropdown first',
         description: 'Experiment page > new run modal > invalid state - no AI gateway selected',
       });
     }
@@ -530,9 +530,9 @@ export const EvaluationCreatePromptRunModal = ({
               title={
                 <FormattedMessage
                   defaultMessage={
-                    'These routes come from the AI Gateway. Check out the AI Gateway preview documentation to get started'
+                    'These endpoints come from the MLflow deployment. Check out the MLflow deployment documentation to get started'
                   }
-                  description={'Information about gateway routes'}
+                  description={'Information about MLflow deployment endpoints'}
                 />
               }
               placement='right'

@@ -31,6 +31,7 @@ from mlflow.entities import (
 from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_REGISTRY_URI,
     MLFLOW_RUN_ID,
 )
 from mlflow.exceptions import MlflowException
@@ -1369,3 +1370,22 @@ def test_set_tag_async():
     assert parent_run.data.tags["async single tag"] == "1"
     for num in range(100):
         assert parent_run.data.tags[f"async batch tag {num}"] == str(num)
+
+
+@pytest.fixture
+def spark_session_with_registry_uri(request):
+    with mock.patch(
+        "mlflow.tracking._model_registry.utils._get_active_spark_session"
+    ) as spark_session_getter:
+        spark = mock.MagicMock()
+        spark_session_getter.return_value = spark
+        spark.conf.get.side_effect = lambda key, _: "http://custom.uri"
+        yield spark
+
+
+def test_registry_uri_from_spark_conf(spark_session_with_registry_uri):
+    assert mlflow.get_registry_uri() == "http://custom.uri"
+    # The MLFLOW_REGISTRY_URI environment variable should still take precedence over the
+    # spark conf if present
+    with mock.patch.dict(os.environ, {MLFLOW_REGISTRY_URI.name: "something-else"}):
+        assert mlflow.get_registry_uri() == "something-else"

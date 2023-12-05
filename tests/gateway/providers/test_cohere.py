@@ -1,11 +1,13 @@
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import completions, embeddings
 
@@ -44,34 +46,45 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch(
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = CohereProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
+            "n": 1,
+            "stop": ["foobar"],
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "command",
+            "choices": [
                 {
                     "text": "This is a test",
-                    "metadata": {},
+                    "index": 0,
+                    "finish_reason": None,
                 }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "command",
-                "route_type": "llm/v1/completions",
-            },
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://api.cohere.ai/v1/generate",
+            json={
+                "prompt": "This is a test",
+                "model": "command",
+                "num_generations": 1,
+                "stop_sequences": ["foobar"],
+                "temperature": 0.0,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 @pytest.mark.asyncio
-async def test_completions_temperature_is_multiplied_by_5():
+async def test_completions_temperature_is_scaled_correctly():
     resp = completions_response()
     config = completions_config()
     with mock.patch(
@@ -83,7 +96,7 @@ async def test_completions_temperature_is_multiplied_by_5():
             "temperature": 0.5,
         }
         await provider.completions(completions.RequestPayload(**payload))
-        assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 5
+        assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 2.5
 
 
 def embeddings_config():
@@ -127,6 +140,41 @@ def embeddings_response():
     }
 
 
+def embeddings_batch_response():
+    return {
+        "id": "bc57846a-3e56-4327-8acc-588ca1a37b8a",
+        "texts": ["hello world"],
+        "embeddings": [
+            [
+                3.25,
+                0.7685547,
+                2.65625,
+                -0.30126953,
+                -2.3554688,
+                1.2597656,
+            ],
+            [
+                7.25,
+                0.7685547,
+                4.65625,
+                -0.30126953,
+                -2.3554688,
+                8.2597656,
+            ],
+        ],
+        "meta": [
+            {
+                "api_version": [
+                    {
+                        "version": "1",
+                    }
+                ]
+            },
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+
 @pytest.mark.asyncio
 async def test_embeddings():
     resp = embeddings_response()
@@ -135,26 +183,70 @@ async def test_embeddings():
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = CohereProvider(RouteConfig(**config))
-        payload = {"text": "This is a test"}
+        payload = {"input": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "embeddings": [
-                [
-                    3.25,
-                    0.7685547,
-                    2.65625,
-                    -0.30126953,
-                    -2.3554688,
-                    1.2597656,
-                ]
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "embed-english-light-v2.0",
-                "route_type": "llm/v1/embeddings",
-            },
+            "model": "embed-english-light-v2.0",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
+        }
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_batch_embeddings():
+    resp = embeddings_batch_response()
+    config = embeddings_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = CohereProvider(RouteConfig(**config))
+        payload = {"input": ["This is a", "batch test"]}
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                },
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        7.25,
+                        0.7685547,
+                        4.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        8.2597656,
+                    ],
+                    "index": 1,
+                },
+            ],
+            "model": "embed-english-light-v2.0",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
         }
         mock_post.assert_called_once()
 
