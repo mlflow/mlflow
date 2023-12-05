@@ -81,6 +81,30 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
     <section>
         <article class="simple-grid">
             <div class="simple-card">
+                <a href="tensorflow/index.html">
+                    <div class="header">
+                        Tensorflow
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the Tensorflow library and see example notebooks that leverage
+                        MLflow and Tensorflow to build deep learning workflows.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tensorflow/index
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
                 <a href="keras/index.html">
                     <div class="header">
                         Keras
@@ -99,6 +123,7 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
     :hidden:
 
     keras/index
+    tensorflow/index
 
 MLflow Tracking for Deep Learning
 ---------------------------------
