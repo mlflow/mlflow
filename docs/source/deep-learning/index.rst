@@ -123,6 +123,7 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
     :hidden:
 
     keras/index
+    tensorflow/index
 
 MLflow Tracking for Deep Learning
 ---------------------------------
