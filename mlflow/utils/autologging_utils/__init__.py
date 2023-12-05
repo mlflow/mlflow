@@ -8,10 +8,11 @@ from typing import List
 
 import mlflow
 from mlflow.entities import Metric
-from mlflow.tracking.client import MlflowClient
-from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.tracking.client import MlflowClient
+from mlflow.utils.validation import MAX_METRICS_PER_BATCH
+
 # Define the module-level logger for autologging utilities before importing utilities defined in
 # submodules (e.g., `safety`, `events`) that depend on the module-level logger. Add the `noqa: E402`
 # comment after each subsequent import to ignore "import not at top of file" code style errors
@@ -124,17 +125,18 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=None):
     # Logging parameters individually to prevent one param from causing the entire training to fail
     # (e.g., when fitting with a large param like class_weight)
     for key, value in params_to_log.items():
-       try:
-          mlflow.log_param(key, value)
-       except MlflowException as e:
-           if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE) and "which exceeded length limit" in str(e):
-               _logger.warning(
-                   "Failed to log parameter %s due to exceeding length limit.",
-                   key,
-               )
-           else:
-               raise e
-
+        try:
+            mlflow.log_param(key, value)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(
+                INVALID_PARAMETER_VALUE
+            ) and "which exceeded length limit" in str(e):
+                _logger.warning(
+                    "Failed to log parameter %s due to exceeding length limit.",
+                    key,
+                )
+            else:
+                raise e
 
 
 class InputExampleInfo:
