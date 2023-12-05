@@ -106,7 +106,7 @@ describe('ExperimentViewRunsTable', () => {
     createWrapper();
     expect(useRunsColumnDefinitions).toBeCalledWith(
       expect.objectContaining({
-        searchFacetsState: expect.anything(),
+        selectedColumns: expect.anything(),
         compareExperiments: false,
         metricKeyList: ['m1', 'm2', 'm3'],
         paramKeyList: ['p1', 'p2', 'p3'],

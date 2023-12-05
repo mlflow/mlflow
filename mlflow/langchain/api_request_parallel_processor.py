@@ -22,7 +22,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import langchain.chains
 from langchain.schema import AgentAction
@@ -146,7 +146,7 @@ class APIRequest:
 
 def process_api_requests(
     lc_model,
-    requests: List[Union[str, Dict[str, Any]]] = None,
+    requests: Optional[List[Union[str, Dict[str, Any]]]] = None,
     max_workers: int = 10,
 ):
     """

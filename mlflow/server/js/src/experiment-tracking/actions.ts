@@ -10,7 +10,7 @@ import { AsyncAction, ThunkDispatch } from '../redux-types';
 import { MlflowService } from './sdk/MlflowService';
 import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
-import { isArray } from 'lodash';
+import { isArray, isObject } from 'lodash';
 import { ViewType } from './sdk/MlflowEnums';
 import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUtils';
 import { stringify as queryStringStringify } from 'qs';
@@ -320,6 +320,10 @@ export const searchRunsPayload = ({
   // We will merge and return an array with those two collections
   return Promise.all(promises).then(([baseSearchResponse, pinnedSearchResponse = {}]) => {
     const response = baseSearchResponse;
+
+    if (!isObject(response)) {
+      throw new Error(`Invalid format of the runs search response: ${String(response)}`);
+    }
 
     // Place aside ans save runs that matched filter naturally (not the pinned ones):
     (response as any).runsMatchingFilter = (baseSearchResponse as any).runs?.slice() || [];

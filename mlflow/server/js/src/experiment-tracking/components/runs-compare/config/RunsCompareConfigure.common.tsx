@@ -1,7 +1,7 @@
 import { Select, Typography } from '@databricks/design-system';
 import React, { ComponentProps, PropsWithChildren } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { makeCanonicalSortKey } from '../../experiment-page/utils/experimentPage.column-utils';
+import { makeCanonicalSortKey } from '../../experiment-page/utils/experimentPage.common-utils';
 
 /**
  * Represents a field in the compare run charts configuration modal.

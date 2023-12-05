@@ -4,7 +4,7 @@ import {
   extractCanonicalSortKey,
   isCanonicalSortKeyOfType,
   makeCanonicalSortKey,
-} from '../../experiment-page/utils/experimentPage.column-utils';
+} from '../../experiment-page/utils/experimentPage.common-utils';
 import type { RunsCompareCardConfig, RunsCompareContourCardConfig } from '../runs-compare.types';
 import {
   RunsCompareMetricParamSelect,

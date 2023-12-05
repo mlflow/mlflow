@@ -16,6 +16,7 @@ import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRuns
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import { shouldEnableArtifactBasedEvaluation } from '../../../../../common/utils/FeatureUtils';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
+import { PreviewIcon } from 'shared/building_blocks/PreviewIcon';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
 const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
@@ -94,6 +95,16 @@ export const ExperimentViewRunsModeSwitch = ({
   const { classNamePrefix } = useDesignSystemTheme();
 
   const activeTab = compareRunsMode || 'TABLE';
+  const previewIcon = () => {
+    return (
+      <Tag style={{ marginLeft: '4px' }} color='turquoise'>
+        <FormattedMessage
+          defaultMessage='Experimental'
+          description='Experimental badge shown for features which are experimental'
+        />
+      </Tag>
+    );
+  };
 
   return (
     <Tabs
@@ -143,12 +154,7 @@ export const ExperimentViewRunsModeSwitch = ({
                 defaultMessage='Evaluation'
                 description='A button enabling compare runs (evaluation) mode on the experiment page'
               />{' '}
-              <Tag style={{ marginLeft: '4px' }} color='turquoise'>
-                <FormattedMessage
-                  defaultMessage='Experimental'
-                  description='Experimental badge shown for features which are experimental'
-                />
-              </Tag>
+              {previewIcon()}
             </span>
           }
           key='ARTIFACT'

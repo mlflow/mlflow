@@ -7,6 +7,7 @@ from mlflow.environment_variables import (
     MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING,
     MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.system_metrics.metrics.cpu_monitor import CPUMonitor
 from mlflow.system_metrics.metrics.disk_monitor import DiskMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
@@ -26,6 +27,8 @@ class SystemMetricsMonitor:
     environment variables, e.g., run `export MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL=10` in terminal
     will set the sampling interval to 10 seconds.
 
+    System metrics are logged with a prefix "system/", e.g., "system/cpu_utilization_percentage".
+
     Args:
         run_id: string, the MLflow run ID.
         sampling_interval: float, default to 10. The interval (in seconds) at which to pull system
@@ -34,9 +37,18 @@ class SystemMetricsMonitor:
         samples_before_logging: int, default to 1. The number of samples to aggregate before
             logging. Will be overridden by `MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING`
             evnironment variable.
+        resume_logging: bool, default to False. If True, we will resume the system metrics logging
+            from the `run_id`, and the first step to log will be the last step of `run_id` + 1, if
+            False, system metrics logging will start from step 0.
     """
 
-    def __init__(self, run_id, sampling_interval=10, samples_before_logging=1):
+    def __init__(
+        self,
+        run_id,
+        sampling_interval=10,
+        samples_before_logging=1,
+        resume_logging=False,
+    ):
         from mlflow.utils.autologging_utils import BatchMetricsLogger
 
         # Instantiate default monitors.
@@ -58,7 +70,26 @@ class SystemMetricsMonitor:
         self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
         self._process = None
-        self._logging_step = 0
+        self._metrics_prefix = "system/"
+        self._logging_step = self._get_next_logging_step(run_id) if resume_logging else 0
+
+    def _get_next_logging_step(self, run_id):
+        from mlflow.tracking.client import MlflowClient
+
+        client = MlflowClient()
+        try:
+            run = client.get_run(run_id)
+        except MlflowException:
+            return 0
+        system_metric_name = None
+        for metric_name in run.data.metrics.keys():
+            if metric_name.startswith(self._metrics_prefix):
+                system_metric_name = metric_name
+                break
+        if system_metric_name is None:
+            return 0
+        metric_history = client.get_metric_history(run_id, system_metric_name)
+        return metric_history[-1].step + 1
 
     def start(self):
         """Start monitoring system metrics."""
@@ -119,6 +150,9 @@ class SystemMetricsMonitor:
 
     def publish_metrics(self, metrics):
         """Log collected metrics to MLflow."""
+        # Add prefix "system/" to the metrics name for grouping.
+        metrics = {self._metrics_prefix + k: v for k, v in metrics.items()}
+
         self.mlflow_logger.record_metrics(metrics, self._logging_step)
         self._logging_step += 1
         for monitor in self.monitors:
@@ -132,6 +166,7 @@ class SystemMetricsMonitor:
         self._shutdown_event.set()
         try:
             self._process.join()
+            self.mlflow_logger.flush()
             _logger.info("Successfully terminated system metrics monitoring!")
         except Exception as e:
             _logger.error(f"Error terminating system metrics monitoring process: {e}.")

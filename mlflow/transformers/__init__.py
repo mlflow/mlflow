@@ -1,4 +1,4 @@
-"""MLFlow module for HuggingFace/transformer support."""
+"""MLflow module for HuggingFace/transformer support."""
 
 import ast
 import base64
@@ -65,7 +65,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
@@ -105,7 +105,13 @@ _TOKENIZER_KEY = "tokenizer"
 _TOKENIZER_TYPE_KEY = "tokenizer_type"
 _TORCH_DTYPE_KEY = "torch_dtype"
 _METADATA_PIPELINE_SCALAR_CONFIG_KEYS = {_FRAMEWORK_KEY}
-_SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
+_SUPPORTED_SAVE_KEYS = {
+    _MODEL_KEY,
+    _TOKENIZER_KEY,
+    _FEATURE_EXTRACTOR_KEY,
+    _IMAGE_PROCESSOR_KEY,
+    _TORCH_DTYPE_KEY,
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -225,7 +231,8 @@ def save_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    model_config: Optional[Dict[str, Any]] = None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
@@ -299,6 +306,10 @@ def save_model(
                                  must be >=0.10.0
 
     :param inference_config:
+
+        .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
+
+    :param model_config:
         A dict of valid overrides that can be applied to a pipeline instance during inference.
         These arguments are used exclusively for the case of loading the model as a ``pyfunc``
         Model or for use in Spark.
@@ -329,7 +340,7 @@ def save_model(
             prompts = ["Generative models are", "I'd like a coconut so that I can"]
 
             # validation of config prior to save or log
-            inference_config = {
+            model_config = {
                 "top_k": 2,
                 "num_beams": 5,
                 "max_length": 30,
@@ -339,13 +350,13 @@ def save_model(
             }
 
             # Verify that no exceptions are thrown
-            sentence_pipeline(prompts, **inference_config)
+            sentence_pipeline(prompts, **model_config)
 
             mlflow.transformers.save_model(
                 transformers_model=sentence_pipeline,
                 path="/path/for/model",
                 task=task,
-                inference_config=inference_config,
+                model_config=model_config,
             )
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -421,6 +432,20 @@ def save_model(
     else:
         built_pipeline = transformers_model
 
+    # Verify that the model has not been loaded to distributed memory
+    # NB: transformers does not correctly save a model whose weights have been loaded
+    # using accelerate iff the model weights have been loaded using a device_map that is
+    # heterogeneous. There is a distinct possibility for a partial write to occur, causing an
+    # invalid state of the model's weights in this scenario. Hence, we raise.
+    if _is_model_distributed_in_memory(built_pipeline.model):
+        raise MlflowException(
+            "The model that is attempting to be saved has been loaded into memory "
+            "with an incompatible configuration. If you are using the accelerate "
+            "library to load your model, please ensure that it is saved only after "
+            "loading with the default device mapping. Do not specify `device_map` "
+            "and please try again."
+        )
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -446,6 +471,12 @@ def save_model(
         save_directory=path.joinpath(_MODEL_BINARY_FILE_NAME),
         max_shard_size=MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE.get(),
     )
+
+    if model_config and inference_config:
+        raise MlflowException(
+            "Using both `model_config` and `inference_config` is not allowed. Use `model_config` "
+            "to indicate any model configuration you need to use for inference."
+        )
 
     # Save the components explicitly to the components directory
     if components:
@@ -473,7 +504,7 @@ def save_model(
         # from the input_example if provided, otherwise, apply a generic signature.
         if mlflow_model.signature is None:
             mlflow_model.signature = _get_default_pipeline_signature(
-                built_pipeline, input_example, inference_config
+                built_pipeline, input_example, model_config or inference_config
             )
 
         pyfunc.add_to_model(
@@ -482,6 +513,7 @@ def save_model(
             conda_env=_CONDA_ENV_FILE_NAME,
             python_env=_PYTHON_ENV_FILE_NAME,
             code=code_dir_subpath,
+            model_config=model_config,
             **model_bin_kwargs,
         )
     else:
@@ -503,6 +535,8 @@ def save_model(
         code=code_dir_subpath,
         **flavor_conf,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
 
     if conda_env is None:
@@ -548,14 +582,15 @@ def log_model(
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
-    registered_model_name: str = None,
+    registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    model_config: Optional[Dict[str, Any]] = None,
     **kwargs,
 ):
     """
@@ -629,10 +664,13 @@ def log_model(
                                  must be >=0.10.0
 
     :param inference_config:
-        A dict of valid overrides that can be applied to a pipeline instance during inference.
-        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
-        Model or for use in Spark.
-        These values are not applied to a returned Pipeline from a call to
+
+        .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
+
+    :param model_config:
+        A dict of valid overrides that can be applied to a pipeline instance during inference. These
+        arguments are used exclusively for the case of loading the model as a ``pyfunc`` Model or
+        for use in Spark. These values are not applied to a returned Pipeline from a call to
         ``mlflow.transformers.load_model()``
 
         .. Warning:: If the key provided is not compatible with either the
@@ -659,7 +697,7 @@ def log_model(
           prompts = ["Generative models are", "I'd like a coconut so that I can"]
 
           # validation of config prior to save or log
-          inference_config = {
+          model_config = {
               "top_k": 2,
               "num_beams": 5,
               "max_length": 30,
@@ -669,14 +707,14 @@ def log_model(
           }
 
           # Verify that no exceptions are thrown
-          sentence_pipeline(prompts, **inference_config)
+          sentence_pipeline(prompts, **model_config)
 
           with mlflow.start_run():
               mlflow.transformers.log_model(
                   transformers_model=sentence_pipeline,
                   artifact_path="my_sentence_generator",
                   task=task,
-                  inference_config=inference_config,
+                  model_config=model_config,
               )
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -754,13 +792,16 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        model_config=model_config,
         **kwargs,
     )
 
 
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", device=None, **kwargs):
+def load_model(
+    model_uri: str, dst_path: Optional[str] = None, return_type="pipeline", device=None, **kwargs
+):
     """
     Load a ``transformers`` object from a local file or a run.
 
@@ -831,6 +872,18 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", dev
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
     return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
+
+
+def _is_model_distributed_in_memory(transformers_model):
+    """Check if the model is distributed across multiple devices in memory."""
+
+    # Check if the model attribute exists. If not, accelerate was not used and the model can
+    # be safely saved
+    if not hasattr(transformers_model, "hf_device_map"):
+        return False
+    # If the device map has more than one unique value entry, then the weights are not within
+    # a contiguous memory system (VRAM, SYS, or DISK) and thus cannot be safely saved.
+    return len(set(transformers_model.hf_device_map.values())) > 1
 
 
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
@@ -1078,7 +1131,11 @@ def _record_pipeline_components(pipeline) -> Dict[str, Any]:
 
 
 def _save_components(
-    root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
+    root_path: pathlib.Path,
+    component_config: Dict[str, Any],
+    pipeline,
+    processor,
+    inference_config=None,
 ):
     """
     Saves non-model pipeline components.
@@ -1090,6 +1147,10 @@ def _save_components(
     if processor:
         processor.save_pretrained(root_path.joinpath(_PROCESSOR_KEY))
     if inference_config:
+        _logger.warning(
+            "Indicating `inference_config` is deprecated and will be removed in a future version "
+            "of MLflow. Use `model_config` instead."
+        )
         root_path.joinpath(_INFERENCE_CONFIG_BINARY_KEY).write_text(json.dumps(inference_config))
 
 
@@ -1314,10 +1375,7 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     """
     import transformers
 
-    if isinstance(input_example, tuple):
-        input_data = input_example[0]
-    else:
-        input_data = input_example
+    input_data = input_example[0] if isinstance(input_example, tuple) else input_example
 
     if (
         isinstance(pipeline, transformers.ZeroShotClassificationPipeline)
@@ -1328,9 +1386,7 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
-def _get_default_pipeline_signature(
-    pipeline, example=None, inference_config=None
-) -> ModelSignature:
+def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
     default signatures should only be generated and assigned when saving a model iff the user
@@ -1346,7 +1402,7 @@ def _get_default_pipeline_signature(
             params = None
             if _contains_params(example):
                 example, params = example
-            prediction = generate_signature_output(pipeline, example, inference_config, params)
+            prediction = generate_signature_output(pipeline, example, model_config, params)
             return infer_signature(example, prediction, params)
         except Exception as e:
             _logger.warning(
@@ -1455,6 +1511,7 @@ class _TransformersModel(NamedTuple):
     feature_extractor: Any = None
     image_processor: Any = None
     processor: Any = None
+    torch_dtype: Any = None
 
     def to_dict(self):
         dict_repr = self._asdict()
@@ -1478,7 +1535,7 @@ class _TransformersModel(NamedTuple):
 
     @classmethod
     def _validate_submitted_types(
-        cls, model, tokenizer, feature_extractor, image_processor, processor
+        cls, model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
     ):
         from transformers import (
             FeatureExtractionMixin,
@@ -1512,6 +1569,12 @@ class _TransformersModel(NamedTuple):
         for arg, name, types in validation:
             if arg and not isinstance(arg, types):
                 invalid_types.append(cls._build_exception_msg(arg, name, types))
+        # only import torch when torch_dtype is not None
+        if torch_dtype is not None:
+            from torch import dtype
+
+            if not isinstance(torch_dtype, dtype):
+                invalid_types.append(cls._build_exception_msg(torch_dtype, "torch_dtype", dtype))
         if invalid_types:
             raise MlflowException("\n".join(invalid_types), error_code=BAD_REQUEST)
 
@@ -1523,41 +1586,50 @@ class _TransformersModel(NamedTuple):
         feature_extractor=None,
         image_processor=None,
         processor=None,
+        torch_dtype=None,
         **kwargs,  # pylint: disable=unused-argument
     ):
         cls._validate_submitted_types(
-            model, tokenizer, feature_extractor, image_processor, processor
+            model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
         )
 
-        return _TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
+        return _TransformersModel(
+            model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
+        )
 
 
-def _get_inference_config(local_path):
+def _get_model_config(local_path, pyfunc_config):
     """
-    Load the inference config if it was provided for use in the `_TransformersWrapper` pyfunc
+    Load the model configuration if it was provided for use in the `_TransformersWrapper` pyfunc
     Model wrapper.
     """
     config_path = local_path.joinpath("inference_config.txt")
     if config_path.exists():
+        _logger.warning(
+            "Inference config stored in file ``inference_config.txt`` is deprecated. New logged "
+            "models will store the model configuration in the ``pyfunc`` flavor configuration."
+        )
         return json.loads(config_path.read_text())
+    else:
+        return pyfunc_config or {}
 
 
-def _load_pyfunc(path):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     Loads the model as pyfunc model
     """
     local_path = pathlib.Path(path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
-    inference_config = _get_inference_config(local_path.joinpath(_COMPONENTS_BINARY_KEY))
+    model_config = _get_model_config(local_path.joinpath(_COMPONENTS_BINARY_KEY), model_config)
     return _TransformersWrapper(
         _load_model(str(local_path), flavor_configuration, "pipeline"),
         flavor_configuration,
-        inference_config,
+        model_config,
     )
 
 
 @experimental
-def generate_signature_output(pipeline, data, inference_config=None, params=None):
+def generate_signature_output(pipeline, data, model_config=None, params=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
@@ -1566,8 +1638,8 @@ def generate_signature_output(pipeline, data, inference_config=None, params=None
     :param pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
                      inputs are not permitted for extracting an output example.
     :param data: An example input that is compatible with the given pipeline
-    :param inference_config: Any additional inference configuration, provided as kwargs, to inform
-                             the format of the output type from a pipeline inference call.
+    :param model_config: Any additional model configuration, provided as kwargs, to inform
+                         the format of the output type from a pipeline inference call.
     :param params: A dictionary of additional parameters to pass to the pipeline for inference.
     :return: The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
     """
@@ -1580,16 +1652,16 @@ def generate_signature_output(pipeline, data, inference_config=None, params=None
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _TransformersWrapper(pipeline=pipeline, inference_config=inference_config).predict(
+    return _TransformersWrapper(pipeline=pipeline, model_config=model_config).predict(
         data, params=params
     )
 
 
 class _TransformersWrapper:
-    def __init__(self, pipeline, flavor_config=None, inference_config=None):
+    def __init__(self, pipeline, flavor_config=None, model_config=None):
         self.pipeline = pipeline
         self.flavor_config = flavor_config
-        self.inference_config = inference_config or {}
+        self.model_config = model_config or {}
         self._conversation = None
         # NB: Current special-case custom pipeline types that have not been added to
         # the native-supported transformers package but require custom parsing:
@@ -1626,7 +1698,7 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def _override_inference_config(self, params):
+    def _override_model_config(self, params):
         if params:
             _logger.warning(
                 "params provided to the `predict` method will override the inference "
@@ -1635,15 +1707,15 @@ class _TransformersWrapper:
             )
 
             # Override the inference configuration with any additional kwargs provided by the user.
-            self.inference_config.update(params)
+            self.model_config.update(params)
 
-    def _validate_inference_config_and_return_output(self, data):
+    def _validate_model_config_and_return_output(self, data):
         import transformers
 
         try:
             if isinstance(data, dict):
-                return self.pipeline(**data, **self.inference_config)
-            return self.pipeline(data, **self.inference_config)
+                return self.pipeline(**data, **self.model_config)
+            return self.pipeline(data, **self.model_config)
         except ValueError as e:
             if "The following `model_kwargs` are not used by the model" in str(e):
                 raise MlflowException.invalid_parameter_value(
@@ -1656,7 +1728,12 @@ class _TransformersWrapper:
                     transformers.AutomaticSpeechRecognitionPipeline,
                     transformers.AudioClassificationPipeline,
                 ),
-            ) and "Malformed soundfile" in str(e):
+            ) and (
+                # transformers <= 4.33.3
+                "Malformed soundfile" in str(e)
+                # transformers > 4.33.3
+                or "Soundfile is either not in the correct format or is malformed" in str(e)
+            ):
                 raise MlflowException.invalid_parameter_value(
                     "Failed to process the input audio data. Either the audio file is "
                     "corrupted or a uri was passed in without overriding the default model "
@@ -1675,7 +1752,7 @@ class _TransformersWrapper:
 
         :return: Model predictions.
         """
-        self._override_inference_config(params)
+        self._override_model_config(params)
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
@@ -1690,11 +1767,7 @@ class _TransformersWrapper:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             input_data = data
-        elif isinstance(data, str):
-            input_data = data
-        elif isinstance(data, bytes):
-            input_data = data
-        elif isinstance(data, np.ndarray):
+        elif isinstance(data, (str, bytes, np.ndarray)):
             input_data = data
         else:
             raise MlflowException(
@@ -1762,7 +1835,7 @@ class _TransformersWrapper:
             self._validate_str_or_list_str(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.AutomaticSpeechRecognitionPipeline):
-            if self.inference_config.get("return_timestamps", None) in ["word", "char"]:
+            if self.model_config.get("return_timestamps", None) in ["word", "char"]:
                 output_key = None
             else:
                 output_key = "text"
@@ -1778,12 +1851,12 @@ class _TransformersWrapper:
             )
 
         # Optional input preservation for specific pipeline types. This is True (include raw
-        # formatting output), but if `include_prompt` is set to False in the `inference_config`
+        # formatting output), but if `include_prompt` is set to False in the `model_config`
         # option during model saving, excess newline characters and the fed-in prompt will be
         # trimmed out from the start of the response.
-        include_prompt = self.inference_config.pop("include_prompt", True)
+        include_prompt = self.model_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
-        collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
+        collapse_whitespace = self.model_config.pop("collapse_whitespace", False)
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
@@ -1792,7 +1865,7 @@ class _TransformersWrapper:
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
-            raw_output = self._validate_inference_config_and_return_output(data)
+            raw_output = self._validate_model_config_and_return_output(data)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
@@ -1816,7 +1889,7 @@ class _TransformersWrapper:
             output = self._parse_tokenizer_output(raw_output, output_key)
         elif isinstance(
             self.pipeline, transformers.AutomaticSpeechRecognitionPipeline
-        ) and self.inference_config.get("return_timestamps", None) in ["word", "char"]:
+        ) and self.model_config.get("return_timestamps", None) in ["word", "char"]:
             output = json.dumps(raw_output)
         elif isinstance(
             self.pipeline,
@@ -1951,9 +2024,9 @@ class _TransformersWrapper:
     def _parse_conversation_input(self, data):
         import transformers
 
-        if not isinstance(self.pipeline, transformers.ConversationalPipeline):
-            return data
-        elif isinstance(data, str):
+        if not isinstance(self.pipeline, transformers.ConversationalPipeline) or isinstance(
+            data, str
+        ):
             return data
         elif isinstance(data, list) and all(isinstance(elem, dict) for elem in data):
             return next(iter(data[0].values()))
@@ -2119,7 +2192,7 @@ class _TransformersWrapper:
             # return statements, followed by the start of the response to the prompt. We only
             # want to left-trim these types of pipelines output values if the user has indicated
             # the removal action of the input prompt in the returned str or List[str] by applying
-            # the optional inference_config entry of `{"include_prompt": False}`.
+            # the optional model_config entry of `{"include_prompt": False}`.
             # By default, the prompt is included in the response.
             # Stripping out additional carriage returns (\n) is another additional optional flag
             # that can be set for these generator pipelines. It is off by default (False).
@@ -2287,8 +2360,16 @@ class _TransformersWrapper:
         Returns the first value of the `target_dict_key` that matches in the first dictionary in a
         list of dictionaries.
         """
+
+        def fetch_target_key_value(data, key):
+            if isinstance(data[0], dict):
+                return data[0][key]
+            return [item[0][key] for item in data]
+
         if isinstance(output_data[0], list):
-            return [collection[0][target_dict_key] for collection in output_data]
+            return [
+                fetch_target_key_value(collection, target_dict_key) for collection in output_data
+            ]
         else:
             return [output_data[0][target_dict_key]]
 
@@ -2364,9 +2445,9 @@ class _TransformersWrapper:
                 return list(data.values())
         elif isinstance(data, list) and all(isinstance(value, dict) for value in data):
             return [self._parse_text2text_input(entry) for entry in data]
-        elif isinstance(data, str):
-            return data
-        elif isinstance(data, list) and all(isinstance(value, str) for value in data):
+        elif isinstance(data, str) or (
+            isinstance(data, list) and all(isinstance(value, str) for value in data)
+        ):
             return data
         else:
             raise MlflowException(

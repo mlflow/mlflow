@@ -46,6 +46,7 @@ from mlflow.transformers import (
     _get_instance_type,
     _get_or_infer_task_type,
     _infer_transformers_task_type,
+    _is_model_distributed_in_memory,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
@@ -252,7 +253,7 @@ def fill_mask_pipeline():
 @flaky()
 def text2text_generation_pipeline():
     task = "text2text-generation"
-    architecture = "mrm8488/t5-base-finetuned-common_gen"
+    architecture = "mrm8488/t5-small-finetuned-common_gen"
     model = transformers.T5ForConditionalGeneration.from_pretrained(architecture)
     tokenizer = transformers.T5TokenizerFast.from_pretrained(architecture)
 
@@ -292,7 +293,7 @@ def translation_pipeline():
 @flaky()
 def summarizer_pipeline():
     task = "summarization"
-    architecture = "philschmid/distilbart-cnn-12-6-samsum"
+    architecture = "sshleifer/distilbart-cnn-6-6"
     model = transformers.BartForConditionalGeneration.from_pretrained(architecture)
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
     return transformers.pipeline(
@@ -362,7 +363,7 @@ def ner_pipeline_aggregation():
 @pytest.fixture
 @flaky()
 def conversational_pipeline():
-    return transformers.pipeline(model="microsoft/DialoGPT-medium")
+    return transformers.pipeline(model="AVeryRealHuman/DialoGPT-small-TonyStark")
 
 
 @pytest.fixture
@@ -1340,29 +1341,28 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert all(isinstance(element, str) for element in inference)
 
 
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.parametrize(
     ("data", "result"),
     [
-        ("muppet keyboard type", ["A muppet is typing on a keyboard."]),
+        ("muppet keyboard type", ["A man is typing a muppet on a keyboard."]),
         (
             ["pencil draw paper", "pie apple eat"],
             # NB: The result of this test case, without inference config overrides is:
             # ["A man drawing on paper with pencil", "A man eating a pie with applies"]
             # The inference config override forces additional insertion of more grammatically
             # correct responses to validate that the inference config is being applied.
-            ["A man is drawing on paper with a pencil.", "A man is eating a pie with apples."],
+            ["A man draws a pencil on a paper.", "A man eats a pie of apples."],
         ),
     ],
 )
-def test_text2text_generation_pipeline_with_inference_configs(
+def test_text2text_generation_pipeline_with_model_configs(
     text2text_generation_pipeline, tmp_path, data, result
 ):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
     )
 
-    inference_config = {
+    model_config = {
         "top_k": 2,
         "num_beams": 5,
         "max_length": 30,
@@ -1374,7 +1374,7 @@ def test_text2text_generation_pipeline_with_inference_configs(
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path1,
-        inference_config=inference_config,
+        model_config=model_config,
         signature=signature,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path1)
@@ -1383,10 +1383,7 @@ def test_text2text_generation_pipeline_with_inference_configs(
 
     assert inference == result
 
-    if isinstance(data, str):
-        pd_input = pd.DataFrame([data])
-    else:
-        pd_input = pd.DataFrame(data)
+    pd_input = pd.DataFrame([data]) if isinstance(data, str) else pd.DataFrame(data)
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
 
@@ -1394,7 +1391,7 @@ def test_text2text_generation_pipeline_with_inference_configs(
     signature_with_params = infer_signature(
         data,
         mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
-        inference_config,
+        model_config,
     )
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
@@ -1405,17 +1402,17 @@ def test_text2text_generation_pipeline_with_inference_configs(
 
     dict_inference = pyfunc_loaded.predict(
         data,
-        params=inference_config,
+        params=model_config,
     )
 
     assert dict_inference == inference
 
 
-def test_text2text_generation_pipeline_with_inference_config_and_params(
+def test_text2text_generation_pipeline_with_model_config_and_params(
     text2text_generation_pipeline, tmp_path
 ):
     data = "muppet keyboard type"
-    inference_config = {
+    model_config = {
         "top_k": 2,
         "num_beams": 5,
         "top_p": 0.85,
@@ -1436,14 +1433,14 @@ def test_text2text_generation_pipeline_with_inference_config_and_params(
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path,
-        inference_config=inference_config,
+        model_config=model_config,
         signature=signature,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
-    # inference_config and default params are all applied
+    # model_config and default params are all applied
     res = pyfunc_loaded.predict(data)
-    applied_params = inference_config.copy()
+    applied_params = model_config.copy()
     applied_params.update(parameters)
     res2 = pyfunc_loaded.predict(data, applied_params)
     assert res == res2
@@ -1512,7 +1509,6 @@ def test_text2text_generation_pipeline_with_params_with_errors(
         pyfunc_loaded.predict(data, {"top_k": "2"})
 
 
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text2text_generation_pipeline_with_inferred_schema(text2text_generation_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
@@ -1521,7 +1517,7 @@ def test_text2text_generation_pipeline_with_inferred_schema(text2text_generation
     pyfunc_loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
     assert pyfunc_loaded.predict("muppet board nails hammer") == [
-        "A muppet is hammering nails on a board."
+        "A hammer with a muppet and nails on a board."
     ]
 
 
@@ -1532,7 +1528,6 @@ def test_text2text_generation_pipeline_with_inferred_schema(text2text_generation
         ([{"answer": ["42"], "context": "life"}, {"unmatched": "keys", "cause": "failure"}]),
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_invalid_input_to_text2text_pipeline(text2text_generation_pipeline, invalid_data):
     # Adding this validation test due to the fact that we're constructing the input to the
     # Pipeline. The Pipeline requires a format of a pseudo-dict-like string. An example of
@@ -1551,13 +1546,12 @@ def test_invalid_input_to_text2text_pipeline(text2text_generation_pipeline, inva
 @pytest.mark.parametrize(
     "data", ["Generative models are", (["Generative models are", "Computers are"])]
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text_generation_pipeline, data)
     )
 
-    inference_config = {
+    model_config = {
         "prefix": "software",
         "top_k": 2,
         "num_beams": 5,
@@ -1569,7 +1563,7 @@ def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
     mlflow.transformers.save_model(
         text_generation_pipeline,
         path=model_path,
-        inference_config=inference_config,
+        model_config=model_config,
         signature=signature,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -1582,10 +1576,7 @@ def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
     else:
         assert inference[0].startswith(data)
 
-    if isinstance(data, str):
-        pd_input = pd.DataFrame([data], index=[0])
-    else:
-        pd_input = pd.DataFrame(data)
+    pd_input = pd.DataFrame([data], index=[0]) if isinstance(data, str) else pd.DataFrame(data)
     pd_inference = pyfunc_loaded.predict(pd_input)
 
     if isinstance(data, list):
@@ -1603,7 +1594,6 @@ def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
         (["tell me a story", {"of": "a properly configured pipeline input"}]),
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, invalid_data):
     if isinstance(invalid_data, list):
         match = "If supplying a list, all values must be of string type"
@@ -1648,6 +1638,17 @@ def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, r
 
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
+
+
+def test_fill_mask_pipeline_with_multiple_masks(fill_mask_pipeline, model_path):
+    data = ["I <mask> the whole <mask> of <mask>", "I <mask> the whole <mask> of <mask>"]
+
+    mlflow.transformers.save_model(fill_mask_pipeline, path=model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(data)
+    assert len(inference) == 2
+    assert all(len(value) == 3 for value in inference)
 
 
 @pytest.mark.parametrize(
@@ -1792,9 +1793,8 @@ def test_translation_pipeline(translation_pipeline, model_path, data, result):
         ["Baking cookies is quite easy", "Writing unittests is good for"],
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_summarization_pipeline(summarizer_pipeline, model_path, data):
-    inference_config = {
+    model_config = {
         "top_k": 2,
         "num_beams": 5,
         "max_length": 90,
@@ -1807,7 +1807,7 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
     )
 
     mlflow.transformers.save_model(
-        summarizer_pipeline, path=model_path, inference_config=inference_config, signature=signature
+        summarizer_pipeline, path=model_path, model_config=model_config, signature=signature
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
@@ -1917,7 +1917,6 @@ def test_ner_pipeline(pipeline_name, model_path, data, result, request):
     assert pd_inference == result
 
 
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_conversational_pipeline(conversational_pipeline, model_path):
     signature = infer_signature(
         "Hi there!",
@@ -1929,21 +1928,21 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
 
     first_response = loaded_pyfunc.predict("What is the best way to get to Antarctica?")
 
-    assert first_response == "I think you can get there by boat."
+    assert first_response == "The best way would be to go to space."
 
     second_response = loaded_pyfunc.predict("What kind of boat should I use?")
 
-    assert second_response == "A boat that can go to Antarctica."
+    assert second_response == "The best way to get to space would be to reach out and touch it."
 
     # Test that a new loaded instance has no context.
     loaded_again_pyfunc = mlflow.pyfunc.load_model(model_path)
     third_response = loaded_again_pyfunc.predict("What kind of boat should I use?")
 
-    assert third_response == "A boat that can't sink."
+    assert third_response == "The one with the guns."
 
     fourth_response = loaded_again_pyfunc.predict("Can I use it to go to the moon?")
 
-    assert fourth_response == "Only if you have a boat that can't sink."
+    assert fourth_response == "Sure."
 
 
 @pytest.mark.parametrize(
@@ -2723,7 +2722,7 @@ def test_instructional_pipeline_no_prompt_in_output(model_path):
         transformers_model=dolly,
         path=model_path,
         # Validate removal of prompt but inclusion of newlines by default
-        inference_config={"max_length": 100, "include_prompt": False},
+        model_config={"max_length": 100, "include_prompt": False},
         input_example="Hello, Dolly!",
     )
 
@@ -2745,7 +2744,7 @@ def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(mode
         transformers_model=dolly,
         path=model_path,
         # Validate removal of prompt but inclusion of newlines by default
-        inference_config={"max_length": 100, "include_prompt": False, "collapse_whitespace": True},
+        model_config={"max_length": 100, "include_prompt": False, "collapse_whitespace": True},
         input_example="Hello, Dolly!",
     )
 
@@ -2767,7 +2766,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
         transformers_model=dolly,
         path=model_path,
         # test default propagation of `include_prompt`=True and `collapse_whitespace`=False
-        inference_config={"max_length": 100},
+        model_config={"max_length": 100},
         input_example="Hello, Dolly!",
     )
 
@@ -2896,7 +2895,6 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
         ),
     ],
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
 def test_signature_inference(pipeline_name, data, result, request):
     pipeline = request.getfixturevalue(pipeline_name)
@@ -2930,6 +2928,28 @@ def test_extraction_of_torch_dtype_from_pipeline(dtype):
     parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
 
     assert parsed == str(dtype)
+
+
+@pytest.mark.parametrize(
+    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.float]
+)
+@pytest.mark.skipcacheclean
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
+)
+def test_extraction_of_torch_dtype_from_components(dtype, model_path):
+    components = {
+        "model": transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        "tokenizer": transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        "torch_dtype": dtype,
+    }
+
+    mlflow.transformers.save_model(transformers_model=components, path=model_path)
+
+    base_loaded = mlflow.transformers.load_model(model_path)
+    assert base_loaded.torch_dtype == dtype
+    assert base_loaded.framework == "pt"
+    assert base_loaded.model.dtype == dtype
 
 
 @pytest.mark.parametrize(
@@ -3063,7 +3083,7 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
     # appropriate bitrate encoding rate and casting to a numpy array. Other tests validate
     # the 'raw' file input of bytes.
 
-    inference_config = {
+    model_config = {
         "return_timestamps": "word",
         "chunk_length_s": 20,
         "stride_length_s": [5, 3],
@@ -3077,13 +3097,13 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
     mlflow.transformers.save_model(
         transformers_model=whisper_pipeline,
         path=model_path,
-        inference_config=inference_config,
+        model_config=model_config,
         signature=signature,
     )
 
     loaded_pipeline = mlflow.transformers.load_model(model_path)
 
-    transcription = loaded_pipeline(sound_file_for_test, **inference_config)
+    transcription = loaded_pipeline(sound_file_for_test, **model_config)
     assert transcription["text"].startswith(" 30")
 
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
@@ -3107,7 +3127,7 @@ def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test
         mlflow.transformers.generate_signature_output(whisper_pipeline, sound_file_for_test),
     )
 
-    inference_config = {
+    model_config = {
         "return_timestamps": "word",
         "chunk_length_s": 20,
         "stride_length_s": [5, 3],
@@ -3115,7 +3135,7 @@ def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test
     complex_signature = infer_signature(
         sound_file_for_test,
         mlflow.transformers.generate_signature_output(
-            whisper_pipeline, sound_file_for_test, inference_config
+            whisper_pipeline, sound_file_for_test, model_config
         ),
     )
 
@@ -3216,7 +3236,7 @@ def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_aud
         raw_audio_file,
         mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
     )
-    inference_config = {
+    model_config = {
         "return_timestamps": "word",
         "chunk_length_s": 20,
         "stride_length_s": [5, 3],
@@ -3227,7 +3247,7 @@ def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_aud
             transformers_model=whisper_pipeline,
             artifact_path=artifact_path,
             signature=signature,
-            inference_config=inference_config,
+            model_config=model_config,
             input_example=raw_audio_file,
         )
 
@@ -3245,7 +3265,7 @@ def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_aud
 
     assert (
         payload_output["text"]
-        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **inference_config)[
+        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **model_config)[
             "text"
         ]
     )
@@ -3531,7 +3551,7 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
     whisper_pipeline, raw_audio_file
 ):
     artifact_path = "whisper_timestamps"
-    inference_config = {
+    model_config = {
         "return_timestamps": "word",
         "chunk_length_s": 20,
         "stride_length_s": [5, 3],
@@ -3539,7 +3559,7 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
     signature = infer_signature(
         raw_audio_file,
         mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
-        params=inference_config,
+        params=model_config,
     )
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
@@ -3552,7 +3572,7 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
     inference_payload = json.dumps(
         {
             "inputs": [base64.b64encode(raw_audio_file).decode("ascii")],
-            "inference_config": inference_config,
+            "model_config": model_config,
         }
     )
     response = pyfunc_serve_and_score_model(
@@ -3566,7 +3586,7 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
 
     assert (
         payload_output["text"]
-        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **inference_config)[
+        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **model_config)[
             "text"
         ]
     )
@@ -3682,7 +3702,7 @@ def test_uri_directory_renaming_handling_components(model_path, small_seq2seq_pi
     Version(transformers.__version__) < Version("4.29.2"), reason="Feature does not exist"
 )
 def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
-    inference_config = {
+    model_config = {
         "return_timestamps": "word",
         "chunk_length_s": 60,
         "batch_size": 1,
@@ -3692,13 +3712,13 @@ def test_whisper_model_supports_timestamps(raw_audio_file, whisper_pipeline):
         model_info = mlflow.transformers.log_model(
             transformers_model=whisper_pipeline,
             artifact_path="model",
-            inference_config=inference_config,
+            model_config=model_config,
         )
 
     model_uri = model_info.model_uri
     whisper = mlflow.transformers.load_model(model_uri)
 
-    prediction = whisper(raw_audio_file, **inference_config)
+    prediction = whisper(raw_audio_file, **model_config)
     whisper_pyfunc = mlflow.pyfunc.load_model(model_uri)
     prediction_inference = json.loads(whisper_pyfunc.predict(raw_audio_file)[0])
 
@@ -3793,3 +3813,102 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
                 python_model=TestModel(),
                 artifacts={"some-model": "hf:/invalid-repo-id"},
             )
+
+
+def test_model_distributed_across_devices():
+    mock_model = mock.Mock()
+    mock_model.device.type = "meta"
+    mock_model.hf_device_map = {
+        "layer1": mock.Mock(type="cpu"),
+        "layer2": mock.Mock(type="cpu"),
+        "layer3": mock.Mock(type="gpu"),
+        "layer4": mock.Mock(type="disk"),
+    }
+
+    assert _is_model_distributed_in_memory(mock_model)
+
+
+def test_model_on_single_device():
+    mock_model = mock.Mock()
+    mock_model.device.type = "cpu"
+    mock_model.hf_device_map = {}
+
+    assert not _is_model_distributed_in_memory(mock_model)
+
+
+def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path):
+    task = "translation_en_to_de"
+    architecture = "t5-small"
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        pretrained_model_name_or_path=architecture,
+        device_map={"shared": "cpu", "encoder": "cpu", "decoder": "disk", "lm_head": "disk"},
+        offload_folder=str(tmp_path / "weights"),
+        low_cpu_mem_usage=True,
+    )
+
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(
+        pretrained_model_name_or_path=architecture, model_max_length=100
+    )
+    pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
+
+    with pytest.raises(
+        MlflowException,
+        match="The model that is attempting to be saved has been loaded into memory",
+    ):
+        mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+
+
+def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
+    task = "translation_en_to_de"
+    architecture = "t5-small"
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        pretrained_model_name_or_path=architecture,
+        device_map={"shared": "cpu", "encoder": "cpu", "decoder": "cpu", "lm_head": "cpu"},
+        low_cpu_mem_usage=True,
+    )
+
+    tokenizer = transformers.T5TokenizerFast.from_pretrained(
+        pretrained_model_name_or_path=architecture, model_max_length=100
+    )
+    pipeline = transformers.pipeline(task=task, model=model, tokenizer=tokenizer)
+
+    mlflow.transformers.save_model(transformers_model=pipeline, path=str(tmp_path / "model"))
+
+    loaded = mlflow.transformers.load_model(str(tmp_path / "model"))
+
+    text = "Apples are delicious"
+
+    assert loaded(text) == pipeline(text)
+
+
+def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
+    def _calculate_expected_size(path_or_dir):
+        # this helper function does not consider subdirectories
+        expected_size = 0
+        if path_or_dir.is_dir():
+            for path in path_or_dir.iterdir():
+                if not path.is_file():
+                    continue
+                expected_size += path.stat().st_size
+        elif path_or_dir.is_file():
+            expected_size = path_or_dir.stat().st_size
+        return expected_size
+
+    mlflow.transformers.save_model(
+        transformers_model=small_qa_pipeline,
+        path=tmp_path,
+    )
+
+    # expected size only counts for files saved before the MLmodel file is saved
+    model_dir = tmp_path.joinpath("model")
+    tokenizer_dir = tmp_path.joinpath("components").joinpath("tokenizer")
+    expected_size = 0
+    for folder in [model_dir, tokenizer_dir]:
+        expected_size += _calculate_expected_size(folder)
+    other_files = ["model_card.md", "model_card_data.yaml"]
+    for file in other_files:
+        path = tmp_path.joinpath(file)
+        expected_size += _calculate_expected_size(path)
+
+    mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
+    assert mlmodel["model_size_bytes"] == expected_size

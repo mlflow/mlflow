@@ -1,14 +1,22 @@
 import os
 import posixpath
 import re
-import tempfile
 from typing import Any, Dict
 from urllib.parse import urlparse
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.rest_utils import augmented_raise_for_status, cloud_storage_http_request
+
+
+def _is_path(filename: str) -> bool:
+    """
+    Return True if `filename` is a path, False otherwise. For example,
+    "foo/bar" is a path, but "bar" is not.
+    """
+    return os.path.basename(filename) != filename
 
 
 class HTTPDatasetSource(DatasetSource):
@@ -57,13 +65,18 @@ class HTTPDatasetSource(DatasetSource):
         ):
             # NB: If the filename is quoted, unquote it
             basename = file_name[1].strip("'\"")
+            if _is_path(basename):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid filename in Content-Disposition header: {basename}. "
+                    "It must be a file name, not a path."
+                )
         elif path is not None and len(posixpath.basename(path)) > 0:
             basename = posixpath.basename(path)
         else:
             basename = "dataset_source"
 
         if dst_path is None:
-            dst_path = tempfile.mkdtemp()
+            dst_path = create_tmp_dir()
 
         dst_path = os.path.join(dst_path, basename)
         with open(dst_path, "wb") as f:

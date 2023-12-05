@@ -17,6 +17,8 @@ export const shouldEnableArtifactBasedEvaluation = () => true;
 
 export const shouldEnableDatasetsDropdown = () => false;
 
+export const shouldEnableDeepLearningUI = () => false;
+
 /**
  * UI feature preview: enables prompt lab
  */
@@ -28,5 +30,5 @@ export const shouldUsePathRouting = () => false;
  * A flag determining if we should display "New model registry UI" toggle switch.
  */
 export const shouldUseToggleModelsNextUI = () => {
-  return false;
+  return true;
 };
