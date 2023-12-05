@@ -1,4 +1,4 @@
-Registering a Model
+Load a Registered Model
 ===================
 
 Now that we have registered a model, there are many ways to bring that model into memory. Typically,
