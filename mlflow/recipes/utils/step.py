@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,7 +22,9 @@ _MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
 _MAX_PROFILE_COL_SIZE = 10000  # 10k Cols
 
 
-def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
+def get_merged_eval_metrics(
+    eval_metrics: Dict[str, Dict], ordered_metric_names: Optional[List[str]] = None
+):
     """Returns a merged Pandas DataFrame from a map of dataset to evaluation metrics.
     Optionally, the rows in the DataFrame are ordered by input ordered metric names.
 
@@ -59,7 +61,7 @@ def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names:
     return DataFrame.from_dict(merged_metrics).reindex(ordered_metric_names)
 
 
-def display_html(html_data: str = None, html_file_path: str = None) -> None:
+def display_html(html_data: Optional[str] = None, html_file_path: Optional[str] = None) -> None:
     if html_file_path is None and html_data is None:
         raise MlflowException(
             "At least one HTML source must be provided. html_data and html_file_path are empty.",

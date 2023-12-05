@@ -5118,7 +5118,6 @@ footer span.commit .rst-content tt,
 }
 .rst-content .highlighted {
     background: #F1C40F;
-    display: inline-block;
     font-weight: bold;
     padding: 0 6px
 }

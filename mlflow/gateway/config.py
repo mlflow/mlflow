@@ -9,7 +9,8 @@ from typing import Any, Dict, List, Optional, Union
 import pydantic
 import yaml
 from packaging import version
-from pydantic import ValidationError, root_validator, validator
+from packaging.version import Version
+from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -20,7 +21,9 @@ from mlflow.gateway.constants import (
     MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.utils import (
+    check_configuration_deprecated_fields,
     check_configuration_route_name_collisions,
+    is_valid_ai21labs_model,
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
@@ -34,8 +37,12 @@ class Provider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     COHERE = "cohere"
+    AI21LABS = "ai21labs"
     MLFLOW_MODEL_SERVING = "mlflow-model-serving"
     MOSAICML = "mosaicml"
+    HUGGINGFACE_TEXT_GENERATION_INFERENCE = "huggingface-text-generation-inference"
+    PALM = "palm"
+    BEDROCK = "bedrock"
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
@@ -57,6 +64,15 @@ class CohereConfig(ConfigModel):
     # pylint: disable=no-self-argument
     @validator("cohere_api_key", pre=True)
     def validate_cohere_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
+class AI21LabsConfig(ConfigModel):
+    ai21labs_api_key: str
+
+    # pylint: disable=no-self-argument
+    @validator("ai21labs_api_key", pre=True)
+    def validate_ai21labs_api_key(cls, value):
         return _resolve_api_key_from_input(value)
 
 
@@ -102,6 +118,8 @@ class OpenAIConfig(ConfigModel):
 
     @classmethod
     def _validate_field_compatibility(cls, info: Dict[str, Any]):
+        if not isinstance(info, dict):
+            return info
         api_type = (info.get("openai_api_type") or OpenAIAPIType.OPENAI).lower()
         if api_type == OpenAIAPIType.OPENAI:
             if info.get("openai_deployment_name") is not None:
@@ -156,16 +174,57 @@ class AnthropicConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class PaLMConfig(ConfigModel):
+    palm_api_key: str
+
+    # pylint: disable=no-self-argument
+    @validator("palm_api_key", pre=True)
+    def validate_palm_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
 class MlflowModelServingConfig(ConfigModel):
     model_server_url: str
+
+    # Workaround to suppress warning that Pydantic raises when a field name starts with "model_".
+    # https://github.com/mlflow/mlflow/issues/10335
+    model_config = pydantic.ConfigDict(protected_namespaces=())
+
+
+class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
+    hf_server_url: str
+
+
+class AWSBaseConfig(pydantic.BaseModel):
+    aws_region: Optional[str] = None
+
+
+class AWSRole(AWSBaseConfig):
+    aws_role_arn: str
+    session_length_seconds: int = 15 * 60
+
+
+class AWSIdAndKey(AWSBaseConfig):
+    aws_access_key_id: str
+    aws_secret_access_key: str
+    aws_session_token: Optional[str] = None
+
+
+class AWSBedrockConfig(ConfigModel):
+    # order here is important, at least for pydantic<2
+    aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
 
 
 config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
+    Provider.AI21LABS: AI21LabsConfig,
     Provider.MOSAICML: MosaicMLConfig,
+    Provider.BEDROCK: AWSBedrockConfig,
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
+    Provider.PALM: PaLMConfig,
+    Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
 }
 
 
@@ -218,9 +277,13 @@ class Model(ConfigModel):
         Union[
             CohereConfig,
             OpenAIConfig,
+            AI21LabsConfig,
             AnthropicConfig,
+            AWSBedrockConfig,
             MosaicMLConfig,
             MlflowModelServingConfig,
+            HuggingFaceTextGenerationInferenceConfig,
+            PaLMConfig,
         ]
     ] = None
 
@@ -256,10 +319,23 @@ class Model(ConfigModel):
             return cls._validate_config(config, values)
 
 
+class AliasedConfigModel(ConfigModel):
+    """
+    Enables use of field aliases in a configuration model for backwards compatibility
+    """
+
+    if Version(pydantic.__version__) >= Version("2.0"):
+        model_config = ConfigDict(populate_by_name=True)
+    else:
+
+        class Config:
+            allow_population_by_field_name = True
+
+
 # pylint: disable=no-self-argument
-class RouteConfig(ConfigModel):
+class RouteConfig(AliasedConfigModel):
     name: str
-    route_type: RouteType
+    route_type: RouteType = Field(alias="endpoint_type")
     model: Model
 
     @validator("name")
@@ -298,6 +374,11 @@ class RouteConfig(ConfigModel):
                 f"Ensure the model selected starts with one of: "
                 f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
             )
+        if model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name):
+            raise MlflowException.invalid_parameter_value(
+                f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
+                f"Please see documentation for supported models."
+            )
         return values
 
     @validator("route_type", pre=True)
@@ -325,24 +406,40 @@ class RouteModelInfo(ResponseModel):
     provider: str
 
 
-class Route(ResponseModel):
+_ROUTE_EXTRA_SCHEMA = {
+    "example": {
+        "name": "openai-completions",
+        "route_type": "llm/v1/completions",
+        "model": {
+            "name": "gpt-3.5-turbo",
+            "provider": "openai",
+        },
+        "route_url": "/gateway/routes/completions/invocations",
+    }
+}
+
+
+class Route(ConfigModel):
     name: str
     route_type: str
     model: RouteModelInfo
     route_url: str
 
     class Config:
-        schema_extra = {
-            "example": {
-                "name": "openai-completions",
-                "route_type": "llm/v1/completions",
-                "model": {
-                    "name": "gpt-3.5-turbo",
-                    "provider": "openai",
-                },
-                "route_url": "/gateway/routes/completions/invocations",
-            }
-        }
+        if IS_PYDANTIC_V2:
+            json_schema_extra = _ROUTE_EXTRA_SCHEMA
+        else:
+            schema_extra = _ROUTE_EXTRA_SCHEMA
+
+    def to_endpoint(self):
+        from mlflow.deployments.server.config import Endpoint
+
+        return Endpoint(
+            name=self.name,
+            endpoint_type=self.route_type,
+            model=self.model,
+            endpoint_url=self.route_url,
+        )
 
 
 class Limit(LimitModel):
@@ -351,8 +448,8 @@ class Limit(LimitModel):
     renewal_period: str
 
 
-class GatewayConfig(ConfigModel):
-    routes: List[RouteConfig]
+class GatewayConfig(AliasedConfigModel):
+    routes: List[RouteConfig] = Field(alias="endpoints")
 
 
 class LimitsConfig(ConfigModel):
@@ -372,6 +469,7 @@ def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
         raise MlflowException.invalid_parameter_value(
             f"The file at {path} is not a valid yaml file"
         ) from e
+    check_configuration_deprecated_fields(configuration)
     check_configuration_route_name_collisions(configuration)
     try:
         return GatewayConfig(**configuration)

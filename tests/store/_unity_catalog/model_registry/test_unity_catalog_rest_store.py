@@ -580,10 +580,7 @@ def get_request_mock(
                 )
             ] = GetRun.Response()
 
-        if method == "POST":
-            json_dict = kwargs["json"]
-        else:
-            json_dict = kwargs["params"]
+        json_dict = kwargs["json"] if method == "POST" else kwargs["params"]
         response_message = req_info_to_response[
             (host_creds.host, endpoint, method, json.dumps(json_dict, indent=2))
         ]

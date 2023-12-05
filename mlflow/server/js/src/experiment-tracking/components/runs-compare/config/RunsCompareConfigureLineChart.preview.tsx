@@ -3,9 +3,9 @@ import { useMemo } from 'react';
 import { connect } from 'react-redux';
 import { ReduxState } from '../../../../redux-types';
 import { MetricHistoryByName } from '../../../types';
-import type { CompareChartRunData } from '../charts/CompareRunsCharts.common';
-import { CompareRunsMetricsLinePlot } from '../charts/CompareRunsMetricsLinePlot';
-import { useCompareRunsTooltip } from '../hooks/useCompareRunsTooltip';
+import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
+import { RunsMetricsLinePlot } from '../../runs-charts/components/RunsMetricsLinePlot';
+import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsTooltip';
 import { useFetchCompareRunsMetricHistory } from '../hooks/useFetchCompareRunsMetricHistory';
 import { RunsCompareLineCardConfig } from '../runs-compare.types';
 
@@ -14,19 +14,15 @@ export const RunsCompareConfigureLineChartPreviewImpl = ({
   cardConfig,
   metricsByRunUuid,
 }: {
-  previewData: CompareChartRunData[];
+  previewData: RunsChartsRunData[];
   cardConfig: RunsCompareLineCardConfig;
 
   metricsByRunUuid: Record<string, MetricHistoryByName>;
 }) => {
   const metricKeysToFetch = useMemo(() => [cardConfig.metricKey], [cardConfig.metricKey]);
-  const { isLoading, error } = useFetchCompareRunsMetricHistory(
-    metricKeysToFetch,
-    previewData,
-    metricsByRunUuid,
-  );
+  const { isLoading, error } = useFetchCompareRunsMetricHistory(metricKeysToFetch, previewData);
 
-  const previewDataWithHistory = useMemo<CompareChartRunData[]>(
+  const previewDataWithHistory = useMemo<RunsChartsRunData[]>(
     () =>
       previewData.map((previewRun) => ({
         ...previewRun,
@@ -35,7 +31,7 @@ export const RunsCompareConfigureLineChartPreviewImpl = ({
     [previewData, metricsByRunUuid],
   );
 
-  const { resetTooltip, setTooltip } = useCompareRunsTooltip(cardConfig);
+  const { resetTooltip, setTooltip } = useRunsChartsTooltip(cardConfig);
 
   if (isLoading) {
     return <LegacySkeleton />;
@@ -46,7 +42,7 @@ export const RunsCompareConfigureLineChartPreviewImpl = ({
   }
 
   return (
-    <CompareRunsMetricsLinePlot
+    <RunsMetricsLinePlot
       runsData={previewDataWithHistory}
       metricKey={cardConfig.metricKey}
       scaleType={cardConfig.scaleType}

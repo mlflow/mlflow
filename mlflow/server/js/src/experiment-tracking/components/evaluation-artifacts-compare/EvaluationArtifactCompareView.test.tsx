@@ -505,4 +505,64 @@ describe('EvaluationArtifactCompareView', () => {
     expect(within(screen.getByRole('listbox')).getByLabelText('input_a')).toBeChecked();
     expect(within(screen.getByRole('listbox')).getByLabelText('input_b')).toBeChecked();
   });
+
+  test('checks if relevant empty message is displayed when there are no logged evaluation tables', async () => {
+    const comparedRuns = [
+      {
+        runUuid: 'run_a',
+        params: [
+          { key: 'prompt_template', value: 'prompt template with {{input_a}} and {{input_b}}' },
+        ],
+        tags: {
+          [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
+            key: MLFLOW_RUN_SOURCE_TYPE_TAG,
+            value: MLflowRunSourceType.PROMPT_ENGINEERING,
+          },
+          [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+            key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+            value: '[{"path":"/eval_results_table.json","type":"table"}]',
+          },
+        },
+        hidden: true,
+      },
+      {
+        runUuid: 'run_b',
+        params: [{ key: 'prompt_template', value: 'prompt template with {{input_b}}' }],
+        tags: {
+          [MLFLOW_RUN_SOURCE_TYPE_TAG]: {
+            key: MLFLOW_RUN_SOURCE_TYPE_TAG,
+            value: MLflowRunSourceType.PROMPT_ENGINEERING,
+          },
+          [MLFLOW_LOGGED_ARTIFACTS_TAG]: {
+            key: MLFLOW_LOGGED_ARTIFACTS_TAG,
+            value: '[{"path":"/eval_results_table.json","type":"table"}]',
+          },
+        },
+      },
+    ];
+    const { renderResult } = mountTestComponent({
+      mockState: {
+        ...SAMPLE_STATE,
+        evaluationArtifactsByRunUuid: {
+          run_a: {},
+          run_b: {},
+        },
+      },
+      comparedRuns: [
+        {
+          runUuid: 'run_a',
+          params: [],
+          tags: {},
+        },
+        {
+          runUuid: 'run_b',
+          params: [],
+          tags: {},
+        },
+      ] as any,
+    });
+
+    expect(renderResult.getByTestId('dropdown-tables')).toBeDisabled();
+    expect(renderResult.getByText(/No evaluation tables logged/)).toBeInTheDocument();
+  });
 });

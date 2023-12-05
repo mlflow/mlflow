@@ -127,10 +127,7 @@ def _log_model_with_signature_and_example(tmp_path, sig, input_example, metadata
 
     # TODO: remove this after replacing all `with TempDir(chdr=True) as tmp`
     # with tmp_path fixture
-    if isinstance(tmp_path, pathlib.PosixPath):
-        output_path = tmp_path
-    else:
-        output_path = tmp_path.path("")
+    output_path = tmp_path if isinstance(tmp_path, pathlib.PosixPath) else tmp_path.path("")
     local_path = _download_artifact_from_uri(
         f"runs:/{run.info.run_id}/some/path", output_path=output_path
     )

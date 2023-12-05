@@ -25,7 +25,7 @@ import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reduc
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
 import { ErrorView } from '../../common/components/ErrorView';
 import { Spinner } from '../../common/components/Spinner';
-import { getModelPageRoute, modelListPageRoute } from '../routes';
+import { ModelRegistryRoutes } from '../routes';
 import { getProtoField } from '../utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import _ from 'lodash';
@@ -100,7 +100,7 @@ export class ModelVersionPageImpl extends React.Component<
         if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
           Utils.logErrorAndNotifyUser(e);
           this.props.deleteModelVersionApi(modelName, version, undefined, true);
-          navigate(getModelPageRoute(modelName));
+          navigate(ModelRegistryRoutes.getModelPageRoute(modelName));
         } else {
           console.error(e);
         }
@@ -233,7 +233,7 @@ export class ModelVersionPageImpl extends React.Component<
                   <ErrorView
                     statusCode={409}
                     subMessage={resourceConflictError.error.getMessageField()}
-                    fallbackHomePageReactRoute={modelListPageRoute}
+                    fallbackHomePageReactRoute={ModelRegistryRoutes.modelListPageRoute}
                   />
                 );
               }
@@ -242,7 +242,7 @@ export class ModelVersionPageImpl extends React.Component<
                   <ErrorView
                     statusCode={404}
                     subMessage={`Model ${modelName} v${version} does not exist`}
-                    fallbackHomePageReactRoute={modelListPageRoute}
+                    fallbackHomePageReactRoute={ModelRegistryRoutes.modelListPageRoute}
                   />
                 );
               }

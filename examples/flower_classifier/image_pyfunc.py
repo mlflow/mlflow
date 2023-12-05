@@ -173,7 +173,7 @@ channels:
   - conda-forge
 dependencies:
   - python=={python_version}
-  - pip=={pip_version}  
+  - pip=={pip_version}
   - pip:
     - mlflow>=1.6
     - pillow=={pillow_version}

@@ -531,9 +531,6 @@ def test_validate_path_is_safe_good(path):
     "path",
     [
         # relative path from current directory of C: drive
-        "C:path",
-        "C:path/",
-        "C:path/to/file",
         ".../...//",
     ],
 )
@@ -579,7 +576,11 @@ def test_validate_path_is_safe_bad(path):
         r".\..\path",
         r"path\..\to\file",
         r"path\..\..\to\file",
-        # Drive-relative absolute paths
+        # Drive-relative paths
+        r"C:path",
+        r"C:path/",
+        r"C:path/to/file",
+        r"C:../path/to/file",
         r"C:\path",
         r"C:/path",
         r"C:\path\to\file",
@@ -892,13 +893,16 @@ def test_artifacts(mlflow_client, tmp_path):
     all_artifacts = download_artifacts(
         run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open(f"{all_artifacts}/my.file").read() == "Hello, World!"
-    assert open(f"{all_artifacts}/dir/my.file").read() == "Hello, World!"
+    with open(f"{all_artifacts}/my.file") as f:
+        assert f.read() == "Hello, World!"
+    with open(f"{all_artifacts}/dir/my.file") as f:
+        assert f.read() == "Hello, World!"
 
     dir_artifacts = download_artifacts(
         run_id=run_id, artifact_path="dir", tracking_uri=mlflow_client.tracking_uri
     )
-    assert open(f"{dir_artifacts}/my.file").read() == "Hello, World!"
+    with open(f"{dir_artifacts}/my.file") as f:
+        assert f.read() == "Hello, World!"
 
 
 def test_search_pagination(mlflow_client):
@@ -1820,7 +1824,7 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
     with _init_server(
         backend_uri=mlflow_client.tracking_uri,
         root_artifact_uri=mlflow_client.tracking_uri,
-        extra_env={"MLFLOW_GATEWAY_URI": "http://localhost:5001"},
+        extra_env={"MLFLOW_DEPLOYMENTS_TARGET": "http://localhost:5001"},
     ) as url:
         patched_client = MlflowClient(url)
 
@@ -1830,7 +1834,7 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
         )
         assert_response(
             response,
-            "GatewayProxy request must specify a gateway_path.",
+            "Deployments proxy request must specify a gateway_path.",
         )
 
 

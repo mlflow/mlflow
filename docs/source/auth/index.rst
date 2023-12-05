@@ -550,6 +550,9 @@ In Python, you can use the ``requests`` library:
 Creating a New User
 ===================
 
+.. important::
+    To create a new user, you are required to authenticate with admin privileges.
+
 Using MLflow UI
 ---------------
 
@@ -614,6 +617,9 @@ Authentication configuration is located at ``mlflow/server/auth/basic_auth.ini``
      - Default admin password if the admin is not already created
    * - ``authorization_function``
      - Function to authenticate requests
+
+Alternatively, assign the environment variable ``MLFLOW_AUTH_CONFIG_PATH`` to point
+to your custom configuration file.
 
 The ``authorization_function`` setting supports pluggable authentication methods
 if you want to use another authentication method than HTTP basic auth. The value

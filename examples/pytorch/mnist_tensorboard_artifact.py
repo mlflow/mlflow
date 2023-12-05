@@ -64,7 +64,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-enable_cuda_flag = True if args.enable_cuda == "True" else False
+enable_cuda_flag = args.enable_cuda == "True"
 
 args.cuda = enable_cuda_flag and torch.cuda.is_available()
 

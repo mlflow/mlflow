@@ -22,7 +22,7 @@ import { ReactComponent as ChartParallelIcon } from '../../../common/static/char
 import { ReactComponent as ChartScatterIcon } from '../../../common/static/chart-scatter.svg';
 import { RunsCompareConfigureBarChart } from './config/RunsCompareConfigureBarChart';
 import { RunsCompareConfigureParallelChart } from './config/RunsCompareConfigureParallelChart';
-import type { CompareChartRunData } from './charts/CompareRunsCharts.common';
+import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import { RunsCompareConfigureField } from './config/RunsCompareConfigure.common';
 import { RunsCompareConfigureLineChart } from './config/RunsCompareConfigureLineChart';
 import { RunsCompareConfigureLineChartPreview } from './config/RunsCompareConfigureLineChart.preview';
@@ -33,12 +33,12 @@ import { RunsCompareConfigureParallelChartPreview } from './config/RunsCompareCo
 import { RunsCompareConfigureContourChart } from './config/RunsCompareConfigureContourChart';
 import { RunsCompareConfigureScatterChart } from './config/RunsCompareConfigureScatterChart';
 import { RunsCompareTooltipBody } from './RunsCompareTooltipBody';
-import { CompareRunsTooltipWrapper } from './hooks/useCompareRunsTooltip';
+import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 
 const previewComponentsMap: Record<
   RunsCompareChartType,
   React.FC<{
-    previewData: CompareChartRunData[];
+    previewData: RunsChartsRunData[];
     cardConfig: any;
   }>
 > = {
@@ -60,7 +60,7 @@ export const RunsCompareConfigureModal = ({
   metricKeyList: string[];
   paramKeyList: string[];
   config: RunsCompareCardConfig;
-  chartRunData: CompareChartRunData[];
+  chartRunData: RunsChartsRunData[];
   onCancel: () => void;
   onSubmit: (formData: Partial<RunsCompareCardConfig>) => void;
 }) => {
@@ -230,13 +230,13 @@ export const RunsCompareConfigureModal = ({
           )}
           {renderConfigOptionsforChartType(currentFormState.type)}
         </div>
-        <CompareRunsTooltipWrapper
+        <RunsChartsTooltipWrapper
           contextData={{ runs: chartRunData }}
           component={RunsCompareTooltipBody}
           hoverOnly
         >
           <div css={styles.chartWrapper}>{renderPreviewChartType(currentFormState.type)}</div>
-        </CompareRunsTooltipWrapper>
+        </RunsChartsTooltipWrapper>
       </div>
     </Modal>
   );

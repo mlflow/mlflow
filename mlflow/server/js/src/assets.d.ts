@@ -1,16 +1,51 @@
-declare module '*.svg' {
-  import { SVGProps } from 'react';
-
-  declare const ReactComponent: (props: SVGProps<SVGSVGElement>) => JSX.Element;
-
-  const defaultExport: string;
-  export { ReactComponent };
-
-  // eslint-disable-next-line import/no-default-export -- SVGs are always default exported
-  export default defaultExport;
+declare module '*.bmp' {
+  const src: string;
+  export default src;
 }
 
 declare module '*.gif' {
-  const defaultExport: string;
-  export default defaultExport;
+  const src: string;
+  export default src;
+}
+
+declare module '*.jpg' {
+  const src: string;
+  export default src;
+}
+
+declare module '*.jpeg' {
+  const src: string;
+  export default src;
+}
+
+declare module '*.png' {
+  const src: string;
+  export default src;
+}
+
+declare module '*.webp' {
+  const src: string;
+  export default src;
+}
+
+declare module '*.svg' {
+  import React from 'react';
+
+  export const ReactComponent: React.FunctionComponent<
+    React.SVGProps<SVGSVGElement> & { title?: string }
+  >;
+
+  const src: string;
+  export default src;
+}
+
+declare module '*.gql' {
+  import type { DocumentNode } from 'graphql';
+  const value: DocumentNode;
+  export default value;
+}
+
+declare module '*?raw' {
+  const value: string;
+  export default value;
 }

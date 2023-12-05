@@ -1,33 +1,108 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
+import {
+  createRouteElement,
+  createMLflowRoutePath,
+  generatePath,
+} from '../common/utils/RoutingUtils';
 
-export const modelListPageRoute = '/models';
-export const modelPageRoute = '/models/:modelName';
-export const modelSubpageRoute = '/models/:modelName/:subpage';
-export const modelSubpageRouteWithName = '/models/:modelName/:subpage/:name';
-export const modelVersionPageRoute = '/models/:modelName/versions/:version';
-export const compareModelVersionsPageRoute = '/compare-model-versions';
-export const getModelPageRoute = (modelName: any) => `/models/${encodeURIComponent(modelName)}`;
-export const getModelVersionPageRoute = (modelName: any, version: any) =>
-  `/models/${encodeURIComponent(modelName)}/versions/${version}`;
-// replace undefined values with null, since undefined is not a valid JSON value
-export const getCompareModelVersionsPageRoute = (modelName: any, runsToVersions: any) =>
-  `/compare-model-versions?name=${JSON.stringify(encodeURIComponent(modelName))}` +
-  `&runs=${JSON.stringify(runsToVersions, (k, v) => (v === undefined ? null : v))}`;
+import { CompareModelVersionsPage } from './components/CompareModelVersionsPage';
+import { ModelListPage } from './components/ModelListPage';
+import { ModelPage } from './components/ModelPage';
+import { ModelVersionPage } from './components/ModelVersionPage';
+
+// Route path definitions (used in defining route elements)
+export class ModelRegistryRoutePaths {
+  static get modelListPage() {
+    return createMLflowRoutePath('/models');
+  }
+  static get modelPage() {
+    return createMLflowRoutePath('/models/:modelName');
+  }
+  static get modelSubpage() {
+    return createMLflowRoutePath('/models/:modelName/:subpage');
+  }
+  static get modelSubpageRouteWithName() {
+    return createMLflowRoutePath('/models/:modelName/:subpage/:name');
+  }
+  static get modelVersionPage() {
+    return createMLflowRoutePath('/models/:modelName/versions/:version');
+  }
+  static get compareModelVersionsPage() {
+    return createMLflowRoutePath('/compare-model-versions');
+  }
+  static get createModel() {
+    return createMLflowRoutePath('/createModel');
+  }
+}
+
+// Concrete routes and functions for generating parametrized paths
+export class ModelRegistryRoutes {
+  static get modelListPageRoute() {
+    return ModelRegistryRoutePaths.modelListPage;
+  }
+  static getModelPageRoute(modelName: string) {
+    return generatePath(ModelRegistryRoutePaths.modelPage, {
+      modelName: encodeURIComponent(modelName),
+    });
+  }
+  static getModelPageServingRoute(modelName: string) {
+    return generatePath(ModelRegistryRoutePaths.modelSubpage, {
+      modelName: encodeURIComponent(modelName),
+      subpage: PANES.SERVING,
+    });
+  }
+  static getModelVersionPageRoute(modelName: string, version: string) {
+    return generatePath(ModelRegistryRoutePaths.modelVersionPage, {
+      modelName: encodeURIComponent(modelName),
+      version,
+    });
+  }
+  static getCompareModelVersionsPageRoute(
+    modelName: string,
+    runsToVersions: Record<string, string>,
+  ) {
+    const path = generatePath(ModelRegistryRoutePaths.compareModelVersionsPage);
+    const query =
+      `?name=${JSON.stringify(encodeURIComponent(modelName))}` +
+      `&runs=${JSON.stringify(runsToVersions, (_, v) => (v === undefined ? null : v))}`;
+
+    return [path, query].join('');
+  }
+}
+
 export const PANES = Object.freeze({
   DETAILS: 'details',
   SERVING: 'serving',
 });
 
 export const getRouteDefs = () => [
-  // TODO(ML-33996): Add new model registry route definitions here
-  // {
-  //   path: createMLflowRoutePath('/models'),
-  //   component: () => import('./components/ModelListPage'),
-  //   pageId: 'mlflow.models.list',
-  // },
+  {
+    path: ModelRegistryRoutePaths.modelListPage,
+    element: createRouteElement(ModelListPage),
+    pageId: 'mlflow.model-registry.model-list',
+  },
+  {
+    path: ModelRegistryRoutePaths.modelPage,
+    element: createRouteElement(ModelPage),
+    pageId: 'mlflow.model-registry.model-page',
+  },
+  {
+    path: ModelRegistryRoutePaths.modelSubpage,
+    element: createRouteElement(ModelPage),
+    pageId: 'mlflow.model-registry.model-page.subpage',
+  },
+  {
+    path: ModelRegistryRoutePaths.modelSubpageRouteWithName,
+    element: createRouteElement(ModelPage),
+    pageId: 'mlflow.model-registry.model-page.subpage.section',
+  },
+  {
+    path: ModelRegistryRoutePaths.modelVersionPage,
+    element: createRouteElement(ModelVersionPage),
+    pageId: 'mlflow.model-registry.model-version-page',
+  },
+  {
+    path: ModelRegistryRoutePaths.compareModelVersionsPage,
+    element: createRouteElement(CompareModelVersionsPage),
+    pageId: 'mlflow.model-registry.compare-model-versions',
+  },
 ];

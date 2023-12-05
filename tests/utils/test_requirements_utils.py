@@ -1,5 +1,6 @@
 import importlib
 import os
+import sys
 from unittest import mock
 
 import importlib_metadata
@@ -7,6 +8,7 @@ import pytest
 
 import mlflow
 import mlflow.utils.requirements_utils
+from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.requirements_utils import (
     _capture_imported_modules,
     _get_installed_version,
@@ -333,6 +335,9 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
             pass
 
     with _CaptureImportedModules() as cap:
+        # Delete `databricks` from the cache to ensure we load from the dummy module created above.
+        if "databricks" in sys.modules:
+            del sys.modules["databricks"]
         import databricks
         import databricks.automl
         import databricks.automl_foo
@@ -406,3 +411,24 @@ def test_capture_imported_modules_include_deps_by_params():
     captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")
     assert "pandas" in captured_modules
     assert "sklearn" in captured_modules
+
+
+def test_capture_imported_modules_includes_gateway_extra():
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, _, inputs, params=None):
+            import mlflow.gateway  # noqa: F401
+
+            return inputs
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="test_model",
+            input_example=([1, 2, 3]),
+        )
+
+    captured_modules = _capture_imported_modules(model_info.model_uri, "pyfunc")
+    assert "mlflow.gateway" in captured_modules
+
+    pip_requirements = infer_pip_requirements(model_info.model_uri, "pyfunc")
+    assert f"mlflow[gateway]=={mlflow.__version__}" in pip_requirements
