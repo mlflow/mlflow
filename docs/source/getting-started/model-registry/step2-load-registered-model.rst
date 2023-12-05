@@ -1,7 +1,7 @@
 Load a Registered Model
 ===================
 
-Now that we have registered a model, there are many ways to bring that model into memory. Typically,
+After registering a model, there are many ways to load that model back into memory. Typically,
 users reference a model by its name, which is a unique identifier determined when the model is 
 logged. However, you can also get the model via absolute paths to the artifact, run IDs combined 
 with the artifact path, etc.
