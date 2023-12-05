@@ -53,9 +53,9 @@ def test_evaluation_model_output():
     )
     expected_prompt1 = """
     Task:
-    You must return the following fields in your response one below the other:
+    You must return the following fields in your response in two lines, one below the other:
     score: Your numerical score for the model's correctness based on the rubric
-    justification: Your step-by-step reasoning about the model's correctness score
+    justification: Your reasoning about the model's correctness score
 
     You are an impartial judge. You will be given an input that was sent to a machine
     learning model, and you will be given an output that the model produced. You
@@ -126,9 +126,11 @@ def test_evaluation_model_output():
         Example score: 4
         Example justification: This is an example justification 2
 
-    You must return the following fields in your response one below the other:
+    You must return the following fields in your response in two lines, one below the other:
     score: Your numerical score for the model's correctness based on the rubric
-    justification: Your step-by-step reasoning about the model's correctness score
+    justification: Your reasoning about the model's correctness score
+
+    Do not add additional new lines. Do not add any other fields.
       """
     prompt1 = model1["eval_prompt"].format(
         input="This is an input", output="This is an output", grading_context_columns=args_string
@@ -163,9 +165,9 @@ def test_evaluation_model_output():
     args_string = ""
     expected_prompt2 = """
     Task:
-    You must return the following fields in your response one below the other:
+    You must return the following fields in your response in two lines, one below the other:
     score: Your numerical score for the model's correctness based on the rubric
-    justification: Your step-by-step reasoning about the model's correctness score
+    justification: Your reasoning about the model's correctness score
 
     You are an impartial judge. You will be given an input that was sent to a machine
     learning model, and you will be given an output that the model produced. You
@@ -201,9 +203,11 @@ def test_evaluation_model_output():
         critical aspect.
         - Score 5: the answer correctly answer the question and not missing any major aspect
 
-    You must return the following fields in your response one below the other:
+    You must return the following fields in your response in two lines, one below the other:
     score: Your numerical score for the model's correctness based on the rubric
-    justification: Your step-by-step reasoning about the model's correctness score
+    justification: Your reasoning about the model's correctness score
+
+    Do not add additional new lines. Do not add any other fields.
       """
     prompt2 = model2["eval_prompt"].format(
         input="This is an input", output="This is an output", grading_context_columns=args_string
@@ -223,9 +227,9 @@ def test_no_examples(examples):
     args_string = ""
     expected_prompt2 = """
     Task:
-    You must return the following fields in your response one below the other:
+    You must return the following fields in your response in two lines, one below the other:
     score: Your numerical score for the model's correctness based on the rubric
-    justification: Your step-by-step reasoning about the model's correctness score
+    justification: Your reasoning about the model's correctness score
 
     You are an impartial judge. You will be given an input that was sent to a machine
     learning model, and you will be given an output that the model produced. You
@@ -250,9 +254,11 @@ def test_no_examples(examples):
     Grading rubric:
     grading prompt
 
-    You must return the following fields in your response one below the other:
+    You must return the following fields in your response in two lines, one below the other:
     score: Your numerical score for the model's correctness based on the rubric
-    justification: Your step-by-step reasoning about the model's correctness score
+    justification: Your reasoning about the model's correctness score
+
+    Do not add additional new lines. Do not add any other fields.
       """
     prompt2 = model["eval_prompt"].format(
         input="This is an input", output="This is an output", grading_context_columns=args_string

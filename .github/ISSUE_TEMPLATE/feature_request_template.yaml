@@ -62,11 +62,11 @@ body:
           required: false
         - label: "`area/build`: Build and test infrastructure for MLflow"
           required: false
+        - label: "`area/deployments`: MLflow Deployments client APIs, server, and third-party Deployments integrations"
+          required: false
         - label: "`area/docs`: MLflow documentation pages"
           required: false
         - label: "`area/examples`: Example code"
-          required: false
-        - label: "`area/gateway`: AI Gateway service, Gateway client APIs, third-party Gateway integrations"
           required: false
         - label: "`area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry"
           required: false

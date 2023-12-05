@@ -151,8 +151,8 @@ export const PromptEngineeringContextProvider = ({
           const errorMessage = e.getGatewayErrorMessage() || e.getUserVisibleError();
           const wrappedMessage = intl.formatMessage(
             {
-              defaultMessage: 'AI gateway returned the following error: "{errorMessage}"',
-              description: 'Experiment page > new run modal > AI gateway error message',
+              defaultMessage: 'MLflow deployment returned the following error: "{errorMessage}"',
+              description: 'Experiment page > new run modal > MLflow deployment error message',
             },
             {
               errorMessage,

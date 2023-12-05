@@ -38,9 +38,9 @@ Components
 
 - [ ] `area/artifacts`: Artifact stores and artifact logging
 - [ ] `area/build`: Build and test infrastructure for MLflow
+- [ ] `area/deployments`: MLflow Deployments client APIs, server, and third-party Deployments integrations
 - [ ] `area/docs`: MLflow documentation pages
 - [ ] `area/examples`: Example code
-- [ ] `area/gateway`: AI Gateway service, Gateway client APIs, third-party Gateway integrations
 - [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
 - [ ] `area/recipes`: Recipes, Recipe APIs, Recipe configs, Recipe Templates
