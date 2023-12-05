@@ -21,6 +21,15 @@ def set_envs(monkeypatch):
 
 
 @pytest.fixture
+def set_deployment_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_DEPLOYMENTS_TARGET": "databricks",
+        }
+    )
+
+
+@pytest.fixture
 def set_azure_envs(monkeypatch):
     monkeypatch.setenvs(
         {
@@ -60,6 +69,11 @@ def test_parse_model_uri():
 
     assert prefix == "gateway"
     assert suffix == "my-route"
+
+    prefix, suffix = _parse_model_uri("endpoints:/my-endpoint")
+
+    assert prefix == "endpoints"
+    assert suffix == "my-endpoint"
 
 
 def test_parse_model_uri_throws_for_malformed():
@@ -109,7 +123,7 @@ def test_score_model_openai(set_envs):
             [
                 {
                     "model": "gpt-3.5-turbo",
-                    "temperature": 0.2,
+                    "temperature": 0.1,
                     "messages": [{"role": "user", "content": "my prompt"}],
                     "api_base": "https://api.openai.com/v1",
                     "api_type": "open_ai",
@@ -153,7 +167,7 @@ def test_score_model_azure_openai(set_azure_envs):
         mock_post.assert_called_once_with(
             [
                 {
-                    "temperature": 0.2,
+                    "temperature": 0.1,
                     "messages": [{"role": "user", "content": "my prompt"}],
                     "api_base": "https://openai-for.openai.azure.com/",
                     "api_version": "2023-05-15",
@@ -177,7 +191,7 @@ def test_score_model_azure_openai_bad_envs(set_bad_azure_envs):
 
 def test_score_model_gateway_completions():
     expected_output = {
-        "candidates": [
+        "choices": [
             {"text": "man, one giant leap for mankind.", "metadata": {"finish_reason": "stop"}}
         ],
         "metadata": {
@@ -185,7 +199,7 @@ def test_score_model_gateway_completions():
             "input_tokens": 13,
             "total_tokens": 21,
             "output_tokens": 8,
-            "route_type": "llm/v1/completions",
+            "endpoint_type": "llm/v1/completions",
         },
     }
 
@@ -196,16 +210,16 @@ def test_score_model_gateway_completions():
             route_type="llm/v1/completions",
             model=RouteModelInfo(provider="openai"),
             route_url="my-route",
-        ),
+        ).to_endpoint(),
     ):
         with mock.patch("mlflow.gateway.query", return_value=expected_output):
             response = score_model_on_payload("gateway:/my-route", {})
-            assert response == expected_output["candidates"][0]["text"]
+            assert response == expected_output["choices"][0]["text"]
 
 
 def test_score_model_gateway_chat():
     expected_output = {
-        "candidates": [
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
@@ -220,7 +234,7 @@ def test_score_model_gateway_chat():
             "output_tokens": 24,
             "total_tokens": 41,
             "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
+            "endpoint_type": "llm/v1/chat",
         },
     }
 
@@ -231,11 +245,113 @@ def test_score_model_gateway_chat():
             route_type="llm/v1/chat",
             model=RouteModelInfo(provider="openai"),
             route_url="my-route",
-        ),
+        ).to_endpoint(),
     ):
         with mock.patch("mlflow.gateway.query", return_value=expected_output):
             response = score_model_on_payload("gateway:/my-route", {})
-            assert response == expected_output["candidates"][0]["message"]["content"]
+            assert response == expected_output["choices"][0]["message"]["content"]
+
+
+@pytest.mark.parametrize(
+    "endpoint_type_key",
+    [
+        "task",
+        "endpoint_type",
+    ],
+)
+def test_score_model_endpoints_chat(set_deployment_envs, endpoint_type_key):
+    openai_response_format = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "gpt-3.5-turbo-0613",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "\n\nHello there, how may I assist you today?",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+    }
+    expected_output = {
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "\n\nHello there, how may I assist you today?",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+    }
+
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_get_deploy_client:
+        mock_client = mock.MagicMock()
+        mock_get_deploy_client.return_value = mock_client
+        # mock out mock_client.get_endpoint() to return chat
+        mock_client.get_endpoint.return_value = {
+            endpoint_type_key: "llm/v1/chat",
+        }
+        # mock out mock_client.predict() to return expected_output
+        mock_client.predict.return_value = openai_response_format
+        response = score_model_on_payload(
+            "endpoints:/my-endpoint", {"prompt": "my prompt", "temperature": 0.1}
+        )
+        assert response == expected_output["choices"][0]["message"]["content"]
+
+
+@pytest.mark.parametrize(
+    "endpoint_type_key",
+    [
+        "task",
+        "endpoint_type",
+    ],
+)
+def test_score_model_endpoints_completions(set_deployment_envs, endpoint_type_key):
+    openai_response_format = {
+        "id": "cmpl-8PgdiXapPWBN3pyUuHcELH766QgqK",
+        "object": "text_completion",
+        "created": 1701132798,
+        "model": "gpt-3.5-turbo-instruct",
+        "choices": [
+            {
+                "text": "\n\nHi there! How can I assist you today?",
+                "index": 0,
+                "finish_reason": "stop",
+            },
+        ],
+        "usage": {"prompt_tokens": 2, "completion_tokens": 106, "total_tokens": 108},
+    }
+
+    expected_output = {
+        "choices": [
+            {
+                "text": "\n\nHi there! How can I assist you today?",
+                "index": 0,
+                "finish_reason": "stop",
+            },
+        ],
+    }
+
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_get_deploy_client:
+        mock_client = mock.MagicMock()
+        mock_get_deploy_client.return_value = mock_client
+        # mock out mock_client.get_endpoint() to return completions
+        mock_client.get_endpoint.return_value = {
+            endpoint_type_key: "llm/v1/completions",
+        }
+        # mock out mock_client.predict() to return expected_output
+        mock_client.predict.return_value = openai_response_format
+        response = score_model_on_payload(
+            "endpoints:/my-endpoint", {"prompt": "my prompt", "temperature": 0.1}
+        )
+        assert response == expected_output["choices"][0]["text"]
 
 
 def test_openai_authentication_error(set_envs):

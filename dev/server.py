@@ -22,8 +22,8 @@ def main():
             sys.executable,
             "-m",
             "mlflow",
-            "gateway",
-            "start",
+            "deployments",
+            "start-server",
             "--config-path",
             "examples/gateway/openai/config.yaml",
             "--host",
@@ -41,7 +41,7 @@ def main():
         ],
         env={
             **os.environ,
-            "MLFLOW_GATEWAY_URI": f"http://{gateway_host}:{gateway_port}",
+            "MLFLOW_DEPLOYMENTS_TARGET": f"http://{gateway_host}:{gateway_port}",
         },
     ) as server, subprocess.Popen(
         [

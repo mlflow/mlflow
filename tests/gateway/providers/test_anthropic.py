@@ -1,12 +1,16 @@
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
-from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS
+from mlflow.gateway.constants import (
+    MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
+    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
+)
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -43,20 +47,19 @@ def completions_config():
 
 def parsed_completions_response():
     return {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "claude-instant-1.1",
+        "choices": [
             {
                 "text": "Here is a basic overview of how a car works:\n\n1. The engine. "
                 "The engine is the power source that makes the car move.",
-                "metadata": {"finish_reason": "length"},
+                "index": 0,
+                "finish_reason": "length",
             }
         ],
-        "metadata": {
-            "model": "claude-instant-1.1",
-            "route_type": "llm/v1/completions",
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
 
@@ -64,28 +67,52 @@ def parsed_completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
-    with mock.patch(
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = AnthropicProvider(RouteConfig(**config))
-        payload = {"prompt": "How does a car work?", "max_tokens": 200}
+        payload = {
+            "prompt": "How does a car work?",
+            "max_tokens": 200,
+            "stop": ["foobazbardiddly"],
+            "temperature": 1.0,
+        }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == parsed_completions_response()
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://api.anthropic.com/v1/complete",
+            json={
+                "model": "claude-instant-1",
+                "temperature": 0.5,
+                "max_tokens_to_sample": 200,
+                "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
+                "stop_sequences": ["foobazbardiddly"],
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 @pytest.mark.asyncio
 async def test_completions_with_default_max_tokens():
     resp = completions_response()
     config = completions_config()
-    with mock.patch(
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = AnthropicProvider(RouteConfig(**config))
         payload = {"prompt": "How does a car work?"}
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == parsed_completions_response()
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://api.anthropic.com/v1/complete",
+            json={
+                "model": "claude-instant-1",
+                "temperature": 0.0,
+                "max_tokens_to_sample": 200000,
+                "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 @pytest.mark.asyncio
@@ -103,17 +130,17 @@ async def test_completions_throws_with_invalid_max_tokens_too_large():
 
 
 @pytest.mark.asyncio
-async def test_completions_throws_with_unsupported_candidate_count():
+async def test_completions_throws_with_unsupported_n():
     config = completions_config()
     provider = AnthropicProvider(RouteConfig(**config))
     payload = {
         "prompt": "Would Fozzie or Kermet win in a fight?",
-        "candidate_count": 5,
+        "n": 5,
         "max_tokens": 10,
     }
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
-    assert "'candidate_count' must be '1' for the Anthropic provider" in e.value.detail
+    assert "'n' must be '1' for the Anthropic provider" in e.value.detail
     assert e.value.status_code == 422
 
 
@@ -189,7 +216,7 @@ def embedding_config():
 async def test_embeddings_are_not_supported_for_anthropic():
     config = embedding_config()
     provider = AnthropicProvider(RouteConfig(**config))
-    payload = {"text": "give me that sweet, sweet vector, please."}
+    payload = {"input": "give me that sweet, sweet vector, please."}
 
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))

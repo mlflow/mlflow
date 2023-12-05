@@ -13,6 +13,7 @@ import {
   ModelGatewayQueryPayload,
   ModelGatewayResponseType,
   ModelGatewayService,
+  gatewayErrorHandler,
 } from '../sdk/ModelGatewayService';
 import { EvaluationArtifactTable } from '../types';
 import { searchModelGatewayRoutesApi } from './ModelGatewayActions';
@@ -67,7 +68,7 @@ export const evaluatePromptTableValue =
     // recently. Display relevant error in this scenario.
     const gatewayRoute = getState().modelGateway.modelGatewayRoutes[routeName];
     if (!gatewayRoute) {
-      const errorMessage = `AI gateway route ${routeName} does not exist anymore!`;
+      const errorMessage = `MLflow deployment endpoints ${routeName} does not exist anymore!`;
       Utils.logErrorAndNotifyUser(errorMessage);
       throw new Error(errorMessage);
     }
@@ -83,10 +84,13 @@ export const evaluatePromptTableValue =
         ...textPayload,
         ...modelGatewayRequestPayload.parameters,
       };
-      return MlflowService.gatewayProxyPost({
-        gateway_path: `gateway/${gatewayRoute.name}/invocations`,
-        json_data: processed_data,
-      });
+      return MlflowService.gatewayProxyPost(
+        {
+          gateway_path: gatewayRoute.endpoint_url.substring(1),
+          json_data: processed_data,
+        },
+        gatewayErrorHandler,
+      );
     };
 
     const action = {

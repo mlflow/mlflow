@@ -22,7 +22,7 @@ import { type ModelGatewayResponseType } from '../../../sdk/ModelGatewayService'
 const { TextArea } = Input;
 
 interface EvaluationCreatePromptRunOutputProps {
-  evaluationMetadata: Partial<ModelGatewayResponseType['metadata']>;
+  evaluationMetadata: Partial<ModelGatewayResponseType['usage']>;
   isEvaluating?: boolean;
   isOutputDirty?: boolean;
   evaluationOutput: string;
