@@ -371,6 +371,11 @@ _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TE
 #: (default: ``None``)
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
 
+#: (Experimental, may be changed or removed)
+#: Specifies the uri of a MLflow Deployments Server instance to be used with the Deployments
+#: Client APIs
+#: (default: ``None``)
+MLFLOW_DEPLOYMENTS_TARGET = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_TARGET", str, None)
 
 #: Specifies the path of the config file for MLflow AI Gateway.
 #: (default: ``None``)

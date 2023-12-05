@@ -40,11 +40,11 @@ export const modelGatewayRoutes = (
 ): Record<string, ModelGatewayRoute> => {
   switch (type) {
     case fulfilled(SEARCH_MODEL_GATEWAY_ROUTES_API):
-      if (!payload.routes) {
+      if (!payload.endpoints) {
         return state;
       }
-      return payload.routes.reduce(
-        (newState, route) => ({ ...newState, [route.name]: route }),
+      return payload.endpoints.reduce(
+        (newState, endpoint) => ({ ...newState, [endpoint.name]: endpoint }),
         state,
       );
     case fulfilled(GET_MODEL_GATEWAY_ROUTE_API):

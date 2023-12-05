@@ -63,7 +63,7 @@ class AnthropicAdapter(ProviderAdapter):
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
                 "Gateway.",
             )
-        n = payload.get("n", 1)
+        n = payload.pop("n", 1)
         if n != 1:
             raise HTTPException(
                 status_code=422,
