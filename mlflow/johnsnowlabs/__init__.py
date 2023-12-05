@@ -175,6 +175,8 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    gpu=False,
+
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
@@ -329,6 +331,8 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            gpu=gpu,
+
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -347,6 +351,8 @@ def log_model(
             extra_pip_requirements=extra_pip_requirements,
             remote_model_path=remote_model_path,
             store_license=store_license,
+            gpu=gpu,
+
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -372,6 +378,8 @@ def _save_model_metadata(
     extra_pip_requirements=None,
     remote_model_path=None,  # pylint: disable=unused-argument
     store_license=False,  # pylint: disable=unused-argument
+    gpu=False,
+
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -436,21 +444,24 @@ def _save_model_metadata(
 
     _PythonEnv.current().to_yaml(str(Path(dst_dir) / _PYTHON_ENV_FILE_NAME))
 
-    _save_jars_and_lic(dst_dir)
+    _save_jars_and_lic(dst_dir, gpu=gpu)
 
 
-def _save_jars_and_lic(dst_dir, store_license=False):
+def _save_jars_and_lic(dst_dir, store_license=False, gpu=False):
     from johnsnowlabs.auto_install.jsl_home import get_install_suite_from_jsl_home
     from johnsnowlabs.py_models.jsl_secrets import JslSecrets
+    from johnsnowlabs.utils.enums import JvmHardwareTarget
 
     deps_data_path = Path(dst_dir) / _JOHNSNOWLABS_MODEL_PATH_SUB / "jars.jsl"
     deps_data_path.mkdir(parents=True, exist_ok=True)
+    jar_type = JvmHardwareTarget('gpu' if gpu else 'cpu')  # _JOHNSNOWLABS_ENV_ENABLE_GPU in os.environ
 
-    suite = get_install_suite_from_jsl_home(False)
+    suite = get_install_suite_from_jsl_home(False,jvm_hardware_target=jar_type)
+
     if suite.hc.get_java_path():
         shutil.copyfile(suite.hc.get_java_path(), deps_data_path / "hc_jar.jar")
     if suite.nlp.get_java_path():
-        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / "os_jar.jar")
+        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / f"os_{jar_type.value}.jar")
 
     if store_license:
         # Read the secrets from env vars and write to license.json
@@ -475,6 +486,8 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    gpu=False,
+
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -609,6 +622,7 @@ def save_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         store_license=store_license,
+        gpu=gpu,
     )
 
 
