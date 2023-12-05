@@ -27,6 +27,10 @@ TEST_INTERMEDIATE_STEPS = (
     ],
 )
 
+REQUEST_URL_CHAT = "https://api.openai.com/v1/chat/completions"
+REQUEST_URL_COMPLETIONS = "https://api.openai.com/v1/completions"
+REQUEST_URL_EMBEDDINGS = "https://api.openai.com/v1/embeddings"
+
 
 class _MockResponse:
     def __init__(self, status_code, json_data):

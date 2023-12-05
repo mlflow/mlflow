@@ -3,7 +3,8 @@ import os
 import urllib.parse
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, UNAUTHENTICATED
+from mlflow.openai.utils import REQUEST_URL_CHAT
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
@@ -51,8 +52,6 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    import openai
-
     from mlflow.openai import _get_api_config
     from mlflow.openai.api_request_parallel_processor import process_api_requests
     from mlflow.openai.utils import _OAITokenHolder
@@ -92,25 +91,14 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
     else:
         payload = {"model": openai_uri, **payload}
 
-    payload_with_envs = {**payload, **envs}
-
     try:
         resp = process_api_requests(
-            [payload_with_envs],
-            openai.ChatCompletion,
+            [payload],
+            REQUEST_URL_CHAT,
             api_token=api_token,
             throw_original_error=True,
             max_workers=1,
         )[0]
-    except openai.error.AuthenticationError as e:
-        raise MlflowException(
-            f"Authentication Error for OpenAI. Error response:\n {e}",
-            error_code=UNAUTHENTICATED,
-        )
-    except openai.error.InvalidRequestError as e:
-        raise MlflowException(
-            f"Invalid Request to OpenAI. Error response:\n {e}", error_code=BAD_REQUEST
-        )
     except MlflowException as e:
         raise e
     except Exception as e:
