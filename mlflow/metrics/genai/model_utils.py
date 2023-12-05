@@ -58,11 +58,6 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
 
     api_config = _get_api_config()
     api_token = _OAITokenHolder(api_config.api_type)
-    envs = {
-        x: getattr(api_config, x)
-        for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
-        if getattr(api_config, x) is not None
-    }
 
     payload = {
         "messages": [{"role": "user", "content": payload}],
@@ -70,8 +65,12 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
     }
 
     if api_config.api_type in ("azure", "azure_ad", "azuread"):
-        deployment_id = envs.get("deployment_id")
-        if envs.get("engine"):
+        api_base = getattr(api_config, "api_base")
+        api_version = getattr(api_config, "api_version")
+        engine = getattr(api_config, "engine")
+        deployment_id = getattr(api_config, "deployment_id")
+
+        if engine:
             # Avoid using both parameters as they serve the same purpose
             # Invalid inputs:
             #   - Wrong engine + correct/wrong deployment_id
@@ -83,18 +82,22 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
                 _logger.warning(
                     "Both engine and deployment_id are set. " "Using engine as it takes precedence."
                 )
+            payload = {"engine": engine, **payload}
         elif deployment_id is None:
             raise MlflowException(
                 "Either engine or deployment_id must be set for Azure OpenAI API",
             )
         payload = payload
+
+        request_url = f"{api_base}/openai/deployments/{deployment_id}/chat/completions?api-version={api_version}"
     else:
         payload = {"model": openai_uri, **payload}
+        request_url = REQUEST_URL_CHAT
 
     try:
         resp = process_api_requests(
             [payload],
-            REQUEST_URL_CHAT,
+            request_url,
             api_token=api_token,
             throw_original_error=True,
             max_workers=1,

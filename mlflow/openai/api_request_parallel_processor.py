@@ -100,20 +100,18 @@ class APIRequest:
         """
         _logger.debug(f"Request #{self.index} started")
         try:
-            api_key = os.getenv("OPENAI_API_KEY")
-            request_header = {"Authorization": f"Bearer {api_key}"}
+            import openai
+            request_header = {"Authorization": f"Bearer {openai.api_key}"}
             # use api-key header for Azure deployments
             if "/deployments" in self.request_url:
-                request_header = {"api-key": f"{api_key}"}
+                request_header = {"api-key": f"{openai.api_key}"}
             response = requests.post(
                 url=self.request_url,
                 headers=request_header,
                 json=self.request_json,
                 timeout=self.timeout,
             )
-            _logger.warning(f"response {response}, code {response.status_code}")
             response_json = response.json()
-            _logger.warning(f"response_json {response_json}")
 
             # Refer to error codes: https://platform.openai.com/docs/guides/error-codes/api-errors
             if "error" in response_json:
@@ -182,13 +180,13 @@ def num_tokens_consumed_from_request(
     """
     encoding = tiktoken.get_encoding(token_encoding_name)
     # if completions request, tokens = prompt + n * max_tokens
-    if request_url.endswith("completions"):
+    if "completions" in request_url:
         max_tokens = request_json.get("max_tokens", 15)
         n = request_json.get("n", 1)
         completion_tokens = n * max_tokens
 
         # chat completions
-        if request_url.endswith("chat/completions"):
+        if "chat/completions" in request_url:
             num_tokens = 0
             for message in request_json["messages"]:
                 num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
@@ -213,7 +211,7 @@ def num_tokens_consumed_from_request(
                     "request"
                 )
     # if embeddings request, tokens = input tokens
-    elif request_url.endswith("embeddings"):
+    elif "embeddings" in request_url:
         inp = request_json["input"]
         if isinstance(inp, str):  # single input
             return len(encoding.encode(inp))
@@ -225,7 +223,7 @@ def num_tokens_consumed_from_request(
             )
     # more logic needed to support other API calls (e.g., edits, inserts, DALL-E)
     else:
-        raise NotImplementedError(f'"{request_url}" not implemented in this script')
+        raise NotImplementedError(f'Support for "{request_url}" not implemented in this script')
 
 
 def process_api_requests(
