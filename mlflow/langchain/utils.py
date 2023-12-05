@@ -1,14 +1,15 @@
 """Utility functions for mlflow.langchain."""
-import functools
 import json
 import logging
 import os
 import shutil
 import types
+from functools import lru_cache
 from importlib.util import find_spec
-from typing import NamedTuple
+from typing import Any, List, NamedTuple, Optional
 
 import cloudpickle
+import yaml
 from packaging import version
 
 import mlflow
@@ -25,9 +26,15 @@ _LOADER_FN_KEY = "loader_fn"
 _LOADER_ARG_KEY = "loader_arg"
 _PERSIST_DIR_NAME = "persist_dir_data"
 _PERSIST_DIR_KEY = "persist_dir"
-_MODEL_DATA_FILE_NAME = "model.yaml"
+_MODEL_DATA_YAML_FILE_NAME = "model.yaml"
+_MODEL_DATA_PKL_FILE_NAME = "model.pkl"
+_MODEL_DATA_FOLDER_NAME = "model"
 _MODEL_DATA_KEY = "model_data"
 _MODEL_TYPE_KEY = "model_type"
+_RUNNABLE_LOAD_KEY = "runnable_load"
+_BASE_LOAD_KEY = "base_load"
+_CONFIG_LOAD_KEY = "config_load"
+_MODEL_LOAD_KEY = "model_load"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow langchain flavor only supports subclasses of "
     "langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor, "
@@ -51,6 +58,7 @@ _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
 logger = logging.getLogger(__name__)
 
 
+@lru_cache
 def base_lc_types():
     import langchain.agents.agent
     import langchain.chains.base
@@ -63,8 +71,103 @@ def base_lc_types():
     )
 
 
+@lru_cache
+def picklable_runnable_types():
+    """
+    Runnable types that can be pickled and unpickled by cloudpickle.
+    """
+    from langchain.chat_models.base import SimpleChatModel
+    from langchain.prompts import ChatPromptTemplate
+
+    types = (
+        SimpleChatModel,
+        ChatPromptTemplate,
+    )
+
+    try:
+        from langchain.schema.runnable import (
+            RunnableLambda,
+            RunnablePassthrough,
+        )
+
+        types += (RunnableLambda, RunnablePassthrough)
+    except ImportError:
+        pass
+
+    try:
+        from langchain.schema.runnable.passthrough import RunnableAssign
+
+        types += (RunnableAssign,)
+    except ImportError:
+        pass
+
+    return types
+
+
+@lru_cache
+def lc_runnable_with_steps_types():
+    # import them separately because they are added
+    # in different versions of langchain
+    try:
+        from langchain.schema.runnable import RunnableSequence
+
+        types = (RunnableSequence,)
+    except ImportError:
+        types = ()
+
+    try:
+        from langchain.schema.runnable import RunnableParallel
+
+        types += (RunnableParallel,)
+    except ImportError:
+        pass
+
+    return types
+
+
+def lc_runnables_types():
+    return picklable_runnable_types() + lc_runnable_with_steps_types()
+
+
 def supported_lc_types():
-    return base_lc_types()
+    return base_lc_types() + lc_runnables_types()
+
+
+@lru_cache
+def runnables_supports_batch_types():
+    try:
+        from langchain.schema.runnable import (
+            RunnableLambda,
+            RunnableSequence,
+        )
+
+        types = (RunnableSequence, RunnableLambda)
+    except ImportError:
+        types = ()
+
+    try:
+        from langchain.schema.runnable import RunnableParallel
+
+        types += (RunnableParallel,)
+    except ImportError:
+        pass
+    return types
+
+
+@lru_cache
+def custom_type_to_loader_dict():
+    # helper function to load output_parsers from config
+    def _load_output_parser(config: dict) -> dict:
+        """Load output parser."""
+        from langchain.schema.output_parser import StrOutputParser
+
+        output_parser_type = config.pop("_type", None)
+        if output_parser_type == "default":
+            return StrOutputParser(**config)
+        else:
+            raise ValueError(f"Unsupported output parser {output_parser_type}")
+
+    return {"default": _load_output_parser}
 
 
 class _SpecialChainInfo(NamedTuple):
@@ -77,7 +180,7 @@ def _get_special_chain_info_or_none(chain):
             return _SpecialChainInfo(loader_arg=loader_arg)
 
 
-@functools.lru_cache
+@lru_cache
 def _get_map_of_special_chain_class_to_loader_arg():
     import langchain
 
@@ -186,8 +289,11 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
     import langchain.chains.base
     import langchain.chains.llm
 
-    model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
-    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
+    model_data_path = os.path.join(path, _MODEL_DATA_YAML_FILE_NAME)
+    model_data_kwargs = {
+        _MODEL_DATA_KEY: _MODEL_DATA_YAML_FILE_NAME,
+        _MODEL_LOAD_KEY: _BASE_LOAD_KEY,
+    }
 
     if isinstance(model, langchain.chains.llm.LLMChain):
         model.save(model_data_path)
@@ -270,6 +376,11 @@ def _load_from_json(path):
         return json.load(f)
 
 
+def _load_from_yaml(path):
+    with open(path) as f:
+        return yaml.safe_load(f)
+
+
 def _get_path_by_key(root_path, key, conf):
     key_path = conf.get(key)
     return os.path.join(root_path, key_path) if key_path else None
@@ -279,7 +390,9 @@ def _load_base_lcs(
     local_model_path,
     conf,
 ):
-    lc_model_path = os.path.join(local_model_path, conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME))
+    lc_model_path = os.path.join(
+        local_model_path, conf.get(_MODEL_DATA_KEY, _MODEL_DATA_YAML_FILE_NAME)
+    )
 
     agent_path = _get_path_by_key(local_model_path, _AGENT_DATA_KEY, conf)
     tools_path = _get_path_by_key(local_model_path, _TOOLS_DATA_KEY, conf)
@@ -326,3 +439,31 @@ def _load_base_lcs(
 
         model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
     return model
+
+
+# This is an internal function that is used to generate
+# a fake chat model for testing purposes.
+# cloudpickle can not pickle a pydantic model defined
+# within the same scope, so put it here.
+def _fake_simple_chat_model():
+    from langchain.callbacks.manager import CallbackManagerForLLMRun
+    from langchain.chat_models.base import SimpleChatModel
+    from langchain.schema.messages import BaseMessage
+
+    class FakeChatModel(SimpleChatModel):
+        """Fake Chat Model wrapper for testing purposes."""
+
+        def _call(
+            self,
+            messages: List[BaseMessage],
+            stop: Optional[List[str]] = None,
+            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            **kwargs: Any,
+        ) -> str:
+            return "Databricks"
+
+        @property
+        def _llm_type(self) -> str:
+            return "fake chat model"
+
+    return FakeChatModel
