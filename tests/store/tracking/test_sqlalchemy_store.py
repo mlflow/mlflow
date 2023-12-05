@@ -221,7 +221,7 @@ def _get_run_configs(experiment_id=None, tags=None, start_time=None):
 def _run_factory(store: SqlAlchemyStore, config=None):
     if not config:
         config = _get_run_configs()
-    if "experiment_id" not in config:
+    if not config.get("experiment_id", None):
         config["experiment_id"] = _create_experiments(store, "test exp")
 
     return store.create_run(**config)
@@ -667,6 +667,226 @@ def test_param_model(store: SqlAlchemyStore):
         assert added_param.key == new_param.key
 
 
+def test_run_needs_uuid(store: SqlAlchemyStore):
+    regex = {
+        SQLITE: r"NOT NULL constraint failed",
+        POSTGRES: r"null value in column .+ of relation .+ violates not-null constrain",
+        MYSQL: r"(Field .+ doesn't have a default value|Instance .+ has a NULL identity key)",
+        MSSQL: r"Cannot insert the value NULL into column .+, table .+",
+    }[store._get_dialect()]
+    # Depending on the implementation, a NULL identity key may result in different
+    # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
+    # Therefore, we check for the more generic 'SQLAlchemyError'
+    with pytest.raises(MlflowException, match=regex) as exception_context:
+        with store.ManagedSessionMaker() as session:
+            session.add(models.SqlRun())
+    assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
+
+
+def test_run_data_model(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        run_id = uuid.uuid4().hex
+        m1 = models.SqlMetric(run_uuid=run_id, key="accuracy", value=0.89)
+        m2 = models.SqlMetric(run_uuid=run_id, key="recal", value=0.89)
+        p1 = models.SqlParam(run_uuid=run_id, key="loss", value="test param")
+        p2 = models.SqlParam(run_uuid=run_id, key="blue", value="test param")
+        run_data = models.SqlRun(run_uuid=run_id)
+
+        session.add_all([m1, m2, p1, p2])
+        session.add(run_data)
+        session.commit()
+
+        run_datums = session.query(models.SqlRun).all()
+        actual = run_datums[0]
+        assert len(run_datums) == 1
+        assert len(actual.params) == 2
+        assert len(actual.metrics) == 2
+
+
+def test_run_info(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test exp")
+    config = {
+        "experiment_id": experiment_id,
+        "name": "test run",
+        "user_id": "Anderson",
+        "run_uuid": "test",
+        "status": RunStatus.to_string(RunStatus.SCHEDULED),
+        "source_type": SourceType.to_string(SourceType.LOCAL),
+        "source_name": "Python application",
+        "entry_point_name": "main.py",
+        "start_time": get_current_time_millis(),
+        "end_time": get_current_time_millis(),
+        "source_version": mlflow.__version__,
+        "lifecycle_stage": entities.LifecycleStage.ACTIVE,
+        "artifact_uri": "//",
+    }
+    run = models.SqlRun(**config).to_mlflow_entity()
+
+    for k, v in config.items():
+        # These keys were removed from RunInfo.
+        if k in ["source_name", "source_type", "source_version", "name", "entry_point_name"]:
+            continue
+
+        v2 = getattr(run.info, k)
+        if k == "source_type":
+            assert v == SourceType.to_string(v2)
+        else:
+            assert v == v2
+
+
+def test_create_run_with_tags(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run")
+    tags = [RunTag("3", "4"), RunTag("1", "2")]
+    expected = _get_run_configs(experiment_id=experiment_id, tags=tags)
+
+    actual = store.create_run(**expected)
+
+    assert actual.info.experiment_id == experiment_id
+    assert actual.info.user_id == expected["user_id"]
+    assert actual.info.run_name == expected["run_name"]
+    assert actual.info.start_time == expected["start_time"]
+    assert len(actual.data.tags) == len(tags)
+    assert actual.data.tags == {tag.key: tag.value for tag in tags}
+
+
+def test_create_run_sets_name(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_run_name")
+    configs = _get_run_configs(experiment_id=experiment_id)
+    run_id = store.create_run(**configs).info.run_id
+    run = store.get_run(run_id)
+    assert run.info.run_name == configs["run_name"]
+    assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == configs["run_name"]
+
+    run_id = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name=None,
+        tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, "test")],
+    ).info.run_id
+    run = store.get_run(run_id)
+    assert run.info.run_name == "test"
+
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(
+            "Both 'run_name' argument and 'mlflow.runName' tag are specified, but with "
+            "different values (run_name='test', mlflow.runName='test_2').",
+        ),
+    ):
+        store.create_run(
+            experiment_id=experiment_id,
+            user_id="user",
+            start_time=0,
+            run_name="test",
+            tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, "test_2")],
+        )
+
+
+def test_get_run_with_name(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_get_run")
+    configs = _get_run_configs(experiment_id=experiment_id)
+    run_id = store.create_run(**configs).info.run_id
+
+    run = store.get_run(run_id)
+
+    assert run.info.experiment_id == experiment_id
+    assert run.info.run_name == configs["run_name"]
+
+    no_run_configs = {
+        "experiment_id": experiment_id,
+        "user_id": "Anderson",
+        "start_time": get_current_time_millis(),
+        "tags": [],
+        "run_name": None,
+    }
+    run_id = store.create_run(**no_run_configs).info.run_id
+
+    run = store.get_run(run_id)
+
+    assert run.info.run_name.split("-")[0] in _GENERATOR_PREDICATES
+
+    name_empty_str_run = store.create_run(**{**configs, **{"run_name": ""}})
+    run_name = name_empty_str_run.info.run_name
+    assert run_name.split("-")[0] in _GENERATOR_PREDICATES
+
+
+def test_to_mlflow_entity_and_proto(store: SqlAlchemyStore):
+    # Create a run and log metrics, params, tags to the run
+    created_run = _run_factory(store)
+    run_id = created_run.info.run_id
+    store.log_metric(
+        run_id=run_id, metric=entities.Metric(key="my-metric", value=3.4, timestamp=0, step=0)
+    )
+    store.log_param(run_id=run_id, param=Param(key="my-param", value="param-val"))
+    store.set_tag(run_id=run_id, tag=RunTag(key="my-tag", value="tag-val"))
+
+    # Verify that we can fetch the run & convert it to proto - Python protobuf bindings
+    # will perform type-checking to ensure all values have the right types
+    run = store.get_run(run_id)
+    run.to_proto()
+
+    # Verify attributes of the Python run entity
+    assert isinstance(run.info, entities.RunInfo)
+    assert isinstance(run.data, entities.RunData)
+
+    assert run.data.metrics == {"my-metric": 3.4}
+    assert run.data.params == {"my-param": "param-val"}
+    assert run.data.tags["my-tag"] == "tag-val"
+
+    # Get the parent experiment of the run, verify it can be converted to protobuf
+    exp = store.get_experiment(run.info.experiment_id)
+    exp.to_proto()
+
+
+def test_delete_run(store: SqlAlchemyStore):
+    run = _run_factory(store)
+
+    store.delete_run(run.info.run_id)
+
+    with store.ManagedSessionMaker() as session:
+        actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
+        assert actual.lifecycle_stage == entities.LifecycleStage.DELETED
+        assert (
+            actual.deleted_time is not None
+        )  # deleted time should be updated and thus not None anymore
+
+        deleted_run = store.get_run(run.info.run_id)
+        assert actual.run_uuid == deleted_run.info.run_id
+
+
+def test_hard_delete_run(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    metric = entities.Metric("blahmetric", 100.0, get_current_time_millis(), 0)
+    store.log_metric(run.info.run_id, metric)
+    param = entities.Param("blahparam", "100.0")
+    store.log_param(run.info.run_id, param)
+    tag = entities.RunTag("test tag", "a boogie")
+    store.set_tag(run.info.run_id, tag)
+
+    store._hard_delete_run(run.info.run_id)
+
+    with store.ManagedSessionMaker() as session:
+        actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
+        assert actual_run is None
+        actual_metric = session.query(models.SqlMetric).filter_by(run_uuid=run.info.run_id).first()
+        assert actual_metric is None
+        actual_param = session.query(models.SqlParam).filter_by(run_uuid=run.info.run_id).first()
+        assert actual_param is None
+        actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
+        assert actual_tag is None
+
+
+def test_get_deleted_runs(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    deleted_run_ids = store._get_deleted_runs()
+    assert deleted_run_ids == []
+
+    store.delete_run(run.info.run_uuid)
+    deleted_run_ids = store._get_deleted_runs()
+    assert deleted_run_ids == [run.info.run_uuid]
+
+
 # This unit test class is under refactoring. Please use pytest for new unit tests: #10042
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_store(self, db_uri=""):
@@ -744,70 +964,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         time.sleep(0.001)
         return self.store.create_experiment(name=names)
 
-    def test_run_needs_uuid(self):
-        regex = {
-            SQLITE: r"NOT NULL constraint failed",
-            POSTGRES: r"null value in column .+ of relation .+ violates not-null constrain",
-            MYSQL: r"(Field .+ doesn't have a default value|Instance .+ has a NULL identity key)",
-            MSSQL: r"Cannot insert the value NULL into column .+, table .+",
-        }[self.store._get_dialect()]
-        # Depending on the implementation, a NULL identity key may result in different
-        # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
-        # Therefore, we check for the more generic 'SQLAlchemyError'
-        with pytest.raises(MlflowException, match=regex) as exception_context:
-            with self.store.ManagedSessionMaker() as session:
-                session.add(models.SqlRun())
-        assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
-
-    def test_run_data_model(self):
-        with self.store.ManagedSessionMaker() as session:
-            run_id = uuid.uuid4().hex
-            run_data = models.SqlRun(run_uuid=run_id)
-            m1 = models.SqlMetric(run_uuid=run_id, key="accuracy", value=0.89)
-            m2 = models.SqlMetric(run_uuid=run_id, key="recal", value=0.89)
-            p1 = models.SqlParam(run_uuid=run_id, key="loss", value="test param")
-            p2 = models.SqlParam(run_uuid=run_id, key="blue", value="test param")
-
-            session.add_all([m1, m2, p1, p2])
-            session.add(run_data)
-            session.commit()
-
-            run_datums = session.query(models.SqlRun).all()
-            actual = run_datums[0]
-            assert len(run_datums) == 1
-            assert len(actual.params) == 2
-            assert len(actual.metrics) == 2
-
-    def test_run_info(self):
-        experiment_id = self._experiment_factory("test exp")
-        config = {
-            "experiment_id": experiment_id,
-            "name": "test run",
-            "user_id": "Anderson",
-            "run_uuid": "test",
-            "status": RunStatus.to_string(RunStatus.SCHEDULED),
-            "source_type": SourceType.to_string(SourceType.LOCAL),
-            "source_name": "Python application",
-            "entry_point_name": "main.py",
-            "start_time": get_current_time_millis(),
-            "end_time": get_current_time_millis(),
-            "source_version": mlflow.__version__,
-            "lifecycle_stage": entities.LifecycleStage.ACTIVE,
-            "artifact_uri": "//",
-        }
-        run = models.SqlRun(**config).to_mlflow_entity()
-
-        for k, v in config.items():
-            # These keys were removed from RunInfo.
-            if k in ["source_name", "source_type", "source_version", "name", "entry_point_name"]:
-                continue
-
-            v2 = getattr(run.info, k)
-            if k == "source_type":
-                assert v == SourceType.to_string(v2)
-            else:
-                assert v == v2
-
     def _get_run_configs(self, experiment_id=None, tags=None, start_time=None):
         return {
             "experiment_id": experiment_id,
@@ -827,156 +983,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             config["experiment_id"] = experiment_id
 
         return self.store.create_run(**config)
-
-    def test_create_run_with_tags(self):
-        experiment_id = self._experiment_factory("test_create_run")
-        tags = [RunTag("3", "4"), RunTag("1", "2")]
-        expected = self._get_run_configs(experiment_id=experiment_id, tags=tags)
-
-        actual = self.store.create_run(**expected)
-
-        assert actual.info.experiment_id == experiment_id
-        assert actual.info.user_id == expected["user_id"]
-        assert actual.info.run_name == expected["run_name"]
-        assert actual.info.start_time == expected["start_time"]
-
-        assert len(actual.data.tags) == len(tags)
-        expected_tags = {tag.key: tag.value for tag in tags}
-        assert actual.data.tags == expected_tags
-
-    def test_create_run_sets_name(self):
-        experiment_id = self._experiment_factory("test_create_run_run_name")
-        configs = self._get_run_configs(experiment_id=experiment_id)
-        run_id = self.store.create_run(**configs).info.run_id
-        run = self.store.get_run(run_id)
-        assert run.info.run_name == configs["run_name"]
-        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == configs["run_name"]
-        run_id = self.store.create_run(
-            experiment_id=experiment_id,
-            user_id="user",
-            start_time=0,
-            run_name=None,
-            tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, "test")],
-        ).info.run_id
-        run = self.store.get_run(run_id)
-        assert run.info.run_name == "test"
-
-        with pytest.raises(
-            MlflowException,
-            match=re.escape(
-                "Both 'run_name' argument and 'mlflow.runName' tag are specified, but with "
-                "different values (run_name='test', mlflow.runName='test_2').",
-            ),
-        ):
-            self.store.create_run(
-                experiment_id=experiment_id,
-                user_id="user",
-                start_time=0,
-                run_name="test",
-                tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, "test_2")],
-            )
-
-    def test_get_run_with_name(self):
-        experiment_id = self._experiment_factory("test_get_run")
-        configs = self._get_run_configs(experiment_id=experiment_id)
-
-        run_id = self.store.create_run(**configs).info.run_id
-
-        run = self.store.get_run(run_id)
-
-        assert run.info.experiment_id == experiment_id
-        assert run.info.run_name == configs["run_name"]
-
-        no_run_configs = {
-            "experiment_id": experiment_id,
-            "user_id": "Anderson",
-            "start_time": get_current_time_millis(),
-            "tags": [],
-            "run_name": None,
-        }
-        run_id = self.store.create_run(**no_run_configs).info.run_id
-        run = self.store.get_run(run_id)
-        assert run.info.run_name.split("-")[0] in _GENERATOR_PREDICATES
-
-        name_empty_str_run = self.store.create_run(**{**configs, **{"run_name": ""}})
-        run_name = name_empty_str_run.info.run_name
-        assert run_name.split("-")[0] in _GENERATOR_PREDICATES
-
-    def test_to_mlflow_entity_and_proto(self):
-        # Create a run and log metrics, params, tags to the run
-        created_run = self._run_factory()
-        run_id = created_run.info.run_id
-        self.store.log_metric(
-            run_id=run_id, metric=entities.Metric(key="my-metric", value=3.4, timestamp=0, step=0)
-        )
-        self.store.log_param(run_id=run_id, param=Param(key="my-param", value="param-val"))
-        self.store.set_tag(run_id=run_id, tag=RunTag(key="my-tag", value="tag-val"))
-
-        # Verify that we can fetch the run & convert it to proto - Python protobuf bindings
-        # will perform type-checking to ensure all values have the right types
-        run = self.store.get_run(run_id)
-        run.to_proto()
-
-        # Verify attributes of the Python run entity
-        assert isinstance(run.info, entities.RunInfo)
-        assert isinstance(run.data, entities.RunData)
-
-        assert run.data.metrics == {"my-metric": 3.4}
-        assert run.data.params == {"my-param": "param-val"}
-        assert run.data.tags["my-tag"] == "tag-val"
-
-        # Get the parent experiment of the run, verify it can be converted to protobuf
-        exp = self.store.get_experiment(run.info.experiment_id)
-        exp.to_proto()
-
-    def test_delete_run(self):
-        run = self._run_factory()
-
-        self.store.delete_run(run.info.run_id)
-
-        with self.store.ManagedSessionMaker() as session:
-            actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
-            assert actual.lifecycle_stage == entities.LifecycleStage.DELETED
-            assert (
-                actual.deleted_time is not None
-            )  # deleted time should be updated and thus not None anymore
-
-            deleted_run = self.store.get_run(run.info.run_id)
-            assert actual.run_uuid == deleted_run.info.run_id
-
-    def test_hard_delete_run(self):
-        run = self._run_factory()
-        metric = entities.Metric("blahmetric", 100.0, get_current_time_millis(), 0)
-        self.store.log_metric(run.info.run_id, metric)
-        param = entities.Param("blahparam", "100.0")
-        self.store.log_param(run.info.run_id, param)
-        tag = entities.RunTag("test tag", "a boogie")
-        self.store.set_tag(run.info.run_id, tag)
-
-        self.store._hard_delete_run(run.info.run_id)
-
-        with self.store.ManagedSessionMaker() as session:
-            actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
-            assert actual_run is None
-            actual_metric = (
-                session.query(models.SqlMetric).filter_by(run_uuid=run.info.run_id).first()
-            )
-            assert actual_metric is None
-            actual_param = (
-                session.query(models.SqlParam).filter_by(run_uuid=run.info.run_id).first()
-            )
-            assert actual_param is None
-            actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
-            assert actual_tag is None
-
-    def test_get_deleted_runs(self):
-        run = self._run_factory()
-        deleted_run_ids = self.store._get_deleted_runs()
-        assert deleted_run_ids == []
-
-        self.store.delete_run(run.info.run_uuid)
-        deleted_run_ids = self.store._get_deleted_runs()
-        assert deleted_run_ids == [run.info.run_uuid]
 
     def test_log_metric(self):
         run = self._run_factory()
