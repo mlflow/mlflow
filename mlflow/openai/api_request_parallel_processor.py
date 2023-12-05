@@ -100,11 +100,11 @@ class APIRequest:
         """
         _logger.debug(f"Request #{self.index} started")
         try:
-            import openai
-            request_header = {"Authorization": f"Bearer {openai.api_key}"}
+            api_key = os.environ["OPENAI_API_KEY"]
+            request_header = {"Authorization": f"Bearer {api_key}"}
             # use api-key header for Azure deployments
             if "/deployments" in self.request_url:
-                request_header = {"api-key": f"{openai.api_key}"}
+                request_header = {"api-key": f"{api_key}"}
             response = requests.post(
                 url=self.request_url,
                 headers=request_header,
