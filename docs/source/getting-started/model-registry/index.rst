@@ -13,7 +13,7 @@ development and deployment:
 * **Lineage** encompasses the origin and development history of a model, including information like source code, data, and parameter configuration.
 * **Model Versioning** refers to logging different iterations of a model to facilitate comparison and serving. By default, models are versioned with a monotonically increasing ID, but you can also alias model versions.
 * **Model Aliasing** allows you to assign mutable, named references to particular versions of a model, simplifying model deployment.
-* **Model Tagging** allows users to attach custom key-value pairs to a model, facilitating categorization and retrieval.
+* **Model Tagging** allows users to label models with custom key-value pairs, facilitating documentation and categorization.
 * **Model Annotations** are descriptive notes added to a model. 
 
 In this tutorial, you will get up and running with the MLflow model registry in the least amount of
