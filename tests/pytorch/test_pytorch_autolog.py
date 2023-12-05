@@ -1,7 +1,11 @@
 import pytest
 import pytorch_lightning as pl
 import torch
-from iris import IrisClassification, IrisClassificationWithoutValidation
+from iris import (
+    IrisClassification,
+    IrisClassificationMultiOptimizer,
+    IrisClassificationWithoutValidation,
+)
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from packaging.version import Version
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -48,6 +52,20 @@ def pytorch_model_with_steps_logged(request):
     log_every_n_epoch, log_every_n_step = request.param
     mlflow.pytorch.autolog(log_every_n_epoch=log_every_n_epoch, log_every_n_step=log_every_n_step)
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+    trainer.fit(model, dm)
+    client = MlflowClient()
+    run = client.get_run(client.search_runs(["0"])[0].info.run_id)
+    return trainer, run, log_every_n_epoch, log_every_n_step
+
+
+@pytest.fixture(params=[(1, 1), (1, 10), (2, 1)])
+def pytorch_multi_optimizer_model(request):
+    log_every_n_epoch, log_every_n_step = request.param
+    mlflow.pytorch.autolog(log_every_n_epoch=log_every_n_epoch, log_every_n_step=log_every_n_step)
+    model = IrisClassificationMultiOptimizer()
     dm = IrisDataModule()
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
@@ -160,6 +178,31 @@ def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
         ("loss_forked", num_logged_epochs),
         ("loss_forked_step", num_logged_steps),
         ("loss_forked_epoch", num_logged_epochs),
+    ]:
+        assert metric_key in run.data.metrics, f"Missing {metric_key} in metrics"
+        metric_history = client.get_metric_history(run.info.run_id, metric_key)
+        assert (
+            len(metric_history) == expected_len
+        ), f"Expected {expected_len} values for {metric_key}, got {len(metric_history)}"
+
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.1.0"),
+    reason="Access to metrics from the current step is only possible since PyTorch-lightning 1.1.0 "
+    "when LoggerConnector.cached_results was added",
+)
+def test_pytorch_autolog_log_on_step_with_multiple_optimizers(
+    pytorch_multi_optimizer_model,
+):
+    trainer, run, log_every_n_epoch, log_every_n_step = pytorch_multi_optimizer_model
+    # Global step is incremented twice for every batch due to using 2 optimizers
+    num_logged_steps = trainer.global_step // (2 * log_every_n_step)
+    num_logged_epochs = NUM_EPOCHS // log_every_n_epoch
+
+    client = MlflowClient()
+    for metric_key, expected_len in [
+        ("loss", num_logged_epochs),
+        ("loss_step", num_logged_steps),
     ]:
         assert metric_key in run.data.metrics, f"Missing {metric_key} in metrics"
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
