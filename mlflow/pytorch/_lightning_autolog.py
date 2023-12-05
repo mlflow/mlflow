@@ -86,6 +86,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.log_models = log_models
         self.log_every_n_epoch = log_every_n_epoch
         self.log_every_n_step = log_every_n_step
+        self._num_optimizers = 1
         # Sets for tracking which metrics are logged on steps and which are logged on epochs
         self._step_metrics = set()
         self._epoch_metrics = set()
@@ -212,7 +213,9 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         ]
         self._step_metrics.update(name for (name, _) in metric_items)
         step = trainer.global_step
-        if (step + 1) % self.log_every_n_step == 0:
+        # Lightning increments the global step once per optimizer, so to correctly handle
+        # the step interval we divide the step by the number of optimizers.
+        if ((step // self._num_optimizers) + 1) % self.log_every_n_step == 0:
             self._log_metrics(trainer, step, metric_items)
 
     @rank_zero_only
@@ -236,6 +239,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         #    to rename the optimizer parameters based on keys in default dictionary.
 
         if hasattr(trainer, "optimizers"):
+            self._num_optimizers = len(trainer.optimizers)
             optimizer = trainer.optimizers[0]
             params["optimizer_name"] = _get_optimizer_name(optimizer)
 
