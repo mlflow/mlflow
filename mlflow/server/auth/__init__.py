@@ -15,7 +15,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Union
 
 import sqlalchemy
-from flask import Flask, Response, flash, make_response, jsonify, render_template_string, request
+from flask import Flask, Response, flash, jsonify, make_response, render_template_string, request
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
