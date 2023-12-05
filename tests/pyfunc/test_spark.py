@@ -1331,6 +1331,9 @@ def test_spark_udf_set_extra_udf_env_vars(spark):
 
 
 def test_modified_environ():
-    with modified_environ({"TEST_ENV_VAR": "test"}):
+    @modified_environ({"TEST_ENV_VAR": "test"})
+    def test():
         assert os.environ["TEST_ENV_VAR"] == "test"
+
+    test()
     assert os.environ.get("TEST_ENV_VAR") is None
