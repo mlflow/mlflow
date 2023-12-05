@@ -125,8 +125,17 @@ def lc_runnable_with_steps_types():
     return types
 
 
+def lc_runnable_branch_type():
+    try:
+        from langchain.schema.runnable import RunnableBranch
+
+        return (RunnableBranch,)
+    except ImportError:
+        return ()
+
+
 def lc_runnables_types():
-    return picklable_runnable_types() + lc_runnable_with_steps_types()
+    return picklable_runnable_types() + lc_runnable_with_steps_types() + lc_runnable_branch_type()
 
 
 def supported_lc_types():
@@ -467,3 +476,31 @@ def _fake_simple_chat_model():
             return "fake chat model"
 
     return FakeChatModel
+
+
+def _fake_mlflow_question_classifier():
+    from langchain.callbacks.manager import CallbackManagerForLLMRun
+    from langchain.chat_models.base import SimpleChatModel
+    from langchain.schema.messages import BaseMessage
+
+    class FakeMLflowClassifier(SimpleChatModel):
+        """Fake Chat Model wrapper for testing purposes."""
+
+        def _call(
+            self,
+            messages: List[BaseMessage],
+            stop: Optional[List[str]] = None,
+            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            **kwargs: Any,
+        ) -> str:
+            if "MLflow" in messages[0].content.split(":")[1]:
+                return "yes"
+            if "cat" in messages[0].content.split(":")[1]:
+                return "no"
+            return "unknown"
+
+        @property
+        def _llm_type(self) -> str:
+            return "fake mlflow classifier"
+
+    return FakeMLflowClassifier
