@@ -7,7 +7,7 @@ MLflow 2.9.0 includes several major features and improvements.
 MLflow AI Gateway deprecation (#10420, @harupy):
 
 The feature previously known as MLflow AI Gateway has been moved to utilize [the MLflow deployments API](https://mlflow.org/docs/latest/llms/deployments/index.html).
-See [MLflow AI Gateway Migration Guide](https://mlflow.org/docs/latest/llms/gateway/migration.html) for migration.
+For guidance on migrating from the AI Gateway to the new deployments API, please see the [MLflow AI Gateway Migration Guide](https://mlflow.org/docs/latest/llms/gateway/migration.html.
 
 MLflow Tracking docs overhaul (#10471, @B-Step62):
 
@@ -15,27 +15,29 @@ MLflow Tracking docs overhaul (#10471, @B-Step62):
 
 Security fixes:
 
+Three security patches have been filed with this release and CVE's have been issued with the details involved in the security patch and potential attack vectors. Please review and update your tracking server deployments if your tracking server is not securely deployed and has open access to the internet.
+
 - Sanitize `path` in `HttpArtifactRepository.list_artifacts` (#10585, @harupy)
 - Sanitize `filename` in `Content-Disposition` header for `HTTPDatasetSource` (#10584, @harupy).
 - Validate `Content-Type` header to prevent POST XSS (#10526, @B-Step62)
 
 Features:
 
-- [Models] Support saving `torch_dtype` for transformers models (#10586, @serena-ruan)
-- [Artifacts] Support multipart upload for for proxy artifact access (#9521, @harupy)
 - [Tracking] Use `backoff_jitter` when making HTTP requests (#10486, @ajinkyavbhandare)
 - [Tracking] Add default `aggregate_results` if the score type is numeric in `make_metric` API (#10490, @sunishsheth2009)
 - [Tracking] Add string type of score types for metric value for genai (#10307, @sunishsheth2009)
+- [Artifacts] Support multipart upload for for proxy artifact access (#9521, @harupy)
+- [Models] Support saving `torch_dtype` for transformers models (#10586, @serena-ruan)
 - [Models] Add built-in metric `ndcg_at_k` to retriever evaluation (#10284, @liangz1)
 - [Model Registry] Implement universal `copy_model_version` (#10308, @jerrylian-db)
 
 Bug fixes:
 
-- [Tracking / UI] Fix incorrect sorting order in line chart (#10553, @B-Step62)
+- [Tracking] Resume system metrics logging when resuming an existing run (#10312, @chenmoneygithub)
+- [UI] Fix incorrect sorting order in line chart (#10553, @B-Step62)
 - [UI] Remove extra whitespace in git URLs (#10506, @mrplants)
 - [Models] Make spark_udf use NFS to broadcast model to spark executor on databricks runtime and spark connect mode (#10463, @WeichenXu123)
 - [Models] Fix promptlab pyfunc models not working for chat routes (#10346, @daniellok-db)
-- [Tracking] Resume system metrics logging when resuming an existing run (#10312, @chenmoneygithub)
 
 Documentation updates:
 
