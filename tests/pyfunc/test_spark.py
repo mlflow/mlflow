@@ -1298,3 +1298,32 @@ def test_spark_udf_with_model_serving(spark):
 
         res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
         assert res["res"][0] == ("string")
+
+
+def test_spark_udf_set_extra_udf_env_vars(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return [os.environ["TEST_ENV_VAR"]] * len(model_input)
+
+    signature = mlflow.models.infer_signature(["input"])
+    spark_df = spark.createDataFrame(
+        [("input1",), ("input2",), ("input3",)],
+        ["input_col"],
+    )
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+
+    udf = mlflow.pyfunc.spark_udf(
+        spark,
+        model_info.model_uri,
+        result_type=StringType(),
+        env_manager="local",
+        extra_udf_env_vars={"TEST_ENV_VAR": "test"},
+    )
+
+    res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
+    assert res["res"][0] == ("test")

@@ -1108,6 +1108,7 @@ def spark_udf(
     result_type=None,
     env_manager=_EnvManager.LOCAL,
     params: Optional[Dict[str, Any]] = None,
+    extra_udf_env_vars=None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -1217,6 +1218,8 @@ def spark_udf(
                    .. Note:: Experimental: This parameter may change or be removed in a future
                                            release without warning.
 
+    :param extra_udf_env_vars: Extral environment variables to pass to the udf.
+                               Should be a dictionary.
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
     """
@@ -1243,6 +1246,10 @@ def spark_udf(
     mlflow_home = os.environ.get("MLFLOW_HOME")
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
     mlflow_testing = _MLFLOW_TESTING.get_raw()
+    if extra_udf_env_vars and not isinstance(extra_udf_env_vars, dict):
+        raise MlflowException(
+            f"env_vars must be a dictionary, but got type {type(extra_udf_env_vars)}."
+        )
 
     _EnvManager.validate(env_manager)
 
@@ -1500,12 +1507,21 @@ Compound types:
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
+        # Save original environment variables so that we convert it back after udf task
+        original_envs = {}
         if mlflow_home is not None:
+            original_envs["MLFLOW_HOME"] = os.environ.get("MLFLOW_HOME")
             os.environ["MLFLOW_HOME"] = mlflow_home
         if openai_env_vars:
+            original_envs.update({k: os.environ.get(k) for k in openai_env_vars})
             os.environ.update(openai_env_vars)
         if mlflow_testing:
+            original_envs[_MLFLOW_TESTING.name] = os.environ.get(_MLFLOW_TESTING.name)
             _MLFLOW_TESTING.set(mlflow_testing)
+        if extra_udf_env_vars:
+            original_envs.update({k: os.environ.get(k) for k in extra_udf_env_vars})
+            os.environ.update(extra_udf_env_vars)
+
         scoring_server_proc = None
         # set tracking_uri inside udf so that with spark_connect
         # we can load the model from correct path
@@ -1632,6 +1648,10 @@ Compound types:
         finally:
             if scoring_server_proc is not None:
                 os.kill(scoring_server_proc.pid, signal.SIGTERM)
+
+        # restore original environment variables
+        for k, v in original_envs.items():
+            os.environ.pop(k) if v is None else os.environ.update({k: v})
 
     udf.metadata = model_metadata
 
