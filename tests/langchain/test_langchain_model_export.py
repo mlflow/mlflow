@@ -4,6 +4,7 @@ import os
 import shutil
 import sqlite3
 from contextlib import contextmanager
+from operator import itemgetter
 from typing import Any, Dict, List, Mapping, Optional
 
 import langchain
@@ -1105,7 +1106,7 @@ def test_save_load_simple_chat_model(spark):
 
 
 @pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.0.311"), reason="feaature not existing"
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
 def test_save_load_rag(tmp_path, spark):
     from langchain.prompts import ChatPromptTemplate
@@ -1179,4 +1180,119 @@ def test_save_load_rag(tmp_path, spark):
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
         "predictions": [answer]
+    }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_runnable_branch_save_load():
+    from langchain.schema.runnable import RunnableBranch
+
+    branch = RunnableBranch(
+        (lambda x: isinstance(x, str), lambda x: x.upper()),
+        (lambda x: isinstance(x, int), lambda x: x + 1),
+        (lambda x: isinstance(x, float), lambda x: x * 2),
+        lambda x: "goodbye",
+    )
+
+    assert branch.invoke("hello") == "HELLO"
+    assert branch.invoke({}) == "goodbye"
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(branch, "model_path")
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke("hello") == "HELLO"
+    assert loaded_model.invoke({}) == "goodbye"
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict("hello") == "HELLO"
+    assert pyfunc_loaded_model.predict({}) == "goodbye"
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": "hello"}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": "HELLO"
+    }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_complex_runnable_branch_save_load():
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableBranch, RunnableLambda
+
+    from mlflow.langchain.utils import _fake_mlflow_question_classifier, _fake_simple_chat_model
+
+    chat_model = _fake_mlflow_question_classifier()()
+    prompt = ChatPromptTemplate.from_template("{question_is_relevant}\n{query}")
+    # Need to add prompt here as the chat model doesn't accept dict input
+    answer_model = prompt | _fake_simple_chat_model()()
+
+    decline_to_answer = RunnableLambda(
+        lambda x: "I cannot answer questions that are not about MLflow."
+    )
+    something_went_wrong = RunnableLambda(lambda x: "Something went wrong.")
+
+    is_question_about_mlflow_prompt = ChatPromptTemplate.from_template(
+        "You are classifying documents to know if this question "
+        "is related with MLflow. Only answer with yes or no. The question is: {query}"
+    )
+
+    branch_node = RunnableBranch(
+        (lambda x: x["question_is_relevant"].lower() == "yes", answer_model),
+        (lambda x: x["question_is_relevant"].lower() == "no", decline_to_answer),
+        something_went_wrong,
+    )
+
+    chain = (
+        {
+            "question_is_relevant": is_question_about_mlflow_prompt
+            | chat_model
+            | StrOutputParser(),
+            "query": itemgetter("query"),
+        }
+        | branch_node
+        | StrOutputParser()
+    )
+
+    assert chain.invoke({"query": "Who owns MLflow?"}) == "Databricks"
+    assert (
+        chain.invoke({"query": "Do you like cat?"})
+        == "I cannot answer questions that are not about MLflow."
+    )
+    assert chain.invoke({"query": "Are you happy today?"}) == "Something went wrong."
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model_path")
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke({"query": "Who owns MLflow?"}) == "Databricks"
+    assert (
+        loaded_model.invoke({"query": "Do you like cat?"})
+        == "I cannot answer questions that are not about MLflow."
+    )
+    assert loaded_model.invoke({"query": "Are you happy today?"}) == "Something went wrong."
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict({"query": "Who owns MLflow?"}) == "Databricks"
+    assert (
+        pyfunc_loaded_model.predict({"query": "Do you like cat?"})
+        == "I cannot answer questions that are not about MLflow."
+    )
+    assert pyfunc_loaded_model.predict({"query": "Are you happy today?"}) == "Something went wrong."
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": {"query": "Who owns MLflow?"}}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": "Databricks"
     }
