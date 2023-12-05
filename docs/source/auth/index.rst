@@ -618,6 +618,9 @@ Authentication configuration is located at ``mlflow/server/auth/basic_auth.ini``
    * - ``authorization_function``
      - Function to authenticate requests
 
+Alternatively, assign the environment variable ``MLFLOW_AUTH_CONFIG_PATH`` to point
+to your custom configuration file.
+
 The ``authorization_function`` setting supports pluggable authentication methods
 if you want to use another authentication method than HTTP basic auth. The value
 specifies ``module_name:function_name``. The function has the following signature:

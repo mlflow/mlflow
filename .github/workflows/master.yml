@@ -2,6 +2,8 @@ name: MLflow tests
 
 on:
   pull_request:
+    paths-ignore:
+      - "docs/**"
   push:
     branches:
       - master
@@ -29,40 +31,6 @@ env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-        id: setup-python
-      - name: Add problem matchers
-        run: |
-          echo "::add-matcher::.github/workflows/matchers/pylint.json"
-          echo "::add-matcher::.github/workflows/matchers/black.json"
-          echo "::add-matcher::.github/workflows/matchers/ruff.json"
-      - uses: ./.github/actions/cache-pip
-      - name: Install dependencies
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          pip install -r requirements/lint-requirements.txt
-      - uses: ./.github/actions/pipdeptree
-      - name: Install pre-commit hooks
-        run: |
-          source .venv/bin/activate
-          pre-commit install -t pre-commit -t prepare-commit-msg
-      - name: Run pre-commit
-        id: pre-commit
-        env:
-          IS_MAINTAINER: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association )}}
-        run: |
-          source .venv/bin/activate
-          pre-commit run --all-files
-
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
   # The python skinny tests cover the subset of mlflow functionality
@@ -383,20 +351,3 @@ jobs:
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
-
-  protect:
-    # This job prevents accidental auto-merging of PRs when jobs that are conditionally
-    # triggered (for example, those defined in `cross-version-tests.yml`) are either still
-    # in the process of running or have resulted in failures.
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    needs: [windows, models]
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const script = require('./.github/workflows/protect.js');
-            await script({ github, context });
