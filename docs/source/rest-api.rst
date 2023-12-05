@@ -11,12 +11,14 @@ The API is hosted under the ``/api`` route on the MLflow tracking server. For ex
 experiments on a tracking server hosted at ``http://localhost:5000``, make a POST request to
 ``http://localhost:5000/api/2.0/mlflow/experiments/search``.
 
+.. important::
+    The MLflow REST API requires content type ``application/json`` for all POST requests.
+
 .. contents:: Table of Contents
     :local:
     :depth: 1
 
 ===========================
-
 
 
 .. _mlflowMlflowServicecreateExperiment:
@@ -1588,6 +1590,7 @@ Request Structure
 Get Latest ModelVersions
 ========================
 
+.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our :ref:`migration guide<migrating-from-stages>`.
 
 +------------------------------------------------------+-------------+
 |                       Endpoint                       | HTTP Method |
@@ -2003,6 +2006,7 @@ Response Structure
 Transition ModelVersion Stage
 =============================
 
+.. warning:: Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our :ref:`migration guide<migrating-from-stages>`.
 
 +------------------------------------------------+-------------+
 |                    Endpoint                    | HTTP Method |

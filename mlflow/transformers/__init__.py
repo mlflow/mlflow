@@ -1,4 +1,4 @@
-"""MLFlow module for HuggingFace/transformer support."""
+"""MLflow module for HuggingFace/transformer support."""
 
 import ast
 import base64
@@ -65,7 +65,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
@@ -105,7 +105,13 @@ _TOKENIZER_KEY = "tokenizer"
 _TOKENIZER_TYPE_KEY = "tokenizer_type"
 _TORCH_DTYPE_KEY = "torch_dtype"
 _METADATA_PIPELINE_SCALAR_CONFIG_KEYS = {_FRAMEWORK_KEY}
-_SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
+_SUPPORTED_SAVE_KEYS = {
+    _MODEL_KEY,
+    _TOKENIZER_KEY,
+    _FEATURE_EXTRACTOR_KEY,
+    _IMAGE_PROCESSOR_KEY,
+    _TORCH_DTYPE_KEY,
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -225,7 +231,7 @@ def save_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
@@ -426,6 +432,20 @@ def save_model(
     else:
         built_pipeline = transformers_model
 
+    # Verify that the model has not been loaded to distributed memory
+    # NB: transformers does not correctly save a model whose weights have been loaded
+    # using accelerate iff the model weights have been loaded using a device_map that is
+    # heterogeneous. There is a distinct possibility for a partial write to occur, causing an
+    # invalid state of the model's weights in this scenario. Hence, we raise.
+    if _is_model_distributed_in_memory(built_pipeline.model):
+        raise MlflowException(
+            "The model that is attempting to be saved has been loaded into memory "
+            "with an incompatible configuration. If you are using the accelerate "
+            "library to load your model, please ensure that it is saved only after "
+            "loading with the default device mapping. Do not specify `device_map` "
+            "and please try again."
+        )
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -515,6 +535,8 @@ def save_model(
         code=code_dir_subpath,
         **flavor_conf,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
 
     if conda_env is None:
@@ -560,14 +582,14 @@ def log_model(
     model_card=None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
-    registered_model_name: str = None,
+    registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     **kwargs,
 ):
@@ -777,7 +799,9 @@ def log_model(
 
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", device=None, **kwargs):
+def load_model(
+    model_uri: str, dst_path: Optional[str] = None, return_type="pipeline", device=None, **kwargs
+):
     """
     Load a ``transformers`` object from a local file or a run.
 
@@ -848,6 +872,18 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", dev
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
     return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
+
+
+def _is_model_distributed_in_memory(transformers_model):
+    """Check if the model is distributed across multiple devices in memory."""
+
+    # Check if the model attribute exists. If not, accelerate was not used and the model can
+    # be safely saved
+    if not hasattr(transformers_model, "hf_device_map"):
+        return False
+    # If the device map has more than one unique value entry, then the weights are not within
+    # a contiguous memory system (VRAM, SYS, or DISK) and thus cannot be safely saved.
+    return len(set(transformers_model.hf_device_map.values())) > 1
 
 
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
@@ -1339,10 +1375,7 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     """
     import transformers
 
-    if isinstance(input_example, tuple):
-        input_data = input_example[0]
-    else:
-        input_data = input_example
+    input_data = input_example[0] if isinstance(input_example, tuple) else input_example
 
     if (
         isinstance(pipeline, transformers.ZeroShotClassificationPipeline)
@@ -1478,6 +1511,7 @@ class _TransformersModel(NamedTuple):
     feature_extractor: Any = None
     image_processor: Any = None
     processor: Any = None
+    torch_dtype: Any = None
 
     def to_dict(self):
         dict_repr = self._asdict()
@@ -1501,7 +1535,7 @@ class _TransformersModel(NamedTuple):
 
     @classmethod
     def _validate_submitted_types(
-        cls, model, tokenizer, feature_extractor, image_processor, processor
+        cls, model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
     ):
         from transformers import (
             FeatureExtractionMixin,
@@ -1535,6 +1569,12 @@ class _TransformersModel(NamedTuple):
         for arg, name, types in validation:
             if arg and not isinstance(arg, types):
                 invalid_types.append(cls._build_exception_msg(arg, name, types))
+        # only import torch when torch_dtype is not None
+        if torch_dtype is not None:
+            from torch import dtype
+
+            if not isinstance(torch_dtype, dtype):
+                invalid_types.append(cls._build_exception_msg(torch_dtype, "torch_dtype", dtype))
         if invalid_types:
             raise MlflowException("\n".join(invalid_types), error_code=BAD_REQUEST)
 
@@ -1546,13 +1586,16 @@ class _TransformersModel(NamedTuple):
         feature_extractor=None,
         image_processor=None,
         processor=None,
+        torch_dtype=None,
         **kwargs,  # pylint: disable=unused-argument
     ):
         cls._validate_submitted_types(
-            model, tokenizer, feature_extractor, image_processor, processor
+            model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
         )
 
-        return _TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
+        return _TransformersModel(
+            model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
+        )
 
 
 def _get_model_config(local_path, pyfunc_config):
@@ -1571,7 +1614,7 @@ def _get_model_config(local_path, pyfunc_config):
         return pyfunc_config or {}
 
 
-def _load_pyfunc(path, model_config: Dict[str, Any] = None):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     Loads the model as pyfunc model
     """
@@ -1724,11 +1767,7 @@ class _TransformersWrapper:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             input_data = data
-        elif isinstance(data, str):
-            input_data = data
-        elif isinstance(data, bytes):
-            input_data = data
-        elif isinstance(data, np.ndarray):
+        elif isinstance(data, (str, bytes, np.ndarray)):
             input_data = data
         else:
             raise MlflowException(
@@ -1985,9 +2024,9 @@ class _TransformersWrapper:
     def _parse_conversation_input(self, data):
         import transformers
 
-        if not isinstance(self.pipeline, transformers.ConversationalPipeline):
-            return data
-        elif isinstance(data, str):
+        if not isinstance(self.pipeline, transformers.ConversationalPipeline) or isinstance(
+            data, str
+        ):
             return data
         elif isinstance(data, list) and all(isinstance(elem, dict) for elem in data):
             return next(iter(data[0].values()))
@@ -2321,8 +2360,16 @@ class _TransformersWrapper:
         Returns the first value of the `target_dict_key` that matches in the first dictionary in a
         list of dictionaries.
         """
+
+        def fetch_target_key_value(data, key):
+            if isinstance(data[0], dict):
+                return data[0][key]
+            return [item[0][key] for item in data]
+
         if isinstance(output_data[0], list):
-            return [collection[0][target_dict_key] for collection in output_data]
+            return [
+                fetch_target_key_value(collection, target_dict_key) for collection in output_data
+            ]
         else:
             return [output_data[0][target_dict_key]]
 
@@ -2398,9 +2445,9 @@ class _TransformersWrapper:
                 return list(data.values())
         elif isinstance(data, list) and all(isinstance(value, dict) for value in data):
             return [self._parse_text2text_input(entry) for entry in data]
-        elif isinstance(data, str):
-            return data
-        elif isinstance(data, list) and all(isinstance(value, str) for value in data):
+        elif isinstance(data, str) or (
+            isinstance(data, list) and all(isinstance(value, str) for value in data)
+        ):
             return data
         else:
             raise MlflowException(

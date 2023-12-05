@@ -34,7 +34,10 @@ import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { LIFECYCLE_FILTER } from '../../../../constants';
 import { UpdateExperimentSearchFacetsFn, UpdateExperimentViewStateFn } from '../../../../types';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
-import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
+import {
+  SearchExperimentRunsFacetsState,
+  clearSearchExperimentsFacetsFilters,
+} from '../../models/SearchExperimentRunsFacetsState';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import { getStartTimeColumnDisplayName } from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
@@ -44,6 +47,7 @@ import type { ExperimentStoreEntities, DatasetSummary } from '../../../../types'
 import { datasetSummariesEqual } from '../../../../utils/DatasetUtils';
 import { Data } from 'vega';
 import { CreateNotebookRunModal } from 'experiment-tracking/components/evaluation-artifacts-compare/CreateNotebookRunModal';
+import { PreviewIcon } from 'shared/building_blocks/PreviewIcon';
 import { useCreateNewRun } from '../../hooks/useCreateNewRun';
 
 export type ExperimentViewRunsControlsFiltersProps = {
@@ -71,7 +75,8 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     additionalControls,
   }: ExperimentViewRunsControlsFiltersProps) => {
     const isComparingExperiments = useExperimentIds().length > 1;
-    const { compareRunsMode, startTime, lifecycleFilter, datasetsFilter } = searchFacetsState;
+    const { compareRunsMode, startTime, lifecycleFilter, datasetsFilter, searchFilter } =
+      searchFacetsState;
     const intl = useIntl();
     const { createNewRun } = useCreateNewRun();
     const [isCreateRunWithNotebookModalOpen, setCreateRunWithNotebookModalOpenValue] =
@@ -126,14 +131,32 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     );
 
     const hasDatasets = datasetSummaries !== undefined;
+    const previewIcon = () => {
+      return (
+        <Tag style={{ marginLeft: '4px' }} color='turquoise'>
+          <FormattedMessage
+            defaultMessage='Experimental'
+            description='Experimental badge shown for features which are experimental'
+          />
+        </Tag>
+      );
+    };
+
+    const searchFilterChange = useCallback(
+      (newSearchFilter: string) => {
+        updateSearchFacets({ searchFilter: newSearchFilter });
+      },
+      [updateSearchFacets],
+    );
 
     return (
       <div css={styles.groupBar}>
         <div css={styles.controlBar}>
           <RunsSearchAutoComplete
             runsData={runsData}
-            searchFacetsState={searchFacetsState}
-            updateSearchFacets={updateSearchFacets}
+            searchFilter={searchFilter}
+            onSearchFilterChange={searchFilterChange}
+            onClear={() => updateSearchFacets(clearSearchExperimentsFacetsFilters)}
             requestError={requestError}
           />
 
@@ -218,8 +241,8 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 title={
                   !hasDatasets && (
                     <FormattedMessage
-                      defaultMessage="No datasets registered for this experiment's runs."
-                      description={'No datasets registered message for datasets dropdown.'}
+                      defaultMessage="No datasets were recorded for this experiment's runs."
+                      description="Message to indicate that no datasets were recorded for this experiment's runs."
                     />
                   )
                 }
@@ -282,7 +305,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               </Menu>
             }
           >
-            <Button type='tertiary' icon={<OverflowIcon />} />
+            <Button icon={<OverflowIcon />} />
           </Dropdown>
 
           <CreateNotebookRunModal
@@ -352,12 +375,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                     defaultMessage='using Prompt Engineering'
                     description='String for creating a new run with prompt engineering modal'
                   />{' '}
-                  <Tag style={{ marginLeft: '4px' }} color='turquoise'>
-                    <FormattedMessage
-                      defaultMessage='Experimental'
-                      description='Experimental badge shown for features which are experimental'
-                    />
-                  </Tag>
+                  {previewIcon()}
                 </DropdownMenu.Item>
                 <DropdownMenu.Item onSelect={() => setCreateRunWithNotebookModalOpenValue(true)}>
                   {' '}

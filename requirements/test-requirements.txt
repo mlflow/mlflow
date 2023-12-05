@@ -34,7 +34,13 @@ evaluate
 nltk
 rouge_score
 textstat
+tiktoken
 # Required by progress bar tests
 ipywidgets
 tqdm
 databricks-sdk
+# Required for LLM eval in `mlflow.evaluate`
+# TODO: Unpin once we support openai 1.0
+openai<1.0
+# Required for showing pytest stats
+psutil

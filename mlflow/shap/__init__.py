@@ -334,11 +334,7 @@ def log_explainer(
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -415,11 +411,7 @@ def save_explainer(
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -544,26 +536,29 @@ def _get_conda_and_pip_dependencies(conda_env):
     """
 
     conda_deps = []
-    pip_deps = []
+    # NB: Set operations are required in case there are multiple references of MLflow as a
+    # dependency to ensure that duplicate entries are not present in the final consolidated
+    # dependency list.
+    pip_deps_set = set()
 
     for dependency in conda_env["dependencies"]:
         if isinstance(dependency, dict) and dependency["pip"]:
             for pip_dependency in dependency["pip"]:
                 if pip_dependency != "mlflow":
-                    pip_deps.append(pip_dependency)
+                    pip_deps_set.add(pip_dependency)
         else:
             package_name = _get_package_name(dependency)
             if package_name is not None and package_name not in ["python", "pip"]:
                 conda_deps.append(dependency)
 
-    return conda_deps, pip_deps
+    return conda_deps, sorted(pip_deps_set)
 
 
 def _union_lists(l1, l2):
     """
     Returns the union of two lists as a new list.
     """
-    return l1 + [x for x in l2 if x not in l1]
+    return list(dict.fromkeys(l1 + l2))
 
 
 def _merge_environments(shap_environment, model_environment):

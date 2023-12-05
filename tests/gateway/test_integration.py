@@ -11,10 +11,13 @@ from mlflow.gateway import MlflowGatewayClient, get_route, query, set_gateway_ur
 from mlflow.gateway.config import Route
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.bedrock import AWSBedrockProvider
 from mlflow.gateway.providers.cohere import CohereProvider
+from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
 from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.gateway.providers.palm import PaLMProvider
 from mlflow.utils.request_utils import _cached_get_request_session
 
 from tests.gateway.tools import (
@@ -106,6 +109,28 @@ def basic_config_dict():
                 },
             },
             {
+                "name": "completions-palm",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "palm",
+                    "name": "text-bison-001",
+                    "config": {
+                        "palm_api_key": "$PALM_API_KEY",
+                    },
+                },
+            },
+            {
+                "name": "chat-palm",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "provider": "palm",
+                    "name": "chat-bison-001",
+                    "config": {
+                        "palm_api_key": "$PALM_API_KEY",
+                    },
+                },
+            },
+            {
                 "name": "chat-mosaicml",
                 "route_type": "llm/v1/chat",
                 "model": {
@@ -139,6 +164,17 @@ def basic_config_dict():
                 },
             },
             {
+                "name": "embeddings-palm",
+                "route_type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "palm",
+                    "name": "embedding-gecko-001",
+                    "config": {
+                        "palm_api_key": "$PALM_API_KEY",
+                    },
+                },
+            },
+            {
                 "name": "chat-oss",
                 "route_type": "llm/v1/chat",
                 "model": {
@@ -165,6 +201,24 @@ def basic_config_dict():
                     "config": {"model_server_url": "http://127.0.0.1:5002"},
                 },
             },
+            {
+                "name": "completions-huggingface",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "huggingface-text-generation-inference",
+                    "name": "hf-falcon-7b-instruct",
+                    "config": {"hf_server_url": "http://127.0.0.1:5000"},
+                },
+            },
+            {
+                "name": "completions-bedrock",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "bedrock",
+                    "name": "amazon.titan-tg1-large",
+                    "config": {"aws_config": {"aws_region": "us-east-1"}},
+                },
+            },
         ]
     }
 
@@ -189,6 +243,7 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("COHERE_API_KEY", "test_cohere_key")
     monkeypatch.setenv("AI21LABS_API_KEY", "test_ai21labs_key")
     monkeypatch.setenv("MOSAICML_API_KEY", "test_mosaicml_key")
+    monkeypatch.setenv("PALM_API_KEY", "test_palm_key")
 
 
 @pytest.fixture
@@ -212,7 +267,7 @@ def test_create_gateway_client_with_declared_url(gateway):
     assert gateway_client.gateway_uri == gateway.url
     assert isinstance(gateway_client.get_route("chat-openai"), Route)
     routes = gateway_client.search_routes()
-    assert len(routes) == 13
+    assert len(routes) == 18
     assert all(isinstance(route, Route) for route in routes)
 
 
@@ -220,21 +275,24 @@ def test_openai_chat(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("chat-openai")
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
-                    "content": "test",
+                    "content": "\n\nThis is a test!",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "finish_reason": "stop",
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
-            "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 7,
+            "total_tokens": 20,
         },
     }
 
@@ -252,19 +310,12 @@ def test_openai_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-openai")
     expected_output = {
-        "candidates": [
-            {
-                "text": "test.",
-                "metadata": {"finish_reason": "stop"},
-            }
-        ],
-        "metadata": {
-            "input_tokens": 4,
-            "output_tokens": 7,
-            "total_tokens": 11,
-            "model": "gpt-4",
-            "route_type": "llm/v1/completions",
-        },
+        "id": "chatcmpl-abc123",
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "gpt-4",
+        "choices": [{"text": "test.", "index": 0, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 4, "completion_tokens": 4, "total_tokens": 11},
     }
 
     data = {"prompt": "test", "max_tokens": 50}
@@ -281,17 +332,23 @@ def test_openai_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-openai")
     expected_output = {
-        "embeddings": [[0.1, 0.2, 0.3]],
-        "metadata": {
-            "input_tokens": 4,
-            "output_tokens": 0,
-            "total_tokens": 4,
-            "model": "text-embedding-ada-002",
-            "route_type": "llm/v1/embeddings",
-        },
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "text-embedding-ada-002",
+        "usage": {"prompt_tokens": 4, "total_tokens": 4},
     }
 
-    data = {"text": "mock me and my test"}
+    data = {"input": "mock me and my test"}
 
     async def mock_embeddings(self, payload):
         return expected_output
@@ -305,19 +362,18 @@ def test_anthropic_completions(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("completions-anthropic")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "claude-instant-1.1",
+        "choices": [
             {
                 "text": "test",
-                "metadata": {"finish_reason": "length"},
+                "index": 0,
+                "finish_reason": "length",
             }
         ],
-        "metadata": {
-            "model": "claude-instant-1.1",
-            "route_type": "llm/v1/completions",
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {
@@ -338,19 +394,12 @@ def test_ai21labs_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-ai21labs")
     expected_output = {
-        "candidates": [
-            {
-                "text": "mock using MagicMock please",
-                "metadata": {},
-            }
-        ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "j2-ultra",
-            "route_type": "llm/v1/completions",
-        },
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "j2-ultra",
+        "choices": [{"text": "mock using MagicMock please", "index": 0, "finish_reason": "length"}],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {"prompt": "mock my test", "max_tokens": 50}
@@ -367,19 +416,18 @@ def test_cohere_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-cohere")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "command",
+        "choices": [
             {
                 "text": "mock using MagicMock please",
-                "metadata": {"finish_reason": "stop"},
+                "index": 0,
+                "finish_reason": "stop",
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "gpt-4",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {"prompt": "mock my test", "max_tokens": 50}
@@ -396,19 +444,12 @@ def test_mosaicml_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-mosaicml")
     expected_output = {
-        "candidates": [
-            {
-                "text": "mock using MagicMock please",
-                "metadata": {},
-            }
-        ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "mpt-7b-instruct",
-            "route_type": "llm/v1/completions",
-        },
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "mpt-7b-instruct",
+        "choices": [{"text": "mock using MagicMock please", "index": 0, "finish_reason": None}],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {"prompt": "mock my test", "max_tokens": 50}
@@ -425,21 +466,24 @@ def test_mosaicml_chat(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("chat-mosaicml")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "created": 1700242674,
+        "object": "chat.completion",
+        "model": "llama2-70b-chat",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
-                    "content": "test",
+                    "content": "This is a test",
                 },
-                "metadata": {"finish_reason": None},
+                "finish_reason": None,
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
             "total_tokens": None,
-            "model": "llama2-70b-chat",
-            "route_type": "llm/v1/chat",
         },
     }
 
@@ -453,21 +497,90 @@ def test_mosaicml_chat(gateway):
     assert response == expected_output
 
 
+def test_palm_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-palm")
+    expected_output = {
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "text-bison-001",
+        "choices": [
+            {
+                "text": "mock using MagicMock please",
+                "index": 0,
+                "finish_reason": None,
+            }
+        ],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+    }
+
+    data = {"prompt": "mock my test", "max_tokens": 50}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(PaLMProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_palm_chat(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("chat-palm")
+    expected_output = {
+        "id": None,
+        "created": 1700242674,
+        "object": "chat.completion",
+        "model": "chat-bison",
+        "choices": [
+            {
+                "message": {
+                    "role": "1",
+                    "content": "Hi there! How can I help you today?",
+                },
+                "finish_reason": None,
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        },
+    }
+
+    data = {"messages": [{"role": "user", "content": "test"}]}
+
+    async def mock_chat(self, payload):
+        return expected_output
+
+    with patch.object(PaLMProvider, "chat", mock_chat):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
 def test_cohere_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-cohere")
     expected_output = {
-        "embeddings": [[0.1, 0.2, 0.3]],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "embed-english-v2.0",
-            "route_type": "llm/v1/embeddings",
-        },
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "embed-english-v2.0",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
     }
 
-    data = {"text": "mock me and my test"}
+    data = {"input": "mock me and my test"}
 
     async def mock_embeddings(self, payload):
         return expected_output
@@ -481,22 +594,58 @@ def test_mosaicml_embeddings(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("embeddings-mosaicml")
     expected_output = {
-        "embeddings": [[0.1, 0.2, 0.3]],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "instructor-large",
-            "route_type": "llm/v1/embeddings",
-        },
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "instructor-large",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
     }
 
-    data = {"text": "mock me and my test"}
+    data = {"input": "mock me and my test"}
 
     async def mock_embeddings(self, payload):
         return expected_output
 
     with patch.object(MosaicMLProvider, "embeddings", mock_embeddings):
+        response = client.query(route=route.name, data=data)
+    assert response == expected_output
+
+
+def test_palm_embeddings(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("embeddings-palm")
+    expected_output = {
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            }
+        ],
+        "model": "embedding-gecko-001",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
+    }
+
+    data = {"input": "mock me and my test"}
+
+    async def mock_embeddings(self, payload):
+        return expected_output
+
+    with patch.object(PaLMProvider, "embeddings", mock_embeddings):
         response = client.query(route=route.name, data=data)
     assert response == expected_output
 
@@ -520,8 +669,14 @@ def test_invalid_response_structure_raises(gateway):
     async def mock_chat(self, payload):
         return expected_output
 
-    def _mock_request_session(max_retries, backoff_factor, retry_codes):
-        return _cached_get_request_session(1, 1, retry_codes, os.getpid())
+    def _mock_request_session(
+        max_retries,
+        backoff_factor,
+        backoff_jitter,
+        retry_codes,
+        raise_on_status,
+    ):
+        return _cached_get_request_session(1, 1, 0.5, retry_codes, True, os.getpid())
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
@@ -531,19 +686,11 @@ def test_invalid_response_structure_raises(gateway):
         query(route=route.name, data=data)
 
 
-def test_invalid_query_request_raises(gateway):
+def test_invalid_response_structure_no_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("chat-openai")
     expected_output = {
-        "candidates": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "test",
-                },
-                "metadata": {"finish_reason": "stop"},
-            }
-        ],
+        "embeddings": [[0.0, 1.0]],
         "metadata": {
             "input_tokens": 17,
             "output_tokens": 24,
@@ -553,13 +700,66 @@ def test_invalid_query_request_raises(gateway):
         },
     }
 
+    data = {"messages": [{"role": "user", "content": "invalid test"}]}
+
+    async def mock_chat(self, payload):
+        return expected_output
+
+    def _mock_request_session(
+        max_retries,
+        backoff_factor,
+        backoff_jitter,
+        retry_codes,
+        raise_on_status,
+    ):
+        return _cached_get_request_session(0, 1, 0.5, retry_codes, False, os.getpid())
+
+    with patch(
+        "mlflow.utils.request_utils._get_request_session", _mock_request_session
+    ), patch.object(OpenAIProvider, "chat", mock_chat), pytest.raises(
+        requests.exceptions.HTTPError, match=".*Internal Server Error.*"
+    ):
+        query(route=route.name, data=data)
+
+
+def test_invalid_query_request_raises(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    route = get_route("chat-openai")
+    expected_output = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "test",
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 17,
+            "completion_tokens": 24,
+            "total_tokens": 41,
+        },
+    }
+
     data = {"text": "this is invalid"}
 
     async def mock_chat(self, payload):
         return expected_output
 
-    def _mock_request_session(max_retries, backoff_factor, retry_codes):
-        return _cached_get_request_session(2, 1, retry_codes, os.getpid())
+    def _mock_request_session(
+        max_retries,
+        backoff_factor,
+        backoff_jitter,
+        retry_codes,
+        raise_on_status,
+    ):
+        return _cached_get_request_session(2, 1, 0.5, retry_codes, True, os.getpid())
 
     with patch(
         "mlflow.utils.request_utils._get_request_session", _mock_request_session
@@ -573,21 +773,24 @@ def test_mlflow_chat(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("chat-oss")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "created": 1700242674,
+        "object": "chat.completion",
+        "model": "chat-bot-9000",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
-                    "content": "test",
+                    "content": "It is a test",
                 },
-                "metadata": {"finish_reason": None},
+                "finish_reason": None,
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
             "total_tokens": None,
-            "model": "mpt-chatbot",
-            "route_type": "llm/v1/chat",
         },
     }
 
@@ -602,19 +805,18 @@ def test_mlflow_completions(gateway):
     client = MlflowGatewayClient(gateway_uri=gateway.url)
     route = client.get_route("completions-oss")
     expected_output = {
-        "candidates": [
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "completion-model",
+        "choices": [
             {
                 "text": "test",
-                "metadata": {},
+                "index": 0,
+                "finish_reason": None,
             }
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "completion-model",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     data = {"prompt": "this is a test"}
@@ -628,20 +830,30 @@ def test_mlflow_embeddings(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("embeddings-oss")
     expected_output = {
-        "embeddings": [
-            [0.001, -0.001],
-            [0.002, -0.002],
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.001,
+                    -0.001,
+                ],
+                "index": 0,
+            },
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.002,
+                    -0.002,
+                ],
+                "index": 1,
+            },
         ],
-        "metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-            "model": "sentence-transformers",
-            "route_type": "llm/v1/embeddings",
-        },
+        "model": "sentence-transformers",
+        "usage": {"prompt_tokens": None, "total_tokens": None},
     }
 
-    data = {"text": ["test1", "test2"]}
+    data = {"input": ["test1", "test2"]}
 
     with patch.object(MlflowModelServingProvider, "embeddings", return_value=expected_output):
         response = query(route=route.name, data=data)
@@ -652,21 +864,20 @@ def test_gateway_query_mlflow_embeddings_model(serve_embeddings_model, gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     route = get_route("embeddings-oss")
 
-    data = {"text": ["test1", "test2"]}
+    data = {"input": ["test1", "test2"]}
 
     response = query(route=route.name, data=data)
+    assert response["model"] == "sentence-transformers"
 
-    embeddings_response = response["embeddings"]
+    embeddings_response = response["data"]
 
     assert isinstance(embeddings_response, list)
     assert len(embeddings_response) == 2
 
-    metadata_response = response["metadata"]
+    usage_response = response["usage"]
 
-    assert not metadata_response["input_tokens"]
-    assert not metadata_response["output_tokens"]
-    assert metadata_response["model"] == "sentence-transformers"
-    assert metadata_response["route_type"] == route.route_type
+    assert not usage_response["prompt_tokens"]
+    assert not usage_response["total_tokens"]
 
 
 def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway):
@@ -676,15 +887,76 @@ def test_gateway_query_mlflow_completions_model(serve_completions_model, gateway
     data = {"prompt": "test [MASK]"}
 
     response = client.query(route=route.name, data=data)
+    assert response["model"] == "completion-model"
 
-    completions_response = response["candidates"]
+    completions_response = response["choices"]
 
     assert isinstance(completions_response, list)
     assert isinstance(completions_response[0]["text"], str)
     assert len(completions_response) == 1
 
-    metadata_response = response["metadata"]
-    assert not metadata_response["input_tokens"]
-    assert not metadata_response["output_tokens"]
-    assert metadata_response["model"] == "completion-model"
-    assert metadata_response["route_type"] == route.route_type
+    metadata_response = response["usage"]
+    assert not metadata_response["prompt_tokens"]
+    assert not metadata_response["completion_tokens"]
+
+
+def test_huggingface_completions(gateway):
+    client = MlflowGatewayClient(gateway_uri=gateway.url)
+    route = client.get_route("completions-huggingface")
+    expected_output = {
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "llm/v1/completions",
+        "choices": [
+            {
+                "text": "mock using MagicMock please",
+                "index": 0,
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15},
+    }
+
+    data = {"prompt": "mock my test", "max_tokens": 50}
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(HFTextGenerationInferenceServerProvider, "completions", mock_completions):
+        response = client.query(route=route.name, data=data)
+
+    assert response == expected_output
+
+
+def test_bedrock_completions(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    route = get_route("completions-bedrock")
+    expected_output = {
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "amazon.titan-tg1-large",
+        "choices": [
+            {
+                "text": "\nThis is a test",
+                "index": 0,
+                "finish_reason": None,
+            }
+        ],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+    }
+
+    data = {
+        "prompt": "test",
+        "max_tokens": 500,
+        "temperature": 0.3,
+    }
+
+    async def mock_completions(self, payload):
+        return expected_output
+
+    with patch.object(AWSBedrockProvider, "completions", mock_completions):
+        response = query(route=route.name, data=data)
+
+    assert response == expected_output

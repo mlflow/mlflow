@@ -1,3 +1,5 @@
+import time
+
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
@@ -21,7 +23,7 @@ class AI21LabsProvider(BaseProvider):
         self.check_for_model_field(payload)
         key_mapping = {
             "stop": "stopSequences",
-            "candidate_count": "numResults",
+            "n": "numResults",
             "max_tokens": "maxTokens",
         }
         for k1, k2 in key_mapping.items():
@@ -63,19 +65,22 @@ class AI21LabsProvider(BaseProvider):
         # }
         # ```
         return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": c["data"]["text"],
-                        "metadata": {"finish_reason": c["finishReason"]["reason"]},
-                    }
-                    for c in resp["completions"]
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=self.config.model.name,
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=c["data"]["text"],
+                    finish_reason=c["finishReason"]["reason"],
+                )
+                for idx, c in enumerate(resp["completions"])
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     async def chat(self, payload: chat.RequestPayload) -> None:

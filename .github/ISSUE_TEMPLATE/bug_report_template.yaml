@@ -18,6 +18,16 @@ body:
         - label: I have read and agree to submit bug reports in accordance with the [issues policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
           required: true
   - type: dropdown
+    attributes:
+      label: Where did you encounter this bug?
+      options:
+        - Local machine
+        - Databricks
+        - Azure Machine Learning
+        - Other
+    validations:
+      required: true
+  - type: dropdown
     id: contribution
     attributes:
       label: Willingness to contribute
@@ -191,11 +201,11 @@ body:
           required: false
         - label: "`area/build`: Build and test infrastructure for MLflow"
           required: false
+        - label: "`area/deployments`: MLflow Deployments client APIs, server, and third-party Deployments integrations"
+          required: false
         - label: "`area/docs`: MLflow documentation pages"
           required: false
         - label: "`area/examples`: Example code"
-          required: false
-        - label: "`area/gateway`: AI Gateway service, Gateway client APIs, third-party Gateway integrations"
           required: false
         - label: "`area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry"
           required: false

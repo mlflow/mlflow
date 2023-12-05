@@ -1,6 +1,7 @@
 import React, { useCallback, useContext, useMemo, useState } from 'react';
 import { RunRowType } from '../utils/experimentPage.row-types';
 import { EvaluationCreatePromptRunModal } from '../../evaluation-artifacts-compare/EvaluationCreatePromptRunModal';
+import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 
 const CreateNewRunContext = React.createContext<{
   createNewRun: (runToDuplicate?: RunRowType) => void;
@@ -34,12 +35,14 @@ export const CreateNewRunContextProvider = ({
   return (
     <CreateNewRunContext.Provider value={contextValue}>
       {children}
-      <EvaluationCreatePromptRunModal
-        visibleRuns={visibleRuns}
-        isOpen={isOpen}
-        closeModal={() => setIsOpen(false)}
-        runBeingDuplicated={runBeingDuplicated}
-      />
+      {shouldEnablePromptLab() && (
+        <EvaluationCreatePromptRunModal
+          visibleRuns={visibleRuns}
+          isOpen={isOpen}
+          closeModal={() => setIsOpen(false)}
+          runBeingDuplicated={runBeingDuplicated}
+        />
+      )}
     </CreateNewRunContext.Provider>
   );
 };

@@ -46,6 +46,8 @@ def get_git_commit(path: str) -> Optional[str]:
         if os.path.isfile(path):
             path = os.path.dirname(path)
         repo = Repo(path, search_parent_directories=True)
+        if path in repo.ignored(path):
+            return None
         return repo.head.commit.hexsha
     except Exception:
         return None

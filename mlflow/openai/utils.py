@@ -10,6 +10,23 @@ import mlflow
 
 TEST_CONTENT = "test"
 
+TEST_SOURCE_DOCUMENTS = [
+    {
+        "page_content": "We see the unity among leaders ...",
+        "metadata": {"source": "tests/langchain/state_of_the_union.txt"},
+    },
+]
+TEST_INTERMEDIATE_STEPS = (
+    [
+        {
+            "tool": "Search",
+            "tool_input": "High temperature in SF yesterday",
+            "log": " I need to find the temperature first...",
+            "result": "San Francisco...",
+        },
+    ],
+)
+
 
 class _MockResponse:
     def __init__(self, status_code, json_data):
@@ -101,10 +118,7 @@ def _mock_openai_request():
     original = requests.Session.request
 
     def request(*args, **kwargs):
-        if len(args) > 2:
-            url = args[2]
-        else:
-            url = kwargs.get("url")
+        url = args[2] if len(args) > 2 else kwargs.get("url")
 
         if url.endswith("/chat/completions"):
             messages = json.loads(kwargs.get("data")).get("messages")
@@ -121,6 +135,29 @@ def _mock_openai_request():
     return _mock_request(new=request)
 
 
+def _validate_model_params(task, model, params):
+    if not params:
+        return
+
+    if any(key in model for key in params):
+        raise mlflow.MlflowException.invalid_parameter_value(
+            f"Providing any of {list(model.keys())} as parameters in the signature is not "
+            "allowed because they were indicated as part of the OpenAI model. Either remove "
+            "the argument when logging the model or remove the parameter from the signature.",
+        )
+    if "batch_size" in params and task == "chat.completions":
+        raise mlflow.MlflowException.invalid_parameter_value(
+            "Parameter `batch_size` is not supported for task `chat.completions`"
+        )
+
+
+def _exclude_params_from_envs(params, envs):
+    """
+    params passed at inference time should override envs.
+    """
+    return {k: v for k, v in envs.items() if k not in params} if params else envs
+
+
 class _OAITokenHolder:
     def __init__(self, api_type):
         import openai
@@ -128,7 +165,13 @@ class _OAITokenHolder:
         self._api_token = None
         self._credential = None
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
-        self._key_configured = bool(openai.api_key) or "OPENAI_API_KEY" in os.environ
+        self._key_configured = bool(openai.api_key)
+
+        # set the api key if it's not set. this is to deal with cases where the
+        # user sets the environment variable after importing the `openai` module
+        if not bool(openai.api_key) and "OPENAI_API_KEY" in os.environ:
+            openai.api_key = os.environ["OPENAI_API_KEY"]
+            self._key_configured = True
 
         if self._is_azure_ad and not self._key_configured:
             try:

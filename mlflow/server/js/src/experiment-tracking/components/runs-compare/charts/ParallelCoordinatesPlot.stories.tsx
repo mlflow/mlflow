@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react';
-import { ChartStoryWrapper, useControls } from './CompareRunsCharts.stories-common';
+import {
+  ChartStoryWrapper,
+  useControls,
+} from '../../runs-charts/components/RunsCharts.stories-common';
 import LazyParallelCoordinatesPlot from './LazyParallelCoordinatesPlot';
 import './ParallelCoordinatesPlot.css';
 

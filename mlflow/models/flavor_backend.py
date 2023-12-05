@@ -4,13 +4,11 @@ from mlflow.utils.annotations import developer_stable
 
 
 @developer_stable
-class FlavorBackend:
+class FlavorBackend(metaclass=ABCMeta):
     """
     Abstract class for Flavor Backend.
     This class defines the API interface for local model deployment of MLflow model flavors.
     """
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, config, **kwargs):  # pylint: disable=unused-argument
         self._config = config

@@ -6,8 +6,6 @@ export interface DesignSystemThemeProviderProps {
     isDarkMode?: boolean;
 }
 export interface DesignSystemProviderProps {
-    /** @deprecated This prop will be moved to a different provider component */
-    isDarkMode?: boolean;
     /**
      * Set this to `true` to enable CSS animations for all Du Bois components inside this provider.
      * This is purely a visual enhancement, and is not necessary for the functionality of any component.
