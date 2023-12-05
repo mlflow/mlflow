@@ -1108,7 +1108,7 @@ def spark_udf(
     result_type=None,
     env_manager=_EnvManager.LOCAL,
     params: Optional[Dict[str, Any]] = None,
-    extra_udf_env_vars=None,
+    extra_env_vars: Optional[Dict[str, str]] = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -1218,8 +1218,7 @@ def spark_udf(
                    .. Note:: Experimental: This parameter may change or be removed in a future
                                            release without warning.
 
-    :param extra_udf_env_vars: Extral environment variables to pass to the udf.
-                               Should be a dictionary.
+    :param extra_env_vars: Extral environment variables to pass to the UDF executors.
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
     """
@@ -1246,10 +1245,6 @@ def spark_udf(
     mlflow_home = os.environ.get("MLFLOW_HOME")
     openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
     mlflow_testing = _MLFLOW_TESTING.get_raw()
-    if extra_udf_env_vars and not isinstance(extra_udf_env_vars, dict):
-        raise MlflowException(
-            f"env_vars must be a dictionary, but got type {type(extra_udf_env_vars)}."
-        )
 
     _EnvManager.validate(env_manager)
 
@@ -1518,9 +1513,9 @@ Compound types:
         if mlflow_testing:
             original_envs[_MLFLOW_TESTING.name] = os.environ.get(_MLFLOW_TESTING.name)
             _MLFLOW_TESTING.set(mlflow_testing)
-        if extra_udf_env_vars:
-            original_envs.update({k: os.environ.get(k) for k in extra_udf_env_vars})
-            os.environ.update(extra_udf_env_vars)
+        if extra_env_vars:
+            original_envs.update({k: os.environ.get(k) for k in extra_env_vars})
+            os.environ.update(extra_env_vars)
 
         scoring_server_proc = None
         # set tracking_uri inside udf so that with spark_connect
