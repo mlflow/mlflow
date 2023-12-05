@@ -1,4 +1,4 @@
-Querying routes in the MLflow Deployment Server
+Querying endpoints in the MLflow Deployment Server
 ===============================================
 Now that the deployment server is operational, it's time to send it some data. You can interact with the 
 deployments server using the deployments APIs or REST APIs. In this instance, we'll utilize the deployments APIs for simplicity.
@@ -33,7 +33,7 @@ various other parameters. For detailed information, please refer to the document
         from mlflow.deployments import get_deploy_client
 
         client = get_deploy_client("http://localhost:5000")
-        route_name = "my_completions_route"
+        name = "completions"
         data = dict(
             prompt="Name three potions or spells in harry potter that sound like an insult. Only show the names.",
             n=2,
@@ -41,7 +41,7 @@ various other parameters. For detailed information, please refer to the document
             max_tokens=1000,
         )
 
-        response = client.predict(endpoint=route_name, inputs=data)
+        response = client.predict(endpoint=name, inputs=data)
         print(response)
 
 
@@ -66,7 +66,7 @@ For further details, please consult the documentation.
         from mlflow.deployments import get_deploy_client
 
         client = get_deploy_client("http://localhost:5000")
-        route_name = "my_chat_route_gpt_3.5_turbo" 
+        name = "chat_3.5" 
         data = dict(
              messages=[
                 {"role": "system", "content": "You are the sorting hat from harry potter."},
@@ -77,7 +77,7 @@ For further details, please consult the documentation.
             temperature=.5,
         )
 
-        response = client.predict(endpoint=route_name, inputs=data)
+        response = client.predict(endpoint=name, inputs=data)
         print(response)
 
 
@@ -97,7 +97,7 @@ respective numerical vectors. Let's proceed with an example...
         from mlflow.deployments import get_deploy_client
 
         client = get_deploy_client("http://localhost:5000")
-        route_name = "my_embeddings_route"
+        name = "embeddings"
         data = dict(
             input=[
                "Gryffindor: Values bravery, courage, and leadership.",
@@ -107,7 +107,7 @@ respective numerical vectors. Let's proceed with an example...
             ],
         )
 
-        response = client.predict(endpoint=route_name, inputs=data)
+        response = client.predict(endpoint=name, inputs=data)
         print(response)
 
 And there you have it! You've successfully set up your first Deployments Server and served three OpenAI models.
