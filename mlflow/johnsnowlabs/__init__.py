@@ -53,7 +53,9 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import pandas as pd
 import yaml
+from pydantic import BaseModel
 
 import mlflow
 from mlflow import mleap, pyfunc
@@ -135,8 +137,8 @@ def get_default_pip_requirements():
     from johnsnowlabs import settings
 
     _SPARK_NLP_JSL_WHEEL_URI = (
-        "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
-        + f"{settings.raw_version_medical}-py3-none-any.whl"
+            "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
+            + f"{settings.raw_version_medical}-py3-none-any.whl"
     )
 
     return [
@@ -161,20 +163,20 @@ def get_default_conda_env():
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
-    spark_model,
-    artifact_path,
-    conda_env=None,
-    code_paths=None,
-    dfs_tmpdir=None,
-    sample_input=None,
-    registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
-    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    metadata=None,
-    store_license=False,
+        spark_model,
+        artifact_path,
+        conda_env=None,
+        code_paths=None,
+        dfs_tmpdir=None,
+        sample_input=None,
+        registered_model_name=None,
+        signature: ModelSignature = None,
+        input_example: ModelInputExample = None,
+        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        metadata=None,
+        store_license=False,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
@@ -296,7 +298,7 @@ def log_model(
         )
         mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
         with databricks_utils.MlflowCredentialContext(
-            get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
+                get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
         ):
             try:
                 _unpack_and_save_model(spark_model, mlflowdbfs_path)
@@ -311,8 +313,8 @@ def log_model(
     # If the artifact URI is not a local filesystem path we attempt to write directly to the
     # artifact repo via Spark. If this fails, we defer to Model.log().
     elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
-        spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path),
+            spark_model,
+            append_to_uri_path(run_root_artifact_uri, artifact_path),
     ):
         return Model.log(
             artifact_path=artifact_path,
@@ -360,18 +362,18 @@ def log_model(
 
 
 def _save_model_metadata(
-    dst_dir,
-    spark_model,
-    mlflow_model,
-    sample_input,
-    conda_env,
-    code_paths,
-    signature=None,
-    input_example=None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    remote_model_path=None,  # pylint: disable=unused-argument
-    store_license=False,  # pylint: disable=unused-argument
+        dst_dir,
+        spark_model,
+        mlflow_model,
+        sample_input,
+        conda_env,
+        code_paths,
+        signature=None,
+        input_example=None,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        remote_model_path=None,  # pylint: disable=unused-argument
+        store_license=False,  # pylint: disable=unused-argument
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -462,19 +464,19 @@ def _save_jars_and_lic(dst_dir, store_license=False):
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def save_model(
-    spark_model,
-    path,
-    mlflow_model=None,
-    conda_env=None,
-    code_paths=None,
-    dfs_tmpdir=None,
-    sample_input=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    metadata=None,
-    store_license=False,
+        spark_model,
+        path,
+        mlflow_model=None,
+        conda_env=None,
+        code_paths=None,
+        dfs_tmpdir=None,
+        sample_input=None,
+        signature: ModelSignature = None,
+        input_example: ModelInputExample = None,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        metadata=None,
+        store_license=False,
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -590,7 +592,7 @@ def save_model(
     # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
     # like "/my-directory")
     copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
-        databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
+            databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
     )
     if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
@@ -646,7 +648,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
 
 
 def load_model(
-    model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
+        model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
 ):  # pylint: disable=unused-argument
     """
     Load the Johnsnowlabs MlFlow model from the path.
@@ -714,7 +716,7 @@ def load_model(
             DatabricksArtifactRepository._extract_run_id(model_uri), artifact_path
         )
         with databricks_utils.MlflowCredentialContext(
-            get_databricks_profile_uri_from_artifact_uri(root_uri)
+                get_databricks_profile_uri_from_artifact_uri(root_uri)
         ):
             return PipelineModel.load(mlflowdbfs_path)
 
@@ -825,15 +827,46 @@ def _unpack_and_save_model(spark_model, dst):
             spark_model.save(dst)
 
 
+class PredictParams(BaseModel):
+    output_level: Optional[str] = ''
+    positions: Optional[bool] = False
+    keep_stranger_features: Optional[bool] = True
+    metadata: Optional[bool] = False
+    multithread: Optional[bool] = True
+    drop_irrelevant_cols: Optional[bool] = True
+    return_spark_df: Optional[bool] = False
+    get_embeddings: Optional[bool] = True
+
+    @staticmethod
+    def has_param_cols(df: pd.DataFrame):
+        return all([c not in df.columns for c in PredictParams.__fields__.keys()])
+
+    @staticmethod
+    def maybe_from_pandas_df(df: pd.DataFrame):
+        # only first row is used
+        if df.shape[0] == 0:
+            return None
+        if PredictParams.has_param_cols(df):
+            # no params in df
+            return None
+        param_row = df.iloc[0].to_dict()
+        try:
+            return PredictParams(**param_row)
+        except Exception as e:
+            print(f'Exception trying to parse prediction parameters for param row:'
+                  f' \n{param_row} \n', e)
+            return None
+
+
 class _PyFuncModelWrapper:
     """
     Wrapper around NLUPipeline providing interface for scoring pandas DataFrame.
     """
 
     def __init__(
-        self,
-        spark_model,
-        spark=None,
+            self,
+            spark_model,
+            spark=None,
     ):
         # we have this `or`, so we support _PyFuncModelWrapper(nlu_ref)
         self.spark = spark or _get_or_create_sparksession()
@@ -842,7 +875,8 @@ class _PyFuncModelWrapper:
     def predict(self, text, params: Optional[Dict[str, Any]] = None):
         """
         Generate predictions given input data in a pandas DataFrame.
-
+        1) If df contains any column that is in PredictParams fields, the first row will be parsed as parameters
+        2) If df contains column `file` and `file_type` columns, each row will be deserialized into file
         :param text: pandas DataFrame containing input data.
         :param params: Additional parameters to pass to the model for inference.
 
@@ -850,5 +884,9 @@ class _PyFuncModelWrapper:
                                                release without warning.
         :return: List with model predictions.
         """
-        output_level = params.get("output_level", "") if params else ""
-        return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()
+        params = PredictParams.maybe_from_pandas_df(text)
+        if params:
+            params.dict()
+        else:
+            params = {}
+        return self.spark_model.predict(text, **params).reset_index().to_json()
