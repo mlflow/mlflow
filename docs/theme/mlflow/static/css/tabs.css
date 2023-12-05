@@ -94,3 +94,16 @@ body[data-theme="dark"] .sphinx-tabs-tab[aria-selected="true"] {
 border-bottom: 2px solid rgb(50, 50, 50);
 background-color: rgb(50, 50, 50);
 }
+
+/*
+ * Additional Custom CSS
+ */
+
+ /* Handling mobile view for the tab widget in the tracking page */
+ .tracking-responsive-tab-container {
+    display: flex;
+ }
+
+.tracking-responsive-tab-container h4 {
+    margin-bottom: 20px;
+}

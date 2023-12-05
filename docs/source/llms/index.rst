@@ -11,28 +11,28 @@ capabilities into their applications.
 
 **MLflow's Support for LLMs** aims to alleviate these challenges by introducing a suite of features and tools designed with the end-user in mind:
 
-`MLflow AI Gateway <gateway/index.html>`_
------------------------------------------
+`MLflow Deployments Server for LLMs <deployments/index.html>`_
+--------------------------------------------------------------
 
 .. toctree::
     :maxdepth: 1
     :hidden:
 
-    gateway/index
+    deployments/index
 
-Serving as a unified interface, the `MLflow AI Gateway <gateway/index.html>`_ simplifies interactions with multiple LLM providers, such as 
+Serving as a unified interface, the `MLflow Deployments Server <deployments/index.html>`_ simplifies interactions with multiple LLM providers, such as 
 `OpenAI <https://openai.com/>`_, `MosaicML <https://www.mosaicml.com/>`_, `Cohere <https://cohere.com/>`_, `Anthropic <https://www.anthropic.com/>`_, 
 `PaLM 2 <https://ai.google/discover/palm2/>`_, `AWS Bedrock <https://aws.amazon.com/bedrock/>`_, and `AI21 Labs <https://www.ai21.com/>`_. 
 
-In addition to supporting the most popular SaaS LLM providers, the AI Gateway provides an integration to MLflow model serving, allowing you to serve your 
-own LLM or a fine-tuned foundation model within your own serving infrastructure.
+In addition to supporting the most popular SaaS LLM providers, the MLflow Deployments Server (previously known as "MLflow AI Gateway")
+provides an integration to MLflow model serving, allowing you to serve your own LLM or a fine-tuned foundation model within your own serving infrastructure.
 
 .. note:: 
-    The MLflow AI Gateway is in active development and has been marked as **Experimental**. 
+    The MLflow Deployments Server is in active development and has been marked as **Experimental**. 
     APIs may change as this new feature is refined and its functionality is expanded based on feedback.
 
-Benefits of the MLflow AI Gateway
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Benefits of the MLflow Deployments Server
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **Unified Endpoint**: No more juggling between multiple provider APIs.
 
@@ -57,55 +57,55 @@ Benefits of the MLflow AI Gateway
 Explore the Native Provider integrations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The MLflow AI Gateway supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
-own open source model via an integration with MLflow model serving. To learn more about how to get started using the MLflow AI Gateway to simplify the 
+The MLflow Deployments Server supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
+own open source model via an integration with MLflow model serving. To learn more about how to get started using the MLflow Deployments Server to simplify the 
 configuration and management of your LLM serving needs, select the provider that you're interested in below: 
 
 .. raw:: html
 
     <section>
         <div class="logo-grid">
-            <a href="gateway/index.html#providers">
+            <a href="deployments/index.html#providers">
                 <div class="logo-card">
                     <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
                 </div>
             </a>
-            <a href="gateway/index.html#providers">
+            <a href="deployments/index.html#providers">
                 <div class="logo-card">
                     <img src="../_static/images/logos/mosaicml-logo.svg" alt="MosaicML Logo"/>
                 </div>
             </a>
-            <a href="gateway/index.html#providers">
+            <a href="deployments/index.html#providers">
                 <div class="logo-card">
                     <img src="../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo"/>
                 </div>
             </a>
-            <a href="gateway/index.html#providers">
+            <a href="deployments/index.html#providers">
                 <div class="logo-card">
                     <img src="../_static/images/logos/cohere-logo.png" alt="Cohere Logo"/>
                 </div>
             </a>
-            <a href="gateway/index.html#providers">
+            <a href="deployments/index.html#providers">
                 <div class="logo-card">
                     <img src="../_static/images/logos/mlflow-logo.svg" alt="MLflow Logo"/>
                 </div>
             </a>
-            <a href="gateway/index.html#providers">
+            <a href="deployments/index.html#providers">
                 <div class="logo-card">
                     <img src="../_static/images/logos/aws-logo.svg" alt="AWS Logo" style="max-height: 3rem;"/>
                 </div>
             </a>
-            <a href="gateway/index.html#providers">
+            <a href="deployments/index.html#providers">
                 <div class="logo-card">
                     <img src="../_static/images/logos/PaLM-logo.png" alt="PaLM Logo"/>
                 </div>
             </a>
-            <a href="gateway/index.html#providers">
+            <a href="deployments/index.html#providers">
                 <div class="logo-card">
                     <img src="../_static/images/logos/ai21labs-logo.svg" alt="ai21Labs Logo"/>
                 </div>
             </a>
-            <a href="gateway/index.html#providers">
+            <a href="deployments/index.html#providers">
                 <div class="logo-card">
                     <img src="../_static/images/logos/huggingface-logo.svg" alt="Hugging Face Logo"/>
                 </div>
@@ -113,26 +113,26 @@ configuration and management of your LLM serving needs, select the provider that
         </div>
     </section>
 
-`Getting Started Examples for each Provider <https://github.com/mlflow/mlflow/blob/master/examples/gateway/README.md>`_
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+`Getting Started Examples for each Provider <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/README.md>`_
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you're interested in learning about how to set up the MLflow AI Gateway for a specific provider, follow the links below for our up-to-date 
+If you're interested in learning about how to set up the MLflow Deployments Server for a specific provider, follow the links below for our up-to-date 
 documentation on GitHub. 
 
 Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as 
 the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started 
 with your favorite provider!
 
-* `OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/openai/README.md>`_
-* `MosaicML quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/mosaicml/README.md>`_
-* `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/anthropic/README.md>`_
-* `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/cohere/README.md>`_
-* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/mlflow_serving/README.md>`_
-* `AWS Bedrock quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/bedrock/README.md>`_
-* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/ai21labs/README.md>`_ 
-* `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/palm/README.md>`_
-* `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/azure_openai/README.md>`_
-* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/gateway/huggingface/readme.md>`_
+* `OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md>`_
+* `MosaicML quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md>`_
+* `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/anthropic/README.md>`_
+* `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md>`_
+* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_serving/README.md>`_
+* `AWS Bedrock quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md>`_
+* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21labs/README.md>`_ 
+* `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md>`_
+* `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md>`_
+* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/readme.md>`_
 
 .. note::
     The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source 
@@ -420,3 +420,9 @@ Note that there are additional tutorials within the `Native Integration Guides a
             </div>
         </article>
     </section>
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    gateway/index

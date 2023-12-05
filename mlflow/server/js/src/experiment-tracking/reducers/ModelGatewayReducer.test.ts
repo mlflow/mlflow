@@ -18,26 +18,29 @@ describe('modelGatewayReducer', () => {
   const MOCK_DOLLY_MODEL_ROUTE = {
     model: { name: 'dolly-2', provider: 'mlflow' },
     name: 'test-dolly-gateway',
-    route_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
+    endpoint_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
+    endpoint_url: '/gateway/completions/invocations',
   };
 
   const MOCK_LLAMA_MODEL_ROUTE = {
     model: { name: 'llama-6', provider: 'meta' },
     name: 'test-llama-gateway',
-    route_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
+    endpoint_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
+    endpoint_url: '/gateway/completions/invocations',
   };
 
   const MOCK_GPT_MODEL_ROUTE = {
     model: { name: 'gpt-1', provider: 'gpt' },
     name: 'test-gpt-gateway',
-    route_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
+    endpoint_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
+    endpoint_url: '/gateway/completions/invocations',
   };
 
   const mockFulfilledSearchAction = (
     modelRoutes: ModelGatewayRoute[],
   ): AsyncFulfilledAction<SearchModelGatewayRoutesAction> => ({
     type: fulfilled(SEARCH_MODEL_GATEWAY_ROUTES_API),
-    payload: { routes: modelRoutes },
+    payload: { endpoints: modelRoutes },
   });
 
   const mockPendingSearchAction = (): AsyncAction => ({

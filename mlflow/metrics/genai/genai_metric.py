@@ -61,8 +61,9 @@ def _extract_score_and_justification(text):
             justification = data.get("justification")
         except json.JSONDecodeError:
             # If parsing fails, use regex
-            match = re.search(r"score: (\d+),?\s*justification: (.+)", text)
-            if match:
+            if (match := re.search(r"score: (\d+),?\s*justification: (.+)", text)) or (
+                match := re.search(r"\s*score:\s*(\d+)\s*justification:\s*(.+)", text, re.DOTALL)
+            ):
                 score = int(match.group(1))
                 justification = match.group(2)
             else:
@@ -100,8 +101,9 @@ def make_genai_metric(
     :param grading_prompt: Grading criteria of the metric.
     :param examples: (Optional) Examples of the metric.
     :param version: (Optional) Version of the metric. Currently supported versions are: v1.
-    :param model: (Optional) Model uri of an openai or gateway judge model in the
-        format of "openai:/gpt-4" or "gateway:/my-route". Defaults to "openai:/gpt-4". If using
+    :param model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
+        format of "openai:/gpt-4", "gateway:/my-route", "endpoints:/databricks-llama-2-70b-chat".
+        Defaults to "openai:/gpt-4". If using
         Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
         Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and
         governed by the LLM service's terms of use.
