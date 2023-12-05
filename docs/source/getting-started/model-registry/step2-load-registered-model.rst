@@ -10,7 +10,7 @@ For completeness, here are various ways to load a model using MLflow's Fluent AP
 
 1. Absolute local path: `mlflow.sklearn.load_model("/Users/me/path/to/local/model")`
 2. Relative local path: `mlflow.sklearn.load_model("relative/path/to/local/model")`
-3. Run id: `mlflow.sklearn.load_model(f"runs:/{mlflow_run_id}/{relative_path_to_model}")`
+3. Run id: `mlflow.sklearn.load_model(f"runs:/{mlflow_run_id}/{run_relative_path_to_model}")`
 4. Model name + version: `mlflow.sklearn.load_model(f"models:/{model_name}/{model_version}")`
 5. Model name + stage alias: `mlflow.sklearn.load_model(f"models:/{model_name}/{model_stage_alias}")`
 
