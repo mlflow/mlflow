@@ -20,7 +20,7 @@ from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.environment_variables import (
     MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE,
-    MLFLOW_GATEWAY_URI,
+    MLFLOW_DEPLOYMENTS_TARGET,
 )
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
@@ -1119,29 +1119,29 @@ def search_datasets_handler():
 
 @catch_mlflow_exception
 def gateway_proxy_handler():
-    gateway_uri = MLFLOW_GATEWAY_URI.get()
-    if not gateway_uri:
+    target_uri = MLFLOW_DEPLOYMENTS_TARGET.get()
+    if not target_uri:
         # Pretend an empty gateway service is running
-        return {"routes": []}
+        return {"endpoints": []}
 
     args = request.args if request.method == "GET" else request.json
 
     gateway_path = args.get("gateway_path")
     if not gateway_path:
         raise MlflowException(
-            message="GatewayProxy request must specify a gateway_path.",
+            message="Deployments proxy request must specify a gateway_path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     request_type = request.method
     json_data = args.get("json_data", None)
 
-    response = requests.request(request_type, f"{gateway_uri}/{gateway_path}", json=json_data)
+    response = requests.request(request_type, f"{target_uri}/{gateway_path}", json=json_data)
 
     if response.status_code == 200:
         return response.json()
     else:
         raise MlflowException(
-            message=f"GatewayProxy request failed with error code {response.status_code}. "
+            message=f"Deployments proxy request failed with error code {response.status_code}. "
             f"Error message: {response.text}",
             error_code=response.status_code,
         )

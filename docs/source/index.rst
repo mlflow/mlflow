@@ -73,7 +73,7 @@ Getting Started Guides and Quickstarts
 `LLMs <llms/index.html>`_
 -------------------------
 
-Explore the comprehensive LLM-focused native support in MLflow. From **MLflow AI Gateway** to the **Prompt Engineering UI** and native LLM-focused MLflow flavors like 
+Explore the comprehensive LLM-focused native support in MLflow. From **MLflow Deployments for LLMs** to the **Prompt Engineering UI** and native LLM-focused MLflow flavors like 
 **open-ai**, **transformers**, and **sentence-transformers**, the tutorials and guides here will help to get you started in leveraging the 
 benefits of these powerful natural language deep learning models.  
 You'll learn how MLflow simplifies both using LLMs and developing solutions that leverage LLMs. Important tasks such as prompt development, evaluation of prompts, comparison of  
@@ -100,12 +100,12 @@ LLM Guides and Tutorials
                 </a>
             </div>
             <div class="simple-card">
-                <a href="llms/gateway/index.html" >
+                <a href="llms/deployments/index.html" >
                     <div class="header">
-                        Guide for the MLflow AI Gateway
+                        Guide for the MLflow Deployments for LLMs
                     </div>
                     <p>
-                        Learn how to configure, setup, deploy, and use the MLflow AI Gateway for testing and production use cases of both 
+                        Learn how to configure, setup, deploy, and use the MLflow Deployments for testing and production use cases of both 
                         SaaS and custom open-source LLMs.
                     </p>
                 </a>

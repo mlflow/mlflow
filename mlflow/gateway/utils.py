@@ -1,15 +1,18 @@
 import base64
+import functools
+import inspect
 import json
 import logging
 import posixpath
 import re
+import textwrap
+import warnings
 from typing import List, Optional
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
-from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
 
 _logger = logging.getLogger(__name__)
@@ -27,14 +30,36 @@ def is_valid_endpoint_name(name: str) -> bool:
 
 
 def check_configuration_route_name_collisions(config):
-    if len(config["routes"]) < 2:
+    routes = config.get("routes") or config.get("endpoints") or []
+    if len(routes) < 2:
         return
-    names = [route["name"] for route in config["routes"]]
+    names = [route["name"] for route in routes]
     if len(names) != len(set(names)):
         raise MlflowException.invalid_parameter_value(
-            "Duplicate names found in route configurations. Please remove the duplicate route "
-            "name from the configuration to ensure that route endpoints are created properly."
+            "Duplicate names found in endpoint configurations. Please remove the duplicate endpoint"
+            " name from the configuration to ensure that endpoints are created properly."
         )
+
+
+def check_configuration_deprecated_fields(config):
+    if "routes" in config:
+        warnings.warn(
+            "The 'routes' configuration key has been deprecated and will be removed in an"
+            " upcoming release. Use 'endpoints' instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
+    routes = config.get("routes", []) or config.get("endpoints", [])
+    for route in routes:
+        if "route_type" in route:
+            warnings.warn(
+                "The 'route_type' configuration key has been deprecated and will be removed in an"
+                " upcoming release. Use 'endpoint_type' instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            break
 
 
 def kill_child_processes(parent_pid):
@@ -68,7 +93,60 @@ def _is_valid_uri(uri: str):
         return False
 
 
-@experimental
+def _get_indent(s: str) -> str:
+    for l in s.splitlines():
+        if l.startswith(" "):
+            return " " * (len(l) - len(l.lstrip()))
+    return ""
+
+
+def _prepend(docstring: Optional[str], text: str) -> str:
+    if not docstring:
+        return text
+
+    indent = _get_indent(docstring)
+    return f"""
+{textwrap.indent(text, indent)}
+
+{docstring}
+"""
+
+
+def gateway_deprecated(obj):
+    msg = (
+        "MLflow AI gateway is deprecated and has been replaced by the deployments API for "
+        "generative AI. See https://mlflow.org/docs/latest/llms/gateway/migration.html for "
+        "migration."
+    )
+    warning = f"""
+.. warning::
+
+    {msg}
+""".strip()
+    if inspect.isclass(obj):
+        original = obj.__init__
+
+        @functools.wraps(original)
+        def wrapper(*args, **kwargs):
+            warnings.warn(msg, FutureWarning, stacklevel=2)
+            return original(*args, **kwargs)
+
+        obj.__init__ = wrapper
+        obj.__init__.__doc__ = _prepend(obj.__init__.__doc__, warning)
+        return obj
+    else:
+
+        @functools.wraps(obj)
+        def wrapper(*args, **kwargs):
+            warnings.warn(msg, FutureWarning, stacklevel=2)
+            return obj(*args, **kwargs)
+
+        wrapper.__doc__ = _prepend(obj.__doc__, warning)
+
+        return wrapper
+
+
+@gateway_deprecated
 def set_gateway_uri(gateway_uri: str):
     """
     Sets the uri of a configured and running MLflow AI Gateway server in a global context.
@@ -88,7 +166,7 @@ def set_gateway_uri(gateway_uri: str):
     _gateway_uri = gateway_uri
 
 
-@experimental
+@gateway_deprecated
 def get_gateway_uri() -> str:
     """
     Returns the currently set MLflow AI Gateway server uri iff set.

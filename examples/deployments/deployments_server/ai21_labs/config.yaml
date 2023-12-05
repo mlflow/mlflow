@@ -1,0 +1,8 @@
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: ai21labs
+      name: j2-mid
+      config:
+        ai21labs_api_key: $AI21LABS_API_KEY
