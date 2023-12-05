@@ -195,8 +195,7 @@ def test_pytorch_autolog_log_on_step_with_multiple_optimizers(
     pytorch_multi_optimizer_model,
 ):
     trainer, run, log_every_n_epoch, log_every_n_step = pytorch_multi_optimizer_model
-    # Global step is incremented twice for every batch due to using 2 optimizers
-    num_logged_steps = trainer.global_step // (2 * log_every_n_step)
+    num_logged_steps = NUM_EPOCHS * len(trainer.train_dataloader) // log_every_n_step
     num_logged_epochs = NUM_EPOCHS // log_every_n_epoch
 
     client = MlflowClient()
