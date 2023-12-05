@@ -1,3 +1,4 @@
+import time
 from typing import Any, Dict
 
 from fastapi import HTTPException
@@ -25,21 +26,23 @@ class CohereAdapter(ProviderAdapter):
         #   "prompt": "string"
         # }
         # ```
-
         return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": c["text"],
-                        "metadata": {},
-                    }
-                    for c in resp["generations"]
-                ],
-                "metadata": {
-                    "model": config.model.name,
-                    "route_type": config.route_type,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=config.model.name,
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=c["text"],
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(resp["generations"])
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     @classmethod
@@ -74,30 +77,35 @@ class CohereAdapter(ProviderAdapter):
         # }
         # ```
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": resp["embeddings"],
-                "metadata": {
-                    "model": config.model.name,
-                    "route_type": config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=output,
+                    index=idx,
+                )
+                for idx, output in enumerate(resp["embeddings"])
+            ],
+            model=config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     @classmethod
     def completions_to_model(cls, payload, config):
         key_mapping = {
             "stop": "stop_sequences",
-            "candidate_count": "num_generations",
+            "n": "num_generations",
         }
         cls.check_keys_against_mapping(key_mapping, payload)
-        # The range of Cohere's temperature is 0-5, but ours is 0-1, so we scale it.
+        # The range of Cohere's temperature is 0-5, but ours is 0-2, so we scale it.
         if "temperature" in payload:
-            payload["temperature"] = 5 * payload["temperature"]
+            payload["temperature"] = 2.5 * payload["temperature"]
         return rename_payload_keys(payload, key_mapping)
 
     @classmethod
     def embeddings_to_model(cls, payload, config):
-        key_mapping = {"text": "texts"}
+        key_mapping = {"input": "texts"}
         for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(

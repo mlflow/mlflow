@@ -73,7 +73,7 @@ Getting Started Guides and Quickstarts
 `LLMs <llms/index.html>`_
 -------------------------
 
-Explore the comprehensive LLM-focused native support in MLflow. From **MLflow AI Gateway** to the **Prompt Engineering UI** and native LLM-focused MLflow flavors like 
+Explore the comprehensive LLM-focused native support in MLflow. From **MLflow Deployments for LLMs** to the **Prompt Engineering UI** and native LLM-focused MLflow flavors like 
 **open-ai**, **transformers**, and **sentence-transformers**, the tutorials and guides here will help to get you started in leveraging the 
 benefits of these powerful natural language deep learning models.  
 You'll learn how MLflow simplifies both using LLMs and developing solutions that leverage LLMs. Important tasks such as prompt development, evaluation of prompts, comparison of  
@@ -100,24 +100,24 @@ LLM Guides and Tutorials
                 </a>
             </div>
             <div class="simple-card">
-                <a href="llms/gateway/index.html" >
+                <a href="llms/deployments/index.html" >
                     <div class="header">
-                        Guide for the MLflow AI Gateway
+                        Guide for the MLflow Deployments for LLMs
                     </div>
                     <p>
-                        Learn how to configure, setup, deploy, and use the MLflow AI Gateway for testing and production use cases of both 
+                        Learn how to configure, setup, deploy, and use the MLflow Deployments for testing and production use cases of both 
                         SaaS and custom open-source LLMs.
                     </p>
                 </a>
             </div>
             <div class="simple-card">
-                <a href="llms/llm-tracking/index.html" >
+                <a href="llms/transformers/index.html" >
                     <div class="header">
-                        LLM Tracking with MLflow
+                        Guide to using 🤗 Transformers in MLflow
                     </div>
                     <p>
-                        Dive into the intricacies of MLflow's LLM Tracking system. From capturing prompts to monitoring generated outputs, 
-                        discover how MLflow provides a holistic solution for managing LLM interactions.
+                        Learn how to leverage the HuggingFace Transformers package with MLflow. Explore multiple tutorials and examples that leverage 
+                        the power of state-of-the-art LLMs.
                     </p>
                 </a>
             </div>
@@ -149,6 +149,28 @@ LLM Guides and Tutorials
                     </div>
                     <p>
                         Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="llms/llm-tracking/index.html" >
+                    <div class="header">
+                        LLM Tracking with MLflow
+                    </div>
+                    <p>
+                        Dive into the intricacies of MLflow's LLM Tracking system. From capturing prompts to monitoring generated outputs, 
+                        discover how MLflow provides a holistic solution for managing LLM interactions.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="llms/sentence-transformers/index.html" >
+                    <div class="header">
+                        Guide to using Sentence Transformers in MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage the advanced capabilities with semantic sentence embeddings within the Sentence Transformers package, using MLflow to simplify 
+                        inference, create custom deployable applications, and more.
                     </p>
                 </a>
             </div>
@@ -274,6 +296,7 @@ Deployment Guides and Tutorials
     traditional-ml/index
     deployment/index
     tracking
+    system-metrics/index
     projects
     models
     model-registry

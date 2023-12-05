@@ -1,11 +1,13 @@
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.palm import PaLMProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -44,30 +46,60 @@ def completions_response():
 async def test_completions():
     resp = completions_response()
     config = completions_config()
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = PaLMProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+            "n": 1,
+            "max_tokens": 1000,
+            "stop": ["foobar"],
+        }
+        response = await provider.completions(completions.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "text-bison",
+            "choices": [
+                {
+                    "text": "This is a test",
+                    "index": 0,
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+        }
+        mock_post.assert_called_once_with(
+            "https://generativelanguage.googleapis.com/v1beta3/models/text-bison:generateText",
+            json={
+                "prompt": {
+                    "text": "This is a test",
+                },
+                "temperature": 0.0,
+                "candidateCount": 1,
+                "maxOutputTokens": 1000,
+                "stopSequences": ["foobar"],
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
+@pytest.mark.asyncio
+async def test_completions_temperature_is_scaled_correctly():
+    resp = completions_response()
+    config = completions_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = PaLMProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
+            "temperature": 0.5,
         }
-        response = await provider.completions(completions.RequestPayload(**payload))
-        assert jsonable_encoder(response) == {
-            "candidates": [
-                {
-                    "text": "This is a test",
-                    "metadata": {},
-                }
-            ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "text-bison",
-                "route_type": "llm/v1/completions",
-            },
-        }
-        mock_post.assert_called_once()
+        await provider.completions(completions.RequestPayload(**payload))
+        assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 0.5
 
 
 def chat_config():
@@ -92,49 +124,82 @@ def chat_response():
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "expected_llm_input"),
     [
-        {"messages": [{"role": "user", "content": "Tell me a joke"}]},
-        {
-            "messages": [
-                {"role": "system", "content": "You're funny"},
-                {"role": "user", "content": "Tell me a joke"},
-            ]
-        },
-        {
-            "messages": [{"role": "user", "content": "Tell me a joke"}],
-            "temperature": 0.5,
-        },
+        (
+            {"messages": [{"role": "user", "content": "Tell me a joke"}]},
+            {
+                "temperature": 0.0,
+                "candidateCount": 1,
+                "prompt": {"messages": [{"content": "Tell me a joke", "author": "user"}]},
+            },
+        ),
+        (
+            {
+                "messages": [
+                    {"role": "system", "content": "You're funny"},
+                    {"role": "user", "content": "Tell me a joke"},
+                ]
+            },
+            {
+                "temperature": 0.0,
+                "candidateCount": 1,
+                "prompt": {
+                    "messages": [
+                        {"content": "You're funny", "author": "system"},
+                        {"content": "Tell me a joke", "author": "user"},
+                    ]
+                },
+            },
+        ),
+        (
+            {
+                "messages": [{"role": "user", "content": "Tell me a joke"}],
+                "temperature": 0.5,
+            },
+            {
+                "temperature": 0.25,
+                "candidateCount": 1,
+                "prompt": {"messages": [{"content": "Tell me a joke", "author": "user"}]},
+            },
+        ),
     ],
 )
 @pytest.mark.asyncio
-async def test_chat(payload):
+async def test_chat(payload, expected_llm_input):
     resp = chat_response()
     config = chat_config()
-    with mock.patch(
+    with mock.patch("time.time", return_value=1700242674), mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         provider = PaLMProvider(RouteConfig(**config))
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
+            "id": None,
+            "created": 1700242674,
+            "object": "chat.completion",
+            "model": "chat-bison",
+            "choices": [
                 {
                     "message": {
                         "role": "1",
                         "content": "Hi there! How can I help you today?",
                     },
-                    "metadata": {"finish_reason": None},
+                    "finish_reason": None,
+                    "index": 0,
                 }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
+            "usage": {
+                "prompt_tokens": None,
+                "completion_tokens": None,
                 "total_tokens": None,
-                "model": "chat-bison",
-                "route_type": "llm/v1/chat",
             },
         }
-        mock_post.assert_called_once()
+        mock_post.assert_called_once_with(
+            "https://generativelanguage.googleapis.com/v1beta3/models/chat-bison:generateMessage",
+            json=expected_llm_input,
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def embeddings_config():
@@ -169,6 +234,30 @@ def embeddings_response():
     }
 
 
+def embeddings_batch_response():
+    return {
+        "embeddings": [
+            [
+                3.25,
+                0.7685547,
+                2.65625,
+                -0.30126953,
+                -2.3554688,
+                1.2597656,
+            ],
+            [
+                7.25,
+                0.7685547,
+                4.65625,
+                -0.30126953,
+                -2.3554688,
+                8.2597656,
+            ],
+        ],
+        "headers": {"Content-Type": "application/json"},
+    }
+
+
 @pytest.mark.parametrize("prompt", ["This is a test", ["This is a test"]])
 @pytest.mark.asyncio
 async def test_embeddings(prompt):
@@ -177,26 +266,68 @@ async def test_embeddings(prompt):
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(embeddings_response())
     ) as mock_post:
         provider = PaLMProvider(RouteConfig(**config))
-        payload = {"text": prompt}
+        payload = {"input": prompt}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "embeddings": [
-                [
-                    3.25,
-                    0.7685547,
-                    2.65625,
-                    -0.30126953,
-                    -2.3554688,
-                    1.2597656,
-                ]
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                }
             ],
-            "metadata": {
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
-                "model": "embedding-gecko",
-                "route_type": "llm/v1/embeddings",
-            },
+            "model": "embedding-gecko",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
+        }
+        mock_post.assert_called_once()
+
+
+async def test_embeddings_batch():
+    config = embeddings_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(embeddings_batch_response())
+    ) as mock_post:
+        provider = PaLMProvider(RouteConfig(**config))
+        payload = {"input": ["this is a", "batch test"]}
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        3.25,
+                        0.7685547,
+                        2.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        1.2597656,
+                    ],
+                    "index": 0,
+                },
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        7.25,
+                        0.7685547,
+                        4.65625,
+                        -0.30126953,
+                        -2.3554688,
+                        8.2597656,
+                    ],
+                    "index": 1,
+                },
+            ],
+            "model": "embedding-gecko",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
         }
         mock_post.assert_called_once()
 

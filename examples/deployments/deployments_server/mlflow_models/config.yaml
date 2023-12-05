@@ -1,0 +1,15 @@
+endpoints:
+  - name: fillmask
+    endpoint_type: llm/v1/completions
+    model:
+      provider: mlflow-model-serving
+      name: mask-fill
+      config:
+        model_server_url: http://127.0.0.1:9010
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: mlflow-model-serving
+      name: sentence-transformer
+      config:
+        model_server_url: http://127.0.0.1:9020

@@ -1,3 +1,4 @@
+import time
 from typing import Any, Dict
 
 from fastapi import HTTPException
@@ -49,16 +50,19 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
                 )
 
         # HF TGI does not support generating multiple candidates.
-        candidate_count = payload.get("candidate_count", 1)
-        if candidate_count != 1:
+        n = payload.pop("n", 1)
+        if n != 1:
             raise HTTPException(
                 status_code=422,
-                detail="'candidate_count' must be '1' for the Text Generation Inference provider."
-                f"Received value: '{candidate_count}'.",
+                detail="'n' must be '1' for the Text Generation Inference provider."
+                f"Received value: '{n}'.",
             )
         prompt = payload.pop("prompt")
         parameters = rename_payload_keys(payload, key_mapping)
 
+        # The range of HF TGI's temperature is 0-100, but ours is 0-2, so we multiply
+        # by 50
+        payload["temperature"] = 50 * payload["temperature"]
         # HF TGI does not support 0 temperature
         parameters["temperature"] = max(payload["temperature"], 1e-3)
         parameters["details"] = True
@@ -96,24 +100,21 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         output_tokens = resp["details"]["generated_tokens"]
         input_tokens = len(resp["details"]["prefill"])
         return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": resp["generated_text"],
-                        "metadata": {
-                            "finish_reason": resp["details"]["finish_reason"],
-                            "seed": str(resp["details"]["seed"]),
-                        },
-                    }
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                    "output_tokens": output_tokens,
-                    "input_tokens": input_tokens,
-                    "total_tokens": output_tokens + input_tokens,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=self.config.model.name,
+            choices=[
+                completions.Choice(
+                    index=0,
+                    text=resp["generated_text"],
+                    finish_reason=resp["details"]["finish_reason"],
+                )
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
+            ),
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:

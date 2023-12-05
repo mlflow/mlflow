@@ -16,7 +16,8 @@ describe('ModelGatewayService', () => {
       {
         model: { name: 'completions_model', provider: 'closed-ai' },
         name: 'completions_route',
-        route_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
+        endpoint_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
+        endpoint_url: '/gateway/completions/invocations',
       },
       { inputText: 'input text', parameters: { temperature: 0.5, max_tokens: 50 } },
     );
@@ -33,7 +34,8 @@ describe('ModelGatewayService', () => {
       {
         model: { name: 'chat_model', provider: 'closed-ai' },
         name: 'chat_route',
-        route_type: ModelGatewayRouteType.LLM_V1_CHAT,
+        endpoint_type: ModelGatewayRouteType.LLM_V1_CHAT,
+        endpoint_url: '/gateway/chat/invocations',
       },
       { inputText: 'input text', parameters: { temperature: 0.5, max_tokens: 50 } },
     );
@@ -55,7 +57,8 @@ describe('ModelGatewayService', () => {
         {
           model: { name: 'chat_model', provider: 'closed-ai' },
           name: 'chat_route',
-          route_type: ModelGatewayRouteType.LLM_V1_EMBEDDINGS,
+          endpoint_type: ModelGatewayRouteType.LLM_V1_EMBEDDINGS,
+          endpoint_url: '/gateway/embeddings/invocations',
         },
         { inputText: 'input text', parameters: { temperature: 0.5, max_tokens: 50 } },
       );

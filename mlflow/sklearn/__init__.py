@@ -165,7 +165,7 @@ def save_model(
     metadata=None,
 ):
     """
-    Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
+    Save a scikit-learn model to a path on the local file system. Produces a MLflow Model
     containing the following flavors:
 
         - :py:mod:`mlflow.sklearn`
