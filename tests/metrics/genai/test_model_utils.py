@@ -133,6 +133,36 @@ def test_score_model_openai(set_envs):
         )
 
 
+def test_openai_authentication_error(set_envs):
+    mock_response = mock.Mock()
+    mock_response.status_code = 401
+    mock_response.json.return_value = {
+        "error": {
+            "message": "Incorrect API key provided: redacted. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "type": "invalid_request_error",
+            "param": None,
+            "code": "invalid_api_key",
+        }
+    }
+
+    with mock.patch("requests.post", return_value=mock_response) as mock_post:
+        with pytest.raises(
+            MlflowException, match="Authentication Error for OpenAI. Error response"
+        ):
+            score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
+        mock_post.assert_called_once()
+
+
+def test_openai_other_error(set_envs):
+    with mock.patch(
+        "mlflow.openai.api_request_parallel_processor.process_api_requests",
+        side_effect=Exception("foo"),
+    ) as mock_post:
+        with pytest.raises(MlflowException, match="Error response from OpenAI"):
+            score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
+        mock_post.assert_called_once()
+
+
 def test_score_model_azure_openai(set_azure_envs):
     resp = {
         "id": "chatcmpl-abc123",
@@ -345,33 +375,3 @@ def test_score_model_endpoints_completions(set_deployment_envs, endpoint_type_ke
             "endpoints:/my-endpoint", {"prompt": "my prompt", "temperature": 0.1}
         )
         assert response == expected_output["choices"][0]["text"]
-
-
-def test_openai_authentication_error(set_envs):
-    mock_response = mock.Mock()
-    mock_response.status_code = 401
-    mock_response.json.return_value = {
-        "error": {
-            "message": "Incorrect API key provided: redacted. You can find your API key at https://platform.openai.com/account/api-keys.",
-            "type": "invalid_request_error",
-            "param": None,
-            "code": "invalid_api_key",
-        }
-    }
-
-    with mock.patch("requests.post", return_value=mock_response) as mock_post:
-        with pytest.raises(
-            MlflowException, match="Authentication Error for OpenAI. Error response"
-        ):
-            score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
-        mock_post.assert_called_once()
-
-
-def test_openai_other_error(set_envs):
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        side_effect=Exception("foo"),
-    ) as mock_post:
-        with pytest.raises(MlflowException, match="Error response from OpenAI"):
-            score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
-        mock_post.assert_called_once()
