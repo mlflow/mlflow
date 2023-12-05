@@ -1322,7 +1322,7 @@ def test_spark_udf_set_extra_udf_env_vars(spark):
         model_info.model_uri,
         result_type=StringType(),
         env_manager="local",
-        extra_env_vars={"TEST_ENV_VAR": "test"},
+        extra_env={"TEST_ENV_VAR": "test"},
     )
 
     res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()

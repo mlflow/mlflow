@@ -1,3 +1,4 @@
+import contextlib
 import os
 import shutil
 import tempfile
@@ -150,3 +151,24 @@ class _SparkDirectoryDistributor:
 
         _SparkDirectoryDistributor._extracted_dir_paths[archive_path] = temp_dir
         return _SparkDirectoryDistributor._extracted_dir_paths[archive_path]
+
+
+@contextlib.contextmanager
+def modified_environ(update):
+    """
+    Temporarily updates the ``os.environ`` dictionary in-place.
+
+    The ``os.environ`` dictionary is updated in-place so that the modification
+    is sure to work in all situations.
+
+    :param update: Dictionary of environment variables and values to add/update.
+    """
+    update = update or {}
+    original_env = {k: os.environ.get(k) for k in update}
+
+    try:
+        os.environ.update(update)
+        yield
+    finally:
+        for k, v in original_env.items():
+            os.environ.pop(k) if v is None else os.environ.update({k: v})
