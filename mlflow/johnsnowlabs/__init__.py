@@ -874,17 +874,17 @@ class _PyFuncModelWrapper:
 
     def predict(self, text, params: Optional[Dict[str, Any]] = None):
         """
-        Generate predictions given input data in a pandas DataFrame.
-        1) If df contains any column that is in PredictParams fields,
-         the first row will be parsed as parameters
-        2) If df contains column `file` and `file_type`
-         columns, each row will be deserialized into file
-        :param text: pandas DataFrame containing input data.
-        :param params: Additional parameters to pass to the model for inference.
+             Generate predictions given input data in a pandas DataFrame.
+             1) If df contains any column that is in PredictParams fields,
+              the first row will be parsed as parameters
+             2) If df contains column `file` and `file_type`
+              columns, each row will be deserialized into file
+             :param text: pandas DataFrame containing input data.
+             :param params: Additional parameters to pass to the model for inference.
 
-   .. Note:: Experimental: This parameter may change or be removed in a future
-                           release without warning.
-        :return: List with model predictions.
+        .. Note:: Experimental: This parameter may change or be removed in a future
+                                release without warning.
+             :return: List with model predictions.
         """
         params = PredictParams.maybe_from_pandas_df(text)
         if params:
