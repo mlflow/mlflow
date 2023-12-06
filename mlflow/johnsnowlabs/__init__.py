@@ -487,7 +487,6 @@ def _save_jars_and_lic(dst_dir, store_license=False):
     if suite.ocr.get_java_path():
         shutil.copy2(suite.ocr.get_java_path(), deps_data_path / "visual_nlp.jar")
 
-
     if store_license:
         # Read the secrets from env vars and write to license.json
         secrets = JslSecrets.build_or_try_find_secrets()
