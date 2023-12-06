@@ -146,7 +146,8 @@ def get_default_pip_requirements():
         and _JOHNSNOWLABS_ENV_VISUAL_SECRET not in os.environ
     ):
         raise Exception(
-            f"You need to set the {_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET} or {_JOHNSNOWLABS_ENV_VISUAL_SECRET} environment variable set."
+            f"You need to set the {_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET} "
+            f"or {_JOHNSNOWLABS_ENV_VISUAL_SECRET} environment variable set."
             f" Please contact John Snow Labs to get one"
         )
 
