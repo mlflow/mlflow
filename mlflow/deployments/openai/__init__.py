@@ -2,6 +2,7 @@ import logging
 import os
 
 from mlflow.exceptions import MlflowException
+from mlflow.openai import _OpenAIApiConfig, _OpenAIEnvVar
 from mlflow.openai.utils import REQUEST_URL_CHAT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -83,11 +84,10 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        from mlflow.openai import _get_api_config
         from mlflow.openai.api_request_parallel_processor import process_api_requests
         from mlflow.openai.utils import _OAITokenHolder
 
-        api_config = _get_api_config()
+        api_config = _get_api_config_without_openai_dep()
         api_token = _OAITokenHolder(api_config.api_type)
 
         if api_config.api_type in ("azure", "azure_ad", "azuread"):
@@ -185,3 +185,33 @@ def run_local(name, model_uri, flavor=None, config=None):
 
 def target_help():
     pass
+
+
+def _get_api_config_without_openai_dep() -> _OpenAIApiConfig:
+    """
+    Gets the parameters and configuration of the OpenAI API connected to.
+    """
+    api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value)
+    api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value)
+    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, None)
+    engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
+    deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
+    if api_type in ("azure", "azure_ad", "azuread"):
+        batch_size = 16
+        max_tokens_per_minute = 60_000
+    else:
+        # The maximum batch size is 2048:
+        # https://github.com/openai/openai-python/blob/b82a3f7e4c462a8a10fa445193301a3cefef9a4a/openai/embeddings_utils.py#L43
+        # We use a smaller batch size to be safe.
+        batch_size = 1024
+        max_tokens_per_minute = 90_000
+    return _OpenAIApiConfig(
+        api_type=api_type,
+        batch_size=batch_size,
+        max_requests_per_minute=3_500,
+        max_tokens_per_minute=max_tokens_per_minute,
+        api_base=api_base,
+        api_version=api_version,
+        engine=engine,
+        deployment_id=deployment_id,
+    )
