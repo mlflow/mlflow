@@ -118,6 +118,12 @@ def _mock_models_retrieve_response():
 
 @contextmanager
 def _mock_request(**kwargs):
+    with mock.patch("requests.Session.request", **kwargs) as m:
+        yield m
+
+
+@contextmanager
+def _mock_request_post(**kwargs):
     with mock.patch("requests.post", **kwargs) as m:
         yield m
 
@@ -140,7 +146,7 @@ def _mock_openai_request():
         else:
             return original(*args, **kwargs)
 
-    return _mock_request(new=request)
+    return _mock_request_post(new=request)
 
 
 def _validate_model_params(task, model, params):
