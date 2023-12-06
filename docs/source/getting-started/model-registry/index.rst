@@ -20,9 +20,8 @@ In this tutorial, you will get up and running with the MLflow model registry in 
 steps possible. The topics in this tutorial cover:
 
 * Registering a model programmatically to the Model Registry while logging.
-* Viewing the registered model in the MLflow UI.
-* Referencing a logged model.
-* Loading a registered model for inference.
+* Viewing the model in the MLflow UI.
+* Loading a logged model for inference.
 * Aliasing model versions.
 
 

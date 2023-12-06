@@ -3,6 +3,10 @@ Alias Model Version
 
 Model version aliases are available for MLflow >= `2.3.0`.
 
+Model versions refer to the distinct iterations of a machine learning model that are managed and 
+tracked within the MLflow framework, enabling version control, lifecycle management, and easy 
+experimentation with different versions of a model.
+
 Model version aliases provide a flexible way to set named aliases on model versions. For example, 
 setting a champion alias on a model version enables you to fetch this model version by that alias 
 via client API :py:func:`mlflow.client.MlflowClient.get_model_version_by_alias()` or the model URI 
