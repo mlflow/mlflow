@@ -48,7 +48,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.openai.utils import _exclude_params_from_envs, _OAITokenHolder, _validate_model_params
+from mlflow.openai.utils import (
+    REQUEST_URL_CHAT,
+    REQUEST_URL_COMPLETIONS,
+    REQUEST_URL_EMBEDDINGS,
+    _exclude_params_from_envs,
+    _OAITokenHolder,
+    _validate_model_params,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -191,7 +198,7 @@ def _get_api_config() -> _OpenAIApiConfig:
 
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
     api_version = os.getenv(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
-    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, openai.api_base)
+    api_base = os.getenv(_OpenAIEnvVar.OPENAI_API_BASE.value, None)
     engine = os.getenv(_OpenAIEnvVar.OPENAI_ENGINE.value, None)
     deployment_id = os.getenv(_OpenAIEnvVar.OPENAI_DEPLOYMENT_NAME.value, None)
     if api_type in ("azure", "azure_ad", "azuread"):
@@ -731,8 +738,6 @@ class _OpenAIWrapper:
             return data[self.formater.variables].to_dict(orient="records")
 
     def _predict_chat(self, data, params):
-        import openai
-
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
@@ -743,7 +748,7 @@ class _OpenAIWrapper:
         ]
         results = process_api_requests(
             requests,
-            openai.ChatCompletion,
+            REQUEST_URL_CHAT,
             api_token=self.api_token,
             max_requests_per_minute=self.api_config.max_requests_per_minute,
             max_tokens_per_minute=self.api_config.max_tokens_per_minute,
@@ -751,8 +756,6 @@ class _OpenAIWrapper:
         return [r["choices"][0]["message"]["content"] for r in results]
 
     def _predict_completions(self, data, params):
-        import openai
-
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
@@ -772,7 +775,7 @@ class _OpenAIWrapper:
         ]
         results = process_api_requests(
             requests,
-            openai.Completion,
+            REQUEST_URL_COMPLETIONS,
             api_token=self.api_token,
             max_requests_per_minute=self.api_config.max_requests_per_minute,
             max_tokens_per_minute=self.api_config.max_tokens_per_minute,
@@ -780,8 +783,6 @@ class _OpenAIWrapper:
         return [row["text"] for batch in results for row in batch["choices"]]
 
     def _predict_embeddings(self, data, params):
-        import openai
-
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
@@ -802,7 +803,7 @@ class _OpenAIWrapper:
         ]
         results = process_api_requests(
             requests,
-            openai.Embedding,
+            REQUEST_URL_EMBEDDINGS,
             api_token=self.api_token,
             max_requests_per_minute=self.api_config.max_requests_per_minute,
             max_tokens_per_minute=self.api_config.max_tokens_per_minute,
