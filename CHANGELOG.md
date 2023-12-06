@@ -30,6 +30,7 @@ Features:
 - [Models] Support saving `torch_dtype` for transformers models (#10586, @serena-ruan)
 - [Models] Add built-in metric `ndcg_at_k` to retriever evaluation (#10284, @liangz1)
 - [Model Registry] Implement universal `copy_model_version` (#10308, @jerrylian-db)
+- [Models] Support saving/loading `RunnableSequence`, `RunnableParallel`, and `RunnableBranch` (#10521, #10611, @serena-ruan)
 
 Bug fixes:
 
