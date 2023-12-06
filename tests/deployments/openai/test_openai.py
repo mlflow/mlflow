@@ -1,6 +1,5 @@
 from unittest import mock
 
-import openai
 import pytest
 
 from mlflow.deployments import get_deploy_client
@@ -71,18 +70,10 @@ def test_predict_openai(mock_openai_creds):
     ) as mock_request:
         resp = client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
         mock_request.assert_called_once_with(
-            [
-                {
-                    "model": "test",
-                    "temperature": 0.1,
-                    "messages": [{"role": "user", "content": "my prompt"}],
-                    "api_base": "https://api.openai.com/v1",
-                    "api_type": "open_ai",
-                }
-            ],
-            mock.ANY,
+            [{"model": "test", "prompt": "my prompt", "temperature": 0.1}],
+            "https://api.openai.com/v1/chat/completions",
             api_token=mock.ANY,
-            throw_original_error=True,
+            throw_original_error=mock.ANY,
             max_workers=1,
         )
         assert resp == mock_resp
@@ -118,19 +109,10 @@ def test_predict_azure_openai(mock_azure_openai_creds):
     ) as mock_request:
         resp = client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
         mock_request.assert_called_once_with(
-            [
-                {
-                    "temperature": 0.1,
-                    "messages": [{"role": "user", "content": "my prompt"}],
-                    "api_base": "my-base",
-                    "api_version": "2023-05-15",
-                    "api_type": "azure",
-                    "deployment_id": "my-deployment",
-                }
-            ],
-            mock.ANY,
+            [{"prompt": "my prompt", "temperature": 0.1}],
+            "my-base/openai/deployments/my-deployment/chat/completions?api-version=2023-05-15",
             api_token=mock.ANY,
-            throw_original_error=True,
+            throw_original_error=mock.ANY,
             max_workers=1,
         )
         assert resp == mock_resp

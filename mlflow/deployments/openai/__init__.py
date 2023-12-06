@@ -2,7 +2,6 @@ import logging
 import os
 
 from mlflow.exceptions import MlflowException
-from mlflow.metrics.genai.model_utils import _parse_chat_response_format
 from mlflow.openai.utils import REQUEST_URL_CHAT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -78,7 +77,6 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         raise NotImplementedError
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
-        payload = inputs
         if "OPENAI_API_KEY" not in os.environ:
             raise MlflowException(
                 "OPENAI_API_KEY environment variable not set",
@@ -91,11 +89,6 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
 
         api_config = _get_api_config()
         api_token = _OAITokenHolder(api_config.api_type)
-
-        payload = {
-            "messages": [{"role": "user", "content": payload}],
-            **eval_parameters,
-        }
 
         if api_config.api_type in ("azure", "azure_ad", "azuread"):
             api_base = getattr(api_config, "api_base")
@@ -116,24 +109,23 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
                         "Both engine and deployment_id are set. "
                         "Using engine as it takes precedence."
                     )
-                payload = {"engine": engine, **payload}
+                inputs = {"engine": engine, **inputs}
             elif deployment_id is None:
                 raise MlflowException(
                     "Either engine or deployment_id must be set for Azure OpenAI API",
                 )
-            payload = payload
 
             request_url = (
                 f"{api_base}/openai/deployments/{deployment_id}"
                 f"/chat/completions?api-version={api_version}"
             )
         else:
-            payload = {"model": endpoint, **payload}
+            inputs = {"model": endpoint, **inputs}
             request_url = REQUEST_URL_CHAT
 
         try:
             resp = process_api_requests(
-                [payload],
+                [inputs],
                 request_url,
                 api_token=api_token,
                 throw_original_error=True,
@@ -144,7 +136,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         except Exception as e:
             raise MlflowException(f"Error response from OpenAI:\n {e}")
 
-        return _parse_chat_response_format(resp)
+        return resp
 
     def create_endpoint(self, name, config=None):
         """
