@@ -31,6 +31,48 @@ REQUEST_URL_CHAT = "https://api.openai.com/v1/chat/completions"
 REQUEST_URL_COMPLETIONS = "https://api.openai.com/v1/completions"
 REQUEST_URL_EMBEDDINGS = "https://api.openai.com/v1/embeddings"
 
+REQUEST_FIELDS_CHAT = {
+    "model",
+    "messages",
+    "frequency_penalty",
+    "logit_bias",
+    "max_tokens",
+    "n",
+    "presence_penalty",
+    "response_format",
+    "seed",
+    "stop",
+    "stream",
+    "temperature",
+    "top_p",
+    "tools",
+    "tool_choice",
+    "user",
+    "function_call",
+    "functions",
+}
+REQUEST_FIELDS_COMPLETIONS = {
+    "model",
+    "prompt",
+    "best_of",
+    "echo",
+    "frequency_penalty",
+    "logit_bias",
+    "logprobs",
+    "max_tokens",
+    "n",
+    "presence_penalty",
+    "seed",
+    "stop",
+    "stream",
+    "suffix",
+    "temperature",
+    "top_p",
+    "user",
+}
+REQUEST_FIELDS_EMBEDDINGS = {"input", "model", "encoding_format", "user"}
+REQUEST_FIELDS = REQUEST_FIELDS_CHAT | REQUEST_FIELDS_COMPLETIONS | REQUEST_FIELDS_EMBEDDINGS
+
 
 class _MockResponse:
     def __init__(self, status_code, json_data):
@@ -133,6 +175,8 @@ def _mock_openai_request():
 
     def request(*args, **kwargs):
         url = kwargs.get("url")
+        for key in kwargs.get("json"):
+            assert key in REQUEST_FIELDS, f"'{key}' is not a valid request field"
 
         if "/chat/completions" in url:
             messages = kwargs.get("json").get("messages")
