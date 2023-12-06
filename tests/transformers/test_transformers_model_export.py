@@ -1403,6 +1403,7 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     predictions = pyfunc_loaded.predict(inference_payload)
     assert len(predictions) != 0
 
+
 @pytest.mark.parametrize(
     ("data", "result"),
     [
