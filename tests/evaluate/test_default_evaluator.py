@@ -3478,6 +3478,25 @@ def test_evaluate_retriever_builtin_metrics_no_model_type():
     validate_retriever_logged_data(logged_data, 4)
 
 
+def test_evaluate_retriever_error_message():
+    X = pd.DataFrame({"question": ["q1?"] * 3, "ground_truth": [np.array(["doc1", "doc2"])] * 3})
+
+    def fn(X):
+        return pd.DataFrame({"retrieved_context": [["doc1", "doc3", "doc2"]] * len(X)})
+
+    with mlflow.start_run():
+        mlflow.evaluate(
+            model=fn,
+            data=X,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={
+                "k": 3,
+            },
+        )
+
+
 def test_evaluate_with_numpy_array():
     data = [
         ["What is MLflow?"],
