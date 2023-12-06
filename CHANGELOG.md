@@ -1,5 +1,50 @@
 # CHANGELOG
 
+## 2.9.0 (2023-12-06)
+
+MLflow 2.9.0 includes several major features and improvements
+
+Features:
+
+- [] Support extra env vars in spark udf (#10605, @serena-ruan)
+- [] Support saving/loading RunnableBranch (#10611, @serena-ruan)
+- [] Support runnables in langchain (#10521, @serena-ruan)
+- [] Migrate AI gateway (#10420, @harupy)
+- [] Support saving torch_dtype for transformers with components logging (#10586, @serena-ruan)
+- [Artifacts] Proxy multipart upload for GCS and S3 (#9521, @harupy)
+- [Server-infra] Add backoff jitter (#10486, @ajinkyavbhandare)
+- [Tracking] [FEAT] Adding default aggregate_results if the score type is numeric in make_metric api (#10490, @sunishsheth2009)
+- [Tracking] [FEAT] Adding string type of score types for metric value for Eval (#10307, @sunishsheth2009)
+- [Models] Add built in metric ndcg_at_k to retriever evaluation (#10284, @liangz1)
+- [Model Registry] Create universal copy_model_version implementation (#10308, @jerrylian-db)
+
+Bug fixes:
+
+- [Tracking] Handle multiple optimizers in PyTorch Lightning step autologging (#10613, @adamreeve)
+- [Tracking / UI] Fix linking order in Line Chart (#10553, @B-Step62)
+- [Server-infra] Add Content-Type header validation (#10526, @B-Step62)
+- [UI] Remove extra whitespace in git URLs (#10506, @mrplants)
+- [] Make spark_udf use NFS to broadcast model to spark executor on databricks runtime and spark connect mode (#10463, @WeichenXu123)
+- [] Use `databricks clusters list-zones` to validate credentials (#10394, @chenmoneygithub)
+- [Models] Fix promptlab pyfunc models not working for chat routes (#10346, @daniellok-db)
+- [] Enable system metrics logging for resuming an existing run (#10312, @chenmoneygithub)
+- [Gateway] Fix the Gateway config validator pre-check for OpenAI to perform instance type validation (#10379, @BenWilson2)
+
+Documentation updates:
+
+- [] Add quickstart for Tensorflow (#10398, @chenmoneygithub)
+- [] Improve the code of quickstart 2 - hyperparam search (#10344, @chenmoneygithub)
+- [Docs] Update index.rst (#10590, @letian-w)
+- [] Add system metrics guide (#10429, @chenmoneygithub)
+- [Docs] Add instructions in flavor documentation for Azure OpenAI (#10560, @BenWilson2)
+- [Docs] Add docs and tutorials for Sentence Transformers flavor (#10476, @BenWilson2)
+- [Docs] Tracking doc overhaul (#10471, @B-Step62)
+- [Docs] Add tutorials, examples, and guides for the Transformers Flavor (#10360, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#10615, #10607, #10579, #10555, @annzhang-db; #10505, #10567, #10559, #10348, #10342, #10264, #10265, @B-Step62; #10612, @Eliotdoesprogramming; #10581, @codelion; #10519, #10489, #10266, #10210, #10103, @TomeHirata; #10595, #10401, #10418, @chenmoneygithub; #10557, @dan-licht; #10585, #10584, #10462, #10445, #10434, #10432, #10412, #10411, #10408, #10407, #10403, #10361, #10340, #10339, #10310, #10276, #10268, #10260, #10224, #10214, @harupy; #10415, @jessechancy; #10540, @wllgrnt; #10556, @smurching; #10546, @mbenoit29; #10534, @gabrielfu; #10532, #10485, #10444, #10433, #10375, #10343, #10192, @serena-ruan; #10480, #10416, #10173, @jerrylian-db; #10527, #10448, #10443, #10442, #10441, #10440, #10439, #10381, @prithvikannan; #10509, @keenranger; #10508, #10494, @WeichenXu123; #10495, #10435, #10185, @daniellok-db; #10319, @michael-berk; #10417, @bbqiu; #10372, #10282, @BenWilson2; #10297, @KonakanchiSwathi; #10226, #10223, #10221, @milinddethe15; #10222, @flooxo
+
 ## 2.8.1 (2023-11-14)
 
 MLflow 2.8.1 is a patch release, containing some critical bug fixes and an update to our continued work on reworking our docs. 
