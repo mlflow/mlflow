@@ -28,8 +28,6 @@ Key Features
 Advanced Prompt Engineering and Version Tracking with MLflow and OpenAI
 -----------------------------------------------------------------------
 
-Harnessing the Synergy of MLflow and OpenAI for Prompt Engineering
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 MLflow, in conjunction with OpenAI, revolutionizes the way we approach prompt engineering for large language models (LLMs). This integration enables 
 developers and data scientists to meticulously track, compare, and evaluate different versions of prompts, which are crucial in guiding LLMs to produce 
 desired outcomes.
