@@ -289,6 +289,17 @@ Native Integration Guides and Tutorials
                 </a>
             </div>
             <div class="simple-card">
+                <a href="openai/index.html">
+                    <div class="header">
+                        OpenAI
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage 
+                        MLflow and OpenAI's advanced LLMs to build interesting and fun applications.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="sentence-transformers/index.html">
                     <div class="header">
                         Sentence Transformers
@@ -307,6 +318,7 @@ Native Integration Guides and Tutorials
     :hidden:
 
     transformers/index
+    openai/index
     sentence-transformers/index
 
 Native Integration Examples
@@ -326,8 +338,6 @@ directly to our up-to-date examples on GitHub below:
 
 * **openai**
 
-    * `Using a Completions endpoint <https://github.com/mlflow/mlflow/blob/master/examples/openai/completions.py>`_
-    * `Using a Chat endpoint <https://github.com/mlflow/mlflow/blob/master/examples/openai/chat_completions.py>`_
     * `Performing Embeddings Generation <https://github.com/mlflow/mlflow/blob/master/examples/openai/embeddings.py>`_
     * `Using OpenAI on a Spark DataFrame for Batch Processing <https://github.com/mlflow/mlflow/blob/master/examples/openai/spark_udf.py>`_
     * `Using Azure OpenAI <https://github.com/mlflow/mlflow/blob/master/examples/openai/azure_openai.py>`_
