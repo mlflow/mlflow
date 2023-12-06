@@ -233,7 +233,6 @@ class _OAITokenHolder:
 
     def validate(self, logger=None):
         """Validates the token or API key configured for accessing the OpenAI resource."""
-        import openai
 
         if self._key_configured:
             return
