@@ -1404,6 +1404,7 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     assert len(predictions) != 0
 
 
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.parametrize(
     ("data", "result"),
     [
