@@ -561,6 +561,10 @@ def _is_numeric(value):
     return isinstance(value, (int, float, np.number))
 
 
+def _is_string(value):
+    return isinstance(value, str)
+
+
 def _evaluate_extra_metric(extra_metric_tuple, eval_fn_args):
     """
     This function calls the `extra_metric` function and performs validations on the returned
@@ -598,8 +602,10 @@ def _evaluate_extra_metric(extra_metric_tuple, eval_fn_args):
         if not isinstance(scores, list):
             _logger.warning(f"{exception_header} must return MetricValue with scores as a list.")
             return
-        if any(not (_is_numeric(score) or score is None) for score in scores):
-            _logger.warning(f"{exception_header} must return MetricValue with numeric scores.")
+        if any(not (_is_numeric(score) or _is_string(score) or score is None) for score in scores):
+            _logger.warning(
+                f"{exception_header} must return MetricValue with numeric or string scores."
+            )
             return
 
     if justifications is not None:
@@ -1215,6 +1221,7 @@ class DefaultEvaluator(ModelEvaluator):
                         self.other_output_columns is not None
                         and column in self.other_output_columns.columns
                     ):
+                        self.other_output_columns_for_eval.add(column)
                         eval_fn_args.append(self.other_output_columns[column])
 
                     # case where the param is defined as part of the evaluator_config
@@ -1417,6 +1424,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.other_output_columns,
             self.predictions,
         ) = _extract_output_and_other_columns(model_predictions, output_column_name)
+        self.other_output_columns_for_eval = set()
 
     def _compute_builtin_metrics(self):
         """
@@ -1613,9 +1621,10 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 data = data.assign(outputs=self.y_pred)
 
-        # Include other_output_columns in the eval table
-        if self.other_output_columns is not None:
-            data = data.assign(**self.other_output_columns)
+        # Include other_output_columns used in evaluation to the eval table
+        if self.other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
+            for column in self.other_output_columns_for_eval:
+                data[column] = self.other_output_columns[column]
 
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():

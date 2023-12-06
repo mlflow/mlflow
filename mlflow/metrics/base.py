@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 
@@ -26,7 +26,7 @@ class MetricValue:
     :param aggregate_results: A dictionary mapping the name of the aggregation to its value
     """
 
-    scores: List[float] = None
+    scores: Union[List[str], List[float]] = None
     justifications: List[str] = None
     aggregate_results: Dict[str, float] = None
 

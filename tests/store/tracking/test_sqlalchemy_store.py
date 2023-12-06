@@ -194,7 +194,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _experiment_factory(names, store: SqlAlchemyStore) -> Union[str, List]:
+def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, List]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:
@@ -241,7 +241,7 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
     assert default_experiment.lifecycle_stage == entities.LifecycleStage.ACTIVE
 
-    _experiment_factory("aNothEr", store)
+    _create_experiments(store, "aNothEr")
     all_experiments = [e.name for e in store.search_experiments()]
     assert set(all_experiments) == {"aNothEr", "Default"}
 

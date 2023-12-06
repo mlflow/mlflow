@@ -34,11 +34,7 @@ organizations that use LLMs on a regular basis.
     :hidden:
 
     guides/index
-<<<<<<< HEAD
-    deprecation
-=======
     migration
->>>>>>> databricks/master
 
 Tutorials and Guides
 ====================

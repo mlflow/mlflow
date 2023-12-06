@@ -362,16 +362,6 @@ def test_score_model_endpoints_completions(set_deployment_envs, endpoint_type_ke
         ],
     }
 
-<<<<<<< HEAD
-def test_openai_other_error(set_envs):
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        side_effect=Exception("foo"),
-    ) as mock_post:
-        with pytest.raises(MlflowException, match="Error response from OpenAI"):
-            score_model_on_payload("openai:/gpt-3.5-turbo", "my prompt", {"temperature": 0.1})
-        mock_post.assert_called_once()
-=======
     with mock.patch("mlflow.deployments.get_deploy_client") as mock_get_deploy_client:
         mock_client = mock.MagicMock()
         mock_get_deploy_client.return_value = mock_client
@@ -385,4 +375,3 @@ def test_openai_other_error(set_envs):
             "endpoints:/my-endpoint", {"prompt": "my prompt", "temperature": 0.1}
         )
         assert response == expected_output["choices"][0]["text"]
->>>>>>> databricks/master
