@@ -217,6 +217,14 @@ If the authentication succeeds, you should see a message "Succesfully signed in 
   Password: ··········
   2023/10/25 22:59:38 INFO mlflow.utils.credentials: Succesfully signed in Databricks!
 
+To disable the interactive prompt for credentials (useful in CI/CD pipelines), use the `interactive` argument:
+
+.. code-block:: python
+  import mlflow
+
+  mlflow.login(interactive=False)
+
+This will raise an exception if the credentials are not already configured, instead of requesting user input.
 
 Connect MLflow Session to Databricks CE
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
