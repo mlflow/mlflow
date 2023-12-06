@@ -65,7 +65,8 @@ _logger = logging.getLogger(__name__)
 
 _STAGES_DEPRECATION_WARNING = (
     "Model registry stages will be removed in a future major release. To learn more about the "
-    "deprecation of model registry stages, see https://github.com/mlflow/mlflow/issues/10336"
+    "deprecation of model registry stages, see our migration guide here: https://mlflow.org/docs/"
+    f"{mlflow.__version__.replace('.dev0', '')}/model-registry.html#migrating-from-stages"
 )
 
 

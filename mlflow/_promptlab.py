@@ -62,9 +62,9 @@ class _PromptlabModel:
         route_type = get_route(self.model_route).route_type
 
         if route_type == "llm/v1/completions":
-            return response["candidates"][0]["text"]
+            return response["choices"][0]["text"]
         elif route_type == "llm/v1/chat":
-            return response["candidates"][0]["message"]["content"]
+            return response["choices"][0]["message"]["content"]
         else:
             raise MlflowException(
                 "Error when parsing gateway response: "

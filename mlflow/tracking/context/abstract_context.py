@@ -4,7 +4,7 @@ from mlflow.utils.annotations import developer_stable
 
 
 @developer_stable
-class RunContextProvider:
+class RunContextProvider(metaclass=ABCMeta):
     """
     Abstract base class for context provider objects specifying custom tags at run-creation time
     (e.g. tags specifying the git repo with which the run is associated).
@@ -14,8 +14,6 @@ class RunContextProvider:
     MLflow calls the ``tags`` method on the context provider to compute context tags for the run.
     All context tags are then merged together and set on the newly-created run.
     """
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def in_context(self):

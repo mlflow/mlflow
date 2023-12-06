@@ -39,6 +39,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
+    "sphinx_tabs.tabs",
     "testcode_block",
     "nbsphinx",
 ]
@@ -229,7 +230,12 @@ html_permalinks_icon = " "
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
+# Ref: https://sphinx-tabs.readthedocs.io/en/latest/#sphinx-configuration
 htmlhelp_basename = "MLflowdoc"
+
+# Disable closing tab for sphinx-tab extension.
+sphinx_tabs_disable_tab_closing = True
+
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -337,6 +343,7 @@ nitpick_ignore = [
     ("py:class", "plotly.graph_objects.Figure"),
     ("py:class", "PIL.Image.Image"),
     ("py:class", "mlflow.deployments.base.BaseDeploymentClient"),
+    ("py:class", "mlflow.deployments.server.config.Endpoint"),
     ("py:class", "mlflow.types.schema.DataType"),
     ("py:class", "mlflow.types.schema.ColSpec"),
     ("py:class", "mlflow.types.schema.TensorSpec"),

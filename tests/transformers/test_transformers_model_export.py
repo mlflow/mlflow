@@ -2931,6 +2931,28 @@ def test_extraction_of_torch_dtype_from_pipeline(dtype):
 
 
 @pytest.mark.parametrize(
+    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.float]
+)
+@pytest.mark.skipcacheclean
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
+)
+def test_extraction_of_torch_dtype_from_components(dtype, model_path):
+    components = {
+        "model": transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        "tokenizer": transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        "torch_dtype": dtype,
+    }
+
+    mlflow.transformers.save_model(transformers_model=components, path=model_path)
+
+    base_loaded = mlflow.transformers.load_model(model_path)
+    assert base_loaded.torch_dtype == dtype
+    assert base_loaded.framework == "pt"
+    assert base_loaded.model.dtype == dtype
+
+
+@pytest.mark.parametrize(
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
 )
 @pytest.mark.skipcacheclean

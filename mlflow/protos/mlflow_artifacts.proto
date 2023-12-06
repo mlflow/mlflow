@@ -66,6 +66,42 @@ service MlflowArtifactsService {
       rpc_doc_title: "Delete Artifacts",
     };
   }
+
+  rpc createMultipartUpload (CreateMultipartUpload) returns (CreateMultipartUpload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow-artifacts/mpu/create/<path:artifact_path>",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Create an Artifact Multipart Upload",
+    };
+  }
+
+  rpc completeMultipartUpload (CompleteMultipartUpload) returns (CompleteMultipartUpload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow-artifacts/mpu/complete/<path:artifact_path>",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Complete an Artifact Multipart Upload",
+    };
+  }
+
+  rpc abortMultipartUpload (AbortMultipartUpload) returns (AbortMultipartUpload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow-artifacts/mpu/abort/<path:artifact_path>",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Abort an Artifact Multipart Upload",
+    };
+  }
 }
 
 message DownloadArtifact {
@@ -100,3 +136,48 @@ message FileInfo {
   // Size in bytes. Unset for directories.
   optional int64 file_size = 3;
 }
+
+message CreateMultipartUpload {
+  optional string path = 1;
+
+  optional int64 num_parts = 2;
+
+  message Response {
+    optional string upload_id = 1;
+
+    repeated MultipartUploadCredential credentials = 2;
+  }
+}
+
+message CompleteMultipartUpload {
+  optional string path = 1;
+
+  optional string upload_id = 2;
+
+  repeated MultipartUploadPart parts = 3;
+
+  message Response {}
+}
+
+message AbortMultipartUpload {
+  optional string path = 1;
+
+  optional string upload_id = 2;
+
+  message Response {}
+}
+
+message MultipartUploadCredential {
+  optional string url = 1;
+
+  optional int64 part_number = 2;
+
+  map<string, string> headers = 3;
+}
+
+message MultipartUploadPart {
+  optional int64 part_number = 1;
+
+  optional string etag = 2;
+}
+

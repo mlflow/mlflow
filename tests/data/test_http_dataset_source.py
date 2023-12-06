@@ -128,3 +128,30 @@ def test_source_load_with_content_disposition_header(attachment_filename, expect
         loaded = source.load()
         assert os.path.exists(loaded)
         assert os.path.basename(loaded) == expected_filename
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "/foo/bar.txt",
+        "./foo/bar.txt",
+        "../foo/bar.txt",
+        "foo/bar.txt",
+    ],
+)
+def test_source_load_with_content_disposition_header_invalid_filename(filename):
+    def download_with_mock_content_disposition_headers(*args, **kwargs):
+        response = cloud_storage_http_request(*args, **kwargs)
+        response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        return response
+
+    with mock.patch(
+        "mlflow.data.http_dataset_source.cloud_storage_http_request",
+        side_effect=download_with_mock_content_disposition_headers,
+    ):
+        source = HTTPDatasetSource(
+            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
+        )
+
+        with pytest.raises(MlflowException, match="Invalid filename in Content-Disposition header"):
+            source.load()

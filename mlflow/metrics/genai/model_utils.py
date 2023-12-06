@@ -3,9 +3,8 @@ import os
 import urllib.parse
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, UNAUTHENTICATED
-
-ROUTE_TYPE = "llm/v1/completions"
+from mlflow.openai.utils import REQUEST_URL_CHAT
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
@@ -19,9 +18,11 @@ def score_model_on_payload(model_uri, payload, eval_parameters=None):
     prefix, suffix = _parse_model_uri(model_uri)
 
     if prefix == "openai":
-        return _call_openai_api(suffix, payload)
+        return _call_openai_api(suffix, payload, eval_parameters)
     elif prefix == "gateway":
         return _call_gateway_api(suffix, payload, eval_parameters)
+    elif prefix == "endpoints":
+        return _call_deployments_api(suffix, payload, eval_parameters)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
         raise NotImplementedError
@@ -44,16 +45,12 @@ def _parse_model_uri(model_uri):
     return scheme, path
 
 
-def _call_openai_api(openai_uri, payload):
-    """Wrapper around the OpenAI API to make it compatible with the MLflow Gateway API."""
-
+def _call_openai_api(openai_uri, payload, eval_parameters):
     if "OPENAI_API_KEY" not in os.environ:
         raise MlflowException(
             "OPENAI_API_KEY environment variable not set",
             error_code=INVALID_PARAMETER_VALUE,
         )
-
-    import openai
 
     from mlflow.openai import _get_api_config
     from mlflow.openai.api_request_parallel_processor import process_api_requests
@@ -61,20 +58,19 @@ def _call_openai_api(openai_uri, payload):
 
     api_config = _get_api_config()
     api_token = _OAITokenHolder(api_config.api_type)
-    envs = {
-        x: getattr(api_config, x)
-        for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
-        if getattr(api_config, x) is not None
+
+    payload = {
+        "messages": [{"role": "user", "content": payload}],
+        **eval_parameters,
     }
 
-    payload = {{"candidate_count": "n"}.get(k, k): v for k, v in payload.items()}
-    # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
-    payload["temperature"] = 2 * payload["temperature"]
-    payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
-
     if api_config.api_type in ("azure", "azure_ad", "azuread"):
-        deployment_id = envs.get("deployment_id")
-        if envs.get("engine"):
+        api_base = getattr(api_config, "api_base")
+        api_version = getattr(api_config, "api_version")
+        engine = getattr(api_config, "engine")
+        deployment_id = getattr(api_config, "deployment_id")
+
+        if engine:
             # Avoid using both parameters as they serve the same purpose
             # Invalid inputs:
             #   - Wrong engine + correct/wrong deployment_id
@@ -86,74 +82,105 @@ def _call_openai_api(openai_uri, payload):
                 _logger.warning(
                     "Both engine and deployment_id are set. " "Using engine as it takes precedence."
                 )
+            payload = {"engine": engine, **payload}
         elif deployment_id is None:
             raise MlflowException(
                 "Either engine or deployment_id must be set for Azure OpenAI API",
             )
         payload = payload
+
+        request_url = (
+            f"{api_base}/openai/deployments/{deployment_id}"
+            f"/chat/completions?api-version={api_version}"
+        )
     else:
         payload = {"model": openai_uri, **payload}
-
-    payload_with_envs = {**payload, **envs}
+        request_url = REQUEST_URL_CHAT
 
     try:
         resp = process_api_requests(
-            [payload_with_envs],
-            openai.ChatCompletion,
+            [payload],
+            request_url,
             api_token=api_token,
             throw_original_error=True,
             max_workers=1,
         )[0]
-    except openai.error.AuthenticationError as e:
-        raise MlflowException(
-            f"Authentication Error for OpenAI. Error response:\n {e}",
-            error_code=UNAUTHENTICATED,
-        )
-    except openai.error.InvalidRequestError as e:
-        raise MlflowException(
-            f"Invalid Request to OpenAI. Error response:\n {e}", error_code=BAD_REQUEST
-        )
     except MlflowException as e:
         raise e
     except Exception as e:
         raise MlflowException(f"Error response from OpenAI:\n {e}")
 
-    try:
-        text = resp["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
-        text = None
-    return text
+    return _parse_chat_response_format(resp)
+
+
+def _call_deployments_api(deployment_uri, payload, eval_parameters):
+    from mlflow.deployments import get_deploy_client
+
+    client = get_deploy_client()
+
+    endpoint = client.get_endpoint(deployment_uri)
+    endpoint_type = endpoint.get("task", endpoint.get("endpoint_type"))
+
+    if endpoint_type == "llm/v1/completions":
+        completions_payload = {
+            "prompt": payload,
+            **eval_parameters,
+        }
+        response = client.predict(endpoint=deployment_uri, inputs=completions_payload)
+        return _parse_completions_response_format(response)
+    elif endpoint_type == "llm/v1/chat":
+        chat_payload = {
+            "messages": [{"role": "user", "content": payload}],
+            **eval_parameters,
+        }
+        response = client.predict(endpoint=deployment_uri, inputs=chat_payload)
+        return _parse_chat_response_format(response)
+
+    else:
+        raise MlflowException(
+            f"Unsupported endpoint type: {endpoint_type}. Use an "
+            "endpoint of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def _call_gateway_api(gateway_uri, payload, eval_parameters):
     from mlflow.gateway import get_route, query
 
     route_info = get_route(gateway_uri).dict()
-    if route_info["route_type"] == "llm/v1/completions":
+    if route_info["endpoint_type"] == "llm/v1/completions":
         completions_payload = {
             "prompt": payload,
             **eval_parameters,
         }
         response = query(gateway_uri, completions_payload)
-        try:
-            text = response["candidates"][0]["text"]
-        except (KeyError, IndexError, TypeError):
-            text = None
-        return text
-    elif route_info["route_type"] == "llm/v1/chat":
+        return _parse_completions_response_format(response)
+    elif route_info["endpoint_type"] == "llm/v1/chat":
         chat_payload = {
             "messages": [{"role": "user", "content": payload}],
             **eval_parameters,
         }
         response = query(gateway_uri, chat_payload)
-        try:
-            text = response["candidates"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError):
-            text = None
-        return text
+        return _parse_chat_response_format(response)
     else:
         raise MlflowException(
-            f"Unsupported gateway route type: {route_info['route_type']}. Use a "
+            f"Unsupported gateway route type: {route_info['endpoint_type']}. Use a "
             "route of type 'llm/v1/completions' or 'llm/v1/chat' instead.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+def _parse_chat_response_format(response):
+    try:
+        text = response["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        text = None
+    return text
+
+
+def _parse_completions_response_format(response):
+    try:
+        text = response["choices"][0]["text"]
+    except (KeyError, IndexError, TypeError):
+        text = None
+    return text

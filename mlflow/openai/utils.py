@@ -27,6 +27,52 @@ TEST_INTERMEDIATE_STEPS = (
     ],
 )
 
+REQUEST_URL_CHAT = "https://api.openai.com/v1/chat/completions"
+REQUEST_URL_COMPLETIONS = "https://api.openai.com/v1/completions"
+REQUEST_URL_EMBEDDINGS = "https://api.openai.com/v1/embeddings"
+
+REQUEST_FIELDS_CHAT = {
+    "model",
+    "messages",
+    "frequency_penalty",
+    "logit_bias",
+    "max_tokens",
+    "n",
+    "presence_penalty",
+    "response_format",
+    "seed",
+    "stop",
+    "stream",
+    "temperature",
+    "top_p",
+    "tools",
+    "tool_choice",
+    "user",
+    "function_call",
+    "functions",
+}
+REQUEST_FIELDS_COMPLETIONS = {
+    "model",
+    "prompt",
+    "best_of",
+    "echo",
+    "frequency_penalty",
+    "logit_bias",
+    "logprobs",
+    "max_tokens",
+    "n",
+    "presence_penalty",
+    "seed",
+    "stop",
+    "stream",
+    "suffix",
+    "temperature",
+    "top_p",
+    "user",
+}
+REQUEST_FIELDS_EMBEDDINGS = {"input", "model", "encoding_format", "user"}
+REQUEST_FIELDS = REQUEST_FIELDS_CHAT | REQUEST_FIELDS_COMPLETIONS | REQUEST_FIELDS_EMBEDDINGS
+
 
 class _MockResponse:
     def __init__(self, status_code, json_data):
@@ -34,6 +80,10 @@ class _MockResponse:
         self.content = json.dumps(json_data).encode()
         self.headers = {"Content-Type": "application/json"}
         self.text = mlflow.__version__
+        self.json_data = json_data
+
+    def json(self):
+        return self.json_data
 
 
 def _chat_completion_json_sample(content):
@@ -114,25 +164,33 @@ def _mock_request(**kwargs):
         yield m
 
 
+@contextmanager
+def _mock_request_post(**kwargs):
+    with mock.patch("requests.post", **kwargs) as m:
+        yield m
+
+
 def _mock_openai_request():
-    original = requests.Session.request
+    original = requests.post
 
     def request(*args, **kwargs):
-        url = args[2] if len(args) > 2 else kwargs.get("url")
+        url = kwargs.get("url")
+        for key in kwargs.get("json"):
+            assert key in REQUEST_FIELDS, f"'{key}' is not a valid request field"
 
-        if url.endswith("/chat/completions"):
-            messages = json.loads(kwargs.get("data")).get("messages")
+        if "/chat/completions" in url:
+            messages = kwargs.get("json").get("messages")
             return _mock_chat_completion_response(content=json.dumps(messages))
-        elif url.endswith("/completions"):
-            prompt = json.loads(kwargs.get("data")).get("prompt")
+        elif "/completions" in url:
+            prompt = kwargs.get("json").get("prompt")
             return _mock_completion_response(content=json.dumps(prompt))
-        elif url.endswith("/embeddings"):
-            inp = json.loads(kwargs.get("data")).get("input")
+        elif "/embeddings" in url:
+            inp = kwargs.get("json").get("input")
             return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)
         else:
             return original(*args, **kwargs)
 
-    return _mock_request(new=request)
+    return _mock_request_post(new=request)
 
 
 def _validate_model_params(task, model, params):
@@ -158,18 +216,10 @@ def _exclude_params_from_envs(params, envs):
 
 class _OAITokenHolder:
     def __init__(self, api_type):
-        import openai
-
         self._api_token = None
         self._credential = None
         self._is_azure_ad = api_type in ("azure_ad", "azuread")
-        self._key_configured = bool(openai.api_key)
-
-        # set the api key if it's not set. this is to deal with cases where the
-        # user sets the environment variable after importing the `openai` module
-        if not bool(openai.api_key) and "OPENAI_API_KEY" in os.environ:
-            openai.api_key = os.environ["OPENAI_API_KEY"]
-            self._key_configured = True
+        self._key_configured = "OPENAI_API_KEY" in os.environ
 
         if self._is_azure_ad and not self._key_configured:
             try:
@@ -206,7 +256,7 @@ class _OAITokenHolder:
                         "Unable to acquire a valid Azure AD token for the resource due to "
                         f"the following error: {err.message}"
                     ) from err
-                openai.api_key = self._api_token.token
+                os.environ["OPENAI_API_KEY"] = self._api_token.token
             if logger:
                 logger.debug("Token refreshed successfully")
         else:

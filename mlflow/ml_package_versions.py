@@ -21,11 +21,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.9.0",
-            "maximum": "2.1.0"
+            "maximum": "2.1.1"
         },
         "autologging": {
             "minimum": "1.9.0",
-            "maximum": "2.1.0"
+            "maximum": "2.1.1"
         }
     },
     "pytorch-lightning": {
@@ -34,7 +34,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.4.9",
-            "maximum": "2.1.0"
+            "maximum": "2.1.2"
         }
     },
     "tensorflow": {
@@ -43,11 +43,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.6.5",
-            "maximum": "2.14.0"
+            "maximum": "2.15.0"
         },
         "autologging": {
             "minimum": "2.6.5",
-            "maximum": "2.14.0"
+            "maximum": "2.15.0"
         }
     },
     "xgboost": {
@@ -56,11 +56,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.4.2",
-            "maximum": "2.0.1"
+            "maximum": "2.0.2"
         },
         "autologging": {
             "minimum": "1.4.2",
-            "maximum": "2.0.1"
+            "maximum": "2.0.2"
         }
     },
     "lightgbm": {
@@ -161,7 +161,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.18.0",
-            "maximum": "0.23.0"
+            "maximum": "0.23.1"
         }
     },
     "prophet": {
@@ -197,7 +197,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.40.0.1",
-            "maximum": "3.44.0.1"
+            "maximum": "3.44.0.2"
         }
     },
     "shap": {
@@ -224,11 +224,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.34.1"
+            "maximum": "4.35.2"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.34.1"
+            "maximum": "4.35.2"
         }
     },
     "openai": {
@@ -237,7 +237,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.27.2",
-            "maximum": "0.28.1"
+            "maximum": "1.3.7"
         }
     },
     "langchain": {
@@ -246,7 +246,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.244",
-            "maximum": "0.0.325"
+            "maximum": "0.0.345"
         }
     },
     "sentence_transformers": {
@@ -264,7 +264,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.4.6",
-            "maximum": "5.1.7"
+            "maximum": "5.1.8"
         }
     }
 }
