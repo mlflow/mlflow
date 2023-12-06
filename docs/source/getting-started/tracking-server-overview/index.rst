@@ -220,6 +220,7 @@ If the authentication succeeds, you should see a message "Succesfully signed in 
 To disable the interactive prompt for credentials (useful in CI/CD pipelines), use the `interactive` argument:
 
 .. code-block:: python
+
   import mlflow
 
   mlflow.login(interactive=False)
