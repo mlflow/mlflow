@@ -134,26 +134,20 @@ def test_score_model_azure_openai_bad_envs(mock_bad_azure_openai_creds):
 
 def test_openai_authentication_error(mock_openai_creds):
     client = get_deploy_client("openai")
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        side_effect=openai.error.AuthenticationError("foo"),
-    ) as mock_post:
-        with pytest.raises(
-            MlflowException, match="Authentication Error for OpenAI. Error response"
-        ):
-            client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
-        mock_post.assert_called_once()
+    mock_response = mock.Mock()
+    mock_response.status_code = 401
+    mock_response.json.return_value = {
+        "error": {
+            "message": "Incorrect API key provided: redacted. You can find your API key at https://platform.openai.com/account/api-keys.",
+            "type": "invalid_request_error",
+            "param": None,
+            "code": "invalid_api_key",
+        }
+    }
 
-
-def test_openai_invalid_request_error(mock_openai_creds):
-    client = get_deploy_client("openai")
-    with mock.patch(
-        "mlflow.openai.api_request_parallel_processor.process_api_requests",
-        side_effect=openai.error.InvalidRequestError("foo", "bar"),
-    ) as mock_post:
-        with pytest.raises(MlflowException, match="Invalid Request to OpenAI. Error response"):
+    with mock.patch("requests.post", return_value=mock_response):
+        with pytest.raises(MlflowException, match="Error response from OpenAI:"):
             client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
-        mock_post.assert_called_once()
 
 
 def test_openai_mlflow_exception(mock_openai_creds):
@@ -167,12 +161,12 @@ def test_openai_mlflow_exception(mock_openai_creds):
         mock_post.assert_called_once()
 
 
-def test_openai_mlflow_exception(mock_openai_creds):
+def test_openai_exception(mock_openai_creds):
     client = get_deploy_client("openai")
     with mock.patch(
         "mlflow.openai.api_request_parallel_processor.process_api_requests",
         side_effect=Exception("foo"),
     ) as mock_post:
-        with pytest.raises(MlflowException, match="Error response from OpenAI:"):
+        with pytest.raises(MlflowException, match="Error response from OpenAI:\n foo"):
             client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
         mock_post.assert_called_once()
