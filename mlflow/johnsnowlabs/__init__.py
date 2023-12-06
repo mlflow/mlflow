@@ -850,7 +850,7 @@ class PredictParams(BaseModel):
         try:
             return PredictParams(**param_row)
         except Exception as e:
-            print(
+            _logger.info(
                 f"Exception trying to parse prediction parameters for param row:"
                 f" \n{param_row} \n",
                 e,
