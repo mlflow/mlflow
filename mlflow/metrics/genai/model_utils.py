@@ -91,7 +91,7 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
 
         request_url = (
             f"{api_base}/openai/deployments/{deployment_id}"
-            "/chat/completions?api-version={api_version}"
+            f"/chat/completions?api-version={api_version}"
         )
     else:
         payload = {"model": openai_uri, **payload}

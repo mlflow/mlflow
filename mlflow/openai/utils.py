@@ -38,6 +38,10 @@ class _MockResponse:
         self.content = json.dumps(json_data).encode()
         self.headers = {"Content-Type": "application/json"}
         self.text = mlflow.__version__
+        self.json_data = json_data
+
+    def json(self):
+        return self.json_data
 
 
 def _chat_completion_json_sample(content):
@@ -114,24 +118,24 @@ def _mock_models_retrieve_response():
 
 @contextmanager
 def _mock_request(**kwargs):
-    with mock.patch("requests.Session.request", **kwargs) as m:
+    with mock.patch("requests.post", **kwargs) as m:
         yield m
 
 
 def _mock_openai_request():
-    original = requests.Session.request
+    original = requests.post
 
     def request(*args, **kwargs):
-        url = args[2] if len(args) > 2 else kwargs.get("url")
+        url = kwargs.get("url")
 
-        if url.endswith("/chat/completions"):
-            messages = json.loads(kwargs.get("data")).get("messages")
+        if "/chat/completions" in url:
+            messages = kwargs.get("json").get("messages")
             return _mock_chat_completion_response(content=json.dumps(messages))
-        elif url.endswith("/completions"):
-            prompt = json.loads(kwargs.get("data")).get("prompt")
+        elif "/completions" in url:
+            prompt = kwargs.get("json").get("prompt")
             return _mock_completion_response(content=json.dumps(prompt))
-        elif url.endswith("/embeddings"):
-            inp = json.loads(kwargs.get("data")).get("input")
+        elif "/embeddings" in url:
+            inp = kwargs.get("json").get("input")
             return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)
         else:
             return original(*args, **kwargs)
