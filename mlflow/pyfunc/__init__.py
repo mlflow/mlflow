@@ -271,6 +271,7 @@ from mlflow.utils import (
     insecure_hash,
 )
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils._spark_utils import modified_environ
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -1108,6 +1109,7 @@ def spark_udf(
     result_type=None,
     env_manager=_EnvManager.LOCAL,
     params: Optional[Dict[str, Any]] = None,
+    extra_env: Optional[Dict[str, str]] = None,
 ):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
@@ -1217,6 +1219,7 @@ def spark_udf(
                    .. Note:: Experimental: This parameter may change or be removed in a future
                                            release without warning.
 
+    :param extra_env: Extra environment variables to pass to the UDF executors.
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
     """
@@ -1500,138 +1503,148 @@ Compound types:
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
+        update_envs = {}
         if mlflow_home is not None:
-            os.environ["MLFLOW_HOME"] = mlflow_home
+            update_envs["MLFLOW_HOME"] = mlflow_home
         if openai_env_vars:
-            os.environ.update(openai_env_vars)
+            update_envs.update(openai_env_vars)
         if mlflow_testing:
-            _MLFLOW_TESTING.set(mlflow_testing)
-        scoring_server_proc = None
-        # set tracking_uri inside udf so that with spark_connect
-        # we can load the model from correct path
-        mlflow.set_tracking_uri(tracking_uri)
+            update_envs[_MLFLOW_TESTING.name] = mlflow_testing
+        if extra_env:
+            update_envs.update(extra_env)
 
-        if env_manager != _EnvManager.LOCAL:
-            if should_use_spark_to_broadcast_file:
-                local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
-                    archive_path
-                )
-                # Call "prepare_env" in advance in order to reduce scoring server launch time.
-                # So that we can use a shorter timeout when call `client.wait_server_ready`,
-                # otherwise we have to set a long timeout for `client.wait_server_ready` time,
-                # this prevents spark UDF task failing fast if other exception raised when scoring
-                # server launching.
-                # Set "capture_output" so that if "conda env create" command failed, the command
-                # stdout/stderr output will be attached to the exception message and included in
-                # driver side exception.
-                pyfunc_backend.prepare_env(
-                    model_uri=local_model_path_on_executor, capture_output=True
-                )
-            else:
-                local_model_path_on_executor = None
+        #  use `modified_environ` to temporarily set the envs and restore them finally
+        with modified_environ(update=update_envs):
+            scoring_server_proc = None
+            # set tracking_uri inside udf so that with spark_connect
+            # we can load the model from correct path
+            mlflow.set_tracking_uri(tracking_uri)
 
-            if check_port_connectivity():
-                # launch scoring server
-                server_port = find_free_port()
-                host = "127.0.0.1"
-                scoring_server_proc = pyfunc_backend.serve(
-                    model_uri=local_model_path_on_executor or local_model_path,
-                    port=server_port,
-                    host=host,
-                    timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-                    enable_mlserver=False,
-                    synchronous=False,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                )
-
-                client = ScoringServerClient(host, server_port)
-            else:
-                scoring_server_proc = pyfunc_backend.serve_stdin(
-                    model_uri=local_model_path_on_executor or local_model_path,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                )
-                client = StdinScoringServerClient(scoring_server_proc)
-
-            _logger.info("Using %s", client.__class__.__name__)
-
-            server_tail_logs = collections.deque(maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP)
-
-            def server_redirect_log_thread_func(child_stdout):
-                for line in child_stdout:
-                    decoded = line.decode() if isinstance(line, bytes) else line
-                    server_tail_logs.append(decoded)
-                    sys.stdout.write("[model server] " + decoded)
-
-            server_redirect_log_thread = threading.Thread(
-                target=server_redirect_log_thread_func,
-                args=(scoring_server_proc.stdout,),
-                daemon=True,
-            )
-            server_redirect_log_thread.start()
-
-            try:
-                client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-            except Exception as e:
-                err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
-                if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
-                    err_msg += (
-                        f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
-                        "lines of MLflow model server output:\n"
+            if env_manager != _EnvManager.LOCAL:
+                if should_use_spark_to_broadcast_file:
+                    local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
+                        archive_path
+                    )
+                    # Call "prepare_env" in advance in order to reduce scoring server launch time.
+                    # So that we can use a shorter timeout when call `client.wait_server_ready`,
+                    # otherwise we have to set a long timeout for `client.wait_server_ready` time,
+                    # this prevents spark UDF task failing fast if other exception raised
+                    # when scoring server launching.
+                    # Set "capture_output" so that if "conda env create" command failed, the command
+                    # stdout/stderr output will be attached to the exception message and included in
+                    # driver side exception.
+                    pyfunc_backend.prepare_env(
+                        model_uri=local_model_path_on_executor, capture_output=True
                     )
                 else:
-                    err_msg += "MLflow model server output:\n"
-                err_msg += "".join(server_tail_logs)
-                raise MlflowException(err_msg) from e
+                    local_model_path_on_executor = None
 
-            def batch_predict_fn(pdf, params=None):
-                if inspect.signature(client.invoke).parameters.get("params"):
-                    return client.invoke(pdf, params=params).get_predictions()
-                _log_warning_if_params_not_in_predict_signature(_logger, params)
-                return client.invoke(pdf).get_predictions()
+                if check_port_connectivity():
+                    # launch scoring server
+                    server_port = find_free_port()
+                    host = "127.0.0.1"
+                    scoring_server_proc = pyfunc_backend.serve(
+                        model_uri=local_model_path_on_executor or local_model_path,
+                        port=server_port,
+                        host=host,
+                        timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
+                        enable_mlserver=False,
+                        synchronous=False,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                    )
 
-        elif env_manager == _EnvManager.LOCAL:
-            if is_spark_connect and not should_spark_connect_use_nfs:
-                model_path = os.path.join(
-                    tempfile.gettempdir(),
-                    "mlflow",
-                    insecure_hash.sha1(model_uri.encode()).hexdigest(),
-                )
-                try:
-                    loaded_model = mlflow.pyfunc.load_model(model_path)
-                except Exception:
-                    os.makedirs(model_path, exist_ok=True)
-                    loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
-            elif should_use_spark_to_broadcast_file:
-                loaded_model, _ = SparkModelCache.get_or_load(archive_path)
-            else:
-                loaded_model = mlflow.pyfunc.load_model(local_model_path)
-
-            def batch_predict_fn(pdf, params=None):
-                if inspect.signature(loaded_model.predict).parameters.get("params"):
-                    return loaded_model.predict(pdf, params=params)
-                _log_warning_if_params_not_in_predict_signature(_logger, params)
-                return loaded_model.predict(pdf)
-
-        try:
-            for input_batch in iterator:
-                # If the UDF is called with only multiple arguments,
-                # the `input_batch` is a tuple which composes of several pd.Series/pd.DataFrame
-                # objects.
-                # If the UDF is called with only one argument,
-                # the `input_batch` instance will be an instance of `pd.Series`/`pd.DataFrame`,
-                if isinstance(input_batch, (pandas.Series, pandas.DataFrame)):
-                    # UDF is called with only one argument
-                    row_batch_args = (input_batch,)
+                    client = ScoringServerClient(host, server_port)
                 else:
-                    row_batch_args = input_batch
+                    scoring_server_proc = pyfunc_backend.serve_stdin(
+                        model_uri=local_model_path_on_executor or local_model_path,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                    )
+                    client = StdinScoringServerClient(scoring_server_proc)
 
-                if len(row_batch_args[0]) > 0:
-                    yield _predict_row_batch(batch_predict_fn, row_batch_args)
-        finally:
-            if scoring_server_proc is not None:
-                os.kill(scoring_server_proc.pid, signal.SIGTERM)
+                _logger.info("Using %s", client.__class__.__name__)
+
+                server_tail_logs = collections.deque(
+                    maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP
+                )
+
+                def server_redirect_log_thread_func(child_stdout):
+                    for line in child_stdout:
+                        decoded = line.decode() if isinstance(line, bytes) else line
+                        server_tail_logs.append(decoded)
+                        sys.stdout.write("[model server] " + decoded)
+
+                server_redirect_log_thread = threading.Thread(
+                    target=server_redirect_log_thread_func,
+                    args=(scoring_server_proc.stdout,),
+                    daemon=True,
+                )
+                server_redirect_log_thread.start()
+
+                try:
+                    client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+                except Exception as e:
+                    err_msg = (
+                        "During spark UDF task execution, mlflow model server failed to launch. "
+                    )
+                    if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
+                        err_msg += (
+                            f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
+                            "lines of MLflow model server output:\n"
+                        )
+                    else:
+                        err_msg += "MLflow model server output:\n"
+                    err_msg += "".join(server_tail_logs)
+                    raise MlflowException(err_msg) from e
+
+                def batch_predict_fn(pdf, params=None):
+                    if inspect.signature(client.invoke).parameters.get("params"):
+                        return client.invoke(pdf, params=params).get_predictions()
+                    _log_warning_if_params_not_in_predict_signature(_logger, params)
+                    return client.invoke(pdf).get_predictions()
+
+            elif env_manager == _EnvManager.LOCAL:
+                if is_spark_connect and not should_spark_connect_use_nfs:
+                    model_path = os.path.join(
+                        tempfile.gettempdir(),
+                        "mlflow",
+                        insecure_hash.sha1(model_uri.encode()).hexdigest(),
+                    )
+                    try:
+                        loaded_model = mlflow.pyfunc.load_model(model_path)
+                    except Exception:
+                        os.makedirs(model_path, exist_ok=True)
+                        loaded_model = mlflow.pyfunc.load_model(model_uri, dst_path=model_path)
+                elif should_use_spark_to_broadcast_file:
+                    loaded_model, _ = SparkModelCache.get_or_load(archive_path)
+                else:
+                    loaded_model = mlflow.pyfunc.load_model(local_model_path)
+
+                def batch_predict_fn(pdf, params=None):
+                    if inspect.signature(loaded_model.predict).parameters.get("params"):
+                        return loaded_model.predict(pdf, params=params)
+                    _log_warning_if_params_not_in_predict_signature(_logger, params)
+                    return loaded_model.predict(pdf)
+
+            try:
+                for input_batch in iterator:
+                    # If the UDF is called with only multiple arguments,
+                    # the `input_batch` is a tuple which composes of several pd.Series/pd.DataFrame
+                    # objects.
+                    # If the UDF is called with only one argument,
+                    # the `input_batch` instance will be an instance of `pd.Series`/`pd.DataFrame`,
+                    if isinstance(input_batch, (pandas.Series, pandas.DataFrame)):
+                        # UDF is called with only one argument
+                        row_batch_args = (input_batch,)
+                    else:
+                        row_batch_args = input_batch
+
+                    if len(row_batch_args[0]) > 0:
+                        yield _predict_row_batch(batch_predict_fn, row_batch_args)
+            finally:
+                if scoring_server_proc is not None:
+                    os.kill(scoring_server_proc.pid, signal.SIGTERM)
 
     udf.metadata = model_metadata
 
