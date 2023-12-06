@@ -419,9 +419,7 @@ def _save_model_metadata(
     mlflow_model.save(str(Path(dst_dir) / MLMODEL_FILE_NAME))
 
     if conda_env is None:
-        default_reqs = (
-            get_default_pip_requirements() if pip_requirements is None else None
-        )
+        default_reqs = get_default_pip_requirements() if pip_requirements is None else None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs,
             pip_requirements,
@@ -435,9 +433,7 @@ def _save_model_metadata(
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(
-            str(Path(dst_dir) / _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints)
-        )
+        write_to(str(Path(dst_dir) / _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
     write_to(str(Path(dst_dir) / _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(str(Path(dst_dir) / _PYTHON_ENV_FILE_NAME))
@@ -598,9 +594,7 @@ def save_model(
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
-        _HadoopFileSystem.copy_to_local_file(
-            tmp_path, sparkml_data_path, remove_src=True
-        )
+        _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     _save_model_metadata(
         dst_dir=path,
         spark_model=spark_model,
@@ -626,9 +620,7 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
     os.makedirs(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
-    shutil_copytree_without_file_permissions(
-        src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir
-    )
+    shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
     return nlp.load(path=dfs_tmpdir)
 
 
@@ -725,9 +717,7 @@ def load_model(
             return PipelineModel.load(mlflowdbfs_path)
 
     sparkml_model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    local_sparkml_model_path = str(
-        Path(local_mlflow_model_path) / flavor_conf["model_data"]
-    )
+    local_sparkml_model_path = str(Path(local_mlflow_model_path) / flavor_conf["model_data"])
     return _load_model(
         model_uri=sparkml_model_uri,
         dfs_tmpdir_base=dfs_tmpdir,
@@ -798,16 +788,12 @@ def _get_or_create_sparksession(model_path=None):
 
 def _fetch_deps_from_path(local_model_path):
     if _JOHNSNOWLABS_MODEL_PATH_SUB not in local_model_path:
-        local_model_path = (
-            Path(local_model_path) / _JOHNSNOWLABS_MODEL_PATH_SUB / "jars.jsl"
-        )
+        local_model_path = Path(local_model_path) / _JOHNSNOWLABS_MODEL_PATH_SUB / "jars.jsl"
     else:
         local_model_path = Path(local_model_path) / "jars.jsl"
 
     jar_paths = [
-        str(local_model_path / file)
-        for file in local_model_path.iterdir()
-        if file.suffix == ".jar"
+        str(local_model_path / file) for file in local_model_path.iterdir() if file.suffix == ".jar"
     ]
     license_path = [
         str(local_model_path / file)
@@ -864,8 +850,4 @@ class _PyFuncModelWrapper:
         :return: List with model predictions.
         """
         output_level = params.get("output_level", "") if params else ""
-        return (
-            self.spark_model.predict(text, output_level=output_level)
-            .reset_index()
-            .to_json()
-        )
+        return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()
