@@ -52,7 +52,6 @@ from mlflow.openai.utils import (
     REQUEST_URL_CHAT,
     REQUEST_URL_COMPLETIONS,
     REQUEST_URL_EMBEDDINGS,
-    _exclude_params_from_envs,
     _OAITokenHolder,
     _validate_model_params,
 )
@@ -756,9 +755,7 @@ class _OpenAIWrapper:
 
         _validate_model_params(self.task, self.model, params)
         messages_list = self.format_completions(self.get_params_list(data))
-        requests = [
-            {**self.model, **params, "messages": messages} for messages in messages_list
-        ]
+        requests = [{**self.model, **params, "messages": messages} for messages in messages_list]
         request_url = self._construct_request_url("chat/completions", REQUEST_URL_CHAT)
 
         results = process_api_requests(
