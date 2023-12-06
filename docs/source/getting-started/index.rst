@@ -329,8 +329,8 @@ your MLflow experiments.
 `5 Minute Model Registry Overview <model-registry/index.html>`_
 ---------------------------------------------------------------------------
 
-This quickstart tutorial walks through different types of MLflow Tracking Servers and how to use them to log 
-your MLflow experiments.
+This quickstart tutorial walks through registering a model in the MLflow model registry and how to
+retreive registered models. 
 
 .. raw:: html
 
