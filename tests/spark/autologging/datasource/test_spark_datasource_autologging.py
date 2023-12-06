@@ -51,6 +51,7 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
                 run_id = mlflow.active_run().info.run_id
                 df.collect()
                 time.sleep(1)
+
             run = mlflow.get_run(run_id)
             _assert_spark_data_logged(run=run, path=file_path, data_format=data_format)
 
