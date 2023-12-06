@@ -14,11 +14,15 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
-from mlflow.gateway.utils import assemble_uri_path, get_gateway_uri, resolve_route_url
+from mlflow.gateway.utils import (
+    assemble_uri_path,
+    gateway_deprecated,
+    get_gateway_uri,
+    resolve_route_url,
+)
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import get_uri_scheme
@@ -26,7 +30,7 @@ from mlflow.utils.uri import get_uri_scheme
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@gateway_deprecated
 class MlflowGatewayClient:
     """
     Client for interacting with the MLflow Gateway API.
@@ -91,12 +95,13 @@ class MlflowGatewayClient:
             method=method,
             timeout=MLFLOW_GATEWAY_CLIENT_QUERY_TIMEOUT_SECONDS,
             retry_codes=MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
+            raise_on_status=False,
             **call_kwargs,
         )
         augmented_raise_for_status(response)
         return response
 
-    @experimental
+    @gateway_deprecated
     def get_route(self, name: str):
         """
         Get a specific query route from the gateway. The routes that are available to retrieve
@@ -114,7 +119,7 @@ class MlflowGatewayClient:
 
         return Route(**response)
 
-    @experimental
+    @gateway_deprecated
     def search_routes(self, page_token: Optional[str] = None) -> PagedList[Route]:
         """
         Search for routes in the Gateway.
@@ -144,7 +149,7 @@ class MlflowGatewayClient:
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
 
-    @experimental
+    @gateway_deprecated
     def create_route(
         self, name: str, route_type: Optional[str] = None, model: Optional[Dict[str, Any]] = None
     ) -> Route:
@@ -221,7 +226,7 @@ class MlflowGatewayClient:
         ).json()
         return Route(**response)
 
-    @experimental
+    @gateway_deprecated
     def delete_route(self, name: str) -> None:
         """
         Delete an existing route in the Gateway.
@@ -257,7 +262,7 @@ class MlflowGatewayClient:
         route = assemble_uri_path([MLFLOW_GATEWAY_CRUD_ROUTE_BASE, name])
         self._call_endpoint("DELETE", route)
 
-    @experimental
+    @gateway_deprecated
     def query(self, route: str, data: Dict[str, Any]):
         """
         Submit a query to a configured provider route.
@@ -346,7 +351,7 @@ class MlflowGatewayClient:
             else:
                 raise e
 
-    @experimental
+    @gateway_deprecated
     def set_limits(self, route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
         """
         Set limits on an existing route in the Gateway.
@@ -393,7 +398,7 @@ class MlflowGatewayClient:
         ).json()
         return LimitsConfig(**response)
 
-    @experimental
+    @gateway_deprecated
     def get_limits(self, route: str) -> LimitsConfig:
         """
         Get limits of an existing route in the Gateway.

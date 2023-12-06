@@ -24,11 +24,10 @@ import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import { LazyShowArtifactPdfView } from './LazyShowArtifactPdfView';
 import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
-// @ts-expect-error TS(2307): Cannot find module '../../../common/static/preview... Remove this comment to see the full error message
 import previewIcon from '../../../common/static/preview-icon.png';
 import warningSvg from '../../../common/static/warning.svg';
 import './ShowArtifactPage.css';
-import { getModelVersionPageRoute } from '../../../model-registry/routes';
+import { ModelRegistryRoutes } from '../../../model-registry/routes';
 import Utils from '../../../common/utils/Utils';
 
 import { FormattedMessage } from 'react-intl';
@@ -58,7 +57,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         if (registeredModel) {
           const { name: registeredModelName, version } = registeredModel;
           registeredModelLink = Utils.getIframeCorrectedRoute(
-            getModelVersionPageRoute(registeredModelName, version),
+            ModelRegistryRoutes.getModelVersionPageRoute(registeredModelName, version),
           );
         }
       }

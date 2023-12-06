@@ -19,7 +19,7 @@ import os
 import shlex
 import sys
 import traceback
-from typing import Dict, NamedTuple, Tuple
+from typing import Dict, NamedTuple, Optional, Tuple
 
 import flask
 
@@ -399,10 +399,7 @@ def _predict(model_uri, input_path, output_path, content_type):
         data, params = _split_data_and_params(input_str)
         df = infer_and_parse_data(data)
     elif content_type == "csv":
-        if input_path is not None:
-            df = parse_csv_input(input_path)
-        else:
-            df = parse_csv_input(sys.stdin)
+        df = parse_csv_input(input_path) if input_path is not None else parse_csv_input(sys.stdin)
         params = None
     else:
         raise Exception(f"Unknown content type '{content_type}'")
@@ -426,7 +423,11 @@ def _serve(model_uri, port, host):
 
 
 def get_cmd(
-    model_uri: str, port: int = None, host: int = None, timeout: int = None, nworkers: int = None
+    model_uri: str,
+    port: Optional[int] = None,
+    host: Optional[int] = None,
+    timeout: Optional[int] = None,
+    nworkers: Optional[int] = None,
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()

@@ -141,7 +141,7 @@ describe('useEditRegisteredModelAliasesModal', () => {
     });
 
     expect(component.getByText(/You are exceeding a limit of \d+ aliases/)).toBeInTheDocument();
-    expect(component.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    expect(component.getByRole('button', { name: 'Save aliases' })).toBeDisabled();
   });
 
   test('should invoke proper API requests for adding and removing aliases', async () => {
@@ -151,14 +151,14 @@ describe('useEditRegisteredModelAliasesModal', () => {
 
     expect(component.getByTitle('champion')).toBeInTheDocument();
 
-    expect(component.getByRole('button', { name: 'Continue' })).toBeDisabled();
+    expect(component.getByRole('button', { name: 'Save aliases' })).toBeDisabled();
 
     userEvent.click(component.getByRole('combobox'));
     userEvent.click(findOption(component, 'champion'));
     userEvent.click(findOption(component, 'challenger'));
 
     await act(async () => {
-      userEvent.click(component.getByText('Continue'));
+      userEvent.click(component.getByText('Save aliases'));
     });
 
     expect(Services.deleteModelVersionAlias).toBeCalledWith({
@@ -186,7 +186,7 @@ describe('useEditRegisteredModelAliasesModal', () => {
     userEvent.click(findOption(component, 'challenger'));
 
     await act(async () => {
-      userEvent.click(component.getByText('Continue'));
+      userEvent.click(component.getByText('Save aliases'));
     });
 
     expect(await component.findByText(/some error message/)).toBeInTheDocument();

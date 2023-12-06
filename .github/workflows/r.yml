@@ -14,10 +14,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
+  MLFLOW_HOME: /home/runner/work/mlflow/mlflow
   PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
 
 jobs:
@@ -90,5 +91,4 @@ jobs:
           LINTR_COMMENT_BOT: false
         run: |
           cd tests
-          export MLFLOW_HOME=$(git rev-parse --show-toplevel)
           Rscript -e 'source("../.run-tests.R", echo=TRUE)'

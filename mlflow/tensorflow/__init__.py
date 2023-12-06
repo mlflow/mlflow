@@ -64,7 +64,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
@@ -85,6 +85,9 @@ _AUTOLOG_RUN_ID = None
 
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
+# File name to which custom objects stored in tensorflow _GLOBAL_CUSTOM_OBJECTS
+# is saved - it is automatically detected and used during save and load
+_GLOBAL_CUSTOM_OBJECTS_SAVE_PATH = "global_custom_objects.cloudpickle"
 _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 # File name to which keras model is saved
@@ -115,6 +118,18 @@ def get_default_conda_env():
              :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+def get_global_custom_objects():
+    """
+    :return: A live reference to the global dictionary of custom objects.
+    """
+    try:
+        from tensorflow.keras.saving import get_custom_objects
+
+        return get_custom_objects()
+    except Exception:
+        pass
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -216,7 +231,7 @@ def log_model(
     )
 
 
-def _save_keras_custom_objects(path, custom_objects):
+def _save_keras_custom_objects(path, custom_objects, file_name):
     """
     Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
 
@@ -227,10 +242,11 @@ def _save_keras_custom_objects(path, custom_objects):
                            CloudPickle and restores them automatically when the model is
                            loaded with :py:func:`mlflow.keras.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
+    :param file_name: The file name to save the custom objects to.
     """
     import cloudpickle
 
-    custom_objects_path = os.path.join(path, _CUSTOM_OBJECTS_SAVE_PATH)
+    custom_objects_path = os.path.join(path, file_name)
     with open(custom_objects_path, "wb") as out_f:
         cloudpickle.dump(custom_objects, out_f)
 
@@ -390,7 +406,12 @@ def save_model(
         keras_module = importlib.import_module("tensorflow.keras")
         # save custom objects if there are custom objects
         if custom_objects is not None:
-            _save_keras_custom_objects(data_path, custom_objects)
+            _save_keras_custom_objects(data_path, custom_objects, _CUSTOM_OBJECTS_SAVE_PATH)
+        # save custom objects stored within _GLOBAL_CUSTOM_OBJECTS
+        if global_custom_objects := get_global_custom_objects():
+            _save_keras_custom_objects(
+                data_path, global_custom_objects, _GLOBAL_CUSTOM_OBJECTS_SAVE_PATH
+            )
 
         # save keras module spec to path/data/keras_module.txt
         with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
@@ -407,7 +428,14 @@ def save_model(
         # To maintain prior behavior, when the format is HDF5, we save
         # with the h5 file extension. Otherwise, model_path is a directory
         # where the saved_model.pb will be stored (for SavedModel format)
-        file_extension = ".h5" if save_format == "h5" else ""
+        # For tensorflow 2.16.0 (including dev version),
+        # it only supports saving model in .h5 or .keras format
+        if save_format == "h5":
+            file_extension = ".h5"
+        elif Version(tensorflow.__version__).release >= (2, 16):
+            file_extension = ".keras"
+        else:
+            file_extension = ""
         model_path = os.path.join(path, model_subpath) + file_extension
         if path.startswith("/dbfs/"):
             # The Databricks Filesystem uses a FUSE implementation that does not support
@@ -415,7 +443,7 @@ def save_model(
             with tempfile.NamedTemporaryFile(suffix=".h5") as f:
                 model.save(f.name, **keras_model_kwargs)
                 f.flush()  # force flush the data
-                shutil.copyfile(src=f.name, dst=model_path)
+                shutil.copy2(src=f.name, dst=model_path)
         else:
             model.save(model_path, **keras_model_kwargs)
 
@@ -455,10 +483,14 @@ def save_model(
         **pyfunc_options,
     )
 
+    # add model file size to mlflow_model
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
+
     # save mlflow_model to path/MLmodel
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
-    include_cloudpickle = custom_objects is not None
+    include_cloudpickle = custom_objects is not None or get_global_custom_objects() is not None
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements(include_cloudpickle)
@@ -491,31 +523,46 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_keras_model(model_path, keras_module, save_format, **kwargs):
-    keras_models = importlib.import_module(keras_module.__name__ + ".models")
-    custom_objects = kwargs.pop("custom_objects", {})
+def _load_custom_objects(path, file_name):
     custom_objects_path = None
-    if os.path.isdir(model_path):
-        if os.path.isfile(os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)):
-            custom_objects_path = os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)
-        model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
+    if os.path.isdir(path):
+        if os.path.isfile(os.path.join(path, file_name)):
+            custom_objects_path = os.path.join(path, file_name)
     if custom_objects_path is not None:
         import cloudpickle
 
-        with open(custom_objects_path, "rb") as in_f:
-            pickled_custom_objects = cloudpickle.load(in_f)
-            pickled_custom_objects.update(custom_objects)
-            custom_objects = pickled_custom_objects
+        with open(custom_objects_path, "rb") as f:
+            return cloudpickle.load(f)
+
+
+def _load_keras_model(model_path, keras_module, save_format, **kwargs):
+    keras_models = importlib.import_module(keras_module.__name__ + ".models")
+    custom_objects = kwargs.pop("custom_objects", {})
+    if saved_custom_objects := _load_custom_objects(model_path, _CUSTOM_OBJECTS_SAVE_PATH):
+        saved_custom_objects.update(custom_objects)
+        custom_objects = saved_custom_objects
+
+    if global_custom_objects := _load_custom_objects(model_path, _GLOBAL_CUSTOM_OBJECTS_SAVE_PATH):
+        global_custom_objects.update(custom_objects)
+        custom_objects = global_custom_objects
+
+    if os.path.isdir(model_path):
+        model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
 
     # If the save_format is HDF5, then we save with h5 file
     # extension to align with prior behavior of mlflow logging
     if save_format == "h5":
-        model_path = model_path + ".h5"
+        model_path += ".h5"
+    # Since TF 2.16.0, it only supports saving model in .h5 or .keras format.
+    # But for backwards compatibility, we still save model without suffix
+    # for older versions of TF.
+    elif os.path.exists(model_path + ".keras"):
+        model_path += ".keras"
 
     # keras in tensorflow used to have a '-tf' suffix in the version:
     # https://github.com/tensorflow/tensorflow/blob/v2.2.1/tensorflow/python/keras/__init__.py#L36
     unsuffixed_version = re.sub(r"-tf$", "", _get_keras_version(keras_module))
-    if save_format == "h5" and Version(unsuffixed_version) >= Version("2.2.3"):
+    if save_format == "h5" and (2, 2, 3) <= Version(unsuffixed_version).release < (2, 16):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         import h5py
@@ -705,7 +752,6 @@ def _load_pyfunc(path):
         should_compile = save_format == "tf"
         K = importlib.import_module(keras_module.__name__ + ".backend")
         if K.backend() == "tensorflow":
-            K.set_learning_phase(0)
             m = _load_keras_model(
                 path, keras_module=keras_module, save_format=save_format, compile=should_compile
             )
@@ -774,10 +820,7 @@ class _TF2Wrapper:
                 # with the shared name. TensorFlow cannot make eager tensors out of pandas
                 # DataFrames, so we convert the DataFrame to a numpy array here.
                 val = data[df_col_name]
-                if isinstance(val, pandas.DataFrame):
-                    val = val.values
-                else:
-                    val = np.array(val.to_list())
+                val = val.values if isinstance(val, pandas.DataFrame) else np.array(val.to_list())
                 feed_dict[df_col_name] = tensorflow.constant(val)
         else:
             raise TypeError("Only dict and DataFrame input types are supported")
@@ -1182,10 +1225,7 @@ def autolog(
                         batch_size = len(first_batch_inputs[0])
                 elif is_iterator(training_data):
                     peek = next(training_data)
-                    if is_single_input_model:
-                        batch_size = len(peek[0])
-                    else:
-                        batch_size = len(peek[0][0])
+                    batch_size = len(peek[0]) if is_single_input_model else len(peek[0][0])
 
                     def __restore_generator(prev_generator):
                         yield peek

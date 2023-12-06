@@ -180,6 +180,29 @@ def from_numpy(
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: The dataset digest (hash). If unspecified, a digest is computed
                    automatically.
+
+    .. testcode:: python
+        :caption: Basic Example
+
+        import mlflow
+        import numpy as np
+
+        x = np.random.uniform(size=[2, 5, 4])
+        y = np.random.randint(2, size=[2])
+        dataset = mlflow.data.from_numpy(x, targets=y)
+
+    .. testcode:: python
+        :caption: Dict Example
+
+        import mlflow
+        import numpy as np
+
+        x = {
+            "feature_1": np.random.uniform(size=[2, 5, 4]),
+            "feature_2": np.random.uniform(size=[2, 5, 4]),
+        }
+        y = np.random.randint(2, size=[2])
+        dataset = mlflow.data.from_numpy(x, targets=y)
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source

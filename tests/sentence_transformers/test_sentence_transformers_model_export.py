@@ -430,12 +430,13 @@ def test_pyfunc_serve_and_score(input1, input2, basic_model):
 
 
 SENTENCES = ["hello world", "i am mlflow"]
+SENTENCES_DF = pd.DataFrame(SENTENCES)
 SIGNATURE = infer_signature(
     model_input=SENTENCES,
     model_output=SentenceTransformer("all-MiniLM-L6-v2").encode(SENTENCES),
 )
 SIGNATURE_FROM_EXAMPLE = infer_signature(
-    model_input=pd.DataFrame([SENTENCES], columns=[0, 1]),
+    model_input=SENTENCES_DF,
     model_output=SentenceTransformer("all-MiniLM-L6-v2").encode(SENTENCES),
 )
 
@@ -444,7 +445,7 @@ SIGNATURE_FROM_EXAMPLE = infer_signature(
     ("example", "signature", "expected_signature"),
     [
         (None, None, mlflow.sentence_transformers._get_default_signature()),
-        (SENTENCES, None, SIGNATURE_FROM_EXAMPLE),
+        (SENTENCES_DF, None, SIGNATURE_FROM_EXAMPLE),
         (None, SIGNATURE, SIGNATURE),
         (SENTENCES, SIGNATURE, SIGNATURE),
     ],
@@ -475,4 +476,4 @@ def test_model_log_with_signature_inference(basic_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)
-    assert model_info.signature == SIGNATURE_FROM_EXAMPLE
+    assert model_info.signature == SIGNATURE

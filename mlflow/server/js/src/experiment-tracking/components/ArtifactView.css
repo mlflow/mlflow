@@ -1,6 +1,5 @@
 div.artifact-view {
   height: 690px;
-  border: solid 1px #ccc;
   display: flex;
   overflow: hidden;
 }
@@ -24,14 +23,6 @@ div.artifact-view {
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-.artifact-info {
-  height: 56px;
-  background-color: #fafafa;
-  padding: 8px 16px;
-  white-space: nowrap;
-  display: flex;
 }
 
 .artifact-info-left {

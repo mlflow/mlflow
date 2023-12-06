@@ -73,14 +73,14 @@ Example Expressions
 
     tags.`type` ILIKE '%Logistic%'
 
-- Search for runs whose names are one of ``alpha``, ``beta`` and ``gamma``.
+- Search for runs whose names contain ``alpha``.
 
   .. code-block:: sql
 
-    attributes.`run_name` IN ('alpha', 'beta', 'gamma')
-    attributes.`run name` IN ('alpha', 'beta', 'gamma')
-    attributes.`Run name` IN ('alpha', 'beta', 'gamma')
-    attributes.`Run Name` IN ('alpha', 'beta', 'gamma')
+    attributes.`run_name` ILIKE "%alpha%"
+    attributes.`run name` ILIKE "%alpha%"
+    attributes.`Run name` ILIKE "%alpha%"
+    attributes.`Run Name` ILIKE "%alpha%"
 
 - Search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and recorded error metric under 0.05.
 

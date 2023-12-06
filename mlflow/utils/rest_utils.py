@@ -5,6 +5,7 @@ import requests
 
 from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
+    MLFLOW_HTTP_REQUEST_BACKOFF_JITTER,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
@@ -30,9 +31,11 @@ def http_request(
     method,
     max_retries=None,
     backoff_factor=None,
+    backoff_jitter=None,
     extra_headers=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
+    raise_on_status=True,
     **kwargs,
 ):
     """
@@ -49,17 +52,25 @@ def http_request(
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
+    :param backoff_jitter: A random jitter to add to the backoff interval.
     :param extra_headers: a dict of HTTP header name-value pairs to be included in the request.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request.
+    :param raise_on_status: whether to raise an exception, or return a response, if status falls
+      in retry_codes range and retries have been exhausted.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return: requests.Response object.
     """
-    max_retries = max_retries or MLFLOW_HTTP_REQUEST_MAX_RETRIES.get()
-    backoff_factor = backoff_factor or MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get()
-    timeout = timeout or MLFLOW_HTTP_REQUEST_TIMEOUT.get()
+    max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
+    backoff_factor = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
+    )
+    backoff_jitter = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
+    )
+    timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
@@ -85,6 +96,10 @@ def http_request(
         from requests_auth_aws_sigv4 import AWSSigV4
 
         kwargs["auth"] = AWSSigV4("execute-api")
+    elif host_creds.auth:
+        from mlflow.tracking.request_auth.registry import fetch_auth
+
+        kwargs["auth"] = fetch_auth(host_creds.auth)
 
     cleaned_hostname = strip_suffix(hostname, "/")
     url = f"{cleaned_hostname}{endpoint}"
@@ -94,7 +109,9 @@ def http_request(
             url,
             max_retries,
             backoff_factor,
+            backoff_jitter,
             retry_codes,
+            raise_on_status,
             headers=headers,
             verify=host_creds.verify,
             timeout=timeout,
@@ -231,6 +248,8 @@ class MlflowHostCreds:
     :param aws_sigv4: If true, we will create a signature V4 to be added for any outgoing request.
         Keys for signing the request can be passed via ENV variables,
         or will be fetched via boto3 session.
+    :param auth: If set, the auth will be added for any outgoing request.
+        Keys for signing the request can be passed via ENV variables,
     :param ignore_tls_verification: If true, we will not verify the server's hostname or TLS
         certificate. This is useful for certain testing situations, but should never be
         true in production.
@@ -251,6 +270,7 @@ class MlflowHostCreds:
         password=None,
         token=None,
         aws_sigv4=False,
+        auth=None,
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
@@ -276,6 +296,7 @@ class MlflowHostCreds:
         self.password = password
         self.token = token
         self.aws_sigv4 = aws_sigv4
+        self.auth = auth
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path

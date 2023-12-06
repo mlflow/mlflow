@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
-import type { CompareChartRunData } from '../charts/CompareRunsCharts.common';
+import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 import type { RunsCompareScatterCardConfig } from '../runs-compare.types';
 import { RunsCompareChartCardWrapper } from './ChartCard.common';
-import { CompareRunsScatterPlot } from '../charts/CompareRunsScatterPlot';
-import { useCompareRunsTooltip } from '../hooks/useCompareRunsTooltip';
+import { RunsScatterPlot } from '../../runs-charts/components/RunsScatterPlot';
+import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsTooltip';
 
 export interface RunsCompareScatterChartCardProps {
   config: RunsCompareScatterCardConfig;
-  chartRunData: CompareChartRunData[];
+  chartRunData: RunsChartsRunData[];
 
   onDelete: () => void;
   onEdit: () => void;
@@ -24,7 +24,7 @@ export const RunsCompareScatterChartCard = ({
     [chartRunData, config],
   );
 
-  const { setTooltip, resetTooltip, selectedRunUuid } = useCompareRunsTooltip(config);
+  const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
   return (
     <RunsCompareChartCardWrapper
@@ -35,7 +35,7 @@ export const RunsCompareScatterChartCard = ({
       subtitle={<>Comparing first {slicedRuns.length} runs</>}
     >
       <div css={styles.scatterChartCardWrapper}>
-        <CompareRunsScatterPlot
+        <RunsScatterPlot
           runsData={slicedRuns}
           xAxis={config.xaxis}
           yAxis={config.yaxis}

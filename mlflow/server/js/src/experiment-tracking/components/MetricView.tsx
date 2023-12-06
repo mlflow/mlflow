@@ -10,7 +10,6 @@ import { connect } from 'react-redux';
 import { FormattedMessage } from 'react-intl';
 import Utils from '../../common/utils/Utils';
 import './MetricView.css';
-import { Experiment } from '../sdk/MlflowMessages';
 import { getExperiment, getRunInfo } from '../reducers/Reducers';
 import MetricsPlotPanel from './MetricsPlotPanel';
 import { Link } from '../../common/utils/RoutingUtils';
@@ -82,8 +81,7 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     const { comparedExperimentIds, hasComparedExperimentsBefore, experimentIds, experiments } =
       this.props;
 
-    if (hasComparedExperimentsBefore) {
-      // @ts-expect-error TS(2532): Object is possibly 'undefined'.
+    if (hasComparedExperimentsBefore && comparedExperimentIds) {
       const text = this.getCompareExperimentsPageLinkText(comparedExperimentIds.length);
       return <Link to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}>{text}</Link>;
     }

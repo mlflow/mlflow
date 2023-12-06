@@ -172,22 +172,25 @@ def test_fluent_query_chat(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     routes = search_routes()
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "choices": [
             {
                 "message": {
                     "role": "assistant",
                     "content": "The core of the sun is estimated to have a temperature of about "
                     "15 million degrees Celsius (27 million degrees Fahrenheit).",
                 },
-                "metadata": {"finish_reason": "stop"},
+                "finish_reason": "stop",
+                "index": 0,
             }
         ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
+        "usage": {
+            "prompt_tokens": 17,
+            "completion_tokens": 24,
             "total_tokens": 41,
-            "model": "gpt-3.5-turbo-0301",
-            "route_type": "llm/v1/chat",
         },
     }
 
@@ -204,19 +207,18 @@ def test_fluent_query_completions(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     routes = search_routes()
     expected_output = {
-        "candidates": [
+        "id": "chatcmpl-abc123",
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": "text-davinci-003",
+        "choices": [
             {
                 "text": " car\n\nDriving fast can be dangerous and is not recommended. It is",
-                "metadata": {"finish_reason": "length"},
+                "index": 0,
+                "finish_reason": "length",
             }
         ],
-        "metadata": {
-            "input_tokens": 7,
-            "output_tokens": 16,
-            "total_tokens": 23,
-            "model": "text-davinci-003",
-            "route_type": "llm/v1/completions",
-        },
+        "usage": {"prompt_tokens": 7, "completion_tokens": 16, "total_tokens": 23},
     }
 
     data = {"prompt": "I like to drive fast in my"}
@@ -247,18 +249,14 @@ def test_fluent_delete_route_raises(gateway):
 def test_fluent_set_limits_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     # This API is only available in Databricks
-    with pytest.raises(
-        HTTPError, match=".*The set_limits API is not available in OSS MLflow AI Gateway."
-    ):
+    with pytest.raises(HTTPError, match="The set_limits API is not available"):
         set_limits("some-route", [])
 
 
 def test_fluent_get_limits_raises(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
     # This API is only available in Databricks
-    with pytest.raises(
-        HTTPError, match=".*The get_limits API is not available in OSS MLflow AI Gateway."
-    ):
+    with pytest.raises(HTTPError, match="The get_limits API is not available"):
         get_limits("some-route")
 
 

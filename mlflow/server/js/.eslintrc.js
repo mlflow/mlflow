@@ -1,7 +1,6 @@
-
 module.exports = {
-  extends: ['airbnb-base', 'react-app', 'prettier'],
-  plugins: ['prettier', 'react', 'no-only-tests'],
+  extends: ['react-app', 'prettier'],
+  plugins: ['prettier', 'no-only-tests', 'formatjs'],
   parser: '@babel/eslint-parser',
   parserOptions: {
     sourceType: 'module',
@@ -40,7 +39,6 @@ module.exports = {
     },
   },
   rules: {
-    'prettier/prettier': 'error',
     'accessor-pairs': 2,
     'array-bracket-spacing': 2,
     'array-callback-return': 2,
@@ -170,7 +168,6 @@ module.exports = {
     'no-else-return': 'off',
     'no-empty': 2,
     'no-empty-character-class': 2,
-    'no-empty-function': 2,
     'no-empty-pattern': 2,
     'no-eq-null': 2,
     'no-eval': 2,
@@ -304,8 +301,6 @@ module.exports = {
     'prefer-rest-params': 2,
     'prefer-spread': 2,
     'prefer-template': 0,
-    // eslint-disable-next-line no-dupe-keys
-    'prettier/prettier': 'error',
     'quote-props': 0,
     quotes: 'off',
     radix: 2,
@@ -398,7 +393,7 @@ module.exports = {
     complexity: ['error', 20],
     'no-multi-assign': 'off',
     'no-useless-return': 'off',
-    'prefer-destructuring': 2,
+    'prefer-destructuring': 'off',
     'no-restricted-globals': [
       2,
       'addEventListener',
@@ -471,7 +466,7 @@ module.exports = {
         'plugin:jsx-a11y/recommended',
         'plugin:@typescript-eslint/recommended',
       ],
-      plugins: ['prettier', 'react', '@typescript-eslint', '@emotion'],
+      plugins: ['prettier', '@typescript-eslint', '@emotion'],
       parser: '@typescript-eslint/parser',
 
       rules: {
@@ -496,7 +491,8 @@ module.exports = {
         '@typescript-eslint/no-explicit-any': 'off',
         // Do not complain about useless contructors in declaration files
         'no-useless-constructor': 'off',
-        '@typescript-eslint/no-empty-function': 'off',
+        'no-empty-function': 'off',
+        '@typescript-eslint/no-empty-function': ['error', { allow: ['arrowFunctions', 'methods'] }],
         '@typescript-eslint/no-useless-constructor': 'error',
         // Many API fields and generated types use camelcase
         '@typescript-eslint/naming-convention': 'off',
@@ -549,7 +545,7 @@ module.exports = {
     },
     {
       files: ['*.test.js', '*-test.js', '*-test.jsx', 'test/**'],
-      plugins: ['chai-expect', 'chai-friendly'],
+      plugins: ['jest', 'chai-expect', 'chai-friendly'],
       env: {
         mocha: true,
       },

@@ -175,9 +175,11 @@ Core Members
 
 MLflow is currently maintained by the following core members with significant contributions from hundreds of exceptionally talented community members.
 
-- `Harutaka Kawamura <https://github.com/harupy>`_
-- `Weichen Xu <https://github.com/WeichenXu123>`_
-- `Corey Zumar <https://github.com/dbczumar>`_
 - `Ben Wilson <https://github.com/BenWilson2>`_
-- `Serena Ruan <https://github.com/serena-ruan>`_
+- `Corey Zumar <https://github.com/dbczumar>`_
+- `Daniel Lok <https://github.com/daniellok-db>`_
 - `Gabriel Fu <https://github.com/gabrielfu>`_
+- `Harutaka Kawamura <https://github.com/harupy>`_
+- `Serena Ruan <https://github.com/serena-ruan>`_
+- `Weichen Xu <https://github.com/WeichenXu123>`_
+- `Yuki Watanabe <https://github.com/B-Step62>`_
