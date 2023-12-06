@@ -115,8 +115,8 @@ def _prepend(docstring: Optional[str], text: str) -> str:
 def gateway_deprecated(obj):
     msg = (
         "MLflow AI gateway is deprecated and has been replaced by the deployments API for "
-        "generative AI. See https://mlflow.org/docs/latest/llms/gateway/deprecation.html for "
-        "more details."
+        "generative AI. See https://mlflow.org/docs/latest/llms/gateway/migration.html for "
+        "migration."
     )
     warning = f"""
 .. warning::

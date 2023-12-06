@@ -11,9 +11,7 @@ from mlflow.store._unity_catalog.registry.utils import (
     get_full_name_from_sc,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.utils.models import (
-    get_model_name_and_version,
-)
+from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
@@ -125,6 +123,9 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
 
     def log_artifacts(self, local_dir, artifact_path=None):
         raise MlflowException("This repository does not support logging artifacts.")
+
+    def _download_file(self, remote_file_path, local_path):
+        raise NotImplementedError("This artifact repository does not support downloading files")
 
     def delete_artifacts(self, artifact_path=None):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")

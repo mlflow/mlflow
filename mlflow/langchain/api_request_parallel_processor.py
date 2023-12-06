@@ -20,6 +20,7 @@ import logging
 import queue
 import threading
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
@@ -74,6 +75,7 @@ class APIRequest:
     lc_model: langchain.chains.base.Chain
     request_json: dict
     results: list[tuple[int, str]]
+    errors: dict
 
     def _prepare_to_serialize(self, response: dict):
         """
@@ -116,7 +118,10 @@ class APIRequest:
         """
         Calls the LangChain API and stores results.
         """
+        import numpy as np
         from langchain.schema import BaseRetriever
+
+        from mlflow.langchain.utils import lc_runnables_types, runnables_supports_batch_types
 
         _logger.debug(f"Request #{self.index} started")
         try:
@@ -126,6 +131,33 @@ class APIRequest:
                 response = [
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
+            elif isinstance(self.lc_model, lc_runnables_types()):
+                if isinstance(self.request_json, np.ndarray):
+                    # numpy array is not json serializable, so we convert it to list
+                    self.request_json = self.request_json.tolist()
+                if isinstance(self.request_json, dict):
+                    # This is a temporary fix for the case when spark_udf converts
+                    # input into pandas dataframe with column name, while the model
+                    # does not accept dictionaries as input, it leads to erros like
+                    # Expected Scalar value for String field \'query_text\'\\n
+                    try:
+                        response = self.lc_model.invoke(self.request_json)
+                    except Exception:
+                        _logger.warning(
+                            f"Failed to invoke {self.lc_model.__class__.__name__} "
+                            "with {self.request_json}. Error: {e!r}. Trying to "
+                            "invoke with the first value of the dictionary."
+                        )
+                        self.request_json = next(iter(self.request_json.values()))
+                        if isinstance(self.request_json, np.ndarray):
+                            self.request_json = self.request_json.tolist()
+                        response = self.lc_model.invoke(self.request_json)
+                elif isinstance(self.request_json, list) and isinstance(
+                    self.lc_model, runnables_supports_batch_types()
+                ):
+                    response = self.lc_model.batch(self.request_json)
+                else:
+                    response = self.lc_model.invoke(self.request_json)
             else:
                 response = self.lc_model(self.request_json, return_only_outputs=True)
 
@@ -139,14 +171,16 @@ class APIRequest:
             status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
         except Exception as e:
-            _logger.warning(f"Request #{self.index} failed with {e!r}")
+            self.errors[
+                self.index
+            ] = f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
 
 def process_api_requests(
     lc_model,
-    requests: Optional[List[Union[str, Dict[str, Any]]]] = None,
+    requests: Optional[List[Union[Any, Dict[str, Any]]]] = None,
     max_workers: int = 10,
 ):
     """
@@ -159,6 +193,7 @@ def process_api_requests(
     next_request = None  # variable to hold the next request to call
 
     results: list[tuple[int, str]] = []
+    errors: dict = {}
     requests_iter = enumerate(requests)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
@@ -171,7 +206,11 @@ def process_api_requests(
                     # get new request
                     index, request_json = req
                     next_request = APIRequest(
-                        index=index, lc_model=lc_model, request_json=request_json, results=results
+                        index=index,
+                        lc_model=lc_model,
+                        request_json=request_json,
+                        results=results,
+                        errors=errors,
                     )
                     status_tracker.start_task()
 
@@ -193,7 +232,7 @@ def process_api_requests(
         # after finishing, log final status
         if status_tracker.num_tasks_failed > 0:
             raise mlflow.MlflowException(
-                f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
+                f"{status_tracker.num_tasks_failed} tasks failed. Errors: {errors}"
             )
 
         return [res for _, res in sorted(results)]

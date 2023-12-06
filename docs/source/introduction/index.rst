@@ -25,7 +25,7 @@ foundational components:
 
 * :ref:`Tracking <tracking>`: MLflow Tracking provides both an API and UI dedicated to the logging of parameters, code versions, metrics, and artifacts during the ML process. This centralized repository captures details such as parameters, metrics, artifacts, data, and environment configurations, giving teams insight into their models' evolution over time. Whether working in standalone scripts, notebooks, or other environments, Tracking facilitates the logging of results either to local files or a server, making it easier to compare multiple runs across different users.
 
-* :ref:`Model Registry <registry>`: A systematic approach to model management, the Model Registry assists in handling different versions of models, discerning their current state, and ensuring a smooth transition from development to production. It offers a centralized model store, APIs, and UI to collaboratively manage an MLflow Model's full lifecycle, including model lineage, versioning, stage transitions, and annotations.
+* :ref:`Model Registry <registry>`: A systematic approach to model management, the Model Registry assists in handling different versions of models, discerning their current state, and ensuring smooth productionization. It offers a centralized model store, APIs, and UI to collaboratively manage an MLflow Model's full lifecycle, including model lineage, versioning, aliasing, tagging, and annotations.
 
 * :ref:`MLflow Deployments for LLMs <deployments>`: This server, equipped with a set of standardized APIs, streamlines access to both SaaS and OSS LLM models. It serves as a unified interface, bolstering security through authenticated access, and offers a common set of APIs for prominent LLMs.
 
@@ -51,7 +51,7 @@ Ensuring productivity and efficiency throughout this lifecycle poses several cha
 
 - **Deployment Consistency**: With the plethora of ML libraries available, there's often no standardized way to package and deploy models. Custom solutions can lead to inconsistencies, and the crucial link between a model and the code and parameters that produced it might be lost.
 
-- **Model Management**: As data science teams produce numerous models, managing these models, their versions, and stage transitions becomes a significant hurdle. Without a centralized platform, managing model lifecycles, from development to staging to production, becomes unwieldy.
+- **Model Management**: As data science teams produce numerous models, managing, testing, and continuously deploying these models becomes a significant hurdle. Without a centralized platform, managing model lifecycles becomes unwieldy.
 
 - **Library Agnosticism**: While individual ML libraries might offer solutions to some of the challenges, achieving the best results often involves experimenting across multiple libraries. A platform that offers compatibility with various libraries while ensuring models are usable as reproducible "black boxes" is essential.
 

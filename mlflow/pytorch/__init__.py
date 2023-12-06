@@ -927,9 +927,12 @@ def autolog(
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
-    :param log_every_n_step: If specified, logs batch metrics once every `n` global step.
+    :param log_every_n_step: If specified, logs batch metrics once every `n` training step.
                        By default, metrics are not logged for steps. Note that setting this to 1 can
                        cause performance issues and is not recommended.
+                       Metrics are logged against Lightning's global step number,
+                       and when multiple optimizers are used it is assumed that all optimizers
+                       are stepped in each training step.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
     :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.

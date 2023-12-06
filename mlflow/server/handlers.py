@@ -17,11 +17,12 @@ from google.protobuf.json_format import ParseError
 
 from mlflow.entities import DatasetInput, ExperimentTag, FileInfo, Metric, Param, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.environment_variables import (
     MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE,
     MLFLOW_DEPLOYMENTS_TARGET,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
@@ -29,6 +30,9 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
+    AbortMultipartUpload,
+    CompleteMultipartUpload,
+    CreateMultipartUpload,
     DeleteArtifact,
     DownloadArtifact,
     MlflowArtifactsService,
@@ -87,6 +91,8 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
 )
+from mlflow.server.validation import _validate_content_type
+from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry import utils as registry_utils
@@ -96,11 +102,10 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
-from mlflow.utils.os import is_windows
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import is_file_uri, is_local_uri
+from mlflow.utils.uri import is_file_uri, is_local_uri, validate_path_is_safe
 from mlflow.utils.validation import _validate_batch_log_api_req
 
 _logger = logging.getLogger(__name__)
@@ -398,6 +403,7 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
 
 
 def _get_request_json(flask_request=request):
+    _validate_content_type(flask_request, ["application/json"])
     return flask_request.get_json(force=True, silent=True)
 
 
@@ -532,30 +538,6 @@ def _disable_if_artifacts_only(func):
         return func(*args, **kwargs)
 
     return wrapper
-
-
-_OS_ALT_SEPS = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
-
-
-def validate_path_is_safe(path):
-    """
-    Validates that the specified path is safe to join with a trusted prefix. This is a security
-    measure to prevent path traversal attacks.
-    A valid path should:
-        not contain separators other than '/'
-        not contain .. to navigate to parent dir in path
-        not be an absolute path
-    """
-    if is_file_uri(path):
-        path = local_file_uri_to_path(path)
-    if (
-        any((s in path) for s in _OS_ALT_SEPS)
-        or ".." in path.split("/")
-        or pathlib.PureWindowsPath(path).is_absolute()
-        or pathlib.PurePosixPath(path).is_absolute()
-        or (is_windows() and len(path) >= 2 and path[1] == ":")
-    ):
-        raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
 
 @catch_mlflow_exception
@@ -1107,6 +1089,7 @@ def get_metric_history_bulk_handler():
 @_disable_if_artifacts_only
 def search_datasets_handler():
     MAX_EXPERIMENT_IDS_PER_REQUEST = 20
+    _validate_content_type(request, ["application/json"])
     experiment_ids = request.json.get("experiment_ids", [])
     if not experiment_ids:
         raise MlflowException(
@@ -1173,6 +1156,8 @@ def create_promptlab_run_handler():
                 message=f"CreatePromptlabRun request must specify {arg_name}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    _validate_content_type(request, ["application/json"])
 
     args = request.json
     experiment_id = args.get("experiment_id")
@@ -1982,6 +1967,107 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+def _validate_support_multipart_upload(artifact_repo):
+    if not isinstance(artifact_repo, MultipartUploadMixin):
+        raise _UnsupportedMultipartUploadException()
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _create_multipart_upload_artifact(artifact_path):
+    """
+    A request handler for `POST /mlflow-artifacts/mpu/create` to create a multipart upload
+    to `artifact_path` (a relative path from the root artifact directory).
+    """
+    validate_path_is_safe(artifact_path)
+
+    request_message = _get_request_message(
+        CreateMultipartUpload(),
+        schema={
+            "path": [_assert_required, _assert_string],
+            "num_parts": [_assert_intlike],
+        },
+    )
+    path = request_message.path
+    num_parts = request_message.num_parts
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    _validate_support_multipart_upload(artifact_repo)
+
+    create_response = artifact_repo.create_multipart_upload(
+        path,
+        num_parts,
+        artifact_path,
+    )
+    response_message = create_response.to_proto()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _complete_multipart_upload_artifact(artifact_path):
+    """
+    A request handler for `POST /mlflow-artifacts/mpu/complete` to complete a multipart upload
+    to `artifact_path` (a relative path from the root artifact directory).
+    """
+    validate_path_is_safe(artifact_path)
+
+    request_message = _get_request_message(
+        CompleteMultipartUpload(),
+        schema={
+            "path": [_assert_required, _assert_string],
+            "upload_id": [_assert_string],
+            "parts": [_assert_required],
+        },
+    )
+    path = request_message.path
+    upload_id = request_message.upload_id
+    parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    _validate_support_multipart_upload(artifact_repo)
+
+    artifact_repo.complete_multipart_upload(
+        path,
+        upload_id,
+        parts,
+        artifact_path,
+    )
+    return _wrap_response(CompleteMultipartUpload.Response())
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _abort_multipart_upload_artifact(artifact_path):
+    """
+    A request handler for `POST /mlflow-artifacts/mpu/abort` to abort a multipart upload
+    to `artifact_path` (a relative path from the root artifact directory).
+    """
+    validate_path_is_safe(artifact_path)
+
+    request_message = _get_request_message(
+        AbortMultipartUpload(),
+        schema={
+            "path": [_assert_required, _assert_string],
+            "upload_id": [_assert_string],
+        },
+    )
+    path = request_message.path
+    upload_id = request_message.upload_id
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    _validate_support_multipart_upload(artifact_repo)
+
+    artifact_repo.abort_multipart_upload(
+        path,
+        upload_id,
+        artifact_path,
+    )
+    return _wrap_response(AbortMultipartUpload.Response())
+
+
 def _get_rest_path(base_path):
     return f"/api/2.0{base_path}"
 
@@ -2088,4 +2174,7 @@ HANDLERS = {
     UploadArtifact: _upload_artifact,
     ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
     DeleteArtifact: _delete_artifact_mlflow_artifacts,
+    CreateMultipartUpload: _create_multipart_upload_artifact,
+    CompleteMultipartUpload: _complete_multipart_upload_artifact,
+    AbortMultipartUpload: _abort_multipart_upload_artifact,
 }

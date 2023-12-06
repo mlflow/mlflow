@@ -55,7 +55,7 @@ properly_formatted_openai_response2 = (
 
 # Example incorrectly formatted response from OpenAI
 incorrectly_formatted_openai_response = (
-    "score: 2\njustification: \n\nThe provided output gives some relevant "
+    "score: foo2\njustification: \n\nThe provided output gives some relevant "
     "information about MLflow including its capabilities such as experiment tracking, "
     "model packaging, versioning, and deployment. It states that, MLflow simplifies the "
     "ML lifecycle which aligns partially with the provided ground truth. However, it "
@@ -602,7 +602,7 @@ def test_extract_score_and_justification():
     assert justification4 == "This is a justification"
 
     score5, justification5 = _extract_score_and_justification(
-        "  Score: 2 \nJustification:\nThis is a justification"
+        " Score: 2 \nJustification:\nThis is a justification"
     )
     assert score5 == 2
     assert justification5 == "This is a justification"
@@ -616,6 +616,13 @@ def test_extract_score_and_justification():
         justification6
         == f"Failed to extract score and justification. Raw output: {malformed_output}"
     )
+
+    score6, justification6 = _extract_score_and_justification(
+        "Score: 2 \nJUSTIFICATION: This is a justification"
+    )
+
+    assert score6 == 2
+    assert justification6 == "This is a justification"
 
 
 def test_correctness_metric():

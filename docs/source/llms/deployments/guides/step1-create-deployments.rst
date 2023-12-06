@@ -43,33 +43,33 @@ configuration file that is defined at server start, permitting dynamic route cre
     .. code-block:: yaml
         :name: server-config
 
-        routes:
-        - name: my_completions_route
-            route_type: llm/v1/completions
+        endpoints:
+        - name: completions
+            endpoint_type: llm/v1/completions
             model:
                 provider: openai
                 name: gpt-3.5-turbo
                 config:
                     openai_api_key: $OPENAI_API_KEY
 
-        - name: my_chat_route_gpt_4
-            route_type: llm/v1/chat
+        - name: chat
+            endpoint_type: llm/v1/chat
             model:
                 provider: openai
                 name: gpt-4
                 config:
                     openai_api_key: $OPENAI_API_KEY
 
-        - name: my_chat_route_gpt_3.5_turbo
-            route_type: llm/v1/chat
+        - name: chat_3.5
+            endpoint_type: llm/v1/chat
             model:
                 provider: openai
                 name: gpt-3.5-turbo
                 config:
                     openai_api_key: $OPENAI_API_KEY
 
-        - name: my_embeddings_route
-            route_type: llm/v1/embeddings
+        - name: embeddings
+            endpoint_type: llm/v1/embeddings
             model:
                 provider: openai
                 name: text-embedding-ada-002

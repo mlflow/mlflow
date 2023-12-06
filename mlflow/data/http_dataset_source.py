@@ -11,6 +11,14 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.rest_utils import augmented_raise_for_status, cloud_storage_http_request
 
 
+def _is_path(filename: str) -> bool:
+    """
+    Return True if `filename` is a path, False otherwise. For example,
+    "foo/bar" is a path, but "bar" is not.
+    """
+    return os.path.basename(filename) != filename
+
+
 class HTTPDatasetSource(DatasetSource):
     """
     Represents the source of a dataset stored at a web location and referred to
@@ -57,6 +65,11 @@ class HTTPDatasetSource(DatasetSource):
         ):
             # NB: If the filename is quoted, unquote it
             basename = file_name[1].strip("'\"")
+            if _is_path(basename):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid filename in Content-Disposition header: {basename}. "
+                    "It must be a file name, not a path."
+                )
         elif path is not None and len(posixpath.basename(path)) > 0:
             basename = posixpath.basename(path)
         else:

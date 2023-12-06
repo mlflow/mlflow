@@ -11,8 +11,8 @@ import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructT
 import org.mockito.Matchers.{any, eq => meq}
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -39,7 +39,7 @@ private[autologging] class BrokenSubscriber extends MockSubscriber {
 
 }
 
-class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAll
+class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfterAll
   with BeforeAndAfterEach {
 
   var spark: SparkSession = getOrCreateSparkSession()
@@ -205,8 +205,10 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     MockPublisher.init(gcDeadSubscribersIntervalSec = 10000)
     val listeners1 = MlflowSparkAutologgingTestUtils.getListeners(spark)
     assert(listeners1.length == 1)
+
     val (format, path) = formatToTablePath.head
     val df = spark.read.format(format).load(path)
+
     // Register subscribers & collect the DF to trigger a datasource read event
     subscriberSeq.foreach(MockPublisher.register)
     df.collect()
@@ -358,7 +360,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
 
     // Sleep to give time for the execution to complete
     Thread.sleep(1000)
-    
+
     // Verify that the only time subscriber1 was notified of a datasource read was when
     // `path2` was read via `df2` with `spark.databricks.replId` set to `subscriber1.replId`
     verify(subscriber1, times(1)).notify(any(), any(), any())
