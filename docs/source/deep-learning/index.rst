@@ -94,11 +94,6 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
         </article>
     </section>
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    tensorflow/index
 
 .. raw:: html
 
