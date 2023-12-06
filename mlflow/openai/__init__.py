@@ -737,18 +737,33 @@ class _OpenAIWrapper:
         else:
             return data[self.formater.variables].to_dict(orient="records")
 
+    def _construct_request_url(self, task_url, default_url):
+        api_type = self.model.get("api_type") or self.envs.get("api_type")
+        if api_type in ("azure", "azure_ad", "azuread"):
+            api_base = self.envs.get("api_base")
+            api_version = self.envs.get("api_version")
+            deployment_id = self.envs.get("deployment_id")
+
+            return (
+                f"{api_base}/openai/deployments/{deployment_id}/"
+                f"{task_url}?api-version={api_version}"
+            )
+        else:
+            return default_url
+
     def _predict_chat(self, data, params):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        envs = _exclude_params_from_envs(params, self.envs)
         messages_list = self.format_completions(self.get_params_list(data))
         requests = [
-            {**self.model, **envs, **params, "messages": messages} for messages in messages_list
+            {**self.model, **params, "messages": messages} for messages in messages_list
         ]
+        request_url = self._construct_request_url("chat/completions", REQUEST_URL_CHAT)
+
         results = process_api_requests(
             requests,
-            REQUEST_URL_CHAT,
+            request_url,
             api_token=self.api_token,
             max_requests_per_minute=self.api_config.max_requests_per_minute,
             max_tokens_per_minute=self.api_config.max_tokens_per_minute,
@@ -759,7 +774,6 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        envs = _exclude_params_from_envs(params, self.envs)
         prompts_list = self.format_completions(self.get_params_list(data))
 
         batch_size = params.pop("batch_size", self.api_config.batch_size)
@@ -767,15 +781,16 @@ class _OpenAIWrapper:
         requests = [
             {
                 **self.model,
-                **envs,
                 **params,
                 "prompt": prompts_list[i : i + batch_size],
             }
             for i in range(0, len(prompts_list), batch_size)
         ]
+        request_url = self._construct_request_url("completions", REQUEST_URL_COMPLETIONS)
+
         results = process_api_requests(
             requests,
-            REQUEST_URL_COMPLETIONS,
+            request_url,
             api_token=self.api_token,
             max_requests_per_minute=self.api_config.max_requests_per_minute,
             max_tokens_per_minute=self.api_config.max_tokens_per_minute,
@@ -786,7 +801,6 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         _validate_model_params(self.task, self.model, params)
-        envs = _exclude_params_from_envs(params, self.envs)
         batch_size = params.pop("batch_size", self.api_config.batch_size)
         _logger.debug(f"Requests are being batched by {batch_size} samples.")
 
@@ -795,15 +809,16 @@ class _OpenAIWrapper:
         requests = [
             {
                 **self.model,
-                **envs,
                 **params,
                 "input": texts[i : i + batch_size],
             }
             for i in range(0, len(texts), batch_size)
         ]
+        request_url = self._construct_request_url("embeddings", REQUEST_URL_EMBEDDINGS)
+
         results = process_api_requests(
             requests,
-            REQUEST_URL_EMBEDDINGS,
+            request_url,
             api_token=self.api_token,
             max_requests_per_minute=self.api_config.max_requests_per_minute,
             max_tokens_per_minute=self.api_config.max_tokens_per_minute,
