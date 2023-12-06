@@ -3,7 +3,8 @@ import os
 import urllib.parse
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE, UNAUTHENTICATED
+from mlflow.openai.utils import REQUEST_URL_CHAT
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
@@ -51,19 +52,12 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    import openai
-
     from mlflow.openai import _get_api_config
     from mlflow.openai.api_request_parallel_processor import process_api_requests
     from mlflow.openai.utils import _OAITokenHolder
 
     api_config = _get_api_config()
     api_token = _OAITokenHolder(api_config.api_type)
-    envs = {
-        x: getattr(api_config, x)
-        for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
-        if getattr(api_config, x) is not None
-    }
 
     payload = {
         "messages": [{"role": "user", "content": payload}],
@@ -71,8 +65,12 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
     }
 
     if api_config.api_type in ("azure", "azure_ad", "azuread"):
-        deployment_id = envs.get("deployment_id")
-        if envs.get("engine"):
+        api_base = getattr(api_config, "api_base")
+        api_version = getattr(api_config, "api_version")
+        engine = getattr(api_config, "engine")
+        deployment_id = getattr(api_config, "deployment_id")
+
+        if engine:
             # Avoid using both parameters as they serve the same purpose
             # Invalid inputs:
             #   - Wrong engine + correct/wrong deployment_id
@@ -84,33 +82,29 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
                 _logger.warning(
                     "Both engine and deployment_id are set. " "Using engine as it takes precedence."
                 )
+            payload = {"engine": engine, **payload}
         elif deployment_id is None:
             raise MlflowException(
                 "Either engine or deployment_id must be set for Azure OpenAI API",
             )
         payload = payload
+
+        request_url = (
+            f"{api_base}/openai/deployments/{deployment_id}"
+            f"/chat/completions?api-version={api_version}"
+        )
     else:
         payload = {"model": openai_uri, **payload}
-
-    payload_with_envs = {**payload, **envs}
+        request_url = REQUEST_URL_CHAT
 
     try:
         resp = process_api_requests(
-            [payload_with_envs],
-            openai.ChatCompletion,
+            [payload],
+            request_url,
             api_token=api_token,
             throw_original_error=True,
             max_workers=1,
         )[0]
-    except openai.error.AuthenticationError as e:
-        raise MlflowException(
-            f"Authentication Error for OpenAI. Error response:\n {e}",
-            error_code=UNAUTHENTICATED,
-        )
-    except openai.error.InvalidRequestError as e:
-        raise MlflowException(
-            f"Invalid Request to OpenAI. Error response:\n {e}", error_code=BAD_REQUEST
-        )
     except MlflowException as e:
         raise e
     except Exception as e:
