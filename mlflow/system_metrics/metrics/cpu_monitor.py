@@ -20,8 +20,4 @@ class CPUMonitor(BaseMetricsMonitor):
         )
 
     def aggregate_metrics(self):
-        metrics = {}
-        for name, values in self._metrics.items():
-            if len(values) > 0:
-                metrics[name] = round(sum(values) / len(values), 1)
-        return metrics
+        return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items()}

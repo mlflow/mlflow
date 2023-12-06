@@ -1,6 +1,6 @@
 #
 # Trains an MNIST digit recognizer using PyTorch Lightning,
-# and uses Mlflow to log metrics, params and artifacts
+# and uses MLflow to log metrics, params and artifacts
 # NOTE: This example requires you to first install
 # pytorch-lightning (using pip install pytorch-lightning)
 #       and mlflow (using pip install mlflow).

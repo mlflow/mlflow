@@ -1,6 +1,5 @@
 # Based ons: https://github.com/openai/openai-cookbook/blob/6df6ceff470eeba26a56de131254e775292eac22/examples/api_request_parallel_processor.py
 # Several changes were made to make it work with MLflow.
-# Currently, only chat completion is supported.
 
 """
 API REQUEST PARALLEL PROCESSOR
@@ -22,18 +21,19 @@ Features:
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
-import openai
-import openai.error
+import requests
 import tiktoken
-from openai.openai_object import OpenAIObject
 
 import mlflow
+from mlflow.openai.utils import _OAITokenHolder
+from mlflow.protos.databricks_pb2 import UNAUTHENTICATED
 
 _logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ class StatusTracker:
     num_other_errors: int = 0
     time_of_last_rate_limit_error: int = 0  # used to cool off after hitting rate limits
     lock: threading.Lock = threading.Lock()
+    error = None
 
     def start_task(self):
         with self.lock:
@@ -84,10 +85,14 @@ class APIRequest:
     """
 
     index: int
+    request_url: str
     request_json: dict
     token_consumption: int
     attempts_left: int
-    results: list[tuple[int, OpenAIObject]]
+    results: list[tuple[int, any]]
+    start_time: int
+    last_log_time: int
+    timeout: int = 60
 
     def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
         """
@@ -95,50 +100,93 @@ class APIRequest:
         """
         _logger.debug(f"Request #{self.index} started")
         try:
-            response = openai.ChatCompletion.create(**self.request_json)
-            _logger.debug(f"Request #{self.index} succeeded")
-            status_tracker.complete_task(success=True)
-            self.results.append((self.index, response))
-        except openai.error.RateLimitError as e:
-            _logger.warning(f"Request #{self.index} failed with {e!r}")
-            status_tracker.time_of_last_rate_limit_error = time.time()
-            status_tracker.increment_num_rate_limit_errors()
-            retry_queue.put_nowait(self)
-        # Other retryable errors
-        except (
-            openai.error.Timeout,
-            openai.error.APIError,
-            openai.error.APIConnectionError,
-            openai.error.ServiceUnavailableError,
-        ) as e:
-            _logger.warning(f"Request #{self.index} failed with {e!r}")
-            status_tracker.increment_num_api_errors()
-            if self.attempts_left > 0:
-                retry_queue.put_nowait(self)
+            api_key = os.environ["OPENAI_API_KEY"]
+            request_header = {"Authorization": f"Bearer {api_key}"}
+            # use api-key header for Azure deployments
+            if "/deployments" in self.request_url:
+                request_header = {"api-key": f"{api_key}"}
+            response = requests.post(
+                url=self.request_url,
+                headers=request_header,
+                json=self.request_json,
+                timeout=self.timeout,
+            )
+            response_json = response.json()
+
+            # Refer to error codes: https://platform.openai.com/docs/guides/error-codes/api-errors
+            if "error" in response_json:
+                error = response_json["error"]
+                logging.warning(f"Request #{self.index} failed with error {error}")
+                status_tracker.num_api_errors += 1
+                # Rate limit error
+                if "Rate limit" in error.get("message", ""):
+                    _logger.debug(f"Request #{self.index} failed with {error!r}")
+                    current_time = time.time()
+                    status_tracker.time_of_last_rate_limit_error = current_time
+                    status_tracker.increment_num_rate_limit_errors()
+                    # check time since first request, fail at 10 minutes
+                    if current_time - self.start_time < 600:
+                        if current_time - self.last_log_time > 60:
+                            _logger.warning("Retrying for request failed with rate limit.")
+                            self.last_log_time = current_time
+                        retry_queue.put_nowait(self)
+                    else:
+                        _logger.warning("Request failed after retrying for 10 minutes.")
+                        status_tracker.complete_task(success=False)
+                        status_tracker.error = mlflow.MlflowException(
+                            "Request failed after retrying for 10 minutes."
+                        )
+                # Other retryable errors
+                elif response.status_code in [500, 503]:
+                    _logger.debug(f"Request #{self.index} failed with {error!r}")
+                    status_tracker.increment_num_api_errors()
+                    if self.attempts_left > 0:
+                        retry_queue.put_nowait(self)
+                    else:
+                        status_tracker.complete_task(success=False)
+                        status_tracker.error = mlflow.MlflowException(
+                            f"Request #{self.index} failed with {error!r}"
+                        )
+                # Unretryable errors
+                else:
+                    _logger.warning(f"Request #{self.index} failed with {error!r}")
+                    status_tracker.increment_num_api_errors()
+                    status_tracker.complete_task(success=False)
+                    if response.status_code == 401:
+                        status_tracker.error = mlflow.MlflowException(
+                            f"Authentication Error for OpenAI. Error response:\n {error!r}",
+                            error_code=UNAUTHENTICATED,
+                        )
+                    else:
+                        status_tracker.error = mlflow.MlflowException(
+                            f"Request #{self.index} to OpenAI failed. Error response: {error}"
+                        )
             else:
-                status_tracker.complete_task(success=False)
-        # Unretryable errors
+                _logger.debug(f"Request #{self.index} succeeded")
+                status_tracker.complete_task(success=True)
+                self.results.append((self.index, response_json))
         except Exception as e:
-            _logger.warning(f"Request #{self.index} failed with {e!r}")
+            _logger.debug(f"Request #{self.index} failed with {e!r}")
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
+            status_tracker.error = e
 
 
 def num_tokens_consumed_from_request(
-    request_json: dict, api_endpoint: str, token_encoding_name: str
+    request_json: dict, request_url: str, token_encoding_name: str
 ):
     """
     Count the number of tokens in the request. Only supports completion and embedding requests.
     """
     encoding = tiktoken.get_encoding(token_encoding_name)
     # if completions request, tokens = prompt + n * max_tokens
-    if api_endpoint.endswith("completions"):
+    if "completions" in request_url:
         max_tokens = request_json.get("max_tokens", 15)
         n = request_json.get("n", 1)
         completion_tokens = n * max_tokens
 
         # chat completions
-        if api_endpoint.startswith("chat/"):
+        if "chat/completions" in request_url:
             num_tokens = 0
             for message in request_json["messages"]:
                 num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
@@ -163,7 +211,7 @@ def num_tokens_consumed_from_request(
                     "request"
                 )
     # if embeddings request, tokens = input tokens
-    elif api_endpoint == "embeddings":
+    elif "embeddings" in request_url:
         inp = request_json["input"]
         if isinstance(inp, str):  # single input
             return len(encoding.encode(inp))
@@ -175,17 +223,20 @@ def num_tokens_consumed_from_request(
             )
     # more logic needed to support other API calls (e.g., edits, inserts, DALL-E)
     else:
-        raise NotImplementedError(f'API endpoint "{api_endpoint}" not implemented in this script')
+        raise NotImplementedError(f'Support for "{request_url}" not implemented in this script')
 
 
 def process_api_requests(
-    requests: list[dict[str, any]] = None,
+    requests: list[dict[str, any]],
+    request_url: str,
+    api_token: _OAITokenHolder,
     # Reference: https://platform.openai.com/docs/guides/rate-limits/overview
     max_requests_per_minute: float = 3_500,
     max_tokens_per_minute: float = 90_000,
     token_encoding_name: str = "cl100k_base",
     max_attempts: int = 5,
     max_workers: int = 10,
+    throw_original_error=False,
 ):
     """
     Processes API requests in parallel, throttling to stay under rate limits.
@@ -202,28 +253,33 @@ def process_api_requests(
     available_request_capacity = max_requests_per_minute
     available_token_capacity = max_tokens_per_minute
     last_update_time = time.time()
-    results: list[tuple[int, OpenAIObject]] = []
+    results: list[tuple[int, any]] = []
     requests_iter = enumerate(requests)
     last_index = len(requests) - 1
     requests_exhausted = False
+    _logger.debug(f"Request pool executor will run {len(requests)} requests")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
             if next_request is None:
                 if not retry_queue.empty():
                     next_request = retry_queue.get_nowait()
-                    _logger.warning(f"Retrying request {next_request.index}: {next_request}")
+                    _logger.debug(f"Retrying request {next_request.index}: {next_request}")
                 elif req := next(requests_iter, None):
                     # get new request
                     index, request_json = req
+                    current_time = time.time()
                     next_request = APIRequest(
+                        request_url=request_url,
                         index=index,
                         request_json=request_json,
                         token_consumption=num_tokens_consumed_from_request(
-                            request_json, "chat/completions", token_encoding_name
+                            request_json, request_url, token_encoding_name
                         ),
                         attempts_left=max_attempts,
                         results=results,
+                        start_time=current_time,
+                        last_log_time=current_time,
                     )
                     status_tracker.start_task()
                     requests_exhausted = index == last_index
@@ -242,7 +298,6 @@ def process_api_requests(
             )
             last_update_time = current_time
 
-            # if enough capacity available, call API
             if next_request:
                 _logger.debug(f"Available request capacity: {available_request_capacity}")
                 _logger.debug(f"Available token capacity: {available_token_capacity}")
@@ -256,12 +311,19 @@ def process_api_requests(
                     available_token_capacity -= next_request_tokens
                     next_request.attempts_left -= 1
                     # call API
+                    api_token.validate(_logger)
                     executor.submit(
                         next_request.call_api,
                         retry_queue=retry_queue,
                         status_tracker=status_tracker,
                     )
                     next_request = None  # reset next_request to empty
+                else:
+                    next_request = None
+                    status_tracker.complete_task(success=False)
+                    status_tracker.error = mlflow.MlflowException(
+                        "Request size exceeded max tokens."
+                    )
 
             # if all tasks are finished, break
             if requests_exhausted and status_tracker.num_tasks_in_progress == 0:
@@ -275,7 +337,7 @@ def process_api_requests(
                 remaining_seconds_to_pause = (
                     seconds_to_pause_after_rate_limit_error - seconds_since_rate_limit_error
                 )
-                _logger.warning(
+                _logger.debug(
                     "Encountered rate limit error. Pausing to cool down for "
                     f"{remaining_seconds_to_pause} seconds..."
                 )
@@ -286,11 +348,13 @@ def process_api_requests(
 
     # after finishing, log final status
     if status_tracker.num_tasks_failed > 0:
+        if throw_original_error and len(requests) == 1:
+            raise status_tracker.error
         raise mlflow.MlflowException(
             f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
         )
     if status_tracker.num_rate_limit_errors > 0:
-        _logger.warning(
+        _logger.debug(
             f"{status_tracker.num_rate_limit_errors} rate limit errors received. "
             "Consider running at a lower rate."
         )

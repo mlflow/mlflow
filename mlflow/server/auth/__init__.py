@@ -15,7 +15,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Union
 
 import sqlalchemy
-from flask import Flask, Response, flash, make_response, render_template_string, request
+from flask import Flask, Response, flash, jsonify, make_response, render_template_string, request
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
@@ -113,13 +113,8 @@ auth_config = read_auth_config()
 store = SqlAlchemyStore()
 
 
-UNPROTECTED_ROUTES = [CREATE_USER, SIGNUP]
-
-
 def is_unprotected_route(path: str) -> bool:
-    if path.startswith(("/static", "/favicon.ico", "/health")):
-        return True
-    return path in UNPROTECTED_ROUTES
+    return path.startswith(("/static", "/favicon.ico", "/health"))
 
 
 def make_basic_auth_response() -> Response:
@@ -315,6 +310,11 @@ def validate_can_read_user():
     return username_is_sender()
 
 
+def validate_can_create_user():
+    # only admins can create user, but admins won't reach this validator
+    return False
+
+
 def validate_can_update_user_password():
     return username_is_sender()
 
@@ -385,7 +385,9 @@ BEFORE_REQUEST_VALIDATORS = {
 
 BEFORE_REQUEST_VALIDATORS.update(
     {
+        (SIGNUP, "GET"): validate_can_create_user,
         (GET_USER, "GET"): validate_can_read_user,
+        (CREATE_USER, "POST"): validate_can_create_user,
         (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
         (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
         (DELETE_USER, "DELETE"): validate_can_delete_user,
@@ -758,16 +760,20 @@ def create_user():
         password = _get_request_param("password")
 
         user = store.create_user(username, password)
-        return make_response({"user": user.to_json()})
+        return jsonify({"user": user.to_json()})
     else:
-        return make_response(f"Invalid content type: '{content_type}'", 400)
+        message = (
+            "Invalid content type. Must be one of: "
+            "application/x-www-form-urlencoded, application/json"
+        )
+        return make_response(message, 400)
 
 
 @catch_mlflow_exception
 def get_user():
     username = _get_request_param("username")
     user = store.get_user(username)
-    return make_response({"user": user.to_json()})
+    return jsonify({"user": user.to_json()})
 
 
 @catch_mlflow_exception
@@ -799,7 +805,7 @@ def create_experiment_permission():
     username = _get_request_param("username")
     permission = _get_request_param("permission")
     ep = store.create_experiment_permission(experiment_id, username, permission)
-    return make_response({"experiment_permission": ep.to_json()})
+    return jsonify({"experiment_permission": ep.to_json()})
 
 
 @catch_mlflow_exception

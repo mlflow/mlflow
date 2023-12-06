@@ -1,3 +1,4 @@
+import time
 from contextlib import contextmanager
 from typing import Any, Dict, List
 
@@ -129,22 +130,21 @@ class MosaicMLProvider(BaseProvider):
         # }
         # ```
         return chat.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "message": {
-                            "role": "assistant",
-                            "content": c,
-                        },
-                        "metadata": {},
-                    }
-                    for c in resp["outputs"]
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            model=self.config.model.name,
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(role="assistant", content=c),
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(resp["outputs"])
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
@@ -156,7 +156,7 @@ class MosaicMLProvider(BaseProvider):
         for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
+                    status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
 
@@ -194,29 +194,32 @@ class MosaicMLProvider(BaseProvider):
         # }
         # ```
         return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": c,
-                        "metadata": {},
-                    }
-                    for c in resp["outputs"]
-                ],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=self.config.model.name,
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=c,
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(resp["outputs"])
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-        key_mapping = {"text": "inputs"}
+        key_mapping = {"input": "inputs"}
         for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
+                    status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
         payload = rename_payload_keys(payload, key_mapping)
 
@@ -246,13 +249,18 @@ class MosaicMLProvider(BaseProvider):
         # }
         # ```
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": resp["outputs"],
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=output,
+                    index=idx,
+                )
+                for idx, output in enumerate(resp["outputs"])
+            ],
+            model=self.config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=None,
+                total_tokens=None,
+            ),
         )
 
 

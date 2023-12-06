@@ -126,10 +126,7 @@ def set_tag_mock():
 def _get_mock_run_state(succeeded):
     if succeeded is None:
         return {"life_cycle_state": "RUNNING", "state_message": ""}
-    if succeeded:
-        run_result_state = "SUCCESS"
-    else:
-        run_result_state = "FAILED"
+    run_result_state = "SUCCESS" if succeeded else "FAILED"
     return {"life_cycle_state": "TERMINATED", "state_message": "", "result_state": run_result_state}
 
 

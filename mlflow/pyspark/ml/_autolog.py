@@ -2,13 +2,17 @@ import re
 from functools import reduce
 from typing import Set, Union
 
+try:
+    # For spark >= 4.0
+    from pyspark.errors.exceptions.base import IllegalArgumentException
+except ModuleNotFoundError:
+    from pyspark.sql.utils import IllegalArgumentException
 from pyspark.ml.base import Transformer
 from pyspark.ml.functions import vector_to_array
 from pyspark.ml.linalg import VectorUDT
 from pyspark.ml.pipeline import PipelineModel
 from pyspark.sql import DataFrame
 from pyspark.sql import types as t
-from pyspark.sql.utils import IllegalArgumentException
 
 
 def cast_spark_df_with_vector_to_array(input_spark_df):
@@ -74,7 +78,7 @@ def get_feature_cols(
         try:
             transformer.transform(df_subset.drop(column))
         except IllegalArgumentException as iae:
-            if re.search("(.*) does not exist.", iae.desc, re.IGNORECASE):
+            if re.search("does not exist", str(iae), re.IGNORECASE):
                 feature_cols.add(column)
                 continue
             raise

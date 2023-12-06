@@ -102,13 +102,12 @@ describe('RunView', () => {
         </BrowserRouter>
       </Provider>,
     ).find(RunView);
-    const instance = wrapper.find(RunViewImpl).instance();
-    expect(instance.getRunCommand()).toBeNull();
     expect(wrapper.html()).not.toContain('Git Commit');
     expect(wrapper.html()).not.toContain('Entry Point');
     expect(wrapper.html()).not.toContain('Duration');
     expect(wrapper.html()).not.toContain('Parent Run');
     expect(wrapper.html()).not.toContain('Job Output');
+    expect(wrapper.html()).not.toContain('Run Command');
   });
   test('With non-empty tags, params, duration - getRunCommand & metadata list', () => {
     const store = mockStore({
@@ -175,15 +174,16 @@ describe('RunView', () => {
         </BrowserRouter>
       </Provider>,
     ).find(RunView);
-    const instance = wrapper.find(RunViewImpl).instance();
-    expect(instance.getRunCommand()).toEqual(
-      'mlflow run notebook -v abc -e entry -b databricks -P p1=v1 -P p2=v2',
-    );
+
     expect(wrapper.html()).toContain('Git Commit');
     expect(wrapper.html()).toContain('Entry Point');
     expect(wrapper.html()).toContain('Duration');
     expect(wrapper.html()).toContain('Parent Run');
     expect(wrapper.html()).toContain('Job Output');
+    expect(wrapper.html()).toContain('Run Command');
+    expect(wrapper.html()).toContain(
+      'mlflow run notebook -v abc -e entry -b databricks -P p1=v1 -P p2=v2',
+    );
   });
   test('state: showNoteEditor false/true -> edit button shown/hidden', () => {
     wrapper = mountWithIntl(
@@ -194,8 +194,7 @@ describe('RunView', () => {
       </Provider>,
     ).find(RunView);
     expect(wrapper.html()).toContain('edit-description-button');
-    const runViewInstance = wrapper.find(RunViewImpl).instance();
-    runViewInstance.setState({ showNoteEditor: true });
+    wrapper.find('button[data-test-id="edit-description-button"]').simulate('click');
     expect(wrapper.html()).not.toContain('edit-description-button');
   });
   test('should set showRunRenameModal when Rename menu item is clicked', () => {

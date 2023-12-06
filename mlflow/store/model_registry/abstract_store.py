@@ -2,8 +2,10 @@ import logging
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
 
+from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
@@ -12,12 +14,10 @@ AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
 
 
 @developer_stable
-class AbstractStore:
+class AbstractStore(metaclass=ABCMeta):
     """
     Abstract class that defines API interfaces for storing Model Registry metadata.
     """
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, store_uri=None, tracking_uri=None):
         """
@@ -162,7 +162,7 @@ class AbstractStore:
         Create a new model version from given source and run ID.
 
         :param name: Registered model name.
-        :param source: Source path where the MLflow model is stored.
+        :param source: URI indicating the location of the model artifacts.
         :param run_id: Run ID from MLflow tracking server that generated the model.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
@@ -320,6 +320,40 @@ class AbstractStore:
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass
+
+    def copy_model_version(self, src_mv, dst_name):
+        """
+        Copy a model version from one registered model to another as a new model version.
+
+        :param src_mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                       the source model version.
+        :param dst_name: the name of the registered model to copy the model version to. If a
+                         registered model with this name does not exist, it will be created.
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object representing
+                 the cloned model version.
+        """
+        try:
+            self.create_registered_model(dst_name)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                raise
+
+        try:
+            mv_copy = self.create_model_version(
+                name=dst_name,
+                source=f"models:/{src_mv.name}/{src_mv.version}",
+                run_id=src_mv.run_id,
+                tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
+                run_link=src_mv.run_link,
+                description=src_mv.description,
+            )
+        except MlflowException as e:
+            raise MlflowException(
+                f"Failed to create model version copy. The current model registry backend "
+                f"may not yet support model version URI sources.\nError: {e}"
+            ) from e
+
+        return mv_copy
 
     def _await_model_version_creation(self, mv, await_creation_for):
         """

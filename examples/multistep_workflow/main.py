@@ -60,7 +60,7 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
 
 # TODO(aaron): This is not great because it doesn't account for:
 # - changes in code
-# - changes in dependant steps
+# - changes in dependent steps
 def _get_or_run(entrypoint, parameters, git_commit, use_cache=True):
     existing_run = _already_ran(entrypoint, parameters, git_commit)
     if use_cache and existing_run:

@@ -1512,3 +1512,70 @@ def test_pyfunc_model_registry_with_file_store(store):
         mv2 = store.search_model_versions("name = 'model2'", max_results=10)
         assert len(mv2) == 1
         assert mv2[0].name == "model2"
+
+
+@pytest.mark.parametrize("copy_to_same_model", [False, True])
+def test_copy_model_version(store, copy_to_same_model):
+    name1 = "test_for_copy_MV1"
+    store.create_registered_model(name1)
+    src_tags = [
+        ModelVersionTag("key", "value"),
+        ModelVersionTag("anotherKey", "some other value"),
+    ]
+    src_mv = _create_model_version(
+        store, name1, tags=src_tags, run_link="dummylink", description="test description"
+    )
+
+    # Make some changes to the src MV that won't be copied over
+    store.transition_model_version_stage(
+        name1, src_mv.version, "Production", archive_existing_versions=False
+    )
+
+    copy_rm_name = name1 if copy_to_same_model else "test_for_copy_MV2"
+    copy_mv_version = 2 if copy_to_same_model else 1
+    timestamp = time.time()
+    dst_mv = store.copy_model_version(src_mv, copy_rm_name)
+    assert dst_mv.name == copy_rm_name
+    assert dst_mv.version == copy_mv_version
+
+    copied_mv = store.get_model_version(dst_mv.name, dst_mv.version)
+    assert copied_mv.name == copy_rm_name
+    assert copied_mv.version == copy_mv_version
+    assert copied_mv.current_stage == "None"
+    assert copied_mv.creation_timestamp >= timestamp
+    assert copied_mv.last_updated_timestamp >= timestamp
+    assert copied_mv.description == "test description"
+    assert copied_mv.source == f"models:/{src_mv.name}/{src_mv.version}"
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+    assert copied_mv.run_link == "dummylink"
+    assert copied_mv.run_id == src_mv.run_id
+    assert copied_mv.status == "READY"
+    assert copied_mv.status_message is None
+    assert copied_mv.tags == {"key": "value", "anotherKey": "some other value"}
+
+    # Copy a model version copy
+    double_copy_mv = store.copy_model_version(copied_mv, "test_for_copy_MV3")
+    assert double_copy_mv.source == f"models:/{copied_mv.name}/{copied_mv.version}"
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
+
+
+def test_writing_model_version_preserves_storage_location(store):
+    name = "test_storage_location_MV1"
+    source = "/special/source"
+    store.create_registered_model(name)
+    _create_model_version(store, name, source=source)
+    _create_model_version(store, name, source=source)
+
+    # Run through all the operations that modify model versions and make sure that the
+    # `storage_location` property is not dropped.
+    store.transition_model_version_stage(name, 1, "Production", archive_existing_versions=False)
+    assert store._fetch_file_model_version_if_exists(name, 1).storage_location == source
+    store.update_model_version(name, 1, description="test description")
+    assert store._fetch_file_model_version_if_exists(name, 1).storage_location == source
+    store.transition_model_version_stage(name, 1, "Production", archive_existing_versions=True)
+    assert store._fetch_file_model_version_if_exists(name, 1).storage_location == source
+    store.rename_registered_model(name, "test_storage_location_new")
+    assert (
+        store._fetch_file_model_version_if_exists("test_storage_location_new", 1).storage_location
+        == source
+    )

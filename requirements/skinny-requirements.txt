@@ -3,7 +3,7 @@
 # dev/generate_requirements.py script to regenerate this file.
 
 click<9,>=7.0
-cloudpickle<3
+cloudpickle<4
 databricks-cli<1,>=0.8.7
 entrypoints<1
 gitpython<4,>=2.1.0
@@ -12,5 +12,5 @@ protobuf<5,>=3.12.0
 pytz<2024
 requests<3,>=2.17.3
 packaging<24
-importlib_metadata<7,>=3.7.0,!=4.7.0
+importlib_metadata<8,>=3.7.0,!=4.7.0
 sqlparse<1,>=0.4.0

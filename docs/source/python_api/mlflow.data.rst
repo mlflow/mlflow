@@ -6,7 +6,7 @@ runs with MLflow Tracking, as well as retrieve dataset information from runs. It
 following important interfaces:
 
 * :py:class:`Dataset <mlflow.data.dataset.Dataset>`: Represents a dataset used in model training or
-  evaluation, including features, targets, and metadata such as the dataset's name, digest (hash)
+  evaluation, including features, targets, predictions, and metadata such as the dataset's name, digest (hash)
   schema, profile, and source. You can log this metadata to a run in MLflow Tracking using
   the :py:func:`mlflow.log_input()` API. ``mlflow.data`` provides APIs for constructing
   :py:class:`Datasets <mlflow.data.dataset.Dataset>` from a variety of Python data objects, including

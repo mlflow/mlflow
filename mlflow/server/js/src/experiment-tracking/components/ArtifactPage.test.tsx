@@ -44,7 +44,7 @@ describe('ArtifactPage', () => {
       runUuid: 'fakeUuid',
       runTags: {},
       artifactNode: node,
-      artifactRootUri: 'test_root',
+      artifactRootUri: 'dbfs:/',
       listArtifactsApi: jest.fn(() => Promise.resolve({})),
       params: {},
     };

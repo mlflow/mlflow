@@ -6,8 +6,11 @@ from datetime import datetime
 from unittest import mock
 from unittest.mock import ANY
 
+import botocore.exceptions
 import pytest
+import requests
 
+from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import (
@@ -50,8 +53,8 @@ def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_repo, t
         f.write(file_text)
 
     s3_artifact_repo.log_artifact(file_path)
-    downloaded_text = open(s3_artifact_repo.download_artifacts(file_name)).read()
-    assert downloaded_text == file_text
+    with open(s3_artifact_repo.download_artifacts(file_name)) as f:
+        assert f.read() == file_text
 
 
 def test_file_artifact_is_logged_with_content_metadata(
@@ -210,18 +213,18 @@ def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_i
     s3_artifact_repo.log_artifacts(subdir_path)
 
     # Download individual files and verify correctness of their contents
-    downloaded_file_a_text = open(s3_artifact_repo.download_artifacts("a.txt")).read()
-    assert downloaded_file_a_text == "A"
-    downloaded_file_b_text = open(s3_artifact_repo.download_artifacts("b.txt")).read()
-    assert downloaded_file_b_text == "B"
-    downloaded_file_c_text = open(s3_artifact_repo.download_artifacts("nested/c.txt")).read()
-    assert downloaded_file_c_text == "C"
+    with open(s3_artifact_repo.download_artifacts("a.txt")) as f:
+        assert f.read() == "A"
+    with open(s3_artifact_repo.download_artifacts("b.txt")) as f:
+        assert f.read() == "B"
+    with open(s3_artifact_repo.download_artifacts("nested/c.txt")) as f:
+        assert f.read() == "C"
 
     # Download the nested directory and verify correctness of its contents
     downloaded_dir = s3_artifact_repo.download_artifacts("nested")
     assert os.path.basename(downloaded_dir) == "nested"
-    text = open(os.path.join(downloaded_dir, "c.txt")).read()
-    assert text == "C"
+    with open(os.path.join(downloaded_dir, "c.txt")) as f:
+        assert f.read() == "C"
 
     # Download the root directory and verify correctness of its contents
     downloaded_dir = s3_artifact_repo.download_artifacts("")
@@ -357,3 +360,67 @@ def test_delete_artifacts(s3_artifact_repo, tmp_path):
     s3_artifact_repo.delete_artifacts()
     tmpdir_objects = s3_artifact_repo.list_artifacts()
     assert not tmpdir_objects
+
+
+def test_create_multipart_upload(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    create = repo.create_multipart_upload("local_file")
+
+    # confirm that a mpu is created with the correct upload_id
+    bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
+    s3_client = repo._get_s3_client()
+    response = s3_client.list_multipart_uploads(Bucket=bucket)
+    uploads = response.get("Uploads")
+    assert len(uploads) == 1
+    assert uploads[0]["UploadId"] == create.upload_id
+
+
+def test_complete_multipart_upload(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    local_file = "local_file"
+    create = repo.create_multipart_upload(local_file, 2)
+
+    # cannot complete invalid upload
+    fake_parts = [
+        MultipartUploadPart(part_number=1, etag="fake_etag1"),
+        MultipartUploadPart(part_number=2, etag="fake_etag2"),
+    ]
+    with pytest.raises(botocore.exceptions.ClientError, match=r"InvalidPart"):
+        repo.complete_multipart_upload(local_file, create.upload_id, fake_parts)
+
+    # can complete valid upload
+    parts = []
+    data = b"0" * 5 * 1024 * 1024
+    for credential in create.credentials:
+        url = credential.url
+        response = requests.put(url, data=data)
+        parts.append(
+            MultipartUploadPart(part_number=credential.part_number, etag=response.headers["ETag"])
+        )
+
+    repo.complete_multipart_upload(local_file, create.upload_id, parts)
+
+    # verify upload is completed
+    bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
+    s3_client = repo._get_s3_client()
+    response = s3_client.list_multipart_uploads(Bucket=bucket)
+    assert response.get("Uploads") is None
+
+
+def test_abort_multipart_upload(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    local_file = "local_file"
+    create = repo.create_multipart_upload(local_file, 2)
+
+    # cannot abort a non-existing upload
+    with pytest.raises(botocore.exceptions.ClientError, match=r"NoSuchUpload"):
+        repo.abort_multipart_upload(local_file, "fake_upload_id")
+
+    # can abort the created upload
+    repo.abort_multipart_upload(local_file, create.upload_id)
+
+    # verify upload is aborted
+    bucket, _ = repo.parse_s3_compliant_uri(s3_artifact_root)
+    s3_client = repo._get_s3_client()
+    response = s3_client.list_multipart_uploads(Bucket=bucket)
+    assert response.get("Uploads") is None

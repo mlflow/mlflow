@@ -1,4 +1,6 @@
 import json
+import os
+import time
 from contextlib import contextmanager
 from unittest import mock
 
@@ -7,6 +9,7 @@ import requests
 import mlflow
 
 TEST_CONTENT = "test"
+
 TEST_SOURCE_DOCUMENTS = [
     {
         "page_content": "We see the unity among leaders ...",
@@ -24,6 +27,10 @@ TEST_INTERMEDIATE_STEPS = (
     ],
 )
 
+REQUEST_URL_CHAT = "https://api.openai.com/v1/chat/completions"
+REQUEST_URL_COMPLETIONS = "https://api.openai.com/v1/completions"
+REQUEST_URL_EMBEDDINGS = "https://api.openai.com/v1/embeddings"
+
 
 class _MockResponse:
     def __init__(self, status_code, json_data):
@@ -31,6 +38,10 @@ class _MockResponse:
         self.content = json.dumps(json_data).encode()
         self.headers = {"Content-Type": "application/json"}
         self.text = mlflow.__version__
+        self.json_data = json_data
+
+    def json(self):
+        return self.json_data
 
 
 def _chat_completion_json_sample(content):
@@ -51,6 +62,17 @@ def _chat_completion_json_sample(content):
     }
 
 
+def _completion_json_sample(content):
+    return {
+        "id": "cmpl-123",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "text-davinci-003",
+        "choices": [{"text": content, "index": 0, "finish_reason": "length"}],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+    }
+
+
 def _models_retrieve_json_sample():
     # https://platform.openai.com/docs/api-reference/models/retrieve
     return {
@@ -63,6 +85,10 @@ def _models_retrieve_json_sample():
 
 def _mock_chat_completion_response(content=TEST_CONTENT):
     return _MockResponse(200, _chat_completion_json_sample(content))
+
+
+def _mock_completion_response(content=TEST_CONTENT):
+    return _MockResponse(200, _completion_json_sample(content))
 
 
 def _mock_embeddings_response(num_texts):
@@ -96,22 +122,102 @@ def _mock_request(**kwargs):
         yield m
 
 
+@contextmanager
+def _mock_request_post(**kwargs):
+    with mock.patch("requests.post", **kwargs) as m:
+        yield m
+
+
 def _mock_openai_request():
-    original = requests.Session.request
+    original = requests.post
 
     def request(*args, **kwargs):
-        if len(args) > 2:
-            url = args[2]
-        else:
-            url = kwargs.get("url")
+        url = kwargs.get("url")
 
-        if url.endswith("/chat/completions"):
-            messages = json.loads(kwargs.get("data")).get("messages")
+        if "/chat/completions" in url:
+            messages = kwargs.get("json").get("messages")
             return _mock_chat_completion_response(content=json.dumps(messages))
-        elif url.endswith("/embeddings"):
-            inp = json.loads(kwargs.get("data")).get("input")
+        elif "/completions" in url:
+            prompt = kwargs.get("json").get("prompt")
+            return _mock_completion_response(content=json.dumps(prompt))
+        elif "/embeddings" in url:
+            inp = kwargs.get("json").get("input")
             return _mock_embeddings_response(len(inp) if isinstance(inp, list) else 1)
         else:
             return original(*args, **kwargs)
 
-    return _mock_request(new=request)
+    return _mock_request_post(new=request)
+
+
+def _validate_model_params(task, model, params):
+    if not params:
+        return
+
+    if any(key in model for key in params):
+        raise mlflow.MlflowException.invalid_parameter_value(
+            f"Providing any of {list(model.keys())} as parameters in the signature is not "
+            "allowed because they were indicated as part of the OpenAI model. Either remove "
+            "the argument when logging the model or remove the parameter from the signature.",
+        )
+    if "batch_size" in params and task == "chat.completions":
+        raise mlflow.MlflowException.invalid_parameter_value(
+            "Parameter `batch_size` is not supported for task `chat.completions`"
+        )
+
+
+def _exclude_params_from_envs(params, envs):
+    """
+    params passed at inference time should override envs.
+    """
+    return {k: v for k, v in envs.items() if k not in params} if params else envs
+
+
+class _OAITokenHolder:
+    def __init__(self, api_type):
+        self._api_token = None
+        self._credential = None
+        self._is_azure_ad = api_type in ("azure_ad", "azuread")
+        self._key_configured = "OPENAI_API_KEY" in os.environ
+
+        if self._is_azure_ad and not self._key_configured:
+            try:
+                from azure.identity import DefaultAzureCredential
+            except ImportError:
+                raise mlflow.MlflowException(
+                    "Using API type `azure_ad` or `azuread` requires the package"
+                    " `azure-identity` to be installed."
+                )
+            self._credential = DefaultAzureCredential()
+
+    def validate(self, logger=None):
+        """
+        Validates the token or API key configured for accessing the OpenAI resource.
+        """
+        if self._key_configured:
+            return
+
+        if self._is_azure_ad:
+            if not self._api_token or self._api_token.expires_on < time.time() + 60:
+                from azure.core.exceptions import ClientAuthenticationError
+
+                if logger:
+                    logger.debug(
+                        "Token for Azure AD is either expired or unset. Attempting to "
+                        "acquire a new token."
+                    )
+                try:
+                    self._api_token = self._credential.get_token(
+                        "https://cognitiveservices.azure.com/.default"
+                    )
+                except ClientAuthenticationError as err:
+                    raise mlflow.MlflowException(
+                        "Unable to acquire a valid Azure AD token for the resource due to "
+                        f"the following error: {err.message}"
+                    ) from err
+                os.environ["OPENAI_API_KEY"] = self._api_token.token
+            if logger:
+                logger.debug("Token refreshed successfully")
+        else:
+            raise mlflow.MlflowException(
+                "OpenAI API key must be set in the ``OPENAI_API_KEY`` environment variable."
+            )

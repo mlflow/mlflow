@@ -187,7 +187,7 @@ const evaluationPendingDataByRunUuid = (
 
     const evaluationTime = !startTime ? 0 : performance.now() - startTime;
 
-    const { metadata, text } = ModelGatewayService.parseEvaluationResponse(action.payload);
+    const { usage, text } = ModelGatewayService.parseEvaluationResponse(action.payload);
 
     const newEntry: PendingEvaluationArtifactTableEntry = {
       entryData: {
@@ -196,7 +196,7 @@ const evaluationPendingDataByRunUuid = (
         [DEFAULT_PROMPTLAB_PROMPT_COLUMN]: compiledPrompt,
       },
       evaluationTime,
-      totalTokens: metadata.total_tokens,
+      totalTokens: usage.total_tokens,
       isPending: true,
     };
 

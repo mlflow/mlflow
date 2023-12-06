@@ -101,14 +101,24 @@ MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
     "MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", int, 2
 )
 
+#: Specifies the backoff jitter between MLflow HTTP request failures
+#: (default: ``1.0``)
+MLFLOW_HTTP_REQUEST_BACKOFF_JITTER = _EnvironmentVariable(
+    "MLFLOW_HTTP_REQUEST_BACKOFF_JITTER", float, 1.0
+)
+
 #: Specifies the timeout in seconds for MLflow HTTP requests
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
-#: Specifies whether MLFlow HTTP requests should be signed using AWS signature V4. It will overwrite
+#: Specifies whether MLflow HTTP requests should be signed using AWS signature V4. It will overwrite
 #: (default: ``False``). When set, it will overwrite the "Authorization" HTTP header.
 #: See https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html for more information.
 MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIGV4", False)
+
+#: Specifies the auth provider to sign the MLflow HTTP request
+#: (default: ``None``). When set, it will overwrite the "Authorization" HTTP header.
+MLFLOW_TRACKING_AUTH = _EnvironmentVariable("MLFLOW_TRACKING_AUTH", str, None)
 
 #: Specifies the chunk size to use when downloading a file from GCS
 #: (default: ``None``). If None, the chunk size is automatically determined by the
@@ -288,6 +298,12 @@ MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
 # Specifies whether or not to use multipart upload when uploading large artifacts.
 MLFLOW_ENABLE_MULTIPART_UPLOAD = _BooleanEnvironmentVariable("MLFLOW_ENABLE_MULTIPART_UPLOAD", True)
 
+#: Specifies whether or not to use multipart upload for proxied artifact access.
+#: (default: ``False``)
+MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", False
+)
+
 #: Private environment variable that's set to ``True`` while running tests.
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
 
@@ -363,14 +379,23 @@ MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO = _BooleanEnvironmentVariable(
 _MLFLOW_AUTOLOGGING_TESTING = _BooleanEnvironmentVariable("MLFLOW_AUTOLOGGING_TESTING", False)
 
 #: (Experimental, may be changed or removed)
-#: Specifies the uri of a Mlflow Gateway Server instance to be used with the Gateway Client APIs
+#: Specifies the uri of a MLflow Gateway Server instance to be used with the Gateway Client APIs
 #: (default: ``None``)
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
 
+#: (Experimental, may be changed or removed)
+#: Specifies the uri of a MLflow Deployments Server instance to be used with the Deployments
+#: Client APIs
+#: (default: ``None``)
+MLFLOW_DEPLOYMENTS_TARGET = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_TARGET", str, None)
 
 #: Specifies the path of the config file for MLflow AI Gateway.
 #: (default: ``None``)
 MLFLOW_GATEWAY_CONFIG = _EnvironmentVariable("MLFLOW_GATEWAY_CONFIG", str, None)
+
+#: Specifies the path of the config file for the MLflow Deployments server.
+#: (default: ``None``)
+MLFLOW_DEPLOYMENTS_CONFIG = _EnvironmentVariable("MLFLOW_DEPLOYMENTS_CONFIG", str, None)
 
 #: Specifies whether to display the progress bar when uploading/downloading artifacts.
 #: (default: ``True``)
@@ -439,4 +464,26 @@ MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL = _EnvironmentVariable(
 #: Specifies the number of samples before logging system metrics.
 MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
     "MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING", int, None
+)
+
+# Private environment variable to specify the number of chunk download retries for multipart
+# download.
+_MLFLOW_MPD_NUM_RETRIES = _EnvironmentVariable("_MLFLOW_MPD_NUM_RETRIES", int, 3)
+
+# Private environment variable to specify the interval between chunk download retries for multipart
+# download.
+_MLFLOW_MPD_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
+    "_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", int, 1
+)
+
+#: Specifies the minimum file size in bytes to use multipart upload when logging artifacts
+#: (default: ``524_288_000`` (500 MB))
+MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", int, 500 * 1024**2
+)
+
+#: Specifies the chunk size in bytes to use when performing multipart upload
+#: (default: ``104_857_600`` (100 MB))
+MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
+    "MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", int, 100 * 1024**2
 )
