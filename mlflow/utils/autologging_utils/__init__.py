@@ -12,6 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
+from mlflow.utils.validation import _validate_param
 
 # Define the module-level logger for autologging utilities before importing utilities defined in
 # submodules (e.g., `safety`, `events`) that depend on the module-level logger. Add the `noqa: E402`
@@ -107,6 +108,15 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
     return {key: value for key, value in params_to_log.items() if key not in unlogged}
 
 
+def _is_valid_param(key, value):
+    try:
+        _validate_param(key, str(value))
+        return True
+    except MlflowException as e:
+        _logger.warning(f"Skipping parameter {key} as {e}")
+        return False
+
+
 def log_fn_args_as_params(fn, args, kwargs, unlogged=None):
     """
     Log arguments explicitly passed to a function as MLflow Run parameters to the current active
@@ -121,23 +131,8 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=None):
     :return: None
     """
     params_to_log = get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged)
-
-    # Logging parameters individually to prevent one param from causing the entire training to fail
-    # (e.g., when fitting with a large param like class_weight)
-    for key, value in params_to_log.items():
-        try:
-            mlflow.log_param(key, value)
-        except MlflowException as e:
-            if e.error_code == ErrorCode.Name(
-                INVALID_PARAMETER_VALUE
-            ) and "which exceeded length limit" in str(e):
-                _logger.warning(
-                    "Failed to log parameter %s due to exceeding length limit.",
-                    key,
-                )
-            else:
-                raise e
-
+    params_to_log = {key: value for key, value in params_to_log.items() if _is_valid_param(key, value)}
+    mlflow.log_params(params_to_log)
 
 class InputExampleInfo:
     """
