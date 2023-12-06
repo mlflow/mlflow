@@ -68,9 +68,16 @@ def test_predict_openai(mock_openai_creds):
         "mlflow.openai.api_request_parallel_processor.process_api_requests",
         return_value=[mock_resp],
     ) as mock_request:
-        resp = client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
+        resp = client.predict(
+            endpoint="test",
+            inputs={
+                "messages": [
+                    {"role": "user", "content": "Hello!"},
+                ],
+            },
+        )
         mock_request.assert_called_once_with(
-            [{"model": "test", "prompt": "my prompt", "temperature": 0.1}],
+            [{"model": "test", "messages": [{"role": "user", "content": "Hello!"}]}],
             "https://api.openai.com/v1/chat/completions",
             api_token=mock.ANY,
             throw_original_error=mock.ANY,
@@ -107,9 +114,16 @@ def test_predict_azure_openai(mock_azure_openai_creds):
         "mlflow.openai.api_request_parallel_processor.process_api_requests",
         return_value=[mock_resp],
     ) as mock_request:
-        resp = client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
+        resp = client.predict(
+            endpoint="test",
+            inputs={
+                "messages": [
+                    {"role": "user", "content": "Hello!"},
+                ],
+            },
+        )
         mock_request.assert_called_once_with(
-            [{"prompt": "my prompt", "temperature": 0.1}],
+            [{"messages": [{"role": "user", "content": "Hello!"}]}],
             "my-base/openai/deployments/my-deployment/chat/completions?api-version=2023-05-15",
             api_token=mock.ANY,
             throw_original_error=mock.ANY,
@@ -121,7 +135,14 @@ def test_predict_azure_openai(mock_azure_openai_creds):
 def test_no_openai_api_key():
     client = get_deploy_client("openai")
     with pytest.raises(MlflowException, match="OPENAI_API_KEY environment variable not set"):
-        client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
+        client.predict(
+            endpoint="test",
+            inputs={
+                "messages": [
+                    {"role": "user", "content": "Hello!"},
+                ],
+            },
+        )
 
 
 def test_score_model_azure_openai_bad_envs(mock_bad_azure_openai_creds):
@@ -129,7 +150,14 @@ def test_score_model_azure_openai_bad_envs(mock_bad_azure_openai_creds):
     with pytest.raises(
         MlflowException, match="Either engine or deployment_id must be set for Azure OpenAI API"
     ):
-        client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
+        client.predict(
+            endpoint="test",
+            inputs={
+                "messages": [
+                    {"role": "user", "content": "Hello!"},
+                ],
+            },
+        )
 
 
 def test_openai_authentication_error(mock_openai_creds):
@@ -146,8 +174,15 @@ def test_openai_authentication_error(mock_openai_creds):
     }
 
     with mock.patch("requests.post", return_value=mock_response):
-        with pytest.raises(MlflowException, match="Error response from OpenAI:"):
-            client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
+        with pytest.raises(MlflowException, match="Authentication Error for OpenAI"):
+            client.predict(
+                endpoint="test",
+                inputs={
+                    "messages": [
+                        {"role": "user", "content": "Hello!"},
+                    ],
+                },
+            )
 
 
 def test_openai_mlflow_exception(mock_openai_creds):
@@ -157,7 +192,14 @@ def test_openai_mlflow_exception(mock_openai_creds):
         side_effect=MlflowException("foo"),
     ) as mock_post:
         with pytest.raises(MlflowException, match="foo"):
-            client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
+            client.predict(
+                endpoint="test",
+                inputs={
+                    "messages": [
+                        {"role": "user", "content": "Hello!"},
+                    ],
+                },
+            )
         mock_post.assert_called_once()
 
 
@@ -168,5 +210,12 @@ def test_openai_exception(mock_openai_creds):
         side_effect=Exception("foo"),
     ) as mock_post:
         with pytest.raises(MlflowException, match="Error response from OpenAI:\n foo"):
-            client.predict(endpoint="test", inputs={"prompt": "my prompt", "temperature": 0.1})
+            client.predict(
+                endpoint="test",
+                inputs={
+                    "messages": [
+                        {"role": "user", "content": "Hello!"},
+                    ],
+                },
+            )
         mock_post.assert_called_once()
