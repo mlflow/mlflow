@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2.9.1 (2023-12-07)
+
+MLflow 2.9.1 includes several major features and improvements
+
+Bug fixes:
+
+- [Models] Revert Changes to PythonModel that introduced loading issues (#10626, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#10625, @BenWilson2
+
 ## 2.9.0 (2023-12-05)
 
 MLflow 2.9.0 includes several major features and improvements.
