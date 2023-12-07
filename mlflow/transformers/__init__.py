@@ -105,13 +105,7 @@ _TOKENIZER_KEY = "tokenizer"
 _TOKENIZER_TYPE_KEY = "tokenizer_type"
 _TORCH_DTYPE_KEY = "torch_dtype"
 _METADATA_PIPELINE_SCALAR_CONFIG_KEYS = {_FRAMEWORK_KEY}
-_SUPPORTED_SAVE_KEYS = {
-    _MODEL_KEY,
-    _TOKENIZER_KEY,
-    _FEATURE_EXTRACTOR_KEY,
-    _IMAGE_PROCESSOR_KEY,
-    _TORCH_DTYPE_KEY,
-}
+_SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
 
 _logger = logging.getLogger(__name__)
 
@@ -1343,7 +1337,6 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "DocumentQuestionAnsweringPipeline",
         "ImageToTextPipeline",
         "VisualQuestionAnsweringPipeline",
-        "ImageClassificationPipeline",
         "ImageSegmentationPipeline",
         "DepthEstimationPipeline",
         "ObjectDetectionPipeline",
@@ -1353,11 +1346,6 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "ZeroShotAudioClassificationPipeline",
     ]
 
-    impermissible_attrs = {"image_processor"}
-
-    for attr in impermissible_attrs:
-        if getattr(pipeline, attr, None) is not None:
-            return False
     for model_type in exclusion_model_types:
         if hasattr(transformers, model_type):
             if isinstance(pipeline.model, getattr(transformers, model_type)):
@@ -1425,7 +1413,13 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]), outputs=Schema([ColSpec("string")])
             )
-        elif isinstance(pipeline, transformers.TextClassificationPipeline):
+        elif isinstance(
+            pipeline,
+            (
+                transformers.TextClassificationPipeline,
+                transformers.ImageClassificationPipeline,
+            ),
+        ):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]),
                 outputs=Schema([ColSpec("string", name="label"), ColSpec("double", name="score")]),
@@ -1511,7 +1505,6 @@ class _TransformersModel(NamedTuple):
     feature_extractor: Any = None
     image_processor: Any = None
     processor: Any = None
-    torch_dtype: Any = None
 
     def to_dict(self):
         dict_repr = self._asdict()
@@ -1535,7 +1528,7 @@ class _TransformersModel(NamedTuple):
 
     @classmethod
     def _validate_submitted_types(
-        cls, model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
+        cls, model, tokenizer, feature_extractor, image_processor, processor
     ):
         from transformers import (
             FeatureExtractionMixin,
@@ -1569,12 +1562,6 @@ class _TransformersModel(NamedTuple):
         for arg, name, types in validation:
             if arg and not isinstance(arg, types):
                 invalid_types.append(cls._build_exception_msg(arg, name, types))
-        # only import torch when torch_dtype is not None
-        if torch_dtype is not None:
-            from torch import dtype
-
-            if not isinstance(torch_dtype, dtype):
-                invalid_types.append(cls._build_exception_msg(torch_dtype, "torch_dtype", dtype))
         if invalid_types:
             raise MlflowException("\n".join(invalid_types), error_code=BAD_REQUEST)
 
@@ -1586,16 +1573,13 @@ class _TransformersModel(NamedTuple):
         feature_extractor=None,
         image_processor=None,
         processor=None,
-        torch_dtype=None,
         **kwargs,  # pylint: disable=unused-argument
     ):
         cls._validate_submitted_types(
-            model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
+            model, tokenizer, feature_extractor, image_processor, processor
         )
 
-        return _TransformersModel(
-            model, tokenizer, feature_extractor, image_processor, processor, torch_dtype
-        )
+        return _TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
 
 
 def _get_model_config(local_path, pyfunc_config):
@@ -1773,7 +1757,7 @@ class _TransformersWrapper:
             raise MlflowException(
                 "Input data must be either a pandas.DataFrame, a string, bytes, List[str], "
                 "List[Dict[str, str]], List[Dict[str, Union[str, List[str]]]], "
-                "or Dict[str, Union[str, List[str]]].",
+                "or Dict[str, Union[str, List[str]]]",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         input_data = self._parse_raw_pipeline_input(input_data)
@@ -1814,6 +1798,9 @@ class _TransformersWrapper:
             self._validate_str_or_list_str(data)
             output_key = "token_str"
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
+            output_key = "label"
+        elif isinstance(self.pipeline, transformers.ImageClassificationPipeline):
+            data = self._convert_image_input(data)
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             output_key = "labels"
@@ -1893,7 +1880,11 @@ class _TransformersWrapper:
             output = json.dumps(raw_output)
         elif isinstance(
             self.pipeline,
-            (transformers.AudioClassificationPipeline, transformers.TextClassificationPipeline),
+            (
+                transformers.AudioClassificationPipeline,
+                transformers.TextClassificationPipeline,
+                transformers.ImageClassificationPipeline,
+            ),
         ):
             return pd.DataFrame(raw_output)
         else:
@@ -2580,6 +2571,60 @@ class _TransformersWrapper:
                     parsed_data.append(entry)
             return parsed_data
 
+    def _convert_image_input(self, data):
+        """
+        Conversion utility for decoding the base64 encoded bytes data of a raw image file when
+        parsed through model serving, if applicable. Direct usage of the pyfunc implementation
+        outside of model serving will treat this utility as a noop.
+
+        For reference, the expected encoding for input to Model Serving will be:
+
+        import requests
+        import base64
+
+        response = requests.get("https://www.my.images/a/sound/file.jpg")
+        encoded_image = base64.b64encode(response.content).decode("utf-8")
+
+        inference_data = json.dumps({"inputs": [encoded_image]})
+
+        or
+
+        inference_df = pd.DataFrame(
+        pd.Series([encoded_image], name="image_file")
+        )
+        split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+        split_json = json.dumps(split_dict)
+
+        or
+
+        records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
+        records_json = json.dumps(records_dict)
+
+        This utility will convert this JSON encoded, base64 encoded text back into bytes for
+        input into the Image pipelines for inference.
+        """
+
+        def is_base64_image(s):
+            try:
+                return base64.b64encode(base64.b64decode(s)).decode("utf-8") == s
+            except binascii.Error:
+                return False
+
+        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
+            lst_data = []
+            for item in data:
+                data_ele = next(iter(item.values()))
+                if isinstance(data_ele, str):
+                    # base64 encoded image comes as string
+                    if not is_base64_image(data_ele):
+                        self._validate_str_input_uri_or_file(data_ele)
+                lst_data.append(data_ele)
+            return lst_data
+        elif isinstance(data, str):
+            if not is_base64_image(data):
+                self._validate_str_input_uri_or_file(data)
+        return data
+
     def _convert_audio_input(self, data):
         """
         Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
@@ -2668,7 +2713,8 @@ class _TransformersWrapper:
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
         """
-        Validation of blob references to audio files, if a string is input to the ``predict``
+        Validation of blob references for audio or image transformers pipelines;
+        if a string is input to the ``predict``
         method, perform validation of the string contents by checking for a valid uri or
         filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
         for an invalid uri input.
@@ -2681,14 +2727,39 @@ class _TransformersWrapper:
             except ValueError:
                 return False
 
-        valid_uri = os.path.isfile(input_str) or is_uri(input_str)
+        def validate_nested_list(lst):
+            for item in lst:
+                if isinstance(item, list):
+                    validate_nested_list(item)
+                else:
+                    validate_single_input(key, item)
 
-        if not valid_uri:
-            raise MlflowException(
-                "An invalid string input was provided. String inputs to "
-                "audio files must be either a file location or a uri.",
-                error_code=BAD_REQUEST,
-            )
+        def validate_input(key, value):
+            # Use pathlib to handle file paths
+            # input_path = os.Path(value)
+
+            # Check if it's a valid file path or URI
+            # valid_input = input_path.is_file() or is_uri(value)
+            valid_uri = os.path.isfile(input_str) or is_uri(input_str)
+
+            if not valid_uri:
+                raise MlflowException(
+                    "An invalid string input was provided. String inputs to "
+                    "audio or image files must be either a file location or a uri.",
+                    error_code=BAD_REQUEST,
+                )
+
+        def validate_single_input(key, value):
+            if isinstance(value, list):
+                validate_nested_list(value)
+            else:
+                validate_input(key, value)
+
+        if isinstance(input_str, dict):
+            for key, value in input_str.items():
+                validate_input(key, value)
+        else:
+            validate_input(None, input_str)
 
 
 @experimental
