@@ -122,7 +122,7 @@ class CardTab:
         """
         import jinja2
 
-        j2_env = jinja2.Environment(loader=jinja2.BaseLoader()).from_string(self.template)
+        j2_env = jinja2.SandboxedEnvironment(loader=jinja2.BaseLoader()).from_string(self.template)
         return j2_env.render({**self._context})
 
 
