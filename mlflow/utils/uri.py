@@ -427,6 +427,10 @@ def validate_path_is_safe(path):
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
 
+    exc = MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
+    if any((s in path) for s in ("#", "%23")):
+        raise exc
+
     if is_file_uri(path):
         path = local_file_uri_to_path(path)
     if (
@@ -436,4 +440,4 @@ def validate_path_is_safe(path):
         or pathlib.PurePosixPath(path).is_absolute()
         or (is_windows() and len(path) >= 2 and path[1] == ":")
     ):
-        raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
+        raise exc
