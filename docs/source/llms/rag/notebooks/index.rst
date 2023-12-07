@@ -12,6 +12,7 @@ a RAG application that answers questions about MLflow documentation.
 
     question-generation-retrieval-evaluation.ipynb
     retriever-evaluation-tutorial.ipynb
+    rag-e2e-evaluation-tutorial.ipynb
 
 Question Generation for RAG Tutorial
 ------------------------------------
@@ -59,3 +60,27 @@ To follow along and see the sections of the notebook guide, click below:
 .. raw:: html
 
     <a href="retriever-evaluation-tutorial.html" class="download-btn">View the Notebook</a><br/>
+
+
+RAG E2E Evaluation Tutorial
+---------------------------
+
+This tutorial walks you through ...
+
+In this tutorial you will learn:
+
+- ...
+- ...
+- ...
+
+If you would like a copy of this notebook to execute in your environment, download the notebook here:
+
+.. raw:: html
+
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/rag/notebooks/rag-e2e-evaluation-tutorial.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
+
+To follow along and see the sections of the notebook guide, click below:
+
+.. raw:: html
+
+    <a href="rag-e2e-evaluation-tutorial.html" class="download-btn">View the Notebook</a><br/>
