@@ -20,6 +20,6 @@ model = MyModel()
 
 mlflow.pyfunc.save_model(
     python_model=model,
-    path="tests/resources/pyfunc_models/2.8.1",  # replace with the version you installed
+    path=f"tests/resources/pyfunc_models/{mlflow.__version__}",
 )
 ```
