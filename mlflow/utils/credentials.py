@@ -49,7 +49,7 @@ def read_mlflow_creds() -> MlflowCreds:
     )
 
 
-def login(backend: Optional[str] = None, interactive: Optional[bool] = None) -> None:
+def login(backend: str = "databricks", interactive: bool = True) -> None:
     """Configure MLflow server authentication and connect MLflow to tracking server.
 
     This method provides a simple way to connect MLflow to its tracking server. Currently only
@@ -61,8 +61,8 @@ def login(backend: Optional[str] = None, interactive: Optional[bool] = None) -> 
             supported.
 
         interacive: bool, controls request for user input on missing credentials. If true, user
-            input will be requested if no credentials are found in the default location, otherwise
-            _databricks_login will raise an exception if no credentials are found.
+            input will be requested if no credentials are found, otherwise an exception will be
+            raised if no credentials are found.
 
     .. code-block:: python
         :caption: Example
@@ -74,14 +74,6 @@ def login(backend: Optional[str] = None, interactive: Optional[bool] = None) -> 
             mlflow.log_param("p", 0)
     """
     from mlflow.tracking import set_tracking_uri
-
-    # Default behavior is to enable interactive mode
-    if interactive is None:
-        interactive = True
-
-    # Default backend is `databricks`
-    if backend is None:
-        backend = "databricks"
 
     if backend == "databricks":
         _databricks_login(interactive)
@@ -176,16 +168,14 @@ def _databricks_login(interactive):
     try:
         # Failed validation will throw an error.
         _validate_databricks_auth()
-    except Exception as e:
+        return
+    except Exception:
         if interactive:
             _logger.info("No valid Databricks credentials found, please enter your credentials...")
         else:
             raise MlflowException(
-                "No valid Databricks credentials found while running in non-interactive mode"
-            ) from e
-    else:
-        # Validation was successful, no user input required
-        return
+                "No valid Databricks credentials found while running in non-interactive mode."
+            )
 
     while True:
         host = input("Databricks Host (should begin with https://): ")
@@ -215,13 +205,11 @@ def _databricks_login(interactive):
         # Failed validation will throw an error.
         _validate_databricks_auth()
         return
-    except subprocess.TimeoutExpired as e:
+    except subprocess.TimeoutExpired:
         raise MlflowException(
             "Timeout while signing in Databricks, max retry reached. This often happens when you "
             "are using an invalid host. Please check your credentials and retry `mlflow.login`."
-        ) from e
+        )
     except Exception as e:
         # If user entered invalid auth, we will raise an error and ask users to retry.
-        raise MlflowException(
-            f"Failed to sign in Databricks, please retry `mlflow.login()`: {e}"
-        ) from e
+        raise MlflowException(f"Failed to sign in Databricks, please retry `mlflow.login()`: {e}")

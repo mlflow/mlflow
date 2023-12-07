@@ -135,11 +135,11 @@ def test_mlflow_login(tmp_path, monkeypatch):
     assert get_tracking_uri() == "databricks"
 
 
-def test_mlflow_noninteractive_login():
+def test_mlflow_login_noninteractive():
     # Forces mlflw.utils.credentials._validate_databricks_auth to raise `MlflowException()`
     with patch(
         "mlflow.utils.credentials._validate_databricks_auth",
-        side_effect=MlflowException("Failed to validate datbricks credentials."),
+        side_effect=MlflowException("Failed to validate databricks credentials."),
     ):
         with pytest.raises(
             MlflowException,
