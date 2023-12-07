@@ -80,6 +80,7 @@ _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 # runners#supported-runners-and-hardware-resources for instance specs.
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
+image_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
 
 # Test that can only be run locally:
 # - Summarization pipeline tests
@@ -479,7 +480,7 @@ def test_instance_extraction(small_qa_pipeline):
         ("small_qa_pipeline", True),
         ("small_seq2seq_pipeline", True),
         ("small_multi_modal_pipeline", False),
-        ("small_vision_model", False),
+        ("small_vision_model", True),
     ],
 )
 def test_pipeline_eligibility_for_pyfunc_registration(model, result, request):
@@ -616,6 +617,30 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
     assert {req.split("==")[0] for req in conda_env["dependencies"][2]["pip"]}.intersection(
         expected_requirements
     ) == expected_requirements
+    # Validate the MLModel file
+    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
+    flavor_config = mlmodel["flavors"]["transformers"]
+    assert flavor_config["instance_type"] == "ImageClassificationPipeline"
+    assert flavor_config["pipeline_model_type"] == "MobileNetV2ForImageClassification"
+    assert flavor_config["task"] == "image-classification"
+    assert flavor_config["source_model_name"] == "google/mobilenet_v2_1.0_224"
+
+def test_vision_model_save_model_for_task_and_card_inference(small_vision_model, model_path):
+    mlflow.transformers.save_model(transformers_model=small_vision_model, path=model_path)
+    # validate inferred pip requirements
+    with model_path.joinpath("requirements.txt").open() as file:
+        requirements = file.read()
+    reqs = {req.split("==")[0] for req in requirements.split("\n")}
+    expected_requirements = {"torch", "torchvision", "transformers"}
+    assert reqs.intersection(expected_requirements) == expected_requirements
+    # validate inferred model card data
+    card_data = yaml.safe_load(model_path.joinpath("model_card_data.yaml").read_bytes())
+    assert card_data["tags"] == ["vision", "image-classification"]
+    # Validate inferred model card text
+    with model_path.joinpath("model_card.md").open(encoding="utf-8") as file:
+        card_text = file.read()
+    assert len(card_text) > 0
+
     # Validate the MLModel file
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
     flavor_config = mlmodel["flavors"]["transformers"]
@@ -1340,6 +1365,38 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert isinstance(pd_inference, list)
     assert all(isinstance(element, str) for element in inference)
 
+def read_image(filename):
+    image_path = os.path.join(pathlib.Path(__file__).parent.parent, "datasets", filename)
+    with open(image_path, "rb") as f:
+        return f.read()
+
+@pytest.mark.parametrize(
+    "inference_payload",
+    [
+        image_url,
+        os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png"),
+        "base64",
+    ],
+)
+def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
+    if inference_payload == "base64":
+        if Version(transformers.__version__) > Version("4.28") or Version(
+            transformers.__version__
+        ) < Version("4.33"):
+            return
+        inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
+    signature = infer_signature(
+        inference_payload,
+        mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
+    )
+    mlflow.transformers.save_model(
+        transformers_model=small_vision_model,
+        path=model_path,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    predictions = pyfunc_loaded.predict(inference_payload)
+    assert len(predictions) != 0
 
 @pytest.mark.parametrize(
     ("data", "result"),
@@ -1850,6 +1907,42 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
         [{"text": "test1", "text_pair": "pair1"}, {"text": "test2", "text_pair": "pair2"}],
     ],
 )
+@pytest.mark.parametrize(
+    "inference_payload",
+    [
+        [os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")],
+        [image_url, image_url],
+        "base64",
+    ],
+)
+def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
+    if not isinstance(inference_payload, list) and inference_payload == "base64":
+        if transformers.__version__ > "4.28" or transformers.__version__ < "4.33":
+            return
+        inference_payload = [
+            base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
+        ]
+    artifact_path = "image_classification_model"
+
+    # Log the image classification model
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=small_vision_model,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    inference_payload = json.dumps({"inputs": inference_payload})
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert len(predictions) != 0
+
 def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text_classification_pipeline, data)
@@ -2005,6 +2098,42 @@ def test_infer_signature_from_example_only(
     else:
         assert model.saved_input_example_info is None
 
+def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
+    artifact_path = "image_classification_model"
+
+    image_file_paths = image_url
+    parameters = {
+        "top_k": 2,
+    }
+    inference_payload = json.dumps(
+        {
+            "inputs": [image_file_paths],
+            "params": parameters,
+        }
+    )
+
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=small_vision_model,
+            artifact_path=artifact_path,
+            signature=infer_signature(
+                image_file_paths,
+                mlflow.transformers.generate_signature_output(small_vision_model, image_file_paths),
+                params=parameters,
+            ),
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    assert len(predictions) != 0
+    assert len(predictions.iloc[0]) == parameters["top_k"]
 
 def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
     artifact_path = "qa_model"
