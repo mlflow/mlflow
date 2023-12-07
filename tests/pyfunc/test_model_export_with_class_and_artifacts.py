@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
+import tempfile
 import uuid
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Tuple
@@ -18,6 +20,7 @@ import sklearn.datasets
 import sklearn.linear_model
 import sklearn.neighbors
 import yaml
+from packaging.version import Version
 
 import mlflow
 import mlflow.pyfunc
@@ -30,11 +33,16 @@ from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking.artifact_utils import get_artifact_uri as utils_get_artifact_uri
+from mlflow.tracking.artifact_utils import (
+    _download_artifact_from_uri,
+)
+from mlflow.tracking.artifact_utils import (
+    get_artifact_uri as utils_get_artifact_uri,
+)
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.os import is_windows
 
 import tests
 from tests.helper_functions import (
@@ -1083,11 +1091,6 @@ def test_save_and_load_model_with_special_chars(
     )
 
 
-class TestPythonModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context, model_input, params=None):
-        raise NotImplementedError("This model used to test the PythonModel API")
-
-
 def test_model_with_code_path_containing_main(tmp_path):
     """Test that the __main__ module is unaffected by model loading"""
     directory = tmp_path.joinpath("model_with_main")
@@ -1097,7 +1100,7 @@ def test_model_with_code_path_containing_main(tmp_path):
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model",
-            python_model=TestPythonModel(),
+            python_model=mlflow.pyfunc.model.PythonModel(),
             code_path=[str(directory)],
         )
 
@@ -1112,7 +1115,7 @@ def test_model_save_load_with_metadata(tmp_path):
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         conda_env=_conda_env(),
-        python_model=TestPythonModel(),
+        python_model=mlflow.pyfunc.model.PythonModel(),
         metadata={"metadata_key": "metadata_value"},
     )
 
@@ -1125,7 +1128,7 @@ def test_model_log_with_metadata():
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
-            python_model=TestPythonModel(),
+            python_model=mlflow.pyfunc.model.PythonModel(),
             metadata={"metadata_key": "metadata_value"},
         )
         pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
@@ -1465,3 +1468,95 @@ def test_load_model_fails_for_feature_store_models(tmp_path):
         MlflowException, match="mlflow.pyfunc.load_model is not supported for Feature Store models"
     ):
         mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+
+
+# NOTE: This is a stop-gap measure to ensure that we have corrected the condition of the
+# regression introduced in 2.9.0 release.
+# After release, we should replace this test with a more permanent and resilient solution.
+def run_command(command, env):
+    subprocess.run(command, shell=True, check=True, env=env)
+
+
+@pytest.fixture
+def mlflow_env():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        env_name = os.path.join(tmp_dir, "mlflow_test_env")
+        run_command(f"python -m venv {env_name}", os.environ.copy())
+
+        yield env_name
+
+
+@pytest.mark.skipif(is_windows(), reason="This test is not Windows compatible")
+def test_mlflow_backward_compatibility(tmp_path):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        cloudpickle_version = cloudpickle.__version__
+        env_vars = os.environ.copy()
+        env_name = os.path.join(tmp_dir, "mlflow_test_env")
+        python_executable = os.path.join(env_name, "bin", "python")
+        activate_script = os.path.join(env_name, "bin", "activate")
+
+        # Create and activate the virtual environment
+        run_command(f"python -m venv {env_name}", env_vars)
+
+        run_command(
+            f"{python_executable} -m pip install -U mlflow cloudpickle=={cloudpickle_version}",
+            env_vars,
+        )
+
+        model_save_path = tmp_path / "test_model"
+        model_path = str(model_save_path)
+
+        # Prepare the Python script
+        model_logging_script = f"""
+import mlflow
+
+mlflow.set_experiment("Backwards Test")
+
+class TestModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input):
+        return model_input
+
+mlflow.pyfunc.save_model(
+    path='{model_path}',
+    python_model=TestModel(),
+    pip_requirements=['cloudpickle=={cloudpickle_version}']
+)
+"""
+
+        # Write the script to a temporary file
+        script_path = tmp_path / "model_logging_script.py"
+        script_path.write_text(model_logging_script)
+
+        shell_script = f"""
+        #!/bin/bash
+        source {activate_script}
+        {python_executable} {script_path}
+        """
+
+        # Write the shell script to a temporary file
+        shell_script_path = tmp_path / "run_model_logging.sh"
+        shell_script_path.write_text(shell_script)
+        run_command(f"chmod +x {shell_script_path}", env_vars)
+
+        # Clear out the python path so that the subprocess doesn't attempt to use the
+        # pytest environment
+        env_vars["PYTHONPATH"] = ""
+        # Run the shell script
+        run_command(str(shell_script_path), env_vars)
+
+    model = mlflow.pyfunc.load_model(model_path)
+
+    assert model is not None
+
+    mlmodel_file = yaml.safe_load(model_save_path.joinpath("MLmodel").read_bytes())
+
+    logged_mlflow_version = Version(mlmodel_file["mlflow_version"])
+    current_mlflow_verison = Version(mlflow.__version__)
+
+    if current_mlflow_verison.is_devrelease:
+        assert logged_mlflow_version < current_mlflow_verison
+    else:
+        # NB: For patch releases, CI will fail due to the branch version being equal to the
+        # released version prior to the release pipeline stage for updating the release version.
+        assert logged_mlflow_version <= current_mlflow_verison
+    assert not logged_mlflow_version.is_devrelease

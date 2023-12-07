@@ -1,3 +1,4 @@
+import time
 from typing import List
 
 from fastapi import HTTPException
@@ -15,19 +16,19 @@ class ServingTextResponse(BaseModel):
     predictions: List[StrictStr]
 
     @validator("predictions", pre=True)
-    def extract_candidates(cls, predictions):
+    def extract_choices(cls, predictions):
         if isinstance(predictions, list) and not predictions:
             raise ValueError("The input list is empty")
         if isinstance(predictions, dict):
-            if "candidates" not in predictions and len(predictions) > 1:
+            if "choices" not in predictions and len(predictions) > 1:
                 raise ValueError(
                     "The dict format is invalid for this route type. Ensure the served model "
-                    "returns a dict key containing 'candidates'"
+                    "returns a dict key containing 'choices'"
                 )
             if len(predictions) == 1:
                 predictions = next(iter(predictions.values()))
             else:
-                predictions = predictions.get("candidates", predictions)
+                predictions = predictions.get("choices", predictions)
             if not predictions:
                 raise ValueError("The input list is empty")
         return predictions
@@ -89,7 +90,10 @@ class MlflowModelServingProvider(BaseProvider):
         except ValidationError as e:
             raise HTTPException(status_code=502, detail=str(e))
 
-        return [{"text": entry, "metadata": {}} for entry in inference_data]
+        return [
+            completions.Choice(index=idx, text=entry, finish_reason=None)
+            for idx, entry in enumerate(inference_data)
+        ]
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         # Example request to MLflow REST API server for completions:
@@ -112,13 +116,15 @@ class MlflowModelServingProvider(BaseProvider):
         # {"predictions": ["hello", "hi", "goodbye"]}
 
         return completions.ResponsePayload(
-            **{
-                "candidates": self._process_completions_response_for_mlflow_serving(resp),
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            object="text_completion",
+            model=self.config.model.name,
+            choices=self._process_completions_response_for_mlflow_serving(resp),
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     def _process_chat_response_for_mlflow_serving(self, response):
@@ -163,13 +169,23 @@ class MlflowModelServingProvider(BaseProvider):
         # {"predictions": ["answer"]}
 
         return chat.ResponsePayload(
-            **{
-                "candidates": self._process_chat_response_for_mlflow_serving(resp),
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            created=int(time.time()),
+            model=self.config.model.name,
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(
+                        role=c["message"]["role"], content=c["message"]["content"]
+                    ),
+                    finish_reason=None,
+                )
+                for idx, c in enumerate(self._process_chat_response_for_mlflow_serving(resp))
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
         )
 
     def _process_embeddings_response_for_mlflow_serving(self, response):
@@ -194,18 +210,25 @@ class MlflowModelServingProvider(BaseProvider):
             headers=self.headers,
             base_url=self.mlflow_config.model_server_url,
             path="invocations",
-            payload=self._process_payload(payload, "text"),
+            payload=self._process_payload(payload, "input"),
         )
 
         # Example response:
         # {"predictions": [[0.100, -0.234, 0.002, ...], [0.222, -0.111, 0.134, ...]]}
 
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": self._process_embeddings_response_for_mlflow_serving(resp),
-                "metadata": {
-                    "model": self.config.model.name,
-                    "route_type": self.config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=embedding,
+                    index=idx,
+                )
+                for idx, embedding in enumerate(
+                    self._process_embeddings_response_for_mlflow_serving(resp)
+                )
+            ],
+            model=self.config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=None,
+                total_tokens=None,
+            ),
         )

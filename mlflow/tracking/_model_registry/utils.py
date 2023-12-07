@@ -25,6 +25,7 @@ from mlflow.tracking._tracking_service.utils import (
     get_tracking_uri,
 )
 from mlflow.utils import rest_utils
+from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.databricks_utils import (
     get_databricks_host_creds,
     warn_on_deprecated_cross_workspace_registry_uri,
@@ -93,12 +94,18 @@ def set_registry_uri(uri: str) -> None:
     _registry_uri = uri
 
 
+def _get_registry_uri_from_spark_session():
+    session = _get_active_spark_session()
+    if session is None:
+        return None
+    return session.conf.get("spark.mlflow.modelRegistryUri", None)
+
+
 def _get_registry_uri_from_context():
     global _registry_uri
-    # in the future, REGISTRY_URI env var support can go here
     if _registry_uri is not None:
         return _registry_uri
-    elif uri := MLFLOW_REGISTRY_URI.get():
+    elif (uri := MLFLOW_REGISTRY_URI.get()) or (uri := _get_registry_uri_from_spark_session()):
         return uri
     return _registry_uri
 

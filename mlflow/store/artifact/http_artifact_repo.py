@@ -1,5 +1,4 @@
 import logging
-import math
 import os
 import posixpath
 
@@ -7,22 +6,28 @@ import requests
 from requests import HTTPError
 
 from mlflow.entities import FileInfo
-from mlflow.entities.multipart_upload import CreateMultipartUploadResponse, MultipartUploadPart
+from mlflow.entities.multipart_upload import (
+    CreateMultipartUploadResponse,
+    MultipartUploadCredential,
+    MultipartUploadPart,
+)
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
-from mlflow.exceptions import _UnsupportedMultipartUploadException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
     verify_artifact_path,
 )
+from mlflow.store.artifact.cloud_artifact_repo import _complete_futures, _compute_num_chunks
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
-from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+from mlflow.utils.uri import validate_path_is_safe
 
 _logger = logging.getLogger(__name__)
 
@@ -84,6 +89,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         augmented_raise_for_status(resp)
         file_infos = []
         for f in resp.json().get("files", []):
+            validate_path_is_safe(f["path"])
             file_info = FileInfo(
                 posixpath.join(path, f["path"]) if path else f["path"],
                 f["is_dir"],
@@ -145,16 +151,24 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         resp = http_request(host_creds, endpoint, "POST", json=params)
         augmented_raise_for_status(resp)
 
+    @staticmethod
+    def _upload_part(credential: MultipartUploadCredential, local_file, size, start_byte):
+        data = read_chunk(local_file, size, start_byte)
+        response = requests.put(credential.url, data=data, headers=credential.headers)
+        augmented_raise_for_status(response)
+        return MultipartUploadPart(
+            part_number=credential.part_number,
+            etag=response.headers.get("ETag", ""),
+        )
+
     def _try_multipart_upload(self, local_file, artifact_path=None):
         """
         Attempts to perform multipart upload to log an artifact.
         Returns if the multipart upload is successful.
         Raises UnsupportedMultipartUploadException if multipart upload is unsupported.
         """
-        parts = []
         chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-        size = os.path.getsize(local_file)
-        num_parts = math.ceil(size / chunk_size)
+        num_parts = _compute_num_chunks(local_file, chunk_size)
 
         try:
             create = self.create_multipart_upload(local_file, num_parts, artifact_path)
@@ -168,18 +182,24 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             raise
 
         try:
-            with open(local_file, "rb") as f:
-                for credential in create.credentials:
-                    chunk = f.read(chunk_size)
-                    response = requests.put(credential.url, data=chunk)
-                    augmented_raise_for_status(response)
-                    parts.append(
-                        MultipartUploadPart(
-                            part_number=credential.part_number,
-                            etag=response.headers["ETag"],
-                        )
-                    )
+            futures = {}
+            for i, credential in enumerate(create.credentials):
+                future = self.thread_pool.submit(
+                    self._upload_part,
+                    credential=credential,
+                    local_file=local_file,
+                    size=chunk_size,
+                    start_byte=chunk_size * i,
+                )
+                futures[future] = credential.part_number
 
+            parts, errors = _complete_futures(futures, local_file)
+            if errors:
+                raise MlflowException(
+                    f"Failed to upload at least one part of {local_file}. Errors: {errors}"
+                )
+
+            parts = sorted(parts.values(), key=lambda part: part.part_number)
             self.complete_multipart_upload(local_file, create.upload_id, parts, artifact_path)
         except Exception as e:
             self.abort_multipart_upload(local_file, create.upload_id, artifact_path)

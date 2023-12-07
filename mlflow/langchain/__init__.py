@@ -11,23 +11,26 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
-import functools
-import json
 import logging
 import os
-import shutil
-import types
-from importlib.util import find_spec
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-import cloudpickle
 import pandas as pd
 import yaml
-from packaging import version
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.langchain.runnables import _load_runnables, _save_runnables
+from mlflow.langchain.utils import (
+    _BASE_LOAD_KEY,
+    _MODEL_LOAD_KEY,
+    _RUNNABLE_LOAD_KEY,
+    _load_base_lcs,
+    _save_base_lcs,
+    _validate_and_wrap_lc_model,
+    lc_runnables_types,
+)
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
@@ -35,7 +38,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
-from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -60,34 +62,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
-_MODEL_DATA_FILE_NAME = "model.yaml"
-_MODEL_DATA_KEY = "model_data"
-_AGENT_PRIMITIVES_FILE_NAME = "agent_primitive_args.json"
-_AGENT_PRIMITIVES_DATA_KEY = "agent_primitive_data"
-_AGENT_DATA_FILE_NAME = "agent.yaml"
-_AGENT_DATA_KEY = "agent_data"
-_TOOLS_DATA_FILE_NAME = "tools.pkl"
-_TOOLS_DATA_KEY = "tools_data"
 _MODEL_TYPE_KEY = "model_type"
-_LOADER_FN_FILE_NAME = "loader_fn.pkl"
-_LOADER_FN_KEY = "loader_fn"
-_LOADER_ARG_KEY = "loader_arg"
-_PERSIST_DIR_NAME = "persist_dir_data"
-_PERSIST_DIR_KEY = "persist_dir"
-_UNSUPPORTED_MODEL_ERROR_MESSAGE = (
-    "MLflow langchain flavor only supports subclasses of "
-    "langchain.chains.base.Chain and langchain.agents.agent.AgentExecutor instances, "
-    "found {instance_type}"
-)
-_UNSUPPORTED_LLM_WARNING_MESSAGE = (
-    "MLflow does not guarantee support for LLMs outside of HuggingFaceHub and OpenAI, found %s"
-)
-_UNSUPPORTED_MODEL_WARNING_MESSAGE = (
-    "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
-)
-_UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE = (
-    "Saving {instance_type} models is only supported in langchain 0.0.194 and above."
-)
 
 
 def get_default_pip_requirements():
@@ -105,53 +80,6 @@ def get_default_conda_env():
              :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
-
-
-class _SpecialChainInfo(NamedTuple):
-    loader_arg: str
-
-
-def _get_special_chain_info_or_none(chain):
-    for special_chain_class, loader_arg in _get_map_of_special_chain_class_to_loader_arg().items():
-        if isinstance(chain, special_chain_class):
-            return _SpecialChainInfo(loader_arg=loader_arg)
-
-
-@functools.lru_cache
-def _get_map_of_special_chain_class_to_loader_arg():
-    import langchain
-
-    from mlflow.langchain.retriever_chain import _RetrieverChain
-
-    class_name_to_loader_arg = {
-        "langchain.chains.RetrievalQA": "retriever",
-        "langchain.chains.APIChain": "requests_wrapper",
-        "langchain.chains.HypotheticalDocumentEmbedder": "embeddings",
-    }
-    # NB: SQLDatabaseChain was migrated to langchain_experimental beginning with version 0.0.247
-    if version.parse(langchain.__version__) <= version.parse("0.0.246"):
-        class_name_to_loader_arg["langchain.chains.SQLDatabaseChain"] = "database"
-    else:
-        if find_spec("langchain_experimental"):
-            # Add this entry only if langchain_experimental is installed
-            class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
-
-    class_to_loader_arg = {
-        _RetrieverChain: "retriever",
-    }
-    for class_name, loader_arg in class_name_to_loader_arg.items():
-        try:
-            cls = _get_class_from_string(class_name)
-            class_to_loader_arg[cls] = loader_arg
-        except Exception:
-            logger.warning(
-                "Unexpected import failure for class '%s'. Please file an issue at"
-                " https://github.com/mlflow/mlflow/issues/.",
-                class_name,
-                exc_info=True,
-            )
-
-    return class_to_loader_arg
 
 
 @experimental
@@ -175,8 +103,9 @@ def save_model(
 
     :param lc_model: A LangChain model, which could be a
                      `Chain <https://python.langchain.com/docs/modules/chains/>`_,
-                     `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
-                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
+                     `Agent <https://python.langchain.com/docs/modules/agents/>`_,
+                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_,
+                     or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_.
     :param path: Local path where the serialized model (as YAML) is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -325,79 +254,6 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _validate_and_wrap_lc_model(lc_model, loader_fn):
-    import langchain.agents
-    import langchain.chains
-    import langchain.llms.huggingface_hub
-    import langchain.llms.openai
-    import langchain.schema
-
-    if not isinstance(
-        lc_model,
-        (
-            langchain.chains.base.Chain,
-            langchain.agents.agent.AgentExecutor,
-            langchain.schema.BaseRetriever,
-        ),
-    ):
-        raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
-        )
-
-    _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
-    if isinstance(lc_model, langchain.chains.llm.LLMChain) and not any(
-        isinstance(lc_model.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS
-    ):
-        logger.warning(
-            _UNSUPPORTED_LLM_WARNING_MESSAGE,
-            type(lc_model.llm).__name__,
-        )
-
-    if isinstance(lc_model, langchain.agents.agent.AgentExecutor) and not any(
-        isinstance(lc_model.agent.llm_chain.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS
-    ):
-        logger.warning(
-            _UNSUPPORTED_LLM_WARNING_MESSAGE,
-            type(lc_model.agent.llm_chain.llm).__name__,
-        )
-
-    if special_chain_info := _get_special_chain_info_or_none(lc_model):
-        if isinstance(lc_model, langchain.chains.RetrievalQA) and version.parse(
-            langchain.__version__
-        ) < version.parse("0.0.194"):
-            raise mlflow.MlflowException.invalid_parameter_value(
-                _UNSUPPORTED_LANGCHAIN_VERSION_ERROR_MESSAGE.format(
-                    instance_type=type(lc_model).__name__
-                )
-            )
-        if loader_fn is None:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"For {type(lc_model).__name__} models, a `loader_fn` must be provided."
-            )
-        if not isinstance(loader_fn, types.FunctionType):
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "The `loader_fn` must be a function that returns a {loader_arg}.".format(
-                    loader_arg=special_chain_info.loader_arg
-                )
-            )
-
-    # If lc_model is a retriever, wrap it in a _RetrieverChain
-    if isinstance(lc_model, langchain.schema.BaseRetriever):
-        from mlflow.langchain.retriever_chain import _RetrieverChain
-
-        if loader_fn is None:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                f"For {type(lc_model).__name__} models, a `loader_fn` must be provided."
-            )
-        if not isinstance(loader_fn, types.FunctionType):
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "The `loader_fn` must be a function that returns a retriever."
-            )
-        lc_model = _RetrieverChain(retriever=lc_model)
-
-    return lc_model
-
-
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
@@ -519,22 +375,25 @@ def log_model(
 
     # infer signature if signature is not provided
     if signature is None:
-        input_columns = [
-            ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
-        ]
-        input_schema = Schema(input_columns)
+        if hasattr(lc_model, "input_keys") and hasattr(lc_model, "output_keys"):
+            input_columns = [
+                ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
+            ]
+            input_schema = Schema(input_columns)
 
-        output_columns = [
-            ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
-        ]
-        output_schema = Schema(output_columns)
+            output_columns = [
+                ColSpec(type=DataType.string, name=output_key)
+                for output_key in lc_model.output_keys
+            ]
+            output_schema = Schema(output_columns)
 
-        # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
-        # https://databricks.atlassian.net/browse/ML-34706
-        if len(lc_model.output_keys) > 1 or isinstance(lc_model, BaseRetriever):
-            output_schema = None
+            # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
+            # https://databricks.atlassian.net/browse/ML-34706
+            if len(lc_model.output_keys) > 1 or isinstance(lc_model, BaseRetriever):
+                output_schema = None
 
-        signature = ModelSignature(input_schema, output_schema)
+            signature = ModelSignature(input_schema, output_schema)
+        # TODO: support signature for other runnables
 
     return Model.log(
         artifact_path=artifact_path,
@@ -555,136 +414,24 @@ def log_model(
 
 
 def _save_model(model, path, loader_fn, persist_dir):
-    import langchain
-
-    model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
-    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
-
-    if isinstance(model, langchain.chains.llm.LLMChain):
-        model.save(model_data_path)
-    elif isinstance(model, langchain.agents.agent.AgentExecutor):
-        if model.agent and model.agent.llm_chain:
-            model.agent.llm_chain.save(model_data_path)
-
-        if model.agent:
-            agent_data_path = os.path.join(path, _AGENT_DATA_FILE_NAME)
-            model.save_agent(agent_data_path)
-            model_data_kwargs[_AGENT_DATA_KEY] = _AGENT_DATA_FILE_NAME
-
-        if model.tools:
-            tools_data_path = os.path.join(path, _TOOLS_DATA_FILE_NAME)
-            try:
-                with open(tools_data_path, "wb") as f:
-                    cloudpickle.dump(model.tools, f)
-            except Exception as e:
-                raise mlflow.MlflowException(
-                    "Error when attempting to pickle the AgentExecutor tools. "
-                    "This model likely does not support serialization."
-                ) from e
-            model_data_kwargs[_TOOLS_DATA_KEY] = _TOOLS_DATA_FILE_NAME
-        else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "For initializing the AgentExecutor, tools must be provided."
-            )
-
-        key_to_ignore = ["llm_chain", "agent", "tools", "callback_manager"]
-        temp_dict = {k: v for k, v in model.__dict__.items() if k not in key_to_ignore}
-
-        agent_primitive_path = os.path.join(path, _AGENT_PRIMITIVES_FILE_NAME)
-        with open(agent_primitive_path, "w") as config_file:
-            json.dump(temp_dict, config_file, indent=4)
-
-        model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
-
-    elif special_chain_info := _get_special_chain_info_or_none(model):
-        # Save loader_fn by pickling
-        loader_fn_path = os.path.join(path, _LOADER_FN_FILE_NAME)
-        with open(loader_fn_path, "wb") as f:
-            cloudpickle.dump(loader_fn, f)
-        model_data_kwargs[_LOADER_FN_KEY] = _LOADER_FN_FILE_NAME
-        model_data_kwargs[_LOADER_ARG_KEY] = special_chain_info.loader_arg
-
-        if persist_dir is not None:
-            if os.path.exists(persist_dir):
-                # Save persist_dir by copying into subdir _PERSIST_DIR_NAME
-                persist_dir_data_path = os.path.join(path, _PERSIST_DIR_NAME)
-                shutil.copytree(persist_dir, persist_dir_data_path)
-                model_data_kwargs[_PERSIST_DIR_KEY] = _PERSIST_DIR_NAME
-            else:
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    "The directory provided for persist_dir does not exist."
-                )
-
-        # Save model
-        model.save(model_data_path)
-    elif isinstance(model, langchain.chains.base.Chain):
-        logger.warning(
-            _UNSUPPORTED_MODEL_WARNING_MESSAGE,
-            type(model).__name__,
-        )
-        model.save(model_data_path)
+    if isinstance(model, lc_runnables_types()):
+        return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
     else:
-        raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
-        )
-
-    return model_data_kwargs
+        return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
-def _load_from_pickle(loader_fn_path, persist_dir):
-    with open(loader_fn_path, "rb") as f:
-        loader_fn = cloudpickle.load(f)
-    return loader_fn(persist_dir)
-
-
-def _load_model(
-    path,
-    model_type,
-    loader_arg=None,
-    agent_path=None,
-    tools_path=None,
-    agent_primitive_path=None,
-    loader_fn_path=None,
-    persist_dir=None,
-):
-    from langchain.chains.loading import load_chain
-
-    from mlflow.langchain.retriever_chain import _RetrieverChain
-
-    model = None
-    if loader_arg is not None:
-        if loader_fn_path is None:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "Missing file for loader_fn which is required to build the model."
-            )
-        kwargs = {loader_arg: _load_from_pickle(loader_fn_path, persist_dir)}
-        if model_type == _RetrieverChain.__name__:
-            model = _RetrieverChain.load(path, **kwargs).retriever
-        else:
-            model = load_chain(path, **kwargs)
-    elif agent_path is None and tools_path is None:
-        model = load_chain(path)
-    else:
-        from langchain.agents import initialize_agent
-
-        llm = load_chain(path)
-        tools = []
-        kwargs = {}
-
-        if os.path.exists(tools_path):
-            with open(tools_path, "rb") as f:
-                tools = cloudpickle.load(f)
-        else:
-            raise mlflow.MlflowException(
-                "Missing file for tools which is required to build the AgentExecutor object."
-            )
-
-        if os.path.exists(agent_primitive_path):
-            with open(agent_primitive_path) as config_file:
-                kwargs = json.load(config_file)
-
-        model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
-    return model
+def _load_model(local_model_path, flavor_conf):
+    # model_type is not accurate as the class can be subclass
+    # of supported types, we define _MODEL_LOAD_KEY to ensure
+    # which load function to use
+    model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
+    if model_load_fn == _RUNNABLE_LOAD_KEY:
+        return _load_runnables(local_model_path, flavor_conf)
+    if model_load_fn == _BASE_LOAD_KEY:
+        return _load_base_lcs(local_model_path, flavor_conf)
+    raise mlflow.MlflowException(
+        f"Failed to load LangChain model. Unknown model type: {flavor_conf.get(_MODEL_TYPE_KEY)}"
+    )
 
 
 class _LangChainModelWrapper:
@@ -693,7 +440,7 @@ class _LangChainModelWrapper:
 
     def predict(  # pylint: disable=unused-argument
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
+        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ) -> List[str]:
         """
@@ -709,13 +456,17 @@ class _LangChainModelWrapper:
 
         if isinstance(data, pd.DataFrame):
             messages = data.to_dict(orient="records")
+        elif isinstance(self.lc_model, lc_runnables_types()):
+            messages = [data]
+            return process_api_requests(lc_model=self.lc_model, requests=messages)[0]
         elif isinstance(data, list) and (
             all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
         ):
             messages = data
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
-                "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
+                "Input must be a pandas DataFrame or a list of strings or a list of dictionaries "
+                f"for model {self.lc_model.__class__.__name__}"
             )
         return process_api_requests(lc_model=self.lc_model, requests=messages)
 
@@ -755,6 +506,8 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             mockContent = TEST_CONTENT
         elif isinstance(self.lc_model, langchain.agents.agent.AgentExecutor):
             mockContent = f"Final Answer: {TEST_CONTENT}"
+        else:
+            mockContent = TEST_CONTENT
 
         with _mock_async_request(mockContent):
             result = super().predict(data)
@@ -786,39 +539,7 @@ def _load_pyfunc(path):
 def _load_model_from_local_fs(local_model_path):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    lc_model_path = os.path.join(
-        local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
-    )
-
-    agent_model_path = tools_model_path = agent_primitive_path = loader_fn_path = persist_dir = None
-    if agent_path := flavor_conf.get(_AGENT_DATA_KEY):
-        agent_model_path = os.path.join(local_model_path, agent_path)
-
-    if tools_path := flavor_conf.get(_TOOLS_DATA_KEY):
-        tools_model_path = os.path.join(local_model_path, tools_path)
-
-    if primitive_path := flavor_conf.get(_AGENT_PRIMITIVES_DATA_KEY):
-        agent_primitive_path = os.path.join(local_model_path, primitive_path)
-
-    if loader_fn_file_name := flavor_conf.get(_LOADER_FN_KEY):
-        loader_fn_path = os.path.join(local_model_path, loader_fn_file_name)
-
-    if persist_dir_name := flavor_conf.get(_PERSIST_DIR_KEY):
-        persist_dir = os.path.join(local_model_path, persist_dir_name)
-
-    model_type = flavor_conf.get(_MODEL_TYPE_KEY)
-    loader_arg = flavor_conf.get(_LOADER_ARG_KEY)
-
-    return _load_model(
-        lc_model_path,
-        model_type,
-        loader_arg,
-        agent_model_path,
-        tools_model_path,
-        agent_primitive_path,
-        loader_fn_path,
-        persist_dir,
-    )
+    return _load_model(local_model_path, flavor_conf)
 
 
 @experimental

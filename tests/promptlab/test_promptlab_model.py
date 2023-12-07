@@ -52,7 +52,7 @@ def test_promptlab_prompt_replacement():
 
 def test_promptlab_works_with_chat_route():
     mock_response = {
-        "candidates": [
+        "choices": [
             {"message": {"role": "user", "content": "test"}, "metadata": {"finish_reason": "stop"}}
         ]
     }
@@ -70,7 +70,7 @@ def test_promptlab_works_with_chat_route():
 
 def test_promptlab_works_with_completions_route():
     mock_response = {
-        "candidates": [
+        "choices": [
             {
                 "text": "test",
                 "metadata": {"finish_reason": "stop"},

@@ -34,11 +34,13 @@ def _truncate_error(err: str, max_length: int = 10_000) -> str:
 
 
 @developer_stable
-class ArtifactRepository(metaclass=ABCMeta):
+class ArtifactRepository:
     """
     Abstract artifact repo that defines how to upload (log) and download potentially large
     artifacts from different storage backends.
     """
+
+    __metaclass__ = ABCMeta
 
     def __init__(self, artifact_uri):
         self.artifact_uri = artifact_uri
