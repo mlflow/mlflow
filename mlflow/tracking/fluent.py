@@ -644,6 +644,11 @@ def log_param(key: str, value: Any, synchronous: bool = True) -> Any:
     return MlflowClient().log_param(run_id, key, value, synchronous=synchronous)
 
 
+def flush_async_logging() -> None:
+    """Flush all pending async logging."""
+    _get_store().flush_async()
+
+
 def set_experiment_tag(key: str, value: Any) -> None:
     """
     Set a tag on the current experiment. Value is converted to a string.

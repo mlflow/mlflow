@@ -36,6 +36,7 @@ class AsyncLoggingQueue:
         self._lock = threading.RLock()
         self._logging_func = logging_func
 
+        self._stop_data_logging_thread_event = threading.Event()
         self._is_activated = False
 
     def _at_exit_callback(self) -> None:
@@ -52,6 +53,21 @@ class AsyncLoggingQueue:
             self._batch_status_check_threadpool.shutdown(wait=False)
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
+
+    def wait_for_completion(self) -> None:
+        """Waits for the queue to be drained.
+
+        This method is used to ensure that all the run data is logged before the program exits.
+        """
+        # Stop the data processing thread
+        self._stop_data_logging_thread_event.set()
+        # Waits till logging queue is drained.
+        self._batch_logging_thread.join()
+        self._batch_status_check_threadpool.shutdown(wait=True)
+
+        # Restart the thread to listen to incoming data after flushing.
+        self._stop_data_logging_thread_event.clear()
+        self._set_up_logging_thread()
 
     def _logging_loop(self) -> None:
         """
@@ -155,7 +171,7 @@ class AsyncLoggingQueue:
         self._is_activated = False
         self._batch_logging_thread = None
         self._batch_status_check_threadpool = None
-        self._stop_data_logging_thread_event = None
+        self._stop_data_logging_thread_event = threading.Event()
 
     def log_batch_async(
         self, run_id: str, params: [Param], tags: [RunTag], metrics: [Metric]
@@ -194,23 +210,12 @@ class AsyncLoggingQueue:
     def is_active(self) -> bool:
         return self._is_activated
 
-    def activate(self) -> None:
-        """Activates the async logging queue
+    def _set_up_logging_thread(self) -> None:
+        """Sets up the logging thread.
 
-        1. Initializes queue draining thread.
-        2. Initializes threads for checking the status of logged batch.
-        3. Registering an atexit callback to ensure that any remaining log data
-        is flushed before the program exits.
-
-        If the queue is already activated, this method does nothing.
+        If the logging thread is already set up, this method does nothing.
         """
         with self._lock:
-            if self._is_activated:
-                return
-
-            self._stop_data_logging_thread_event = threading.Event()
-
-            # Keeping max_workers=1 so that there are no two threads
             self._batch_logging_thread = threading.Thread(
                 target=self._logging_loop,
                 name="MLflowAsyncLoggingLoop",
@@ -222,6 +227,22 @@ class AsyncLoggingQueue:
                 thread_name_prefix="MLflowAsyncLoggingStatusCheck",
             )
             self._batch_logging_thread.start()
+
+    def activate(self) -> None:
+        """Activates the async logging queue
+
+        1. Initializes queue draining thread.
+        2. Initializes threads for checking the status of logged batch.
+        3. Registering an atexit callback to ensure that any remaining log data
+            is flushed before the program exits.
+
+        If the queue is already activated, this method does nothing.
+        """
+        with self._lock:
+            if self._is_activated:
+                return
+
+            self._set_up_logging_thread()
             atexit.register(self._at_exit_callback)
 
             self._is_activated = True
