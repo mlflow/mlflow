@@ -548,6 +548,8 @@ def test_validate_path_is_safe_windows_good(path):
         "./../path",
         "path/../to/file",
         "path/../../to/file",
+        "file://a#/..//tmp",
+        "file://a%23/..//tmp/",
         "/etc/passwd",
         "/etc/passwd%00.jpg",
         "/etc/passwd%00.html",
