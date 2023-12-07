@@ -34,7 +34,14 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         from mlflow.deployments import get_deploy_client
 
         client = get_deploy_client("openai")
-        client.predict(endpoint="gpt-3.5-turbo", inputs={"prompt": "hello", "temperature": 0.1})
+        client.predict(
+            endpoint="gpt-3.5-turbo",
+            inputs={
+                "messages": [
+                    {"role": "user", "content": "Hello!"},
+                ],
+            },
+        )
     """
 
     def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
@@ -91,10 +98,10 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         api_token = _OAITokenHolder(api_config.api_type)
 
         if api_config.api_type in ("azure", "azure_ad", "azuread"):
-            api_base = getattr(api_config, "api_base")
-            api_version = getattr(api_config, "api_version")
-            engine = getattr(api_config, "engine")
-            deployment_id = getattr(api_config, "deployment_id")
+            api_base = api_config.api_base
+            api_version = api_config.api_version
+            engine = api_config.engine
+            deployment_id = api_config.deployment_id
 
             if engine:
                 # Avoid using both parameters as they serve the same purpose
@@ -124,19 +131,17 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
             request_url = REQUEST_URL_CHAT
 
         try:
-            resp = process_api_requests(
+            return process_api_requests(
                 [inputs],
                 request_url,
                 api_token=api_token,
                 throw_original_error=True,
                 max_workers=1,
             )[0]
-        except MlflowException as e:
-            raise e
+        except MlflowException:
+            raise
         except Exception as e:
             raise MlflowException(f"Error response from OpenAI:\n {e}")
-
-        return resp
 
     def create_endpoint(self, name, config=None):
         """
