@@ -1551,5 +1551,12 @@ mlflow.pyfunc.save_model(
     mlmodel_file = yaml.safe_load(model_save_path.joinpath("MLmodel").read_bytes())
 
     logged_mlflow_version = Version(mlmodel_file["mlflow_version"])
-    assert logged_mlflow_version < Version(mlflow.__version__)
+    current_mlflow_verison = Version(mlflow.__version__)
+
+    if current_mlflow_verison.is_devrelease:
+        assert logged_mlflow_version < current_mlflow_verison
+    else:
+        # NB: For patch releases, CI will fail due to the branch version being equal to the
+        # released version prior to the release pipeline stage for updating the release version.
+        assert logged_mlflow_version <= current_mlflow_verison
     assert not logged_mlflow_version.is_devrelease
