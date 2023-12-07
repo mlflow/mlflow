@@ -23,7 +23,7 @@ class UnsupportedModelRegistryStoreURIException(MlflowException):
         self.supported_uri_schemes = supported_uri_schemes
 
 
-class StoreRegistry(metaclass=ABCMeta):
+class StoreRegistry:
     """
     Abstract class defining a scheme-based registry for store implementations.
 
@@ -37,6 +37,8 @@ class StoreRegistry(metaclass=ABCMeta):
     select which implementation to instantiate, which will be called with same
     arguments passed to the `get_store` method.
     """
+
+    __metaclass__ = ABCMeta
 
     @abstractmethod
     def __init__(self, group_name):
