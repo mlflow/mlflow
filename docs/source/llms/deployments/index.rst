@@ -40,8 +40,8 @@ organizations that use LLMs on a regular basis.
 Tutorials and Guides
 ====================
 
-If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow Deployments Server 
-as fast as possible, the guides below will be your best first stop. 
+If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow Deployments Server
+as fast as possible, the guides below will be your best first stop.
 
 .. raw:: html
 
@@ -256,6 +256,9 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 | AWS Bedrock              | - Amazon Titan           | N/A                      | N/A                      |
 |                          | - Third-party providers  |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
+| Clarifai                 | - Clarifai models        | N/A                      | - Clarifai models        |
+|                          | - Third-party providers  |                          | - Third-party providers  |
++--------------------------+--------------------------+--------------------------+--------------------------+
 
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
@@ -297,6 +300,7 @@ As of now, the MLflow Deployments Server supports the following providers:
 * **huggingface text generation inference**: This is used for models deployed using `Huggingface Text Generation Inference <https://huggingface.co/docs/text-generation-inference/index>`_.
 * **ai21labs**: This is used for models offered by `AI21 Labs <https://studio.ai21.com/foundation-models>`_.
 * **bedrock**: This is used for models offered by `AWS Bedrock <https://aws.amazon.com/bedrock/>`_.
+* **clarifai**: This is used for models offered by `Clarifai <https://clarifai.com/explore/models/>`_.
 
 More providers are being added continually. Check the latest version of the MLflow Deployments Server Docs for the
 most up-to-date list of supported providers.
@@ -494,6 +498,7 @@ Each endpoint has the following configuration parameters:
     - "huggingface-text-generation-inference"
     - "ai21labs"
     - "bedrock"
+    - "clarifai"
 
   - **name**: This is an optional field to specify the name of the model.
   - **config**: This contains provider-specific configuration details.
@@ -578,6 +583,22 @@ Anthropic
 | Configuration Parameter | Required | Default                  | Description                                           |
 +=========================+==========+==========================+=======================================================+
 | **anthropic_api_key**   | Yes      | N/A                      | This is the API key for the Anthropic service.        |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+
+Clarifai
+++++++++
+
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| Configuration Parameter | Required | Default                  | Description                                           |
++=========================+==========+==========================+=======================================================+
+| **clarifai_pat**        | Yes      | N/A                      | This is the personal access token for the Clarifai API|
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| **user_id**             | Yes      | N/A                      | user ID for the respective Clarifai model             |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| **app_id**              | Yes      | N/A                      | app ID for the respective Clarifai model              |
++-------------------------+----------+--------------------------+-------------------------------------------------------+
+| **model_version_id**    | No       | N/A                      | model version ID for the respective model.            |
+|                         |          |                          | If not provided selects the latest version by default |
 +-------------------------+----------+--------------------------+-------------------------------------------------------+
 
 AWS Bedrock

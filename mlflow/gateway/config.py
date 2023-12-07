@@ -46,6 +46,7 @@ class Provider(str, Enum):
     # Note: The following providers are only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
     DATABRICKS = "databricks"
+    CLARIFAI = "clarifai"
 
     @classmethod
     def values(cls):
@@ -215,6 +216,18 @@ class AWSBedrockConfig(ConfigModel):
     aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
 
 
+class ClarifaiConfig(ConfigModel):
+    CLARIFAI_PAT: str
+    user_id: str
+    app_id: str
+    model_version_id: Optional[str] = None
+
+    # pylint: disable=no-self-argument
+    @validator("CLARIFAI_PAT", pre=True)
+    def validate_CLARIFAI_PAT(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
 config_types = {
     Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
@@ -225,6 +238,7 @@ config_types = {
     Provider.MLFLOW_MODEL_SERVING: MlflowModelServingConfig,
     Provider.PALM: PaLMConfig,
     Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE: HuggingFaceTextGenerationInferenceConfig,
+    Provider.CLARIFAI: ClarifaiConfig,
 }
 
 
@@ -284,6 +298,7 @@ class Model(ConfigModel):
             MlflowModelServingConfig,
             HuggingFaceTextGenerationInferenceConfig,
             PaLMConfig,
+            ClarifaiConfig,
         ]
     ] = None
 
