@@ -201,6 +201,104 @@ def embeddings_response():
     }
 
 
+def embeddings_batch_response():
+    return {
+        "status": {
+            "code": "SUCCESS",
+            "description": "Ok",
+            "req_id": "34c77991a98aeb213fc191dee2709f6f",
+        },
+        "outputs": [
+            {
+                "id": "6b6c2e5f58b7457b98d4731c6c0167c5",
+                "status": {"code": "SUCCESS", "description": "Ok"},
+                "created_at": {"seconds": 1701963641, "nanos": 496841557},
+                "model": {
+                    "id": "multimodal-clip-embed",
+                    "name": "Multimodal Clip Embedder",
+                    "created_at": {"seconds": 1668440610, "nanos": 757520000},
+                    "app_id": "main",
+                    "model_version": {
+                        "id": "9fe2c8962c104327bc87b8f8104b161a",
+                        "created_at": {"seconds": 1668440610, "nanos": 757520000},
+                        "status": {
+                            "code": "MODEL_TRAINED",
+                            "description": "Model is trained and ready",
+                        },
+                        "completed_at": {"seconds": 1668440610, "nanos": 757520000},
+                        "visibility": {"gettable": "PUBLIC"},
+                        "app_id": "main",
+                        "user_id": "clarifai",
+                        "metadata": {},
+                    },
+                    "user_id": "clarifai",
+                    "model_type_id": "multimodal-embedder",
+                    "visibility": {"gettable": "PUBLIC"},
+                    "modified_at": {"seconds": 1675688269, "nanos": 377030000},
+                    "workflow_recommended": {},
+                },
+                "input": {
+                    "id": "1",
+                    "data": {
+                        "text": {
+                            "raw": "hello world",
+                            "url": "https://samples.clarifai.com/placeholder.gif",
+                        }
+                    },
+                },
+                "data": {
+                    "embeddings": [
+                        {"vector": [0.008268436, 0.010364032, -0.013782379], "num_dimensions": 3}
+                    ]
+                },
+            },
+            {
+                "id": "c9acd40d5c5f462a9dc0085f028d3432",
+                "status": {"code": "SUCCESS", "description": "Ok"},
+                "created_at": {"seconds": 1701963641, "nanos": 496841557},
+                "model": {
+                    "id": "multimodal-clip-embed",
+                    "name": "Multimodal Clip Embedder",
+                    "created_at": {"seconds": 1668440610, "nanos": 757520000},
+                    "app_id": "main",
+                    "model_version": {
+                        "id": "9fe2c8962c104327bc87b8f8104b161a",
+                        "created_at": {"seconds": 1668440610, "nanos": 757520000},
+                        "status": {
+                            "code": "MODEL_TRAINED",
+                            "description": "Model is trained and ready",
+                        },
+                        "completed_at": {"seconds": 1668440610, "nanos": 757520000},
+                        "visibility": {"gettable": "PUBLIC"},
+                        "app_id": "main",
+                        "user_id": "clarifai",
+                        "metadata": {},
+                    },
+                    "user_id": "clarifai",
+                    "model_type_id": "multimodal-embedder",
+                    "visibility": {"gettable": "PUBLIC"},
+                    "modified_at": {"seconds": 1675688269, "nanos": 377030000},
+                    "workflow_recommended": {},
+                },
+                "input": {
+                    "id": "2",
+                    "data": {
+                        "text": {
+                            "raw": "bye world",
+                            "url": "https://samples.clarifai.com/placeholder.gif",
+                        }
+                    },
+                },
+                "data": {
+                    "embeddings": [
+                        {"vector": [0.017018614, 0.016557906, -0.00271358], "num_dimensions": 3}
+                    ]
+                },
+            },
+        ],
+    }
+
+
 @pytest.mark.asyncio
 async def test_embeddings():
     resp = embeddings_response()
@@ -240,6 +338,67 @@ async def test_embeddings():
                             }
                         }
                     }
+                ],
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
+@pytest.mark.asyncio
+async def test_embeddings_batch():
+    resp = embeddings_batch_response()
+    config = embeddings_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = ClarifaiProvider(RouteConfig(**config))
+        payload = {
+            "input": ["hello world", "bye world"],
+        }
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        0.008268436,
+                        0.010364032,
+                        -0.013782379,
+                    ],
+                    "index": 0,
+                },
+                {
+                    "object": "embedding",
+                    "embedding": [
+                        0.017018614,
+                        0.016557906,
+                        -0.00271358,
+                    ],
+                    "index": 1,
+                },
+            ],
+            "model": "multimodal-clip-embed",
+            "usage": {"prompt_tokens": None, "total_tokens": None},
+        }
+        mock_post.assert_called_once_with(
+            "https://api.clarifai.com/v2/users/clarifai/apps/main/models/multimodal-clip-embed/outputs",
+            json={
+                "inputs": [
+                    {
+                        "data": {
+                            "text": {
+                                "raw": "hello world",
+                            }
+                        }
+                    },
+                    {
+                        "data": {
+                            "text": {
+                                "raw": "bye world",
+                            }
+                        }
+                    },
                 ],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
