@@ -41,6 +41,10 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
         return False
 
     parsed_uri = urllib.parse.urlparse(uri)
+    scheme = parsed_uri.scheme
+    if scheme == "":
+        return True
+
     if parsed_uri.hostname and not (
         parsed_uri.hostname == "."
         or parsed_uri.hostname.startswith("localhost")
@@ -48,8 +52,7 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
     ):
         return False
 
-    scheme = parsed_uri.scheme
-    if scheme == "" or scheme == "file":
+    if scheme == "file":
         return True
 
     if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
