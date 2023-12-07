@@ -2,11 +2,11 @@
 
 ## 2.9.1 (2023-12-07)
 
-MLflow 2.9.1 includes several major features and improvements
+MLflow 2.9.1 is a patch release, containing a critical bug fix related to loading `pyfunc` models that were saved in previous versions of MLflow.
 
 Bug fixes:
 
-- [Models] Revert Changes to PythonModel that introduced loading issues (#10626, @BenWilson2)
+- [Models] Revert Changes to PythonModel that introduced loading issues for models saved in earlier versions of MLflow (#10626, @BenWilson2)
 
 Small bug fixes and documentation updates:
 
