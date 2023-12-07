@@ -2740,7 +2740,8 @@ class _TransformersWrapper:
 
             # Check if it's a valid file path or URI
             # valid_input = input_path.is_file() or is_uri(value)
-            valid_uri = os.path.isfile(input_str) or is_uri(input_str)
+            #valid_uri = os.path.isfile(input_str) or is_uri(input_str)
+            valid_uri = os.path.isfile(value) or is_uri(value)
 
             if not valid_uri:
                 raise MlflowException(

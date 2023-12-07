@@ -626,7 +626,7 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
     assert flavor_config["source_model_name"] == "google/mobilenet_v2_1.0_224"
 
 
-def test_vision_model_save__model_for_task_and_card_inference(small_vision_model, model_path):
+def test_vision_model_save_model_for_task_and_card_inference(small_vision_model, model_path):
     mlflow.transformers.save_model(transformers_model=small_vision_model, path=model_path)
     # validate inferred pip requirements
     with model_path.joinpath("requirements.txt").open() as file:
@@ -1366,14 +1366,6 @@ def read_image(filename):
     image_path = os.path.join(pathlib.Path(__file__).parent.parent, "datasets", filename)
     with open(image_path, "rb") as f:
         return f.read()
-
-
-def is_base64_image(s):
-    try:
-        return base64.b64encode(base64.b64decode(s)).decode("utf-8") == s
-    except Exception:
-        return False
-
 
 @pytest.mark.parametrize(
     "inference_payload",
