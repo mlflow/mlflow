@@ -1,4 +1,3 @@
-import os
 import subprocess
 import sys
 from unittest import mock
@@ -61,11 +60,11 @@ def test_download_chunk_incomplete_read(tmp_path):
             )
 
 
-@pytest.mark.parametrize("env_value", ["1", "true", "True", "TRUE"])
-def test_redirects_disabled_if_env_var_set(env_value):
+@pytest.mark.parametrize("env_value", ["0", "false", "False", "FALSE"])
+def test_redirects_disabled_if_env_var_set(monkeypatch, env_value):
     from requests.exceptions import HTTPError
 
-    os.environ["MLFLOW_DISABLE_HTTP_REDIRECTS"] = env_value
+    monkeypatch.setenv("MLFLOW_ALLOW_HTTP_REDIRECTS", env_value)
 
     with mock.patch("requests.Session.request") as mock_request:
         mock_request.return_value.status_code = 302
@@ -75,9 +74,9 @@ def test_redirects_disabled_if_env_var_set(env_value):
             request_utils.cloud_storage_http_request("GET", "http://localhost:5000")
 
 
-@pytest.mark.parametrize("env_value", ["0", "false", "False", "FALSE"])
-def test_redirects_enabled_by_default(env_value):
-    os.environ["MLFLOW_DISABLE_HTTP_REDIRECTS"] = env_value
+@pytest.mark.parametrize("env_value", ["1", "true", "True", "TRUE"])
+def test_redirects_enabled_by_default(monkeypatch, env_value):
+    monkeypatch.setenv("MLFLOW_ALLOW_HTTP_REDIRECTS", env_value)
 
     with mock.patch("requests.Session.request") as mock_request:
         mock_request.return_value.status_code = 302

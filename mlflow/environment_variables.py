@@ -489,7 +489,7 @@ MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
 )
 
 #: Specifies whether or not to allow the MLflow server to follow redirects when
-#: making HTTP requests. If set to True, the server will throw an exception if it
+#: making HTTP requests. If set to False, the server will throw an exception if it
 #: encounters a redirect response.
-#: (default: ``False``)
-MLFLOW_DISABLE_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_HTTP_REDIRECTS", False)
+#: (default: ``True``)
+MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
