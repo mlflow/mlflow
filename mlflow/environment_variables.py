@@ -487,3 +487,9 @@ MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
 MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
     "MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", int, 100 * 1024**2
 )
+
+#: Specifies whether or not to allow the MLflow server to follow redirects when
+#: making HTTP requests. If set to True, the server will throw an exception if it
+#: encounters a redirect response.
+#: (default: ``False``)
+MLFLOW_DISABLE_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_HTTP_REDIRECTS", False)

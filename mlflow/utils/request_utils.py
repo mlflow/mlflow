@@ -188,7 +188,11 @@ def _get_http_response_with_retries(
         max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status
     )
 
-    disable_redirects = os.getenv("MLFLOW_DISABLE_HTTP_REDIRECTS", False)
+    # the environment variable is hardcoded here to avoid importing mlflow.
+    # however, documentation is available in environment_variables.py
+    env_value = os.getenv("MLFLOW_DISABLE_HTTP_REDIRECTS", "0").lower()
+    disable_redirects = env_value in ["true", "1"]
+
     if disable_redirects:
         kwargs["allow_redirects"] = False
 
