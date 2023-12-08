@@ -246,7 +246,7 @@ def test_list_artifacts(http_artifact_repo):
             http_artifact_repo.list_artifacts()
 
 
-@pytest.mark.parametrize("path", ["/tmp/path", "../../path"])
+@pytest.mark.parametrize("path", ["/tmp/path", "../../path", "%2E%2E%2Fpath"])
 def test_list_artifacts_malicious_path(http_artifact_repo, path):
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
@@ -259,7 +259,7 @@ def test_list_artifacts_malicious_path(http_artifact_repo, path):
             200,
         ),
     ):
-        with pytest.raises(MlflowException, match=f"Invalid path: {path}"):
+        with pytest.raises(MlflowException, match="Invalid path"):
             http_artifact_repo.list_artifacts()
 
 
@@ -442,8 +442,8 @@ def test_complete_multipart_upload(http_artifact_repo, monkeypatch):
                 "path": "local_file",
                 "upload_id": "upload_id",
                 "parts": [
-                    {"part_number": 1, "etag": "etag1"},
-                    {"part_number": 2, "etag": "etag2"},
+                    {"part_number": 1, "etag": "etag1", "url": None},
+                    {"part_number": 2, "etag": "etag2", "url": None},
                 ],
             },
         )

@@ -179,5 +179,7 @@ message MultipartUploadPart {
   optional int64 part_number = 1;
 
   optional string etag = 2;
+
+  optional string url = 3;
 }
 
