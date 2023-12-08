@@ -72,14 +72,7 @@ def test_redirects_disabled_if_env_var_set(env_value):
         mock_request.return_value.text = "mock response"
 
         with pytest.raises(HTTPError, match="HTTP redirects are disabled"):
-            request_utils._get_http_response_with_retries(
-                "GET",
-                "http://localhost:5000",
-                5,  # max_retries
-                2,  # backoff_factor
-                1.0,  # backoff_jitter
-                request_utils._TRANSIENT_FAILURE_RESPONSE_CODES,  # retry_codes
-            )
+            request_utils.cloud_storage_http_request("GET", "http://localhost:5000")
 
 
 @pytest.mark.parametrize("env_value", ["0", "false", "False", "FALSE"])
@@ -90,13 +83,9 @@ def test_redirects_enabled_by_default(env_value):
         mock_request.return_value.status_code = 302
         mock_request.return_value.text = "mock response"
 
-        response = request_utils._get_http_response_with_retries(
+        response = request_utils.cloud_storage_http_request(
             "GET",
             "http://localhost:5000",
-            5,  # max_retries
-            2,  # backoff_factor
-            1.0,  # backoff_jitter
-            request_utils._TRANSIENT_FAILURE_RESPONSE_CODES,  # retry_codes
         )
 
         assert response.text == "mock response"
