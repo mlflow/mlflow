@@ -170,7 +170,7 @@ Diving into Saving
 
 Under the hood of saving, we are converting the Tensorflow model into a pyfunc model, which is a generic
 type of model in MLflow. The pyfunc model is saved to MLflow. You don't need to learn the basics of pyfunc
-model to use Tensorflow flavor, but if you are interested, please refer to `MLflow pyfunc model <../models.html#pyfunc>`_.
+model to use Tensorflow flavor, but if you are interested, please refer to `MLflow pyfunc model <https://mlflow.org/docs/latest/models.html#how-to-load-and-score-python-function-models>`_.
 
 Saving Format
 ~~~~~~~~~~~~~
