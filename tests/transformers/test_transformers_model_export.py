@@ -50,6 +50,7 @@ from mlflow.transformers import (
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
+    _TransformersWrapper,
     _validate_transformers_task_type,
     _write_card_data,
     get_default_conda_env,
@@ -1367,6 +1368,7 @@ def read_image(filename):
     with open(image_path, "rb") as f:
         return f.read()
 
+
 @pytest.mark.parametrize(
     "inference_payload",
     [
@@ -1377,9 +1379,7 @@ def read_image(filename):
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     if inference_payload == "base64":
-        if Version(transformers.__version__) > Version("4.28") or Version(
-            transformers.__version__
-        ) < Version("4.33"):
+        if Version(transformers.__version__) < Version("4.33"):
             return
         inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
     signature = infer_signature(
@@ -1393,7 +1393,10 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     predictions = pyfunc_loaded.predict(inference_payload)
-    assert len(predictions) != 0
+
+    transformers_loaded_model = mlflow.transformers.load_model(model_path)
+    expected_predictions = transformers_loaded_model.predict(inference_payload)
+    assert list(predictions.to_dict("records")[0].values()) == expected_predictions
 
 
 @pytest.mark.parametrize(
@@ -2118,6 +2121,21 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 
 
 @pytest.mark.parametrize(
+    ("input_image", "result"),
+    [
+        (os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png"), False),
+        (image_url, False),
+        ("base64", True),
+        ("random string", False),
+    ],
+)
+def test_vision_is_base64_image(input_image, result):
+    if input_image == "base64":
+        input_image = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
+    assert _TransformersWrapper.is_base64_image(input_image) == result
+
+
+@pytest.mark.parametrize(
     "inference_payload",
     [
         [os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")],
@@ -2127,7 +2145,7 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     if not isinstance(inference_payload, list) and inference_payload == "base64":
-        if transformers.__version__ > "4.28" or transformers.__version__ < "4.33":
+        if transformers.__version__ < "4.33":
             return
         inference_payload = [
             base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
@@ -2141,17 +2159,20 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
             artifact_path=artifact_path,
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
-    inference_payload = json.dumps({"inputs": inference_payload})
+    pyfunc_inference_payload = json.dumps({"inputs": inference_payload})
     response = pyfunc_serve_and_score_model(
         model_uri,
-        data=inference_payload,
+        data=pyfunc_inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
 
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert len(predictions) != 0
+    transformers_loaded_model = mlflow.transformers.load_model(model_uri)
+    expected_predictions = transformers_loaded_model.predict(inference_payload)
+
+    assert list(predictions.to_dict("records")[0].values()) == expected_predictions[0]
 
 
 def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
@@ -3581,13 +3602,12 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
 def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     artifact_path = "image_classification_model"
 
-    image_file_paths = image_url
     parameters = {
         "top_k": 2,
     }
     inference_payload = json.dumps(
         {
-            "inputs": [image_file_paths],
+            "inputs": [image_url],
             "params": parameters,
         }
     )
@@ -3597,12 +3617,15 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
             transformers_model=small_vision_model,
             artifact_path=artifact_path,
             signature=infer_signature(
-                image_file_paths,
-                mlflow.transformers.generate_signature_output(small_vision_model, image_file_paths),
+                image_url,
+                mlflow.transformers.generate_signature_output(small_vision_model, image_url),
                 params=parameters,
             ),
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    transformers_loaded_model = mlflow.transformers.load_model(model_uri)
+    expected_predictions = transformers_loaded_model.predict(image_url)
 
     response = pyfunc_serve_and_score_model(
         model_uri,
@@ -3612,8 +3635,11 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     )
 
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-    assert len(predictions) != 0
-    assert len(predictions.iloc[0]) == parameters["top_k"]
+
+    assert (
+        list(predictions.to_dict("records")[0].values())
+        == expected_predictions[: parameters["top_k"]]
+    )
 
 
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
