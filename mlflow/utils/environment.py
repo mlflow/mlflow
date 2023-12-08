@@ -259,9 +259,8 @@ def _get_pip_version():
              ``__version__`` attribute.
     """
     try:
-        import pip
-
-        return pip.__version__
+        import pkg_resources  # part of setuptools
+        return pkg_resources.get_distribution("pip").version
     except ImportError:
         return None
 
