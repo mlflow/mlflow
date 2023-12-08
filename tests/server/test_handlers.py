@@ -14,7 +14,6 @@ from mlflow.entities.model_registry import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
-from mlflow.protos.mlflow_artifacts_pb2 import DeleteArtifact
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -787,7 +786,7 @@ def test_get_model_version_by_alias(mock_get_request_message, mock_model_registr
 
 
 @pytest.mark.parametrize(
-        "path",
+    "path",
     [
         "/path",
         "path/../to/file",

@@ -259,7 +259,7 @@ def test_list_artifacts_malicious_path(http_artifact_repo, path):
             200,
         ),
     ):
-        with pytest.raises(MlflowException, match=f"Invalid path"):
+        with pytest.raises(MlflowException, match="Invalid path"):
             http_artifact_repo.list_artifacts()
 
 

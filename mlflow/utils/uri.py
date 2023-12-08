@@ -430,10 +430,10 @@ def validate_path_is_safe(path):
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
 
-    # Unquote URL before validating
+    # We must decode URL before validating it
     path = urllib.parse.unquote(path)
 
-    exc = MlflowException(f"Invalid path", error_code=INVALID_PARAMETER_VALUE)
+    exc = MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
     if any((s in path) for s in ("#", "%23")):
         raise exc
 
