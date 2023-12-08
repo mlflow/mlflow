@@ -1644,6 +1644,16 @@ class DefaultEvaluator(ModelEvaluator):
         data = data.assign(**columns)
         artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
         mlflow.log_table(data, artifact_file=artifact_file_name)
+        # write the data to a delta table to eval_results_path if specified
+        if self.eval_results_path:
+            from pyspark.sql import SparkSession
+
+            spark_session = SparkSession.getActiveSession()
+            eval_table_spark = spark_session.createDataFrame(data)
+            eval_table_spark.write.mode("overwrite").format("delta").saveAsTable(
+                self.eval_results_path
+            )
+
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(artifact_file_name)
@@ -1785,6 +1795,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.col_mapping = self.evaluator_config.get("col_mapping", {})
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
+        self.eval_results_path = self.evaluator_config.get("eval_results_path")
 
         if extra_metrics and custom_metrics:
             raise MlflowException(
