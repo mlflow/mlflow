@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 import numpy as np
 import pandas as pd
 import yaml
+from packaging.version import Version
 
 from mlflow import pyfunc
 from mlflow.environment_variables import (
@@ -2722,7 +2723,15 @@ def autolog(
         import setfit
 
         safe_patch(
-            FLAVOR_NAME, setfit.SetFitTrainer, "train", functools.partial(train), manage_run=False
+            FLAVOR_NAME,
+            (
+                setfit.SetFitTrainer
+                if Version(setfit.__version__) < Version("1.0.0")
+                else setfit.Trainer
+            ),
+            "train",
+            functools.partial(train),
+            manage_run=False,
         )
 
     with contextlib.suppress(ImportError):
