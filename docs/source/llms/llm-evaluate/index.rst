@@ -224,7 +224,7 @@ metrics:
 * :py:func:`mlflow.metrics.genai.relevance`: Use this metric when you want to evaluate how relevant the model generated output is with respect to both the input and the context. High scores mean that the model has understood the context and correct extracted relevant information from the context, while low score mean that output has completely ignored the question and the context and could be hallucinating.
 * :py:func:`mlflow.metrics.genai.faithfulness`: Use this metric when you want to evaluate how faithful the model generated output is based on the context provided. High scores mean that the outputs contain information that is in line with the context, while low scores mean that outputs may disagree with the context (input is ignored).
 
-Using a custom LLM-as-judge model
+Selecting the LLM-as-judge Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 By default, llm-as-judge metrics use ``openai:/gpt-4`` as the judge. you can change it by passing. In addition to OpenAI models, you can also use any endpoint via MLflow Deployments. Use :py:func:`mlflow.deployments.set_deployments_target` to set the target deployment client.
@@ -250,6 +250,8 @@ To use an endpoint hosted on Databricks, you can use the following code.
     llama2_answer_similarity = mlflow.metrics.genai.answer_similarity(
         model="endpoints:/databricks-llama-2-70b-chat"
     )
+
+For more information about how various models perform as judges, please refer to `this doc <https://www.databricks.com/blog/LLM-auto-eval-best-practices-RAG>`_.
 
 Creating Custom LLM-evaluation Metrics
 --------------------------------------
