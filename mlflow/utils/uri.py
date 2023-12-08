@@ -463,9 +463,11 @@ def validate_query_string(query):
 
 
 def _decode(url):
-    # Keep decoding until the url stops changing
-    while True:
+    # Keep decoding until the url stops changing (with a max of 10 iterations)
+    for _ in range(10):
         decoded = urllib.parse.unquote(url)
         if decoded == url:
             return url
         url = decoded
+
+    raise ValueError("Failed to decode url")
