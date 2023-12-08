@@ -70,6 +70,7 @@ def test_successful_http_request(request):
         assert args == ("POST", "https://hello/api/2.0/mlflow/experiments/search")
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
         assert kwargs == {
+            "allow_redirects": True,
             "json": {"view_type": "ACTIVE_ONLY"},
             "headers": DefaultRequestHeaderProvider().request_headers(),
             "verify": True,
