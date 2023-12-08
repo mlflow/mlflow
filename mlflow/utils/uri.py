@@ -40,11 +40,10 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
         # windows network drive path looks like: "\\<server name>\path\..."
         return False
 
-    if is_file_uri(uri):
-        return True
-
     parsed_uri = urllib.parse.urlparse(uri)
     scheme = parsed_uri.scheme
+    if scheme == "file" or scheme == "":
+        return True
 
     if parsed_uri.hostname and not (
         parsed_uri.hostname == "."
@@ -61,7 +60,7 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
 
 def is_file_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == "file" or scheme == ""
+    return scheme == "file"
 
 
 def is_http_uri(uri):
