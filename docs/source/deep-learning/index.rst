@@ -91,14 +91,7 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
                     </p>
                 </a>
             </div>
-        </article>
-    </section>
 
-
-.. raw:: html
-
-    <section>
-        <article class="simple-grid">
             <div class="simple-card">
                 <a href="keras/index.html">
                     <div class="header">

@@ -41,7 +41,8 @@ To download the tensorflow tutorial notebooks to run in your environment, click 
 `Developer Guide of Tensorflow with MLflow <guide/index.html>`_
 ----------------------------------------------------------------
 
-To learn more about the nuances of the `tensorflow` flavor in MLflow, delve into the comprehensive guide, which covers:
+To learn more about the nuances of the `tensorflow` flavor in MLflow, please read the developer guide. It will walk you
+through the following topics:
 
 .. raw:: html
 
