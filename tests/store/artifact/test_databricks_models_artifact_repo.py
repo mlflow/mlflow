@@ -5,9 +5,9 @@ from unittest.mock import ANY
 import pytest
 
 from mlflow import MlflowClient
-from mlflow.environment_variables import MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE
 from mlflow.entities import FileInfo
 from mlflow.entities.model_registry import ModelVersion
+from mlflow.environment_variables import MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.databricks_models_artifact_repo import (
     DatabricksModelsArtifactRepository,

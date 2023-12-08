@@ -1225,6 +1225,7 @@ def mock_chunk_size(monkeypatch):
     # Use a smaller chunk size for faster comparison
     monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", "10")
 
+
 @pytest.fixture
 def large_file(tmp_path, mock_chunk_size):
     path = tmp_path.joinpath("large_file")

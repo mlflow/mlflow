@@ -16,8 +16,8 @@ from mlflow.azure.client import (
 )
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
-    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import (
