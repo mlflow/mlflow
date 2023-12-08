@@ -168,7 +168,7 @@ def test_log_artifacts_in_parallel_when_necessary(
 
 @pytest.mark.parametrize(
     ("file_size", "is_parallel_download"),
-    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
+    [(None, False), (100, False), (500 * 1024**2 - 1, False), (500 * 1024**2, True)],
 )
 def test_download_file_in_parallel_when_necessary(
     s3_artifact_root, file_size, is_parallel_download
