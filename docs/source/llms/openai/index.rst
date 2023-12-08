@@ -27,50 +27,48 @@ The integration includes:
 
 What makes this Integration so Special?
 ---------------------------------------
-The combination of MLflow's experiment tracking and model management with OpenAI's cutting-edge NLP 
-models unlocks new potential for AI applications. 
-This integration simplifies the process of deploying, monitoring, and scaling NLP models, making it 
-accessible to a broader range of users and use cases.
+The combination of MLflow's experiment tracking and model management with OpenAI's cutting-edge NLP models unlocks new potential for AI applications. 
+This MLflow flavor for OpenAI simplifies the process of:
 
-Unique Aspects of OpenAI's Models: Reinforcement Learning from Human Feedback (RLHF)
-------------------------------------------------------------------------------------
+- **Developing** an application that leverages the power of OpenAI's models. By simplifying the process of keeping track of the highly iterative and creative process of prompt engineering, MLflow makes sure that you never lose track of a great idea.
+- **Auditing and Reviewing** your most promising experiments. The MLflow tracking service means that you can easily share the results of your work and get peer review of your work.
+- **Customizing** the interface to your application. Whether you want to allow creative control with exposing parameters such as `temperature` or to relax cost controls by exposing `max_tokens`, MLflow allows you to configure default values and restrict the ability to modify the parameters used for inference.
+- **Tagging and annotating** particular runs during the iterative prompt engineering phase to flag particularly promising ideas that you and others can revisit later for inspiration, further testing, or deployment.
 
-RLHF in GPT Models
-^^^^^^^^^^^^^^^^^^
-One of the defining features of OpenAI's GPT models is their training process, particularly the use of Reinforcement Learning from Human Feedback 
-(RLHF). This methodology sets GPT models apart from traditional language models in several ways (although they are not the only organization to use this 
-strategy, it is a key process component that greatly helps to enhance the quality of their services).
+The Elephant in the Room: Prompt Engineering
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The RLHF Process
-""""""""""""""""
-1. **Supervised Fine-Tuning (SFT)**: Initially, GPT models undergo supervised fine-tuning using a large dataset of text. This process imparts the basic understanding of language and context.
+In other fields of applied ML, the process of iterating over hypotheses is time-consuming, tedious, and lends itself to developing habits of meticulously 
+recording every step of the feature refinement and training process. With the advent of generative AI and the latent power of state-of-the-art LLMs such as 
+those offered by OpenAI, the process of refining the performance of a solution is much shorter. In the span of an hour, you could easily craft and test 
+a dozen prompts. 
 
-2. **Reward Modeling (RM)**: Human trainers review the model's outputs and rate them based on criteria such as relevance, accuracy, and safety. This feedback is used to create a 'reward model'—a system that evaluates the quality of the model's responses.
+While this speed and ease of use is remarkably empowering, it generally leads to the dreaded realization after a few hours of experimentation that you can't 
+remember which of the dozens of prompts that you created hours ago was the one that created the best results that you remember seeing.
 
-3. **Proximal Policy Optimization (PPO)**: In this stage, the model is trained using reinforcement learning techniques, guided by the reward model. The model learns to generate responses that are more aligned with the values and preferences as judged by human trainers.
+This is where MLflow comes in. With MLflow, you can easily track the prompts that you use, the results that you get, and the artifacts that you generate. 
 
-4. **Iterative Improvement**: The model undergoes continuous refinement through human feedback, ensuring that it evolves and adapts to produce responses that are not only accurate but also contextually appropriate and safe.
+The figure below shows a fun take on this problem that MLflow helps to solve.
 
-Why RLHF Matters
-""""""""""""""""
-- **Human-Like Responses**: RLHF enables GPT models to generate responses that closely mimic human thought processes, making them more relatable and effective in practical applications.
-- **Safety and Relevance**: Through human feedback, GPT models learn to avoid generating harmful or irrelevant content, thereby increasing their reliability and applicability.
-- **Cost-Effective Training**: RLHF allows for more efficient and cost-effective training compared to extensively curating fine-tuned data for each specific application.
-
-
-.. figure:: ../../_static/images/tutorials/llms/RLHF-architecture.png
-   :alt: MLflow OpenAI Integration Overview
+.. figure:: ../../_static/images/tutorials/llms/prompt-engineering.png
+   :alt: MLflow OpenAI Prompt Engineering
    :width: 100%
    :align: center
 
-   Simplified overview of RLHF
+   Prompt Engineering for space flight with MLflow
+
+By logging each of the prompts that are used throughout testing, not only can you easily reproduce the results that you get, but you can also share those 
+results with others so that they can evaluate the subjective quality of the results. Without tracking in place, you're forced to come up with a solution for 
+recording the various parameters, prompts, test inputs, and results. 
+
+You could save all of that time and effort by using MLflow with OpenAI, giving you more time to come up with fun prompts. 
 
 Features
 --------
 
 With the MLflow OpenAI flavor, users can:
 
-- **Save** and **log** OpenAI models within MLflow using :py:func:`mlflow.openai.save_model` and :py:func:`mlflow.openai.log_model`.
+- **Save** and **log** applications using OpenAI models within MLflow using :py:func:`mlflow.openai.save_model` and :py:func:`mlflow.openai.log_model`.
 - Seamlessly track detailed experiments, including **parameters**, **prompts**, and **artifacts** associated with model runs.
 - `Deploy <../../deployment/index.html>`_ OpenAI models for various NLP applications with ease.
 - Utilize :py:class:`mlflow.pyfunc.PythonModel` for flexible Python function inference, enabling custom and innovative ML solutions.

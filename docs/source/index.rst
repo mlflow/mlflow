@@ -122,6 +122,17 @@ LLM Guides and Tutorials
                 </a>
             </div>
             <div class="simple-card">
+                <a href="llms/openai/index.html" >
+                    <div class="header">
+                        Guide to using OpenAI in MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage the state-of-the-art LLMs offered by OpenAI directly as MLflow flavors to build and track useful language-based 
+                        applications.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="llms/llm-evaluate/index.html" >
                     <div class="header">
                         Evaluating LLMs with MLflow Guide
