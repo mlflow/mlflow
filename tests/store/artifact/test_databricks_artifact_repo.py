@@ -972,7 +972,7 @@ def test_databricks_download_file_with_relative_path(remote_file_path, local_pat
 
 @pytest.mark.parametrize(
     ("file_size", "is_parallel_download"),
-    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
+    [(None, False), (100, False), (500 * 1024**2 - 1, False), (500 * 1024**2, True)],
 )
 def test_databricks_download_file_in_parallel_when_necessary(
     databricks_artifact_repo, file_size, is_parallel_download
