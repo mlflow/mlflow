@@ -187,7 +187,23 @@ def _get_http_response_with_retries(
     session = _get_request_session(
         max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status
     )
-    return session.request(method, url, **kwargs)
+
+    disable_redirects = os.getenv("MLFLOW_DISABLE_HTTP_REDIRECTS", False)
+    if disable_redirects:
+        kwargs["allow_redirects"] = False
+
+    response = session.request(method, url, **kwargs)
+    response_is_redirect = response.is_redirect or 300 <= response.status_code < 400
+
+    if disable_redirects and response_is_redirect:
+        raise HTTPError(
+            "HTTP redirects are disabled through the MLFLOW_DISABLE_HTTP_REDIRECTS "
+            "environment variable, but the server responded with a redirect. Response text: "
+            f"{response.text}",
+            response=response,
+        )
+
+    return response
 
 
 def cloud_storage_http_request(
