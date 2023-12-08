@@ -224,6 +224,32 @@ metrics:
 * :py:func:`mlflow.metrics.genai.relevance`: Use this metric when you want to evaluate how relevant the model generated output is with respect to both the input and the context. High scores mean that the model has understood the context and correct extracted relevant information from the context, while low score mean that output has completely ignored the question and the context and could be hallucinating.
 * :py:func:`mlflow.metrics.genai.faithfulness`: Use this metric when you want to evaluate how faithful the model generated output is based on the context provided. High scores mean that the outputs contain information that is in line with the context, while low scores mean that outputs may disagree with the context (input is ignored).
 
+Using a custom LLM-as-judge model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, llm-as-judge metrics use ``openai:/gpt-4`` as the judge. you can change it by passing. In addition to OpenAI models, you can also use any endpoint via MLflow Deployments.
+
+To use an endpoint hosted by a local MLflow Deployments Server, you can use the following code:
+
+.. code-block:: python
+
+    from mlflow.deployments import set_deployments_target
+
+    set_deployments_target("http://localhost:5000")
+    my_answer_similarity = mlflow.metrics.genai.answer_similarity(
+        model="endpoints:/my-endpoint"
+    )
+
+To use an endpoint hosted on Databricks, you can use the following code:
+
+.. code-block:: python
+
+    from mlflow.deployments import set_deployments_target
+
+    set_deployments_target("databricks")
+    llama2_answer_similarity = mlflow.metrics.genai.answer_similarity(
+        model="endpoints:/databricks-llama-2-70b-chat"
+    )
 
 Creating Custom LLM-evaluation Metrics
 --------------------------------------
@@ -238,7 +264,7 @@ needs the following information:
 * ``definition``: describe what's the metric doing. 
 * ``grading_prompt``: describe the scoring critieria. 
 * ``examples``: a few input/output examples with score, they are used as a reference for LLM judge.
-* ``model``: the identifier of LLM judge. 
+* ``model``: the identifier of LLM judge, in the format of "openai:/gpt-4" or "endpoints:/databricks-llama-2-70b-chat".  
 * ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-3.5-turbo-16k"``.
 * ``aggregations``: The list of options to aggregate the per-row scores using numpy functions.
 * ``greater_is_better``: indicates if a higher score means your model is better.
