@@ -1,5 +1,4 @@
 import os
-import posixpath
 import re
 from typing import Any, Dict
 from urllib.parse import urlparse
@@ -70,8 +69,8 @@ class HTTPDatasetSource(DatasetSource):
                     f"Invalid filename in Content-Disposition header: {basename}. "
                     "It must be a file name, not a path."
                 )
-        elif path is not None and len(posixpath.basename(path)) > 0:
-            basename = posixpath.basename(path)
+        elif path is not None and len(os.path.basename(path)) > 0:
+            basename = os.path.basename(path)
         else:
             basename = "dataset_source"
 
