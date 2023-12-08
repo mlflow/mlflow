@@ -557,6 +557,9 @@ def test_validate_path_is_safe_windows_good(path):
         "/etc/passwd%00.php",
         "/etc/passwd%00.asp",
         "/file://etc/passwd",
+        # Encoded paths with '..'
+        "%2E%2E%2Fpath",
+        "%2E%2E%2F%2E%2E%2Fpath",
     ],
 )
 def test_validate_path_is_safe_bad(path):
