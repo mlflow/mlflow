@@ -20,7 +20,7 @@ def load_data(fpath):
     """
     import cudf
 
-    df = cudf.read_parquet(fpath)
+    df = cudf.read_csv(fpath)
     X = df.drop(["ArrDelayBinary"], axis=1)
     y = df["ArrDelayBinary"].astype("int32")
 
