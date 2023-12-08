@@ -442,8 +442,8 @@ def test_complete_multipart_upload(http_artifact_repo, monkeypatch):
                 "path": "local_file",
                 "upload_id": "upload_id",
                 "parts": [
-                    {"part_number": 1, "etag": "etag1"},
-                    {"part_number": 2, "etag": "etag2"},
+                    {"part_number": 1, "etag": "etag1", "url": None},
+                    {"part_number": 2, "etag": "etag2", "url": None},
                 ],
             },
         )
