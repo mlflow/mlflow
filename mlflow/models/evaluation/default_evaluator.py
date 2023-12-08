@@ -60,6 +60,7 @@ from mlflow.sklearn import _SklearnModelWrapper
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils._spark_utils import _create_local_spark_session_for_evaluate
 
 _logger = logging.getLogger(__name__)
 
@@ -1644,15 +1645,18 @@ class DefaultEvaluator(ModelEvaluator):
         data = data.assign(**columns)
         artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
         mlflow.log_table(data, artifact_file=artifact_file_name)
-        # write the data to a delta table to eval_results_path if specified
         if self.eval_results_path:
             from pyspark.sql import SparkSession
 
             spark_session = SparkSession.getActiveSession()
+            if not spark_session:
+                spark_session = _create_local_spark_session_for_evaluate()
             eval_table_spark = spark_session.createDataFrame(data)
             eval_table_spark.write.mode("overwrite").format("delta").saveAsTable(
                 self.eval_results_path
             )
+
+            # set a tag to the run to indicate the eval table path
 
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
