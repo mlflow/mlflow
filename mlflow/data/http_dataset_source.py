@@ -44,10 +44,8 @@ class HTTPDatasetSource(DatasetSource):
         """
         Extracts a filename from the Content-Disposition header or the URL's path.
         """
-        content_disposition = response.headers.get("Content-Disposition")
-        if content_disposition:
-            filename_match = next(re.finditer(r"filename=(.+)", content_disposition), None)
-            if filename_match:
+        if content_disposition := response.headers.get("Content-Disposition"):
+            for match in re.finditer(r"filename=(.+)", content_disposition):
                 filename = filename_match[1].strip("'\"")
                 if _is_path(filename):
                     raise MlflowException.invalid_parameter_value(
