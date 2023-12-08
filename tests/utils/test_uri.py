@@ -100,10 +100,10 @@ def test_is_local_uri():
     assert is_local_uri("file://localhost:5000/mlruns")
     assert is_local_uri("file://127.0.0.1/mlruns")
     assert is_local_uri("file://127.0.0.1:5000/mlruns")
+    assert is_local_uri("file://myhostname/path/to/file")
     assert is_local_uri("//proc/self/root")
     assert is_local_uri("/proc/self/root")
 
-    assert not is_local_uri("file://myhostname/path/to/file")
     assert not is_local_uri("https://whatever")
     assert not is_local_uri("http://whatever")
     assert not is_local_uri("databricks")
