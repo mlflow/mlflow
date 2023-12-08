@@ -10524,6 +10524,23 @@ public final class MlflowArtifacts {
      */
     com.google.protobuf.ByteString
         getEtagBytes();
+
+    /**
+     * <code>optional string url = 3;</code>
+     * @return Whether the url field is set.
+     */
+    boolean hasUrl();
+    /**
+     * <code>optional string url = 3;</code>
+     * @return The url.
+     */
+    java.lang.String getUrl();
+    /**
+     * <code>optional string url = 3;</code>
+     * @return The bytes for url.
+     */
+    com.google.protobuf.ByteString
+        getUrlBytes();
   }
   /**
    * Protobuf type {@code mlflow.artifacts.MultipartUploadPart}
@@ -10539,6 +10556,7 @@ public final class MlflowArtifacts {
     }
     private MultipartUploadPart() {
       etag_ = "";
+      url_ = "";
     }
 
     @java.lang.Override
@@ -10581,6 +10599,12 @@ public final class MlflowArtifacts {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
               etag_ = bs;
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              url_ = bs;
               break;
             }
             default: {
@@ -10683,6 +10707,54 @@ public final class MlflowArtifacts {
       }
     }
 
+    public static final int URL_FIELD_NUMBER = 3;
+    private volatile java.lang.Object url_;
+    /**
+     * <code>optional string url = 3;</code>
+     * @return Whether the url field is set.
+     */
+    @java.lang.Override
+    public boolean hasUrl() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <code>optional string url = 3;</code>
+     * @return The url.
+     */
+    @java.lang.Override
+    public java.lang.String getUrl() {
+      java.lang.Object ref = url_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          url_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string url = 3;</code>
+     * @return The bytes for url.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getUrlBytes() {
+      java.lang.Object ref = url_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        url_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -10703,6 +10775,9 @@ public final class MlflowArtifacts {
       if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, etag_);
       }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, url_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -10718,6 +10793,9 @@ public final class MlflowArtifacts {
       }
       if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, etag_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, url_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -10744,6 +10822,11 @@ public final class MlflowArtifacts {
         if (!getEtag()
             .equals(other.getEtag())) return false;
       }
+      if (hasUrl() != other.hasUrl()) return false;
+      if (hasUrl()) {
+        if (!getUrl()
+            .equals(other.getUrl())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -10763,6 +10846,10 @@ public final class MlflowArtifacts {
       if (hasEtag()) {
         hash = (37 * hash) + ETAG_FIELD_NUMBER;
         hash = (53 * hash) + getEtag().hashCode();
+      }
+      if (hasUrl()) {
+        hash = (37 * hash) + URL_FIELD_NUMBER;
+        hash = (53 * hash) + getUrl().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -10901,6 +10988,8 @@ public final class MlflowArtifacts {
         bitField0_ = (bitField0_ & ~0x00000001);
         etag_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
+        url_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
         return this;
       }
 
@@ -10937,6 +11026,10 @@ public final class MlflowArtifacts {
           to_bitField0_ |= 0x00000002;
         }
         result.etag_ = etag_;
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.url_ = url_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -10992,6 +11085,11 @@ public final class MlflowArtifacts {
         if (other.hasEtag()) {
           bitField0_ |= 0x00000002;
           etag_ = other.etag_;
+          onChanged();
+        }
+        if (other.hasUrl()) {
+          bitField0_ |= 0x00000004;
+          url_ = other.url_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -11143,6 +11241,90 @@ public final class MlflowArtifacts {
   }
   bitField0_ |= 0x00000002;
         etag_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object url_ = "";
+      /**
+       * <code>optional string url = 3;</code>
+       * @return Whether the url field is set.
+       */
+      public boolean hasUrl() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <code>optional string url = 3;</code>
+       * @return The url.
+       */
+      public java.lang.String getUrl() {
+        java.lang.Object ref = url_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            url_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string url = 3;</code>
+       * @return The bytes for url.
+       */
+      public com.google.protobuf.ByteString
+          getUrlBytes() {
+        java.lang.Object ref = url_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          url_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string url = 3;</code>
+       * @param value The url to set.
+       * @return This builder for chaining.
+       */
+      public Builder setUrl(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        url_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string url = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearUrl() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        url_ = getDefaultInstance().getUrl();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string url = 3;</code>
+       * @param value The bytes for url to set.
+       * @return This builder for chaining.
+       */
+      public Builder setUrlBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        url_ = value;
         onChanged();
         return this;
       }
@@ -11319,45 +11501,45 @@ public final class MlflowArtifacts {
       "part_number\030\002 \001(\003\022I\n\007headers\030\003 \003(\01328.mlf" +
       "low.artifacts.MultipartUploadCredential." +
       "HeadersEntry\032.\n\014HeadersEntry\022\013\n\003key\030\001 \001(" +
-      "\t\022\r\n\005value\030\002 \001(\t:\0028\001\"8\n\023MultipartUploadP" +
-      "art\022\023\n\013part_number\030\001 \001(\003\022\014\n\004etag\030\002 \001(\t2\231" +
-      "\013\n\026MlflowArtifactsService\022\275\001\n\020downloadAr" +
-      "tifact\022\".mlflow.artifacts.DownloadArtifa" +
-      "ct\032+.mlflow.artifacts.DownloadArtifact.R" +
-      "esponse\"X\362\206\031T\n=\n\003GET\0220/mlflow-artifacts/" +
-      "artifacts/<path:artifact_path>\032\004\010\002\020\000\020\001*\021" +
-      "Download Artifact\022\265\001\n\016uploadArtifact\022 .m" +
-      "lflow.artifacts.UploadArtifact\032).mlflow." +
-      "artifacts.UploadArtifact.Response\"V\362\206\031R\n" +
-      "=\n\003PUT\0220/mlflow-artifacts/artifacts/<pat" +
-      "h:artifact_path>\032\004\010\002\020\000\020\001*\017Upload Artifac" +
-      "t\022\234\001\n\rlistArtifacts\022\037.mlflow.artifacts.L" +
-      "istArtifacts\032(.mlflow.artifacts.ListArti" +
-      "facts.Response\"@\362\206\031<\n(\n\003GET\022\033/mlflow-art" +
-      "ifacts/artifacts\032\004\010\002\020\000\020\001*\016List Artifacts" +
-      "\022\271\001\n\016deleteArtifact\022 .mlflow.artifacts.D" +
-      "eleteArtifact\032).mlflow.artifacts.DeleteA" +
-      "rtifact.Response\"Z\362\206\031V\n@\n\006DELETE\0220/mlflo" +
-      "w-artifacts/artifacts/<path:artifact_pat" +
-      "h>\032\004\010\002\020\000\020\001*\020Delete Artifacts\022\340\001\n\025createM" +
-      "ultipartUpload\022\'.mlflow.artifacts.Create" +
-      "MultipartUpload\0320.mlflow.artifacts.Creat" +
-      "eMultipartUpload.Response\"l\362\206\031h\n?\n\004POST\022" +
-      "1/mlflow-artifacts/mpu/create/<path:arti" +
-      "fact_path>\032\004\010\002\020\000\020\001*#Create an Artifact M" +
-      "ultipart Upload\022\352\001\n\027completeMultipartUpl" +
-      "oad\022).mlflow.artifacts.CompleteMultipart" +
-      "Upload\0322.mlflow.artifacts.CompleteMultip" +
-      "artUpload.Response\"p\362\206\031l\nA\n\004POST\0223/mlflo" +
-      "w-artifacts/mpu/complete/<path:artifact_" +
-      "path>\032\004\010\002\020\000\020\001*%Complete an Artifact Mult" +
-      "ipart Upload\022\333\001\n\024abortMultipartUpload\022&." +
-      "mlflow.artifacts.AbortMultipartUpload\032/." +
-      "mlflow.artifacts.AbortMultipartUpload.Re" +
-      "sponse\"j\362\206\031f\n>\n\004POST\0220/mlflow-artifacts/" +
-      "mpu/abort/<path:artifact_path>\032\004\010\002\020\000\020\001*\"" +
-      "Abort an Artifact Multipart UploadB\036\n\024or" +
-      "g.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "\t\022\r\n\005value\030\002 \001(\t:\0028\001\"E\n\023MultipartUploadP" +
+      "art\022\023\n\013part_number\030\001 \001(\003\022\014\n\004etag\030\002 \001(\t\022\013" +
+      "\n\003url\030\003 \001(\t2\231\013\n\026MlflowArtifactsService\022\275" +
+      "\001\n\020downloadArtifact\022\".mlflow.artifacts.D" +
+      "ownloadArtifact\032+.mlflow.artifacts.Downl" +
+      "oadArtifact.Response\"X\362\206\031T\n=\n\003GET\0220/mlfl" +
+      "ow-artifacts/artifacts/<path:artifact_pa" +
+      "th>\032\004\010\002\020\000\020\001*\021Download Artifact\022\265\001\n\016uploa" +
+      "dArtifact\022 .mlflow.artifacts.UploadArtif" +
+      "act\032).mlflow.artifacts.UploadArtifact.Re" +
+      "sponse\"V\362\206\031R\n=\n\003PUT\0220/mlflow-artifacts/a" +
+      "rtifacts/<path:artifact_path>\032\004\010\002\020\000\020\001*\017U" +
+      "pload Artifact\022\234\001\n\rlistArtifacts\022\037.mlflo" +
+      "w.artifacts.ListArtifacts\032(.mlflow.artif" +
+      "acts.ListArtifacts.Response\"@\362\206\031<\n(\n\003GET" +
+      "\022\033/mlflow-artifacts/artifacts\032\004\010\002\020\000\020\001*\016L" +
+      "ist Artifacts\022\271\001\n\016deleteArtifact\022 .mlflo" +
+      "w.artifacts.DeleteArtifact\032).mlflow.arti" +
+      "facts.DeleteArtifact.Response\"Z\362\206\031V\n@\n\006D" +
+      "ELETE\0220/mlflow-artifacts/artifacts/<path" +
+      ":artifact_path>\032\004\010\002\020\000\020\001*\020Delete Artifact" +
+      "s\022\340\001\n\025createMultipartUpload\022\'.mlflow.art" +
+      "ifacts.CreateMultipartUpload\0320.mlflow.ar" +
+      "tifacts.CreateMultipartUpload.Response\"l" +
+      "\362\206\031h\n?\n\004POST\0221/mlflow-artifacts/mpu/crea" +
+      "te/<path:artifact_path>\032\004\010\002\020\000\020\001*#Create " +
+      "an Artifact Multipart Upload\022\352\001\n\027complet" +
+      "eMultipartUpload\022).mlflow.artifacts.Comp" +
+      "leteMultipartUpload\0322.mlflow.artifacts.C" +
+      "ompleteMultipartUpload.Response\"p\362\206\031l\nA\n" +
+      "\004POST\0223/mlflow-artifacts/mpu/complete/<p" +
+      "ath:artifact_path>\032\004\010\002\020\000\020\001*%Complete an " +
+      "Artifact Multipart Upload\022\333\001\n\024abortMulti" +
+      "partUpload\022&.mlflow.artifacts.AbortMulti" +
+      "partUpload\032/.mlflow.artifacts.AbortMulti" +
+      "partUpload.Response\"j\362\206\031f\n>\n\004POST\0220/mlfl" +
+      "ow-artifacts/mpu/abort/<path:artifact_pa" +
+      "th>\032\004\010\002\020\000\020\001*\"Abort an Artifact Multipart" +
+      " UploadB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -11472,7 +11654,7 @@ public final class MlflowArtifacts {
     internal_static_mlflow_artifacts_MultipartUploadPart_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_artifacts_MultipartUploadPart_descriptor,
-        new java.lang.String[] { "PartNumber", "Etag", });
+        new java.lang.String[] { "PartNumber", "Etag", "Url", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
