@@ -1390,31 +1390,7 @@ def test_create_model_version_with_file_uri(mlflow_client):
         },
     )
     assert response.status_code == 400
-    assert "MLflow tracking server doesn't allow" in response.json()["message"]
-
-
-def test_create_model_version_with_file_uri_env_var(tmp_path):
-    backend_uri = tmp_path.joinpath("file").as_uri()
-    with _init_server(
-        backend_uri,
-        root_artifact_uri=tmp_path.as_uri(),
-        extra_env={"MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE": "true"},
-    ) as url:
-        mlflow_client = MlflowClient(url)
-
-        name = "test"
-        mlflow_client.create_registered_model(name)
-        exp_id = mlflow_client.create_experiment("test")
-        run = mlflow_client.create_run(experiment_id=exp_id)
-        response = requests.post(
-            f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
-            json={
-                "name": name,
-                "source": "file://123.456.789.123/path/to/source",
-                "run_id": run.info.run_id,
-            },
-        )
-        assert response.status_code == 200
+    assert "To use a local path as a model version" in response.json()["message"]
 
 
 def test_logging_model_with_local_artifact_uri(mlflow_client):

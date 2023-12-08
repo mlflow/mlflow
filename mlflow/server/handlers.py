@@ -18,10 +18,7 @@ from google.protobuf.json_format import ParseError
 from mlflow.entities import DatasetInput, ExperimentTag, FileInfo, Metric, Param, RunTag, ViewType
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.environment_variables import (
-    MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE,
-    MLFLOW_DEPLOYMENTS_TARGET,
-)
+from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
@@ -105,7 +102,7 @@ from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import is_file_uri, is_local_uri, validate_path_is_safe, validate_query_string
+from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import _validate_batch_log_api_req
 
 _logger = logging.getLogger(__name__)
@@ -1601,18 +1598,6 @@ def _validate_source(source: str, run_id: str) -> None:
             f"Invalid model version source: '{source}'. To use a local path as a model version "
             "source, the run_id request parameter has to be specified and the local path has to be "
             "contained within the artifact directory of the run specified by the run_id.",
-            INVALID_PARAMETER_VALUE,
-        )
-
-    # There might be file URIs that are local but can bypass the above check. To prevent this, we
-    # disallow using file URIs as model version sources by default unless it's explicitly allowed
-    # by setting the MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE environment variable to True.
-    if not MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.get() and is_file_uri(source):
-        raise MlflowException(
-            f"Invalid model version source: '{source}'. MLflow tracking server doesn't allow using "
-            "a file URI as a model version source for security reasons. To disable this check, set "
-            f"the {MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE} environment variable to "
-            "True.",
             INVALID_PARAMETER_VALUE,
         )
 
