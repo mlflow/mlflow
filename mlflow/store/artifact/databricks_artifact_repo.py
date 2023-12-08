@@ -250,7 +250,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             futures = {}
             num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
             for index in range(num_chunks):
-                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.ge()
+                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 future = self.chunk_thread_pool.submit(
                     self._azure_upload_chunk,
                     credentials=credentials,
