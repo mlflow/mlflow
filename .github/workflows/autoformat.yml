@@ -94,6 +94,7 @@ jobs:
       # Prettier
       # ************************************************************************
       - run: |
+          pre-commit install
           pre-commit run prettier --all-files --color=always || true
       # ************************************************************************
       # protos
