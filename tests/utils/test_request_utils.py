@@ -75,9 +75,22 @@ def test_redirects_disabled_if_env_var_set(monkeypatch, env_value):
 
 
 @pytest.mark.parametrize("env_value", ["1", "true", "True", "TRUE"])
-def test_redirects_enabled_by_default(monkeypatch, env_value):
+def test_redirects_enabled_if_env_var_set(monkeypatch, env_value):
     monkeypatch.setenv("MLFLOW_ALLOW_HTTP_REDIRECTS", env_value)
 
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = request_utils.cloud_storage_http_request(
+            "GET",
+            "http://localhost:5000",
+        )
+
+        assert response.text == "mock response"
+
+
+def test_redirects_enabled_by_default():
     with mock.patch("requests.Session.request") as mock_request:
         mock_request.return_value.status_code = 302
         mock_request.return_value.text = "mock response"
