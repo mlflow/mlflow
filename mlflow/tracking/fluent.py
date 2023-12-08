@@ -730,7 +730,11 @@ def delete_tag(key: str) -> None:
 
 
 def log_metric(
-    key: str, value: float, step: Optional[int] = None, synchronous: bool = True
+    key: str,
+    value: float,
+    step: Optional[int] = None,
+    synchronous: bool = True,
+    timestamp: Optional[int] = None,
 ) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -746,6 +750,7 @@ def log_metric(
                   All backend stores will support values up to length 5000, but some
                   may support larger values.
     :param step: Metric step (int). Defaults to zero if unspecified.
+    :param timestamp: Time when this metric was calculated. Defaults to the current system time.
     :param synchronous: *Experimental* If True, blocks until the metric is logged
                         successfully. If False, logs the metric asynchronously and
                         returns a future representing the logging operation.
@@ -769,7 +774,12 @@ def log_metric(
     """
     run_id = _get_or_start_run().info.run_id
     return MlflowClient().log_metric(
-        run_id, key, value, get_current_time_millis(), step or 0, synchronous=synchronous
+        run_id,
+        key,
+        value,
+        timestamp or get_current_time_millis(),
+        step or 0,
+        synchronous=synchronous,
     )
 
 

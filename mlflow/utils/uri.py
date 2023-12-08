@@ -1,3 +1,4 @@
+import os
 import pathlib
 import posixpath
 import re
@@ -40,6 +41,10 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
         return False
 
     parsed_uri = urllib.parse.urlparse(uri)
+    scheme = parsed_uri.scheme
+    if scheme == "":
+        return True
+
     if parsed_uri.hostname and not (
         parsed_uri.hostname == "."
         or parsed_uri.hostname.startswith("localhost")
@@ -47,8 +52,7 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
     ):
         return False
 
-    scheme = parsed_uri.scheme
-    if scheme == "" or scheme == "file":
+    if scheme == "file":
         return True
 
     if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
@@ -405,3 +409,38 @@ def resolve_uri_if_local(local_uri):
 
 def generate_tmp_dfs_path(dfs_tmp):
     return posixpath.join(dfs_tmp, str(uuid.uuid4()))
+
+
+def join_paths(*paths: str) -> str:
+    stripped = (p.strip("/") for p in paths)
+    return "/" + posixpath.normpath(posixpath.join(*stripped))
+
+
+_OS_ALT_SEPS = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
+
+
+def validate_path_is_safe(path):
+    """
+    Validates that the specified path is safe to join with a trusted prefix. This is a security
+    measure to prevent path traversal attacks.
+    A valid path should:
+        not contain separators other than '/'
+        not contain .. to navigate to parent dir in path
+        not be an absolute path
+    """
+    from mlflow.utils.file_utils import local_file_uri_to_path
+
+    exc = MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
+    if any((s in path) for s in ("#", "%23")):
+        raise exc
+
+    if is_file_uri(path):
+        path = local_file_uri_to_path(path)
+    if (
+        any((s in path) for s in _OS_ALT_SEPS)
+        or ".." in path.split("/")
+        or pathlib.PureWindowsPath(path).is_absolute()
+        or pathlib.PurePosixPath(path).is_absolute()
+        or (is_windows() and len(path) >= 2 and path[1] == ":")
+    ):
+        raise exc

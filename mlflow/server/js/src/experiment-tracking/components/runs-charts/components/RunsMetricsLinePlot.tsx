@@ -129,18 +129,22 @@ export const RunsMetricsLinePlot = React.memo(
         // Generate separate data trace for each run
         runsData.map((runEntry) => {
           if (runEntry.metricsHistory) {
+            // Sort metrics history by the given x-axis
+            const sortedMetricsHistory = runEntry.metricsHistory[metricKey]?.sort(
+              (a, b) => (xAxisKey === 'step') ? a.step - b.step : a.timestamp - b.timestamp
+            );
             return {
               // Let's add UUID to each run so it can be distinguished later (e.g. on hover)
               uuid: runEntry.runInfo.run_uuid,
               name: runEntry.runInfo.run_name,
-              x: prepareMetricHistoryByAxisType(runEntry.metricsHistory[metricKey], xAxisKey),
+              x: prepareMetricHistoryByAxisType(sortedMetricsHistory, xAxisKey),
               // The actual value is on Y axis
               y: EMA(
-                runEntry.metricsHistory[metricKey]?.map((e) => normalizeChartValue(e.value)),
+                sortedMetricsHistory?.map((e) => normalizeChartValue(e.value)),
                 lineSmoothness,
               ),
               // Always record the step so it can be accessed even if x-axis contains timestamp
-              z: runEntry.metricsHistory[metricKey]?.map(({ step }) => step),
+              z: sortedMetricsHistory?.map(({ step }) => step),
               hovertext: runEntry.runInfo.run_name,
               text: 'x',
               textposition: 'outside',

@@ -1,16 +1,13 @@
-import logging
 from typing import Any, Dict, List, Optional
 
 from mlflow.gateway.client import MlflowGatewayClient
 from mlflow.gateway.config import LimitsConfig, Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
+from mlflow.gateway.utils import gateway_deprecated
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import experimental
-
-_logger = logging.getLogger(__name__)
 
 
-@experimental
+@gateway_deprecated
 def get_route(name: str) -> Route:
     """
     Retrieves a specific route from the MLflow Gateway service.
@@ -24,7 +21,7 @@ def get_route(name: str) -> Route:
     return MlflowGatewayClient().get_route(name)
 
 
-@experimental
+@gateway_deprecated
 def search_routes() -> List[Route]:
     """
     Searches for routes in the MLflow Gateway service.
@@ -45,7 +42,7 @@ def search_routes() -> List[Route]:
     )
 
 
-@experimental
+@gateway_deprecated
 def create_route(
     name: str, route_type: Optional[str] = None, model: Optional[Dict[str, Any]] = None
 ) -> Route:
@@ -105,7 +102,7 @@ def create_route(
     return MlflowGatewayClient().create_route(name, route_type, model)
 
 
-@experimental
+@gateway_deprecated
 def delete_route(name: str) -> None:
     """
     Delete an existing route in the Gateway.
@@ -132,7 +129,7 @@ def delete_route(name: str) -> None:
     MlflowGatewayClient().delete_route(name)
 
 
-@experimental
+@gateway_deprecated
 def set_limits(route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
     """
     Set limits on an existing route in the Gateway.
@@ -158,7 +155,7 @@ def set_limits(route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
     return MlflowGatewayClient().set_limits(route=route, limits=limits)
 
 
-@experimental
+@gateway_deprecated
 def get_limits(route: str) -> LimitsConfig:
     """
     Get limits of an existing route in the Gateway.
@@ -183,7 +180,7 @@ def get_limits(route: str) -> LimitsConfig:
     return MlflowGatewayClient().get_limits(route=route)
 
 
-@experimental
+@gateway_deprecated
 def query(route: str, data):
     """
     Issues a query request to a configured service through a named route on the Gateway Server.

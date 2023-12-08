@@ -84,14 +84,18 @@ def ai21_completion_response():
 
 def ai21_parsed_completion_response(mdl):
     return {
-        "candidates": [{"metadata": {}, "text": "\nIt looks like"}],
-        "metadata": {
-            "model": mdl,
-            "route_type": "llm/v1/completions",
-            "input_tokens": None,
-            "output_tokens": None,
-            "total_tokens": None,
-        },
+        "id": None,
+        "object": "text_completion",
+        "created": 1677858242,
+        "model": mdl,
+        "choices": [
+            {
+                "text": "\nIt looks like",
+                "index": 0,
+                "finish_reason": None,
+            }
+        ],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
 
@@ -165,6 +169,10 @@ bedrock_model_provider_fixtures = [
         },
         "request": {
             "prompt": "This is a test",
+            "n": 1,
+            "temperature": 0.5,
+            "stop": ["foobar"],
+            "max_tokens": 1000,
         },
         "response": {
             "results": [
@@ -177,16 +185,27 @@ bedrock_model_provider_fixtures = [
             "inputTextTokenCount": 4,
         },
         "expected": {
-            "candidates": [{"metadata": {}, "text": "\nThis is a test"}],
-            "metadata": {
-                "model": "amazon.titan-tg1-large",
-                "route_type": "llm/v1/completions",
-                "input_tokens": None,
-                "output_tokens": None,
-                "total_tokens": None,
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "amazon.titan-tg1-large",
+            "choices": [
+                {
+                    "text": "\nThis is a test",
+                    "index": 0,
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+        },
+        "model_request": {
+            "inputText": "This is a test",
+            "textGenerationConfig": {
+                "temperature": 0.25,
+                "stopSequences": ["foobar"],
+                "maxTokenCount": 1000,
             },
         },
-        "model_request": {"inputText": "This is a test", "textGenerationConfig": {}},
     },
     {
         "provider": AWSBedrockModelProvider.AI21,
@@ -215,12 +234,15 @@ bedrock_model_provider_fixtures = [
                 "name": "ai21.j2-mid",
             },
         },
-        "request": {
-            "prompt": "This is a test",
-        },
+        "request": {"prompt": "This is a test", "n": 2, "max_tokens": 1000, "stop": ["foobar"]},
         "response": ai21_completion_response(),
         "expected": ai21_parsed_completion_response("ai21.j2-mid"),
-        "model_request": {"prompt": "This is a test"},
+        "model_request": {
+            "prompt": "This is a test",
+            "stopSequences": ["foobar"],
+            "maxTokens": 1000,
+            "numResults": 2,
+        },
     },
     {
         "provider": AWSBedrockModelProvider.COHERE,
@@ -352,13 +374,13 @@ def test_bedrock_aws_client(provider, config, aws_config):
 async def test_bedrock_request_response(
     provider, config, payload, response, expected, model_request, aws_config
 ):
-    with mock.patch(
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
         "mlflow.gateway.providers.bedrock.AWSBedrockProvider._request", return_value=response
     ) as mock_request:
         if not expected:
             pytest.skip("no expected value")
 
-        expected["metadata"]["model"] = config["model"]["name"]
+        expected["model"] = config["model"]["name"]
 
         provider = AWSBedrockProvider(
             RouteConfig(**_merge_model_and_aws_config(config, aws_config))

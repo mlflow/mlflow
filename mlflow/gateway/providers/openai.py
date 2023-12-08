@@ -1,7 +1,7 @@
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.providers.utils import send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
@@ -74,22 +74,10 @@ class OpenAIProvider(BaseProvider):
             return payload
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        from fastapi import HTTPException
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-        if "n" in payload:
-            raise HTTPException(
-                status_code=422, detail="Invalid parameter `n`. Use `candidate_count` instead."
-            )
-
-        payload = rename_payload_keys(
-            payload,
-            {"candidate_count": "n"},
-        )
-        # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
-        payload["temperature"] = 2 * payload["temperature"]
 
         resp = await send_request(
             headers=self._request_headers,
@@ -122,69 +110,60 @@ class OpenAIProvider(BaseProvider):
         # }
         # ```
         return chat.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "message": {
-                            "role": c["message"]["role"],
-                            "content": c["message"]["content"],
-                        },
-                        "metadata": {
-                            "finish_reason": c["finish_reason"],
-                        },
-                    }
-                    for c in resp["choices"]
-                ],
-                "metadata": {
-                    "input_tokens": resp["usage"]["prompt_tokens"],
-                    "output_tokens": resp["usage"]["completion_tokens"],
-                    "total_tokens": resp["usage"]["total_tokens"],
-                    "model": resp["model"],
-                    "route_type": self.config.route_type,
-                },
-            }
+            id=resp["id"],
+            object=resp["object"],
+            created=resp["created"],
+            model=resp["model"],
+            choices=[
+                chat.Choice(
+                    index=idx,
+                    message=chat.ResponseMessage(
+                        role=c["message"]["role"], content=c["message"]["content"]
+                    ),
+                    finish_reason=c["finish_reason"],
+                )
+                for idx, c in enumerate(resp["choices"])
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=resp["usage"]["prompt_tokens"],
+                completion_tokens=resp["usage"]["completion_tokens"],
+                total_tokens=resp["usage"]["total_tokens"],
+            ),
         )
 
     def _prepare_completion_request_payload(self, payload):
-        payload = rename_payload_keys(
-            payload,
-            {"candidate_count": "n"},
-        )
-        # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
-        payload["temperature"] = 2 * payload["temperature"]
         payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
         return payload
 
     def _prepare_completion_response_payload(self, resp):
         return completions.ResponsePayload(
-            **{
-                "candidates": [
-                    {
-                        "text": c["message"]["content"],
-                        "metadata": {"finish_reason": c["finish_reason"]},
-                    }
-                    for c in resp["choices"]
-                ],
-                "metadata": {
-                    "input_tokens": resp["usage"]["prompt_tokens"],
-                    "output_tokens": resp["usage"]["completion_tokens"],
-                    "total_tokens": resp["usage"]["total_tokens"],
-                    "model": resp["model"],
-                    "route_type": self.config.route_type,
-                },
-            }
+            id=resp["id"],
+            # The chat models response from OpenAI is of object type "chat.completion". Since
+            # we're using the completions response format here, we hardcode the "text_completion"
+            # object type in the response instead
+            object="text_completion",
+            created=resp["created"],
+            model=resp["model"],
+            choices=[
+                completions.Choice(
+                    index=idx,
+                    text=c["message"]["content"],
+                    finish_reason=c["finish_reason"],
+                )
+                for idx, c in enumerate(resp["choices"])
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=resp["usage"]["prompt_tokens"],
+                completion_tokens=resp["usage"]["completion_tokens"],
+                total_tokens=resp["usage"]["total_tokens"],
+            ),
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        from fastapi import HTTPException
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
-        if "n" in payload:
-            raise HTTPException(
-                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
-            )
         payload = self._prepare_completion_request_payload(payload)
 
         resp = await send_request(
@@ -220,10 +199,7 @@ class OpenAIProvider(BaseProvider):
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
-        payload = rename_payload_keys(
-            jsonable_encoder(payload, exclude_none=True),
-            {"text": "input"},
-        )
+        payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         resp = await send_request(
             headers=self._request_headers,
@@ -255,14 +231,16 @@ class OpenAIProvider(BaseProvider):
         # }
         # ```
         return embeddings.ResponsePayload(
-            **{
-                "embeddings": [d["embedding"] for d in resp["data"]],
-                "metadata": {
-                    "input_tokens": resp["usage"]["prompt_tokens"],
-                    "output_tokens": 0,  # output_tokens is not available for embeddings
-                    "total_tokens": resp["usage"]["total_tokens"],
-                    "model": resp["model"],
-                    "route_type": self.config.route_type,
-                },
-            }
+            data=[
+                embeddings.EmbeddingObject(
+                    embedding=d["embedding"],
+                    index=idx,
+                )
+                for idx, d in enumerate(resp["data"])
+            ],
+            model=resp["model"],
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=resp["usage"]["prompt_tokens"],
+                total_tokens=resp["usage"]["total_tokens"],
+            ),
         )

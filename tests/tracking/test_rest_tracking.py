@@ -548,6 +548,8 @@ def test_validate_path_is_safe_windows_good(path):
         "./../path",
         "path/../to/file",
         "path/../../to/file",
+        "file://a#/..//tmp",
+        "file://a%23/..//tmp/",
         "/etc/passwd",
         "/etc/passwd%00.jpg",
         "/etc/passwd%00.html",
@@ -1824,7 +1826,7 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
     with _init_server(
         backend_uri=mlflow_client.tracking_uri,
         root_artifact_uri=mlflow_client.tracking_uri,
-        extra_env={"MLFLOW_GATEWAY_URI": "http://localhost:5001"},
+        extra_env={"MLFLOW_DEPLOYMENTS_TARGET": "http://localhost:5001"},
     ) as url:
         patched_client = MlflowClient(url)
 
@@ -1834,7 +1836,7 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
         )
         assert_response(
             response,
-            "GatewayProxy request must specify a gateway_path.",
+            "Deployments proxy request must specify a gateway_path.",
         )
 
 

@@ -47,7 +47,7 @@ export const EvaluationCellEvaluateButton = ({
         title={
           <FormattedMessage
             description='Experiment page > artifact compare view > text cell > run not evaluable tooltip'
-            defaultMessage='You cannot evaluate this cell, this run was not created using AI gateway route'
+            defaultMessage='You cannot evaluate this cell, this run was not created using MLflow deployment endpoints.'
           />
         }
       >

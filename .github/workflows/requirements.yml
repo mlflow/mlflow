@@ -75,8 +75,10 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+          pip install '.[gateway]'
       - name: Run tests
         run: |
           source dev/setup-ssh.sh
           pytest tests --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate
+            --ignore=tests/examples --ignore=tests/recipes --ignore=tests/evaluate \
+            --ignore=tests/deployments

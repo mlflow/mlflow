@@ -57,6 +57,16 @@ def add_table_info_to_context_provider(path, version, data_format):
         _table_infos.append((path, version, data_format))
 
 
+def clear_table_infos():
+    """Clear the table info accumulated SparkAutologgingContext.
+
+    This is currently only used in unit tests.
+    """
+    with _lock:
+        global _table_infos
+        _table_infos = []
+
+
 def _get_spark_major_version(sc):
     spark_version_parts = sc.version.split(".")
     spark_major_version = None
@@ -143,13 +153,11 @@ def _listen_for_spark_activity(spark_context):
                 )
         _spark_table_info_listener = None
         raise MlflowException(
-            "Exception while attempting to initialize JVM-side state for "
-            "Spark datasource autologging. Please create a new Spark session "
-            "and ensure you have the mlflow-spark JAR attached to your Spark "
-            "session as described in "
-            "http://mlflow.org/docs/latest/tracking.html#"
-            "automatic-logging-from-spark-experimental. "
-            "Exception:\n%s" % e
+            "Exception while attempting to initialize JVM-side state for Spark datasource "
+            "autologging. Note that Spark datasource autologging only works with Spark 3.0 "
+            "and above. Please create a new Spark session with required Spark version and "
+            "ensure you have the mlflow-spark JAR attached to your Spark session as described "
+            "in https://mlflow.org/docs/latest/tracking/autolog.html#spark Exception:\n%s" % e
         )
 
     # Register context provider for Spark autologging
@@ -235,7 +243,8 @@ class PythonSubscriber(metaclass=ExceptionSafeClass):
 class SparkAutologgingContext(RunContextProvider):
     """
     Context provider used when there's no active run. Accumulates datasource read information,
-    then logs that information to the next-created run & clears the accumulated information.
+    then logs that information to the next-created run. Note that this doesn't clear the accumlated
+    info when logging them to the next run, so it will be logged to any successive runs as well.
     """
 
     def in_context(self):

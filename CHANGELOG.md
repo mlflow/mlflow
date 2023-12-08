@@ -1,5 +1,70 @@
 # CHANGELOG
 
+## 2.9.1 (2023-12-07)
+
+MLflow 2.9.1 is a patch release, containing a critical bug fix related to loading `pyfunc` models that were saved in previous versions of MLflow.
+
+Bug fixes:
+
+- [Models] Revert Changes to PythonModel that introduced loading issues for models saved in earlier versions of MLflow (#10626, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#10625, @BenWilson2
+
+## 2.9.0 (2023-12-05)
+
+MLflow 2.9.0 includes several major features and improvements.
+
+MLflow AI Gateway deprecation (#10420, @harupy):
+
+The feature previously known as MLflow AI Gateway has been moved to utilize [the MLflow deployments API](https://mlflow.org/docs/latest/llms/deployments/index.html).
+For guidance on migrating from the AI Gateway to the new deployments API, please see the [MLflow AI Gateway Migration Guide](https://mlflow.org/docs/latest/llms/gateway/migration.html.
+
+MLflow Tracking docs overhaul (#10471, @B-Step62):
+
+[The MLflow tracking docs](https://mlflow.org/docs/latest/tracking.html) have been overhauled. We'd like your feedback on the new tracking docs!
+
+Security fixes:
+
+Three security patches have been filed with this release and CVE's have been issued with the details involved in the security patch and potential attack vectors. Please review and update your tracking server deployments if your tracking server is not securely deployed and has open access to the internet.
+
+- Sanitize `path` in `HttpArtifactRepository.list_artifacts` (#10585, @harupy)
+- Sanitize `filename` in `Content-Disposition` header for `HTTPDatasetSource` (#10584, @harupy).
+- Validate `Content-Type` header to prevent POST XSS (#10526, @B-Step62)
+
+Features:
+
+- [Tracking] Use `backoff_jitter` when making HTTP requests (#10486, @ajinkyavbhandare)
+- [Tracking] Add default `aggregate_results` if the score type is numeric in `make_metric` API (#10490, @sunishsheth2009)
+- [Tracking] Add string type of score types for metric value for genai (#10307, @sunishsheth2009)
+- [Artifacts] Support multipart upload for for proxy artifact access (#9521, @harupy)
+- [Models] Support saving `torch_dtype` for transformers models (#10586, @serena-ruan)
+- [Models] Add built-in metric `ndcg_at_k` to retriever evaluation (#10284, @liangz1)
+- [Model Registry] Implement universal `copy_model_version` (#10308, @jerrylian-db)
+- [Models] Support saving/loading `RunnableSequence`, `RunnableParallel`, and `RunnableBranch` (#10521, #10611, @serena-ruan)
+
+Bug fixes:
+
+- [Tracking] Resume system metrics logging when resuming an existing run (#10312, @chenmoneygithub)
+- [UI] Fix incorrect sorting order in line chart (#10553, @B-Step62)
+- [UI] Remove extra whitespace in git URLs (#10506, @mrplants)
+- [Models] Make spark_udf use NFS to broadcast model to spark executor on databricks runtime and spark connect mode (#10463, @WeichenXu123)
+- [Models] Fix promptlab pyfunc models not working for chat routes (#10346, @daniellok-db)
+
+Documentation updates:
+
+- [Docs] Add a quickstart guide for Tensorflow (#10398, @chenmoneygithub)
+- [Docs] Improve the parameter tuning guide (#10344, @chenmoneygithub)
+- [Docs] Add a guide for system metrics logging (#10429, @chenmoneygithub)
+- [Docs] Add instructions on how to configure credentials for Azure OpenAI (#10560, @BenWilson2)
+- [Docs] Add docs and tutorials for Sentence Transformers flavor (#10476, @BenWilson2)
+- [Docs] Add tutorials, examples, and guides for Transformers Flavor (#10360, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#10567, #10559, #10348, #10342, #10264, #10265, @B-Step62; #10595, #10401, #10418, #10394, @chenmoneygithub; #10557, @dan-licht; #10584, #10462, #10445, #10434, #10432, #10412, #10411, #10408, #10407, #10403, #10361, #10340, #10339, #10310, #10276, #10268, #10260, #10224, #10214, @harupy; #10415, @jessechancy; #10579, #10555, @annzhang-db; #10540, @wllgrnt; #10556, @smurching; #10546, @mbenoit29; #10534, @gabrielfu; #10532, #10485, #10444, #10433, #10375, #10343, #10192, @serena-ruan; #10480, #10416, #10173, @jerrylian-db; #10527, #10448, #10443, #10442, #10441, #10440, #10439, #10381, @prithvikannan; #10509, @keenranger; #10508, #10494, @WeichenXu123; #10489, #10266, #10210, #10103, @TomeHirata; #10495, #10435, #10185, @daniellok-db; #10319, @michael-berk; #10417, @bbqiu; #10379, #10372, #10282, @BenWilson2; #10297, @KonakanchiSwathi; #10226, #10223, #10221, @milinddethe15; #10222, @flooxo; #10590, @letian-w;
+
 ## 2.8.1 (2023-11-14)
 
 MLflow 2.8.1 is a patch release, containing some critical bug fixes and an update to our continued work on reworking our docs. 

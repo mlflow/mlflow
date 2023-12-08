@@ -74,7 +74,56 @@ The officially supported integrations for deep learning libraries in MLflow enco
     </section>
 
 Harness the power of these integrations and elevate your deep learning projects with MLflow's comprehensive support.
+For detailed guide on how to integrate MLflow with these libraries, refer to the following pages:
 
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="tensorflow/index.html">
+                    <div class="header">
+                        Tensorflow
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the Tensorflow library and see example notebooks that leverage
+                        MLflow and Tensorflow to build deep learning workflows.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    tensorflow/index
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="keras/index.html">
+                    <div class="header">
+                        Keras
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the Keras library and see example notebooks that leverage
+                        MLflow and Keras to build deep learning workflows.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    keras/index
+    tensorflow/index
 
 MLflow Tracking for Deep Learning
 ---------------------------------

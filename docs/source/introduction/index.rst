@@ -27,7 +27,7 @@ foundational components:
 
 * :ref:`Model Registry <registry>`: A systematic approach to model management, the Model Registry assists in handling different versions of models, discerning their current state, and ensuring smooth productionization. It offers a centralized model store, APIs, and UI to collaboratively manage an MLflow Model's full lifecycle, including model lineage, versioning, aliasing, tagging, and annotations.
 
-* :ref:`AI Gateway <gateway>`: This server, equipped with a set of standardized APIs, streamlines access to both SaaS and OSS LLM models. It serves as a unified interface, bolstering security through authenticated access, and offers a common set of APIs for prominent LLMs.
+* :ref:`MLflow Deployments for LLMs <deployments>`: This server, equipped with a set of standardized APIs, streamlines access to both SaaS and OSS LLM models. It serves as a unified interface, bolstering security through authenticated access, and offers a common set of APIs for prominent LLMs.
 
 * :ref:`Evaluate <model-evaluation>`: Designed for in-depth model analysis, this set of tools facilitates objective model comparison, be it traditional ML algorithms or cutting-edge LLMs.
 
@@ -59,7 +59,7 @@ MLflow addresses these challenges by offering a unified platform tailored for th
 
 - **Traceability**: With tools like the Tracking Server, every experiment is logged, ensuring that teams can trace back and understand the evolution of models.
 
-- **Consistency**: Be it accessing models through the AI Gateway or structuring projects with MLflow Recipes, MLflow promotes a consistent approach, reducing both the learning curve and potential errors.
+- **Consistency**: Be it accessing models through the MLflow Deployments for LLMs or structuring projects with MLflow Recipes, MLflow promotes a consistent approach, reducing both the learning curve and potential errors.
 
 - **Flexibility**: MLflow's library-agnostic design ensures compatibility with a wide range of machine learning libraries. It offers comprehensive support across different programming languages, backed by a robust :ref:`rest-api`, :ref:`CLI<cli>`, and APIs for :ref:`python-api`, :ref:`R-api`, and :ref:`java_api`.
 
