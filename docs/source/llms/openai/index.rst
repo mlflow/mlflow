@@ -52,7 +52,7 @@ The figure below shows a fun take on this problem that MLflow helps to solve.
 
 .. figure:: ../../_static/images/tutorials/llms/prompt-engineering.png
    :alt: MLflow OpenAI Prompt Engineering
-   :width: 100%
+   :width: 80%
    :align: center
 
    Prompt Engineering for space flight with MLflow

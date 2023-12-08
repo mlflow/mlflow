@@ -153,7 +153,7 @@ Why RLHF Matters
 - **Safety and Relevance**: Through human feedback, GPT models learn to avoid generating harmful or irrelevant content, thereby increasing their reliability and applicability.
 - **Cost-Effective Training**: RLHF allows for more efficient and cost-effective training compared to extensively curating the training dataset to ensure that only desired outputs are generated.
 
-.. figure:: ../../../_static/images/tutorials/llms/rlhf-architecture.png
+.. figure:: ../../../_static/images/tutorials/llms/RLHF-architecture.png
    :alt: A primer on RLHF for sophisticated LLM training
    :width: 90%
    :align: center
