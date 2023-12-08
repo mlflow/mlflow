@@ -673,7 +673,7 @@ def test_path_validation(mlflow_client):
         assert resp.status_code == 400
         assert response.json() == {
             "error_code": "INVALID_PARAMETER_VALUE",
-            "message": f"Invalid path: {invalid_path}",
+            "message": f"Invalid path",
         }
 
     response = requests.get(
