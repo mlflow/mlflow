@@ -21,6 +21,12 @@ MLflow to log models and deploy them as local REST API endpoints for real-time i
 
 #### CLI Based Workflow
 
+1. Create data
+   1. `cd examples/rapids/mlflow_project`
+      ```shell script
+      # Create iris.csv
+      python -c "from sklearn.datasets import load_iris; d = load_iris(as_frame=True); d.frame.to_csv('iris.csv', index=False)"
+      ```
 1. Set MLflow tracking uri
    1. ```shell script
        export MLFLOW_TRACKING_URI=sqlite:////tmp/mlflow-db.sqlite
