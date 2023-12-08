@@ -20,7 +20,6 @@ from transformers import (
 )
 
 import mlflow
-from mlflow import MlflowException
 
 
 @pytest.fixture
