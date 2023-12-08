@@ -227,7 +227,7 @@ UI as follows:
 
 To manually set up the signature, you can pass a ``signature`` parameter to :py:func:`mlflow.tensorflow.log_model()`.
 You will need to set the input schema by specifying the ``dtype`` and ``shape`` of the input tensors, and wrap
-it with :py:func:`mlflow.types.schema.TensorSpec`. For example,
+it with :py:func:`mlflow.types.TensorSpec`. For example,
 
 .. code-block::
 
@@ -236,7 +236,7 @@ it with :py:func:`mlflow.types.schema.TensorSpec`. For example,
     import numpy as np
 
     from tensorflow import keras
-    from mlflow.types.schema import Schema, TensorSpec
+    from mlflow.types import Schema, TensorSpec
     from mlflow.models import ModelSignature
 
     model = keras.Sequential([
