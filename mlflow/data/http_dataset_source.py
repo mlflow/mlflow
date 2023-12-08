@@ -46,7 +46,7 @@ class HTTPDatasetSource(DatasetSource):
         """
         if content_disposition := response.headers.get("Content-Disposition"):
             for match in re.finditer(r"filename=(.+)", content_disposition):
-                filename = filename_match[1].strip("'\"")
+                filename = match[1].strip("'\"")
                 if _is_path(filename):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid filename in Content-Disposition header: {filename}. "
