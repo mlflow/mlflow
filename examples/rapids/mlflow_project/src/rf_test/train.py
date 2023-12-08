@@ -23,8 +23,8 @@ def load_data(fpath):
     import cudf
 
     df = cudf.read_csv(fpath)
-    X = df.drop(["ArrDelayBinary"], axis=1)
-    y = df["ArrDelayBinary"].astype("int32")
+    X = df.drop(["target"], axis=1)
+    y = df["target"].astype("int32")
 
     return train_test_split(X, y, test_size=0.2)
 
