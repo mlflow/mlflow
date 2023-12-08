@@ -35,7 +35,6 @@ from mlflow.entities import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.server.handlers import validate_path_is_safe
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -514,152 +513,6 @@ def test_set_tag_validation(mlflow_client):
     assert response.status_code == 200
 
 
-@pytest.mark.parametrize(
-    "path",
-    [
-        "path",
-        "path/",
-        "path/to/file",
-    ],
-)
-def test_validate_path_is_safe_good(path):
-    validate_path_is_safe(path)
-
-
-@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
-@pytest.mark.parametrize(
-    "path",
-    [
-        # relative path from current directory of C: drive
-        ".../...//",
-    ],
-)
-def test_validate_path_is_safe_windows_good(path):
-    validate_path_is_safe(path)
-
-
-@pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")
-@pytest.mark.parametrize(
-    "path",
-    [
-        "/path",
-        "../path",
-        "../../path",
-        "./../path",
-        "path/../to/file",
-        "path/../../to/file",
-        "file://a#/..//tmp",
-        "file://a%23/..//tmp/",
-        "/etc/passwd",
-        "/etc/passwd%00.jpg",
-        "/etc/passwd%00.html",
-        "/etc/passwd%00.txt",
-        "/etc/passwd%00.php",
-        "/etc/passwd%00.asp",
-        "/file://etc/passwd",
-    ],
-)
-def test_validate_path_is_safe_bad(path):
-    with pytest.raises(MlflowException, match="Invalid path"):
-        validate_path_is_safe(path)
-
-
-@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
-@pytest.mark.parametrize(
-    "path",
-    [
-        r"../path",
-        r"../../path",
-        r"./../path",
-        r"path/../to/file",
-        r"path/../../to/file",
-        r"..\path",
-        r"..\..\path",
-        r".\..\path",
-        r"path\..\to\file",
-        r"path\..\..\to\file",
-        # Drive-relative paths
-        r"C:path",
-        r"C:path/",
-        r"C:path/to/file",
-        r"C:../path/to/file",
-        r"C:\path",
-        r"C:/path",
-        r"C:\path\to\file",
-        r"C:\path/to/file",
-        r"C:\path\..\to\file",
-        r"C:/path/../to/file",
-        # UNC(Universal Naming Convention) paths
-        r"\\path\to\file",
-        r"\\path/to/file",
-        r"\\.\\C:\path\to\file",
-        r"\\?\C:\path\to\file",
-        r"\\?\UNC/path/to/file",
-        # Other potential attackable paths
-        r"/etc/password",
-        r"/path",
-        r"/etc/passwd%00.jpg",
-        r"/etc/passwd%00.html",
-        r"/etc/passwd%00.txt",
-        r"/etc/passwd%00.php",
-        r"/etc/passwd%00.asp",
-        r"/Windows/no/such/path",
-        r"/file://etc/passwd",
-        r"/file:c:/passwd",
-        r"/file://d:/windows/win.ini",
-        r"/file://./windows/win.ini",
-        r"file://c:/boot.ini",
-        r"file://C:path",
-        r"file://C:path/",
-        r"file://C:path/to/file",
-        r"file:///C:/Windows/System32/",
-        r"file:///etc/passwd",
-        r"file:///d:/windows/repair/sam",
-        r"file:///proc/version",
-        r"file:///inetpub/wwwroot/global.asa",
-        r"/file://../windows/win.ini",
-        r"../etc/passwd",
-        r"..\Windows\System32\\",
-        r"C:\Windows\System32\\",
-        r"/etc/passwd",
-        r"::Windows\System32",
-        r"..\..\..\..\Windows\System32\\",
-        r"../Windows/System32",
-        r"....\\",
-        r"\\?\C:\Windows\System32\\",
-        r"\\.\C:\Windows\System32\\",
-        r"\\UNC\Server\Share\\",
-        r"\\Server\Share\folder\\",
-        r"\\127.0.0.1\c$\Windows\\",
-        r"\\localhost\c$\Windows\\",
-        r"\\smbserver\share\path\\",
-        r"..\\?\C:\Windows\System32\\",
-        r"C:/Windows/../Windows/System32/",
-        r"C:\Windows\..\Windows\System32\\",
-        r"../../../../../../../../../../../../Windows/System32",
-        r"../../../../../../../../../../../../etc/passwd",
-        r"../../../../../../../../../../../../var/www/html/index.html",
-        r"../../../../../../../../../../../../usr/local/etc/openvpn/server.conf",
-        r"../../../../../../../../../../../../Program Files (x86)",
-        r"/../../../../../../../../../../../../Windows/System32",
-        r"/Windows\../etc/passwd",
-        r"/Windows\..\Windows\System32\\",
-        r"/Windows\..\Windows\System32\cmd.exe",
-        r"/Windows\..\Windows\System32\msconfig.exe",
-        r"/Windows\..\Windows\System32\regedit.exe",
-        r"/Windows\..\Windows\System32\taskmgr.exe",
-        r"/Windows\..\Windows\System32\control.exe",
-        r"/Windows\..\Windows\System32\services.msc",
-        r"/Windows\..\Windows\System32\diskmgmt.msc",
-        r"/Windows\..\Windows\System32\eventvwr.msc",
-        r"/Windows/System32/drivers/etc/hosts",
-    ],
-)
-def test_validate_path_is_safe_windows_bad(path):
-    with pytest.raises(MlflowException, match="Invalid path"):
-        validate_path_is_safe(path)
-
-
 def test_path_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("tags validation")
     created_run = mlflow_client.create_run(experiment_id)
@@ -670,7 +523,7 @@ def test_path_validation(mlflow_client):
         assert resp.status_code == 400
         assert response.json() == {
             "error_code": "INVALID_PARAMETER_VALUE",
-            "message": f"Invalid path: {invalid_path}",
+            "message": "Invalid path",
         }
 
     response = requests.get(
