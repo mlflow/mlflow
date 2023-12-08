@@ -84,7 +84,8 @@ class _PythonEnv:
     @staticmethod
     def _get_package_version(package_name):
         try:
-            return __import__(package_name).__version__
+            from importlib.metadata import version
+            return version(package_name)
         except (ImportError, AttributeError, AssertionError):
             return None
 
@@ -259,8 +260,8 @@ def _get_pip_version():
              ``__version__`` attribute.
     """
     try:
-        import pkg_resources  # part of setuptools
-        return pkg_resources.get_distribution("pip").version
+        from importlib.metadata import version
+        return version("pip")
     except ImportError:
         return None
 
