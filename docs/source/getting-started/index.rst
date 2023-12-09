@@ -6,6 +6,22 @@ quickstart tutorials here are the perfect starting point. They will guide you
 step-by-step through fundamental concepts, focusing purely on a task that will maximize your understanding of 
 how to use MLflow to solve a particular task. 
 
+Before you begin with notebook tutorials
+----------------------------------------
+
+If you are new to MLflow and have never interfaced with the MLflow Tracking Server, we highly encourage you to head on over to our guide on running the tutorials 
+throughout the documentation. 
+
+.. raw:: html
+
+    <a href="running-notebooks/index.html" class="download-btn">View the Guide to Running Tutorial Notebooks</a>
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    running-notebooks/index
+
 `5-minute Quickstart - MLflow Tracking <intro-quickstart/index.html>`_
 ----------------------------------------------------------------------
 
