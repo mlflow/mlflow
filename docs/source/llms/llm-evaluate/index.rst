@@ -251,7 +251,7 @@ To use an endpoint hosted on Databricks, you can use the following code.
         model="endpoints:/databricks-llama-2-70b-chat"
     )
 
-For more information about how various models perform as judges, please refer to `this doc <https://www.databricks.com/blog/LLM-auto-eval-best-practices-RAG>`_.
+For more information about how various models perform as judges, please refer to `this blog <https://www.databricks.com/blog/LLM-auto-eval-best-practices-RAG>`_.
 
 Creating Custom LLM-evaluation Metrics
 --------------------------------------
