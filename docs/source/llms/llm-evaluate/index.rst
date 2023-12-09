@@ -227,7 +227,7 @@ metrics:
 Selecting the LLM-as-judge Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By default, llm-as-judge metrics use ``openai:/gpt-4`` as the judge. you can change it by passing. In addition to OpenAI models, you can also use any endpoint via MLflow Deployments. Use :py:func:`mlflow.deployments.set_deployments_target` to set the target deployment client.
+By default, llm-as-judge metrics use ``openai:/gpt-4`` as the judge. You can change the default judge model by passing an override to the ``model`` argument within the metric definition, as shown below. In addition to OpenAI models, you can also use any endpoint via MLflow Deployments. Use :py:func:`mlflow.deployments.set_deployments_target` to set the target deployment client.
 
 To use an endpoint hosted by a local MLflow Deployments Server, you can use the following code.
 
