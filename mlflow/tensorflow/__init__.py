@@ -11,7 +11,6 @@ import atexit
 import importlib
 import logging
 import os
-import re
 import shutil
 import tempfile
 import warnings
@@ -549,6 +548,7 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
         model_path += ".keras"
 
     import tensorflow as tf
+
     if save_format == "h5" and Version("2.2.3") <= Version(tf.__version__) < Version("2.16"):
         # NOTE: TF 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
