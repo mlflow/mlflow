@@ -5,6 +5,7 @@ from mlflow.tracking.default_experiment.abstract_context import DefaultExperimen
 from mlflow.utils import databricks_utils
 from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE
 )
 
 
@@ -23,6 +24,9 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
         tags = {
             MLFLOW_EXPERIMENT_SOURCE_ID: source_notebook_id,
         }
+
+        if databricks_utils.is_in_databricks_repo_notebook():
+            tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = "REPO_NOTEBOOK"
 
         # With the presence of the source id, the following is a get or create in which it will
         # return the corresponding experiment if one exists for the repo notebook.
