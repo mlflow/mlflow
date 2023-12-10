@@ -452,7 +452,7 @@ def _save_jars_and_lic(dst_dir, store_license=False, gpu=False):
     deps_data_path.mkdir(parents=True, exist_ok=True)
     jar_type = JvmHardwareTarget(
         "gpu" if gpu else "cpu"
-    )  # _JOHNSNOWLABS_ENV_ENABLE_GPU in os.environ
+    )
 
     suite = get_install_suite_from_jsl_home(False, jvm_hardware_target=jar_type)
 
