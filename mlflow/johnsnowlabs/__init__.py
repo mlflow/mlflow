@@ -288,22 +288,6 @@ def log_model(
     run_root_artifact_uri = mlflow.get_artifact_uri()
     remote_model_path = None
 
-    # commented for now because spark flavor is mlflowdbfs it, but it has many issues on databricks
-    # See https://github.com/mlflow/mlflow/issues/9869
-    # if _should_use_mlflowdbfs(run_root_artifact_uri):
-    #     remote_model_path = append_to_uri_path(
-    #         run_root_artifact_uri, artifact_path, _JOHNSNOWLABS_MODEL_PATH_SUB
-    #     )
-    #     mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
-    #     with databricks_utils.MlflowCredentialContext(
-    #         get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
-    #     ):
-    #         try:
-    #             _unpack_and_save_model(spark_model, mlflowdbfs_path)
-    #
-    #         except Exception as e:
-    #             raise MlflowException("failed to save johnsnowlabs model via mlflowdbfs") from e
-
     # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model,
     # since Spark may not be able to write directly to the driver's filesystem. For example,
     # writing to `file:/uri` will write to the local filesystem from each executor, which will
