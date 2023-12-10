@@ -164,7 +164,6 @@ def get_default_pip_requirements():
     deps = [
         f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
         _get_pinned_requirement("pyspark"),
-        "pandas",
     ]
 
     if _JOHNSNOWLABS_ENV_HEALTHCARE_SECRET in os.environ:
