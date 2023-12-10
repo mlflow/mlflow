@@ -3,10 +3,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.default_experiment.abstract_context import DefaultExperimentProvider
 from mlflow.utils import databricks_utils
-from mlflow.utils.mlflow_tags import (
-    MLFLOW_EXPERIMENT_SOURCE_ID,
-    MLFLOW_EXPERIMENT_SOURCE_TYPE
-)
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID, MLFLOW_EXPERIMENT_SOURCE_TYPE
 
 
 class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
