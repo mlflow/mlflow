@@ -6,7 +6,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID, MLFLOW_EXPERIMENT_SOURCE_TYPE
 
 
 def test_databricks_notebook_default_experiment_in_context():
@@ -44,7 +44,7 @@ def test_databricks_repo_notebook_default_experiment_gets_id_by_request():
         DatabricksNotebookExperimentProvider._resolved_notebook_experiment_id = None
         returned_id = DatabricksNotebookExperimentProvider().get_experiment_id()
         assert returned_id == "experiment_id"
-        tags = {MLFLOW_EXPERIMENT_SOURCE_ID: 1234}
+        tags = {MLFLOW_EXPERIMENT_SOURCE_TYPE: "REPO_NOTEBOOK", MLFLOW_EXPERIMENT_SOURCE_ID: 1234}
         create_experiment_mock.assert_called_once_with("/Repos/path", None, tags)
 
 
