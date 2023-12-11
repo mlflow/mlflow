@@ -233,6 +233,22 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
 
 
 @pytest.mark.parametrize(
+    "uri",
+    [
+        # query string contains '..' (and its encoded form) are considered invalid
+        "https://example.com?..",
+        "https://example.com?/path/../path/../path",
+        "https://example.com?key=value&../../path",
+        "https://example.com?key=value&%2E%2E%2Fpath",
+        "https://example.com?key=value&%252E%252E%252Fpath",
+    ],
+)
+def test_append_to_uri_throws_for_malicious_query_string_in_uri(uri):
+    with pytest.raises(MlflowException, match=r"Invalid query string"):
+        append_to_uri_path(uri)
+
+
+@pytest.mark.parametrize(
     ("uri", "existing_query_params", "query_params", "expected"),
     [
         ("https://example.com", "", [("key", "value")], "https://example.com?key=value"),
