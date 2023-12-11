@@ -363,6 +363,7 @@ def _get_jsonable_obj(data, pandas_orient="records"):
 def convert_data_type(data, spec):
     """
     Convert input data to the type specified in the spec.
+    This method converts data into numpy array for backwards compatibility.
 
     :param data: Input data.
     :param spec: ColSpec or TensorSpec.
@@ -439,15 +440,16 @@ def _cast_schema_type(input_data, schema=None):
             spec = schema.inputs[0] if schema else None
             input_data = convert_data_type(input_data, spec)
     else:
-        if schema is None:
-            input_data = np.array(input_data)
-        else:
+        spec = schema.inputs[0] if schema else None
+        try:
+            input_data = convert_data_type(input_data, spec)
+        except Exception as e:
             raise MlflowInvalidInputException(
                 "Failed to parse input data. This model contains a tensor-based model "
                 "signature with input names, which suggests a dictionary / a list of "
                 "dictionaries input mapping input name to tensor or a pure list, but "
-                f"an input of {input_data} was found."
-            )
+                f"an input of `{input_data}` was found."
+            ) from e
     return input_data
 
 

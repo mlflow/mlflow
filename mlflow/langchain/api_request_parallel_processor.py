@@ -132,9 +132,6 @@ class APIRequest:
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
             elif isinstance(self.lc_model, lc_runnables_types()):
-                if isinstance(self.request_json, np.ndarray):
-                    # numpy array is not json serializable, so we convert it to list
-                    self.request_json = self.request_json.tolist()
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
@@ -149,8 +146,6 @@ class APIRequest:
                             "invoke with the first value of the dictionary."
                         )
                         self.request_json = next(iter(self.request_json.values()))
-                        if isinstance(self.request_json, np.ndarray):
-                            self.request_json = self.request_json.tolist()
                         response = self.lc_model.invoke(self.request_json)
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, runnables_supports_batch_types()
