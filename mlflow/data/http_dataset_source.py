@@ -1,5 +1,4 @@
 import os
-import posixpath
 import re
 from typing import Any, Dict
 from urllib.parse import urlparse
@@ -41,6 +40,23 @@ class HTTPDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "http"
 
+    def _extract_filename(self, response) -> str:
+        """
+        Extracts a filename from the Content-Disposition header or the URL's path.
+        """
+        if content_disposition := response.headers.get("Content-Disposition"):
+            for match in re.finditer(r"filename=(.+)", content_disposition):
+                filename = match[1].strip("'\"")
+                if _is_path(filename):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid filename in Content-Disposition header: {filename}. "
+                        "It must be a file name, not a path."
+                    )
+                return filename
+
+        # Extract basename from URL if no valid filename in Content-Disposition
+        return os.path.basename(urlparse(self.url).path)
+
     def load(self, dst_path=None) -> str:
         """
         Downloads the dataset source to the local filesystem.
@@ -58,21 +74,9 @@ class HTTPDatasetSource(DatasetSource):
         )
         augmented_raise_for_status(resp)
 
-        path = urlparse(self.url).path
-        content_disposition = resp.headers.get("Content-Disposition")
-        if content_disposition is not None and (
-            file_name := next(re.finditer(r"filename=(.+)", content_disposition), None)
-        ):
-            # NB: If the filename is quoted, unquote it
-            basename = file_name[1].strip("'\"")
-            if _is_path(basename):
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid filename in Content-Disposition header: {basename}. "
-                    "It must be a file name, not a path."
-                )
-        elif path is not None and len(posixpath.basename(path)) > 0:
-            basename = posixpath.basename(path)
-        else:
+        basename = self._extract_filename(resp)
+
+        if not basename:
             basename = "dataset_source"
 
         if dst_path is None:
