@@ -47,7 +47,7 @@ our MLflow tracking server:
 .. note:: 
     
     If you would like to explore the possibilities of other tracking server deployments, including a fully-managed 
-    free-of-charge solution with Databricks Community Edition, please see `this page <../../running-notebooks/index.html>`_.
+    free-of-charge solution with Databricks Community Edition, please see `this page <../running-notebooks/index.html>`_.
 
 Import the following packages
 
