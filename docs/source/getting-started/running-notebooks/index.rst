@@ -121,7 +121,9 @@ To set the MLflow Tracking URI directly (assuming that you don't have additional
 
 .. code-block:: python
 
-    mlflow.set_tracking_uri("http://<your-mlflow-server>:<the port number that is configured to accept traffic>")
+    mlflow.set_tracking_uri(
+        "http://<your-mlflow-server>:<the port number that is configured to accept traffic>"
+    )
 
 
 Local Tracking Server

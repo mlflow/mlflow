@@ -78,10 +78,13 @@ Set the Tracking Server URI (if not using a Databricks Managed MLflow Tracking S
 If you're using a managed MLflow Tracking Server that is not provided by Databricks, or if you're running a local tracking server, 
 ensure that you set the tracking server's uri using:
 
-.. code-block:: python
-    import mlflow
+.. code-section::
+    .. code-block:: python
+        :name: set tracking uri
 
-    mlflow.set_tracking_uri(uri="http://<host>:<port>")
+        import mlflow
+
+        mlflow.set_tracking_uri(uri="http://<host>:<port>")
 
 If this is not set within your notebook or runtime environment, the runs will be logged to your local file system.
 
