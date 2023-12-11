@@ -814,7 +814,6 @@ def test_model_log_with_metadata(sklearn_knn_model):
 
 
 def test_model_log_with_signature_inference(sklearn_knn_model, iris_signature):
-    # test
     artifact_path = "model"
     X = sklearn_knn_model.inference_data
     example = X.iloc[[0]]
