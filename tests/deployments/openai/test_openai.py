@@ -86,7 +86,7 @@ def test_predict_openai(mock_openai_creds):
         assert resp == mock_resp
 
 
-def test_list_deployments_openai(mock_openai_creds):
+def test_list_endpoints_openai(mock_openai_creds):
     client = get_deploy_client("openai")
 
     mock_response = mock.Mock()
@@ -114,21 +114,21 @@ def test_list_deployments_openai(mock_openai_creds):
         "requests.get",
         return_value=mock_response,
     ) as mock_request:
-        resp = client.list_deployments()
+        resp = client.list_endpoints()
         mock_request.assert_called_once()
         assert resp == mock_response.json.return_value
 
 
-def test_list_deployments_azure_openai(mock_azure_openai_creds):
+def test_list_endpoints_azure_openai(mock_azure_openai_creds):
     client = get_deploy_client("openai")
 
     with pytest.raises(
         NotImplementedError, match="List deployments is not implemented for Azure OpenAI API"
     ):
-        client.list_deployments()
+        client.list_endpoints()
 
 
-def test_get_deployment_openai(mock_openai_creds):
+def test_get_endpoint_openai(mock_openai_creds):
     client = get_deploy_client("openai")
 
     mock_response = mock.Mock()
@@ -144,18 +144,18 @@ def test_get_deployment_openai(mock_openai_creds):
         "requests.get",
         return_value=mock_response,
     ) as mock_request:
-        resp = client.get_deployment("gpt-3.5-turbo-instruct")
+        resp = client.get_endpoint("gpt-3.5-turbo-instruct")
         mock_request.assert_called_once()
         assert resp == mock_response.json.return_value
 
 
-def test_get_deployment_azure_openai(mock_azure_openai_creds):
+def test_get_endpoint_azure_openai(mock_azure_openai_creds):
     client = get_deploy_client("openai")
 
     with pytest.raises(
         NotImplementedError, match="Get deployment is not implemented for Azure OpenAI API"
     ):
-        client.get_deployment("gpt-3.5-turbo-instruct")
+        client.get_endpoint("gpt-3.5-turbo-instruct")
 
 
 def test_predict_azure_openai(mock_azure_openai_creds):
