@@ -2,8 +2,7 @@ import logging
 import os
 
 from mlflow.exceptions import MlflowException
-from mlflow.openai import _OpenAIApiConfig, _OpenAIEnvVar
-from mlflow.openai.utils import REQUEST_URL_CHAT, _OAITokenHolder
+from mlflow.openai.utils import REQUEST_URL_CHAT, _OAITokenHolder, _OpenAIApiConfig, _OpenAIEnvVar
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
