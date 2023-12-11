@@ -3628,7 +3628,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     transformers_loaded_model = mlflow.transformers.load_model(model_uri)
-    expected_predictions = transformers_loaded_model.predict(image_url,params=parameters)
+    expected_predictions = transformers_loaded_model.predict(image_url,parameters)
 
     response = pyfunc_serve_and_score_model(
         model_uri,
