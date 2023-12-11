@@ -102,6 +102,7 @@ object DatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
 /** Datasource attribute extractor for REPL-ID aware environments (e.g. Databricks) */
 object ReplAwareDatasourceAttributeExtractor extends DatasourceAttributeExtractorBase {
   override protected def maybeGetDeltaTableInfo(leafNode: LogicalPlan): Option[SparkTableInfo] = {
+    logger.info("Attempting to get delta table info")
     leafNode match {
       case lr: LogicalRelation =>
         // First, check whether LogicalRelation is a Delta table
