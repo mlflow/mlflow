@@ -162,8 +162,8 @@ class APIRequest:
                     self._prepare_to_serialize(response)
 
             _logger.debug(f"Request #{self.index} succeeded")
-            status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
+            status_tracker.complete_task(success=True)
         except Exception as e:
             self.errors[
                 self.index
