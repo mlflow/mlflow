@@ -1377,11 +1377,13 @@ def read_image(filename):
         "base64",
     ],
 )
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.33"), reason="skip these versions"
+)
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     if inference_payload == "base64":
-        if Version(transformers.__version__) < Version("4.33"):
-            return
-        inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
+       inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
     signature = infer_signature(
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
@@ -2143,10 +2145,11 @@ def test_vision_is_base64_image(input_image, result):
         "base64",
     ],
 )
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.33"), reason="skip these versions"
+)
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
-    if not isinstance(inference_payload, list) and inference_payload == "base64":
-        if transformers.__version__ < "4.33":
-            return
+    if inference_payload == "base64":
         inference_payload = [
             base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
         ]
@@ -3625,7 +3628,7 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     transformers_loaded_model = mlflow.transformers.load_model(model_uri)
-    expected_predictions = transformers_loaded_model.predict(image_url)
+    expected_predictions = transformers_loaded_model.predict(image_url,params=parameters)
 
     response = pyfunc_serve_and_score_model(
         model_uri,
