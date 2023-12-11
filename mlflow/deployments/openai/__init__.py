@@ -70,19 +70,61 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
 
     def list_deployments(self, endpoint=None):
         """
-        .. warning::
-
-            This method is not implemented for `OpenAIDeploymentClient`.
+        List the currently available models.
         """
-        raise NotImplementedError
+
+        if "OPENAI_API_KEY" not in os.environ:
+            raise MlflowException(
+                "OPENAI_API_KEY environment variable not set",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        import requests
+
+        api_key = os.environ["OPENAI_API_KEY"]
+        request_header = {"Authorization": f"Bearer {api_key}"}
+
+        response = requests.get(
+            "https://api.openai.com/v1/models",
+            headers=request_header,
+        )
+
+        if response.status_code != 200:
+            raise MlflowException(
+                f"Error response from OpenAI: {response.text}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return response.json()
 
     def get_deployment(self, name, endpoint=None):
         """
-        .. warning::
-
-            This method is not implemented for `OpenAIDeploymentClient`.
+        Get information about a specific model.
         """
-        raise NotImplementedError
+
+        if "OPENAI_API_KEY" not in os.environ:
+            raise MlflowException(
+                "OPENAI_API_KEY environment variable not set",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        import requests
+
+        api_key = os.environ["OPENAI_API_KEY"]
+        request_header = {"Authorization": f"Bearer {api_key}"}
+
+        response = requests.get(
+            f"https://api.openai.com/v1/models/{name}",
+            headers=request_header,
+        )
+
+        if response.status_code != 200:
+            raise MlflowException(
+                f"Error response from OpenAI: {response.text}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return response.json()
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         if "OPENAI_API_KEY" not in os.environ:

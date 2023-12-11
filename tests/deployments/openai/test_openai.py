@@ -86,6 +86,61 @@ def test_predict_openai(mock_openai_creds):
         assert resp == mock_resp
 
 
+def test_list_deployments_openai(mock_openai_creds):
+    client = get_deploy_client("openai")
+
+    mock_response = mock.Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "object": "list",
+        "data": [
+            {
+                "id": "model-id-0",
+                "object": "model",
+                "created": 1686935002,
+                "owned_by": "organization-owner",
+            },
+            {
+                "id": "model-id-1",
+                "object": "model",
+                "created": 1686935002,
+                "owned_by": "organization-owner",
+            },
+            {"id": "model-id-2", "object": "model", "created": 1686935002, "owned_by": "openai"},
+        ],
+        "object": "list",
+    }
+
+    with mock.patch(
+        "requests.get",
+        return_value=mock_response,
+    ) as mock_request:
+        resp = client.list_deployments()
+        mock_request.assert_called_once()
+        assert resp == mock_response.json.return_value
+
+
+def test_get_deployment_openai(mock_openai_creds):
+    client = get_deploy_client("openai")
+
+    mock_response = mock.Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "id": "gpt-3.5-turbo-instruct",
+        "object": "model",
+        "created": 1686935002,
+        "owned_by": "openai",
+    }
+
+    with mock.patch(
+        "requests.get",
+        return_value=mock_response,
+    ) as mock_request:
+        resp = client.get_deployment("gpt-3.5-turbo-instruct")
+        mock_request.assert_called_once()
+        assert resp == mock_response.json.return_value
+
+
 def test_predict_azure_openai(mock_azure_openai_creds):
     client = get_deploy_client("openai")
     mock_resp = {
