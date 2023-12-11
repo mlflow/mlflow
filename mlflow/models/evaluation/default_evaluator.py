@@ -1656,8 +1656,6 @@ class DefaultEvaluator(ModelEvaluator):
                 self.eval_results_path
             )
 
-            # set a tag to the run to indicate the eval table path
-
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(artifact_file_name)
