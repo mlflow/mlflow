@@ -494,7 +494,8 @@ class _LangChainModelWrapper:
                 messages = data
             else:
                 raise mlflow.MlflowException.invalid_parameter_value(
-                    "Input must be a pandas DataFrame or a list of strings or a list of dictionaries "
+                    "Input must be a pandas DataFrame or a list of strings "
+                    "or a list of dictionaries "
                     f"for model {self.lc_model.__class__.__name__}"
                 )
         results = process_api_requests(lc_model=self.lc_model, requests=messages)
