@@ -453,6 +453,8 @@ def validate_path_is_safe(path):
     ):
         raise exc
 
+    return path
+
 
 def validate_query_string(query):
     query = _decode(query)
