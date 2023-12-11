@@ -118,7 +118,6 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         import requests
 
         if api_config.api_type in ("azure", "azure_ad", "azuread"):
-            # not implemented error with a message that this is not supported for azure
             raise NotImplementedError(
                 "Get deployment is not implemented for Azure OpenAI API",
             )
