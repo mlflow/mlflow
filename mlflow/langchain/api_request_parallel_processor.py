@@ -138,10 +138,10 @@ class APIRequest:
                     # Expected Scalar value for String field \'query_text\'\\n
                     try:
                         response = self.lc_model.invoke(self.request_json)
-                    except Exception:
+                    except Exception as e:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} "
-                            "with {self.request_json}. Error: {e!r}. Trying to "
+                            f"with {self.request_json}. Error: {e!r}. Trying to "
                             "invoke with the first value of the dictionary."
                         )
                         self.request_json = next(iter(self.request_json.values()))
