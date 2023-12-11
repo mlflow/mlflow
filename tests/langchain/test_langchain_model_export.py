@@ -1321,6 +1321,9 @@ def test_complex_runnable_branch_save_load():
     }
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_chat_with_history(spark):
     from langchain.schema.output_parser import StrOutputParser
     from langchain.schema.runnable import RunnableLambda

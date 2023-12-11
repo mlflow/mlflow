@@ -401,8 +401,6 @@ def convert_data_type(data, spec):
 
 
 def _cast_schema_type(input_data, schema=None):
-    import numpy as np
-
     input_data = deepcopy(input_data)
     # spec_name -> spec mapping
     types_dict = schema.input_dict() if schema and schema.has_input_names() else {}

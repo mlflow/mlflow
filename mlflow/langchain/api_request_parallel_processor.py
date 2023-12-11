@@ -118,7 +118,6 @@ class APIRequest:
         """
         Calls the LangChain API and stores results.
         """
-        import numpy as np
         from langchain.schema import BaseRetriever
 
         from mlflow.langchain.utils import lc_runnables_types, runnables_supports_batch_types
