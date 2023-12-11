@@ -94,6 +94,7 @@ jobs:
       # Prettier
       # ************************************************************************
       - run: |
+          pip install -r requirements/lint-requirements.txt
           pre-commit install
           pre-commit run prettier --all-files --color=always || true
       # ************************************************************************
@@ -112,9 +113,6 @@ jobs:
       # ************************************************************************
       - if: steps.diff.outputs.python == 'true'
         uses: ./.github/actions/setup-python
-      - if: steps.diff.outputs.python == 'true'
-        run: |
-          pip install -r requirements/lint-requirements.txt
       - if: steps.diff.outputs.python == 'true'
         run: |
           ruff --fix .
