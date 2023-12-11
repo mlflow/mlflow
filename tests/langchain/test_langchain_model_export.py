@@ -55,7 +55,7 @@ from mlflow.openai.utils import (
     _mock_request,
     _MockResponse,
 )
-from mlflow.types.schema import ColSpec
+from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
@@ -1313,6 +1313,82 @@ def test_complex_runnable_branch_save_load():
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=json.dumps({"inputs": {"query": "Who owns MLflow?"}}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": ["Databricks"]
+    }
+
+
+def test_chat_with_history(spark):
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableLambda
+
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
+    prompt_with_history_str = """
+    Here is a history between you and a human: {chat_history}
+
+    Now, please answer this question: {question}
+    """
+
+    prompt_with_history = PromptTemplate(
+        input_variables=["chat_history", "question"], template=prompt_with_history_str
+    )
+
+    chat_model = _fake_simple_chat_model()()
+
+    def extract_question(input):
+        return input[-1]["content"]
+
+    def extract_history(input):
+        return input[:-1]
+
+    chain_with_history = (
+        {
+            "question": itemgetter("messages") | RunnableLambda(extract_question),
+            "chat_history": itemgetter("messages") | RunnableLambda(extract_history),
+        }
+        | prompt_with_history
+        | chat_model
+        | StrOutputParser()
+    )
+
+    input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
+    assert chain_with_history.invoke(input_example) == "Databricks"
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain_with_history, "model_path", input_example=input_example
+        )
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke(input_example) == "Databricks"
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    input_schema = pyfunc_loaded_model.metadata.get_input_schema()
+    assert input_schema == Schema(
+        [
+            ColSpec(
+                Array(
+                    Object(
+                        [Property("role", DataType.string), Property("content", DataType.string)]
+                    )
+                ),
+                "messages",
+            )
+        ]
+    )
+    assert pyfunc_loaded_model.predict(input_example) == ["Databricks"]
+
+    udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
+    df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
+    df = df.withColumn("answer", udf("messages"))
+    pdf = df.toPandas()
+    assert pdf["answer"].tolist() == ["Databricks"]
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
