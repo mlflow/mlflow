@@ -84,9 +84,10 @@ class _PythonEnv:
     @staticmethod
     def _get_package_version(package_name):
         try:
-            from importlib.metadata import version, PackageNotFoundError
+            from importlib.metadata import PackageNotFoundError, version
+
             return version(package_name)
-        except (PackageNotFoundError):
+        except PackageNotFoundError:
             return None
 
     @staticmethod
