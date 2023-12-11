@@ -47,15 +47,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.openai.utils import (
-    REQUEST_URL_CHAT,
-    REQUEST_URL_COMPLETIONS,
-    REQUEST_URL_EMBEDDINGS,
-    _OAITokenHolder,
-    _OpenAIApiConfig,
-    _OpenAIEnvVar,
-    _validate_model_params,
-)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -83,6 +74,15 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
+)
+from mlflow.utils.openai_utils import (
+    REQUEST_URL_CHAT,
+    REQUEST_URL_COMPLETIONS,
+    REQUEST_URL_EMBEDDINGS,
+    _OAITokenHolder,
+    _OpenAIApiConfig,
+    _OpenAIEnvVar,
+    _validate_model_params,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -823,7 +823,7 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
         Returns:
             Model predictions.
         """
-        from mlflow.openai.utils import _mock_openai_request
+        from mlflow.utils.openai_utils import _mock_openai_request
 
         with _mock_openai_request():
             return super().predict(data)
