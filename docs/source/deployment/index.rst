@@ -85,7 +85,7 @@ MLflow offers support for a variety of deployment targets. For detailed informat
             <div class="simple-card">
                 <a href="deploy-model-to-sagemaker.html">
                     <div class="header-with-image">
-                        <img src="../_static/images/logos/amazon-sagemaker-logo.png" alt="Amazon SageMaker Logo" />
+                        <img src="../_static/images/logos/amazon-sagemaker-logo.svg" alt="Amazon SageMaker Logo" />
                     </div>
                     <p>
                         Amazon SageMaker is a fully managed service for scaling ML inference containers.
@@ -96,7 +96,7 @@ MLflow offers support for a variety of deployment targets. For detailed informat
             <div class="simple-card">
                 <a href="deploy-model-to-azure-ml.html">
                     <div class="header-with-image">
-                        <img src="../_static/images/logos/azure-ml-logo.png" alt="AzureML Logo"/>
+                        <img src="../_static/images/logos/azure-ml-logo.svg" alt="AzureML Logo"/>
                     </div>
                     <p>
                         MLflow integrates seamlessly with Azure ML using the <code>azureml-mlflow</code> library.
@@ -117,7 +117,7 @@ MLflow offers support for a variety of deployment targets. For detailed informat
             <div class="simple-card">
                 <a href="deploy-model-to-kubernetes.html">
                     <div class="header-with-image">
-                        <img src="../_static/images/logos/kubernetes-logo.png" alt="Kubernetes Logo"/>
+                        <img src="../_static/images/logos/kubernetes-logo.svg" alt="Kubernetes Logo"/>
                     </div>
                     <p>
                        MLflow Deployment integrates with Kubernetes-native ML serving frameworks
@@ -128,7 +128,7 @@ MLflow offers support for a variety of deployment targets. For detailed informat
             <div class="simple-card">
                 <a href="deploy-model-to-ray-serve-ml.html">
                     <div class="header-with-image">
-                        <img src="../_static/images/logos/ray-serve-logo.png" alt="Ray Serve Logo"/>
+                        <img src="../_static/images/logos/ray-serve-logo.svg" alt="Ray Serve Logo"/>
                     </div>
                     <p>
                         Ray Serve is a scalable model serving library built on Ray.
