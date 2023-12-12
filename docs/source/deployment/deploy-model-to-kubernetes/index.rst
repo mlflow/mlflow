@@ -384,7 +384,7 @@ Deploy the Model to Seldon Core or KServe
 After training and testing our model, we are now ready to deploy it to
 production.
 MLflow allows you to :ref:`serve your model using
-MLServer<serving_with_mlserver>`, which is already used as the core Python
+MLServer<serving_frameworks>`, which is already used as the core Python
 inference server in Kubernetes-native frameworks including `Seldon Core
 <https://docs.seldon.io/projects/seldon-core/en/latest/>`_ and `KServe
 (formerly known as KFServing) <https://kserve.github.io/website/>`_.
