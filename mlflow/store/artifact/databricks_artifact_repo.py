@@ -15,6 +15,10 @@ from mlflow.azure.client import (
     put_block_list,
 )
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import (
+    MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import (
     ArtifactCredentialType,
@@ -32,8 +36,6 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.protos.service_pb2 import GetRun, ListArtifacts, MlflowService
 from mlflow.store.artifact.cloud_artifact_repo import (
-    _DOWNLOAD_CHUNK_SIZE,
-    _MULTIPART_UPLOAD_CHUNK_SIZE,
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
@@ -246,9 +248,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
             futures = {}
-            num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
+            num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
             for index in range(num_chunks):
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 future = self.chunk_thread_pool.submit(
                     self._azure_upload_chunk,
                     credentials=credentials,
@@ -256,7 +258,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     local_file=local_file,
                     artifact_file_path=artifact_file_path,
                     start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
                 )
                 futures[future] = index
 
@@ -319,10 +321,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             # next try to append the file
             futures = {}
             file_size = os.path.getsize(local_file)
-            num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
+            num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
             use_single_part_upload = num_chunks == 1
             for index in range(num_chunks):
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 future = self.chunk_thread_pool.submit(
                     self._retryable_adls_function,
                     func=patch_adls_file_upload,
@@ -330,7 +332,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     sas_url=credentials.signed_uri,
                     local_file=local_file,
                     start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
                     position=start_byte,
                     headers=headers,
                     is_single=use_single_part_upload,
@@ -392,7 +394,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 cloud_credential_info, src_file_path, artifact_file_path
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
-            if os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE:
+            if os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get():
                 self._multipart_upload(src_file_path, artifact_file_path)
             else:
                 self._signed_url_upload_file(cloud_credential_info, src_file_path)
@@ -431,7 +433,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             download_file_using_http_uri(
                 cloud_credential_info.signed_uri,
                 local_path,
-                _DOWNLOAD_CHUNK_SIZE,
+                MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(),
                 self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
         except Exception as err:
@@ -486,7 +488,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         futures = {}
         for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
             part_number = index + 1
-            start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+            start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
             future = self.chunk_thread_pool.submit(
                 self._upload_part_retry,
                 cred_info=cred_info,
@@ -494,7 +496,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 part_number=part_number,
                 local_file=local_file,
                 start_byte=start_byte,
-                size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
             )
             futures[future] = part_number
 
@@ -535,7 +537,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         run_relative_artifact_path = posixpath.join(
             self.run_relative_artifact_repo_root_path, artifact_file_path or ""
         )
-        num_parts = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
+        num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
         create_mpu_resp = self._create_multipart_upload(
             self.run_id, run_relative_artifact_path, num_parts
         )
