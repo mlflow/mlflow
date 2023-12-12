@@ -112,10 +112,10 @@ class ClarifaiAdapter(ProviderAdapter):
             )
 
         params = {}
-        if payload.get("temperature"):
-            params["temperature"] = payload["temperature"]
-        if payload.get("max_tokens"):
-            params["max_tokens"] = payload["max_tokens"]
+        if temperature := payload.get("temperature"):
+            params["temperature"] = temperature
+        if max_tokens := payload.get("max_tokens"):
+            params["max_tokens"] = max_tokens
         return {
             "inputs": [{"data": {"text": {"raw": payload["prompt"]}}}],
             "model": {"output_info": {"params": params}},
