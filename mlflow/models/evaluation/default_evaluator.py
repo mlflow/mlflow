@@ -1647,9 +1647,9 @@ class DefaultEvaluator(ModelEvaluator):
         if self.eval_results_path:
             eval_table_spark = self.spark_session.createDataFrame(data)
             try:
-                eval_table_spark.write.mode(self.eval_results_mode).format("delta").saveAsTable(
-                    self.eval_results_path
-                )
+                eval_table_spark.write.mode(self.eval_results_mode).option(
+                    "mergeSchema", "true"
+                ).format("delta").saveAsTable(self.eval_results_path)
             except Exception as e:
                 _logger.info("Saving eval table to delta table failed. Reason: %s", e)
 
