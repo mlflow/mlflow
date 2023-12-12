@@ -1374,16 +1374,18 @@ def read_image(filename):
     [
         image_url,
         os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png"),
-        "base64",
+        pytest.param(
+            "base64",
+            marks=pytest.mark.skipif(
+                Version(transformers.__version__) < Version("4.33"),
+                reason="base64 feature not present",
+            ),
+        ),
     ],
-)
-
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.33"), reason="skip these versions"
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     if inference_payload == "base64":
-       inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
+        inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
     signature = infer_signature(
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
@@ -2142,11 +2144,14 @@ def test_vision_is_base64_image(input_image, result):
     [
         [os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")],
         [image_url, image_url],
-        "base64",
+        pytest.param(
+            "base64",
+            marks=pytest.mark.skipif(
+                Version(transformers.__version__) < Version("4.33"),
+                reason="base64 feature not present",
+            ),
+        ),
     ],
-)
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.33"), reason="skip these versions"
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     if inference_payload == "base64":
