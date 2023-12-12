@@ -3,6 +3,7 @@ import os
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils import rest_utils
 from mlflow.utils.openai_utils import (
     REQUEST_URL_CHAT,
     _OAITokenHolder,
@@ -89,11 +90,16 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         raise NotImplementedError
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
-        if "OPENAI_API_KEY" not in os.environ:
-            raise MlflowException(
-                "OPENAI_API_KEY environment variable not set",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        """
+        Query an OpenAI endpoint.
+        See https://platform.openai.com/docs/api-reference/chat for more information.
+
+        :param deployment_name: Unused.
+        :param inputs: A dictionary containing the model inputs to query.
+        :param endpoint: The name of the endpoint to query.
+        :return: A dictionary containing the model outputs.
+        """
+        _check_openai_key()
 
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
@@ -175,11 +181,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         List the currently available models.
         """
 
-        if "OPENAI_API_KEY" not in os.environ:
-            raise MlflowException(
-                "OPENAI_API_KEY environment variable not set",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        _check_openai_key()
 
         api_config = _get_api_config_without_openai_dep()
         import requests
@@ -198,10 +200,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
             )
 
             if response.status_code != 200:
-                raise MlflowException(
-                    f"Error response from OpenAI: {response.text}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+                rest_utils.augmented_raise_for_status(response)
 
             return response.json()
 
@@ -210,11 +209,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         Get information about a specific model.
         """
 
-        if "OPENAI_API_KEY" not in os.environ:
-            raise MlflowException(
-                "OPENAI_API_KEY environment variable not set",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        _check_openai_key()
 
         api_config = _get_api_config_without_openai_dep()
         import requests
@@ -233,10 +228,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
             )
 
             if response.status_code != 200:
-                raise MlflowException(
-                    f"Error response from OpenAI: {response.text}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+                rest_utils.augmented_raise_for_status(response)
 
             return response.json()
 
@@ -277,3 +269,11 @@ def _get_api_config_without_openai_dep() -> _OpenAIApiConfig:
         engine=engine,
         deployment_id=deployment_id,
     )
+
+
+def _check_openai_key():
+    if "OPENAI_API_KEY" not in os.environ:
+        raise MlflowException(
+            "OPENAI_API_KEY environment variable not set",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
