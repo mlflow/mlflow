@@ -33,4 +33,4 @@ boto3:
 
 tiktoken:
   pip_release: tiktoken
-  max_major_version: 1
+  max_major_version: 0
