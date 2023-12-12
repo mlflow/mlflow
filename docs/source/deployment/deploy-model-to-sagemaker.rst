@@ -5,11 +5,11 @@ Deploy MLflow Model to Amazon SageMaker
 Amazon SageMaker is a fully managed service designed for scaling ML inference containers.
 MLflow simplifies the deployment process by offering easy-to-use commands without the need for writing container definitions.
 
-If you are new to MLflow model deployment, please read the `MLflow Deployment Introduction <../deployment.html#introduction>`_ first to understand the basic concepts of MLflow models and deployments.
+If you are new to MLflow model deployment, please read `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments.
 
 
-How it works?
--------------
+How it works
+------------
 SageMaker features a capability called `Bring Your Own Container (BYOC) <https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor-byoc-containers.html>`_,
 which allows you to run custom Docker containers on the inference endpoint. These containers must meet specific requirements, such as running a web server
 that exposes certain REST endpoints, having a designated container entrypoint, setting environment variables, etc. Writing a Dockerfile and serving script
@@ -19,7 +19,7 @@ MLflow automates the process by building a Docker image from the MLflow Model on
 and creates a SageMaker endpoint using this image. It also uploads the model artifact to an S3 bucket and configures the endpoint to download the model from there.
 
 The container provides the same REST endpoints as a local inference server. For instance, the ``/invocations`` endpoint accepts CSV and JSON input data and returns
-prediction results. For more details on the endpoints, refer to `Local Inference Server <local-inference-server-spec>`_.
+prediction results. For more details on the endpoints, refer to :ref:`Local Inference Server <local-inference-server-spec>`.
 
 
 .. note::
@@ -74,7 +74,7 @@ You can then test the model by sending a POST request to the endpoint:
 Step 2: Build a Docker Image and Push to ECR
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The `mlflow sagemaker build-and-push-container <cli.html#mlflow-sagemaker-build-and-push-container>`_
+The `mlflow sagemaker build-and-push-container <../cli.html#mlflow-sagemaker-build-and-push-container>`_
 command builds a Docker image compatible with SageMaker and uploads it to ECR.
 
 .. code-block:: bash
@@ -91,7 +91,7 @@ deploys the model to an Amazon SageMaker endpoint. MLflow uploads the Python Fun
 initiates an Amazon SageMaker endpoint serving the model.
 
 Various command-line options are available to customize the deployment, such as instance type, count, IAM role, etc.
-Refer to the `CLI reference <cli.html#mlflow-sagemaker>`_ for a complete list of options.
+Refer to the `CLI reference <../cli.html#mlflow-sagemaker>`_ for a complete list of options.
 
 .. code-block::
 
@@ -105,17 +105,16 @@ API Reference
 -------------
 You have two options for deploying a model to SageMaker: using the CLI or the Python API.
 
-* `CLI Reference <cli.html#mlflow-sagemaker>`_
-* `Python API Documentation <python_api/mlflow.sagemaker.html>`_
+* `CLI Reference <../cli.html#mlflow-sagemaker>`_
+* `Python API Documentation <../python_api/mlflow.sagemaker.html>`_
 
 .. _deployment-sagemaker-references:
 
-Other References
-----------------
-- `MLflow Quickstart Part 2: Serving Models Using Amazon SageMaker <https://docs.databricks.com/en/_extras/notebooks/source/mlflow/mlflow-quick-start-deployment-aws.html>`_ -
-   This step-by-step tutorial demonstrates how to deploy a model to SageMaker using MLflow Python APIs from a Databricks notebook.
-- `Managing Your Machine Learning Lifecycle with MLflow and Amazon SageMaker <https://aws.amazon.com/blogs/machine-learning/managing-your-machine-learning-lifecycle-with-mlflow-and-amazon-sagemaker/>`_ -
-   This comprehensive tutorial covers integrating the entire MLflow lifecycle with SageMaker, from model training to deployment.
+Useful Links
+------------
+
+* `MLflow Quickstart Part 2: Serving Models Using Amazon SageMaker <https://docs.databricks.com/en/_extras/notebooks/source/mlflow/mlflow-quick-start-deployment-aws.html>`_ - This step-by-step tutorial demonstrates how to deploy a model to SageMaker using MLflow Python APIs from a Databricks notebook.
+* `Managing Your Machine Learning Lifecycle with MLflow and Amazon SageMaker <https://aws.amazon.com/blogs/machine-learning/managing-your-machine-learning-lifecycle-with-mlflow-and-amazon-sagemaker/>`_ - This comprehensive tutorial covers integrating the entire MLflow lifecycle with SageMaker, from model training to deployment.
 
 Troubleshooting
 ---------------

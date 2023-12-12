@@ -6,7 +6,7 @@ Deploy MLflow Model as a Local Inference Server
 MLflow allows you to deploy your model as a local inference using just a single command.
 This approach is ideal for lightweight applications or for testing your model locally before moving it to a production environment.
 
-If you are new to MLflow model deployment, please read the `MLflow Deployment Introduction <../deployment.html#introduction>`_ first to understand the basic concepts of MLflow models and deployments.
+If you are new to MLflow model deployment, please read `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments.
 
 
 Deploying Inference Server
@@ -47,8 +47,8 @@ to the `MLflow CLI Reference <../cli.html#mlflow-models>`_.
 
 .. _local-inference-server-spec:
 
-Server Specification
---------------------
+Inference Server Specification
+------------------------------
 
 Endpoints
 ~~~~~~~~~
@@ -158,17 +158,22 @@ Example requests:
 Serving Frameworks
 ------------------
 By default, MLflow uses `Flask <https://flask.palletsprojects.com/en/1.1.x/>`_, a lightweight WSGI web application framework for Python, to serve the
-inference endpoint. Alternatively, you can use `Seldon's MLServer <https://mlserver.readthedocs.io/en/latest/>`, which is used as the core Python
+inference endpoint. Alternatively, you can use `Seldon's MLServer <https://mlserver.readthedocs.io/en/latest/>`_, which is used as the core Python
 inference server in Kubernetes-native frameworks like `Seldon Core <https://docs.seldon.io/projects/seldon-core/en/latest/>`_ and
 `KServe (formerly known as KFServing) <https://kserve.github.io/website/>`_.
 
-.. |flask-logo| image:: ../_static/images/logos/flask-logo.png
-    :width: 80%
-    :align: middle
+.. |flask-logo| raw:: html
 
-.. |mlserver-logo| image:: ../_static/images/logos/seldon-mlserver-logo.png
-    :width: 80%
-    :align: middle
+        <div>
+            <img src="../_static/images/logos/flask-logo.png" width="60%" style="display: block; margin: auto;">
+        </div>
+
+.. |mlserver-logo| raw:: html
+
+            <div>
+                <img src="../_static/images/logos/seldon-mlserver-logo.png" width="70%" style="display: block; margin: auto;">
+            </div>
+
 
 .. list-table::
     :widths: 20 40 40
@@ -178,7 +183,7 @@ inference server in Kubernetes-native frameworks like `Seldon Core <https://docs
     * -
       - |flask-logo|
       - |mlserver-logo|
-    * - **Recommended Use Case**
+    * - **Use Case**
       - General lightweight purpose including local testing.
       - Kubernetes cluster deployment.
     * - **Set Up**
@@ -186,7 +191,7 @@ inference server in Kubernetes-native frameworks like `Seldon Core <https://docs
       - Needs to be installed separately.
     * - **Maturity**
       - Established and stable.
-      - Still growing.
+      - Relatively less mature. 
     * - **Performance**
       - Suitable for lightweight applications but not optimized for high performance.
       - Designed for high-performance ML workloads, often delivering better throughput and efficiency.
@@ -196,7 +201,8 @@ inference server in Kubernetes-native frameworks like `Seldon Core <https://docs
 
 
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
-To deploy with MLServer, add the ``--enable-mlserver`` option to your deployment command. For example,
+To deploy with MLServer, first install additional dependencies with ``pip install mlflow[extras]``,
+then execute deployment command with ``--enable-mlserver`` option. For example,
 
 .. tabs::
 
@@ -211,7 +217,8 @@ To deploy with MLServer, add the ``--enable-mlserver`` option to your deployment
        model = mlflow.pyfunc.load_model("runs:/<run_id>/model")
        model.serve(port=5000, enable_mlserver=True)
 
-For more information on Kubernetes deployments with MLflow, please see `Deploying a model to Kubernetes <deploy-model-to-kubernetes/index.html>`_.
+To read more about the integration between MLflow and MLServer, please check the `end-to-end example <https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html>`_ in the MLServer documentation.
+Also you can find guides to deploy MLflow model to Kubernetes cluster using MLServer in `Deploying a model to Kubernetes <deploy-model-to-kubernetes/index.html>`_.
 
 Running Batch Inference
 -----------------------
