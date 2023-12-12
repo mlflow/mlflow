@@ -7,9 +7,9 @@ import pytest
 from mlflow import MlflowClient
 from mlflow.entities import FileInfo
 from mlflow.entities.model_registry import ModelVersion
+from mlflow.environment_variables import MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.databricks_models_artifact_repo import (
-    _DOWNLOAD_CHUNK_SIZE,
     DatabricksModelsArtifactRepository,
 )
 from mlflow.utils.file_utils import _Chunk
@@ -270,7 +270,9 @@ def test_parallelized_download_file_using_http_uri_succcess(
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[FileInfo(remote_file_path, True, _DOWNLOAD_CHUNK_SIZE + 1)],
+        return_value=[
+            FileInfo(remote_file_path, True, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get() + 1)
+        ],
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
         return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
@@ -303,7 +305,9 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[FileInfo(remote_file_path, True, _DOWNLOAD_CHUNK_SIZE + 1)],
+        return_value=[
+            FileInfo(remote_file_path, True, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get() + 1)
+        ],
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
         return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
@@ -346,7 +350,9 @@ def test_parallelized_download_file_using_http_uri_with_failed_downloads(
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[FileInfo(remote_file_path, True, _DOWNLOAD_CHUNK_SIZE + 1)],
+        return_value=[
+            FileInfo(remote_file_path, True, MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get() + 1)
+        ],
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
         return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),

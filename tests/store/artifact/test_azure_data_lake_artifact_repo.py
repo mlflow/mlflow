@@ -201,7 +201,7 @@ def test_log_artifacts(mock_filesystem_client, mock_directory_client, tmp_path):
     mock_directory_client.get_file_client("subdir/empty-file.txt").create_file.assert_called()
 
 
-def test_log_artifacts_in_parallel_when_necessary(tmp_path):
+def test_log_artifacts_in_parallel_when_necessary(tmp_path, monkeypatch):
     fake_sas_token = "fake_session_token"
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, AzureSasCredential(fake_sas_token))
 
@@ -209,7 +209,8 @@ def test_log_artifacts_in_parallel_when_necessary(tmp_path):
     parentd.mkdir()
     parentd.joinpath("a.txt").write_text("ABCDE")
 
-    with mock.patch(f"{ADLS_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE", 0), mock.patch(
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", "0")
+    with mock.patch(
         f"{ADLS_ARTIFACT_REPOSITORY}._multipart_upload", return_value=None
     ) as multipart_upload_mock, mock.patch(
         f"{ADLS_ARTIFACT_REPOSITORY}.log_artifact", return_value=None
@@ -227,7 +228,7 @@ def test_log_artifacts_in_parallel_when_necessary(tmp_path):
 
 @pytest.mark.parametrize(
     ("file_size", "is_parallel_download"),
-    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
+    [(None, False), (100, False), (500 * 1024**2 - 1, False), (500 * 1024**2, True)],
 )
 def test_download_file_in_parallel_when_necessary(file_size, is_parallel_download):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
