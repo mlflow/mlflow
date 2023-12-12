@@ -188,7 +188,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
 
         if api_config.api_type in ("azure", "azure_ad", "azuread"):
             raise NotImplementedError(
-                "List deployments is not implemented for Azure OpenAI API",
+                "List endpoints is not implemented for Azure OpenAI API",
             )
         else:
             api_key = os.environ["OPENAI_API_KEY"]
@@ -216,7 +216,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
 
         if api_config.api_type in ("azure", "azure_ad", "azuread"):
             raise NotImplementedError(
-                "Get deployment is not implemented for Azure OpenAI API",
+                "Get endpoint is not implemented for Azure OpenAI API",
             )
         else:
             api_key = os.environ["OPENAI_API_KEY"]

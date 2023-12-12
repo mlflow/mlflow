@@ -123,7 +123,7 @@ def test_list_endpoints_azure_openai(mock_azure_openai_creds):
     client = get_deploy_client("openai")
 
     with pytest.raises(
-        NotImplementedError, match="List deployments is not implemented for Azure OpenAI API"
+        NotImplementedError, match="List endpoints is not implemented for Azure OpenAI API"
     ):
         client.list_endpoints()
 
@@ -153,7 +153,7 @@ def test_get_endpoint_azure_openai(mock_azure_openai_creds):
     client = get_deploy_client("openai")
 
     with pytest.raises(
-        NotImplementedError, match="Get deployment is not implemented for Azure OpenAI API"
+        NotImplementedError, match="Get endpoint is not implemented for Azure OpenAI API"
     ):
         client.get_endpoint("gpt-3.5-turbo-instruct")
 
