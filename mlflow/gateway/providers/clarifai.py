@@ -267,7 +267,7 @@ class ClarifaiProvider(BaseProvider):
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise HTTPException(
-            status_code=404, detail="The chat route is not currently supported for Clarifai."
+            status_code=422, detail="The chat route is not currently supported for Clarifai."
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:

@@ -8,7 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.clarifai import ClarifaiProvider
-from mlflow.gateway.schemas import completions, embeddings
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse
 
@@ -417,4 +417,32 @@ async def test_param_model_is_not_permitted():
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
     assert "The parameter 'model' is not permitted" in e.value.detail
+    assert e.value.status_code == 422
+
+
+def chat_config():
+    return {
+        "name": "chat",
+        "route_type": "llm/v1/chat",
+        "model": {
+            "provider": "clarifai",
+            "name": "test-model",
+            "config": {
+                "CLARIFAI_PAT": "key",
+                "user_id": "clarifai",
+                "app_id": "main",
+            },
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_is_not_supported_for_clarifai():
+    config = chat_config()
+    provider = ClarifaiProvider(RouteConfig(**config))
+    payload = {"messages": [{"role": "user", "content": "What is the meaning of life?"}]}
+
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert "The chat route is not currently supported for Clarifai." in e.value.detail
     assert e.value.status_code == 422
