@@ -53,9 +53,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import pandas as pd
 import yaml
-from pydantic import BaseModel
 
 import mlflow
 from mlflow import mleap, pyfunc
@@ -63,7 +61,7 @@ from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
+from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.spark import (
     _HadoopFileSystem,
@@ -114,6 +112,16 @@ from mlflow.utils.uri import (
 FLAVOR_NAME = "johnsnowlabs"
 _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
+default_predict_params = {
+    "output_level": "",
+    "positions": False,
+    "keep_stranger_features": True,
+    "metadata": False,
+    "multithread": True,
+    "drop_irrelevant_cols": True,
+    "return_spark_df": False,
+    "get_embeddings": True,
+}
 _logger = logging.getLogger(__name__)
 
 
@@ -179,6 +187,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    auto_infer_signature=True,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
@@ -329,6 +338,7 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            auto_infer_signature=auto_infer_signature,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -347,6 +357,7 @@ def log_model(
             extra_pip_requirements=extra_pip_requirements,
             remote_model_path=remote_model_path,
             store_license=store_license,
+            auto_infer_signature=auto_infer_signature,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -370,6 +381,7 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    auto_infer_signature=True,
     remote_model_path=None,  # pylint: disable=unused-argument
     store_license=False,  # pylint: disable=unused-argument
 ):
@@ -388,7 +400,18 @@ def _save_model_metadata(
             spark_model=spark_model,
             sample_input=sample_input,
         )
-    if signature is not None:
+    if signature is None:
+        if auto_infer_signature:
+            try:
+                mlflow_model.signature = infer_signature(
+                    "Hello World",
+                    spark_model.predict("Hello World"),
+                    default_predict_params,
+                )
+            except Exception as err:
+                _logger.warning(f"Could not auto-infer signature for your model. Error :\n", err)
+
+    elif signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, dst_dir)
@@ -477,6 +500,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    auto_infer_signature=True,
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -607,6 +631,7 @@ def save_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         store_license=store_license,
+        auto_infer_signature=auto_infer_signature,
     )
 
 
@@ -824,40 +849,6 @@ def _unpack_and_save_model(spark_model, dst):
             spark_model.save(dst)
 
 
-class PredictParams(BaseModel):
-    output_level: Optional[str] = ""
-    positions: Optional[bool] = False
-    keep_stranger_features: Optional[bool] = True
-    metadata: Optional[bool] = False
-    multithread: Optional[bool] = True
-    drop_irrelevant_cols: Optional[bool] = True
-    return_spark_df: Optional[bool] = False
-    get_embeddings: Optional[bool] = True
-
-    @staticmethod
-    def has_param_cols(df: pd.DataFrame):
-        return all(c not in df.columns for c in PredictParams.__fields__.keys())
-
-    @staticmethod
-    def maybe_from_pandas_df(df: pd.DataFrame):
-        # only first row is used
-        if df.shape[0] == 0:
-            return None
-        if PredictParams.has_param_cols(df):
-            # no params in df
-            return None
-        param_row = df.iloc[0].to_dict()
-        try:
-            return PredictParams(**param_row)
-        except Exception as e:
-            _logger.info(
-                f"Exception trying to parse prediction parameters for param row:"
-                f" \n{param_row} \n",
-                e,
-            )
-            return None
-
-
 class _PyFuncModelWrapper:
     """
     Wrapper around NLUPipeline providing interface for scoring pandas DataFrame.
@@ -874,11 +865,8 @@ class _PyFuncModelWrapper:
 
     def predict(self, text, params: Optional[Dict[str, Any]] = None):
         """
-             Generate predictions given input data in a pandas DataFrame.
-             1) If df contains any column that is in PredictParams fields,
-              the first row will be parsed as parameters
-             2) If df contains column `file` and `file_type`
-              columns, each row will be deserialized into file
+             Generate predictions given input data in a pandas DataFrame and params.
+             All params in https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api
              :param text: pandas DataFrame containing input data.
              :param params: Additional parameters to pass to the model for inference.
 
@@ -886,9 +874,6 @@ class _PyFuncModelWrapper:
                                 release without warning.
              :return: List with model predictions.
         """
-        params = PredictParams.maybe_from_pandas_df(text)
-        if params:
-            params.dict()
-        else:
+        if params is None:
             params = {}
         return self.spark_model.predict(text, **params).reset_index().to_json()
