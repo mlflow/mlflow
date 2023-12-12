@@ -212,12 +212,9 @@ class ClarifaiAdapter(ProviderAdapter):
         # ```
 
         embedding_vectors = [
-            resp["outputs"][i]["data"]["embeddings"][j]["vector"]
-            for i in range(len(resp["outputs"]))
-            for j in range(len(resp["outputs"][i]["data"]["embeddings"]))
-        ]
-        embedding_vectors = [
-            list(map(float, embedding_vectors[i])) for i in range(len(embedding_vectors))
+            list(map(float, vector["vector"]))
+            for output in resp["outputs"]
+            for vector in output["data"]["embeddings"]
         ]
 
         return embeddings.ResponsePayload(
