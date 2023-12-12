@@ -46,7 +46,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.models.signature import ModelSignature, Schema
+from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.openai.utils import (
     TEST_CONTENT,
     TEST_INTERMEDIATE_STEPS,
@@ -55,7 +55,7 @@ from mlflow.openai.utils import (
     _mock_request,
     _MockResponse,
 )
-from mlflow.types.schema import ColSpec
+from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
@@ -807,7 +807,7 @@ def test_save_load_runnable_passthrough():
     Version(langchain.__version__) < Version("0.0.311"),
     reason="feature not existing",
 )
-def test_save_load_runnable_lambda():
+def test_save_load_runnable_lambda(spark):
     from langchain.schema.runnable import RunnableLambda
 
     def add_one(x: int) -> int:
@@ -819,15 +819,23 @@ def test_save_load_runnable_lambda():
     assert runnable.batch([1, 2, 3]) == [2, 3, 4]
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(runnable, "runnable_lambda")
+        model_info = mlflow.langchain.log_model(
+            runnable, "runnable_lambda", input_example=[1, 2, 3]
+        )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke(1) == 2
     assert loaded_model.batch([1, 2, 3]) == [2, 3, 4]
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert loaded_model.predict(1) == 2
+    assert loaded_model.predict(1) == [2]
     assert loaded_model.predict([1, 2, 3]) == [2, 3, 4]
+
+    udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="long")
+    df = spark.createDataFrame([(1,), (2,), (3,)], ["data"])
+    df = df.withColumn("answer", udf("data"))
+    pdf = df.toPandas()
+    assert pdf["answer"].tolist() == [2, 3, 4]
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -859,12 +867,12 @@ def test_save_load_runnable_lambda_in_sequence():
     assert sequence.invoke(1) == 4
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(sequence, "model_path")
+        model_info = mlflow.langchain.log_model(sequence, "model_path", input_example=[1, 2, 3])
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke(1) == 4
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_loaded_model.predict(1) == 4
+    assert pyfunc_loaded_model.predict(1) == [4]
     assert pyfunc_loaded_model.predict([1, 2, 3]) == [4, 6, 8]
 
     response = pyfunc_serve_and_score_model(
@@ -892,11 +900,13 @@ def test_save_load_runnable_parallel():
     assert runnable.invoke("hello") == {"llm": "completion"}
     assert runnable.batch(["hello", "world"]) == [{"llm": "completion"}, {"llm": "completion"}]
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(runnable, "model_path")
+        model_info = mlflow.langchain.log_model(
+            runnable, "model_path", input_example=["hello", "world"]
+        )
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke("hello") == {"llm": "completion"}
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_loaded_model.predict("hello") == {"llm": "completion"}
+    assert pyfunc_loaded_model.predict("hello") == [{"llm": "completion"}]
     assert pyfunc_loaded_model.predict(["hello", "world"]) == [
         {"llm": "completion"},
         {"llm": "completion"},
@@ -926,7 +936,9 @@ def tests_save_load_complex_runnable_parallel():
         expected_result = {"llm": {"product": "MLflow", "text": TEST_CONTENT}}
         assert runnable.invoke({"product": "MLflow"}) == expected_result
         with mlflow.start_run():
-            model_info = mlflow.langchain.log_model(runnable, "model_path")
+            model_info = mlflow.langchain.log_model(
+                runnable, "model_path", input_example=[{"product": "MLflow"}]
+            )
         loaded_model = mlflow.langchain.load_model(model_info.model_uri)
         assert loaded_model.invoke("MLflow") == expected_result
         pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -965,7 +977,9 @@ def test_save_load_runnable_parallel_and_assign_in_sequence():
     assert runnable.invoke("hello") == expected_result
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(runnable, "model_path")
+        model_info = mlflow.langchain.log_model(
+            runnable, "model_path", input_example=["hello", "world"]
+        )
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke("hello") == expected_result
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1042,7 +1056,9 @@ def test_save_load_complex_runnable_sequence():
         assert chain.invoke({"product": "MLflow"}) == expected_result
 
         with mlflow.start_run():
-            model_info = mlflow.langchain.log_model(chain, "model_path")
+            model_info = mlflow.langchain.log_model(
+                chain, "model_path", input_example=[{"product": "MLflow"}]
+            )
 
         loaded_model = mlflow.langchain.load_model(model_info.model_uri)
         result = loaded_model.invoke({"product": "MLflow"})
@@ -1077,8 +1093,10 @@ def test_save_load_simple_chat_model(spark):
     chain = prompt | chat_model | StrOutputParser()
     assert chain.invoke({"product": "MLflow"}) == "Databricks"
     # signature is required for spark_udf
-    # TODO: support inferring signature from runnables
-    signature = ModelSignature(inputs=Schema([ColSpec("string", "product")]))
+    signature = infer_signature({"product": "MLflow"}, "Databricks")
+    assert signature == ModelSignature(
+        Schema([ColSpec("string", "product")]), Schema([ColSpec("string")])
+    )
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(chain, "model_path", signature=signature)
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
@@ -1148,14 +1166,13 @@ def test_save_load_rag(tmp_path, spark):
     question = "What is a good name for a company that makes MLflow?"
     answer = "Databricks"
     assert retrieval_chain.invoke(question) == answer
-    signature = ModelSignature(inputs=Schema([ColSpec("string", "question")]))
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(
             retrieval_chain,
             "model_path",
             loader_fn=load_retriever,
             persist_dir=persist_dir,
-            signature=signature,
+            input_example=question,
         )
 
     # Remove the persist_dir
@@ -1164,7 +1181,7 @@ def test_save_load_rag(tmp_path, spark):
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke(question) == answer
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_loaded_model.predict({"question": [question]}) == [answer]
+    assert pyfunc_loaded_model.predict(question) == [answer]
 
     udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
     df = spark.createDataFrame([(question,), (question,)], ["question"])
@@ -1174,7 +1191,7 @@ def test_save_load_rag(tmp_path, spark):
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
-        data=json.dumps({"inputs": [question]}),
+        data=json.dumps({"inputs": question}),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
@@ -1200,6 +1217,9 @@ def test_runnable_branch_save_load():
     assert branch.invoke({}) == "goodbye"
 
     with mlflow.start_run():
+        # We only support single input format for now, so we should
+        # not save signature for runnable branch which accepts multiple
+        # input types
         model_info = mlflow.langchain.log_model(branch, "model_path")
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
@@ -1270,7 +1290,9 @@ def test_complex_runnable_branch_save_load():
     assert chain.invoke({"query": "Are you happy today?"}) == "Something went wrong."
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(chain, "model_path")
+        model_info = mlflow.langchain.log_model(
+            chain, "model_path", input_example={"query": "Who owns MLflow?"}
+        )
 
     loaded_model = mlflow.langchain.load_model(model_info.model_uri)
     assert loaded_model.invoke({"query": "Who owns MLflow?"}) == "Databricks"
@@ -1280,12 +1302,13 @@ def test_complex_runnable_branch_save_load():
     )
     assert loaded_model.invoke({"query": "Are you happy today?"}) == "Something went wrong."
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_loaded_model.predict({"query": "Who owns MLflow?"}) == "Databricks"
-    assert (
-        pyfunc_loaded_model.predict({"query": "Do you like cat?"})
-        == "I cannot answer questions that are not about MLflow."
-    )
-    assert pyfunc_loaded_model.predict({"query": "Are you happy today?"}) == "Something went wrong."
+    assert pyfunc_loaded_model.predict({"query": "Who owns MLflow?"}) == ["Databricks"]
+    assert pyfunc_loaded_model.predict({"query": "Do you like cat?"}) == [
+        "I cannot answer questions that are not about MLflow."
+    ]
+    assert pyfunc_loaded_model.predict({"query": "Are you happy today?"}) == [
+        "Something went wrong."
+    ]
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -1294,5 +1317,84 @@ def test_complex_runnable_branch_save_load():
         extra_args=["--env-manager", "local"],
     )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-        "predictions": "Databricks"
+        "predictions": ["Databricks"]
+    }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_chat_with_history(spark):
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableLambda
+
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
+    prompt_with_history_str = """
+    Here is a history between you and a human: {chat_history}
+
+    Now, please answer this question: {question}
+    """
+
+    prompt_with_history = PromptTemplate(
+        input_variables=["chat_history", "question"], template=prompt_with_history_str
+    )
+
+    chat_model = _fake_simple_chat_model()()
+
+    def extract_question(input):
+        return input[-1]["content"]
+
+    def extract_history(input):
+        return input[:-1]
+
+    chain_with_history = (
+        {
+            "question": itemgetter("messages") | RunnableLambda(extract_question),
+            "chat_history": itemgetter("messages") | RunnableLambda(extract_history),
+        }
+        | prompt_with_history
+        | chat_model
+        | StrOutputParser()
+    )
+
+    input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
+    assert chain_with_history.invoke(input_example) == "Databricks"
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain_with_history, "model_path", input_example=input_example
+        )
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke(input_example) == "Databricks"
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    input_schema = pyfunc_loaded_model.metadata.get_input_schema()
+    assert input_schema == Schema(
+        [
+            ColSpec(
+                Array(
+                    Object(
+                        [Property("role", DataType.string), Property("content", DataType.string)]
+                    )
+                ),
+                "messages",
+            )
+        ]
+    )
+    assert pyfunc_loaded_model.predict(input_example) == ["Databricks"]
+
+    udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
+    df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
+    df = df.withColumn("answer", udf("messages"))
+    pdf = df.toPandas()
+    assert pdf["answer"].tolist() == ["Databricks"]
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": input_example}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": ["Databricks"]
     }

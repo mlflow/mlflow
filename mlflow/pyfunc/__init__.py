@@ -1440,7 +1440,7 @@ Compound types:
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
-            result = pandas.DataFrame(data=result)
+            result = pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
 
         if isinstance(result_type, SparkStructType):
             result_dict = {}

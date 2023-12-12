@@ -238,30 +238,21 @@ class _Example:
                 if isinstance(x, np.ndarray) and len(x.shape) > 1:
                     raise TensorsNotSupportedException(f"Row '{i}' has shape {x.shape}")
             if all(_is_scalar(x) for x in input_example):
-                if all(isinstance(x, str) for x in input_example):
-                    _logger.info(
-                        "Lists of string values are not converted to a pandas DataFrame. "
-                        "If you expect to use pandas DataFrames for inference, please "
-                        "construct a DataFrame and pass it to input_example instead."
-                    )
-                    self._inference_data = input_example
-                    self.data = {"inputs": self._inference_data}
-                    self.info.update(
-                        {
-                            "type": "ndarray",
-                            "format": "tf-serving",
-                        }
-                    )
-                # For backwards compatibility, sklearn model for example
-                else:
-                    self._inference_data = pd.DataFrame([input_example])
-                    self.data = _handle_dataframe_input(self._inference_data)
-                    self.info.update(
-                        {
-                            "type": "dataframe",
-                            "pandas_orient": "split",
-                        }
-                    )
+                # We should not convert data for langchain flavors
+                # List[scalar] is a typical langchain model input type
+                _logger.info(
+                    "Lists of scalar values are not converted to a pandas DataFrame. "
+                    "If you expect to use pandas DataFrames for inference, please "
+                    "construct a DataFrame and pass it to input_example instead."
+                )
+                self._inference_data = input_example
+                self.data = {"inputs": self._inference_data}
+                self.info.update(
+                    {
+                        "type": "ndarray",
+                        "format": "tf-serving",
+                    }
+                )
             else:
                 self._inference_data = pd.DataFrame(input_example)
                 self.data = _handle_dataframe_input(self._inference_data)

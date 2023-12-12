@@ -118,7 +118,6 @@ class APIRequest:
         """
         Calls the LangChain API and stores results.
         """
-        import numpy as np
         from langchain.schema import BaseRetriever
 
         from mlflow.langchain.utils import lc_runnables_types, runnables_supports_batch_types
@@ -132,9 +131,6 @@ class APIRequest:
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
             elif isinstance(self.lc_model, lc_runnables_types()):
-                if isinstance(self.request_json, np.ndarray):
-                    # numpy array is not json serializable, so we convert it to list
-                    self.request_json = self.request_json.tolist()
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
@@ -142,15 +138,13 @@ class APIRequest:
                     # Expected Scalar value for String field \'query_text\'\\n
                     try:
                         response = self.lc_model.invoke(self.request_json)
-                    except Exception:
+                    except Exception as e:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} "
-                            "with {self.request_json}. Error: {e!r}. Trying to "
+                            f"with {self.request_json}. Error: {e!r}. Trying to "
                             "invoke with the first value of the dictionary."
                         )
                         self.request_json = next(iter(self.request_json.values()))
-                        if isinstance(self.request_json, np.ndarray):
-                            self.request_json = self.request_json.tolist()
                         response = self.lc_model.invoke(self.request_json)
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, runnables_supports_batch_types()
@@ -168,8 +162,8 @@ class APIRequest:
                     self._prepare_to_serialize(response)
 
             _logger.debug(f"Request #{self.index} succeeded")
-            status_tracker.complete_task(success=True)
             self.results.append((self.index, response))
+            status_tracker.complete_task(success=True)
         except Exception as e:
             self.errors[
                 self.index
