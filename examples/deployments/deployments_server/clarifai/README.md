@@ -9,7 +9,7 @@ Explore more Clarifai hosted LLMs [here](https://clarifai.com/explore/models).
 
 #### Setting a Clarifai PAT
 
-This example requires a [Clarifai PAT](https://docs.clarifai.com/clarifai-basics/authentication/personal-access-tokens/):
+This example requires a [Clarifai PAT](https://docs.clarifai.com/clarifai-basics/authentication/personal-access-tokens/). To set your access token securely within your environment, simply run the following from a terminal prompt:
 
 ```sh
 export CLARIFAI_PAT=...
