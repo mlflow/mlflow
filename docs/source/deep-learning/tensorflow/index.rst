@@ -50,9 +50,10 @@ through the following topics:
 
 - **Autologging Tensorflow Experiments with MLflow**: How to left MLflow autolog Tensorflow experiments, and what
   metrics are logged.
-- **Control MLflow Logging with Keras Callback**: For people don't like autologging, we offer an option to log experiments
-  to MLflow with Keras callback.
-- **Log Your Tensorflow Models with MLflow**: How to log your Tensorflow models with MLflow, and how to load them back.
+- **Control MLflow Logging with Keras Callback**: For people who don't like autologging, we offer an option to log
+  experiments to MLflow using a custom Keras callback.
+- **Log Your Tensorflow Models with MLflow**: How to log your Tensorflow models with MLflow and how to load them back
+  for inference.
 
 
 .. toctree::
