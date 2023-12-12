@@ -57,27 +57,6 @@ def _create_local_spark_session_for_recipes():
     )
 
 
-def _create_local_spark_session_for_evaluate():
-    """Create a sparksession to be used within MLflow evaluate for writing to delta"""
-
-    try:
-        from pyspark.sql import SparkSession
-    except ImportError:
-        # Return None if user doesn't have PySpark installed
-        return None
-    _prepare_subprocess_environ_for_creating_local_spark_session()
-    return (
-        SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-        .config(
-            "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-        )
-        .config("spark.sql.execution.arrow.pyspark.enabled", "true")
-        .getOrCreate()
-    )
-
-
 def _create_local_spark_session_for_loading_spark_model():
     from pyspark.sql import SparkSession
 
