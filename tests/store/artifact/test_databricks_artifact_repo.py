@@ -444,7 +444,7 @@ def test_log_artifact_aws(databricks_artifact_repo, test_file, artifact_path, ex
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_AWS_SIGNED_URI, data=ANY, headers={}, timeout=None
+            "put", MOCK_AWS_SIGNED_URI, allow_redirects=True, data=ANY, headers={}, timeout=None
         )
 
 
