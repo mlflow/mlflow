@@ -247,7 +247,7 @@ class ClarifaiProvider(BaseProvider):
             f"versions/{self.model_version_id}/outputs" if self.model_version_id else "outputs"
         )
         self.base_url = f"https://api.clarifai.com/v2/users/{self.user_id}/apps/{self.app_id}/models/{self.model_id}"
-        self.headers = {"Authorization": f"Key {self.clarifai_config.CLARIFAI_PAT}"}
+        self.headers = {"Authorization": f"Key {self.clarifai_config.clarifai_pat}"}
 
     async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         return await send_request(

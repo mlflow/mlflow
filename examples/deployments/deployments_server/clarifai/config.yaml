@@ -5,7 +5,7 @@ endpoints:
       provider: clarifai
       name: mistral-7B-Instruct
       config:
-        CLARIFAI_PAT: $CLARIFAI_PAT
+        clarifai_pat: $clarifai_pat
         user_id: mistralai
         app_id: completion
 
@@ -15,6 +15,6 @@ endpoints:
       provider: clarifai
       name: multimodal-clip-embed
       config:
-        CLARIFAI_PAT: $CLARIFAI_PAT
+        clarifai_pat: $clarifai_pat
         user_id: clarifai
         app_id: main

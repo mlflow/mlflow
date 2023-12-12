@@ -227,7 +227,7 @@ def basic_config_dict():
                     "provider": "clarifai",
                     "name": "mistral-7B-Instruct",
                     "config": {
-                        "CLARIFAI_PAT": "$CLARIFAI_PAT",
+                        "clarifai_pat": "$clarifai_pat",
                         "user_id": "mistralai",
                         "app_id": "completion",
                     },
@@ -240,7 +240,7 @@ def basic_config_dict():
                     "provider": "clarifai",
                     "name": "multimodal-clip-embed",
                     "config": {
-                        "CLARIFAI_PAT": "$CLARIFAI_PAT",
+                        "clarifai_pat": "$clarifai_pat",
                         "user_id": "clarifai",
                         "app_id": "main",
                     },
@@ -271,7 +271,7 @@ def env_setup(monkeypatch):
     monkeypatch.setenv("AI21LABS_API_KEY", "test_ai21labs_key")
     monkeypatch.setenv("MOSAICML_API_KEY", "test_mosaicml_key")
     monkeypatch.setenv("PALM_API_KEY", "test_palm_key")
-    monkeypatch.setenv("CLARIFAI_PAT", "test_clarifai_pat")
+    monkeypatch.setenv("clarifai_pat", "test_clarifai_pat")
 
 
 @pytest.fixture

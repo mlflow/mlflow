@@ -217,14 +217,14 @@ class AWSBedrockConfig(ConfigModel):
 
 
 class ClarifaiConfig(ConfigModel):
-    CLARIFAI_PAT: str
+    clarifai_pat: str
     user_id: str
     app_id: str
     model_version_id: Optional[str] = None
 
     # pylint: disable=no-self-argument
-    @validator("CLARIFAI_PAT", pre=True)
-    def validate_CLARIFAI_PAT(cls, value):
+    @validator("clarifai_pat", pre=True)
+    def validate_clarifai_pat(cls, value):
         return _resolve_api_key_from_input(value)
 
 

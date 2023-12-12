@@ -12,7 +12,7 @@ Explore more Clarifai hosted LLMs [here](https://clarifai.com/explore/models).
 This example requires a [Clarifai PAT](https://docs.clarifai.com/clarifai-basics/authentication/personal-access-tokens/). To set your access token securely within your environment, simply run the following from a terminal prompt:
 
 ```sh
-export CLARIFAI_PAT=...
+export clarifai_pat=...
 ```
 
 ### Update the config.yaml
@@ -27,7 +27,7 @@ endpoints:
       provider: clarifai
       name: mistral-7B-Instruct
       config:
-        CLARIFAI_PAT: $CLARIFAI_PAT
+        clarifai_pat: $clarifai_pat
         user_id: mistralai
         app_id: completion
 
@@ -37,7 +37,7 @@ endpoints:
       provider: clarifai
       name: multimodal-clip-embed
       config:
-        CLARIFAI_PAT: $CLARIFAI_PAT
+        clarifai_pat: $clarifai_pat
         user_id: clarifai
         app_id: main
 ```
