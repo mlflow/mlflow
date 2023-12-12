@@ -92,7 +92,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         Query an OpenAI endpoint.
-        See https://platform.openai.com/docs/api-reference/chat for more information.
+        See https://platform.openai.com/docs/api-reference for more information.
 
         :param deployment_name: Unused.
         :param inputs: A dictionary containing the model inputs to query.
@@ -199,8 +199,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
                 headers=request_header,
             )
 
-            if response.status_code != 200:
-                rest_utils.augmented_raise_for_status(response)
+            rest_utils.augmented_raise_for_status(response)
 
             return response.json()
 
@@ -227,8 +226,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
                 headers=request_header,
             )
 
-            if response.status_code != 200:
-                rest_utils.augmented_raise_for_status(response)
+            rest_utils.augmented_raise_for_status(response)
 
             return response.json()
 
