@@ -3678,7 +3678,7 @@ def test_write_to_delta_fails_with_invalid_mode(spark_session_with_tempdir):
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         with pytest.raises(
             MlflowException,
-            match="eval_results_mode must be one of",
+            match="eval_results_mode can only be 'overwrite' or 'append'",
         ):
             mlflow.evaluate(
                 model_info.model_uri,
