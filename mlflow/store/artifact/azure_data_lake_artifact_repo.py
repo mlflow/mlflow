@@ -11,11 +11,11 @@ from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
+    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.cloud_artifact_repo import (
-    _MULTIPART_UPLOAD_CHUNK_SIZE,
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
@@ -142,7 +142,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
         if (
             MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
-            and os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE
+            and os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
         ):
             self._multipart_upload(cloud_credential_info, src_file_path, artifact_file_path)
         else:
@@ -177,10 +177,12 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
             # next try to append the file
             futures = {}
             file_size = os.path.getsize(src_file_path)
-            num_chunks = _compute_num_chunks(src_file_path, _MULTIPART_UPLOAD_CHUNK_SIZE)
+            num_chunks = _compute_num_chunks(
+                src_file_path, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+            )
             use_single_part_upload = num_chunks == 1
             for index in range(num_chunks):
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 future = self.chunk_thread_pool.submit(
                     self._retryable_adls_function,
                     func=patch_adls_file_upload,
@@ -188,7 +190,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                     sas_url=credentials.signed_uri,
                     local_file=src_file_path,
                     start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
                     position=start_byte,
                     headers=headers,
                     is_single=use_single_part_upload,

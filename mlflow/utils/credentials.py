@@ -49,7 +49,7 @@ def read_mlflow_creds() -> MlflowCreds:
     )
 
 
-def login(backend="databricks"):
+def login(backend: str = "databricks", interactive: bool = True) -> None:
     """Configure MLflow server authentication and connect MLflow to tracking server.
 
     This method provides a simple way to connect MLflow to its tracking server. Currently only
@@ -59,6 +59,10 @@ def login(backend="databricks"):
     Args:
         backend: string, the backend of the tracking server. Currently only "databricks" is
             supported.
+
+        interacive: bool, controls request for user input on missing credentials. If true, user
+            input will be requested if no credentials are found, otherwise an exception will be
+            raised if no credentials are found.
 
     .. code-block:: python
         :caption: Example
@@ -72,7 +76,7 @@ def login(backend="databricks"):
     from mlflow.tracking import set_tracking_uri
 
     if backend == "databricks":
-        _databricks_login()
+        _databricks_login(interactive)
         set_tracking_uri("databricks")
     else:
         raise MlflowException(
@@ -159,17 +163,19 @@ def _overwrite_or_create_databricks_profile(
         file.writelines(lines)
 
 
-def _databricks_login():
+def _databricks_login(interactive):
     """Set up databricks authentication."""
     try:
         # Failed validation will throw an error.
         _validate_databricks_auth()
         return
     except Exception:
-        # If no valid auth is found, we will prompt the user to enter thepy auth.
-        pass
-
-    _logger.info("No valid Databricks credentials found, please enter your credentials...")
+        if interactive:
+            _logger.info("No valid Databricks credentials found, please enter your credentials...")
+        else:
+            raise MlflowException(
+                "No valid Databricks credentials found while running in non-interactive mode."
+            )
 
     while True:
         host = input("Databricks Host (should begin with https://): ")

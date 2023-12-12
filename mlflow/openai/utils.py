@@ -210,9 +210,7 @@ def _validate_model_params(task, model, params):
 
 
 def _exclude_params_from_envs(params, envs):
-    """
-    params passed at inference time should override envs.
-    """
+    """Params passed at inference time should override envs."""
     return {k: v for k, v in envs.items() if k not in params} if params else envs
 
 
@@ -234,9 +232,8 @@ class _OAITokenHolder:
             self._credential = DefaultAzureCredential()
 
     def validate(self, logger=None):
-        """
-        Validates the token or API key configured for accessing the OpenAI resource.
-        """
+        """Validates the token or API key configured for accessing the OpenAI resource."""
+
         if self._key_configured:
             return
 

@@ -106,9 +106,10 @@ class _OpenAIApiConfig(NamedTuple):
 @experimental
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     return list(map(_get_pinned_requirement, ["openai", "tiktoken", "tenacity"]))
 
@@ -116,8 +117,9 @@ def get_default_pip_requirements():
 @experimental
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -190,9 +192,7 @@ def _get_task_name(task):
 
 
 def _get_api_config() -> _OpenAIApiConfig:
-    """
-    Gets the parameters and configuration of the OpenAI API connected to.
-    """
+    """Gets the parameters and configuration of the OpenAI API connected to."""
     import openai
 
     api_type = os.getenv(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
@@ -264,9 +264,7 @@ def _log_secrets_yaml(local_model_dir, scope):
 
 
 def _parse_format_fields(s) -> Set[str]:
-    """
-    Parses format fields from a given string, e.g. "Hello {name}" -> ["name"].
-    """
+    """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"]."""
     return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
 
 
@@ -303,42 +301,41 @@ def save_model(
     """
     Save an OpenAI model to a path on the local file system.
 
-    :param model: The OpenAI model name or reference instance, e.g.,
-                  ``openai.Model.retrieve("gpt-3.5-turbo")``.
-    :param task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
-                 ``'chat.completions'``.
-    :param path: Local path where the model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+    Args:
+        model: The OpenAI model name or reference instance, e.g.,
+            ``openai.Model.retrieve("gpt-3.5-turbo")``.
+        task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
+            ``'chat.completions'``.
+        path: Local path where the model is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models import infer_signature
 
-                        from mlflow.models import infer_signature
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param  kwargs:
-        Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
-        :ref:`mlflow.openai.messages` for more details on this parameter)
-        or ``top_p`` value to use for chat completion.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
+            :ref:`mlflow.openai.messages` for more details on this parameter)
+            or ``top_p`` value to use for chat completion.
 
     .. code-block:: python
 
@@ -502,49 +499,51 @@ def log_model(
     """
     Log an OpenAI model as an MLflow artifact for the current run.
 
-    :param model: The OpenAI model name or reference instance, e.g.,
-                  ``openai.Model.retrieve("gpt-3.5-turbo")``.
-    :param task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
-                 ``'chat.completions'``.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
+    Args:
+        model: The OpenAI model name or reference instance, e.g.,
+            ``openai.Model.retrieve("gpt-3.5-turbo")``.
+        task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
+            ``'chat.completions'``.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models import infer_signature
 
-                        from mlflow.models import infer_signature
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param  kwargs:
-        Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
-        :ref:`mlflow.openai.messages` for more details on this parameter)
-        or ``top_p`` value to use for chat completion.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
+            :ref:`mlflow.openai.messages` for more details on this parameter)
+            or ``top_p`` value to use for chat completion.
+
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
 
@@ -572,8 +571,8 @@ def log_model(
             )
             model = mlflow.pyfunc.load_model(info.model_uri)
             print(model.predict(["hello", "world"]))
-
     """
+
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.openai,
@@ -824,13 +823,15 @@ class _OpenAIWrapper:
 
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                           release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
 
         self.api_token.validate()
@@ -843,21 +844,21 @@ class _OpenAIWrapper:
 
 
 class _TestOpenAIWrapper(_OpenAIWrapper):
-    """
-    A wrapper class that should be used for testing purposes only.
-    """
+    """A wrapper class that should be used for testing purposes only."""
 
     def predict(
         self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
     ):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                           release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         from mlflow.openai.utils import _mock_openai_request
 
@@ -866,10 +867,10 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
 
 
 def _load_pyfunc(path):
-    """
-    Load PyFunc implementation. Called by ``pyfunc.load_model``.
+    """Loads PyFunc implementation. Called by ``pyfunc.load_model``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``openai`` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``openai`` flavor.
     """
     wrapper_cls = _TestOpenAIWrapper if _MLFLOW_TESTING.get() else _OpenAIWrapper
     return wrapper_cls(_load_model(path))
@@ -877,24 +878,24 @@ def _load_pyfunc(path):
 
 @experimental
 def load_model(model_uri, dst_path=None):
-    """
-    Load an OpenAI model from a local file or a run.
+    """Load an OpenAI model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+            artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
-
-    :return: A dictionary representing the OpenAI model.
+    Returns:
+        A dictionary representing the OpenAI model.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
