@@ -21,7 +21,7 @@ class ClarifaiAdapter(ProviderAdapter):
         # "description": "Ok",
         # "req_id": "73247148986bb591625ff4399704e974"
         #     },
-        #     "outputs": [
+        # "outputs": [
         #         {
         #             "id": "cbaba14cbea445b592871817e2a96760",
         #             "status": {
