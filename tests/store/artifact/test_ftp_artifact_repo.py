@@ -73,7 +73,7 @@ def test_list_artifacts_malicious_path(ftp_mock):
     repo.get_ftp_client = MagicMock()
     call_mock = MagicMock(return_value=ftp_mock)
     repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
-    ftp_mock.nlst = MagicMock(return_value=["/..", "//.."])
+    ftp_mock.nlst = MagicMock(return_value=[".", "/.", "/..", "//.."])
 
     artifacts = repo.list_artifacts(path=None)
     assert artifacts == []
