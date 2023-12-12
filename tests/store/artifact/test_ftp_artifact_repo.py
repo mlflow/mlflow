@@ -67,6 +67,18 @@ def test_list_artifacts(ftp_mock):
     assert artifacts[1].file_size is None
 
 
+def test_list_artifacts_malicious_path(ftp_mock):
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = FTPArtifactRepository("ftp://test_ftp" + artifact_root_path)
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
+    ftp_mock.nlst = MagicMock(return_value=[".", "/.", "/..", "//.."])
+
+    artifacts = repo.list_artifacts(path=None)
+    assert artifacts == []
+
+
 def test_list_artifacts_when_ftp_nlst_returns_absolute_paths(ftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
     repo = FTPArtifactRepository("ftp://test_ftp" + artifact_root_path)
