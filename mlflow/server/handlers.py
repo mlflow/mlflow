@@ -105,7 +105,7 @@ from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import is_file_uri, is_local_uri, validate_path_is_safe
+from mlflow.utils.uri import is_file_uri, is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import _validate_batch_log_api_req
 
 _logger = logging.getLogger(__name__)
@@ -586,6 +586,11 @@ def _create_experiment():
     )
 
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
+
+    # Validate query string in artifact location to prevent attacks
+    parsed_artifact_locaion = urllib.parse.urlparse(request_message.artifact_location)
+    validate_query_string(parsed_artifact_locaion.query)
+
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
     )
