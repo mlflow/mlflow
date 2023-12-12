@@ -227,6 +227,32 @@ def _run_factory(store: SqlAlchemyStore, config=None):
     return store.create_run(**config)
 
 
+# Tests for Search API
+def _search_runs(
+    store: SqlAlchemyStore,
+    experiment_id,
+    filter_string=None,
+    run_view_type=ViewType.ALL,
+    max_results=SEARCH_MAX_RESULTS_DEFAULT,
+):
+    exps = [experiment_id] if isinstance(experiment_id, str) else experiment_id
+    return [
+        r.info.run_id for r in store.search_runs(exps, filter_string, run_view_type, max_results)
+    ]
+
+
+def _get_ordered_runs(store: SqlAlchemyStore, order_clauses, experiment_id):
+    return [
+        r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+        for r in store.search_runs(
+            experiment_ids=[experiment_id],
+            filter_string="",
+            run_view_type=ViewType.ALL,
+            order_by=order_clauses,
+        )
+    ]
+
+
 def test_default_experiment(store: SqlAlchemyStore):
     experiments = store.search_experiments()
     assert len(experiments) == 1
@@ -1346,6 +1372,313 @@ def test_restore_experiment(store: SqlAlchemyStore):
     assert restored.last_update_time > deleted.last_update_time
 
 
+def test_delete_restore_run(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    assert run.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
+
+    # Verify that active runs can be restored (run restoration is idempotent)
+    store.restore_run(run.info.run_id)
+
+    # Verify that run deletion is idempotent
+    store.delete_run(run.info.run_id)
+    store.delete_run(run.info.run_id)
+
+    deleted = store.get_run(run.info.run_id)
+    assert deleted.info.run_id == run.info.run_id
+    assert deleted.info.lifecycle_stage == entities.LifecycleStage.DELETED
+    with store.ManagedSessionMaker() as session:
+        assert store._get_run(session, deleted.info.run_id).deleted_time is not None
+    # Verify that restoration of a deleted run is idempotent
+    store.restore_run(run.info.run_id)
+    store.restore_run(run.info.run_id)
+    restored = store.get_run(run.info.run_id)
+    assert restored.info.run_id == run.info.run_id
+    assert restored.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
+    with store.ManagedSessionMaker() as session:
+        assert store._get_run(session, restored.info.run_id).deleted_time is None
+
+
+def test_error_logging_to_deleted_run(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "error_logging")
+    run_id = _run_factory(store, _get_run_configs(experiment_id=exp)).info.run_id
+
+    store.delete_run(run_id)
+    assert store.get_run(run_id).info.lifecycle_stage == entities.LifecycleStage.DELETED
+    with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
+        store.log_param(run_id, entities.Param("p1345", "v1"))
+
+    with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
+        store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
+
+    with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
+        store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
+
+    # restore this run and try again
+    store.restore_run(run_id)
+    assert store.get_run(run_id).info.lifecycle_stage == entities.LifecycleStage.ACTIVE
+    store.log_param(run_id, entities.Param("p1345", "v22"))
+    store.log_metric(run_id, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
+    store.set_tag(run_id, entities.RunTag("t1345", "tv44"))
+
+    run = store.get_run(run_id)
+    assert run.data.params == {"p1345": "v22"}
+    assert run.data.metrics == {"m1345": 34.0}
+    metric_history = store.get_metric_history(run_id, "m1345")
+    assert len(metric_history) == 1
+    metric_obj = metric_history[0]
+    assert metric_obj.key == "m1345"
+    assert metric_obj.value == 34.0
+    assert metric_obj.timestamp == 85
+    assert metric_obj.step == 1
+    assert {("t1345", "tv44")} <= set(run.data.tags.items())
+
+
+def test_order_by_metric_tag_param(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("order_by_metric")
+
+    def create_and_log_run(names):
+        name = str(names[0]) + "/" + names[1]
+        run_id = store.create_run(
+            experiment_id,
+            user_id="MrDuck",
+            start_time=123,
+            tags=[entities.RunTag("metric", names[1])],
+            run_name=name,
+        ).info.run_id
+        if names[0] is not None:
+            store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
+            store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
+        store.log_param(run_id, entities.Param("metric", names[1]))
+        return run_id
+
+    # the expected order in ascending sort is :
+    # inf > number > -inf > None > nan
+    for names in zip(
+        [None, "nan", "inf", "-inf", "-1000", "0", "0", "1000"],
+        ["1", "2", "3", "4", "5", "6", "7", "8"],
+    ):
+        create_and_log_run(names)
+
+    # asc/asc
+    assert _get_ordered_runs(store, ["metrics.x asc", "metrics.y asc"], experiment_id) == [
+        "-inf/4",
+        "-1000/5",
+        "0/6",
+        "0/7",
+        "1000/8",
+        "inf/3",
+        "nan/2",
+        "None/1",
+    ]
+
+    assert _get_ordered_runs(store, ["metrics.x asc", "tag.metric asc"], experiment_id) == [
+        "-inf/4",
+        "-1000/5",
+        "0/6",
+        "0/7",
+        "1000/8",
+        "inf/3",
+        "nan/2",
+        "None/1",
+    ]
+
+    # asc/desc
+    assert _get_ordered_runs(store, ["metrics.x asc", "metrics.y desc"], experiment_id) == [
+        "-inf/4",
+        "-1000/5",
+        "0/7",
+        "0/6",
+        "1000/8",
+        "inf/3",
+        "nan/2",
+        "None/1",
+    ]
+
+    assert _get_ordered_runs(store, ["metrics.x asc", "tag.metric desc"], experiment_id) == [
+        "-inf/4",
+        "-1000/5",
+        "0/7",
+        "0/6",
+        "1000/8",
+        "inf/3",
+        "nan/2",
+        "None/1",
+    ]
+
+    # desc / asc
+    assert _get_ordered_runs(store, ["metrics.x desc", "metrics.y asc"], experiment_id) == [
+        "inf/3",
+        "1000/8",
+        "0/6",
+        "0/7",
+        "-1000/5",
+        "-inf/4",
+        "nan/2",
+        "None/1",
+    ]
+
+    # desc / desc
+    assert _get_ordered_runs(store, ["metrics.x desc", "param.metric desc"], experiment_id) == [
+        "inf/3",
+        "1000/8",
+        "0/7",
+        "0/6",
+        "-1000/5",
+        "-inf/4",
+        "nan/2",
+        "None/1",
+    ]
+
+
+def test_order_by_attributes(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("order_by_attributes")
+
+    def create_run(start_time, end):
+        return store.create_run(
+            experiment_id,
+            user_id="MrDuck",
+            start_time=start_time,
+            tags=[],
+            run_name=str(end),
+        ).info.run_id
+
+    start_time = 123
+    for end in [234, None, 456, -123, 789, 123]:
+        run_id = create_run(start_time, end)
+        store.update_run_info(run_id, run_status=RunStatus.FINISHED, end_time=end, run_name=None)
+        start_time += 1
+
+    # asc
+    assert _get_ordered_runs(store, ["attribute.end_time asc"], experiment_id) == [
+        "-123",
+        "123",
+        "234",
+        "456",
+        "789",
+        "None",
+    ]
+
+    # desc
+    assert _get_ordered_runs(store, ["attribute.end_time desc"], experiment_id) == [
+        "789",
+        "456",
+        "234",
+        "123",
+        "-123",
+        "None",
+    ]
+
+    # Sort priority correctly handled
+    assert _get_ordered_runs(
+        store, ["attribute.start_time asc", "attribute.end_time desc"], experiment_id
+    ) == ["234", "None", "456", "-123", "789", "123"]
+
+
+def test_search_vanilla(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "search_vanilla")
+    runs = [_run_factory(store, _get_run_configs(exp)).info.run_id for r in range(3)]
+
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ALL))
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ACTIVE_ONLY))
+    assert _search_runs(store, exp, run_view_type=ViewType.DELETED_ONLY) == []
+
+    first = runs[0]
+
+    store.delete_run(first)
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ALL))
+    assert sorted(
+        runs[1:],
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ACTIVE_ONLY))
+    assert _search_runs(store, exp, run_view_type=ViewType.DELETED_ONLY) == [first]
+
+    store.restore_run(first)
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ALL))
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ACTIVE_ONLY))
+    assert _search_runs(store, exp, run_view_type=ViewType.DELETED_ONLY) == []
+
+
+def test_search_params(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "search_params")
+    r1 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+    r2 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+
+    store.log_param(r1, entities.Param("generic_param", "p_val"))
+    store.log_param(r2, entities.Param("generic_param", "p_val"))
+
+    store.log_param(r1, entities.Param("generic_2", "some value"))
+    store.log_param(r2, entities.Param("generic_2", "another value"))
+
+    store.log_param(r1, entities.Param("p_a", "abc"))
+    store.log_param(r2, entities.Param("p_b", "ABC"))
+
+    # test search returns both runs
+    filter_string = "params.generic_param = 'p_val'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    # test search returns appropriate run (same key different values per run)
+    filter_string = "params.generic_2 = 'some value'"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+    filter_string = "params.generic_2 = 'another value'"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+    filter_string = "params.generic_param = 'wrong_val'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_param != 'p_val'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_param != 'wrong_val'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+    filter_string = "params.generic_2 != 'wrong_val'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "params.p_a = 'abc'"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    filter_string = "params.p_a = 'ABC'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.p_a != 'ABC'"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    filter_string = "params.p_b = 'ABC'"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+    filter_string = "params.generic_2 LIKE '%other%'"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+    filter_string = "params.generic_2 LIKE 'other%'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_2 LIKE '%other'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_2 LIKE 'other'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_2 LIKE '%Other%'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_2 ILIKE '%Other%'"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+
 # This unit test class is under refactoring. Please use pytest for new unit tests: #10042
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_store(self, db_uri=""):
@@ -1443,65 +1776,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         return self.store.create_run(**config)
 
-    def test_delete_restore_run(self):
-        run = self._run_factory()
-        assert run.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
-
-        # Verify that active runs can be restored (run restoration is idempotent)
-        self.store.restore_run(run.info.run_id)
-
-        # Verify that run deletion is idempotent
-        self.store.delete_run(run.info.run_id)
-        self.store.delete_run(run.info.run_id)
-
-        deleted = self.store.get_run(run.info.run_id)
-        assert deleted.info.run_id == run.info.run_id
-        assert deleted.info.lifecycle_stage == entities.LifecycleStage.DELETED
-        with self.store.ManagedSessionMaker() as session:
-            assert self.store._get_run(session, deleted.info.run_id).deleted_time is not None
-        # Verify that restoration of a deleted run is idempotent
-        self.store.restore_run(run.info.run_id)
-        self.store.restore_run(run.info.run_id)
-        restored = self.store.get_run(run.info.run_id)
-        assert restored.info.run_id == run.info.run_id
-        assert restored.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
-        with self.store.ManagedSessionMaker() as session:
-            assert self.store._get_run(session, restored.info.run_id).deleted_time is None
-
-    def test_error_logging_to_deleted_run(self):
-        exp = self._experiment_factory("error_logging")
-        run_id = self._run_factory(self._get_run_configs(experiment_id=exp)).info.run_id
-
-        self.store.delete_run(run_id)
-        assert self.store.get_run(run_id).info.lifecycle_stage == entities.LifecycleStage.DELETED
-        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
-            self.store.log_param(run_id, entities.Param("p1345", "v1"))
-
-        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
-            self.store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
-
-        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
-            self.store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
-
-        # restore this run and try again
-        self.store.restore_run(run_id)
-        assert self.store.get_run(run_id).info.lifecycle_stage == entities.LifecycleStage.ACTIVE
-        self.store.log_param(run_id, entities.Param("p1345", "v22"))
-        self.store.log_metric(run_id, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
-        self.store.set_tag(run_id, entities.RunTag("t1345", "tv44"))
-
-        run = self.store.get_run(run_id)
-        assert run.data.params == {"p1345": "v22"}
-        assert run.data.metrics == {"m1345": 34.0}
-        metric_history = self.store.get_metric_history(run_id, "m1345")
-        assert len(metric_history) == 1
-        metric_obj = metric_history[0]
-        assert metric_obj.key == "m1345"
-        assert metric_obj.value == 34.0
-        assert metric_obj.timestamp == 85
-        assert metric_obj.step == 1
-        assert {("t1345", "tv44")} <= set(run.data.tags.items())
-
     # Tests for Search API
     def _search(
         self,
@@ -1526,250 +1800,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 order_by=order_clauses,
             )
         ]
-
-    def test_order_by_metric_tag_param(self):
-        experiment_id = self.store.create_experiment("order_by_metric")
-
-        def create_and_log_run(names):
-            name = str(names[0]) + "/" + names[1]
-            run_id = self.store.create_run(
-                experiment_id,
-                user_id="MrDuck",
-                start_time=123,
-                tags=[entities.RunTag("metric", names[1])],
-                run_name=name,
-            ).info.run_id
-            if names[0] is not None:
-                self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
-                self.store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
-            self.store.log_param(run_id, entities.Param("metric", names[1]))
-            return run_id
-
-        # the expected order in ascending sort is :
-        # inf > number > -inf > None > nan
-        for names in zip(
-            [None, "nan", "inf", "-inf", "-1000", "0", "0", "1000"],
-            ["1", "2", "3", "4", "5", "6", "7", "8"],
-        ):
-            create_and_log_run(names)
-
-        # asc/asc
-        assert self.get_ordered_runs(["metrics.x asc", "metrics.y asc"], experiment_id) == [
-            "-inf/4",
-            "-1000/5",
-            "0/6",
-            "0/7",
-            "1000/8",
-            "inf/3",
-            "nan/2",
-            "None/1",
-        ]
-
-        assert self.get_ordered_runs(["metrics.x asc", "tag.metric asc"], experiment_id) == [
-            "-inf/4",
-            "-1000/5",
-            "0/6",
-            "0/7",
-            "1000/8",
-            "inf/3",
-            "nan/2",
-            "None/1",
-        ]
-
-        # asc/desc
-        assert self.get_ordered_runs(["metrics.x asc", "metrics.y desc"], experiment_id) == [
-            "-inf/4",
-            "-1000/5",
-            "0/7",
-            "0/6",
-            "1000/8",
-            "inf/3",
-            "nan/2",
-            "None/1",
-        ]
-
-        assert self.get_ordered_runs(["metrics.x asc", "tag.metric desc"], experiment_id) == [
-            "-inf/4",
-            "-1000/5",
-            "0/7",
-            "0/6",
-            "1000/8",
-            "inf/3",
-            "nan/2",
-            "None/1",
-        ]
-
-        # desc / asc
-        assert self.get_ordered_runs(["metrics.x desc", "metrics.y asc"], experiment_id) == [
-            "inf/3",
-            "1000/8",
-            "0/6",
-            "0/7",
-            "-1000/5",
-            "-inf/4",
-            "nan/2",
-            "None/1",
-        ]
-
-        # desc / desc
-        assert self.get_ordered_runs(["metrics.x desc", "param.metric desc"], experiment_id) == [
-            "inf/3",
-            "1000/8",
-            "0/7",
-            "0/6",
-            "-1000/5",
-            "-inf/4",
-            "nan/2",
-            "None/1",
-        ]
-
-    def test_order_by_attributes(self):
-        experiment_id = self.store.create_experiment("order_by_attributes")
-
-        def create_run(start_time, end):
-            return self.store.create_run(
-                experiment_id,
-                user_id="MrDuck",
-                start_time=start_time,
-                tags=[],
-                run_name=str(end),
-            ).info.run_id
-
-        start_time = 123
-        for end in [234, None, 456, -123, 789, 123]:
-            run_id = create_run(start_time, end)
-            self.store.update_run_info(
-                run_id, run_status=RunStatus.FINISHED, end_time=end, run_name=None
-            )
-            start_time += 1
-
-        # asc
-        assert self.get_ordered_runs(["attribute.end_time asc"], experiment_id) == [
-            "-123",
-            "123",
-            "234",
-            "456",
-            "789",
-            "None",
-        ]
-
-        # desc
-        assert self.get_ordered_runs(["attribute.end_time desc"], experiment_id) == [
-            "789",
-            "456",
-            "234",
-            "123",
-            "-123",
-            "None",
-        ]
-
-        # Sort priority correctly handled
-        assert self.get_ordered_runs(
-            ["attribute.start_time asc", "attribute.end_time desc"], experiment_id
-        ) == ["234", "None", "456", "-123", "789", "123"]
-
-    def test_search_vanilla(self):
-        exp = self._experiment_factory("search_vanilla")
-        runs = [self._run_factory(self._get_run_configs(exp)).info.run_id for r in range(3)]
-
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ALL))
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        assert self._search(exp, run_view_type=ViewType.DELETED_ONLY) == []
-
-        first = runs[0]
-
-        self.store.delete_run(first)
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ALL))
-        assert sorted(
-            runs[1:],
-        ) == sorted(self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        assert self._search(exp, run_view_type=ViewType.DELETED_ONLY) == [first]
-
-        self.store.restore_run(first)
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ALL))
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        assert self._search(exp, run_view_type=ViewType.DELETED_ONLY) == []
-
-    def test_search_params(self):
-        experiment_id = self._experiment_factory("search_params")
-        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-
-        self.store.log_param(r1, entities.Param("generic_param", "p_val"))
-        self.store.log_param(r2, entities.Param("generic_param", "p_val"))
-
-        self.store.log_param(r1, entities.Param("generic_2", "some value"))
-        self.store.log_param(r2, entities.Param("generic_2", "another value"))
-
-        self.store.log_param(r1, entities.Param("p_a", "abc"))
-        self.store.log_param(r2, entities.Param("p_b", "ABC"))
-
-        # test search returns both runs
-        filter_string = "params.generic_param = 'p_val'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        # test search returns appropriate run (same key different values per run)
-        filter_string = "params.generic_2 = 'some value'"
-        assert self._search(experiment_id, filter_string) == [r1]
-        filter_string = "params.generic_2 = 'another value'"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-        filter_string = "params.generic_param = 'wrong_val'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_param != 'p_val'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_param != 'wrong_val'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-        filter_string = "params.generic_2 != 'wrong_val'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "params.p_a = 'abc'"
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        filter_string = "params.p_a = 'ABC'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.p_a != 'ABC'"
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        filter_string = "params.p_b = 'ABC'"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-        filter_string = "params.generic_2 LIKE '%other%'"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-        filter_string = "params.generic_2 LIKE 'other%'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_2 LIKE '%other'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_2 LIKE 'other'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_2 LIKE '%Other%'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_2 ILIKE '%Other%'"
-        assert self._search(experiment_id, filter_string) == [r2]
 
     def test_search_tags(self):
         experiment_id = self._experiment_factory("search_tags")
