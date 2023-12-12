@@ -60,7 +60,6 @@ from mlflow.sklearn import _SklearnModelWrapper
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils._spark_utils import _create_local_spark_session_for_evaluate
 
 _logger = logging.getLogger(__name__)
 
@@ -1646,15 +1645,13 @@ class DefaultEvaluator(ModelEvaluator):
         artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
         mlflow.log_table(data, artifact_file=artifact_file_name)
         if self.eval_results_path:
-            from pyspark.sql import SparkSession
-
-            spark_session = SparkSession.getActiveSession()
-            if not spark_session:
-                spark_session = _create_local_spark_session_for_evaluate()
-            eval_table_spark = spark_session.createDataFrame(data)
-            eval_table_spark.write.mode("overwrite").format("delta").saveAsTable(
-                self.eval_results_path
-            )
+            eval_table_spark = self.spark_session.createDataFrame(data)
+            try:
+                eval_table_spark.write.mode(self.eval_results_mode).format("delta").saveAsTable(
+                    self.eval_results_path
+                )
+            except Exception as e:
+                _logger.info("Saving eval table to delta table failed. Reason: %s", e)
 
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
@@ -1798,6 +1795,23 @@ class DefaultEvaluator(ModelEvaluator):
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
         self.eval_results_path = self.evaluator_config.get("eval_results_path")
+        self.eval_results_mode = self.evaluator_config.get("eval_results_mode", "overwrite")
+
+        if self.eval_results_path:
+            from mlflow.utils._spark_utils import _get_active_spark_session
+
+            self.spark_session = _get_active_spark_session()
+            if not self.spark_session:
+                raise MlflowException(
+                    message="eval_results_path is only supported in Spark environment. ",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if self.eval_results_mode not in ["overwrite", "append"]:
+                raise MlflowException(
+                    message="eval_results_mode can only be 'overwrite' or 'append'. ",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
         if extra_metrics and custom_metrics:
             raise MlflowException(
