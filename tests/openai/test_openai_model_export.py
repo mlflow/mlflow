@@ -15,13 +15,13 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
-from mlflow.openai.utils import (
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.utils.openai_utils import (
     _exclude_params_from_envs,
     _mock_chat_completion_response,
     _mock_models_retrieve_response,
     _mock_request,
 )
-from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
