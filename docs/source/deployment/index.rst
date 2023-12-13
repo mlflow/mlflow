@@ -98,8 +98,8 @@ MLflow offers support for a variety of deployment targets. For detailed informat
                         <img src="../_static/images/logos/azure-ml-logo.png" alt="AzureML Logo" style="width: 90%"/>
                     </div>
                     <p>
-                        MLflow integrates with Azure ML using the <code>azureml-mlflow</code> library, which enables you to deploy MLflow Model
-                        either to Azure Kubernetes Service (AKS) or Azure Container Instances (ACI) for online serving.
+                        MLflow integrates seamlessly with Azure ML. You can deploy MLflow Model to the Azure ML managed online/batch endpoints,
+                        or to Azure Container Instances (ACI) / Azure Kubernetes Service (AKS).
                     </p>
                 </a>
             </div>
