@@ -3,13 +3,13 @@ import os
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils import rest_utils
 from mlflow.utils.openai_utils import (
     REQUEST_URL_CHAT,
     _OAITokenHolder,
     _OpenAIApiConfig,
     _OpenAIEnvVar,
 )
+from mlflow.utils.rest_utils import augmented_raise_for_status
 
 _logger = logging.getLogger(__name__)
 
@@ -199,7 +199,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
                 headers=request_header,
             )
 
-            rest_utils.augmented_raise_for_status(response)
+            augmented_raise_for_status(response)
 
             return response.json()
 
@@ -226,7 +226,7 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
                 headers=request_header,
             )
 
-            rest_utils.augmented_raise_for_status(response)
+            augmented_raise_for_status(response)
 
             return response.json()
 
