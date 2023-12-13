@@ -657,12 +657,12 @@ def get_decorator_data(obj, set_default=False):
         The decorator data or ``None``.
     """
     if inspect.isclass(obj):
-        datas = getattr(obj, _DECORATOR_DATA, {})
-        data = datas.setdefault(obj, None)
+        data_recs = getattr(obj, _DECORATOR_DATA, {})
+        data = data_recs.setdefault(obj, None)
         if data is None and set_default:
             data = DecoratorData()
-            datas[obj] = data
-            setattr(obj, _DECORATOR_DATA, datas)
+            data_recs[obj] = data
+            setattr(obj, _DECORATOR_DATA, data_recs)
     else:
         data = getattr(obj, _DECORATOR_DATA, None)
         if data is None and set_default:
