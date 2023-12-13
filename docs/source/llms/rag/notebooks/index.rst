@@ -10,8 +10,32 @@ a RAG application that answers questions about MLflow documentation.
     :maxdepth: 1
     :hidden:
 
+    mlflow-e2e-evaluation.ipynb
     question-generation-retrieval-evaluation.ipynb
     retriever-evaluation-tutorial.ipynb
+
+
+End-to-End LLM RAG Evaluation Tutorial
+--------------------------------------
+
+This notebook, intended for use with the Databricks platform, showcases a full end-to-end example of how to configure, create, and interface with 
+a full RAG system. The example used in this tutorial uses the documentation of MLflow as the corpus of embedded documents that the RAG application will 
+use to answer questions. Using ChromaDB to store the document embeddings and LangChain to orchestrate the RAG application, we'll use MLflow's `evaluate` 
+functionality to evaluate the retrieved documents from our corpus based on a series of questions.
+
+If you would like to try this notebook out on Databricks, you can import it directly from the Databricks Workspace. If you would like a local copy to 
+manually import into your Workspace, you can download it here:
+
+.. raw:: html
+
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/rag/notebooks/mlflow-e2e-evaluation.ipynb" class="notebook-download-btn">Download the notebook</a><br/>
+
+To follow along and see the sections of the notebook guide, click below:
+
+.. raw:: html
+
+    <a href="mlflow-e2e-evaluation.html" class="download-btn">View the Notebook</a><br/>
+
 
 Question Generation for RAG Tutorial
 ------------------------------------
