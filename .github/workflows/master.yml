@@ -231,17 +231,13 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
           source ./dev/install-common-deps.sh
           pip install pyspark torch transformers
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          source .venv/bin/activate
           pytest tests/evaluate
 
   pyfunc:
