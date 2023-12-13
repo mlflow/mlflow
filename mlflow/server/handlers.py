@@ -548,7 +548,7 @@ def get_artifact_handler():
     request_dict = parser.parse(query_string, normalized=True)
     run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
     path = request_dict["path"]
-    validate_path_is_safe(path)
+    path = validate_path_is_safe(path)
     run = _get_tracking_store().get_run(run_id)
 
     if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
@@ -941,7 +941,7 @@ def _list_artifacts():
     response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
         path = request_message.path
-        validate_path_is_safe(path)
+        path = validate_path_is_safe(path)
     else:
         path = None
     run_id = request_message.run_id or request_message.run_uuid
@@ -1236,7 +1236,7 @@ def upload_artifact_handler():
             message="Request must specify path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    validate_path_is_safe(path)
+    path = validate_path_is_safe(path)
 
     if request.content_length and request.content_length > 10 * 1024 * 1024:
         raise MlflowException(
@@ -1660,7 +1660,7 @@ def get_model_version_artifact_handler():
     name = request_dict.get("name")
     version = request_dict.get("version")
     path = request_dict["path"]
-    validate_path_is_safe(path)
+    path = validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -1886,7 +1886,7 @@ def _download_artifact(artifact_path):
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
     """
-    validate_path_is_safe(artifact_path)
+    artifact_path = validate_path_is_safe(artifact_path)
     tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
@@ -1911,7 +1911,7 @@ def _upload_artifact(artifact_path):
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
-    validate_path_is_safe(artifact_path)
+    artifact_path = validate_path_is_safe(artifact_path)
     head, tail = posixpath.split(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
@@ -1937,11 +1937,7 @@ def _list_artifacts_mlflow_artifacts():
     (a relative path from the root artifact directory).
     """
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
-    if request_message.HasField("path"):
-        validate_path_is_safe(request_message.path)
-        path = request_message.path
-    else:
-        path = None
+    path = validate_path_is_safe(request_message.path) if request_message.HasField("path") else None
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
     for file_info in artifact_repo.list_artifacts(path):
@@ -1962,7 +1958,7 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
     `path` (a relative path from the root artifact directory).
     """
-    validate_path_is_safe(artifact_path)
+    artifact_path = validate_path_is_safe(artifact_path)
     _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     artifact_repo.delete_artifacts(artifact_path)
@@ -1984,7 +1980,7 @@ def _create_multipart_upload_artifact(artifact_path):
     A request handler for `POST /mlflow-artifacts/mpu/create` to create a multipart upload
     to `artifact_path` (a relative path from the root artifact directory).
     """
-    validate_path_is_safe(artifact_path)
+    artifact_path = validate_path_is_safe(artifact_path)
 
     request_message = _get_request_message(
         CreateMultipartUpload(),
@@ -2017,7 +2013,7 @@ def _complete_multipart_upload_artifact(artifact_path):
     A request handler for `POST /mlflow-artifacts/mpu/complete` to complete a multipart upload
     to `artifact_path` (a relative path from the root artifact directory).
     """
-    validate_path_is_safe(artifact_path)
+    artifact_path = validate_path_is_safe(artifact_path)
 
     request_message = _get_request_message(
         CompleteMultipartUpload(),
@@ -2050,7 +2046,7 @@ def _abort_multipart_upload_artifact(artifact_path):
     A request handler for `POST /mlflow-artifacts/mpu/abort` to abort a multipart upload
     to `artifact_path` (a relative path from the root artifact directory).
     """
-    validate_path_is_safe(artifact_path)
+    artifact_path = validate_path_is_safe(artifact_path)
 
     request_message = _get_request_message(
         AbortMultipartUpload(),
