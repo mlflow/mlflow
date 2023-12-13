@@ -36,11 +36,11 @@ Tutorial
             <div class="simple-card">
                 <a href="tutorial.html">
                     <div class="header">
-                        End-to-end MLflow journey and deployment to Kubernetes
+                        Develop ML model with MLflow and deploy to Kubernetes
                     </div>
                     <p>
                         This tutorial walks you through the end-to-end ML development process from training a machine learning mdoel,
-                        compare the performance, and deploy the model to Kubernetes.
+                        compare the performance, and deploy the model to Kubernetes using KServe.
                     </p>
                 </a>
             </div>
