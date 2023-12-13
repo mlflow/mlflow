@@ -154,7 +154,7 @@ If you run the above code and log to your local MLflow server (for how to use lo
 you will see results on MLflow UI similar to the screenshot below:
 
 .. figure:: ../../../_static/images/deep-learning/pytorch/guide/pytorch-guide-basic-example-ui.png
-   :alt: Tensorflow Model Signature
+   :alt: Basic Example of PyTorch with MLflow
    :width: 90%
    :align: center
 
@@ -205,7 +205,7 @@ By default MLflow saves your model with `.pth` suffix. A sample code of saving a
 You can view the saved file on MLflow UI, which will be similar to below:
 
 .. figure:: ../../../_static/images/deep-learning/pytorch/guide/pytorch-guide-basic-saving.png
-   :alt: Tensorflow Model Signature
+   :alt: Basic PyTorch Saving
    :width: 90%
    :align: center
 
@@ -214,7 +214,7 @@ MLflow will save the compiled graph.
 
 
 Model Signature
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 A model signature is a description of a model's input and output. A model signature is not necessary for loading
 a model, you can still load the model and perform inferenece if you know the input format. However, it's a good
@@ -293,6 +293,6 @@ After setting the signature, you can include it when calling :py:func:`mlflow.py
 In your MLflow UI you should be able to see the signature of your model as the screenshot below:
 
 .. figure:: ../../../_static/images/deep-learning/pytorch/guide/pytorch-guide-model-signature.png
-   :alt: Tensorflow Model SignatureR
+   :alt: PyTorch Model Signature
    :width: 90%
    :align: center
