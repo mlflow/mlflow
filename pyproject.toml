@@ -106,8 +106,8 @@ forced-separate = ["tests"]
 
 [tool.codespell]
 # TODO: remove skipping .java
-skip = '.git,*.pdf,*.svg,go.sum,*.lock,*.css,*.min.*,releases,pypi_package_index.json,pdf.worker.js,*.map,*.csv,*.java,pom.xml'
+skip = '.git,*.pdf,*.svg,go.sum,*.lock,*.css,*.min.*,releases,pypi_package_index.json,pdf.worker.js,*.map,*.csv,*.java,pom.xml,vendor'
 check-hidden = true
 # ignore some camelcased variables and lines with German characters in them
-ignore-regex = '^\s*"image/\S+": ".*|\b(aParent|afterAll|ALS|doubleClick)\b|.*(\bIch bin\b|ß).*|\bwit\.\.\.|{ques}|.*codespell-ignore.*'
-ignore-words-list = 'astroid,crate,nd,rouge'
+ignore-regex = '^\s*"image/\S+": ".*|.*data:application/font.*|\b(aParent|afterAll|ALS|doubleClick)\b|.*(\bIch bin\b|ß).*|\b[a-zA-Z]+\.\.\..*",?$|.*codespell-ignore.*'
+ignore-words-list = 'aci,als,astroid,convertor,crate,fpr,juli,mape,nd,ques,rouge'
