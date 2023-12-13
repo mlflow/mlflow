@@ -105,7 +105,9 @@ forced-separate = ["tests"]
 "pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."
 
 [tool.codespell]
-skip = '.git,*.pdf,*.svg,go.sum,*.lock,*.css,*.min.*,releases,pypi_package_index.json'
+# TODO: remove skipping .java
+skip = '.git,*.pdf,*.svg,go.sum,*.lock,*.css,*.min.*,releases,pypi_package_index.json,pdf.worker.js,*.map,*.csv,*.java,pom.xml'
 check-hidden = true
-ignore-regex = '^\s*"image/\S+": ".*'
-# ignore-words-list = ''
+# ignore some camelcased variables and lines with German characters in them
+ignore-regex = '^\s*"image/\S+": ".*|\b(aParent|afterAll|ALS|doubleClick)\b|.*(\bIch bin\b|ß).*|\bwit\.\.\.|{ques}'
+ignore-words-list = 'astroid,crate,nd,rouge'
