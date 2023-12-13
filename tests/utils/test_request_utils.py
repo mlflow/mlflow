@@ -58,3 +58,105 @@ def test_download_chunk_incomplete_read(tmp_path):
                 download_path=download_path,
                 http_uri="https://example.com",
             )
+
+
+@pytest.mark.parametrize("env_value", ["0", "false", "False", "FALSE"])
+def test_redirects_disabled_if_env_var_set(monkeypatch, env_value):
+    monkeypatch.setenv("MLFLOW_ALLOW_HTTP_REDIRECTS", env_value)
+
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = request_utils.cloud_storage_http_request("GET", "http://localhost:5000")
+
+        assert response.text == "mock response"
+        mock_request.assert_called_once_with(
+            "GET",
+            "http://localhost:5000",
+            allow_redirects=False,
+            timeout=None,
+        )
+
+
+@pytest.mark.parametrize("env_value", ["1", "true", "True", "TRUE"])
+def test_redirects_enabled_if_env_var_set(monkeypatch, env_value):
+    monkeypatch.setenv("MLFLOW_ALLOW_HTTP_REDIRECTS", env_value)
+
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = request_utils.cloud_storage_http_request(
+            "GET",
+            "http://localhost:5000",
+        )
+
+        assert response.text == "mock response"
+        mock_request.assert_called_once_with(
+            "GET",
+            "http://localhost:5000",
+            allow_redirects=True,
+            timeout=None,
+        )
+
+
+@pytest.mark.parametrize("env_value", ["0", "false", "False", "FALSE"])
+def test_redirect_kwarg_overrides_env_value_false(monkeypatch, env_value):
+    monkeypatch.setenv("MLFLOW_ALLOW_HTTP_REDIRECTS", env_value)
+
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = request_utils.cloud_storage_http_request(
+            "GET", "http://localhost:5000", allow_redirects=True
+        )
+
+        assert response.text == "mock response"
+        mock_request.assert_called_once_with(
+            "GET",
+            "http://localhost:5000",
+            allow_redirects=True,
+            timeout=None,
+        )
+
+
+@pytest.mark.parametrize("env_value", ["1", "true", "True", "TRUE"])
+def test_redirect_kwarg_overrides_env_value_true(monkeypatch, env_value):
+    monkeypatch.setenv("MLFLOW_ALLOW_HTTP_REDIRECTS", env_value)
+
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = request_utils.cloud_storage_http_request(
+            "GET", "http://localhost:5000", allow_redirects=False
+        )
+
+        assert response.text == "mock response"
+        mock_request.assert_called_once_with(
+            "GET",
+            "http://localhost:5000",
+            allow_redirects=False,
+            timeout=None,
+        )
+
+
+def test_redirects_enabled_by_default():
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = request_utils.cloud_storage_http_request(
+            "GET",
+            "http://localhost:5000",
+        )
+
+        assert response.text == "mock response"
+        mock_request.assert_called_once_with(
+            "GET",
+            "http://localhost:5000",
+            allow_redirects=True,
+            timeout=None,
+        )
