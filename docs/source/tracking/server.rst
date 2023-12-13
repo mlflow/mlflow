@@ -19,7 +19,7 @@ Starting the tracking server is as simple as running the following command:
 
     mlflow server --host 127.0.0.1 --port 8080
 
-Once the server starts runing, you should see the following output:
+Once the server starts running, you should see the following output:
 
 .. code-block::
 

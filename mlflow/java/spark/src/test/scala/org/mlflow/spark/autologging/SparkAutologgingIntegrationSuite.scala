@@ -253,7 +253,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     }
   }
 
-  test("Initializing MlflowAutologEventPublisher fails if SparkSession doesn't exixt") {
+  test("Initializing MlflowAutologEventPublisher fails if SparkSession doesn't exist") {
     MlflowAutologEventPublisher.stop()
     spark.stop()
     try {

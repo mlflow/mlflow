@@ -2,7 +2,7 @@ FROM python:3.8
 
 WORKDIR /app
 
-# Install packages requied to interact with PostgreSQL and MinIO
+# Install packages required to interact with PostgreSQL and MinIO
 RUN pip install psycopg2 boto3
 # Install the dev version of mlflow via wheel
 COPY dist ./dist

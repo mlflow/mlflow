@@ -349,7 +349,7 @@ To use the Model Registry functionality with MLflow tracking, you **must use dat
 Once a model has been logged, you can add, modify, update, or delete the model in the Model Registry through the UI or the API. 
 See `Backend Stores <tracking/backend-stores.html>`_ and :ref:`Common Setups <tracking_setup>` for how to configures backend store properly for your workflow.
 
-How to include additional decription texts about the run?
+How to include additional description texts about the run?
 ---------------------------------------------------------
 A system tag ``mlflow.note.content`` can be used to add descriptive note about this run. While the other :ref:`system tags <system_tags>` are set automatically,
 this tag is **not set by default** and users can override it to include additional information about the run. The content will be displayed on the run's page under

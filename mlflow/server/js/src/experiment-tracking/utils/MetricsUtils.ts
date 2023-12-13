@@ -56,7 +56,7 @@ export const normalizeInfinity = (value: number | string) => {
 /**
  * We consider maximum IEEE 754 values (1.79...e+308) as "infinity-like" values
  * due to the backend's behavior and existing API contract. This function maps all
- * extermal ("infinity-like") metric values to NaN values so they will be
+ * external ("infinity-like") metric values to NaN values so they will be
  * displayed correctly on plot.
  */
 export const normalizeMetricsHistoryEntry = ({

@@ -733,7 +733,7 @@ export class MetricsPlotPanel extends React.Component<
             )}
             <Spinner size='large' css={{ visibility: loading ? 'visible' : 'hidden' }} />
             <MetricsPlotView
-              // @ts-expect-error TS(2322): Type '{ runUuids: string[]; runDisplayNames: strin... Remove this comment to see the full error message
+              // @ts-expect-error TS(2322): Type '{ runUuids: string[]; runDisplayNames: string... Remove this comment to see the full error message
               runUuids={runUuids}
               runDisplayNames={runDisplayNames}
               xAxis={selectedXAxis}

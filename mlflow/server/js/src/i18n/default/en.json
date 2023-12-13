@@ -121,7 +121,7 @@
   },
   "1jPG5D": {
     "defaultMessage": "Creator",
-    "description": "Lable name for the creator under details tab on the model view page"
+    "description": "Label name for the creator under details tab on the model view page"
   },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
