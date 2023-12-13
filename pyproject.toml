@@ -109,5 +109,5 @@ forced-separate = ["tests"]
 skip = '.git,*.pdf,*.svg,go.sum,*.lock,*.css,*.min.*,releases,pypi_package_index.json,pdf.worker.js,*.map,*.csv,*.java,pom.xml,vendor'
 check-hidden = true
 # ignore some camelcased variables and lines with German characters in them
-ignore-regex = '^\s*"image/\S+": ".*|.*data:application/font.*|\b(aParent|afterAll|ALS|doubleClick)\b|.*(\bIch bin\b|ß).*|\b[a-zA-Z]+\.\.\..*",?$|.*codespell-ignore.*'
+ignore-regex = '^\s*"image/\S+": ".*|.*data:application/font.*|\b(aParent|afterAll|ALS|doubleClick)\b|.*(\bIch bin\b|ß).*|\b[a-zA-Z]+\.\.\..*",?$|.*codespell-ignore.*|"lates"|\|fixe\|'
 ignore-words-list = 'aci,als,astroid,convertor,crate,fpr,juli,mape,nd,ques,rouge'
