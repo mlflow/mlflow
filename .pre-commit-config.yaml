@@ -61,3 +61,10 @@ repos:
         entry: dev/mlflow-typo.sh
         language: system
         stages: [commit]
+
+- repo: https://github.com/codespell-project/codespell
+  rev: v2.2.6
+  hooks:
+  - id: codespell
+    additional_dependencies:
+    - tomli
