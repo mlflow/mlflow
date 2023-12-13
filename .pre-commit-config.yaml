@@ -28,6 +28,13 @@ repos:
         types_or: [python, rst, markdown]
         stages: [commit]
 
+      - id: codespell
+        name: codespell
+        entry: codespell
+        language: system
+        types_or: [python, jupyter, rst, markdown]
+        stages: [commit]
+      
       - id: pylint
         name: pylint
         entry: pylint
@@ -61,10 +68,3 @@ repos:
         entry: dev/mlflow-typo.sh
         language: system
         stages: [commit]
-
-- repo: https://github.com/codespell-project/codespell
-  rev: v2.2.6
-  hooks:
-  - id: codespell
-    additional_dependencies:
-    - tomli
