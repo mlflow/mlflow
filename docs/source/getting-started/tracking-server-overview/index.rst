@@ -200,7 +200,7 @@ To set up Databricks CE authentication, we can use the API :py:func:`mlflow.logi
 * **Username**: Your email address that signs in Databricks CE.
 * **Password**: Your password of Databricks CE.
 
-If the authentication succeeds, you should see a message "Succesfully signed in Databricks!".
+If the authentication succeeds, you should see a message "Successfully signed in Databricks!".
 
 .. code-block:: python
 
@@ -215,7 +215,7 @@ If the authentication succeeds, you should see a message "Succesfully signed in 
   Databricks Host (should begin with https://): https://community.cloud.databricks.com/
   Username: weirdmouse@gmail.com
   Password: ··········
-  2023/10/25 22:59:38 INFO mlflow.utils.credentials: Succesfully signed in Databricks!
+  2023/10/25 22:59:38 INFO mlflow.utils.credentials: Successfully signed in Databricks!
 
 
 Connect MLflow Session to Databricks CE

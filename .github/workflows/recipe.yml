@@ -77,7 +77,7 @@ jobs:
           git clone https://github.com/cdarlint/winutils /tmp/winutils
       - name: Run tests
         env:
-          # The default pooling implmentation 'QueuePool' can lead to errors on Windows when
+          # The default pooling implementation 'QueuePool' can lead to errors on Windows when
           # multiple threads access the same SQLite database file simultaneously.
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |

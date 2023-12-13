@@ -176,7 +176,7 @@ class BaseCard:
 
     def to_html(self) -> str:
         """
-        This funtion renders the Jinja2 template based on the provided context so far.
+        This function renders the Jinja2 template based on the provided context so far.
 
         :return: a HTML string
         """

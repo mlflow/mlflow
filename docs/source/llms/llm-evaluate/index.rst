@@ -264,7 +264,7 @@ needs the following information:
 
 * ``name``: the name of your custom metric.
 * ``definition``: describe what's the metric doing. 
-* ``grading_prompt``: describe the scoring critieria. 
+* ``grading_prompt``: describe the scoring criteria. 
 * ``examples``: a few input/output examples with score, they are used as a reference for LLM judge.
 * ``model``: the identifier of LLM judge, in the format of "openai:/gpt-4" or "endpoints:/databricks-llama-2-70b-chat".  
 * ``parameters``: the extra parameters to send to LLM judge, e.g., ``temperature`` for ``"openai:/gpt-3.5-turbo-16k"``.
@@ -536,7 +536,7 @@ Viewing Evaluation Results
 View Evaluation Results via Code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instace. 
+``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instance. 
 To see the score on selected metrics, you can check:
 
 * ``metrics``: stores the aggregated results, like average/variance across the evaluation dataset. Let's take a second

@@ -81,6 +81,6 @@ print(
 )
 print(f"\nPyfunc 'predict_interval':\n${loaded_pyfunc.predict(predict_conf)}")
 
-# Print the run id wich is used for serving the model to a local REST API endpoint
+# Print the run id which is used for serving the model to a local REST API endpoint
 # in the score_model.py module
 print(f"\nMLflow run id:\n{run.info.run_id}")

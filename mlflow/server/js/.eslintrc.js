@@ -489,7 +489,7 @@ module.exports = {
         '@typescript-eslint/explicit-function-return-type': 'off',
         // Do not require to type every import from a JS file to speed up development
         '@typescript-eslint/no-explicit-any': 'off',
-        // Do not complain about useless contructors in declaration files
+        // Do not complain about useless constructors in declaration files
         'no-useless-constructor': 'off',
         'no-empty-function': 'off',
         '@typescript-eslint/no-empty-function': ['error', { allow: ['arrowFunctions', 'methods'] }],

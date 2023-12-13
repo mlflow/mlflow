@@ -24,7 +24,7 @@ mlflow.pyfunc
         the last datetime value of the training dataset, utilizing the frequency of the input
         training series when the model was trained. (for example, if the training data series
         elements represent one value per hour, in order to forecast 3 hours of future data, set
-        the column ``fh`` to ``[1,2,3]``. If the paramter is not provided it must be passed
+        the column ``fh`` to ``[1,2,3]``. If the parameter is not provided it must be passed
         during fit(). (Default: ``None``)
     * ``X`` (optional) - exogenous regressor values as a 2D numpy ndarray or list of values for future
         time period events. For more information, read the underlying library explanation

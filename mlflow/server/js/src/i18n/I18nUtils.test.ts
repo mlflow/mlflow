@@ -26,7 +26,7 @@ describe('I18nUtils', () => {
 
   const setQueryLocale = (locale: any) => {
     oldLocation = window.location;
-    // @ts-expect-error TS(2790): The operand of a 'delete' operator must be optiona... Remove this comment to see the full error message
+    // @ts-expect-error TS(2790): The operand of a 'delete' operator must be optional... Remove this comment to see the full error message
     delete window.location;
     // @ts-expect-error TS(2322): Type '{ search: string; }' is not assignable to ty... Remove this comment to see the full error message
     window.location = { search: `?l=${locale}` };

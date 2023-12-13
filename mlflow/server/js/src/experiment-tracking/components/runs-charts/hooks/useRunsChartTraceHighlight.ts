@@ -65,7 +65,7 @@ export const highlightScatterTraces = highlightChartTracesFn(
  *
  * @param containerDiv HTML element containing the chart
  * @param selectedRunUuid currently selected run UUID (set to -1 if none)
- * @param runsData array containing run informations, should be the same order as provided to the chart
+ * @param runsData array containing run information, should be the same order as provided to the chart
  * @param highlightFn a styling function that will be called when the trace should be (un)highlighted, please refer to `highlightCallbackFn()`
  */
 export const useRunsChartTraceHighlight = (

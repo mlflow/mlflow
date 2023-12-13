@@ -116,7 +116,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
                  paste(args, collapse = "/"),
                  "' failed with error code ",
                  response$status_code,
-                 ". Reponse body: '",
+                 ". Response body: '",
                  message_body,
                  "'",
                  sep = "")

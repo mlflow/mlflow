@@ -138,7 +138,7 @@ class APIRequest:
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
-                    # does not accept dictionaries as input, it leads to erros like
+                    # does not accept dictionaries as input, it leads to errors like
                     # Expected Scalar value for String field \'query_text\'\\n
                     try:
                         response = self.lc_model.invoke(self.request_json)

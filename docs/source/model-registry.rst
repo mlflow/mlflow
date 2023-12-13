@@ -74,7 +74,7 @@ Find Registered Models
 
 After you've registered your models in the Model Registry, you can navigate to them in the following ways.
 
-- Navigate to the **Registered Models** page, which links to your registered models and correponding model versions.
+- Navigate to the **Registered Models** page, which links to your registered models and corresponding model versions.
 
   .. figure:: _static/images/oss_registry_3_overview.png
 
@@ -89,7 +89,7 @@ You can deploy and organize your models in the Model Registry using model aliase
 
 .. figure:: _static/images/oss_registry_4_model.png
 
-You can add or edit aliases and tags for a specific model version by clicking on the corresponding ``Add`` link or pencil icon in the model verison table.
+You can add or edit aliases and tags for a specific model version by clicking on the corresponding ``Add`` link or pencil icon in the model version table.
 
 .. figure:: _static/images/oss_registry_4b_model_alias.png
 

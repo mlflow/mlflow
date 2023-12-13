@@ -2,7 +2,7 @@
 Artifact Stores
 ===============
 
-The artifact store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores (typicaly large) arifacts
+The artifact store is a core component in `MLflow Tracking <../index.html>`_ where MLflow stores (typically large) arifacts
 for each run such as model weights (e.g. a pickled scikit-learn model), images (e.g. PNGs), model and data files (e.g. `Parquet <https://parquet.apache.org/>`_ file). 
 Note that metadata like parameters, metrics, and tags are stored in a `backend store <backend-stores.html>`_ (e.g., PostGres, MySQL, or MSSQL Database), the other component of the MLflow Tracking.
 
@@ -62,11 +62,11 @@ the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` de
 these are available. For more information on how to set credentials, see
 `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_.
 
-Followings are commonly used environment variables for configuring S3 storage access. The complete list of configurable parameters for an S3 client is available in the 
+Following are commonly used environment variables for configuring S3 storage access. The complete list of configurable parameters for an S3 client is available in the 
 `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
 
-Passsing Extra Arguments to S3 Upload
+Passing Extra Arguments to S3 Upload
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To add S3 file upload extra arguments, set ``MLFLOW_S3_UPLOAD_EXTRA_ARGS`` to a JSON object of key/value pairs.
 For example, if you want to upload to a KMS Encrypted bucket using the KMS Key 1234:

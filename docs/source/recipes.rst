@@ -469,7 +469,7 @@ The following profile customizations are supported:
           types (e.g. lists, dictionaries, lists of dictionaries, ...).
 
           .. code-block:: yaml
-            :caption: Example ``recipe.yaml`` configuration file defining an overrideable
+            :caption: Example ``recipe.yaml`` configuration file defining an overridable
                       ``RMSE_THRESHOLD`` attribute for validating model performance with a
                       default value of ``10``
 

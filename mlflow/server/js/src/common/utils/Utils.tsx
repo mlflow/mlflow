@@ -27,7 +27,7 @@ class Utils {
    * Merge a runs parameters / metrics.
    * @param runUuids - A list of Run UUIDs.
    * @param keyValueList - A list of objects. One object for each run.
-   * @retuns A key to a map of (runUuid -> value)
+   * @returns A key to a map of (runUuid -> value)
    */
   static mergeRuns(runUuids: any, keyValueList: any) {
     const ret = {};

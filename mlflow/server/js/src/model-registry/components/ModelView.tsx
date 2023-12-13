@@ -294,7 +294,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
 
         {/* Page Sections */}
         <CollapsibleSection
-          // @ts-expect-error TS(2322): Type '{ children: Element; css: any; title: Elemen... Remove this comment to see the full error message
+          // @ts-expect-error TS(2322): Type '{ children: Element; css: any; title: Element... Remove this comment to see the full error message
           css={(styles as any).collapsiblePanel}
           title={
             <span>

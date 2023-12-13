@@ -63,7 +63,7 @@ export const ExperimentViewRunModals = ({
         selectedRunIds={selectedRunIds}
       />
       <RenameRunModal
-        // @ts-expect-error TS(2322): Type '{ runUuid: string; onClose: () => void; runN... Remove this comment to see the full error message
+        // @ts-expect-error TS(2322): Type '{ runUuid: string; onClose: () => void; run... Remove this comment to see the full error message
         runUuid={selectedRunIds[0]}
         onClose={onCloseRenameRunModal}
         runName={renamedRunName}

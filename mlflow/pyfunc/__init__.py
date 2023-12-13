@@ -2180,7 +2180,7 @@ def _save_model_with_loader_module_and_data_path(
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
+                      Conda environment yaml file. If provided, this describes the environment
                       this model should be run in.
     :return: Model configuration containing model info.
     """

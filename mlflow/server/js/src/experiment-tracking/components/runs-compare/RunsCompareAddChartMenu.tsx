@@ -77,7 +77,7 @@ export const RunsCompareAddChartMenu = ({ onAddChart }: RunsCompareAddChartMenuP
 
 const styles = {
   addChartButton: (theme: Theme) => ({
-    // Overriden while waiting for design decision in DuBois (FEINF-1711)
+    // Overridden while waiting for design decision in DuBois (FEINF-1711)
     backgroundColor: `${theme.colors.backgroundPrimary} !important`,
   }),
   iconWrapper: (theme: Theme) => ({

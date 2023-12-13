@@ -75,7 +75,7 @@ class BaseDeploymentClient(abc.ABC):
     """
     Base class exposing Python model deployment APIs.
 
-    Plugin implementors should define target-specific deployment logic via a subclass of
+    Plugin implementers should define target-specific deployment logic via a subclass of
     ``BaseDeploymentClient`` within the plugin module, and customize method docstrings with
     target-specific information.
 

@@ -34,7 +34,7 @@ describe('persistSearchFacets serializers and deserializers', () => {
     );
   });
 
-  it('tests deserializeToQueryString with erronoeus data', () => {
+  it('tests deserializeToQueryString with erroneous data', () => {
     const deserializedObject = deserializeFieldsFromQueryString({
       compareRunCharts: 'something-not-deserializable',
     });
