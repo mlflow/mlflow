@@ -12,8 +12,8 @@ default_parameters = {
     "max_tokens": 200,
     "top_p": 1.0,
 }
-grading_system_prompt_template = PromptTemplate(
-    """
+
+TASK_DEFINITION = """
 Task:
 You must return the following fields in your response in two lines, one below the other:
 score: Your numerical score for the model's {name} based on the rubric
@@ -29,13 +29,17 @@ You must use the grading rubric to determine your score. You must also justify y
 
 Examples could be included below for reference. Make sure to use them as references and to
 understand them before completing the task.
+"""
 
-Input:
-{input}
+CLOSING = """
+You must return the following fields in your response in two lines, one below the other:
+score: Your numerical score for the model's {name} based on the rubric
+justification: Your reasoning about the model's {name} score
 
-Output:
-{output}
+Do not add additional new lines. Do not add any other fields.
+    """
 
+CONTEXT_DEFINITION_RUBRIC_EXAMPLES = """
 {grading_context_columns}
 
 Metric definition:
@@ -45,13 +49,29 @@ Grading rubric:
 {grading_prompt}
 
 {examples}
+"""
 
-You must return the following fields in your response in two lines, one below the other:
-score: Your numerical score for the model's {name} based on the rubric
-justification: Your reasoning about the model's {name} score
+grading_system_prompt_template = PromptTemplate(
+    TASK_DEFINITION
+    + """
+Input:
+{input}
 
-Do not add additional new lines. Do not add any other fields.
-    """
+Output:
+{output}
+"""
+    + CONTEXT_DEFINITION_RUBRIC_EXAMPLES
+    + CLOSING
+)
+
+grading_system_prompt_template_exclude_input = PromptTemplate(
+    TASK_DEFINITION
+    + """
+Output:
+{output}
+"""
+    + CONTEXT_DEFINITION_RUBRIC_EXAMPLES
+    + CLOSING
 )
 
 
@@ -64,6 +84,7 @@ class EvaluationModel:
     name: str
     definition: str
     grading_prompt: str
+    include_input: bool
     examples: List[EvaluationExample] = None
     model: str = default_model
     parameters: Dict[str, Any] = field(default_factory=lambda: default_parameters)
@@ -75,9 +96,15 @@ class EvaluationModel:
             else f"Examples:\n{self._format_examples()}"
         )
 
+        template = (
+            grading_system_prompt_template
+            if self.include_input
+            else grading_system_prompt_template_exclude_input
+        )
+
         return {
             "model": self.model,
-            "eval_prompt": grading_system_prompt_template.partial_fill(
+            "eval_prompt": template.partial_fill(
                 name=self.name,
                 definition=self.definition,
                 grading_prompt=self.grading_prompt,
