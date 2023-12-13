@@ -63,7 +63,6 @@ MLflow offers support for a variety of deployment targets. For detailed informat
     deploy-model-locally
     deploy-model-to-sagemaker
     deploy-model-to-azure-ml
-    deploy-model-to-databricks
     deploy-model-to-kubernetes/index
     deploy-model-to-ray-serve
 
@@ -104,7 +103,7 @@ MLflow offers support for a variety of deployment targets. For detailed informat
                 </a>
             </div>
             <div class="simple-card">
-                <a href="deploy-model-to-databricks.html">
+                <a href="https://docs.databricks.com/en/mlflow/models.html">
                     <div class="header-with-image">
                         <img src="../_static/images/logos/databricks-logo.png" alt="Databricks Logo" style="width: 90%"/>
                     </div>
