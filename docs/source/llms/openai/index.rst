@@ -157,6 +157,16 @@ to understand in order to get these notebooks to work.
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="notebooks/openai-code-helper.html">
+                    <div class="header">
+                        OpenAI Custom Python Model
+                    </div>
+                    <p>
+                        Learn how to leverage Custom Python Models with a useful Code Helper application that leverages OpenAI Models and MLflow.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
