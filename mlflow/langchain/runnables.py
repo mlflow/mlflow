@@ -4,7 +4,6 @@ from typing import Union
 
 import cloudpickle
 import yaml
-from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils import (
@@ -38,27 +37,15 @@ _BRANCHES_FOLDER_NAME = "branches"
 _RUNNABLE_BRANCHES_FILE_NAME = "branches.yaml"
 _DEFAULT_BRANCH_NAME = "default"
 
-try:
-    from langchain.prompts.loading import type_to_loader_dict as prompts_types
-except ImportError:
-    prompts_types = {"prompt", "few_shot_prompt"}
-
 
 def _load_model_from_config(path, model_config):
-    import langchain
     from langchain.chains.loading import type_to_loader_dict as chains_type_to_loader_dict
+    from langchain.llms import get_type_to_cls_dict as llms_get_type_to_cls_dict
 
-    if Version(langchain.__version__) < Version("0.0.349"):
-        from langchain.llms.loading import get_type_to_cls_dict as llms_get_type_to_cls_dict
-    else:
-        try:
-            from langchain.llms import get_type_to_cls_dict as llms_get_type_to_cls_dict
-        except ImportError:
-
-            def llms_get_type_to_cls_dict():
-                return {}
-
-            return llms_get_type_to_cls_dict
+    try:
+        from langchain.prompts.loading import type_to_loader_dict as prompts_types
+    except ImportError:
+        prompts_types = {"prompt", "few_shot_prompt"}
 
     config_path = os.path.join(path, model_config.get(_MODEL_DATA_KEY, _MODEL_DATA_YAML_FILE_NAME))
     # Load runnables from config file
