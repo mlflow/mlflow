@@ -38,11 +38,12 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, app
 from mlflow.server.handlers import (
     _create_experiment,
     _create_model_version,
     _create_registered_model,
+    _delete_artifact_mlflow_artifacts,
     _delete_model_version,
     _delete_model_version_tag,
     _delete_registered_model,
@@ -103,6 +104,11 @@ def mock_model_registry_store():
         mock_store = mock.MagicMock()
         m.return_value = mock_store
         yield mock_store
+
+
+@pytest.fixture
+def enable_serve_artifacts(monkeypatch):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
 
 
 def test_health():
@@ -777,3 +783,22 @@ def test_get_model_version_by_alias(mock_get_request_message, mock_model_registr
     _, args = mock_model_registry_store.get_model_version_by_alias.call_args
     assert args == {"name": name, "alias": alias}
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mvd)}
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "path/../to/file",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/file://etc/passwd",
+        "%2E%2E%2F%2E%2E%2Fpath",
+    ],
+)
+def test_delete_artifact_mlflow_artifacts_throws_for_malicious_path(enable_serve_artifacts, path):
+    response = _delete_artifact_mlflow_artifacts(path)
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert json_response["message"] == "Invalid path"

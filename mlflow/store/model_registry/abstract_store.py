@@ -14,10 +14,12 @@ AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
 
 
 @developer_stable
-class AbstractStore(metaclass=ABCMeta):
+class AbstractStore:
     """
     Abstract class that defines API interfaces for storing Model Registry metadata.
     """
+
+    __metaclass__ = ABCMeta
 
     def __init__(self, store_uri=None, tracking_uri=None):
         """

@@ -90,6 +90,10 @@ jobs:
           git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
           git fetch base ${{ needs.check-comment.outputs.base_ref }}
           git merge base/${{ needs.check-comment.outputs.base_ref }}
+      - uses: ./.github/actions/setup-python
+      - run: |
+          pip install -r requirements/lint-requirements.txt
+          pre-commit install
       # ************************************************************************
       # Prettier
       # ************************************************************************
@@ -109,11 +113,6 @@ jobs:
       # ************************************************************************
       # python
       # ************************************************************************
-      - if: steps.diff.outputs.python == 'true'
-        uses: ./.github/actions/setup-python
-      - if: steps.diff.outputs.python == 'true'
-        run: |
-          pip install -r requirements/lint-requirements.txt
       - if: steps.diff.outputs.python == 'true'
         run: |
           ruff --fix .

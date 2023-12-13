@@ -30,8 +30,12 @@ from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.tracking.artifact_utils import get_artifact_uri as utils_get_artifact_uri
+from mlflow.tracking.artifact_utils import (
+    _download_artifact_from_uri,
+)
+from mlflow.tracking.artifact_utils import (
+    get_artifact_uri as utils_get_artifact_uri,
+)
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -1083,11 +1087,6 @@ def test_save_and_load_model_with_special_chars(
     )
 
 
-class TestPythonModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context, model_input, params=None):
-        raise NotImplementedError("This model used to test the PythonModel API")
-
-
 def test_model_with_code_path_containing_main(tmp_path):
     """Test that the __main__ module is unaffected by model loading"""
     directory = tmp_path.joinpath("model_with_main")
@@ -1097,7 +1096,7 @@ def test_model_with_code_path_containing_main(tmp_path):
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model",
-            python_model=TestPythonModel(),
+            python_model=mlflow.pyfunc.model.PythonModel(),
             code_path=[str(directory)],
         )
 
@@ -1112,7 +1111,7 @@ def test_model_save_load_with_metadata(tmp_path):
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         conda_env=_conda_env(),
-        python_model=TestPythonModel(),
+        python_model=mlflow.pyfunc.model.PythonModel(),
         metadata={"metadata_key": "metadata_value"},
     )
 
@@ -1125,7 +1124,7 @@ def test_model_log_with_metadata():
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             artifact_path=pyfunc_artifact_path,
-            python_model=TestPythonModel(),
+            python_model=mlflow.pyfunc.model.PythonModel(),
             metadata={"metadata_key": "metadata_value"},
         )
         pyfunc_model_uri = f"runs:/{mlflow.active_run().info.run_id}/{pyfunc_artifact_path}"
@@ -1465,3 +1464,19 @@ def test_load_model_fails_for_feature_store_models(tmp_path):
         MlflowException, match="mlflow.pyfunc.load_model is not supported for Feature Store models"
     ):
         mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+
+
+def test_pyfunc_model_infer_signature_from_type_hints(model_path):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: List[str], params=None) -> List[str]:
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=TestModel(),
+            artifact_path="test_model",
+            input_example=["a"],
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.metadata.get_input_schema().to_dict() == [{"type": "string"}]
+    pd.testing.assert_frame_equal(pyfunc_model.predict(["a", "b"]), pd.DataFrame(["a", "b"]))

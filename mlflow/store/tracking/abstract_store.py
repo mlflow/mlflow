@@ -10,11 +10,13 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
-class AbstractStore(metaclass=ABCMeta):
+class AbstractStore:
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
     """
+
+    __metaclass__ = ABCMeta
 
     def __init__(self):
         """

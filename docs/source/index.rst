@@ -145,10 +145,10 @@ LLM Guides and Tutorials
             <div class="simple-card">
                 <a href="llms/rag/index.html" >
                     <div class="header">
-                        Question Generation for RAG
+                        Evaluation for RAG
                     </div>
                     <p>
-                        Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                        Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.
                     </p>
                 </a>
             </div>

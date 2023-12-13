@@ -4,7 +4,7 @@ from mlflow.utils.annotations import developer_stable
 
 
 @developer_stable
-class DefaultExperimentProvider(metaclass=ABCMeta):
+class DefaultExperimentProvider:
     """
     Abstract base class for objects that provide the ID of an MLflow Experiment based on the
     current client context. For example, when the MLflow client is running in a Databricks Job,
@@ -17,6 +17,8 @@ class DefaultExperimentProvider(metaclass=ABCMeta):
     ``in_context()`` method returns ``True``; MLflow then calls the provider's
     ``get_experiment_id()`` method and uses the resulting experiment ID for Tracking operations.
     """
+
+    __metaclass__ = ABCMeta
 
     @abstractmethod
     def in_context(self):

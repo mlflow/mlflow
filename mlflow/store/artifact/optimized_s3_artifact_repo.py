@@ -9,12 +9,12 @@ from mimetypes import guess_type
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
+    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.store.artifact.cloud_artifact_repo import (
-    _MULTIPART_UPLOAD_CHUNK_SIZE,
     CloudArtifactRepository,
     _complete_futures,
 )
@@ -127,7 +127,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         key = posixpath.normpath(dest_path)
         if (
             MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
-            and os.path.getsize(src_file_path) > _MULTIPART_UPLOAD_CHUNK_SIZE
+            and os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
         ):
             self._multipart_upload(cloud_credential_info, src_file_path, self.bucket, key)
         else:
@@ -140,7 +140,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         upload_id = response["UploadId"]
 
         # Create presigned URL for each part
-        num_parts = math.ceil(os.path.getsize(local_file) / _MULTIPART_UPLOAD_CHUNK_SIZE)
+        num_parts = math.ceil(
+            os.path.getsize(local_file) / MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+        )
 
         # define helper functions for uploading data
         def _upload_part(part_number, local_file, start_byte, size):
@@ -163,13 +165,13 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             futures = {}
             for index in range(num_parts):
                 part_number = index + 1
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
                 future = self.chunk_thread_pool.submit(
                     _upload_part,
                     part_number=part_number,
                     local_file=local_file,
                     start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
                 )
                 futures[future] = part_number
 
