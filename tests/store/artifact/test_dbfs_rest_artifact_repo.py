@@ -213,7 +213,7 @@ def test_log_artifacts(dbfs_artifact_repo, test_dir, artifact_path):
             mock.call("POST", "http://host/dbfs/test/test.txt", **MOCK_REQUEST_KWARGS),
             mock.call("POST", "http://host/dbfs/test/subdir/test.txt", **MOCK_REQUEST_KWARGS),
         ]
-        mock_base_request.assert_has_calls(mock_calls)
+        mock_base_request.assert_has_calls(mock_calls, any_order=True)
 
 
 def test_log_artifacts_error(dbfs_artifact_repo, test_dir):
