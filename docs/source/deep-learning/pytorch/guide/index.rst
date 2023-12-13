@@ -42,8 +42,8 @@ practices that we recommend you to follow:
 - Log your model architecture at the begnning of training via :py:func:`mlflow.log_artifact()`. You can use
   ``torchinfo`` package to get the model summary.
 - Log training and validation metrics via :py:func:`mlflow.log_metric()` inside your training loop, such as
-  loss and accuracy for classification tasks. If you have multiple metrics per logging step, you can use
-    :py:func:`mlflow.log_metrics()` to log them together.
+  loss and accuracy for classification tasks. If you have multiple metrics per logging step, you can
+  use :py:func:`mlflow.log_metrics()` to log them together.
 - Log your trained/finetuned model to MLflow via `mlflow.pytorch.log_model()` at the end of your training.
 - [Optional] You can also log your model checkpoints to MLflow via :py:func:`mlflow.log_artifact()` during
   training if you wish to keep middle training status.
@@ -73,8 +73,9 @@ The following is an end-to-end example of how to log your PyTorch experiments to
     # Create data loaders.
     train_dataloader = DataLoader(training_data, batch_size=64)
 
-    # Get cpu, gpu or mps device for training.
+    # Get cpu or gpu for training.
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
 
     # Define the model.
     class NeuralNetwork(nn.Module):
@@ -82,17 +83,18 @@ The following is an end-to-end example of how to log your PyTorch experiments to
             super().__init__()
             self.flatten = nn.Flatten()
             self.linear_relu_stack = nn.Sequential(
-                nn.Linear(28*28, 512),
+                nn.Linear(28 * 28, 512),
                 nn.ReLU(),
                 nn.Linear(512, 512),
                 nn.ReLU(),
-                nn.Linear(512, 10)
+                nn.Linear(512, 10),
             )
 
         def forward(self, x):
             x = self.flatten(x)
             logits = self.linear_relu_stack(x)
             return logits
+
 
     def train(dataloader, model, loss_fn, metrics_fn, optimizer):
         model.train()
@@ -112,7 +114,10 @@ The following is an end-to-end example of how to log your PyTorch experiments to
                 loss, current = loss.item(), batch
                 mlflow.log_metric("loss", f"{loss:3f}", step=(batch // 100))
                 mlflow.log_metric("accuracy", f"{accuracy:3f}", step=(batch // 100))
-                print(f"loss: {loss:3f} accuracy: {accuracy:3f} [{current} / {len(dataloader)}]")
+                print(
+                    f"loss: {loss:3f} accuracy: {accuracy:3f} [{current} / {len(dataloader)}]"
+                )
+
 
     epochs = 3
     loss_fn = nn.CrossEntropyLoss()
@@ -148,6 +153,11 @@ If you run the above code and log to your local MLflow server (for how to use lo
 `tracking server overview <https://mlflow.org/docs/latest/getting-started/tracking-server-overview/index.html#method-1-start-your-own-mlflow-server>`_),
 you will see results on MLflow UI similar to the screenshot below:
 
+.. figure:: ../../../_static/images/deep-learning/pytorch/guide/pytorch-guide-basic-example-ui.png
+   :alt: Tensorflow Model Signature
+   :width: 90%
+   :align: center
+
 
 Saving Your PyTorch Model to MLflow
 ------------------------------------
@@ -162,17 +172,18 @@ By default MLflow saves your model with `.pth` suffix. A sample code of saving a
 
     from torch import nn
 
+
     # Define model
     class NeuralNetwork(nn.Module):
         def __init__(self):
             super().__init__()
             self.flatten = nn.Flatten()
             self.linear_relu_stack = nn.Sequential(
-                nn.Linear(28*28, 512),
+                nn.Linear(28 * 28, 512),
                 nn.ReLU(),
                 nn.Linear(512, 512),
                 nn.ReLU(),
-                nn.Linear(512, 10)
+                nn.Linear(512, 10),
             )
 
         def forward(self, x):
@@ -180,18 +191,23 @@ By default MLflow saves your model with `.pth` suffix. A sample code of saving a
             logits = self.linear_relu_stack(x)
             return logits
 
+
     model = NeuralNetwork()
 
     with mlflow.start_run() as run:
         mlflow.pytorch.log_model(model, "model")
 
-    logged_model = f'runs:/{run.info.run_id}/model'
+    logged_model = f"runs:/{run.info.run_id}/model"
     loaded_model = mlflow.pyfunc.load_model(logged_model)
     loaded_model.predict(np.random.uniform(size=[1, 28, 28]).astype(np.float32))
 
 
 You can view the saved file on MLflow UI, which will be similar to below:
 
+.. figure:: ../../../_static/images/deep-learning/pytorch/guide/pytorch-guide-basic-saving.png
+   :alt: Tensorflow Model Signature
+   :width: 90%
+   :align: center
 
 ``mlflow.pytorch.log_model()`` is compatible with ``torch.jit.script()``, if you have a jit-compiled model,
 MLflow will save the compiled graph.
@@ -227,12 +243,9 @@ You can also manually set the signature:
     import numpy as np
     from mlflow.types import Schema, TensorSpec
 
-    input_schema = Schema(
-        [
-            TensorSpec(np.dtype(np.float32), (-1, 28, 28), "input"),
-        ]
-    )
-    signature = ModelSignature(inputs=input_schema)
+    input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 28, 28))])
+    output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
 After setting the signature, you can include it when calling :py:func:`mlflow.pytorch.log_model()`:
 
@@ -243,6 +256,8 @@ After setting the signature, you can include it when calling :py:func:`mlflow.py
 
     from torch import nn
     from mlflow.types import Schema, TensorSpec
+    from mlflow.models import ModelSignature
+
 
     # Define model
     class NeuralNetwork(nn.Module):
@@ -250,11 +265,11 @@ After setting the signature, you can include it when calling :py:func:`mlflow.py
             super().__init__()
             self.flatten = nn.Flatten()
             self.linear_relu_stack = nn.Sequential(
-                nn.Linear(28*28, 512),
+                nn.Linear(28 * 28, 512),
                 nn.ReLU(),
                 nn.Linear(512, 512),
                 nn.ReLU(),
-                nn.Linear(512, 10)
+                nn.Linear(512, 10),
             )
 
         def forward(self, x):
@@ -262,19 +277,22 @@ After setting the signature, you can include it when calling :py:func:`mlflow.py
             logits = self.linear_relu_stack(x)
             return logits
 
+
     model = NeuralNetwork()
-    input_schema = Schema(
-        [
-            TensorSpec(np.dtype(np.float32), (-1, 28, 28), "input"),
-        ]
-    )
-    signature = ModelSignature(inputs=input_schema)
+    input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 28, 28))])
+    output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
     with mlflow.start_run() as run:
         mlflow.pytorch.log_model(model, "model", signature=signature)
 
-    logged_model = f'runs:/{run.info.run_id}/model'
+    logged_model = f"runs:/{run.info.run_id}/model"
     loaded_model = mlflow.pyfunc.load_model(logged_model)
     loaded_model.predict(np.random.uniform(size=[1, 28, 28]).astype(np.float32))
 
 In your MLflow UI you should be able to see the signature of your model as the screenshot below:
+
+.. figure:: ../../../_static/images/deep-learning/pytorch/guide/pytorch-guide-model-signature.png
+   :alt: Tensorflow Model SignatureR
+   :width: 90%
+   :align: center
