@@ -62,7 +62,6 @@ MLflow offers support for a variety of deployment targets. For detailed informat
 
     deploy-model-locally
     deploy-model-to-sagemaker
-    deploy-model-to-azure-ml
     deploy-model-to-kubernetes/index
     deploy-model-to-ray-serve
 
@@ -92,7 +91,7 @@ MLflow offers support for a variety of deployment targets. For detailed informat
                 </a>
             </div>
             <div class="simple-card">
-                <a href="deploy-model-to-azure-ml.html">
+                <a href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models">
                     <div class="header-with-image">
                         <img src="../_static/images/logos/azure-ml-logo.png" alt="AzureML Logo" style="width: 90%"/>
                     </div>
