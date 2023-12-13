@@ -15,7 +15,7 @@ Deploying Inference Server
 Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the `MLflow Tracking Quickstart <../getting-started/index.html>`.
 Remember to note down the model URI, such as ``runs:/<run_id>/model`` (or ``models:/<model_name>/<stage>`` if you registered the model in the `MLflow Model Registry <../model-registry.html>`_).
 
-Once you have the model readt, deploying to a local server is straightforward. Use the `mlflow models serve <../cli.html#mlflow-models-serve>`_ command for a one-step deployment.
+Once you have the model ready, deploying to a local server is straightforward. Use the `mlflow models serve <../cli.html#mlflow-models-serve>`_ command for a one-step deployment.
 This command starts a local server that listens on the specified port and serves your model.
 
 .. tabs::
