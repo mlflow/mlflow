@@ -1,5 +1,5 @@
-import shutil
 import tempfile
+from typing import List
 
 import pandas as pd
 import pytest
@@ -9,7 +9,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 
 
-def language_model(inputs: list[str]) -> list[str]:
+def language_model(inputs: List[str]) -> List[str]:
     return inputs
 
 
@@ -36,26 +36,19 @@ def test_write_to_delta_fails_without_spark():
 
 
 @pytest.fixture
-def spark_session_with_tempdir():
-    tmpdir = tempfile.mkdtemp()
-    spark = (
-        SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-        .config(
+def spark_session_with_delta():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with SparkSession.builder.master("local[*]").config(
+            "spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0"
+        ).config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension").config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-        )
-        .config("spark.sql.warehouse.dir", tmpdir)
-        .getOrCreate()
-    )
-
-    yield spark, tmpdir
-
-    spark.stop()
-    shutil.rmtree(tmpdir)
+        ).config(
+            "spark.sql.warehouse.dir", tmpdir
+        ).getOrCreate() as spark:
+            yield spark, tmpdir
 
 
-def test_write_to_delta_fails_with_invalid_mode(spark_session_with_tempdir):
+def test_write_to_delta_fails_with_invalid_mode(spark_session_with_delta):
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
@@ -77,8 +70,8 @@ def test_write_to_delta_fails_with_invalid_mode(spark_session_with_tempdir):
             )
 
 
-def test_write_eval_table_to_delta(spark_session_with_tempdir):
-    spark_session, tmpdir = spark_session_with_tempdir
+def test_write_eval_table_to_delta(spark_session_with_delta):
+    spark_session, tmpdir = spark_session_with_delta
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]
@@ -108,8 +101,8 @@ def test_write_eval_table_to_delta(spark_session_with_tempdir):
         pd.testing.assert_frame_equal(eval_table_from_delta, eval_table)
 
 
-def test_write_eval_table_to_delta_append(spark_session_with_tempdir):
-    spark_session, tmpdir = spark_session_with_tempdir
+def test_write_eval_table_to_delta_append(spark_session_with_delta):
+    spark_session, tmpdir = spark_session_with_delta
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=language_model, input_example=["a", "b"]

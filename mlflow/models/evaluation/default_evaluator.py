@@ -1651,7 +1651,7 @@ class DefaultEvaluator(ModelEvaluator):
                     "mergeSchema", "true"
                 ).format("delta").saveAsTable(self.eval_results_path)
             except Exception as e:
-                _logger.info("Saving eval table to delta table failed. Reason: %s", e)
+                _logger.info(f"Saving eval table to delta table failed. Reason: {e}")
 
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
