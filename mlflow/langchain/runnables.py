@@ -52,7 +52,7 @@ def _load_model_from_config(path, model_config):
         from langchain.llms.loading import get_type_to_cls_dict as llms_get_type_to_cls_dict
     else:
         try:
-            from langchain_community.llms import get_type_to_cls_dict as llms_get_type_to_cls_dict
+            from langchain.llms import get_type_to_cls_dict as llms_get_type_to_cls_dict
         except ImportError:
 
             def llms_get_type_to_cls_dict():
