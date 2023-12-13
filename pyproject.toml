@@ -105,7 +105,7 @@ forced-separate = ["tests"]
 "pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."
 
 [tool.codespell]
-skip = '.git,*.pdf,*.svg,go.sum,*.lock,*.css,*.min.*'
+skip = '.git,*.pdf,*.svg,go.sum,*.lock,*.css,*.min.*,releases,pypi_package_index.json'
 check-hidden = true
 ignore-regex = '^\s*"image/\S+": ".*'
 # ignore-words-list = ''
