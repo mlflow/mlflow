@@ -329,7 +329,8 @@ def render_and_merge_yaml(root, template_name, context_name):
     :param context_name: Name of the context file
     :return: Data in yaml file as dictionary
     """
-    import jinja2
+    from jinja2 import FileSystemLoader, StrictUndefined
+    from jinja2.sandbox import SandboxedEnvironment
 
     template_path = os.path.join(root, template_name)
     context_path = os.path.join(root, context_name)
@@ -338,9 +339,9 @@ def render_and_merge_yaml(root, template_name, context_name):
         if not pathlib.Path(path).is_file():
             raise MissingConfigException(f"Yaml file '{path}' does not exist.")
 
-    j2_env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(root, encoding=ENCODING),
-        undefined=jinja2.StrictUndefined,
+    j2_env = SandboxedEnvironment(
+        loader=FileSystemLoader(root, encoding=ENCODING),
+        undefined=StrictUndefined,
         line_comment_prefix="#",
     )
 

@@ -258,6 +258,7 @@ def test_log_artifact_azure_with_headers(
         request_mock.assert_called_with(
             "put",
             f"{MOCK_AZURE_SIGNED_URI}?comp=blocklist",
+            allow_redirects=True,
             data=ANY,
             headers=filtered_azure_headers,
             timeout=None,
@@ -344,12 +345,14 @@ def test_log_artifact_adls_gen2_with_headers(
         request_mock.assert_any_call(
             "put",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?resource=file",
+            allow_redirects=True,
             headers=filtered_azure_headers,
             timeout=None,
         )
         request_mock.assert_any_call(
             "patch",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=append&position=0",
+            allow_redirects=True,
             data=ANY,
             headers=filtered_azure_headers,
             timeout=None,
@@ -357,6 +360,7 @@ def test_log_artifact_adls_gen2_with_headers(
         request_mock.assert_any_call(
             "patch",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=append&position=5",
+            allow_redirects=True,
             data=ANY,
             headers=filtered_azure_headers,
             timeout=None,
@@ -364,6 +368,7 @@ def test_log_artifact_adls_gen2_with_headers(
         request_mock.assert_any_call(
             "patch",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=append&position=10",
+            allow_redirects=True,
             data=ANY,
             headers=filtered_azure_headers,
             timeout=None,
@@ -371,6 +376,7 @@ def test_log_artifact_adls_gen2_with_headers(
         request_mock.assert_called_with(
             "patch",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=flush&position=14",
+            allow_redirects=True,
             headers=filtered_azure_headers,
             timeout=None,
         )
@@ -402,12 +408,14 @@ def test_log_artifact_adls_gen2_flush_error(databricks_artifact_repo, test_file)
             mock.call(
                 "put",
                 f"{MOCK_ADLS_GEN2_SIGNED_URI}?resource=file",
+                allow_redirects=True,
                 headers={},
                 timeout=None,
             ),
             mock.call(
                 "patch",
                 f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=append&position=0&flush=true",
+                allow_redirects=True,
                 data=ANY,
                 headers={},
                 timeout=None,
@@ -434,7 +442,7 @@ def test_log_artifact_aws(databricks_artifact_repo, test_file, artifact_path, ex
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_AWS_SIGNED_URI, data=ANY, headers={}, timeout=None
+            "put", MOCK_AWS_SIGNED_URI, allow_redirects=True, data=ANY, headers={}, timeout=None
         )
 
 
@@ -462,7 +470,12 @@ def test_log_artifact_aws_with_headers(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_AWS_SIGNED_URI, data=ANY, headers=expected_headers, timeout=None
+            "put",
+            MOCK_AWS_SIGNED_URI,
+            allow_redirects=True,
+            data=ANY,
+            headers=expected_headers,
+            timeout=None,
         )
 
 
@@ -500,7 +513,7 @@ def test_log_artifact_gcp(databricks_artifact_repo, test_file, artifact_path, ex
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_GCP_SIGNED_URL, data=ANY, headers={}, timeout=None
+            "put", MOCK_GCP_SIGNED_URL, allow_redirects=True, data=ANY, headers={}, timeout=None
         )
 
 
@@ -528,7 +541,12 @@ def test_log_artifact_gcp_with_headers(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_GCP_SIGNED_URL, data=ANY, headers=expected_headers, timeout=None
+            "put",
+            MOCK_GCP_SIGNED_URL,
+            allow_redirects=True,
+            data=ANY,
+            headers=expected_headers,
+            timeout=None,
         )
 
 
@@ -1294,6 +1312,7 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
                 mock.call(
                     "put",
                     f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                    allow_redirects=True,
                     data=f.read(mock_chunk_size),
                     headers={"header": f"part-{i + 1}"},
                     timeout=None,
@@ -1383,6 +1402,7 @@ def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file
                 mock.call(
                     "put",
                     f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                    allow_redirects=True,
                     data=f.read(mock_chunk_size),
                     headers={"header": f"part-{i + 1}"},
                     timeout=None,
@@ -1441,6 +1461,7 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
                 mock.call(
                     "put",
                     f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                    allow_redirects=True,
                     data=f.read(mock_chunk_size),
                     headers={"header": f"part-{i + 1}"},
                     timeout=None,
@@ -1459,6 +1480,7 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
         assert abort_call == mock.call(
             "delete",
             f"{MOCK_AWS_SIGNED_URI}uploadId=abort",
+            allow_redirects=True,
             headers={"header": "abort"},
             timeout=None,
         )
