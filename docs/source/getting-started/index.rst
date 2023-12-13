@@ -6,11 +6,11 @@ quickstart tutorials here are the perfect starting point. They will guide you
 step-by-step through fundamental concepts, focusing purely on a task that will maximize your understanding of 
 how to use MLflow to solve a particular task. 
 
-Before you begin with notebook tutorials
-----------------------------------------
+Guidance on Running Tutorials
+-----------------------------
 
-If you are new to MLflow and have never interfaced with the MLflow Tracking Server, we highly encourage you to head on over to our guide on running the tutorials 
-throughout the documentation. 
+If you are new to MLflow and have never interfaced with the MLflow Tracking Server, we highly encourage you to head on over to quickly read the guide below. It 
+will help you get started as quickly as possible with tutorial content throughout the documentation.
 
 .. raw:: html
 
