@@ -2,6 +2,8 @@ import json
 import os
 import time
 from contextlib import contextmanager
+from enum import Enum
+from typing import NamedTuple, Optional
 from unittest import mock
 
 import requests
@@ -265,3 +267,41 @@ class _OAITokenHolder:
             raise mlflow.MlflowException(
                 "OpenAI API key must be set in the ``OPENAI_API_KEY`` environment variable."
             )
+
+
+class _OpenAIApiConfig(NamedTuple):
+    api_type: str
+    batch_size: int
+    max_requests_per_minute: int
+    max_tokens_per_minute: int
+    api_version: Optional[str]
+    api_base: str
+    engine: Optional[str]
+    deployment_id: Optional[str]
+
+
+# See https://github.com/openai/openai-python/blob/cf03fe16a92cd01f2a8867537399c12e183ba58e/openai/__init__.py#L30-L38
+# for the list of environment variables that openai-python uses
+class _OpenAIEnvVar(str, Enum):
+    OPENAI_API_TYPE = "OPENAI_API_TYPE"
+    OPENAI_API_BASE = "OPENAI_API_BASE"
+    OPENAI_API_KEY = "OPENAI_API_KEY"
+    OPENAI_API_KEY_PATH = "OPENAI_API_KEY_PATH"
+    OPENAI_API_VERSION = "OPENAI_API_VERSION"
+    OPENAI_ORGANIZATION = "OPENAI_ORGANIZATION"
+    OPENAI_ENGINE = "OPENAI_ENGINE"
+    # use deployment_name instead of deployment_id to be
+    # consistent with gateway
+    OPENAI_DEPLOYMENT_NAME = "OPENAI_DEPLOYMENT_NAME"
+
+    @property
+    def secret_key(self):
+        return self.value.lower()
+
+    @classmethod
+    def read_environ(cls):
+        env_vars = {}
+        for e in _OpenAIEnvVar:
+            if value := os.getenv(e.value):
+                env_vars[e.value] = value
+        return env_vars
