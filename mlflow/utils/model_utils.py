@@ -1,6 +1,9 @@
+import ast
+import inspect
 import json
 import os
 import sys
+import textwrap
 from typing import Any, Dict
 
 from mlflow.exceptions import MlflowException
@@ -15,6 +18,34 @@ from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
+
+
+def _check_model_assignment_in_init(cls):
+    """
+    Checks for the presence of `self.model = <something>` in the init method
+    of a class. Intended to be used `PythonModel` to encourage best practices
+    when declaring pyfunc models.
+    """
+    cls_init_source = textwrap.dedent(inspect.getsource(cls.__init__))
+
+    class ModelAssignVisitor(ast.NodeVisitor):
+        def __init__(self):
+            self.has_model = False
+
+        def visit_Assign(self, node):
+            if (
+                isinstance(node.targets[0], ast.Attribute)
+                and node.targets[0].attr == "model"
+                and isinstance(node.targets[0].value, ast.Name)
+                and node.targets[0].value.id == "self"
+            ):
+                self.has_model = True
+
+    visitor = ModelAssignVisitor()
+    tree = ast.parse(cls_init_source)
+    visitor.visit(tree)
+
+    return visitor.has_model
 
 
 def _get_flavor_configuration(model_path, flavor_name):
