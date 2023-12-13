@@ -165,6 +165,7 @@ def _get_http_response_with_retries(
     backoff_jitter,
     retry_codes,
     raise_on_status=True,
+    allow_redirects=None,
     **kwargs,
 ):
     """
@@ -190,20 +191,10 @@ def _get_http_response_with_retries(
 
     # the environment variable is hardcoded here to avoid importing mlflow.
     # however, documentation is available in environment_variables.py
-    env_value = os.getenv("MLFLOW_ALLOW_HTTP_REDIRECTS", "1").lower()
-    allow_redirects = env_value in ["true", "1"]
+    env_value = os.getenv("MLFLOW_ALLOW_HTTP_REDIRECTS", "true").lower() in ["true", "1"]
+    allow_redirects = env_value if allow_redirects is None else allow_redirects
 
-    response = session.request(method, url, allow_redirects=allow_redirects, **kwargs)
-
-    if not allow_redirects and (response.is_redirect or 300 <= response.status_code < 400):
-        raise HTTPError(
-            "HTTP redirects are disabled through the MLFLOW_DISABLE_HTTP_REDIRECTS "
-            "environment variable, but the server responded with a redirect. Response text: "
-            f"{response.text}",
-            response=response,
-        )
-
-    return response
+    return session.request(method, url, allow_redirects=allow_redirects, **kwargs)
 
 
 def cloud_storage_http_request(

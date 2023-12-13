@@ -147,7 +147,9 @@ def test_s3_creds_passed_to_client(s3_artifact_root):
         )
 
 
-def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_bucket, tmp_path):
+def test_log_artifacts_in_parallel_when_necessary(
+    s3_artifact_root, mock_s3_bucket, tmp_path, monkeypatch
+):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
 
     file_a_name = "a.txt"
@@ -156,7 +158,8 @@ def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_buck
     with open(file_a_path, "w") as f:
         f.write(file_a_text)
 
-    with mock.patch(f"{S3_REPOSITORY_MODULE}._MULTIPART_UPLOAD_CHUNK_SIZE", 0), mock.patch(
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", "0")
+    with mock.patch(
         f"{S3_ARTIFACT_REPOSITORY}._multipart_upload", return_value=None
     ) as multipart_upload_mock:
         repo.log_artifacts(tmp_path)
@@ -165,7 +168,7 @@ def test_log_artifacts_in_parallel_when_necessary(s3_artifact_root, mock_s3_buck
 
 @pytest.mark.parametrize(
     ("file_size", "is_parallel_download"),
-    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
+    [(None, False), (100, False), (500 * 1024**2 - 1, False), (500 * 1024**2, True)],
 )
 def test_download_file_in_parallel_when_necessary(
     s3_artifact_root, file_size, is_parallel_download
