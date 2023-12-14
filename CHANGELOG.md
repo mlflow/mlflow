@@ -6,15 +6,18 @@ MLflow 2.9.2 includes several major features and improvements
 
 Features:
 
-- [] Create `mlflow.deployments.openai` (#10473, @prithvikannan)
+- [Deployments] Add `mlflow.deployments.openai` (#10473, @prithvikannan)
 - [Server-infra] Add env var to disable redirects again (#10673, @daniellok-db)
+- [Artifacts] Make MPU / MPD chunk size configurable via environment variables (#10648, @harupy)
 
-Bug fixes:
+Security fixes:
 
-- [Server-infra] Add sandboxed jinja2 loader for yaml rendering (#10676, @BenWilson2)
-- [Artifacts] Disable '..' in query string for artifact URI (#10653, @B-Step62)
-- [Server-infra / Windows] Fix for windows traversal attack (#10647, @BenWilson2)
+- [Server-infra] Add sandboxed Jinja loader for yaml rendering (#10676, @BenWilson2, #10640, @harupy)
+- [Artifacts] Disable `..` in query string for artifact URI (#10653, @B-Step62)
+- [Data] Fix for windows traversal attack in `HTTPDatasetSource` (#10647, @BenWilson2)
 - [Artifacts] Prevent path traversal with encoded URL (#10650, @B-Step62)
+- [Artifacts] Use validated path after path validation (#1066, @harupy)
+- [Artifacts] Apply `os.path.basename` before `.` or `..` check in `FTPArtifactRepository` (#10657, @harupy)
 
 Documentation updates:
 
@@ -25,7 +28,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#10677, #10636, @serena-ruan; #10666, #10648, #10657, #10652, #10649, #10641, #10640, @harupy; #10643, #10632, @BenWilson2
+#10677, #10636, @serena-ruan; #10652, #10649, #10641, @harupy; #10643, #10632, @BenWilson2
 
 ## 2.9.1 (2023-12-07)
 
