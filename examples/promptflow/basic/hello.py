@@ -1,5 +1,6 @@
 import os
-import openai
+from openai import OpenAI
+from openai.version import VERSION as OPENAI_VERSION
 
 from dotenv import load_dotenv
 from promptflow import tool
@@ -11,6 +12,14 @@ from promptflow import tool
 
 def to_bool(value) -> bool:
     return str(value).lower() == "true"
+
+
+def get_client():
+    if OPENAI_VERSION.startswith("0."):
+        raise Exception(
+            "Please upgrade your OpenAI package to version >= 1.0.0 or using the command: pip install --upgrade openai."
+        )
+    return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
 @tool
@@ -28,35 +37,33 @@ def my_python_tool(
     presence_penalty: float = 0,
     frequency_penalty: float = 0,
     best_of: int = 1,
-    logit_bias: dict = {},
+    logit_bias: dict = None,
     user: str = "",
     **kwargs,
 ) -> str:
-
     if "OPENAI_API_KEY" not in os.environ:
         raise Exception("Please specify environment variables: OPENAI_API_KEY")
 
     echo = to_bool(echo)
 
-    response = openai.Completion.create(
+    response = get_client().completions.create(
         prompt=prompt,
-        engine=deployment_name,
+        model=deployment_name,
         # empty string suffix should be treated as None.
         suffix=suffix if suffix else None,
-        max_tokens=int(max_tokens),
-        temperature=float(temperature),
-        top_p=float(top_p),
-        n=int(n),
-        logprobs=int(logprobs) if logprobs else None,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        n=n,
+        logprobs=logprobs if logprobs else None,
         echo=echo,
         stop=stop if stop else None,
-        presence_penalty=float(presence_penalty),
-        frequency_penalty=float(frequency_penalty),
-        best_of=int(best_of),
+        presence_penalty=presence_penalty,
+        frequency_penalty=frequency_penalty,
+        best_of=best_of,
         # Logit bias must be a dict if we passed it to openai api.
         logit_bias=logit_bias if logit_bias else {},
         user=user,
-        request_timeout=30,
     )
 
     # get first element because prompt is single.
