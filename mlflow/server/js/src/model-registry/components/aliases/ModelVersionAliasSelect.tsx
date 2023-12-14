@@ -54,6 +54,7 @@ export const ModelVersionAliasSelect = ({
       // Remove duplicates that might result from varying letter case
       const uniqueAliases = Array.from(new Set(sanitizedAliases));
       setDraftAliases(uniqueAliases);
+      setDropdownVisible(false);
     },
     [setDraftAliases],
   );

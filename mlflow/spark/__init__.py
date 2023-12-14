@@ -59,7 +59,12 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import TempDir, shutil_copytree_without_file_permissions, write_to
+from mlflow.utils.file_utils import (
+    TempDir,
+    get_total_file_size,
+    shutil_copytree_without_file_permissions,
+    write_to,
+)
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration_from_uri,
@@ -94,10 +99,8 @@ def get_default_pip_requirements(is_spark_connect_model=False):
 
     # Strip the suffix from `dev` versions of PySpark, which are not
     # available for installation from Anaconda or PyPI
-    pyspark_extras = ["connect"] if is_spark_connect_model else None
-    pyspark_req = re.sub(
-        r"(\.?)dev.*$", "", _get_pinned_requirement("pyspark", extras=pyspark_extras)
-    )
+    pyspark_req_str = "pyspark[connect]" if is_spark_connect_model else "pyspark"
+    pyspark_req = re.sub(r"(\.?)dev.*$", "", _get_pinned_requirement(pyspark_req_str))
     reqs = [pyspark_req]
     if Version(pyspark.__version__) < Version("3.4"):
         # Versions of PySpark < 3.4 are incompatible with pandas >= 2
@@ -550,6 +553,8 @@ def _save_model_metadata(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
+    if size := get_total_file_size(dst_dir):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -1034,10 +1039,10 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     Enables (or disables) and configures logging of Spark datasource paths, versions
     (if applicable), and formats when they are read. This method is not threadsafe and assumes a
     `SparkSession
-    <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
+    <https://spark.apache.org/docs/latest/api/python/reference/pyspark.sql/api/pyspark.sql.SparkSession.html>`_
     already exists with the
     `mlflow-spark JAR
-    <http://mlflow.org/docs/latest/tracking.html#automatic-logging-from-spark-experimental>`_
+    <https://www.mlflow.org/docs/latest/tracking.html#spark>`_
     attached. It should be called on the Spark driver, not on the executors (i.e. do not call
     this method within a function parallelized by Spark). This API requires Spark 3.0 or above.
 
@@ -1061,10 +1066,10 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
 
         # Create and persist some dummy data
         # Note: On environments like Databricks with pre-created SparkSessions,
-        # ensure the org.mlflow:mlflow-spark:1.11.0 is attached as a library to
+        # ensure the org.mlflow:mlflow-spark:2.22.0 is attached as a library to
         # your cluster
         spark = (
-            SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:1.11.0")
+            SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:2.22.0")
             .master("local[*]")
             .getOrCreate()
         )
@@ -1093,6 +1098,7 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
                    datasource autologging. If ``False``, show all events and warnings during Spark
                    datasource autologging.
     """
+    from pyspark import __version__ as pyspark_version
     from pyspark.sql import SparkSession
 
     from mlflow._spark_autologging import (
@@ -1100,6 +1106,23 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         _stop_listen_for_spark_activity,
     )
     from mlflow.utils._spark_utils import _get_active_spark_session
+
+    # Check if environment variable PYSPARK_PIN_THREAD is set to false.
+    # The "Pin thread" concept was introduced since Pyspark 3.0.0 and set to default to true
+    # since Pyspark 3.2.0 (https://issues.apache.org/jira/browse/SPARK-35303). When pin thread
+    # is enabled, Pyspark manages Python and JVM threads in a 1:1, meaning that when one thread
+    # is terminated, the corresponding thread in the other side will be terminated as well.
+    # However, this causes an issue in spark autologging as our event listener thread may be
+    # terminated before receiving the datasource event.
+    # Hence, we have to disable it and decouple the thread management between Python and JVM.
+    if (
+        Version(pyspark_version) >= Version("3.2.0")
+        and os.environ.get("PYSPARK_PIN_THREAD", "").lower() != "false"
+    ):
+        _logger.warning(
+            "With Pyspark >= 3.2, PYSPARK_PIN_THREAD environment variable must be set to false "
+            "for Spark datasource autologging to work."
+        )
 
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)

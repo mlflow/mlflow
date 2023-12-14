@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
+from mlflow import get_tracking_uri
 from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.utils.credentials import login, read_mlflow_creds
@@ -104,28 +105,22 @@ mlflow_tracking_password = password_file
 
 
 def test_mlflow_login(tmp_path, monkeypatch):
+    # Mock `input()` and `getpass()` to return host, username and password in order.
     with patch(
-        "builtins.input", side_effect=["https://community.cloud.databricks.com/", "dummyusername"]
+        "builtins.input",
+        side_effect=["https://community.cloud.databricks.com/", "dummyusername"],
     ), patch("getpass.getpass", side_effect=["dummypassword"]):
         file_name = f"{tmp_path}/.databrickscfg"
         profile = "TEST"
         monkeypatch.setenv("DATABRICKS_CONFIG_FILE", file_name)
         monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", profile)
 
-        class FakeWorkspaceClient:
-            class FakeUser:
-                def me(self):
-                    return ["dummyusername"]
-
-            def __init__(self):
-                self.current_user = FakeWorkspaceClient.FakeUser()
+        def success():
+            return
 
         with patch(
-            "databricks.sdk.WorkspaceClient",
-            side_effect=[
-                MlflowException("Error"),
-                FakeWorkspaceClient(),
-            ],
+            "mlflow.utils.credentials._validate_databricks_auth",
+            side_effect=[MlflowException("Invalid databricks credentials."), success()],
         ):
             login("databricks")
 
@@ -135,3 +130,19 @@ def test_mlflow_login(tmp_path, monkeypatch):
         assert lines[1] == "host = https://community.cloud.databricks.com/\n"
         assert lines[2] == "username = dummyusername\n"
         assert lines[3] == "password = dummypassword\n"
+
+    # Assert that the tracking URI is set to the databricks.
+    assert get_tracking_uri() == "databricks"
+
+
+def test_mlflow_login_noninteractive():
+    # Forces mlflw.utils.credentials._validate_databricks_auth to raise `MlflowException()`
+    with patch(
+        "mlflow.utils.credentials._validate_databricks_auth",
+        side_effect=MlflowException("Failed to validate databricks credentials."),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="No valid Databricks credentials found while running in non-interactive mode",
+        ):
+            login(backend="databricks", interactive=False)

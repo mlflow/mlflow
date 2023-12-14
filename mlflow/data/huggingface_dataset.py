@@ -176,7 +176,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
 @experimental
 def from_huggingface(
     ds,
-    path: str = None,
+    path: Optional[str] = None,
     targets: Optional[str] = None,
     data_dir: Optional[str] = None,
     data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,

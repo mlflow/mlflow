@@ -35,7 +35,9 @@ export const PreviewSidebar = ({
         padding: theme.spacing.sm,
         paddingRight: 0,
         borderLeft: `1px solid ${theme.colors.borderDecorative}`,
-        overflow: 'auto',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
         height: '100%',
       }}
       data-testid='preview-sidebar-content'
@@ -47,10 +49,26 @@ export const PreviewSidebar = ({
               display: 'grid',
               gridTemplateColumns: '1fr auto auto',
               rowGap: theme.spacing.sm,
-              alignItems: 'center',
+              alignItems: 'flex-start',
+              flex: '0 0 auto',
             }}
           >
-            {headerText && <Typography.Title level={4}>{headerText}</Typography.Title>}
+            {headerText && (
+              <Typography.Title
+                level={4}
+                css={{
+                  overflowX: 'hidden',
+                  overflowY: 'auto',
+                  marginTop: theme.spacing.sm,
+                  marginRight: theme.spacing.xs,
+
+                  // Escape hatch if for some reason title is so long it would consume entire sidebar
+                  maxHeight: 200,
+                }}
+              >
+                {headerText}
+              </Typography.Title>
+            )}
             {copyText && <CopyButton copyText={copyText} showLabel={false} icon={<CopyIcon />} />}
             {onClose && <Button type='primary' icon={<CloseIcon />} onClick={onClose} />}
           </div>
@@ -58,6 +76,8 @@ export const PreviewSidebar = ({
             css={{
               // Preserve original line breaks
               whiteSpace: 'pre-wrap',
+              overflowY: 'auto',
+              flex: 1,
             }}
           >
             {content}

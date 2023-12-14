@@ -4,7 +4,7 @@ import shutil
 import string
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Optional
 
 from sklearn.datasets import load_diabetes, load_iris
 from sklearn.dummy import DummyClassifier, DummyRegressor
@@ -115,7 +115,7 @@ class BaseStepImplemented(BaseStep):
 
 
 def list_all_artifacts(
-    tracking_uri: str, run_id: str, path: str = None
+    tracking_uri: str, run_id: str, path: Optional[str] = None
 ) -> Generator[str, None, None]:
     artifacts = mlflow.tracking.MlflowClient(tracking_uri).list_artifacts(run_id, path)
     for artifact in artifacts:

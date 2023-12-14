@@ -7,7 +7,7 @@ import {
   COLUMN_TYPES,
   SORT_DELIMITER_SYMBOL,
 } from '../../../constants';
-import { makeCanonicalSortKey } from '../utils/experimentPage.column-utils';
+import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
 
 export type ExperimentRunSortOption = {
   label: string;

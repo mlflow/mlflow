@@ -9,13 +9,16 @@ from concurrent.futures import as_completed
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
+    MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
     ArtifactProgressBar,
-    download_chunk,
+    download_chunk_retries,
     parallelized_download_file_using_http_uri,
     relative_path_to_artifact_path,
     remove_on_error,
@@ -23,9 +26,6 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
-_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = 500_000_000  # 500 MB
-_MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 _ARTIFACT_UPLOAD_BATCH_SIZE = (
     50  # Max number of artifacts for which to fetch write credentials at once.
 )
@@ -51,7 +51,7 @@ def _complete_futures(futures_dict, file):
     with ArtifactProgressBar.chunks(
         os.path.getsize(file),
         f"Uploading {file}",
-        _MULTIPART_UPLOAD_CHUNK_SIZE,
+        MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
     ) as pbar:
         for future in as_completed(futures_dict):
             key = futures_dict[future]
@@ -204,27 +204,24 @@ class CloudArtifactRepository(ArtifactRepository):
                 thread_pool_executor=self.chunk_thread_pool,
                 http_uri=cloud_credential_info.signed_uri,
                 download_path=local_path,
+                remote_file_path=remote_file_path,
                 file_size=file_size,
                 uri_type=cloud_credential_info.type,
-                chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                chunk_size=MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(),
                 env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
-            if any(not e.retryable for e in failed_downloads.values()):
-                template = "===== Chunk {index} =====\n{error}"
-                failure = "\n".join(
-                    template.format(index=index, error=error)
-                    for index, error in failed_downloads.items()
-                )
-                raise MlflowException(f"Failed to download artifact {remote_file_path}:\n{failure}")
 
             if failed_downloads:
                 new_cloud_creds = self._get_read_credential_infos([remote_file_path])[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-
-                for i in failed_downloads:
-                    download_chunk(i, _DOWNLOAD_CHUNK_SIZE, new_headers, local_path, new_signed_uri)
+                download_chunk_retries(
+                    chunks=list(failed_downloads),
+                    headers=new_headers,
+                    http_uri=new_signed_uri,
+                    download_path=local_path,
+                )
 
     def _download_file(self, remote_file_path, local_path):
         # list_artifacts API only returns a list of FileInfos at the specified path
@@ -242,7 +239,7 @@ class CloudArtifactRepository(ArtifactRepository):
         if (
             not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             or not file_size
-            or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE
+            or file_size < MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
             or is_fuse_or_uc_volumes_uri(local_path)
         ):
             self._download_from_cloud(remote_file_path, local_path)

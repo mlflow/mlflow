@@ -62,6 +62,7 @@ keras_core = LazyLoader("mlflow.keras_core", globals(), "mlflow.keras_core")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
+metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mleap = LazyLoader("mlflow.mleap", globals(), "mlflow.mleap")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
@@ -149,6 +150,7 @@ from mlflow.tracking.fluent import (
     set_tags,
     start_run,
 )
+from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
 from mlflow.utils.credentials import login
 
 __all__ = [
@@ -208,7 +210,7 @@ __all__ = [
 ]
 
 
-# `mlflow.gateway` depends on optional dependencies such as pydantic and has version
+# `mlflow.gateway` depends on optional dependencies such as pydantic, psutil, and has version
 # restrictions for dependencies. Importing this module fails if they are not installed or
 # if invalid versions of these required packages are installed.
 with contextlib.suppress(Exception):

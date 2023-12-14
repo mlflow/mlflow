@@ -171,8 +171,10 @@ setup(
             "boto3>1",
         ],
         "gateway": GATEWAY_REQUIREMENTS,
+        "genai": GATEWAY_REQUIREMENTS,
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
+        "xethub": ["mlflow-xethub"],
     },
     entry_points="""
         [console_scripts]
@@ -183,6 +185,12 @@ setup(
 
         [mlflow.app.client]
         basic-auth=mlflow.server.auth.client:AuthServiceClient
+
+        [mlflow.deployments]
+        databricks=mlflow.deployments.databricks
+        http=mlflow.deployments.mlflow
+        https=mlflow.deployments.mlflow
+        openai=mlflow.deployments.openai
     """,
     cmdclass={
         "dependencies": ListDependencies,

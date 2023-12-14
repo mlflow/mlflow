@@ -1,3 +1,4 @@
+import contextlib
 import os
 import shutil
 import tempfile
@@ -46,7 +47,7 @@ def _create_local_spark_session_for_recipes():
     _prepare_subprocess_environ_for_creating_local_spark_session()
     return (
         SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
+        .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
@@ -150,3 +151,27 @@ class _SparkDirectoryDistributor:
 
         _SparkDirectoryDistributor._extracted_dir_paths[archive_path] = temp_dir
         return _SparkDirectoryDistributor._extracted_dir_paths[archive_path]
+
+
+@contextlib.contextmanager
+def modified_environ(update):
+    """
+    Temporarily updates the ``os.environ`` dictionary in-place.
+
+    The ``os.environ`` dictionary is updated in-place so that the modification
+    is sure to work in all situations.
+
+    :param update: Dictionary of environment variables and values to add/update.
+    """
+    update = update or {}
+    original_env = {k: os.environ.get(k) for k in update}
+
+    try:
+        os.environ.update(update)
+        yield
+    finally:
+        for k, v in original_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v

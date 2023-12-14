@@ -38,11 +38,12 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, app
 from mlflow.server.handlers import (
     _create_experiment,
     _create_model_version,
     _create_registered_model,
+    _delete_artifact_mlflow_artifacts,
     _delete_model_version,
     _delete_model_version_tag,
     _delete_registered_model,
@@ -105,6 +106,11 @@ def mock_model_registry_store():
         yield mock_store
 
 
+@pytest.fixture
+def enable_serve_artifacts(monkeypatch):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+
+
 def test_health():
     with app.test_client() as c:
         response = c.get("/health")
@@ -156,6 +162,7 @@ def test_all_model_registry_endpoints_available():
 def test_can_parse_json():
     request = mock.MagicMock()
     request.method = "POST"
+    request.content_type = "application/json"
     request.get_json = mock.MagicMock()
     request.get_json.return_value = {"name": "hello"}
     msg = _get_request_message(CreateExperiment(), flask_request=request)
@@ -165,8 +172,19 @@ def test_can_parse_json():
 def test_can_parse_post_json_with_unknown_fields():
     request = mock.MagicMock()
     request.method = "POST"
+    request.content_type = "application/json"
     request.get_json = mock.MagicMock()
     request.get_json.return_value = {"name": "hello", "WHAT IS THIS FIELD EVEN": "DOING"}
+    msg = _get_request_message(CreateExperiment(), flask_request=request)
+    assert msg.name == "hello"
+
+
+def test_can_parse_post_json_with_content_type_params():
+    request = mock.MagicMock()
+    request.method = "POST"
+    request.content_type = "application/json; charset=utf-8"
+    request.get_json = mock.MagicMock()
+    request.get_json.return_value = {"name": "hello"}
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello"
 
@@ -184,10 +202,31 @@ def test_can_parse_get_json_with_unknown_fields():
 def test_can_parse_json_string():
     request = mock.MagicMock()
     request.method = "POST"
+    request.content_type = "application/json"
     request.get_json = mock.MagicMock()
     request.get_json.return_value = '{"name": "hello2"}'
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello2"
+
+
+def test_can_block_post_request_with_invalid_content_type():
+    request = mock.MagicMock()
+    request.method = "POST"
+    request.content_type = "text/plain"
+    request.get_json = mock.MagicMock()
+    request.get_json.return_value = {"name": "hello"}
+    with pytest.raises(MlflowException, match=r"Bad Request. Content-Type"):
+        _get_request_message(CreateExperiment(), flask_request=request)
+
+
+def test_can_block_post_request_with_missing_content_type():
+    request = mock.MagicMock()
+    request.method = "POST"
+    request.content_type = None
+    request.get_json = mock.MagicMock()
+    request.get_json.return_value = {"name": "hello"}
+    with pytest.raises(MlflowException, match=r"Bad Request. Content-Type"):
+        _get_request_message(CreateExperiment(), flask_request=request)
 
 
 def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_store):
@@ -744,3 +783,22 @@ def test_get_model_version_by_alias(mock_get_request_message, mock_model_registr
     _, args = mock_model_registry_store.get_model_version_by_alias.call_args
     assert args == {"name": name, "alias": alias}
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mvd)}
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "path/../to/file",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/file://etc/passwd",
+        "%2E%2E%2F%2E%2E%2Fpath",
+    ],
+)
+def test_delete_artifact_mlflow_artifacts_throws_for_malicious_path(enable_serve_artifacts, path):
+    response = _delete_artifact_mlflow_artifacts(path)
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert json_response["message"] == "Invalid path"

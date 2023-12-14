@@ -15,13 +15,13 @@ set -x
 
 err=0
 
-MLFLOW_HOME=$(pwd)
-export MLFLOW_HOME
+REPO_ROOT=$(git rev-parse --show-toplevel)
+export REPO_ROOT
 
 # Run the installation of the environment
-DEV_DIR=$MLFLOW_HOME/.venvs/mlflow-dev
+DEV_DIR=$REPO_ROOT/.venvs/mlflow-dev
 
-"$MLFLOW_HOME"/dev/dev-env-setup.sh -d "$DEV_DIR" -f
+"$REPO_ROOT"/dev/dev-env-setup.sh -d "$DEV_DIR" -f
 
 source "$DEV_DIR/bin/activate"
 

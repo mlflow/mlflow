@@ -50,6 +50,7 @@ from mlflow.pyfunc import (
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
 from mlflow.types import ColSpec, Schema, TensorSpec
+from mlflow.utils._spark_utils import modified_environ
 
 import tests
 
@@ -57,14 +58,23 @@ prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
 types = [np.int32, int, str, np.float32, np.double, bool]
 
 
-def score_model_as_udf(model_uri, pandas_df, result_type="double"):
-    spark = get_spark_session(pyspark.SparkConf())
+def score_spark(spark, model_uri, pandas_df, result_type="double"):
     spark_df = spark.createDataFrame(pandas_df).coalesce(1)
     pyfunc_udf = spark_udf(
         spark=spark, model_uri=model_uri, result_type=result_type, env_manager="local"
     )
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
     return [x["prediction"] for x in new_df.collect()]
+
+
+def score_model_as_udf(model_uri, pandas_df, result_type="double"):
+    if spark := pyspark.sql.SparkSession.getActiveSession():
+        # Reuse the active SparkSession, don't kill it after use
+        return score_spark(spark, model_uri, pandas_df, result_type)
+
+    # Create a new SparkSession, kill it after use
+    with get_spark_session(pyspark.SparkConf()) as spark:
+        return score_spark(spark, model_uri, pandas_df, result_type)
 
 
 class ConstantPyfuncWrapper:
@@ -1289,3 +1299,38 @@ def test_spark_udf_with_model_serving(spark):
 
         res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
         assert res["res"][0] == ("string")
+
+
+def test_spark_udf_set_extra_udf_env_vars(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return [os.environ["TEST_ENV_VAR"]] * len(model_input)
+
+    signature = mlflow.models.infer_signature(["input"])
+    spark_df = spark.createDataFrame(
+        [("input1",), ("input2",), ("input3",)],
+        ["input_col"],
+    )
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+
+    udf = mlflow.pyfunc.spark_udf(
+        spark,
+        model_info.model_uri,
+        result_type=StringType(),
+        env_manager="local",
+        extra_env={"TEST_ENV_VAR": "test"},
+    )
+
+    res = spark_df.withColumn("res", udf("input_col")).select("res").toPandas()
+    assert res["res"][0] == ("test")
+
+
+def test_modified_environ():
+    with modified_environ({"TEST_ENV_VAR": "test"}):
+        assert os.environ["TEST_ENV_VAR"] == "test"
+    assert os.environ.get("TEST_ENV_VAR") is None

@@ -1,7 +1,9 @@
 import importlib
 import json
+from copy import deepcopy
 from unittest import mock
 
+import numpy as np
 import openai
 import openai.error
 import pandas as pd
@@ -11,7 +13,11 @@ from pyspark.sql import SparkSession
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.openai.utils import (
+from mlflow.exceptions import MlflowException
+from mlflow.models.signature import ModelSignature
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.utils.openai_utils import (
+    _exclude_params_from_envs,
     _mock_chat_completion_response,
     _mock_models_retrieve_response,
     _mock_request,
@@ -445,7 +451,8 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
     with mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True), mock.patch(
         "mlflow.openai.check_databricks_secret_scope_access"
     ):
-        mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
+        with pytest.warns(FutureWarning, match="MLFLOW_OPENAI_SECRET_SCOPE.+deprecated"):
+            mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
     with tmp_path.joinpath("openai.yaml").open() as f:
         creds = yaml.safe_load(f)
         assert creds == {
@@ -454,6 +461,9 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
             "OPENAI_API_KEY_PATH": f"{scope}:openai_api_key_path",
             "OPENAI_API_BASE": f"{scope}:openai_api_base",
             "OPENAI_ORGANIZATION": f"{scope}:openai_organization",
+            "OPENAI_API_VERSION": f"{scope}:openai_api_version",
+            "OPENAI_DEPLOYMENT_NAME": f"{scope}:openai_deployment_name",
+            "OPENAI_ENGINE": f"{scope}:openai_engine",
         }
 
 
@@ -559,6 +569,19 @@ def test_embeddings(tmp_path):
     assert preds == [[0.0]] * 100
 
 
+def test_embeddings_batch_size_azure(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    monkeypatch.setenv("OPENAI_ENGINE", "test_engine")
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+    model = mlflow.pyfunc.load_model(tmp_path)
+
+    assert model._model_impl.api_config.batch_size == 16
+
+
 def test_embeddings_pyfunc_server_and_score(tmp_path):
     mlflow.openai.save_model(
         model="text-embedding-ada-002",
@@ -593,3 +616,72 @@ def test_spark_udf_embeddings(tmp_path, spark):
     )
     df = df.withColumn("z", udf("x")).toPandas()
     assert df["z"].tolist() == [[0.0], [0.0]]
+
+
+def test_inference_params(tmp_path):
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+        signature=ModelSignature(
+            inputs=Schema([ColSpec(type="string", name=None)]),
+            outputs=Schema([TensorSpec(type=np.dtype("float64"), shape=(-1,))]),
+            params=ParamSchema([ParamSpec(name="batch_size", dtype="long", default=16)]),
+        ),
+    )
+
+    model_info = mlflow.models.Model.load(tmp_path)
+    assert (
+        len([p for p in model_info.signature.params if p.name == "batch_size" and p.default == 16])
+        == 1
+    )
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame({"text": ["a", "b"]})
+    preds = model.predict(data, params={"batch_size": 5})
+    assert preds == [[0.0], [0.0]]
+
+
+def test_inference_params_overlap(tmp_path):
+    with pytest.raises(mlflow.MlflowException, match=r"any of \['prefix'\] as parameters"):
+        mlflow.openai.save_model(
+            model="text-davinci-003",
+            task=openai.Completion,
+            path=tmp_path,
+            prefix="Classify the following text's sentiment:",
+            signature=ModelSignature(
+                inputs=Schema([ColSpec(type="string", name=None)]),
+                outputs=Schema([ColSpec(type="string", name=None)]),
+                params=ParamSchema([ParamSpec(name="prefix", default=None, dtype="string")]),
+            ),
+        )
+
+
+def test_engine_and_deployment_id_for_azure_openai(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    mlflow.openai.save_model(
+        model="text-embedding-ada-002",
+        task=openai.Embedding,
+        path=tmp_path,
+    )
+    with pytest.raises(
+        MlflowException, match=r"Either engine or deployment_id must be set for Azure OpenAI API"
+    ):
+        mlflow.pyfunc.load_model(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("params", "envs"),
+    [
+        ({"a": None, "b": "b"}, {"a": "a", "c": "c"}),
+        ({"a": "a", "b": "b"}, {"a": "a", "d": "d"}),
+        ({}, {"a": "a", "b": "b"}),
+        ({"a": "a"}, {"b": "b"}),
+    ],
+)
+def test_exclude_params_from_envs(params, envs):
+    original_envs = deepcopy(envs)
+    result = _exclude_params_from_envs(params, envs)
+    assert envs == original_envs
+    assert not any(key in params for key in result)
+    assert all(key in envs for key in result)

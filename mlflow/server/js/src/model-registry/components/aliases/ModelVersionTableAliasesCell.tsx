@@ -1,4 +1,4 @@
-import { Button, PencilIcon } from '@databricks/design-system';
+import { Button, PencilIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { ModelVersionAliasTag } from './ModelVersionAliasTag';
 import { FormattedMessage } from 'react-intl';
 
@@ -13,8 +13,22 @@ export const ModelVersionTableAliasesCell = ({
   aliases = [],
   onAddEdit,
 }: ModelVersionTableAliasesCellProps) => {
+  const { theme } = useDesignSystemTheme();
+
   return (
-    <div css={{ maxWidth: 300 }}>
+    <div
+      css={{
+        maxWidth: 300,
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'flex-start',
+        '> *': {
+          marginRight: '0 !important',
+        },
+        rowGap: theme.spacing.xs / 2,
+        columnGap: theme.spacing.xs,
+      }}
+    >
       {aliases.length < 1 ? (
         <Button size='small' type='link' onClick={onAddEdit}>
           <FormattedMessage
@@ -25,7 +39,11 @@ export const ModelVersionTableAliasesCell = ({
       ) : (
         <>
           {aliases.map((alias) => (
-            <ModelVersionAliasTag value={alias} key={alias} />
+            <ModelVersionAliasTag
+              value={alias}
+              key={alias}
+              css={{ marginTop: theme.spacing.xs / 2 }}
+            />
           ))}
           <Button size='small' icon={<PencilIcon />} onClick={onAddEdit} />
         </>

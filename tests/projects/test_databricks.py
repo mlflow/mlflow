@@ -449,6 +449,7 @@ def test_databricks_http_request_integration(get_config, request):
         headers["Authorization"] = "Basic dXNlcjpwYXNz"
         assert args == ("PUT", "host/clusters/list")
         assert kwargs == {
+            "allow_redirects": True,
             "headers": headers,
             "verify": True,
             "json": {"a": "b"},

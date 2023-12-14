@@ -345,13 +345,13 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
     for key, value in data.items():
         if not value_type:
             value_type = type(value)
-        if isinstance(key, bool):
+        if isinstance(key, bool) or not isinstance(key, (str, int)):
             invalid_keys.append(key)
-        elif not isinstance(key, (str, int)):
-            invalid_keys.append(key)
-        if isinstance(value, list) and not all(isinstance(item, (str, bytes)) for item in value):
-            invalid_values.append(key)
-        elif not isinstance(value, (np.ndarray, list, str, bytes)):
+        elif (
+            isinstance(value, list)
+            and not all(isinstance(item, (str, bytes)) for item in value)
+            or not isinstance(value, (np.ndarray, list, str, bytes))
+        ):
             invalid_values.append(key)
         elif isinstance(value, np.ndarray) or value_type == np.ndarray:
             if not isinstance(value, value_type):

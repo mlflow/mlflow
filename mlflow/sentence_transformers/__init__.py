@@ -33,7 +33,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
     _validate_env_arguments,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
@@ -87,7 +87,7 @@ def save_model(
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     Save a trained ``sentence-transformers`` model to a path on the local file system.
@@ -169,6 +169,8 @@ def save_model(
         sentence_transformers_version=sentence_transformers.__version__,
         code=code_dir_subpath,
     )
+    if size := get_total_file_size(path):
+        mlflow_model.model_size_bytes = size
     mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
 
     if inference_config:
@@ -206,14 +208,14 @@ def log_model(
     artifact_path: str,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
-    registered_model_name: str = None,
+    registered_model_name: Optional[str] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
 ):
     """
     Log a ``sentence_transformers`` model as an MLflow artifact for the current run.
@@ -283,7 +285,7 @@ def _load_pyfunc(path):
 
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: str = None):
+def load_model(model_uri: str, dst_path: Optional[str] = None):
     """
     Load a ``sentence_transformers`` object from a local file or a run.
 

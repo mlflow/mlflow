@@ -1464,3 +1464,19 @@ def test_load_model_fails_for_feature_store_models(tmp_path):
         MlflowException, match="mlflow.pyfunc.load_model is not supported for Feature Store models"
     ):
         mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+
+
+def test_pyfunc_model_infer_signature_from_type_hints(model_path):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: List[str], params=None) -> List[str]:
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=TestModel(),
+            artifact_path="test_model",
+            input_example=["a"],
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.metadata.get_input_schema().to_dict() == [{"type": "string"}]
+    pd.testing.assert_frame_equal(pyfunc_model.predict(["a", "b"]), pd.DataFrame(["a", "b"]))

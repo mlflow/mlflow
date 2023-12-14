@@ -16,12 +16,44 @@ CREATE TABLE experiments (
 )
 
 
+CREATE TABLE input_tags (
+	input_uuid VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT input_tags_pk PRIMARY KEY (input_uuid, name)
+)
+
+
+CREATE TABLE inputs (
+	input_uuid VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	source_type VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	source_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	destination_type VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	destination_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT inputs_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id)
+)
+
+
 CREATE TABLE registered_models (
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	creation_time BIGINT,
 	last_updated_time BIGINT,
 	description VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT registered_model_pk PRIMARY KEY (name)
+)
+
+
+CREATE TABLE datasets (
+	dataset_uuid VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	digest VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	dataset_source_type VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	dataset_source VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	dataset_schema VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	dataset_profile VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
+	CONSTRAINT "FK__datasets__experi__6477ECF3" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -47,8 +79,18 @@ CREATE TABLE model_versions (
 	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	status_message VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	run_link VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	storage_location VARCHAR(500) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT model_version_pk PRIMARY KEY (name, version),
 	CONSTRAINT "FK__model_vers__name__5812160E" FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
+)
+
+
+CREATE TABLE registered_model_aliases (
+	alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version INTEGER NOT NULL,
+	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias),
+	CONSTRAINT registered_model_alias_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -130,12 +172,4 @@ CREATE TABLE tags (
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__tags__run_uuid__412EB0B6" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
-)
-
-CREATE TABLE registered_model_aliases (
-	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	version INTEGER NOT NULL,
-	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias),
-	CONSTRAINT registered_model_alias_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE ON DELETE CASCADE
 )

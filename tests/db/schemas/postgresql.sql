@@ -14,7 +14,25 @@ CREATE TABLE experiments (
 	last_update_time BIGINT,
 	CONSTRAINT experiment_pk PRIMARY KEY (experiment_id),
 	CONSTRAINT experiments_name_key UNIQUE (name),
-	CONSTRAINT experiments_lifecycle_stage CHECK ((lifecycle_stage)::text = ANY ((ARRAY['active'::character varying, 'deleted'::character varying])::text[]))
+	CONSTRAINT experiments_lifecycle_stage CHECK (lifecycle_stage::text = ANY (ARRAY['active'::character varying, 'deleted'::character varying]::text[]))
+)
+
+
+CREATE TABLE input_tags (
+	input_uuid VARCHAR(36) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	value VARCHAR(500) NOT NULL,
+	CONSTRAINT input_tags_pk PRIMARY KEY (input_uuid, name)
+)
+
+
+CREATE TABLE inputs (
+	input_uuid VARCHAR(36) NOT NULL,
+	source_type VARCHAR(36) NOT NULL,
+	source_id VARCHAR(36) NOT NULL,
+	destination_type VARCHAR(36) NOT NULL,
+	destination_id VARCHAR(36) NOT NULL,
+	CONSTRAINT inputs_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id)
 )
 
 
@@ -24,6 +42,20 @@ CREATE TABLE registered_models (
 	last_updated_time BIGINT,
 	description VARCHAR(5000),
 	CONSTRAINT registered_model_pk PRIMARY KEY (name)
+)
+
+
+CREATE TABLE datasets (
+	dataset_uuid VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(500) NOT NULL,
+	digest VARCHAR(36) NOT NULL,
+	dataset_source_type VARCHAR(36) NOT NULL,
+	dataset_source TEXT NOT NULL,
+	dataset_schema TEXT,
+	dataset_profile TEXT,
+	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
+	CONSTRAINT datasets_experiment_id_fkey FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -49,8 +81,18 @@ CREATE TABLE model_versions (
 	status VARCHAR(20),
 	status_message VARCHAR(500),
 	run_link VARCHAR(500),
+	storage_location VARCHAR(500),
 	CONSTRAINT model_version_pk PRIMARY KEY (name, version),
 	CONSTRAINT model_versions_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
+)
+
+
+CREATE TABLE registered_model_aliases (
+	alias VARCHAR(256) NOT NULL,
+	version INTEGER NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias),
+	CONSTRAINT registered_model_alias_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -80,15 +122,15 @@ CREATE TABLE runs (
 	deleted_time BIGINT,
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid),
 	CONSTRAINT runs_experiment_id_fkey FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
-	CONSTRAINT source_type CHECK ((source_type)::text = ANY ((ARRAY['NOTEBOOK'::character varying, 'JOB'::character varying, 'LOCAL'::character varying, 'UNKNOWN'::character varying, 'PROJECT'::character varying])::text[])),
-	CONSTRAINT runs_lifecycle_stage CHECK ((lifecycle_stage)::text = ANY ((ARRAY['active'::character varying, 'deleted'::character varying])::text[])),
-	CONSTRAINT runs_status_check CHECK ((status)::text = ANY ((ARRAY['SCHEDULED'::character varying, 'FAILED'::character varying, 'FINISHED'::character varying, 'RUNNING'::character varying, 'KILLED'::character varying])::text[]))
+	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage::text = ANY (ARRAY['active'::character varying, 'deleted'::character varying]::text[])),
+	CONSTRAINT runs_status_check CHECK (status::text = ANY (ARRAY['SCHEDULED'::character varying, 'FAILED'::character varying, 'FINISHED'::character varying, 'RUNNING'::character varying, 'KILLED'::character varying]::text[])),
+	CONSTRAINT source_type CHECK (source_type::text = ANY (ARRAY['NOTEBOOK'::character varying, 'JOB'::character varying, 'LOCAL'::character varying, 'UNKNOWN'::character varying, 'PROJECT'::character varying]::text[]))
 )
 
 
 CREATE TABLE latest_metrics (
 	key VARCHAR(250) NOT NULL,
-	value DOUBLE_PRECISION NOT NULL,
+	value DOUBLE PRECISION NOT NULL,
 	timestamp BIGINT,
 	step BIGINT NOT NULL,
 	is_nan BOOLEAN NOT NULL,
@@ -100,7 +142,7 @@ CREATE TABLE latest_metrics (
 
 CREATE TABLE metrics (
 	key VARCHAR(250) NOT NULL,
-	value DOUBLE_PRECISION NOT NULL,
+	value DOUBLE PRECISION NOT NULL,
 	timestamp BIGINT NOT NULL,
 	run_uuid VARCHAR(32) NOT NULL,
 	step BIGINT DEFAULT '0'::bigint NOT NULL,
@@ -135,13 +177,4 @@ CREATE TABLE tags (
 	run_uuid VARCHAR(32) NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT tags_run_uuid_fkey FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
-)
-
-
-CREATE TABLE registered_model_aliases (
-	name VARCHAR(256) NOT NULL,
-	alias VARCHAR(256) NOT NULL,
-	version INTEGER NOT NULL,
-	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias),
-	CONSTRAINT registered_model_alias_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE ON DELETE CASCADE
 )

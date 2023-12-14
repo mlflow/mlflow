@@ -11,8 +11,8 @@ import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { useExperimentIds } from '../experiment-page/hooks/useExperimentIds';
-import { CompareChartRunData, truncateString } from './charts/CompareRunsCharts.common';
-import { CompareRunsTooltipBodyProps } from './hooks/useCompareRunsTooltip';
+import { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
+import { RunsChartsTooltipBodyProps } from '../runs-charts/hooks/useRunsChartsTooltip';
 import {
   RunsCompareBarCardConfig,
   RunsCompareCardConfig,
@@ -22,37 +22,20 @@ import {
   RunsCompareLineCardConfig,
   RunsCompareParallelCardConfig,
 } from './runs-compare.types';
-
-interface LineXAxisValues {
-  value: number;
-  index: number;
-  label: string;
-}
+import { normalizeMetricChartTooltipValue } from '../../utils/MetricsUtils';
+import type { RunsMetricsLinePlotHoverData } from '../runs-charts/components/RunsMetricsLinePlot';
 
 interface CompareChartContextMenuContentDataType {
-  runs: CompareChartRunData[];
+  runs: RunsChartsRunData[];
   onTogglePin?: (runUuid: string) => void;
   onHideRun?: (runUuid: string) => void;
 }
 
 type CompareChartContextMenuHoverDataType = RunsCompareCardConfig;
 
-const normalizeValue = (value: string | number, decimalPlaces = 6) => {
-  if (typeof value === 'number') {
-    return value.toFixed(decimalPlaces);
-  }
-  // cast to numbers that have for values that have been previously stringified
-  const castToNumber = Number(value);
-  if (!isNaN(castToNumber)) {
-    return castToNumber.toFixed(decimalPlaces);
-  }
-  // truncate strings that are too long
-  return truncateString(value, 8);
-};
-
 const createBarChartValuesBox = (
   cardConfig: RunsCompareBarCardConfig,
-  activeRun: CompareChartRunData,
+  activeRun: RunsChartsRunData,
 ) => {
   const { metricKey } = cardConfig;
   const metric = activeRun?.metrics[metricKey];
@@ -63,14 +46,14 @@ const createBarChartValuesBox = (
 
   return (
     <div css={styles.value}>
-      <strong>{metric.key}:</strong> {normalizeValue(metric.value)}
+      <strong>{metric.key}:</strong> {normalizeMetricChartTooltipValue(metric.value)}
     </div>
   );
 };
 
 const createScatterChartValuesBox = (
   cardConfig: RunsCompareScatterCardConfig,
-  activeRun: CompareChartRunData,
+  activeRun: RunsChartsRunData,
 ) => {
   const { xaxis, yaxis } = cardConfig;
   const xKey = xaxis.key;
@@ -86,12 +69,12 @@ const createScatterChartValuesBox = (
     <>
       {xValue && (
         <div css={styles.value}>
-          <strong>X ({xKey}):</strong> {normalizeValue(xValue)}
+          <strong>X ({xKey}):</strong> {normalizeMetricChartTooltipValue(xValue)}
         </div>
       )}
       {yValue && (
         <div css={styles.value}>
-          <strong>Y ({yKey}):</strong> {normalizeValue(yValue)}
+          <strong>Y ({yKey}):</strong> {normalizeMetricChartTooltipValue(yValue)}
         </div>
       )}
     </>
@@ -100,7 +83,7 @@ const createScatterChartValuesBox = (
 
 const createContourChartValuesBox = (
   cardConfig: RunsCompareContourCardConfig,
-  activeRun: CompareChartRunData,
+  activeRun: RunsChartsRunData,
 ) => {
   const { xaxis, yaxis, zaxis } = cardConfig;
   const xKey = xaxis.key;
@@ -120,17 +103,17 @@ const createContourChartValuesBox = (
     <>
       {xValue && (
         <div css={styles.value}>
-          <strong>X ({xKey}):</strong> {normalizeValue(xValue)}
+          <strong>X ({xKey}):</strong> {normalizeMetricChartTooltipValue(xValue)}
         </div>
       )}
       {yValue && (
         <div css={styles.value}>
-          <strong>Y ({yKey}):</strong> {normalizeValue(yValue)}
+          <strong>Y ({yKey}):</strong> {normalizeMetricChartTooltipValue(yValue)}
         </div>
       )}
       {zValue && (
         <div css={styles.value}>
-          <strong>Z ({zKey}):</strong> {normalizeValue(zValue)}
+          <strong>Z ({zKey}):</strong> {normalizeMetricChartTooltipValue(zValue)}
         </div>
       )}
     </>
@@ -139,29 +122,27 @@ const createContourChartValuesBox = (
 
 const createLineChartValuesBox = (
   cardConfig: RunsCompareLineCardConfig,
-  activeRun: CompareChartRunData,
-  xAxisValues?: LineXAxisValues,
+  activeRun: RunsChartsRunData,
+  hoverData?: RunsMetricsLinePlotHoverData,
 ) => {
   const { metricKey } = cardConfig;
-  const metric =
-    // If there's available value from x axis (step or time), extract entry from
-    // metric history instead of latest metric.
-    (xAxisValues && activeRun?.metricsHistory?.[metricKey]?.[xAxisValues?.index]) ??
-    activeRun?.metrics[metricKey];
+  // If there's available value from x axis (step or time), extract entry from
+  // metric history instead of latest metric.
+  const metricValue = hoverData?.yValue || activeRun?.metrics[metricKey].value;
 
-  if (!metric) {
+  if (!metricValue) {
     return null;
   }
 
   return (
     <>
-      {xAxisValues && (
+      {hoverData && (
         <div css={styles.value}>
-          <strong>{xAxisValues.label}:</strong> {xAxisValues.value}
+          <strong>{hoverData.label}:</strong> {hoverData.xValue}
         </div>
       )}
       <div css={styles.value}>
-        <strong>{metric.key}:</strong> {normalizeValue(metric.value)}
+        <strong>{metricKey}:</strong> {normalizeMetricChartTooltipValue(metricValue)}
       </div>
     </>
   );
@@ -169,7 +150,7 @@ const createLineChartValuesBox = (
 
 const createParallelChartValuesBox = (
   cardConfig: RunsCompareParallelCardConfig,
-  activeRun: CompareChartRunData,
+  activeRun: RunsChartsRunData,
   isHovering?: boolean,
 ) => {
   const { selectedParams, selectedMetrics } = cardConfig as RunsCompareParallelCardConfig;
@@ -177,8 +158,8 @@ const createParallelChartValuesBox = (
     const param = activeRun?.params[paramKey];
     if (param) {
       return (
-        <div>
-          <strong>{param.key}:</strong> {normalizeValue(param.value)}
+        <div key={paramKey}>
+          <strong>{param.key}:</strong> {normalizeMetricChartTooltipValue(param.value)}
         </div>
       );
     }
@@ -188,8 +169,8 @@ const createParallelChartValuesBox = (
     const metric = activeRun?.metrics[metricKey];
     if (metric) {
       return (
-        <div>
-          <strong>{metric.key}:</strong> {normalizeValue(metric.value)}
+        <div key={metricKey}>
+          <strong>{metric.key}:</strong> {normalizeMetricChartTooltipValue(metric.value)}
         </div>
       );
     }
@@ -201,8 +182,8 @@ const createParallelChartValuesBox = (
     return (
       <>
         {paramsList.slice(0, 3)}
-        {metricsList[metricsList.length - 1]}
         {(paramsList.length > 3 || metricsList.length > 1) && <div>...</div>}
+        {metricsList[metricsList.length - 1]}
       </>
     );
   } else {
@@ -223,12 +204,12 @@ const ValuesBox = ({
   activeRun,
   cardConfig,
   isHovering,
-  xAxisValues,
+  hoverData,
 }: {
-  activeRun: CompareChartRunData;
+  activeRun: RunsChartsRunData;
   cardConfig: RunsCompareCardConfig;
   isHovering?: boolean;
-  xAxisValues?: LineXAxisValues;
+  hoverData?: RunsMetricsLinePlotHoverData;
 }) => {
   if (cardConfig.type === RunsCompareChartType.BAR) {
     return createBarChartValuesBox(cardConfig as RunsCompareBarCardConfig, activeRun);
@@ -243,11 +224,7 @@ const ValuesBox = ({
   }
 
   if (cardConfig.type === RunsCompareChartType.LINE) {
-    return createLineChartValuesBox(
-      cardConfig as RunsCompareLineCardConfig,
-      activeRun,
-      xAxisValues,
-    );
+    return createLineChartValuesBox(cardConfig as RunsCompareLineCardConfig, activeRun, hoverData);
   }
 
   if (cardConfig.type === RunsCompareChartType.PARALLEL) {
@@ -264,13 +241,14 @@ const ValuesBox = ({
 export const RunsCompareTooltipBody = ({
   closeContextMenu,
   contextData,
-  additionalAxisData,
-  hoverData: cardConfig,
+  hoverData,
+  chartData,
   runUuid,
   isHovering,
-}: CompareRunsTooltipBodyProps<
+}: RunsChartsTooltipBodyProps<
   CompareChartContextMenuContentDataType,
-  CompareChartContextMenuHoverDataType
+  CompareChartContextMenuHoverDataType,
+  RunsMetricsLinePlotHoverData
 >) => {
   const { runs, onTogglePin, onHideRun } = contextData;
   const [experimentId] = useExperimentIds();
@@ -300,8 +278,8 @@ export const RunsCompareTooltipBody = ({
       <ValuesBox
         isHovering={isHovering}
         activeRun={activeRun}
-        cardConfig={cardConfig}
-        xAxisValues={additionalAxisData}
+        cardConfig={chartData}
+        hoverData={hoverData}
       />
 
       <div css={styles.actionsWrapper}>

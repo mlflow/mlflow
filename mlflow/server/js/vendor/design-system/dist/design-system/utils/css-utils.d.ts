@@ -1,3 +1,4 @@
+/// <reference types="react" />
 import type { CSSObject } from '@emotion/react';
 import type { Theme } from '../../theme';
 import type { TypographyColor, ValidationState } from '../types';
@@ -26,4 +27,5 @@ export declare function getValidationStateColor(theme: Theme, validationState?: 
     warningColor?: string;
     successColor?: string;
 }): string | undefined;
+export declare function getDarkModePortalStyles(theme: Theme): React.CSSProperties;
 //# sourceMappingURL=css-utils.d.ts.map

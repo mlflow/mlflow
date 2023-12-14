@@ -116,6 +116,7 @@ def test_http_request_hostonly(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -133,6 +134,7 @@ def test_http_request_cleans_hostname(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -151,6 +153,7 @@ def test_http_request_with_basic_auth(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=headers,
         timeout=120,
@@ -183,10 +186,36 @@ def test_http_request_with_aws_sigv4(request, monkeypatch):
     request.assert_called_once_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=mock.ANY,
         headers=mock.ANY,
         timeout=mock.ANY,
         auth=AuthMatcher(),
+    )
+
+
+@mock.patch("requests.Session.request")
+@mock.patch("mlflow.tracking.request_auth.registry.fetch_auth")
+def test_http_request_with_auth(fetch_auth, request):
+    mock_fetch_auth = {"test_name": "test_auth_value"}
+    fetch_auth.return_value = mock_fetch_auth
+    auth = "test_auth_name"
+    host_only = MlflowHostCreds("http://my-host", auth=auth)
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    http_request(host_only, "/my/endpoint", "GET")
+
+    fetch_auth.assert_called_with(auth)
+
+    request.assert_called_with(
+        "GET",
+        "http://my-host/my/endpoint",
+        allow_redirects=True,
+        verify=mock.ANY,
+        headers=mock.ANY,
+        timeout=mock.ANY,
+        auth=mock_fetch_auth,
     )
 
 
@@ -202,6 +231,7 @@ def test_http_request_with_token(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=headers,
         timeout=120,
@@ -218,6 +248,7 @@ def test_http_request_with_insecure(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=False,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -234,6 +265,7 @@ def test_http_request_client_cert_path(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         cert="/some/path",
         headers=DefaultRequestHeaderProvider().request_headers(),
@@ -251,6 +283,7 @@ def test_http_request_server_cert_path(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify="/some/path",
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -271,6 +304,7 @@ def test_http_request_with_content_type_header(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=headers,
         timeout=120,
@@ -296,6 +330,7 @@ def test_http_request_request_headers(request):
         request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
+            allow_redirects=True,
             verify="/some/path",
             headers={**DefaultRequestHeaderProvider().request_headers(), "test": "header"},
             timeout=120,
@@ -332,6 +367,7 @@ def test_http_request_request_headers_user_agent(request):
         request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
+            allow_redirects=True,
             verify="/some/path",
             headers=expected_headers,
             timeout=120,
@@ -369,6 +405,7 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
         request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
+            allow_redirects=True,
             verify="/some/path",
             headers=expected_headers,
             timeout=120,
@@ -416,6 +453,7 @@ def test_http_request_wrapper(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=False,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -426,6 +464,7 @@ def test_http_request_wrapper(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=False,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -482,7 +521,9 @@ def test_http_request_customize_config(monkeypatch):
             mock.ANY,
             5,
             2,
+            1.0,
             mock.ANY,
+            True,
             headers=mock.ANY,
             verify=mock.ANY,
             timeout=120,
@@ -490,6 +531,7 @@ def test_http_request_customize_config(monkeypatch):
         mock_get_http_response_with_retries.reset_mock()
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "8")
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", "3")
+        monkeypatch.setenv("MLFLOW_HTTP_REQUEST_BACKOFF_JITTER", "1.0")
         monkeypatch.setenv("MLFLOW_HTTP_REQUEST_TIMEOUT", "300")
         http_request(host_only, "/my/endpoint", "GET")
         mock_get_http_response_with_retries.assert_called_with(
@@ -497,7 +539,9 @@ def test_http_request_customize_config(monkeypatch):
             mock.ANY,
             8,
             3,
+            1.0,
             mock.ANY,
+            True,
             headers=mock.ANY,
             verify=mock.ANY,
             timeout=300,
@@ -531,3 +575,26 @@ def test_augmented_raise_for_status():
     assert e.value.response == response
     assert e.value.request == response.request
     assert response.text in str(e.value)
+
+
+def test_provide_redirect_kwarg():
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = http_request(
+            MlflowHostCreds("http://my-host"),
+            "/my/endpoint",
+            "GET",
+            allow_redirects=False,
+        )
+
+        assert response.text == "mock response"
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=False,
+            headers=mock.ANY,
+            verify=mock.ANY,
+            timeout=120,
+        )

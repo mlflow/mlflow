@@ -19,7 +19,7 @@ import os
 import shlex
 import sys
 import traceback
-from typing import Dict, NamedTuple, Tuple
+from typing import Dict, NamedTuple, Optional, Tuple
 
 import flask
 
@@ -423,7 +423,11 @@ def _serve(model_uri, port, host):
 
 
 def get_cmd(
-    model_uri: str, port: int = None, host: int = None, timeout: int = None, nworkers: int = None
+    model_uri: str,
+    port: Optional[int] = None,
+    host: Optional[int] = None,
+    timeout: Optional[int] = None,
+    nworkers: Optional[int] = None,
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()

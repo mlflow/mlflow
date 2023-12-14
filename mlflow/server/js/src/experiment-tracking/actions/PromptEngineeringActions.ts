@@ -13,6 +13,7 @@ import {
   ModelGatewayQueryPayload,
   ModelGatewayResponseType,
   ModelGatewayService,
+  gatewayErrorHandler,
 } from '../sdk/ModelGatewayService';
 import { EvaluationArtifactTable } from '../types';
 import { searchModelGatewayRoutesApi } from './ModelGatewayActions';
@@ -67,7 +68,7 @@ export const evaluatePromptTableValue =
     // recently. Display relevant error in this scenario.
     const gatewayRoute = getState().modelGateway.modelGatewayRoutes[routeName];
     if (!gatewayRoute) {
-      const errorMessage = `AI gateway route ${routeName} does not exist anymore!`;
+      const errorMessage = `MLflow deployment endpoints ${routeName} does not exist anymore!`;
       Utils.logErrorAndNotifyUser(errorMessage);
       throw new Error(errorMessage);
     }
@@ -75,19 +76,26 @@ export const evaluatePromptTableValue =
       inputText: compiledPrompt,
       parameters,
     };
-    const { inputText } = modelGatewayRequestPayload;
-    const textPayload = ModelGatewayService.createEvaluationTextPayload(inputText, gatewayRoute);
-    const processed_data = {
-      ...textPayload,
-      ...modelGatewayRequestPayload.parameters,
+
+    const payload = () => {
+      const { inputText } = modelGatewayRequestPayload;
+      const textPayload = ModelGatewayService.createEvaluationTextPayload(inputText, gatewayRoute);
+      const processed_data = {
+        ...textPayload,
+        ...modelGatewayRequestPayload.parameters,
+      };
+      return MlflowService.gatewayProxyPost(
+        {
+          gateway_path: gatewayRoute.endpoint_url.substring(1),
+          json_data: processed_data,
+        },
+        gatewayErrorHandler,
+      );
     };
 
     const action = {
       type: EVALUATE_PROMPT_TABLE_VALUE,
-      payload: MlflowService.gatewayProxyPost({
-        gateway_path: `gateway/${gatewayRoute.name}/invocations`,
-        json_data: processed_data,
-      }),
+      payload: payload(),
       meta: { inputValues, run, compiledPrompt, rowKey, startTime: performance.now() },
     };
     return dispatch(action);

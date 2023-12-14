@@ -12,7 +12,7 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
 .. code-block:: python
 
     import mlflow
-    from mlflow.metrics import EvaluationExample, correctness
+    from mlflow.metrics.genai import EvaluationExample, answer_similarity
 
     eval_df = pd.DataFrame(
         {
@@ -41,94 +41,183 @@ The following code demonstrates how to use :py:func:`mlflow.evaluate()` with an 
             "engineers face when developing, training, and deploying machine learning models."
         },
     )
-    correctness_metric = correctness(examples=[example])
+    answer_similarity_metric = answer_similarity(examples=[example])
     results = mlflow.evaluate(
         logged_model.model_uri,
         eval_df,
         targets="ground_truth",
         model_type="question-answering",
-        extra_metrics=[correctness_metric],
+        extra_metrics=[answer_similarity_metric],
     )
+
+Information about how an :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` is calculated, such as the grading prompt used is available via the ``metric_details`` property.
+
+.. code-block:: python
+
+    import mlflow
+    from mlflow.metrics.genai import relevance
+
+    my_relevance_metric = relevance()
+    print(my_relevance_metric.metric_details)
 
 Evaluation results are stored as :py:class:`MetricValue <mlflow.metrics.MetricValue>`. Aggregate results are logged to the MLflow run as metrics, while per-example results are logged to the MLflow run as artifacts in the form of an evaluation table.
 
 .. autoclass:: mlflow.metrics.MetricValue
 
-We provide the following builtin :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating models. These metrics are computed automatically depending on the ``model_type``. For more information on the ``model_type`` parameter, see :py:func:`mlflow.evaluate()` API.
+We provide the following builtin factory functions to create :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating models. These metrics are computed automatically depending on the ``model_type``. For more information on the ``model_type`` parameter, see :py:func:`mlflow.evaluate()` API.
 
-.. autodata:: mlflow.metrics.mae
-   :annotation:
+Regressor Metrics
+-----------------
 
-.. autodata:: mlflow.metrics.mape
-   :annotation:
+.. autofunction:: mlflow.metrics.mae
 
-.. autodata:: mlflow.metrics.max_error
-   :annotation:
+.. autofunction:: mlflow.metrics.mape
 
-.. autodata:: mlflow.metrics.mse
-   :annotation:
+.. autofunction:: mlflow.metrics.max_error
 
-.. autodata:: mlflow.metrics.rmse
-   :annotation:
+.. autofunction:: mlflow.metrics.mse
 
-.. autodata:: mlflow.metrics.r2_score
-   :annotation:
+.. autofunction:: mlflow.metrics.rmse
 
-.. autodata:: mlflow.metrics.precision_score
-   :annotation:
+.. autofunction:: mlflow.metrics.r2_score
 
-.. autodata:: mlflow.metrics.recall_score
-   :annotation:
+Classifier Metrics
+------------------
 
-.. autodata:: mlflow.metrics.f1_score
-   :annotation:
+.. autofunction:: mlflow.metrics.precision_score
 
-.. autodata:: mlflow.metrics.ari_grade_level
-   :annotation:
+.. autofunction:: mlflow.metrics.recall_score
 
-.. autodata:: mlflow.metrics.flesch_kincaid_grade_level
-   :annotation:
+.. autofunction:: mlflow.metrics.f1_score
 
-.. autodata:: mlflow.metrics.perplexity
-   :annotation:
+Text Metrics
+------------
 
-.. autodata:: mlflow.metrics.rouge1
-   :annotation:
+.. autofunction:: mlflow.metrics.ari_grade_level
 
-.. autodata:: mlflow.metrics.rouge2
-   :annotation:
+.. autofunction:: mlflow.metrics.flesch_kincaid_grade_level
 
-.. autodata:: mlflow.metrics.rougeL
-   :annotation:
+Question Answering Metrics
+---------------------------
 
-.. autodata:: mlflow.metrics.rougeLsum
-   :annotation:
+Includes all of the above **Text Metrics** as well as the following:
 
-.. autodata:: mlflow.metrics.toxicity
-   :annotation:
+.. autofunction:: mlflow.metrics.exact_match
+
+.. autofunction:: mlflow.metrics.rouge1
+
+.. autofunction:: mlflow.metrics.rouge2
+
+.. autofunction:: mlflow.metrics.rougeL
+
+.. autofunction:: mlflow.metrics.rougeLsum
+
+.. autofunction:: mlflow.metrics.toxicity
+
+.. autofunction:: mlflow.metrics.token_count
+
+.. autofunction:: mlflow.metrics.latency
+
+Retriever Metrics
+-----------------
+
+The following metrics are built-in metrics for the ``'retriever'`` model type, meaning they will be 
+automatically calculated with a default ``retriever_k`` value of 3. 
+
+To evaluate document retrieval models, it is recommended to use a dataset with the following 
+columns:
+
+- Input queries
+- Retrieved relevant doc IDs
+- Ground-truth doc IDs
+
+Alternatively, you can also provide a function through the ``model`` parameter to represent 
+your retrieval model. The function should take a Pandas DataFrame containing input queries and 
+ground-truth relevant doc IDs, and return a DataFrame with a column of retrieved relevant doc IDs.
+
+A "doc ID" is a string that uniquely identifies a document. Each row of the retrieved and 
+ground-truth doc ID columns should consist of a list of doc IDs.
+
+Parameters:
+
+- ``targets``: A string specifying the column name of the ground-truth relevant doc IDs
+- ``predictions``: A string specifying the column name of the retrieved relevant doc IDs in either 
+  the static dataset or the Dataframe returned by the ``model`` function
+- ``retriever_k``: A positive integer specifying the number of retrieved docs IDs to consider for 
+  each input query. ``retriever_k`` defaults to 3. You can change ``retriever_k`` by using the 
+  :py:func:`mlflow.evaluate` API:
+
+    1. .. code-block:: python
+
+        # with a model and using `evaluator_config`
+        mlflow.evaluate(
+            model=retriever_function,
+            data=data,
+            targets="ground_truth",
+            model_type="retriever",
+            evaluators="default",
+            evaluator_config={"retriever_k": 5}
+        )
+    2. .. code-block:: python
+
+        # with a static dataset and using `extra_metrics`
+        mlflow.evaluate(
+            data=data,
+            predictions="retrieved_docs",
+            targets="ground_truth_docs",
+            predictions="predictions_param",
+            targets="targets_param",
+            model_type="retriever",
+            extra_metrics = [
+                mlflow.metrics.precision_at_k(5),
+                mlflow.metrics.precision_at_k(6),
+                mlflow.metrics.recall_at_k(5),
+                mlflow.metrics.ndcg_at_k(5)
+            ]   
+        )
+    
+    NOTE: In the 2nd method, it is recommended to omit the ``model_type`` as well, or else 
+    ``precision@3`` and ``recall@3`` will be  calculated in  addition to ``precision@5``, 
+    ``precision@6``, ``recall@5``, and ``ndcg_at_k@5``.
+
+.. autofunction:: mlflow.metrics.precision_at_k
+
+.. autofunction:: mlflow.metrics.recall_at_k
+
+.. autofunction:: mlflow.metrics.ndcg_at_k
 
 Users create their own :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_metric <mlflow.metrics.make_metric>` factory function
 
 .. autofunction:: mlflow.metrics.make_metric
 
-We provide the following pre-canned "intelligent" :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. The following factory functions help you customize the intelligent metric to your use case.
-
-.. autofunction:: mlflow.metrics.correctness
-
-.. autofunction:: mlflow.metrics.strict_correctness
-
-.. autofunction:: mlflow.metrics.relevance
-
-Users can also create their own LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>` using the :py:func:`make_genai_metric <mlflow.metrics.make_genai_metric>` factory function.
-
-.. autofunction:: mlflow.metrics.make_genai_metric
-
-When using LLM based :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.EvaluationExample>`
-
-.. autoclass:: mlflow.metrics.EvaluationExample
-
 .. automodule:: mlflow.metrics
     :members:
     :undoc-members:
     :show-inheritance:
-    :exclude-members: MetricValue, EvaluationMetric, make_metric, make_genai_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, perplexity, rouge1, rouge2, rougeL, rougeLsum, toxicity, correctness, strict_correctness, relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score
+    :exclude-members: MetricValue, EvaluationMetric, make_metric, EvaluationExample, ari_grade_level, flesch_kincaid_grade_level, exact_match, rouge1, rouge2, rougeL, rougeLsum, toxicity, answer_similarity, answer_correctness, faithfulness, answer_relevance, mae, mape, max_error, mse, rmse, r2_score, precision_score, recall_score, f1_score, token_count, latency, precision_at_k, recall_at_k, ndcg_at_k
+
+Generative AI Metrics
+---------------------
+
+We also provide generative AI ("genai") :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s for evaluating text models. These metrics use an LLM to evaluate the quality of a model's output text. Note that your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and governed by the LLM service's terms of use. The following factory functions help you customize the intelligent metric to your use case.
+
+.. automodule:: mlflow.metrics.genai
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: EvaluationExample, make_genai_metric
+
+You can also create your own generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s using the :py:func:`make_genai_metric <mlflow.metrics.genai.make_genai_metric>` factory function.
+
+.. autofunction:: mlflow.metrics.genai.make_genai_metric
+
+When using generative AI :py:class:`EvaluationMetric <mlflow.metrics.EvaluationMetric>`\s, it is important to pass in an :py:class:`EvaluationExample <mlflow.metrics.genai.EvaluationExample>`
+
+.. autoclass:: mlflow.metrics.genai.EvaluationExample
+
+Users must set the appropriate environment variables for the LLM service they are using for 
+evaluation. For example, if you are using OpenAI's API, you must set the ``OPENAI_API_KEY`` 
+environment variable. If using Azure OpenAI, you must also set the ``OPENAI_API_TYPE``, 
+``OPENAI_API_VERSION``, ``OPENAI_API_BASE``, and ``OPENAI_DEPLOYMENT_NAME`` environment variables. 
+See `Azure OpenAI documentation <https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/switching-endpoints>`_
+Users do not need to set these environment variables if they are using a gateway route.

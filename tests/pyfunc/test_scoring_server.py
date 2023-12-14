@@ -418,7 +418,7 @@ def test_parse_json_input_split_oriented():
 def test_records_oriented_json_to_df():
     # test that datatype for "zip" column is not converted to "int64"
     jstr = """
-      { 
+      {
         "dataframe_records": [
           {"zip":"95120","cost":10.45,"score":8},
           {"zip":"95128","cost":23.0,"score":0},
@@ -444,9 +444,9 @@ def test_split_oriented_json_to_df():
       {
         "dataframe_split": {
           "columns":["zip","cost","count"],
-          "index":[0,1,2], 
+          "index":[0,1,2],
           "data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]
-        }  
+        }
       }
     """
     jstr, _ = pyfunc_scoring_server._split_data_and_params(jstr)
