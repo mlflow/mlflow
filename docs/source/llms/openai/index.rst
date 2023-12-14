@@ -11,11 +11,11 @@ Introduction
 **OpenAI's GPT Models** represent a significant leap in natural language processing (NLP) capabilities. 
 The Generative Pre-trained Transformer (GPT) models are renowned for 
 their ability to generate human-like text, comprehend complex queries, summarize extensive documents, 
-and much more. OpenAI has been at the forefront of NLP technology, offering models that are 
+and much more. `OpenAI <https://openai.com/>`_ has been at the forefront of NLP technology, offering models that are 
 versatile and widely applicable in various domains.
 
 Leveraging MLflow's robust experiment tracking and model management framework, the integration with 
-OpenAI's models enables practitioners to efficiently utilize these advanced NLP tools in their 
+OpenAI's `GPT-based models <https://platform.openai.com/docs/models>`_ enables practitioners to efficiently utilize these advanced NLP tools in their 
 projects. From simple text generation to complex conversational AI applications, the MLflow-OpenAI 
 integration brings a new level of ease and effectiveness to managing these powerful models.
 
@@ -30,10 +30,10 @@ What makes this Integration so Special?
 The combination of MLflow's experiment tracking and model management with OpenAI's cutting-edge NLP models unlocks new potential for AI applications. 
 This MLflow flavor for OpenAI simplifies the process of:
 
-- **Developing** an application that leverages the power of OpenAI's models. By simplifying the process of keeping track of the highly iterative and creative process of prompt engineering, MLflow makes sure that you never lose track of a great idea.
-- **Auditing and Reviewing** your most promising experiments. The MLflow tracking service means that you can easily share the results of your work and get peer review of your work.
+- **Developing** an application that leverages the power of OpenAI's models. By simplifying the process of keeping track of the highly iterative and creative process of prompt engineering, `MLflow prompt engineering <../prompt-engineering/index.html>`_ makes sure that you never lose track of a great idea.
+- **Auditing and Reviewing** your most promising experiments. The `MLflow tracking service <../../tracking.html>`_ means that you can easily share the results of your work and get peer review of your work.
 - **Customizing** the interface to your application. Whether you want to allow creative control with exposing parameters such as `temperature` or to relax cost controls by exposing `max_tokens`, MLflow allows you to configure default values and restrict the ability to modify the parameters used for inference.
-- **Tagging and annotating** particular runs during the iterative prompt engineering phase to flag particularly promising ideas that you and others can revisit later for inspiration, further testing, or deployment.
+- **Tagging and annotating** particular runs with `tags <../../tracking/tracking-api.html#adding-tags-to-runs>`_ during the iterative prompt engineering phase to flag particularly promising ideas that you and others can revisit later for inspiration, further testing, or deployment.
 
 The Elephant in the Room: Prompt Engineering
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -94,7 +94,7 @@ The integration of OpenAI's advanced NLP models with MLflow's robust model manag
   
 - **Financial Analysis and Forecasting**: Leverage NLP models to analyze financial reports, market trends, and news articles, providing deeper insights and predictions for investment strategies and economic forecasting.
 
-With MLflow's integration, these applications not only benefit from the linguistic prowess of OpenAI's models but also gain from streamlined tracking, version control, and deployment processes. This synergy empowers developers and businesses to build sophisticated, AI-driven solutions that address complex challenges and create new opportunities in various industries.
+With MLflow's integration, these applications not only benefit from the linguistic prowess of OpenAI's models but also gain from streamlined `tracking <../../tracking.html>`_, `version control <../../model-registry.html>`_, and `deployment <../../deployment/index.html>`_ processes. This synergy empowers developers and businesses to build sophisticated, AI-driven solutions that address complex challenges and create new opportunities in various industries.
 
 
 Deployment Made Easy
