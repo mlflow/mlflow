@@ -1,6 +1,6 @@
-.. _mlflow_deployment_clients:
+.. _mlflow_deployment_client:
 
-MLflow Deployment Clients
+MLflow Deployment Client
 =========================
 
 MLflow Deployment Client is a set of CRUD and query APIs to interact models that are served across various platforms.
