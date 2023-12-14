@@ -160,10 +160,20 @@ to understand in order to get these notebooks to work.
             <div class="simple-card">
                 <a href="notebooks/openai-code-helper.html">
                     <div class="header">
-                        OpenAI Custom Python Model
+                        OpenAI Custom Python Model - Code Helper
                     </div>
                     <p>
                         Learn how to leverage Custom Python Models with a useful Code Helper application that leverages OpenAI Models and MLflow.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="notebooks/openai-embeddings-generation.html">
+                    <div class="header">
+                        OpenAI Embeddings - Document Comparison
+                    </div>
+                    <p>
+                        Explore the application of embeddings with document comparison using an OpenAI model with MLflow.
                     </p>
                 </a>
             </div>
@@ -179,7 +189,8 @@ To download the advanced OpenAI tutorial notebooks to run in your environment, c
 .. raw:: html
 
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-chat-completions.ipynb" class="notebook-download-btn">Download the ChatCompletions Notebook</a><br>
-    
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-code-helper.ipynb" class="notebook-download-btn">Download the Code Helper Notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-embeddings-generation.ipynb" class="notebook-download-btn">Download the Embeddings Notebook</a><br>
 
 .. toctree::
     :maxdepth: 2
@@ -187,6 +198,8 @@ To download the advanced OpenAI tutorial notebooks to run in your environment, c
 
     notebooks/openai-quickstart.ipynb
     notebooks/openai-chat-completions.ipynb
+    notebooks/openai-code-helper.ipynb
+    notebooks/openai-embeddings-generation.ipynb
 
 `Detailed Documentation <guide/index.html>`_
 --------------------------------------------
