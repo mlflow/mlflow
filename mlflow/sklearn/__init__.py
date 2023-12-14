@@ -78,8 +78,6 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
-I_AM_DUMMY = "I am dummy"
-
 FLAVOR_NAME = "sklearn"
 
 SERIALIZATION_FORMAT_PICKLE = "pickle"
