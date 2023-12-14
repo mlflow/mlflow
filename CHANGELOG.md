@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 2.9.2 (2023-12-14)
+
+MLflow 2.9.2 includes several major features and improvements
+
+Features:
+
+- [] Create `mlflow.deployments.openai` (#10473, @prithvikannan)
+- [Server-infra] Add env var to disable redirects again (#10673, @daniellok-db)
+
+Bug fixes:
+
+- [Server-infra] Add sandboxed jinja2 loader for yaml rendering (#10676, @BenWilson2)
+- [Artifacts] Disable '..' in query string for artifact URI (#10653, @B-Step62)
+- [Server-infra / Windows] Fix for windows traversal attack (#10647, @BenWilson2)
+- [Artifacts] Prevent path traversal with encoded URL (#10650, @B-Step62)
+
+Documentation updates:
+
+- [Docs] Adding Notebook for RAG Blog (#10661, @AbeOmor)
+- [Docs] Add Tensorflow landing page (#10646, @chenmoneygithub)
+- [Deployments / Tracking] Add endpoints to LLM evaluation docs (#10660, @prithvikannan)
+- [Examples] Add retriever evaluation tutorial and update question generation notebook (#10419, @liangz1)
+
+Small bug fixes and documentation updates:
+
+#10677, #10636, @serena-ruan; #10666, #10648, #10657, #10652, #10649, #10641, #10640, @harupy; #10643, #10632, @BenWilson2
+
 ## 2.9.1 (2023-12-07)
 
 MLflow 2.9.1 is a patch release, containing a critical bug fix related to loading `pyfunc` models that were saved in previous versions of MLflow.
