@@ -19,11 +19,9 @@ nodes:
   type: python
   source:
     type: code
-    path: hello.py
+    path: echo.py
   inputs:
     prompt: ${hello_prompt.output}
-    deployment_name: text-davinci-003
-    max_tokens: "120"
 environment:
     image: mcr.microsoft.com/azureml/promptflow/promptflow-runtime:latest
     python_requirements_txt: requirements.txt

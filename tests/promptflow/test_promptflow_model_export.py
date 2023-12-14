@@ -7,7 +7,6 @@ from promptflow._sdk.entities._flow import Flow
 
 import mlflow
 from mlflow import MlflowException
-from mlflow.openai.utils import _mock_request, _mock_chat_completion_response, TEST_CONTENT
 
 
 def get_promptflow_example_model():
@@ -51,13 +50,14 @@ def test_pyfunc_load_promptflow_model():
 
 
 def test_promptflow_model_predict():
-    with _mock_request(return_value=_mock_chat_completion_response()):
-        model = get_promptflow_example_model()
-        with mlflow.start_run():
-            logged_model = mlflow.promptflow.log_model(model, "promptflow_model")
-        loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-        result = loaded_model.predict({"text": "Python Hello World!"})
-        assert result == {"output": TEST_CONTENT}
+    model = get_promptflow_example_model()
+    with mlflow.start_run():
+        logged_model = mlflow.promptflow.log_model(model, "promptflow_model")
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    input_value = "Python Hello World!"
+    result = loaded_model.predict({"text": input_value})
+    expected_result = f"Write a simple {input_value} program that displays the greeting message when executed.\n"
+    assert result == {"output": expected_result}
 
 
 def test_unsupported_class():

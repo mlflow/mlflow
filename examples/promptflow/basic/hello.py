@@ -2,7 +2,6 @@ import os
 from openai import OpenAI
 from openai.version import VERSION as OPENAI_VERSION
 
-from dotenv import load_dotenv
 from promptflow import tool
 
 # The inputs section will change based on the arguments of the tool function, after you save the code
