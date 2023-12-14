@@ -336,12 +336,6 @@ directly to our up-to-date examples on GitHub below:
 
 :sup:`1` Demonstrates the use of Retrieval Augmented Generation (RAG) using a Vector Store
 
-* **openai**
-
-    * `Performing Embeddings Generation <https://github.com/mlflow/mlflow/blob/master/examples/openai/embeddings.py>`_
-    * `Using OpenAI on a Spark DataFrame for Batch Processing <https://github.com/mlflow/mlflow/blob/master/examples/openai/spark_udf.py>`_
-    * `Using Azure OpenAI <https://github.com/mlflow/mlflow/blob/master/examples/openai/azure_openai.py>`_
-
 
 `LLM Tracking in MLflow <llm-tracking/index.html>`_
 ---------------------------------------------------
