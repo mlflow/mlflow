@@ -241,7 +241,6 @@ def log_model(
                 model=model,
                 artifact_path="sbert_model",
                 signature=signature,
-                input_example=example_sentences,
             )
 
 
