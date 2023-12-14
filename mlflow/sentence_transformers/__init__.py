@@ -222,10 +222,12 @@ def log_model(
 
     :param model: A trained ``sentence-transformers`` model.
 
+    .. code-block:: python
+
         An example of using log_model for a sentence-transformers model and architecture:
 
         from sentence_transformers import SentenceTransformer
-        import mlflow.sentence_transformers
+        import mlflow
 
         model = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -234,7 +236,7 @@ def log_model(
             model_output=model.encode(example_sentences),
         )
 
-        with mlflow.start_rin():
+        with mlflow.start_run():
             logged_model = mlflow.sentence_transformers.log_model(
                 model=model,
                 artifact_path="sbert_model",
