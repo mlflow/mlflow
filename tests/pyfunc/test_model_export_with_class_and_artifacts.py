@@ -1478,5 +1478,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(model_path):
             input_example=["a"],
         )
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_model.metadata.get_input_schema().to_dict() == [{"type": "string"}]
+    assert pyfunc_model.metadata.get_input_schema().to_dict() == [
+        {"type": "string", "required": True}
+    ]
     pd.testing.assert_frame_equal(pyfunc_model.predict(["a", "b"]), pd.DataFrame(["a", "b"]))
