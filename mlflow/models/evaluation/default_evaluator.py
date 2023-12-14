@@ -1644,6 +1644,15 @@ class DefaultEvaluator(ModelEvaluator):
         data = data.assign(**columns)
         artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
         mlflow.log_table(data, artifact_file=artifact_file_name)
+        if self.eval_results_path:
+            eval_table_spark = self.spark_session.createDataFrame(data)
+            try:
+                eval_table_spark.write.mode(self.eval_results_mode).option(
+                    "mergeSchema", "true"
+                ).format("delta").saveAsTable(self.eval_results_path)
+            except Exception as e:
+                _logger.info(f"Saving eval table to delta table failed. Reason: {e}")
+
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
             uri=mlflow.get_artifact_uri(artifact_file_name)
@@ -1785,6 +1794,24 @@ class DefaultEvaluator(ModelEvaluator):
         self.col_mapping = self.evaluator_config.get("col_mapping", {})
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
+        self.eval_results_path = self.evaluator_config.get("eval_results_path")
+        self.eval_results_mode = self.evaluator_config.get("eval_results_mode", "overwrite")
+
+        if self.eval_results_path:
+            from mlflow.utils._spark_utils import _get_active_spark_session
+
+            self.spark_session = _get_active_spark_session()
+            if not self.spark_session:
+                raise MlflowException(
+                    message="eval_results_path is only supported in Spark environment. ",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if self.eval_results_mode not in ["overwrite", "append"]:
+                raise MlflowException(
+                    message="eval_results_mode can only be 'overwrite' or 'append'. ",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
         if extra_metrics and custom_metrics:
             raise MlflowException(
