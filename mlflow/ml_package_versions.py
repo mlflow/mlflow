@@ -255,7 +255,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.1.0",
-            "maximum": "2.0.0"
+            "maximum": "1.2.0"
         }
     },
     "sentence_transformers": {
