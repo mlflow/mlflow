@@ -84,6 +84,7 @@ GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 image_url = "http://images.cocodataset.org/val2017/000000039769.jpg"
 =======
 image_url ='http://images.cocodataset.org/val2017/000000039769.jpg' #"https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
@@ -98,6 +99,9 @@ image_url = "https://github.com/mlflow/mlflow/blob/master/tests/datasets/cat_ima
 image_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
 
 >>>>>>> c6503a1cf (Add new feature imgclassification visionmodel (#5))
+=======
+image_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975
 # Test that can only be run locally:
 # - Summarization pipeline tests
 # - TextClassifier pipeline tests
@@ -625,7 +629,7 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
     card_data = yaml.safe_load(model_path.joinpath("model_card_data.yaml").read_bytes())
     assert card_data["tags"] == ["vision", "image-classification"]
     # Validate inferred model card text
-    with model_path.joinpath("model_card.md").open() as file:
+    with model_path.joinpath("model_card.md").open(encoding="utf-8") as file:
         card_text = file.read()
     assert len(card_text) > 0
     # Validate conda.yaml
@@ -1465,6 +1469,46 @@ def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, i
 >>>>>>> 776418952 (Add new feature imgclassification visionmodel (#1))
 
 
+def read_image(filename):
+    image_path = os.path.join(pathlib.Path(__file__).parent.parent, "datasets", filename)
+    with open(image_path, "rb") as f:
+        return f.read()
+
+
+def is_base64_image(s):
+    try:
+        return base64.b64encode(base64.b64decode(s)).decode("utf-8") == s
+    except Exception:
+        return False
+
+
+@pytest.mark.parametrize(
+    "inference_payload",
+    [
+        image_url,
+        os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png"),
+        "base64",
+    ],
+)
+def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
+    if inference_payload == "base64":
+        if Version(transformers.__version__) < Version("4.29"):
+            return
+        inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
+    signature = infer_signature(
+        inference_payload,
+        mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
+    )
+    mlflow.transformers.save_model(
+        transformers_model=small_vision_model,
+        path=model_path,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    predictions = pyfunc_loaded.predict(inference_payload)
+    assert len(predictions) != 0
+
+
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 =======
 >>>>>>> 41941229d (Re-enable transformers tests (#10343))
@@ -2199,7 +2243,11 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 )
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     if not isinstance(inference_payload, list) and inference_payload == "base64":
+<<<<<<< HEAD
         if transformers.__version__ > "4.28" or transformers.__version__ < "4.33" :
+=======
+        if transformers.__version__ < "4.29":
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975
             return
         inference_payload = [
             base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
@@ -3631,13 +3679,21 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
 def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     artifact_path = "image_classification_model"
 
+<<<<<<< HEAD
     image_file_paths = image_url
+=======
+    image_file_paths = [image_url]
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975
     parameters = {
         "top_k": 2,
     }
     inference_payload = json.dumps(
         {
+<<<<<<< HEAD
             "inputs": [image_file_paths],
+=======
+            "inputs": image_file_paths,
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975
             "params": parameters,
         }
     )
@@ -3662,7 +3718,11 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     )
 
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+<<<<<<< HEAD
     assert len(predictions) != 0
+=======
+    assert len(predictions) == len(image_file_paths)
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975
     assert len(predictions.iloc[0]) == parameters["top_k"]
 
 
@@ -4057,6 +4117,7 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
     loaded = mlflow.transformers.load_model(str(tmp_path / "model"))
     text = "Apples are delicious"
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 <<<<<<< HEAD
     assert loaded(text) == pipeline(text)
@@ -4069,6 +4130,9 @@ def test_basic_model_with_accelerate_homogeneous_mapping_works(tmp_path):
 =======
     assert loaded(text) == pipeline(text)
 >>>>>>> 32442879b (added inference_payload and removedunwantedcode)
+=======
+    assert loaded(text) == pipeline(text)
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975
 
 
 def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
@@ -4103,6 +4167,9 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
     assert mlmodel["model_size_bytes"] == expected_size
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 3839f1cf7 (Add model_size_bytes attribute when saving the model (#10110))
 =======
 >>>>>>> 864da420a (removed balnalines and formated)
+=======
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975

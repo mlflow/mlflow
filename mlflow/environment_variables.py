@@ -460,12 +460,16 @@ MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING = _EnvironmentVariable(
 # Private environment variable to specify the number of chunk download retries for multipart
 # download.
 _MLFLOW_MPD_NUM_RETRIES = _EnvironmentVariable("_MLFLOW_MPD_NUM_RETRIES", int, 3)
+<<<<<<< HEAD
 
+=======
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975
 # Private environment variable to specify the interval between chunk download retries for multipart
 # download.
 _MLFLOW_MPD_RETRY_INTERVAL_SECONDS = _EnvironmentVariable(
     "_MLFLOW_MPD_RETRY_INTERVAL_SECONDS", int, 1
 )
+<<<<<<< HEAD
 
 #: Specifies the minimum file size in bytes to use multipart upload when logging artifacts
 #: (default: ``524_288_000`` (500 MB))
@@ -478,3 +482,5 @@ MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE = _EnvironmentVariable(
 MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE = _EnvironmentVariable(
     "MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", int, 100 * 1024**2
 )
+=======
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975
