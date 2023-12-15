@@ -232,8 +232,8 @@ def log_model(
         model = SentenceTransformer("all-MiniLM-L6-v2")
         data = "MLflow is awesome!"
         signature = mlflow.models.infer_signature(
-            model_input=example_sentences,
-            model_output=model.encode(example_sentences),
+            model_input=data,
+            model_output=model.encode(data),
         )
 
         with mlflow.start_run():
