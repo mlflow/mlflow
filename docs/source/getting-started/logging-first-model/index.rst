@@ -11,7 +11,7 @@ The tutorial content builds upon itself, culminating in successfully logging you
 
 The topics in this tutorial cover:
 
-* Starting an **MLflow Tracking Server** 
+* Starting an **MLflow Tracking Server** (Optionally) and connecting to a Tracking Server
 * Exploring the **MlflowClient** API (briefly)
 * Understanding the Default Experiment
 * **Searching** for Experiments with the MLflow client API
