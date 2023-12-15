@@ -1612,14 +1612,14 @@ class DefaultEvaluator(ModelEvaluator):
             # Handle NumPy array case, converting it to a DataFrame
             data = pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
             if self.dataset.has_targets:
-                trace_choices = {
-                    self.dataset.targets_name or "target": self.y,
-                    self.dataset.predictions_name or self.predictions or "outputs": self.y_pred,
-                }
+                data = data.assign(
+                    **{
+                        self.dataset.targets_name or "target": self.y,
+                        self.dataset.predictions_name or self.predictions or "outputs": self.y_pred,
+                    }
+                )
             else:
-                trace_choices = {"outputs": self.y_pred}
-
-            data = data.assign(**trace_choices)
+                data = data.assign(outputs=self.y_pred)
 
         # Include other_output_columns used in evaluation to the eval table
         if self.other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
@@ -1647,11 +1647,11 @@ class DefaultEvaluator(ModelEvaluator):
                     columns[f"{metric_name}/score"] = scores
             if justifications:
                 columns[f"{metric_name}/justification"] = justifications
-        data_with_results = data.assign(**columns)
+        data = data.assign(**columns)
         artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
-        mlflow.log_table(data_with_results, artifact_file=artifact_file_name)
+        mlflow.log_table(data, artifact_file=artifact_file_name)
         if self.eval_results_path:
-            eval_table_spark = self.spark_session.createDataFrame(data_with_results)
+            eval_table_spark = self.spark_session.createDataFrame(data)
             try:
                 eval_table_spark.write.mode(self.eval_results_mode).option(
                     "mergeSchema", "true"
@@ -1661,19 +1661,24 @@ class DefaultEvaluator(ModelEvaluator):
 
         if self.write_to_offline_eval_tables:
             # get the experiment tags
-            experiment = mlflow.get_experiment(run.info.experiment_id)
+            experiment = mlflow.get_experiment(mlflow.get_run(self.run_id).info.experiment_id)
             experiment_tags = experiment.tags
+            request_log_path = experiment_tags.get("MLFLOW_request_log_path")
+            feedback_log_path = experiment_tags.get("MLFLOW_feedback_log_path")
 
-            eval_table_spark = self.spark_session.createDataFrame(data_with_results)
-            from pyspark.sql.functions import expr
-            from pyspark.sql.functions import lit, current_timestamp, array, transform, concat_ws
+            eval_table_spark = self.spark_session.createDataFrame(data)
             from pyspark.sql import functions as F
-            from pyspark.sql.functions import col
+            from pyspark.sql.functions import (
+                array,
+                col,
+                concat_ws,
+                current_timestamp,
+                expr,
+                lit,
+                transform,
+            )
 
             eval_results_table_with_id = eval_table_spark.withColumn("request_id", expr("uuid()"))
-
-            # extract the "MLFLOW_request_log_path" tag
-            request_log_path = experiment_tags.get("MLFLOW_request_log_path")
 
             # Assuming df is your eval_results_table DataFrame
             request_log_df = eval_results_table_with_id.select(
@@ -1698,9 +1703,6 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
             request_log_df.write.format("delta").mode("append").saveAsTable(request_log_path)
-
-            # extract the "MLFLOW_feedback_log_path" tag
-            feedback_log_path = experiment_tags.get("MLFLOW_feedback_log_path")
 
             feedback_types_df = eval_results_table_with_id.withColumn(
                 "feedback_types",
