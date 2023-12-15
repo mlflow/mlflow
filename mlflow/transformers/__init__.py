@@ -2639,7 +2639,8 @@ class _TransformersWrapper:
         if isinstance(input_data, list) and all(
             isinstance(element, dict) for element in input_data
         ):
-            # Use a list comprehension for readability and the elimination of empty collection declarations
+            # Use a list comprehension for readability
+            # the elimination of empty collection declarations
             return [process_input_element(element) for element in input_data]
         elif isinstance(input_data, str) and not self.is_base64_image(input_data):
             self._validate_str_input_uri_or_file(input_data)
@@ -2734,7 +2735,8 @@ class _TransformersWrapper:
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
         """
-        Validation of blob references to either audio or image files, if a string is input to the ``predict``
+        Validation of blob references to either audio or image files,
+        if a string is input to the ``predict``
         method, perform validation of the string contents by checking for a valid uri or
         filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
         for an invalid uri input.
