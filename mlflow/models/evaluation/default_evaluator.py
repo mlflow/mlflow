@@ -1886,6 +1886,9 @@ class DefaultEvaluator(ModelEvaluator):
         self.sample_weights = self.evaluator_config.get("sample_weights")
         self.eval_results_path = self.evaluator_config.get("eval_results_path")
         self.eval_results_mode = self.evaluator_config.get("eval_results_mode", "overwrite")
+        self.write_to_offline_eval_tables = self.evaluator_config.get(
+            "write_to_offline_eval_tables", False
+        )
 
         if self.eval_results_path:
             from mlflow.utils._spark_utils import _get_active_spark_session
