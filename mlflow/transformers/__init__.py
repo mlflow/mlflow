@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
+import PIL
 import yaml
 
 from mlflow import pyfunc
@@ -1751,13 +1752,17 @@ class _TransformersWrapper:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             input_data = data
-        elif isinstance(data, (str, bytes, np.ndarray)):
+        elif isinstance(data, (str, bytes, np.ndarray, PIL.Image.Image)):
             input_data = data
         else:
             raise MlflowException(
                 "Input data must be either a pandas.DataFrame, a string, bytes, List[str], "
                 "List[Dict[str, str]], List[Dict[str, Union[str, List[str]]]], "
+<<<<<<< HEAD
                 "or Dict[str, Union[str, List[str]]]",
+=======
+                "or Dict[str, Union[str, List[str]]] or PIL.Image.image.",
+>>>>>>> ff74c6fa21a2a862b2560e92f87c7512e9863975
                 error_code=INVALID_PARAMETER_VALUE,
             )
         input_data = self._parse_raw_pipeline_input(input_data)
