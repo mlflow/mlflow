@@ -1612,14 +1612,14 @@ class DefaultEvaluator(ModelEvaluator):
             # Handle NumPy array case, converting it to a DataFrame
             data = pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
             if self.dataset.has_targets:
-                data = data.assign(
-                    **{
-                        self.dataset.targets_name or "target": self.y,
-                        self.dataset.predictions_name or self.predictions or "outputs": self.y_pred,
-                    }
-                )
+                trace_choices = {
+                    self.dataset.targets_name or "target": self.y,
+                    self.dataset.predictions_name or self.predictions or "outputs": self.y_pred,
+                }
             else:
-                data = data.assign(outputs=self.y_pred)
+                trace_choices = {"outputs": self.y_pred}
+
+            data = data.assign(**trace_choices)
 
         # Include other_output_columns used in evaluation to the eval table
         if self.other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
@@ -1641,17 +1641,58 @@ class DefaultEvaluator(ModelEvaluator):
                     columns[f"{metric_name}/score"] = scores
             if justifications:
                 columns[f"{metric_name}/justification"] = justifications
-        data = data.assign(**columns)
+        data_with_results = data.assign(**columns)
         artifact_file_name = f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}"
-        mlflow.log_table(data, artifact_file=artifact_file_name)
+        mlflow.log_table(data_with_results, artifact_file=artifact_file_name)
         if self.eval_results_path:
-            eval_table_spark = self.spark_session.createDataFrame(data)
+            eval_table_spark = self.spark_session.createDataFrame(data_with_results)
             try:
                 eval_table_spark.write.mode(self.eval_results_mode).option(
                     "mergeSchema", "true"
                 ).format("delta").saveAsTable(self.eval_results_path)
             except Exception as e:
                 _logger.info(f"Saving eval table to delta table failed. Reason: {e}")
+
+        if self.write_to_offline_eval_tables:
+            # get the experiment tags
+            experiment = mlflow.get_experiment(run.info.experiment_id)
+            experiment_tags = experiment.tags
+
+            # extract the "MLFLOW_request_log_path" tag
+            request_log_path = experiment_tags.get("MLFLOW_request_log_path")
+
+            # request log has the following schema
+            #   DeltaTable.createIfNotExists(spark) \
+            #   .tableName(request_log_path) \
+            #   .addColumn("request.request_id", "STRING") \
+            #   .addColumn("request.conversation_id", "STRING") \
+            #   .addColumn("request.session_id", "STRING") \
+            #   .addColumn("request.timestamp", "TIMESTAMP") \
+            #   .addColumn("request.messages", "ARRAY<STRING>") \
+            #   .addColumn("trace.choices", "STRING") \
+            #   .addColumn("trace.app_version_id", "STRING") \
+            #   .addColumn("trace.steps", "STRING") \
+            #   .addColumn("trace.assessment_id", "STRING") \
+            #   .execute()
+
+            # we only want to write the "request.messages", "trace.choices", "trace.steps" columns
+
+            # extract the "MLFLOW_feedback_log_path" tag
+            feedback_log_path = experiment_tags.get("MLFLOW_feedback_log_path")
+
+            # feedback log has the following schema
+            # DeltaTable.createIfNotExists(spark) \
+            # .tableName(feedback_log_path) \
+            # .addColumn("assessment.assessment_id", "STRING") \
+            # .addColumn("assessment.request_id", "STRING") \
+            # .addColumn("assessment.source.type", "STRING") \
+            # .addColumn("assessment.source.id", "STRING") \
+            # .addColumn("assessment.timestamp", "TIMESTAMP") \
+            # .addColumn("assessment.key", "STRING") \
+            # .addColumn("assessment.value", "STRING") \
+            # .execute()
+
+            # we only want to write the "assessment.key", "assessment.value" columns for each metric in the eval table
 
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
