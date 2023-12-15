@@ -221,6 +221,31 @@ def log_model(
     Log a ``sentence_transformers`` model as an MLflow artifact for the current run.
 
     :param model: A trained ``sentence-transformers`` model.
+
+    .. code-block:: python
+
+        # An example of using log_model for a sentence-transformers model and architecture:
+
+        from sentence_transformers import SentenceTransformer
+        import mlflow
+
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        data = "MLflow is awesome!"
+        signature = mlflow.models.infer_signature(
+            model_input=data,
+            model_output=model.encode(data),
+        )
+
+        with mlflow.start_run():
+            mlflow.sentence_transformers.log_model(
+                model=model,
+                artifact_path="sbert_model",
+                signature=signature,
+                input_example=data,
+            )
+
+
+
     :param artifact_path: Local path destination for the serialized model to be saved.
     :param inference_config:
         A dict of valid overrides that can be applied to a ``sentence-transformer`` model instance
