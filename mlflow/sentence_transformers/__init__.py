@@ -230,7 +230,7 @@ def log_model(
         import mlflow
 
         model = SentenceTransformer("all-MiniLM-L6-v2")
-
+        data = "MLflow is awesome!"
         signature = mlflow.models.infer_signature(
             model_input=example_sentences,
             model_output=model.encode(example_sentences),
@@ -241,6 +241,7 @@ def log_model(
                 model=model,
                 artifact_path="sbert_model",
                 signature=signature,
+                input_example=data,
             )
 
 
