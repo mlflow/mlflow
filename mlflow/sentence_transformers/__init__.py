@@ -224,7 +224,7 @@ def log_model(
 
     .. code-block:: python
 
-        An example of using log_model for a sentence-transformers model and architecture:
+        # An example of using log_model for a sentence-transformers model and architecture:
 
         from sentence_transformers import SentenceTransformer
         import mlflow
