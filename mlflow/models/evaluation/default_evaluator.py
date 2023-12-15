@@ -1627,9 +1627,15 @@ class DefaultEvaluator(ModelEvaluator):
                 data[column] = self.other_output_columns[column]
 
         columns = {}
+        feedback_log_metric_names = []
+        feedback_log_metric_values = []
+
         for metric_name, metric_value in self.metrics_values.items():
+            feedback_log_metric_names.append(metric_name)
             scores = metric_value.scores
             justifications = metric_value.justifications
+
+            feedback_log_metric_values.append({"scores": scores, "justifications": justifications})
 
             if scores:
                 if metric_name.startswith(metric_prefix) and metric_name[len(metric_prefix) :] in [
@@ -1693,6 +1699,20 @@ class DefaultEvaluator(ModelEvaluator):
             # .execute()
 
             # we only want to write the "assessment.key", "assessment.value" columns for each metric in the eval table
+
+            for metric_name, metric_values in zip(
+                feedback_log_metric_names, feedback_log_metric_values
+            ):
+                feedback_log_df = pd.DataFrame(
+                    {
+                        "assessment.source.type": ["llm-judge"] * len(metric_values),
+                        "assessment.key": [metric_name] * len(metric_values),
+                        "assessment.value": [metric_values],
+                    }
+                )
+                self.spark_session.createDataFrame(feedback_log_df).write.mode("append").format(
+                    "delta"
+                ).saveAsTable(feedback_log_path)
 
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
