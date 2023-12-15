@@ -2597,7 +2597,7 @@ class _TransformersWrapper:
         except binascii.Error:
             return False
 
-    def _convert_image_input(self, data):
+    def _convert_image_input(self, input_data):
         """
         Conversion utility for decoding the base64 encoded bytes data of a raw image file when
         parsed through model serving, if applicable. Direct usage of the pyfunc implementation
@@ -2630,20 +2630,21 @@ class _TransformersWrapper:
         input into the Image pipelines for inference.
         """
 
-        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
-            lst_data = []
-            for item in data:
-                data_ele = next(iter(item.values()))
-                if isinstance(data_ele, str):
-                    # base64 encoded image comes as string
-                    if not self.is_base64_image(data_ele):
-                        self._validate_str_input_uri_or_file(data_ele)
-                lst_data.append(data_ele)
-            return lst_data
-        elif isinstance(data, str):
-            if not self.is_base64_image(data):
-                self._validate_str_input_uri_or_file(data)
-        return data
+        def process_input_element(input_element):
+            input_value = next(iter(input_element.values()))
+            if isinstance(input_value, str) and not self.is_base64_image(input_value):
+                self._validate_str_input_uri_or_file(input_value)
+            return input_value
+
+        if isinstance(input_data, list) and all(
+            isinstance(element, dict) for element in input_data
+        ):
+            # Use a list comprehension for readability and the elimination of empty collection declarations
+            return [process_input_element(element) for element in input_data]
+        elif isinstance(input_data, str) and not self.is_base64_image(input_data):
+            self._validate_str_input_uri_or_file(input_data)
+
+        return input_data
 
     def _convert_audio_input(self, data):
         """
@@ -2733,7 +2734,7 @@ class _TransformersWrapper:
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
         """
-        Validation of blob references to audio/image files, if a string is input to the ``predict``
+        Validation of blob references to either audio or image files, if a string is input to the ``predict``
         method, perform validation of the string contents by checking for a valid uri or
         filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
         for an invalid uri input.

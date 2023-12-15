@@ -82,7 +82,7 @@ _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 image_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
-
+image_file_path = pathlib.Path(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")
 # Test that can only be run locally:
 # - Summarization pipeline tests
 # - TextClassifier pipeline tests
@@ -601,8 +601,7 @@ def test_model_card_acquisition_vision_model(small_vision_model):
 def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path):
     mlflow.transformers.save_model(transformers_model=small_vision_model, path=model_path)
     # validate inferred pip requirements
-    with model_path.joinpath("requirements.txt").open() as file:
-        requirements = file.read()
+    requirements = model_path.joinpath("requirements.txt").read_text()
     reqs = {req.split("==")[0] for req in requirements.split("\n")}
     expected_requirements = {"torch", "torchvision", "transformers"}
     assert reqs.intersection(expected_requirements) == expected_requirements
@@ -630,8 +629,7 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
 def test_vision_model_save_model_for_task_and_card_inference(small_vision_model, model_path):
     mlflow.transformers.save_model(transformers_model=small_vision_model, path=model_path)
     # validate inferred pip requirements
-    with model_path.joinpath("requirements.txt").open() as file:
-        requirements = file.read()
+    requirements = model_path.joinpath("requirements.txt").read_text()
     reqs = {req.split("==")[0] for req in requirements.split("\n")}
     expected_requirements = {"torch", "torchvision", "transformers"}
     assert reqs.intersection(expected_requirements) == expected_requirements
@@ -639,8 +637,7 @@ def test_vision_model_save_model_for_task_and_card_inference(small_vision_model,
     card_data = yaml.safe_load(model_path.joinpath("model_card_data.yaml").read_bytes())
     assert card_data["tags"] == ["vision", "image-classification"]
     # Validate inferred model card text
-    with model_path.joinpath("model_card.md").open(encoding="utf-8") as file:
-        card_text = file.read()
+    card_text = model_path.joinpath("model_card.md").read_text(encoding="utf-8")
     assert len(card_text) > 0
 
     # Validate the MLModel file
@@ -1363,17 +1360,11 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     assert all(isinstance(element, str) for element in inference)
 
 
-def read_image(filename):
-    image_path = os.path.join(pathlib.Path(__file__).parent.parent, "datasets", filename)
-    with open(image_path, "rb") as f:
-        return f.read()
-
-
 @pytest.mark.parametrize(
     "inference_payload",
     [
         image_url,
-        os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png"),
+        str(image_file_path),
         pytest.param(
             "base64",
             marks=pytest.mark.skipif(
@@ -1385,7 +1376,7 @@ def read_image(filename):
 )
 def test_vision_pipeline_pyfunc_load_and_infer(small_vision_model, model_path, inference_payload):
     if inference_payload == "base64":
-        inference_payload = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
+        inference_payload = base64.b64encode(image_file_path.read_bytes()).decode("utf-8")
     signature = infer_signature(
         inference_payload,
         mlflow.transformers.generate_signature_output(small_vision_model, inference_payload),
@@ -2127,7 +2118,7 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 @pytest.mark.parametrize(
     ("input_image", "result"),
     [
-        (os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png"), False),
+        (str(image_file_path), False),
         (image_url, False),
         ("base64", True),
         ("random string", False),
@@ -2135,15 +2126,15 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 )
 def test_vision_is_base64_image(input_image, result):
     if input_image == "base64":
-        input_image = base64.b64encode(read_image("cat_image.jpg")).decode("utf-8")
+        input_image = base64.b64encode(image_file_path.read_bytes()).decode("utf-8")
     assert _TransformersWrapper.is_base64_image(input_image) == result
 
 
 @pytest.mark.parametrize(
     "inference_payload",
     [
-        [os.path.join(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")],
-        [image_url, image_url],
+        [str(image_file_path)],
+        [image_url],
         pytest.param(
             "base64",
             marks=pytest.mark.skipif(
@@ -2156,7 +2147,7 @@ def test_vision_is_base64_image(input_image, result):
 def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     if inference_payload == "base64":
         inference_payload = [
-            base64.b64encode(read_image("cat_image.jpg")).decode("utf-8"),
+            base64.b64encode(image_file_path.read_bytes()).decode("utf-8"),
         ]
     artifact_path = "image_classification_model"
 
@@ -2180,7 +2171,7 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
     transformers_loaded_model = mlflow.transformers.load_model(model_uri)
     expected_predictions = transformers_loaded_model.predict(inference_payload)
 
-    assert list(predictions.to_dict("records")[0].values()) == expected_predictions[0]
+    assert [list(pred.values()) for pred in predictions.to_dict("records")] == expected_predictions
 
 
 def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
