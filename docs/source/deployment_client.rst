@@ -12,9 +12,7 @@ MLflow Deployment Client is a set of CRUD and query APIs to interact models that
 Overview
 --------
 
-The MLflow Deployment Client provides unified CRUD and query APIs to interact with models that are served across various platforms. MLflow provides several built-in deployment clients that provide a consistent and platform-agnostic interface to interact with models served on different platforms.
-
-MLflow also provides a `mlflow.deployments.BaseDeploymentClient` interface that can be used to implement custom deployment clients. These custom deployment clients can be installed as plugins. For more information, see `MLflow Plugins <https://mlflow.org/docs/latest/plugins.html>`_.
+The MLflow Deployment Client provides unified CRUD and query APIs to interact with models that are served across various platforms. MLflow provides several built-in deployment clients that provide a consistent and platform-agnostic interface to interact with models served on different platforms, as well as a interface that can be used to implement custom deployment clients via plugins.
 
 
 Builtin Deployment Clients
@@ -32,9 +30,10 @@ These clients can be accessed using the following factory methods:
 
 * :py:func:`mlflow.deployments.get_deploy_client`: Returns an instance of the appropriate deployment client based on the specified deployment target.
 * :py:func:`mlflow.deployments.get_deployments_target`: Returns the deployment target associated with the specified deployment client.
-* :py:func:`mlflow.deployments.set_deployments_target`: Sets the deployment target for the specified deployment client. The deployment target can also be set using the ``MLFLOW_DEPLOYMENT_TARGET`` environment variable. If running in Databricks, the deployments target will be set to `databricks` by default.
+* :py:func:`mlflow.deployments.set_deployments_target`: Sets the deployment target for the specified deployment client. The deployment target can also be set using the ``MLFLOW_DEPLOYMENT_TARGET`` environment variable. If running in Databricks, the deployments target will be set to ``databricks`` by default.
 
 The following is an example of how to create an instance of a Databricks deployment client:
+
 .. code-block:: python
 
     from mlflow.deployments import get_deploy_client
