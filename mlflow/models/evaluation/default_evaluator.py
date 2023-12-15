@@ -1664,55 +1664,87 @@ class DefaultEvaluator(ModelEvaluator):
             experiment = mlflow.get_experiment(run.info.experiment_id)
             experiment_tags = experiment.tags
 
+            eval_table_spark = self.spark_session.createDataFrame(data_with_results)
+            from pyspark.sql.functions import expr
+            from pyspark.sql.functions import lit, current_timestamp, array, transform, concat_ws
+            from pyspark.sql import functions as F
+            from pyspark.sql.functions import col
+
+            eval_results_table_with_id = eval_table_spark.withColumn("request_id", expr("uuid()"))
+
             # extract the "MLFLOW_request_log_path" tag
             request_log_path = experiment_tags.get("MLFLOW_request_log_path")
 
-            # request log has the following schema
-            #   DeltaTable.createIfNotExists(spark) \
-            #   .tableName(request_log_path) \
-            #   .addColumn("request.request_id", "STRING") \
-            #   .addColumn("request.conversation_id", "STRING") \
-            #   .addColumn("request.session_id", "STRING") \
-            #   .addColumn("request.timestamp", "TIMESTAMP") \
-            #   .addColumn("request.messages", "ARRAY<STRING>") \
-            #   .addColumn("trace.choices", "STRING") \
-            #   .addColumn("trace.app_version_id", "STRING") \
-            #   .addColumn("trace.steps", "STRING") \
-            #   .addColumn("trace.assessment_id", "STRING") \
-            #   .execute()
+            # Assuming df is your eval_results_table DataFrame
+            request_log_df = eval_results_table_with_id.select(
+                F.col("request_id").alias("request.request_id"),
+                lit("some_conversation_id").alias("request.conversation_id"),
+                lit("some_session_id").alias("request.session_id"),
+                current_timestamp().alias("request.timestamp"),
+                array("questions").alias("request.messages"),  # Wrap in array
+                F.col("outputs").alias("trace.choices"),
+                # F.col("source_documents").alias("trace.steps"),
+                concat_ws(
+                    "; ",
+                    transform(
+                        "source_documents",
+                        lambda x: concat_ws(
+                            ", ", x.metadata.language, x.metadata.source, x.metadata.title
+                        ),
+                    ),
+                ).alias("trace.steps"),
+                lit("some_app_version_id").alias("trace.app_version_id"),
+                lit("some_assessment_id").alias("trace.assessment_id"),
+            )
 
-            # we only want to write the "request.messages", "trace.choices", "trace.steps" columns
+            request_log_df.write.format("delta").mode("append").saveAsTable(request_log_path)
 
             # extract the "MLFLOW_feedback_log_path" tag
             feedback_log_path = experiment_tags.get("MLFLOW_feedback_log_path")
 
-            # feedback log has the following schema
-            # DeltaTable.createIfNotExists(spark) \
-            # .tableName(feedback_log_path) \
-            # .addColumn("assessment.assessment_id", "STRING") \
-            # .addColumn("assessment.request_id", "STRING") \
-            # .addColumn("assessment.source.type", "STRING") \
-            # .addColumn("assessment.source.id", "STRING") \
-            # .addColumn("assessment.timestamp", "TIMESTAMP") \
-            # .addColumn("assessment.key", "STRING") \
-            # .addColumn("assessment.value", "STRING") \
-            # .execute()
+            feedback_types_df = eval_results_table_with_id.withColumn(
+                "feedback_types",
+                F.array(
+                    F.struct(F.lit("latency").alias("key"), F.col("latency").alias("value")),
+                    F.struct(
+                        F.lit("token_count").alias("key"), F.col("token_count").alias("value")
+                    ),
+                    F.struct(
+                        F.lit("perplexity").alias("key"),
+                        F.col("perplexity/v1/score").alias("value"),
+                    ),
+                    F.struct(
+                        F.lit("flesch_kincaid_grade_level").alias("key"),
+                        F.col("flesch_kincaid_grade_level/v1/score").alias("value"),
+                    ),
+                    F.struct(
+                        F.lit("ari_grade_level").alias("key"),
+                        F.col("ari_grade_level/v1/score").alias("value"),
+                    ),
+                    F.struct(
+                        F.lit("relevance").alias("key"), F.col("relevance/v1/score").alias("value")
+                    )
+                    # Add more structs for other feedback types
+                ),
+            )
 
-            # we only want to write the "assessment.key", "assessment.value" columns for each metric in the eval table
+            feedback_log_df = feedback_types_df.withColumn(
+                "feedback", F.explode("feedback_types")
+            ).select(
+                expr("uuid()").alias(
+                    "assessment.assessment_id"
+                ),  # Generate unique assessment_id for each row
+                F.col("request_id").alias("assessment.request_id"),
+                F.lit("llm judge").alias("assessment.source.type"),
+                F.lit("some_source_id").alias("assessment.source.id"),
+                F.current_timestamp().alias("assessment.timestamp"),
+                col("feedback.key").alias("assessment.key"),
+                col("feedback.value")
+                .cast("string")
+                .alias("assessment.value"),  # Cast value to string
+            )
 
-            for metric_name, metric_values in zip(
-                feedback_log_metric_names, feedback_log_metric_values
-            ):
-                feedback_log_df = pd.DataFrame(
-                    {
-                        "assessment.source.type": ["llm-judge"] * len(metric_values),
-                        "assessment.key": [metric_name] * len(metric_values),
-                        "assessment.value": [metric_values],
-                    }
-                )
-                self.spark_session.createDataFrame(feedback_log_df).write.mode("append").format(
-                    "delta"
-                ).saveAsTable(feedback_log_path)
+            feedback_log_df.write.format("delta").mode("append").saveAsTable(feedback_log_path)
 
         name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
         self.artifacts[name] = JsonEvaluationArtifact(
