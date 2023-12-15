@@ -50,6 +50,15 @@ MLflow is available on PyPI. If you don't already have it installed on your syst
 Step 2 - Start a Tracking Server
 --------------------------------
 
+Using a Managed MLflow Tracking Server
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For details on options for using a managed MLflow Tracking Server, including how to create a free Databricks Community Edition account with 
+managed MLflow, `see the guide for tracking server options <../running-notebooks/index.html>`_.
+
+(Optional) Run a local Tracking Server
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 We're going to start a local MLflow Tracking Server, which we will connect to for logging our data for this quickstart.
 From a terminal, run:
 
@@ -62,6 +71,22 @@ From a terminal, run:
 
 .. note::
     You can choose any port that you would like, provided that it's not already in use. 
+
+Set the Tracking Server URI (if not using a Databricks Managed MLflow Tracking Server)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you're using a managed MLflow Tracking Server that is not provided by Databricks, or if you're running a local tracking server, 
+ensure that you set the tracking server's uri using:
+
+.. code-section::
+    .. code-block:: python
+        :name: set tracking uri
+
+        import mlflow
+
+        mlflow.set_tracking_uri(uri="http://<host>:<port>")
+
+If this is not set within your notebook or runtime environment, the runs will be logged to your local file system.
 
 Step 3 - Train a model and prepare metadata for logging
 -------------------------------------------------------
