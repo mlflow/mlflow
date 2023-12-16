@@ -8,6 +8,7 @@ on:
       - opened
       - synchronize
       - reopened
+      - ready_for_review
       - labeled
       - unlabeled
   # post-merge job requires write access to add a label and post a comment.

@@ -2,6 +2,11 @@ name: Protos
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
     paths:
       - mlflow/protos/**
       - mlflow/java/client/src/main/java/com/databricks/api/proto/**
