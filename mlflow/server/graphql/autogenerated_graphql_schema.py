@@ -95,15 +95,9 @@ class QueryType(graphene.ObjectType):
 
 
 class MutationType(graphene.ObjectType):
-    mlflow_search_experiments = graphene.Field(MlflowSearchExperimentsResponse, input=MlflowSearchExperimentsInput())
     mlflow_log_model = graphene.Field(MlflowLogModelResponse, input=MlflowLogModelInput())
     mlflow_log_inputs = graphene.Field(MlflowLogInputsResponse, input=MlflowLogInputsInput())
-
-    def resolve_mlflow_search_experiments(self, info, input):
-        input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.SearchExperiments()
-        parse_dict(input_dict, request_message)
-        return mlflow.server.handlers.search_experiments_impl(request_message)
+    mlflow_search_experiments = graphene.Field(MlflowSearchExperimentsResponse, input=MlflowSearchExperimentsInput())
 
     def resolve_mlflow_log_model(self, info, input):
         input_dict = vars(input)
@@ -116,3 +110,9 @@ class MutationType(graphene.ObjectType):
         request_message = mlflow.protos.service_pb2.LogInputs()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.log_inputs_impl(request_message)
+
+    def resolve_mlflow_search_experiments(self, info, input):
+        input_dict = vars(input)
+        request_message = mlflow.protos.service_pb2.SearchExperiments()
+        parse_dict(input_dict, request_message)
+        return mlflow.server.handlers.search_experiments_impl(request_message)

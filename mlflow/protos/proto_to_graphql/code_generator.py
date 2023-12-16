@@ -1,13 +1,7 @@
 #!/usr/bin/env python3
-import sys
-import os, re
-from google.protobuf.compiler import plugin_pb2 as plugin
-from mlflow.protos import databricks_pb2
+import os
 from mlflow.protos import service_pb2
-from string_utils import camel_to_snake
-from google.protobuf.descriptor import FieldDescriptor
 from parsing_utils import process_method
-from autogeneration_utils import debugLog
 from schema_autogeneration import generate_schema
 
 # Add proto descriptors to onboard rpcs to graphql.
@@ -30,21 +24,11 @@ class GenerateSchemaState:
         self.queries = set([])  # method_descriptor
         self.mutations = set([])  # method_descriptor
 
-def generate_code(request, response):
+def generate_code():
     state = GenerateSchemaState()
     for file_descriptor in ONBOARDED_DESCRIPTORS:
         for (service_name, service_descriptor) in file_descriptor.services_by_name.items():
             for (method_name, method_descriptor) in service_descriptor.methods_by_name.items():
-                debugLog("±±±±±±±±±±±±±±±±±±±±±±±")
-                debugLog(re.sub('.proto', '_pb2', method_descriptor.containing_service.file.name))
-                debugLog(method_descriptor.output_type.full_name)
-                debugLog(method_descriptor.input_type.fields[0].type)
-                debugLog(FieldDescriptor.TYPE_MESSAGE)
-                debugLog(camel_to_snake(method_descriptor.name))
-                debugLog(method_descriptor.GetOptions().HasExtension(databricks_pb2.graphql))
-                debugLog(method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].visibility)
-                debugLog(method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].endpoints)
-                debugLog(method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].endpoints[0].method)
                 process_method(method_descriptor, state)
 
     schema = generate_schema(state)
@@ -58,18 +42,7 @@ def generate_code(request, response):
 
 
 def main():
-    # Read request message from stdin
-    data = sys.stdin.buffer.read()
-    request = plugin.CodeGeneratorRequest()
-    request.ParseFromString(data)
-
-    response = plugin.CodeGeneratorResponse()
-
-    generate_code(request, response)
-
-    # Write the serialized response to stdout
-    sys.stdout.buffer.write(response.SerializeToString())
-
+    generate_code()
 
 if __name__ == '__main__':
     main()

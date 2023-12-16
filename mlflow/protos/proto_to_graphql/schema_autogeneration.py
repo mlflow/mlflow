@@ -122,8 +122,6 @@ def generate_schema(state):
     for mutation in state.mutations:
         schema_builder += generate_resolver_function(mutation)
 
-    debugLog(schema_builder)
-
     return schema_builder
 
 def apply_schema_extension(referenced_class_name):
