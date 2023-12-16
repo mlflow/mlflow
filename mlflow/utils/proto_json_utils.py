@@ -152,7 +152,6 @@ def _stringify_all_experiment_ids(x):
 def parse_dict(js_dict, message):
     """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JSON."""
     _stringify_all_experiment_ids(js_dict)
-    print("after stringify")
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
 
 

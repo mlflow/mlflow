@@ -1,11 +1,28 @@
 import graphene
 import mlflow
+from mlflow.server.graphql import graphql_schema_extensions
 from mlflow.server.graphql.graphql_custom_scalars import LongString
 from mlflow.utils.proto_json_utils import parse_dict
+
+
+class MlflowViewType(graphene.Enum):
+    ACTIVE_ONLY = 'ACTIVE_ONLY'
+    DELETED_ONLY = 'DELETED_ONLY'
+    ALL = 'ALL'
+
+
+class MlflowLogInputsResponse(graphene.ObjectType):
+    dummy = graphene.Boolean(description='Dummy field required because GraphQL does not support empty types.')
+
+
+class MlflowLogModelResponse(graphene.ObjectType):
+    dummy = graphene.Boolean(description='Dummy field required because GraphQL does not support empty types.')
+
 
 class MlflowExperimentTag(graphene.ObjectType):
     key = graphene.String()
     value = graphene.String()
+
 
 class MlflowExperiment(graphene.ObjectType):
     experiment_id = graphene.String()
@@ -17,45 +34,13 @@ class MlflowExperiment(graphene.ObjectType):
     tags = graphene.List(graphene.NonNull(MlflowExperimentTag))
 
 
-class MlflowGetExperimentByNameResponse(graphene.ObjectType):
-    experiment = graphene.Field(MlflowExperiment)
-
-
 class MlflowSearchExperimentsResponse(graphene.ObjectType):
-    experiments = graphene.List(graphene.NonNull(MlflowExperiment))
+    experiments = graphene.List(graphene.NonNull(graphql_schema_extensions.ExtendedExperiment))
     next_page_token = graphene.String()
 
 
-class MlflowLogModelResponse(graphene.ObjectType):
-    dummy = graphene.Boolean(description='Dummy field required because GraphQL does not support empty types.')
-
-
-
-class MlflowLogInputsResponse(graphene.ObjectType):
-    dummy = graphene.Boolean(description='Dummy field required because GraphQL does not support empty types.')
-
-
-class MlflowLogInputsInput(graphene.InputObjectType):
-    run_id = graphene.String()
-    datasets = graphene.List(graphene.NonNull(MlflowDatasetInputInput))
-
-
-class MlflowInputTagInput(graphene.InputObjectType):
-    key = graphene.String()
-    value = graphene.String()
-
-
-class MlflowSearchExperimentsInput(graphene.InputObjectType):
-    max_results = LongString()
-    page_token = graphene.String()
-    filter = graphene.String()
-    order_by = graphene.List(graphene.String)
-    view_type = graphene.Field(MlflowViewType)
-
-
-class MlflowLogModelInput(graphene.InputObjectType):
-    run_id = graphene.String()
-    model_json = graphene.String()
+class MlflowGetExperimentByNameResponse(graphene.ObjectType):
+    experiment = graphene.Field(graphql_schema_extensions.ExtendedExperiment)
 
 
 class MlflowDatasetInput(graphene.InputObjectType):
@@ -67,8 +52,9 @@ class MlflowDatasetInput(graphene.InputObjectType):
     profile = graphene.String()
 
 
-class MlflowGetExperimentByNameInput(graphene.InputObjectType):
-    experiment_name = graphene.String()
+class MlflowInputTagInput(graphene.InputObjectType):
+    key = graphene.String()
+    value = graphene.String()
 
 
 class MlflowDatasetInputInput(graphene.InputObjectType):
@@ -76,10 +62,26 @@ class MlflowDatasetInputInput(graphene.InputObjectType):
     dataset = graphene.InputField(MlflowDatasetInput)
 
 
-class MlflowViewType(graphene.Enum):
-    ACTIVE_ONLY = 'ACTIVE_ONLY'
-    DELETED_ONLY = 'DELETED_ONLY'
-    ALL = 'ALL'
+class MlflowLogInputsInput(graphene.InputObjectType):
+    run_id = graphene.String()
+    datasets = graphene.List(graphene.NonNull(MlflowDatasetInputInput))
+
+
+class MlflowLogModelInput(graphene.InputObjectType):
+    run_id = graphene.String()
+    model_json = graphene.String()
+
+
+class MlflowSearchExperimentsInput(graphene.InputObjectType):
+    max_results = LongString()
+    page_token = graphene.String()
+    filter = graphene.String()
+    order_by = graphene.List(graphene.String)
+    view_type = graphene.Field(MlflowViewType)
+
+
+class MlflowGetExperimentByNameInput(graphene.InputObjectType):
+    experiment_name = graphene.String()
 
 
 class QueryType(graphene.ObjectType):

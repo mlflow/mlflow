@@ -1,5 +1,5 @@
 from mlflow.protos import databricks_pb2
-from autogeneration_utils import get_method_name, debugLog
+from autogeneration_utils import get_method_name
 from google.protobuf.descriptor import FieldDescriptor
 
 
@@ -22,29 +22,36 @@ def process_method(method_descriptor, state):
             state.queries.add(method_descriptor)
         else:
             state.mutations.add(method_descriptor)
-        populate_message_types(method_descriptor.input_type, state, True)
-        populate_message_types(method_descriptor.output_type, state, False)
+        populate_message_types(method_descriptor.input_type, state, True, set([]))
+        populate_message_types(method_descriptor.output_type, state, False, set([]))
 
 
-def populate_message_types(field_descriptor, state, is_input):
-    # TODO: Check well known types later
+def populate_message_types(field_descriptor, state, is_input, visited):
+    if field_descriptor in visited:
+        # Break the loop for recursive types.
+        return
+    visited.add(field_descriptor)
     if is_input:
-        if field_descriptor in state.inputs:
-            return # Break the loop for recursive types
-        state.inputs.add(field_descriptor)
+        add_message_descriptor_to_list(field_descriptor, state.inputs)
     else:
-        if field_descriptor in state.types:
-            return # Break the loop for recursive types
-        state.types.add(field_descriptor)
-
-    for oneof in field_descriptor.oneofs:
-        state.input_oneofs.add(oneof)
+        add_message_descriptor_to_list(field_descriptor, state.types)
 
     for sub_field in field_descriptor.fields:
         type = sub_field.type
         if type == FieldDescriptor.TYPE_MESSAGE or type == FieldDescriptor.TYPE_GROUP:
-            populate_message_types(sub_field.message_type, state, is_input)
+            populate_message_types(sub_field.message_type, state, is_input, visited)
         elif type == FieldDescriptor.TYPE_ENUM:
             state.enums.add(sub_field.enum_type)
         else:
             continue
+
+def add_message_descriptor_to_list(descriptor, list):
+    # Always put the referenced message at the beginning, so that when generating the schema,
+    # the ordering can be maintained in a way that correspond to the reference graph.
+    # list.remove() and insert(0) are not optimal in terms of efficiency but are fine because the amount of data is
+    # very small here.
+    if descriptor not in list:
+        list.insert(0, descriptor)
+    else:
+        list.remove(descriptor)
+        list.insert(0, descriptor)

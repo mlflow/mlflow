@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys
-import os
+import os, re
 from google.protobuf.compiler import plugin_pb2 as plugin
 from mlflow.protos import databricks_pb2
 from mlflow.protos import service_pb2
@@ -10,35 +10,18 @@ from parsing_utils import process_method
 from autogeneration_utils import debugLog
 from schema_autogeneration import generate_schema
 
-# TODO: Figure out what to do for well-known types
-WELL_KNOWN_PROTO_MESSAGE_UNSUPPORTED_SET = {
-    "google.protobuf.Any", "google.protobuf.Api", "google.protobuf.BoolValue",
-    "google.protobuf.BytesValue", "google.protobuf.DoubleValue",
-    "google.protobuf.Duration", "google.protobuf.Empty", "google.protobuf.Enum",
-    "google.protobuf.EnumValue", "google.protobuf.Field",
-    "google.protobuf.FloatValue", "google.protobuf.Int32Value",
-    "google.protobuf.Int64Value", "google.protobuf.ListValue",
-    "google.protobuf.Method", "google.protobuf.Mixin", "google.protobuf.Option",
-    "google.protobuf.SourceContext", "google.protobuf.StringValue",
-    "google.protobuf.Struct", "google.protobuf.Type",
-    "google.protobuf.UInt32Value", "google.protobuf.UInt64Value",
-    "google.protobuf.Value", "google.protobuf.FieldMask",
-    "google.protobuf.Timestamp"}
-
-WELL_KNOWN_PROTO_ENUM_UNSUPPORTED_SET = {
-    "google.protobuf.Field.Cardinality",
-    "google.protobuf.Field.Kind",
-    "google.protobuf.NullValue",
-    "google.protobuf.Syntax"
-}
+# Add proto descriptors to onboard rpcs to graphql.
+ONBOARDED_DESCRIPTORS = [
+    service_pb2.DESCRIPTOR
+]
 
 class GenerateSchemaState:
     def __init__(self):
         # Some of these are not necessary, will remove them
         self.queries = set([])  # method_descriptor
         self.mutations = set([])  # method_descriptor
-        self.inputs = set([])  # field_descriptor
-        self.types = set([])  # field_descriptor
+        self.inputs = []  # field_descriptor
+        self.types = []  # field_descriptor
         self.input_oneofs = set([])  # field_descriptor
         self.oneofs = set([])  # field_descriptor
         self.enums = set([])  # enum_descriptor
@@ -48,19 +31,21 @@ class GenerateSchemaState:
         self.mutations = set([])  # method_descriptor
 
 def generate_code(request, response):
-    file_descriptor = service_pb2.DESCRIPTOR
     state = GenerateSchemaState()
-    for (service_name, service_descriptor) in file_descriptor.services_by_name.items():
-        for (method_name, method_descriptor) in service_descriptor.methods_by_name.items():
-            debugLog(method_descriptor.output_type.full_name)
-            debugLog(method_descriptor.input_type.fields[0].type)
-            debugLog(FieldDescriptor.TYPE_MESSAGE)
-            debugLog(camel_to_snake(method_descriptor.name))
-            debugLog(method_descriptor.GetOptions().HasExtension(databricks_pb2.graphql))
-            debugLog(method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].visibility)
-            debugLog(method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].endpoints)
-            debugLog(method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].endpoints[0].method)
-            process_method(method_descriptor, state)
+    for file_descriptor in ONBOARDED_DESCRIPTORS:
+        for (service_name, service_descriptor) in file_descriptor.services_by_name.items():
+            for (method_name, method_descriptor) in service_descriptor.methods_by_name.items():
+                debugLog("±±±±±±±±±±±±±±±±±±±±±±±")
+                debugLog(re.sub('.proto', '_pb2', method_descriptor.containing_service.file.name))
+                debugLog(method_descriptor.output_type.full_name)
+                debugLog(method_descriptor.input_type.fields[0].type)
+                debugLog(FieldDescriptor.TYPE_MESSAGE)
+                debugLog(camel_to_snake(method_descriptor.name))
+                debugLog(method_descriptor.GetOptions().HasExtension(databricks_pb2.graphql))
+                debugLog(method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].visibility)
+                debugLog(method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].endpoints)
+                debugLog(method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].endpoints[0].method)
+                process_method(method_descriptor, state)
 
     schema = generate_schema(state)
 

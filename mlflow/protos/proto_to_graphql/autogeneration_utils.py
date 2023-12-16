@@ -1,5 +1,6 @@
 from string_utils import camel_to_snake, snake_to_pascal
 import sys
+import re
 
 INDENT = "    "
 INDENT2 = INDENT * 2
@@ -13,6 +14,9 @@ def get_method_name(method_descriptor):
 
 def get_descriptor_full_pascal_name(field_descriptor):
     return snake_to_pascal(field_descriptor.full_name.replace('.', '_'))
+
+def method_descriptor_to_generated_pb2_file_name(method_descriptor):
+    return re.sub('.proto', '_pb2', method_descriptor.containing_service.file.name)
 
 def debugLog(log):
     print(log, file=sys.stderr)

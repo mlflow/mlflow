@@ -1,1 +1,0 @@
-Processed: google/protobuf/descriptor.proto

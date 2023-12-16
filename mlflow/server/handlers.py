@@ -102,7 +102,7 @@ from mlflow.utils.uri import is_file_uri, is_local_uri
 from mlflow.utils.validation import _validate_batch_log_api_req
 import graphene
 
-from mlflow.server.graphql.graphql_schema_base import schema
+from mlflow.server.graphql.graphql_schema_extensions import schema
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None

@@ -82,15 +82,6 @@ message DatabricksGraphqlOptions {
   // Indicates whether we should generate a batch loader for this endpoint.
   // If not set or set to false, a normal client + datafetcher will be generated
   optional bool batch_loader = 1;
-
-  // Indicates whether we should send the AAD token from GraphQL context as a header for rpc call
-  // in the generated GraphQL client code. This is used when the rpc endpoint requires aad token
-  // to be passed as a header.
-  optional bool requires_aad_token = 2;
-
-  // A version like 1.1 which is added as a header named 'X-Databricks-Api-Version' when sending
-  // the rpc in GraphQL autogen.
-  optional ApiVersion rpc_version_header = 3;
 }
 
 // Note: 51310 is the beginning of the range of proto extension values for use by applications.
