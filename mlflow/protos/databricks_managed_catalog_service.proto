@@ -14,7 +14,7 @@ option (scalapb.options) = {
 };
 
 service UnityCatalogService {
-  rpc GetTable (GetTable) returns (GetTable.Response) {
+  rpc getTable (GetTable) returns (GetTable.Response) {
     option (rpc) = {
       endpoints: {
         method: "GET",
