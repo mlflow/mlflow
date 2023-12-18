@@ -199,6 +199,21 @@ class TrainStep(BaseStep):
             elif "distribution" in param_details:
                 hp_tuning_fn = getattr(hp, param_details["distribution"])
                 param_details_to_pass = param_details.copy()
+                # convert high/low to float in case yaml is parsed to str scientific notation
+                if "high" not in param_details_to_pass or "low" not in param_details_to_pass:
+                    raise MlflowException(
+                        f"Parameter {param_name} distribution must contain 'high' and 'low' values",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                try:
+                    param_details_to_pass["high"] = float(param_details_to_pass["high"])
+                    param_details_to_pass["low"] = float(param_details_to_pass["low"])
+                except ValueError:
+                    raise MlflowException(
+                        f"Parameter {param_name} distribution 'high' and 'low' values must be "
+                        f"valid floats",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 param_details_to_pass.pop("distribution")
                 search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
             else:

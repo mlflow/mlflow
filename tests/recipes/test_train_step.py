@@ -570,6 +570,29 @@ def test_search_space(tmp_recipe_root_path):
     assert "alpha" in search_space
 
 
+@pytest.mark.skipif("hyperopt" not in sys.modules, reason="requires hyperopt to be installed")
+def test_search_space_with_small_boundaries(tmp_recipe_root_path):
+    tuning_params_yaml = tmp_recipe_root_path.joinpath("tuning_params.yaml")
+    tuning_params_yaml.write_text(
+        """
+        parameters:
+            alpha:
+                distribution: "uniform"
+                low: 1e-9
+                high: 1e-6
+        """
+    )
+    tuning_params = read_yaml(tmp_recipe_root_path, "tuning_params.yaml")
+    search_space = TrainStep.construct_search_space_from_yaml(tuning_params["parameters"])
+    assert "alpha" in search_space
+    alpha, distribution = search_space["alpha"].inputs()[0].inputs()
+    for arg in distribution.named_args:
+        if arg[0] == "high":
+            assert arg[1].obj == 0.000001
+        if arg[0] == "low":
+            assert arg[1].obj == 0.000000001
+
+
 @pytest.mark.parametrize(("tuning_param", "logged_param"), [(1, "1"), (1.0, "1.0"), ("a", " a ")])
 def test_tuning_param_equal(tuning_param, logged_param):
     assert TrainStep.is_tuning_param_equal(tuning_param, logged_param)
