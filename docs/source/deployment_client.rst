@@ -3,7 +3,7 @@
 MLflow Deployment Client
 =========================
 
-MLflow Deployment Client is a set of CRUD and query APIs to interact models that are served across various platforms.
+MLflow Deployment Client is a set of CRUD and query APIs designed to interact with models that are deployed across various platforms.
 
 .. contents:: Table of Contents
     :local:
@@ -12,7 +12,7 @@ MLflow Deployment Client is a set of CRUD and query APIs to interact models that
 Overview
 --------
 
-The MLflow Deployment Client provides unified CRUD and query APIs to interact with models that are served across various platforms. MLflow provides several built-in deployment clients that provide a consistent and platform-agnostic interface to interact with models served on different platforms, as well as a interface that can be used to implement custom deployment clients via plugins.
+The MLflow Deployment Client provides unified CRUD and query APIs to interact with models that are served across various platforms. MLflow provides several built-in deployment clients that provide a consistent and platform-agnostic interface to interact with models served on different platforms, as well as a plugin interface that can be used to implement custom deployment clients.
 
 
 Builtin Deployment Clients
@@ -20,13 +20,13 @@ Builtin Deployment Clients
 
 The MLflow library provides several built-in deployment clients that can be used to interact with models served on different platforms. The following are the built-in deployment clients provided by MLflow:
 
-* :py:class:`mlflow.deployments.MlflowDeploymentClient`: A deployment client for served models in the MLflow Deployments Server
-* :py:class:`mlflow.deployments.DatabricksDeploymentClient`: A deployment client for served models on Databricks.
-* :py:class:`mlflow.deployments.OpenAIDeploymentClient`: A deployment client for served models on OpenAI or Azure OpenAI platforms.
+* :py:class:`mlflow.deployments.MlflowDeploymentClient`: A deployment client for interfacing with models that have been deployed for inference within an MLflow Deployments Server
+* :py:class:`mlflow.deployments.DatabricksDeploymentClient`: A client for interacting with models that are deployed on Databricks.
+* :py:class:`mlflow.deployments.OpenAIDeploymentClient`: A client that interfaces with OpenAI or Azure OpenAI platforms and the SaaS models that they host.
 
-Deployment Client Factory functions
+Managing Deployment Clients
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-These clients can be accessed using the following factory methods:
+Accessing instances and properties of deployment clients can be accomplished by using the following:
 
 * :py:func:`mlflow.deployments.get_deploy_client`: Returns an instance of the appropriate deployment client based on the specified deployment target.
 * :py:func:`mlflow.deployments.get_deployments_target`: Returns the deployment target associated with the specified deployment client.
@@ -48,7 +48,7 @@ MLflow also provides a :py:class:`mlflow.deployments.BaseDeploymentClient` inter
 Deployment Client Query APIs
 ----------------------------
 
-MLflow deployment clients provide a unified query API for deployments or model endpoints. This is the :py:func:`mlflow.deployments.BaseDeploymentClient.predict` API.
+MLflow deployment clients provide a unified query API for deployments or model endpoints: the :py:func:`mlflow.deployments.BaseDeploymentClient.predict` API.
 
 For example, to query ``gpt-4`` model endpoint on OpenAI, you can use the following code:
 
