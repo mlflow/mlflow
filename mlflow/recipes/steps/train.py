@@ -199,24 +199,18 @@ class TrainStep(BaseStep):
             elif "distribution" in param_details:
                 hp_tuning_fn = getattr(hp, param_details["distribution"])
                 param_details_to_pass = param_details.copy()
-                # convert high/low to float in case yaml is parsed to str scientific notation
-                if "high" not in param_details_to_pass or "low" not in param_details_to_pass:
-                    raise MlflowException(
-                        f"Parameter {param_name} distribution must contain 'high' and 'low' values",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                try:
-                    if isinstance(param_details_to_pass["low"], str):
-                        param_details_to_pass["low"] = float(param_details_to_pass["low"])
-                    if isinstance(param_details_to_pass["high"], str):
-                        param_details_to_pass["high"] = float(param_details_to_pass["high"])
-                except ValueError:
-                    raise MlflowException(
-                        f"Parameter {param_name} distribution 'high' and 'low' values must be "
-                        f"valid numbers",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
                 param_details_to_pass.pop("distribution")
+                # convert boundaries to float in case yaml is parsed to str scientific notation
+                for boundary_name, boundary_value in param_details_to_pass.items():
+                    if isinstance(boundary_value, str):
+                        try:
+                            param_details_to_pass[boundary_name] = float(boundary_value)
+                        except ValueError:
+                            raise MlflowException(
+                                f"Distribution value for {param_name} {boundary_name} must be "
+                                f"a valid number",
+                                error_code=INVALID_PARAMETER_VALUE,
+                            )
                 search_space[param_name] = hp_tuning_fn(param_name, **param_details_to_pass)
             else:
                 raise MlflowException(
