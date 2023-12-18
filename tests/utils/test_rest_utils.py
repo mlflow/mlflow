@@ -116,6 +116,7 @@ def test_http_request_hostonly(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -133,6 +134,7 @@ def test_http_request_cleans_hostname(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -151,6 +153,7 @@ def test_http_request_with_basic_auth(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=headers,
         timeout=120,
@@ -183,6 +186,7 @@ def test_http_request_with_aws_sigv4(request, monkeypatch):
     request.assert_called_once_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=mock.ANY,
         headers=mock.ANY,
         timeout=mock.ANY,
@@ -207,6 +211,7 @@ def test_http_request_with_auth(fetch_auth, request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=mock.ANY,
         headers=mock.ANY,
         timeout=mock.ANY,
@@ -226,6 +231,7 @@ def test_http_request_with_token(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=headers,
         timeout=120,
@@ -242,6 +248,7 @@ def test_http_request_with_insecure(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=False,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -258,6 +265,7 @@ def test_http_request_client_cert_path(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         cert="/some/path",
         headers=DefaultRequestHeaderProvider().request_headers(),
@@ -275,6 +283,7 @@ def test_http_request_server_cert_path(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify="/some/path",
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -295,6 +304,7 @@ def test_http_request_with_content_type_header(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=True,
         headers=headers,
         timeout=120,
@@ -320,6 +330,7 @@ def test_http_request_request_headers(request):
         request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
+            allow_redirects=True,
             verify="/some/path",
             headers={**DefaultRequestHeaderProvider().request_headers(), "test": "header"},
             timeout=120,
@@ -356,6 +367,7 @@ def test_http_request_request_headers_user_agent(request):
         request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
+            allow_redirects=True,
             verify="/some/path",
             headers=expected_headers,
             timeout=120,
@@ -393,6 +405,7 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
         request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
+            allow_redirects=True,
             verify="/some/path",
             headers=expected_headers,
             timeout=120,
@@ -440,6 +453,7 @@ def test_http_request_wrapper(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=False,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -450,6 +464,7 @@ def test_http_request_wrapper(request):
     request.assert_called_with(
         "GET",
         "http://my-host/my/endpoint",
+        allow_redirects=True,
         verify=False,
         headers=DefaultRequestHeaderProvider().request_headers(),
         timeout=120,
@@ -560,3 +575,26 @@ def test_augmented_raise_for_status():
     assert e.value.response == response
     assert e.value.request == response.request
     assert response.text in str(e.value)
+
+
+def test_provide_redirect_kwarg():
+    with mock.patch("requests.Session.request") as mock_request:
+        mock_request.return_value.status_code = 302
+        mock_request.return_value.text = "mock response"
+
+        response = http_request(
+            MlflowHostCreds("http://my-host"),
+            "/my/endpoint",
+            "GET",
+            allow_redirects=False,
+        )
+
+        assert response.text == "mock response"
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=False,
+            headers=mock.ANY,
+            verify=mock.ANY,
+            timeout=120,
+        )

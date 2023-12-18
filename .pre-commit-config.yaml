@@ -60,3 +60,4 @@ repos:
         name: mlflow-typo
         entry: dev/mlflow-typo.sh
         language: system
+        stages: [commit]

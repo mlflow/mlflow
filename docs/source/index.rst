@@ -122,6 +122,17 @@ LLM Guides and Tutorials
                 </a>
             </div>
             <div class="simple-card">
+                <a href="llms/openai/index.html" >
+                    <div class="header">
+                        Guide to using OpenAI in MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage the state-of-the-art LLMs offered by OpenAI directly as MLflow flavors to build and track useful language-based 
+                        applications.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="llms/llm-evaluate/index.html" >
                     <div class="header">
                         Evaluating LLMs with MLflow Guide
@@ -145,10 +156,10 @@ LLM Guides and Tutorials
             <div class="simple-card">
                 <a href="llms/rag/index.html" >
                     <div class="header">
-                        Question Generation for RAG
+                        Evaluation for RAG
                     </div>
                     <p>
-                        Learn how to leverage LLMs to generate a question dataset for use in Retrieval Augmented Generation applications.
+                        Learn how to evaluate Retrieval Augmented Generation applications by leveraging LLMs to generate a evaluation dataset and evaluate it using the built-in metrics in the MLflow Evaluate API.
                     </p>
                 </a>
             </div>

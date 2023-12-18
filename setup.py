@@ -190,6 +190,7 @@ setup(
         databricks=mlflow.deployments.databricks
         http=mlflow.deployments.mlflow
         https=mlflow.deployments.mlflow
+        openai=mlflow.deployments.openai
     """,
     cmdclass={
         "dependencies": ListDependencies,

@@ -2,6 +2,11 @@ name: MLflow tests
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   push:
     branches:
       - master
@@ -238,7 +243,10 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest tests/evaluate
+          pytest tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+      - name: Run tests with delta
+        run: |
+          pytest tests/evaluate/test_default_evaluator_delta.py
 
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

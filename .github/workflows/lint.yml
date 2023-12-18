@@ -2,6 +2,11 @@ name: Lint
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   push:
     branches:
       - master
@@ -47,7 +52,7 @@ jobs:
       - name: Install pre-commit hooks
         run: |
           source .venv/bin/activate
-          pre-commit install -t pre-commit -t prepare-commit-msg
+          pre-commit install
       - name: Run pre-commit
         id: pre-commit
         env:

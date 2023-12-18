@@ -258,6 +258,7 @@ def test_log_artifact_azure_with_headers(
         request_mock.assert_called_with(
             "put",
             f"{MOCK_AZURE_SIGNED_URI}?comp=blocklist",
+            allow_redirects=True,
             data=ANY,
             headers=filtered_azure_headers,
             timeout=None,
@@ -307,7 +308,7 @@ def test_log_artifact_adls_gen2(
 
 @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
 def test_log_artifact_adls_gen2_with_headers(
-    databricks_artifact_repo, test_file, artifact_path, expected_location
+    databricks_artifact_repo, test_file, artifact_path, expected_location, monkeypatch
 ):
     mock_azure_headers = {
         "x-ms-content-type": "test-type",
@@ -329,15 +330,13 @@ def test_log_artifact_adls_gen2_with_headers(
             for header_name, header_value in mock_azure_headers.items()
         ],
     )
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", "5")
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_credential_infos",
         return_value=[mock_credential_info],
     ) as get_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
-    ) as request_mock, mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE",
-        5,
-    ):
+    ) as request_mock:
         databricks_artifact_repo.log_artifact(test_file, artifact_path)
         get_credential_infos_mock.assert_called_with(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
@@ -346,12 +345,14 @@ def test_log_artifact_adls_gen2_with_headers(
         request_mock.assert_any_call(
             "put",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?resource=file",
+            allow_redirects=True,
             headers=filtered_azure_headers,
             timeout=None,
         )
         request_mock.assert_any_call(
             "patch",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=append&position=0",
+            allow_redirects=True,
             data=ANY,
             headers=filtered_azure_headers,
             timeout=None,
@@ -359,6 +360,7 @@ def test_log_artifact_adls_gen2_with_headers(
         request_mock.assert_any_call(
             "patch",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=append&position=5",
+            allow_redirects=True,
             data=ANY,
             headers=filtered_azure_headers,
             timeout=None,
@@ -366,6 +368,7 @@ def test_log_artifact_adls_gen2_with_headers(
         request_mock.assert_any_call(
             "patch",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=append&position=10",
+            allow_redirects=True,
             data=ANY,
             headers=filtered_azure_headers,
             timeout=None,
@@ -373,6 +376,7 @@ def test_log_artifact_adls_gen2_with_headers(
         request_mock.assert_called_with(
             "patch",
             f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=flush&position=14",
+            allow_redirects=True,
             headers=filtered_azure_headers,
             timeout=None,
         )
@@ -404,12 +408,14 @@ def test_log_artifact_adls_gen2_flush_error(databricks_artifact_repo, test_file)
             mock.call(
                 "put",
                 f"{MOCK_ADLS_GEN2_SIGNED_URI}?resource=file",
+                allow_redirects=True,
                 headers={},
                 timeout=None,
             ),
             mock.call(
                 "patch",
                 f"{MOCK_ADLS_GEN2_SIGNED_URI}?action=append&position=0&flush=true",
+                allow_redirects=True,
                 data=ANY,
                 headers={},
                 timeout=None,
@@ -436,7 +442,7 @@ def test_log_artifact_aws(databricks_artifact_repo, test_file, artifact_path, ex
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_AWS_SIGNED_URI, data=ANY, headers={}, timeout=None
+            "put", MOCK_AWS_SIGNED_URI, allow_redirects=True, data=ANY, headers={}, timeout=None
         )
 
 
@@ -464,7 +470,12 @@ def test_log_artifact_aws_with_headers(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_AWS_SIGNED_URI, data=ANY, headers=expected_headers, timeout=None
+            "put",
+            MOCK_AWS_SIGNED_URI,
+            allow_redirects=True,
+            data=ANY,
+            headers=expected_headers,
+            timeout=None,
         )
 
 
@@ -502,7 +513,7 @@ def test_log_artifact_gcp(databricks_artifact_repo, test_file, artifact_path, ex
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_GCP_SIGNED_URL, data=ANY, headers={}, timeout=None
+            "put", MOCK_GCP_SIGNED_URL, allow_redirects=True, data=ANY, headers={}, timeout=None
         )
 
 
@@ -530,7 +541,12 @@ def test_log_artifact_gcp_with_headers(
             GetCredentialsForWrite, MOCK_RUN_ID, [expected_location]
         )
         request_mock.assert_called_with(
-            "put", MOCK_GCP_SIGNED_URL, data=ANY, headers=expected_headers, timeout=None
+            "put",
+            MOCK_GCP_SIGNED_URL,
+            allow_redirects=True,
+            data=ANY,
+            headers=expected_headers,
+            timeout=None,
         )
 
 
@@ -974,7 +990,7 @@ def test_databricks_download_file_with_relative_path(remote_file_path, local_pat
 
 @pytest.mark.parametrize(
     ("file_size", "is_parallel_download"),
-    [(None, False), (100, False), (499_999_999, False), (500_000_000, True)],
+    [(None, False), (100, False), (500 * 1024**2 - 1, False), (500 * 1024**2, True)],
 )
 def test_databricks_download_file_in_parallel_when_necessary(
     databricks_artifact_repo, file_size, is_parallel_download
@@ -1223,13 +1239,11 @@ def test_log_artifacts_provides_failure_info(databricks_artifact_repo, tmp_path)
 
 
 @pytest.fixture
-def mock_chunk_size():
+def mock_chunk_size(monkeypatch):
     # Use a smaller chunk size for faster comparison
     chunk_size = 10
-    with mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE", chunk_size
-    ):
-        yield chunk_size
+    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE", str(chunk_size))
+    return chunk_size
 
 
 @pytest.fixture
@@ -1298,6 +1312,7 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
                 mock.call(
                     "put",
                     f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                    allow_redirects=True,
                     data=f.read(mock_chunk_size),
                     headers={"header": f"part-{i + 1}"},
                     timeout=None,
@@ -1387,6 +1402,7 @@ def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file
                 mock.call(
                     "put",
                     f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                    allow_redirects=True,
                     data=f.read(mock_chunk_size),
                     headers={"header": f"part-{i + 1}"},
                     timeout=None,
@@ -1445,6 +1461,7 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
                 mock.call(
                     "put",
                     f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                    allow_redirects=True,
                     data=f.read(mock_chunk_size),
                     headers={"header": f"part-{i + 1}"},
                     timeout=None,
@@ -1463,6 +1480,7 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
         assert abort_call == mock.call(
             "delete",
             f"{MOCK_AWS_SIGNED_URI}uploadId=abort",
+            allow_redirects=True,
             headers={"header": "abort"},
             timeout=None,
         )

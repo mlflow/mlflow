@@ -2545,46 +2545,7 @@ Index  yhat       yhat_lower yhat_upper
 OpenAI (``openai``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. attention::
-    The ``openai`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
-    subject to be added as additional functionality is brought to the flavor.
-
-The ``openi`` model flavor enables logging of `OpenAI models <https://github.com/openai/openai-python>`_ in MLflow format via
-the :py:func:`mlflow.openai.save_model()` and :py:func:`mlflow.openai.log_model()` functions. Use of these
-functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
-interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
-You can also use the :py:func:`mlflow.openai.load_model()` function to load a saved or logged MLflow
-Model with the ``openai`` flavor as a dictionary of the model's attributes.
-
-Example using the OpenAI service directly:
-
-.. literalinclude:: ../../examples/openai/chat_completions.py
-    :language: python
-
-Using the Azure OpenAI Service 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``openai`` flavor supports logging models that use the `Azure OpenAI Service <https://azure.microsoft.com/en-us/products/ai-services/openai-service>`_. 
-There are a few notable differences between the Azure OpenAI Service and the OpenAI Service that need to be considered when logging models that target Azure endpoints. 
-
-In order to successfully log a model that targets the Azure OpenAI Service, you must set the following environment variables to ensure that the saved model will have 
-the correct authentication information when it is loaded:
-
-.. note::
-    The following environment variables contain **highly sensitive access keys**. Ensure that you do not commit these values to source control or declare them in an interactive 
-    environment. Environment variables should be set from within your terminal via an ``export`` command, an addition to your user profile configurations (i.e., .bashrc or .zshrc), 
-    or set through your IDE's environment variable configuration. Please do not leak your credentials.
-
-- **OPENAI_API_KEY**: The API key for the Azure OpenAI Service. This can be found in the Azure Portal under the "Keys and Endpoint" section of the "Keys and Endpoint" tab. You can use either ``KEY1`` or ``KEY2``.
-- **OPENAI_API_BASE**: The base endpoint for your Azure OpenAI resource (e.g., ``https://<your-service-name>.openai.azure.com/``). Within the Azure OpenAI documentation and guides, this key is referred to as ``AZURE_OPENAI_ENDPOINT`` or simply ``ENDPOINT``.
-- **OPENAI_API_VERSION**: The API version to use for the Azure OpenAI Service. More information can be found in the `Azure OpenAI documentation <https://learn.microsoft.com/en-us/azure/ai-services/openai/reference>`_, including up-to-date lists of supported versions.
-- **OPENAI_API_TYPE**: If using Azure OpenAI endpoints, this value should be set to ``"azure"``.
-- **DEPLOYMENT_ID**: The deployment name that you chose when you deployed the model in Azure. To learn more, visit the `Azure OpenAI deployment documentation <https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal>`_.
-
-Example using the Azure OpenAI Service:
-
-.. literalinclude:: ../../examples/openai/azure_openai.py
-    :language: python
+The full guide, including tutorials and detailed documentation for using the ``openai`` flavor `can be viewed here <llms/openai/index.html>`_.
 
 
 LangChain (``langchain``) (Experimental)

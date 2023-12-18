@@ -120,9 +120,10 @@ class CardTab:
 
         :return: a HTML string
         """
-        import jinja2
+        from jinja2 import BaseLoader
+        from jinja2.sandbox import SandboxedEnvironment
 
-        j2_env = jinja2.Environment(loader=jinja2.BaseLoader()).from_string(self.template)
+        j2_env = SandboxedEnvironment(loader=BaseLoader()).from_string(self.template)
         return j2_env.render({**self._context})
 
 

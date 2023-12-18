@@ -21,10 +21,15 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
+    _BASE_LOAD_KEY,
+    _MODEL_LOAD_KEY,
+    _RUNNABLE_LOAD_KEY,
     _load_base_lcs,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
+    lc_runnables_types,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -98,8 +103,9 @@ def save_model(
 
     :param lc_model: A LangChain model, which could be a
                      `Chain <https://python.langchain.com/docs/modules/chains/>`_,
-                     `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
-                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
+                     `Agent <https://python.langchain.com/docs/modules/agents/>`_,
+                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_,
+                     or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_.
     :param path: Local path where the serialized model (as YAML) is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -369,22 +375,25 @@ def log_model(
 
     # infer signature if signature is not provided
     if signature is None:
-        input_columns = [
-            ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
-        ]
-        input_schema = Schema(input_columns)
+        if hasattr(lc_model, "input_keys") and hasattr(lc_model, "output_keys"):
+            input_columns = [
+                ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
+            ]
+            input_schema = Schema(input_columns)
 
-        output_columns = [
-            ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
-        ]
-        output_schema = Schema(output_columns)
+            output_columns = [
+                ColSpec(type=DataType.string, name=output_key)
+                for output_key in lc_model.output_keys
+            ]
+            output_schema = Schema(output_columns)
 
-        # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
-        # https://databricks.atlassian.net/browse/ML-34706
-        if len(lc_model.output_keys) > 1 or isinstance(lc_model, BaseRetriever):
-            output_schema = None
+            # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
+            # https://databricks.atlassian.net/browse/ML-34706
+            if len(lc_model.output_keys) > 1 or isinstance(lc_model, BaseRetriever):
+                output_schema = None
 
-        signature = ModelSignature(input_schema, output_schema)
+            signature = ModelSignature(input_schema, output_schema)
+        # TODO: support signature for other runnables
 
     return Model.log(
         artifact_path=artifact_path,
@@ -405,11 +414,24 @@ def log_model(
 
 
 def _save_model(model, path, loader_fn, persist_dir):
-    return _save_base_lcs(model, path, loader_fn, persist_dir)
+    if isinstance(model, lc_runnables_types()):
+        return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
+    else:
+        return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
 def _load_model(local_model_path, flavor_conf):
-    return _load_base_lcs(local_model_path, flavor_conf)
+    # model_type is not accurate as the class can be subclass
+    # of supported types, we define _MODEL_LOAD_KEY to ensure
+    # which load function to use
+    model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
+    if model_load_fn == _RUNNABLE_LOAD_KEY:
+        return _load_runnables(local_model_path, flavor_conf)
+    if model_load_fn == _BASE_LOAD_KEY:
+        return _load_base_lcs(local_model_path, flavor_conf)
+    raise mlflow.MlflowException(
+        f"Failed to load LangChain model. Unknown model type: {flavor_conf.get(_MODEL_TYPE_KEY)}"
+    )
 
 
 class _LangChainModelWrapper:
@@ -418,7 +440,7 @@ class _LangChainModelWrapper:
 
     def predict(  # pylint: disable=unused-argument
         self,
-        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
+        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ) -> List[str]:
         """
@@ -434,13 +456,17 @@ class _LangChainModelWrapper:
 
         if isinstance(data, pd.DataFrame):
             messages = data.to_dict(orient="records")
+        elif isinstance(self.lc_model, lc_runnables_types()):
+            messages = [data]
+            return process_api_requests(lc_model=self.lc_model, requests=messages)[0]
         elif isinstance(data, list) and (
             all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
         ):
             messages = data
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
-                "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
+                "Input must be a pandas DataFrame or a list of strings or a list of dictionaries "
+                f"for model {self.lc_model.__class__.__name__}"
             )
         return process_api_requests(lc_model=self.lc_model, requests=messages)
 
@@ -465,7 +491,11 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         import langchain
         from langchain.schema.retriever import BaseRetriever
 
-        from mlflow.openai.utils import TEST_CONTENT, TEST_INTERMEDIATE_STEPS, TEST_SOURCE_DOCUMENTS
+        from mlflow.utils.openai_utils import (
+            TEST_CONTENT,
+            TEST_INTERMEDIATE_STEPS,
+            TEST_SOURCE_DOCUMENTS,
+        )
 
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
@@ -480,6 +510,8 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
             mockContent = TEST_CONTENT
         elif isinstance(self.lc_model, langchain.agents.agent.AgentExecutor):
             mockContent = f"Final Answer: {TEST_CONTENT}"
+        else:
+            mockContent = TEST_CONTENT
 
         with _mock_async_request(mockContent):
             result = super().predict(data)

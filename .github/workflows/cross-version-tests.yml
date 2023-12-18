@@ -2,6 +2,11 @@ name: Cross version tests
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   workflow_dispatch:
     inputs:
       repository:
@@ -131,7 +136,7 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          if [ "${{ matrix.package }}" = "tensorflow" ] && [ "${{ matrix.version }}" = "dev" ]; then
+          if { [ "${{ matrix.package }}" = "tensorflow" ] || [ "${{ matrix.package }}" = "scikit-learn" ]; } && [ "${{ matrix.version }}" = "dev" ]; then
             python_version=3.9
           else
             python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
@@ -187,6 +192,14 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
+      - name: Install pydantic no-binary for langchain
+        if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
+        run: |
+          pip uninstall pydantic -y
+          # 0.0.267 is the minimum version that supports Pydantic v2
+          # We need to install from source because cythonized pydantic 
+          # objects can't be serialized https://github.com/cloudpipe/cloudpickle/issues/408
+          pip install pydantic --no-binary :all:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py

@@ -41,6 +41,10 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
         return False
 
     parsed_uri = urllib.parse.urlparse(uri)
+    scheme = parsed_uri.scheme
+    if scheme == "":
+        return True
+
     if parsed_uri.hostname and not (
         parsed_uri.hostname == "."
         or parsed_uri.hostname.startswith("localhost")
@@ -48,8 +52,7 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
     ):
         return False
 
-    scheme = parsed_uri.scheme
-    if scheme == "" or scheme == "file":
+    if scheme == "file":
         return True
 
     if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
@@ -261,6 +264,11 @@ def append_to_uri_path(uri, *paths):
         path = _join_posixpaths_and_append_absolute_suffixes(path, subpath)
 
     parsed_uri = urllib.parse.urlparse(uri)
+
+    # Validate query string not to contain any traveral path (../) before appending
+    # to the end of the path, otherwise they will be resolved as part of the path.
+    validate_query_string(parsed_uri.query)
+
     if len(parsed_uri.scheme) == 0:
         # If the input URI does not define a scheme, we assume that it is a POSIX path
         # and join it with the specified input paths
@@ -427,6 +435,13 @@ def validate_path_is_safe(path):
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
 
+    # We must decode path before validating it
+    path = _decode(path)
+
+    exc = MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
+    if "#" in path:
+        raise exc
+
     if is_file_uri(path):
         path = local_file_uri_to_path(path)
     if (
@@ -436,4 +451,25 @@ def validate_path_is_safe(path):
         or pathlib.PurePosixPath(path).is_absolute()
         or (is_windows() and len(path) >= 2 and path[1] == ":")
     ):
-        raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
+        raise exc
+
+    return path
+
+
+def validate_query_string(query):
+    query = _decode(query)
+    # Block query strings contain any traveral path (../) because they
+    # could be resolved as part of the path and allow path traversal.
+    if ".." in query:
+        raise MlflowException("Invalid query string", error_code=INVALID_PARAMETER_VALUE)
+
+
+def _decode(url):
+    # Keep decoding until the url stops changing (with a max of 10 iterations)
+    for _ in range(10):
+        decoded = urllib.parse.unquote(url)
+        if decoded == url:
+            return url
+        url = decoded
+
+    raise ValueError("Failed to decode url")
