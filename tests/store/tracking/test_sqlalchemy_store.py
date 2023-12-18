@@ -212,7 +212,7 @@ def _get_run_configs(experiment_id=None, tags=None, start_time=None):
     return {
         "experiment_id": experiment_id,
         "user_id": "Anderson",
-        "start_time": start_time or get_current_time_millis(),
+        "start_time": get_current_time_millis() if start_time is None else start_time,
         "tags": tags,
         "run_name": "name",
     }
@@ -1835,7 +1835,7 @@ def test_search_metrics(store: SqlAlchemyStore):
     assert _search_runs(store, experiment_id, filter_string) == [r2]
 
 
-def test_search_attrs(store: SqlAlchemyStore):
+def test_search_attrs(store: SqlAlchemyStore, tmp_path):
     e1 = _create_experiments(store, "search_attributes_1")
     r1 = _run_factory(store, _get_run_configs(experiment_id=e1)).info.run_id
 
@@ -1877,27 +1877,25 @@ def test_search_attrs(store: SqlAlchemyStore):
     filter_string = "attribute.status = 'KILLED'"
     assert _search_runs(store, [e1, e2], filter_string) == []
 
-    if is_windows():
-        expected_artifact_uri = (
-            pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_uri()
-        )
-        filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
-    else:
-        expected_artifact_uri = (
-            pathlib.Path.cwd().joinpath(ARTIFACT_URI, e1, r1, "artifacts").as_posix()
-        )
-        filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
+    expected_artifact_uri = (
+        pathlib.Path.cwd().joinpath(tmp_path, "artifacts", e1, r1, "artifacts").as_uri()
+    )
+    filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
     assert _search_runs(store, [e1, e2], filter_string) == [r1]
 
-    filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e1.upper()}/{r1.upper()}/artifacts'"
+    filter_string = (
+        f"attr.artifact_uri = '{tmp_path}/artifacts/{e1.upper()}/{r1.upper()}/artifacts'"
+    )
     assert _search_runs(store, [e1, e2], filter_string) == []
 
-    filter_string = f"attr.artifact_uri != '{ARTIFACT_URI}/{e1.upper()}/{r1.upper()}/artifacts'"
+    filter_string = (
+        f"attr.artifact_uri != '{tmp_path}/artifacts/{e1.upper()}/{r1.upper()}/artifacts'"
+    )
     assert sorted(
         [r1, r2],
     ) == sorted(_search_runs(store, [e1, e2], filter_string))
 
-    filter_string = f"attr.artifact_uri = '{ARTIFACT_URI}/{e2}/{r1}/artifacts'"
+    filter_string = f"attr.artifact_uri = '{tmp_path}/artifacts/{e2}/{r1}/artifacts'"
     assert _search_runs(store, [e1, e2], filter_string) == []
 
     filter_string = "attribute.artifact_uri = 'random_artifact_path'"
@@ -2325,20 +2323,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             config["experiment_id"] = experiment_id
 
         return self.store.create_run(**config)
-
-    # Tests for Search API
-    def _search(
-        self,
-        experiment_id,
-        filter_string=None,
-        run_view_type=ViewType.ALL,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-    ):
-        exps = [experiment_id] if isinstance(experiment_id, str) else experiment_id
-        return [
-            r.info.run_id
-            for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)
-        ]
 
     def get_ordered_runs(self, order_clauses, experiment_id):
         return [
