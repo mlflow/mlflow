@@ -187,7 +187,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 upload_path = posixpath.join(dest_path, rel_path)
 
             if not filenames:
-                # Create a folder to preserve the directory structure.
+                # We're in an empty directory. Create a folder to preserve the directory structure.
                 s3_client.put_object(Bucket=bucket, Key=upload_path + "/")
 
             for f in filenames:
