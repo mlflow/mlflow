@@ -755,7 +755,6 @@ def _load_pyfunc(path, spark=None):
     return _PyFuncModelWrapper(
         _load_model(model_uri=path),
         spark or _get_or_create_sparksession(path),
-
     )
 
 
