@@ -2,6 +2,7 @@ import logging
 import os
 import re
 from collections import Counter
+from importlib.metadata import PackageNotFoundError, version
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
@@ -84,8 +85,6 @@ class _PythonEnv:
     @staticmethod
     def _get_package_version(package_name):
         try:
-            from importlib.metadata import PackageNotFoundError, version
-
             return version(package_name)
         except PackageNotFoundError:
             return None
