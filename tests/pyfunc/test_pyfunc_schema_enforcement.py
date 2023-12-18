@@ -1659,8 +1659,6 @@ def test_enforce_schema_in_python_model_serving(sample_params_basic):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    # x = json.loads(response.content.decode("utf-8"))["message"]
-    # assert x == ""
     assert response.status_code == 400
     assert (
         "Incompatible types for param 'double_param'"
