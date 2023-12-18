@@ -54,12 +54,12 @@ class AsyncLoggingQueue:
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
-    def wait_for_completion(self) -> None:
-        """Waits for the queue to be drained.
+    def flush(self) -> None:
+        """Flush the async logging queue.
 
-        This method is used to ensure that all the run data is logged before the program exits.
+        Calling this method will flush the queue to ensure all the data are logged.
         """
-        # Stop the data processing thread
+        # Stop the data processing thread.
         self._stop_data_logging_thread_event.set()
         # Waits till logging queue is drained.
         self._batch_logging_thread.join()
@@ -76,6 +76,9 @@ class AsyncLoggingQueue:
         """
         try:
             while not self._stop_data_logging_thread_event.is_set():
+                self._log_run_data()
+            # Drain the queue after the stop event is set.
+            while not self._queue.empty():
                 self._log_run_data()
         except Exception as e:
             from mlflow.exceptions import MlflowException
@@ -202,7 +205,6 @@ class AsyncLoggingQueue:
             metrics=metrics,
             completion_event=threading.Event(),
         )
-
         self._queue.put(batch)
         operation_future = self._batch_status_check_threadpool.submit(self._wait_for_batch, batch)
         return RunOperations(operation_futures=[operation_future])

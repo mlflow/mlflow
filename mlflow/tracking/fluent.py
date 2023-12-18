@@ -646,7 +646,7 @@ def log_param(key: str, value: Any, synchronous: bool = True) -> Any:
 
 def flush_async_logging() -> None:
     """Flush all pending async logging."""
-    _get_store().flush_async()
+    _get_store().flush_async_logging()
 
 
 def set_experiment_tag(key: str, value: Any) -> None:

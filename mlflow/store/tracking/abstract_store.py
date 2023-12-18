@@ -399,7 +399,7 @@ class AbstractStore:
         Flushes the async logging queue. This method is a no-op if the queue is not active.
         """
         if self._async_logging_queue.is_active():
-            self._async_logging_queue.wait_for_completion()
+            self._async_logging_queue.flush()
 
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):
