@@ -1906,6 +1906,16 @@ class DefaultEvaluator(ModelEvaluator):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
+        if self.write_to_offline_eval_tables:
+            from mlflow.utils._spark_utils import _get_active_spark_session
+
+            self.spark_session = _get_active_spark_session()
+            if not self.spark_session:
+                raise MlflowException(
+                    message="eval_results_path is only supported in Spark environment. ",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
         if extra_metrics and custom_metrics:
             raise MlflowException(
                 "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update "
