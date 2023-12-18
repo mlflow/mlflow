@@ -227,6 +227,32 @@ def _run_factory(store: SqlAlchemyStore, config=None):
     return store.create_run(**config)
 
 
+# Tests for Search API
+def _search_runs(
+    store: SqlAlchemyStore,
+    experiment_id,
+    filter_string=None,
+    run_view_type=ViewType.ALL,
+    max_results=SEARCH_MAX_RESULTS_DEFAULT,
+):
+    exps = [experiment_id] if isinstance(experiment_id, str) else experiment_id
+    return [
+        r.info.run_id for r in store.search_runs(exps, filter_string, run_view_type, max_results)
+    ]
+
+
+def _get_ordered_runs(store: SqlAlchemyStore, order_clauses, experiment_id):
+    return [
+        r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+        for r in store.search_runs(
+            experiment_ids=[experiment_id],
+            filter_string="",
+            run_view_type=ViewType.ALL,
+            order_by=order_clauses,
+        )
+    ]
+
+
 def test_default_experiment(store: SqlAlchemyStore):
     experiments = store.search_experiments()
     assert len(experiments) == 1
@@ -887,6 +913,772 @@ def test_get_deleted_runs(store: SqlAlchemyStore):
     assert deleted_run_ids == [run.info.run_uuid]
 
 
+def test_log_metric(store: SqlAlchemyStore):
+    run = _run_factory(store)
+
+    tkey = "blahmetric"
+    tval = 100.0
+    metric = entities.Metric(tkey, tval, get_current_time_millis(), 0)
+    metric2 = entities.Metric(tkey, tval, get_current_time_millis() + 2, 0)
+    nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
+    pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
+    neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
+    store.log_metric(run.info.run_id, metric)
+    store.log_metric(run.info.run_id, metric2)
+    store.log_metric(run.info.run_id, nan_metric)
+    store.log_metric(run.info.run_id, pos_inf_metric)
+    store.log_metric(run.info.run_id, neg_inf_metric)
+
+    run = store.get_run(run.info.run_id)
+    assert tkey in run.data.metrics
+    assert run.data.metrics[tkey] == tval
+
+    # SQL store _get_run method returns full history of recorded metrics.
+    # Should return duplicates as well
+    # MLflow RunData contains only the last reported values for metrics.
+    with store.ManagedSessionMaker() as session:
+        sql_run_metrics = store._get_run(session, run.info.run_id).metrics
+        assert len(sql_run_metrics) == 5
+        assert len(run.data.metrics) == 4
+        assert math.isnan(run.data.metrics["NaN"])
+        assert run.data.metrics["PosInf"] == 1.7976931348623157e308
+        assert run.data.metrics["NegInf"] == -1.7976931348623157e308
+
+
+def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
+    """
+    Verifies that concurrent logging succeeds without deadlock, which has been an issue
+    in previous MLflow releases
+    """
+    experiment_id = _create_experiments(store, "concurrency_exp")
+    run_config = _get_run_configs(experiment_id=experiment_id)
+    run1 = _run_factory(store, run_config)
+    run2 = _run_factory(store, run_config)
+
+    def log_metrics(run):
+        for metric_val in range(100):
+            store.log_metric(
+                run.info.run_id, Metric("metric_key", metric_val, get_current_time_millis(), 0)
+            )
+        for batch_idx in range(5):
+            store.log_batch(
+                run.info.run_id,
+                metrics=[
+                    Metric(
+                        f"metric_batch_{batch_idx}",
+                        (batch_idx * 100) + val_offset,
+                        get_current_time_millis(),
+                        0,
+                    )
+                    for val_offset in range(100)
+                ],
+                params=[],
+                tags=[],
+            )
+        for metric_val in range(100):
+            store.log_metric(
+                run.info.run_id, Metric("metric_key", metric_val, get_current_time_millis(), 0)
+            )
+        return "success"
+
+    log_metrics_futures = []
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        # Log metrics to two runs across four threads
+        log_metrics_futures = [
+            executor.submit(log_metrics, run) for run in [run1, run2, run1, run2]
+        ]
+
+    for future in log_metrics_futures:
+        assert future.result() == "success"
+
+    for run in [run1, run2, run1, run2]:
+        # We visit each run twice, logging 100 metric entries for 6 metric names; the same entry
+        # may be written multiple times concurrently; we assert that at least 100 metric entries
+        # are present because at least 100 unique entries must have been written
+        assert len(store.get_metric_history(run.info.run_id, "metric_key")) >= 100
+        for batch_idx in range(5):
+            assert (
+                len(store.get_metric_history(run.info.run_id, f"metric_batch_{batch_idx}")) >= 100
+            )
+
+
+def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(
+    store: SqlAlchemyStore,
+):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    metric_name = "test-metric-1"
+    # Check that we get the max of (step, timestamp, value) in that order
+    tuples_to_log = [
+        (0, 100, 1000),
+        (3, 40, 100),  # larger step wins even though it has smaller value
+        (3, 50, 10),  # larger timestamp wins even though it has smaller value
+        (3, 50, 20),  # tiebreak by max value
+        (3, 50, 20),  # duplicate metrics with same (step, timestamp, value) are ok
+        # verify that we can log steps out of order / negative steps
+        (-3, 900, 900),
+        (-1, 800, 800),
+    ]
+    for step, timestamp, value in reversed(tuples_to_log):
+        store.log_metric(run_id, Metric(metric_name, value, timestamp, step))
+
+    metric_history = store.get_metric_history(run_id, metric_name)
+    logged_tuples = [(m.step, m.timestamp, m.value) for m in metric_history]
+    assert set(logged_tuples) == set(tuples_to_log)
+
+    run_data = store.get_run(run_id).data
+    run_metrics = run_data.metrics
+    assert len(run_metrics) == 1
+    assert run_metrics[metric_name] == 20
+    metric_obj = run_data._metric_objs[0]
+    assert metric_obj.key == metric_name
+    assert metric_obj.step == 3
+    assert metric_obj.timestamp == 50
+    assert metric_obj.value == 20
+
+
+def test_get_metric_history_paginated_request_raises(store: SqlAlchemyStore):
+    with pytest.raises(
+        MlflowException,
+        match="The SQLAlchemyStore backend does not support pagination for the "
+        "`get_metric_history` API.",
+    ):
+        store.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
+
+
+def test_log_null_metric(store: SqlAlchemyStore):
+    run = _run_factory(store)
+
+    tkey = "blahmetric"
+    tval = None
+    metric = entities.Metric(tkey, tval, get_current_time_millis(), 0)
+
+    with pytest.raises(
+        MlflowException, match=r"Got invalid value None for metric"
+    ) as exception_context:
+        store.log_metric(run.info.run_id, metric)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_log_param(store: SqlAlchemyStore):
+    run = _run_factory(store)
+
+    tkey = "blahmetric"
+    tval = "100.0"
+    param = entities.Param(tkey, tval)
+    param2 = entities.Param("new param", "new key")
+    store.log_param(run.info.run_id, param)
+    store.log_param(run.info.run_id, param2)
+    store.log_param(run.info.run_id, param2)
+
+    run = store.get_run(run.info.run_id)
+    assert len(run.data.params) == 2
+    assert tkey in run.data.params
+    assert run.data.params[tkey] == tval
+
+
+def test_log_param_uniqueness(store: SqlAlchemyStore):
+    run = _run_factory(store)
+
+    tkey = "blahmetric"
+    tval = "100.0"
+    param = entities.Param(tkey, tval)
+    param2 = entities.Param(tkey, "newval")
+    store.log_param(run.info.run_id, param)
+
+    with pytest.raises(MlflowException, match=r"Changing param values is not allowed"):
+        store.log_param(run.info.run_id, param2)
+
+
+def test_log_empty_str(store: SqlAlchemyStore):
+    run = _run_factory(store)
+
+    tkey = "blahmetric"
+    tval = ""
+    param = entities.Param(tkey, tval)
+    param2 = entities.Param("new param", "new key")
+    store.log_param(run.info.run_id, param)
+    store.log_param(run.info.run_id, param2)
+
+    run = store.get_run(run.info.run_id)
+    assert len(run.data.params) == 2
+    assert tkey in run.data.params
+    assert run.data.params[tkey] == tval
+
+
+def test_log_null_param(store: SqlAlchemyStore):
+    run = _run_factory(store)
+
+    tkey = "blahmetric"
+    tval = None
+    param = entities.Param(tkey, tval)
+
+    dialect = store._get_dialect()
+    regex = {
+        SQLITE: r"NOT NULL constraint failed",
+        POSTGRES: r"null value in column .+ of relation .+ violates not-null constrain",
+        MYSQL: r"Column .+ cannot be null",
+        MSSQL: r"Cannot insert the value NULL into column .+, table .+",
+    }[dialect]
+    with pytest.raises(MlflowException, match=regex) as exception_context:
+        store.log_param(run.info.run_id, param)
+    if dialect != MYSQL:
+        assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
+    else:
+        # Some MySQL client packages (and there are several available, e.g.
+        # PyMySQL, mysqlclient, mysql-connector-python... reports some
+        # errors, including NULL constraint violations, as a SQLAlchemy
+        # OperationalError, even though they should be reported as a more
+        # generic SQLAlchemyError. If that is fixed, we can remove this
+        # special case.
+        assert exception_context.value.error_code == ErrorCode.Name(
+            BAD_REQUEST
+        ) or exception_context.value.error_code == ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
+
+
+@pytest.mark.skipif(
+    Version(sqlalchemy.__version__) < Version("2.0")
+    and mlflow.get_tracking_uri().startswith("mssql"),
+    reason="large string parameters are sent as TEXT/NTEXT; "
+    "see tests/db/compose.yml for details",
+)
+def test_log_param_max_length_value(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    tkey = "blahmetric"
+    tval = "x" * 6000
+    param = entities.Param(tkey, tval)
+    store.log_param(run.info.run_id, param)
+    run = store.get_run(run.info.run_id)
+    assert run.data.params[tkey] == str(tval)
+    with pytest.raises(MlflowException, match="exceeded length"):
+        store.log_param(run.info.run_id, entities.Param(tkey, "x" * 6001))
+
+
+def test_set_experiment_tag(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "setExperimentTagExp")
+    tag = entities.ExperimentTag("tag0", "value0")
+    new_tag = entities.RunTag("tag0", "value00000")
+    store.set_experiment_tag(exp_id, tag)
+    experiment = store.get_experiment(exp_id)
+    assert experiment.tags["tag0"] == "value0"
+    # test that updating a tag works
+    store.set_experiment_tag(exp_id, new_tag)
+    experiment = store.get_experiment(exp_id)
+    assert experiment.tags["tag0"] == "value00000"
+    # test that setting a tag on 1 experiment does not impact another experiment.
+    exp_id_2 = _create_experiments(store, "setExperimentTagExp2")
+    experiment2 = store.get_experiment(exp_id_2)
+    assert len(experiment2.tags) == 0
+    # setting a tag on different experiments maintains different values across experiments
+    different_tag = entities.RunTag("tag0", "differentValue")
+    store.set_experiment_tag(exp_id_2, different_tag)
+    experiment = store.get_experiment(exp_id)
+    assert experiment.tags["tag0"] == "value00000"
+    experiment2 = store.get_experiment(exp_id_2)
+    assert experiment2.tags["tag0"] == "differentValue"
+    # test can set multi-line tags
+    multi_line_Tag = entities.ExperimentTag("multiline tag", "value2\nvalue2\nvalue2")
+    store.set_experiment_tag(exp_id, multi_line_Tag)
+    experiment = store.get_experiment(exp_id)
+    assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
+    # test cannot set tags that are too long
+    long_tag = entities.ExperimentTag("longTagKey", "a" * 5001)
+    with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
+        store.set_experiment_tag(exp_id, long_tag)
+    # test can set tags that are somewhat long
+    long_tag = entities.ExperimentTag("longTagKey", "a" * 4999)
+    store.set_experiment_tag(exp_id, long_tag)
+    # test cannot set tags on deleted experiments
+    store.delete_experiment(exp_id)
+    with pytest.raises(MlflowException, match="must be in the 'active' state"):
+        store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
+
+
+def test_set_tag(store: SqlAlchemyStore):
+    run = _run_factory(store)
+
+    tkey = "test tag"
+    tval = "a boogie"
+    new_val = "new val"
+    tag = entities.RunTag(tkey, tval)
+    new_tag = entities.RunTag(tkey, new_val)
+    store.set_tag(run.info.run_id, tag)
+    # Overwriting tags is allowed
+    store.set_tag(run.info.run_id, new_tag)
+    # test setting tags that are too long fails.
+    with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
+        store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+    # test can set tags that are somewhat long
+    store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
+    run = store.get_run(run.info.run_id)
+    assert tkey in run.data.tags
+    assert run.data.tags[tkey] == new_val
+
+
+def test_delete_tag(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    k0, v0 = "tag0", "val0"
+    k1, v1 = "tag1", "val1"
+    tag0 = entities.RunTag(k0, v0)
+    tag1 = entities.RunTag(k1, v1)
+    store.set_tag(run.info.run_id, tag0)
+    store.set_tag(run.info.run_id, tag1)
+    # delete a tag and check whether it is correctly deleted.
+    store.delete_tag(run.info.run_id, k0)
+    run = store.get_run(run.info.run_id)
+    assert k0 not in run.data.tags
+    assert k1 in run.data.tags
+    assert run.data.tags[k1] == v1
+
+    # test that deleting a tag works correctly with multiple runs having the same tag.
+    run2 = _run_factory(store, config=_get_run_configs(run.info.experiment_id))
+    store.set_tag(run.info.run_id, tag0)
+    store.set_tag(run2.info.run_id, tag0)
+    store.delete_tag(run.info.run_id, k0)
+    run = store.get_run(run.info.run_id)
+    run2 = store.get_run(run2.info.run_id)
+    assert k0 not in run.data.tags
+    assert k0 in run2.data.tags
+    # test that you cannot delete tags that don't exist.
+    with pytest.raises(MlflowException, match="No tag with name"):
+        store.delete_tag(run.info.run_id, "fakeTag")
+    # test that you cannot delete tags for nonexistent runs
+    with pytest.raises(MlflowException, match="Run with id=randomRunId not found"):
+        store.delete_tag("randomRunId", k0)
+    # test that you cannot delete tags for deleted runs.
+    store.delete_run(run.info.run_id)
+    with pytest.raises(MlflowException, match="must be in the 'active' state"):
+        store.delete_tag(run.info.run_id, k1)
+
+
+def test_get_metric_history(store: SqlAlchemyStore):
+    run = _run_factory(store)
+
+    key = "test"
+    expected = [
+        models.SqlMetric(key=key, value=0.6, timestamp=1, step=0).to_mlflow_entity(),
+        models.SqlMetric(key=key, value=0.7, timestamp=2, step=0).to_mlflow_entity(),
+    ]
+
+    for metric in expected:
+        store.log_metric(run.info.run_id, metric)
+
+    actual = store.get_metric_history(run.info.run_id, key)
+
+    assert sorted(
+        [(m.key, m.value, m.timestamp) for m in expected],
+    ) == sorted(
+        [(m.key, m.value, m.timestamp) for m in actual],
+    )
+
+
+def test_rename_experiment(store: SqlAlchemyStore):
+    new_name = "new name"
+    experiment_id = _create_experiments(store, "test name")
+    experiment = store.get_experiment(experiment_id)
+    time.sleep(0.01)
+    store.rename_experiment(experiment_id, new_name)
+
+    renamed_experiment = store.get_experiment(experiment_id)
+
+    assert renamed_experiment.name == new_name
+    assert renamed_experiment.last_update_time > experiment.last_update_time
+
+
+def test_update_run_info(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_update_run_info")
+    for new_status_string in models.RunStatusTypes:
+        run = _run_factory(store, config=_get_run_configs(experiment_id=experiment_id))
+        endtime = get_current_time_millis()
+        actual = store.update_run_info(
+            run.info.run_id, RunStatus.from_string(new_status_string), endtime, None
+        )
+        assert actual.status == new_status_string
+        assert actual.end_time == endtime
+
+    # test updating run name without changing other attributes.
+    origin_run_info = store.get_run(run.info.run_id).info
+    updated_info = store.update_run_info(run.info.run_id, None, None, "name_abc2")
+    assert updated_info.run_name == "name_abc2"
+    assert updated_info.status == origin_run_info.status
+    assert updated_info.end_time == origin_run_info.end_time
+
+
+def test_update_run_name(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_update_run_name")
+    configs = _get_run_configs(experiment_id=experiment_id)
+
+    run_id = store.create_run(**configs).info.run_id
+    run = store.get_run(run_id)
+    assert run.info.run_name == configs["run_name"]
+
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
+    run = store.get_run(run_id)
+    assert run.info.run_name == "new name"
+    assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "new name"
+
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
+    run = store.get_run(run_id)
+    assert run.info.run_name == "new name"
+    assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "new name"
+
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, "")
+    run = store.get_run(run_id)
+    assert run.info.run_name == "new name"
+    assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "new name"
+
+    store.delete_tag(run_id, mlflow_tags.MLFLOW_RUN_NAME)
+    run = store.get_run(run_id)
+    assert run.info.run_name == "new name"
+    assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) is None
+
+    store.update_run_info(run_id, RunStatus.FINISHED, 1000, "newer name")
+    run = store.get_run(run_id)
+    assert run.info.run_name == "newer name"
+    assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "newer name"
+
+    store.set_tag(run_id, entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, "newest name"))
+    run = store.get_run(run_id)
+    assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "newest name"
+    assert run.info.run_name == "newest name"
+
+    store.log_batch(
+        run_id,
+        metrics=[],
+        params=[],
+        tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, "batch name")],
+    )
+    run = store.get_run(run_id)
+    assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "batch name"
+    assert run.info.run_name == "batch name"
+
+
+def test_restore_experiment(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "helloexp")
+    exp = store.get_experiment(experiment_id)
+    assert exp.lifecycle_stage == entities.LifecycleStage.ACTIVE
+
+    experiment_id = exp.experiment_id
+    store.delete_experiment(experiment_id)
+
+    deleted = store.get_experiment(experiment_id)
+    assert deleted.experiment_id == experiment_id
+    assert deleted.lifecycle_stage == entities.LifecycleStage.DELETED
+    time.sleep(0.01)
+    store.restore_experiment(exp.experiment_id)
+    restored = store.get_experiment(exp.experiment_id)
+    assert restored.experiment_id == experiment_id
+    assert restored.lifecycle_stage == entities.LifecycleStage.ACTIVE
+    assert restored.last_update_time > deleted.last_update_time
+
+
+def test_delete_restore_run(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    assert run.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
+
+    # Verify that active runs can be restored (run restoration is idempotent)
+    store.restore_run(run.info.run_id)
+
+    # Verify that run deletion is idempotent
+    store.delete_run(run.info.run_id)
+    store.delete_run(run.info.run_id)
+
+    deleted = store.get_run(run.info.run_id)
+    assert deleted.info.run_id == run.info.run_id
+    assert deleted.info.lifecycle_stage == entities.LifecycleStage.DELETED
+    with store.ManagedSessionMaker() as session:
+        assert store._get_run(session, deleted.info.run_id).deleted_time is not None
+    # Verify that restoration of a deleted run is idempotent
+    store.restore_run(run.info.run_id)
+    store.restore_run(run.info.run_id)
+    restored = store.get_run(run.info.run_id)
+    assert restored.info.run_id == run.info.run_id
+    assert restored.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
+    with store.ManagedSessionMaker() as session:
+        assert store._get_run(session, restored.info.run_id).deleted_time is None
+
+
+def test_error_logging_to_deleted_run(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "error_logging")
+    run_id = _run_factory(store, _get_run_configs(experiment_id=exp)).info.run_id
+
+    store.delete_run(run_id)
+    assert store.get_run(run_id).info.lifecycle_stage == entities.LifecycleStage.DELETED
+    with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
+        store.log_param(run_id, entities.Param("p1345", "v1"))
+
+    with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
+        store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
+
+    with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
+        store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
+
+    # restore this run and try again
+    store.restore_run(run_id)
+    assert store.get_run(run_id).info.lifecycle_stage == entities.LifecycleStage.ACTIVE
+    store.log_param(run_id, entities.Param("p1345", "v22"))
+    store.log_metric(run_id, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
+    store.set_tag(run_id, entities.RunTag("t1345", "tv44"))
+
+    run = store.get_run(run_id)
+    assert run.data.params == {"p1345": "v22"}
+    assert run.data.metrics == {"m1345": 34.0}
+    metric_history = store.get_metric_history(run_id, "m1345")
+    assert len(metric_history) == 1
+    metric_obj = metric_history[0]
+    assert metric_obj.key == "m1345"
+    assert metric_obj.value == 34.0
+    assert metric_obj.timestamp == 85
+    assert metric_obj.step == 1
+    assert {("t1345", "tv44")} <= set(run.data.tags.items())
+
+
+def test_order_by_metric_tag_param(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("order_by_metric")
+
+    def create_and_log_run(names):
+        name = str(names[0]) + "/" + names[1]
+        run_id = store.create_run(
+            experiment_id,
+            user_id="MrDuck",
+            start_time=123,
+            tags=[entities.RunTag("metric", names[1])],
+            run_name=name,
+        ).info.run_id
+        if names[0] is not None:
+            store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
+            store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
+        store.log_param(run_id, entities.Param("metric", names[1]))
+        return run_id
+
+    # the expected order in ascending sort is :
+    # inf > number > -inf > None > nan
+    for names in zip(
+        [None, "nan", "inf", "-inf", "-1000", "0", "0", "1000"],
+        ["1", "2", "3", "4", "5", "6", "7", "8"],
+    ):
+        create_and_log_run(names)
+
+    # asc/asc
+    assert _get_ordered_runs(store, ["metrics.x asc", "metrics.y asc"], experiment_id) == [
+        "-inf/4",
+        "-1000/5",
+        "0/6",
+        "0/7",
+        "1000/8",
+        "inf/3",
+        "nan/2",
+        "None/1",
+    ]
+
+    assert _get_ordered_runs(store, ["metrics.x asc", "tag.metric asc"], experiment_id) == [
+        "-inf/4",
+        "-1000/5",
+        "0/6",
+        "0/7",
+        "1000/8",
+        "inf/3",
+        "nan/2",
+        "None/1",
+    ]
+
+    # asc/desc
+    assert _get_ordered_runs(store, ["metrics.x asc", "metrics.y desc"], experiment_id) == [
+        "-inf/4",
+        "-1000/5",
+        "0/7",
+        "0/6",
+        "1000/8",
+        "inf/3",
+        "nan/2",
+        "None/1",
+    ]
+
+    assert _get_ordered_runs(store, ["metrics.x asc", "tag.metric desc"], experiment_id) == [
+        "-inf/4",
+        "-1000/5",
+        "0/7",
+        "0/6",
+        "1000/8",
+        "inf/3",
+        "nan/2",
+        "None/1",
+    ]
+
+    # desc / asc
+    assert _get_ordered_runs(store, ["metrics.x desc", "metrics.y asc"], experiment_id) == [
+        "inf/3",
+        "1000/8",
+        "0/6",
+        "0/7",
+        "-1000/5",
+        "-inf/4",
+        "nan/2",
+        "None/1",
+    ]
+
+    # desc / desc
+    assert _get_ordered_runs(store, ["metrics.x desc", "param.metric desc"], experiment_id) == [
+        "inf/3",
+        "1000/8",
+        "0/7",
+        "0/6",
+        "-1000/5",
+        "-inf/4",
+        "nan/2",
+        "None/1",
+    ]
+
+
+def test_order_by_attributes(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("order_by_attributes")
+
+    def create_run(start_time, end):
+        return store.create_run(
+            experiment_id,
+            user_id="MrDuck",
+            start_time=start_time,
+            tags=[],
+            run_name=str(end),
+        ).info.run_id
+
+    start_time = 123
+    for end in [234, None, 456, -123, 789, 123]:
+        run_id = create_run(start_time, end)
+        store.update_run_info(run_id, run_status=RunStatus.FINISHED, end_time=end, run_name=None)
+        start_time += 1
+
+    # asc
+    assert _get_ordered_runs(store, ["attribute.end_time asc"], experiment_id) == [
+        "-123",
+        "123",
+        "234",
+        "456",
+        "789",
+        "None",
+    ]
+
+    # desc
+    assert _get_ordered_runs(store, ["attribute.end_time desc"], experiment_id) == [
+        "789",
+        "456",
+        "234",
+        "123",
+        "-123",
+        "None",
+    ]
+
+    # Sort priority correctly handled
+    assert _get_ordered_runs(
+        store, ["attribute.start_time asc", "attribute.end_time desc"], experiment_id
+    ) == ["234", "None", "456", "-123", "789", "123"]
+
+
+def test_search_vanilla(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "search_vanilla")
+    runs = [_run_factory(store, _get_run_configs(exp)).info.run_id for r in range(3)]
+
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ALL))
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ACTIVE_ONLY))
+    assert _search_runs(store, exp, run_view_type=ViewType.DELETED_ONLY) == []
+
+    first = runs[0]
+
+    store.delete_run(first)
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ALL))
+    assert sorted(
+        runs[1:],
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ACTIVE_ONLY))
+    assert _search_runs(store, exp, run_view_type=ViewType.DELETED_ONLY) == [first]
+
+    store.restore_run(first)
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ALL))
+    assert sorted(
+        runs,
+    ) == sorted(_search_runs(store, exp, run_view_type=ViewType.ACTIVE_ONLY))
+    assert _search_runs(store, exp, run_view_type=ViewType.DELETED_ONLY) == []
+
+
+def test_search_params(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "search_params")
+    r1 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+    r2 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+
+    store.log_param(r1, entities.Param("generic_param", "p_val"))
+    store.log_param(r2, entities.Param("generic_param", "p_val"))
+
+    store.log_param(r1, entities.Param("generic_2", "some value"))
+    store.log_param(r2, entities.Param("generic_2", "another value"))
+
+    store.log_param(r1, entities.Param("p_a", "abc"))
+    store.log_param(r2, entities.Param("p_b", "ABC"))
+
+    # test search returns both runs
+    filter_string = "params.generic_param = 'p_val'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    # test search returns appropriate run (same key different values per run)
+    filter_string = "params.generic_2 = 'some value'"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+    filter_string = "params.generic_2 = 'another value'"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+    filter_string = "params.generic_param = 'wrong_val'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_param != 'p_val'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_param != 'wrong_val'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+    filter_string = "params.generic_2 != 'wrong_val'"
+    assert sorted(
+        [r1, r2],
+    ) == sorted(_search_runs(store, experiment_id, filter_string))
+
+    filter_string = "params.p_a = 'abc'"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    filter_string = "params.p_a = 'ABC'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.p_a != 'ABC'"
+    assert _search_runs(store, experiment_id, filter_string) == [r1]
+
+    filter_string = "params.p_b = 'ABC'"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+    filter_string = "params.generic_2 LIKE '%other%'"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+    filter_string = "params.generic_2 LIKE 'other%'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_2 LIKE '%other'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_2 LIKE 'other'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_2 LIKE '%Other%'"
+    assert _search_runs(store, experiment_id, filter_string) == []
+
+    filter_string = "params.generic_2 ILIKE '%Other%'"
+    assert _search_runs(store, experiment_id, filter_string) == [r2]
+
+
 # This unit test class is under refactoring. Please use pytest for new unit tests: #10042
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_store(self, db_uri=""):
@@ -984,507 +1776,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         return self.store.create_run(**config)
 
-    def test_log_metric(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = 100.0
-        metric = entities.Metric(tkey, tval, get_current_time_millis(), 0)
-        metric2 = entities.Metric(tkey, tval, get_current_time_millis() + 2, 0)
-        nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
-        pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
-        neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
-        self.store.log_metric(run.info.run_id, metric)
-        self.store.log_metric(run.info.run_id, metric2)
-        self.store.log_metric(run.info.run_id, nan_metric)
-        self.store.log_metric(run.info.run_id, pos_inf_metric)
-        self.store.log_metric(run.info.run_id, neg_inf_metric)
-
-        run = self.store.get_run(run.info.run_id)
-        assert tkey in run.data.metrics
-        assert run.data.metrics[tkey] == tval
-
-        # SQL store _get_run method returns full history of recorded metrics.
-        # Should return duplicates as well
-        # MLflow RunData contains only the last reported values for metrics.
-        with self.store.ManagedSessionMaker() as session:
-            sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
-            assert len(sql_run_metrics) == 5
-            assert len(run.data.metrics) == 4
-            assert math.isnan(run.data.metrics["NaN"])
-            assert run.data.metrics["PosInf"] == 1.7976931348623157e308
-            assert run.data.metrics["NegInf"] == -1.7976931348623157e308
-
-    def test_log_metric_concurrent_logging_succeeds(self):
-        """
-        Verifies that concurrent logging succeeds without deadlock, which has been an issue
-        in previous MLflow releases
-        """
-        experiment_id = self._experiment_factory("concurrency_exp")
-        run_config = self._get_run_configs(experiment_id=experiment_id)
-        run1 = self._run_factory(run_config)
-        run2 = self._run_factory(run_config)
-
-        def log_metrics(run):
-            for metric_val in range(100):
-                self.store.log_metric(
-                    run.info.run_id, Metric("metric_key", metric_val, get_current_time_millis(), 0)
-                )
-            for batch_idx in range(5):
-                self.store.log_batch(
-                    run.info.run_id,
-                    metrics=[
-                        Metric(
-                            f"metric_batch_{batch_idx}",
-                            (batch_idx * 100) + val_offset,
-                            get_current_time_millis(),
-                            0,
-                        )
-                        for val_offset in range(100)
-                    ],
-                    params=[],
-                    tags=[],
-                )
-            for metric_val in range(100):
-                self.store.log_metric(
-                    run.info.run_id, Metric("metric_key", metric_val, get_current_time_millis(), 0)
-                )
-            return "success"
-
-        log_metrics_futures = []
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            # Log metrics to two runs across four threads
-            log_metrics_futures = [
-                executor.submit(log_metrics, run) for run in [run1, run2, run1, run2]
-            ]
-
-        for future in log_metrics_futures:
-            assert future.result() == "success"
-
-        for run in [run1, run2, run1, run2]:
-            # We visit each run twice, logging 100 metric entries for 6 metric names; the same entry
-            # may be written multiple times concurrently; we assert that at least 100 metric entries
-            # are present because at least 100 unique entries must have been written
-            assert len(self.store.get_metric_history(run.info.run_id, "metric_key")) >= 100
-            for batch_idx in range(5):
-                assert (
-                    len(self.store.get_metric_history(run.info.run_id, f"metric_batch_{batch_idx}"))
-                    >= 100
-                )
-
-    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
-        run = self._run_factory()
-        run_id = run.info.run_id
-        metric_name = "test-metric-1"
-        # Check that we get the max of (step, timestamp, value) in that order
-        tuples_to_log = [
-            (0, 100, 1000),
-            (3, 40, 100),  # larger step wins even though it has smaller value
-            (3, 50, 10),  # larger timestamp wins even though it has smaller value
-            (3, 50, 20),  # tiebreak by max value
-            (3, 50, 20),  # duplicate metrics with same (step, timestamp, value) are ok
-            # verify that we can log steps out of order / negative steps
-            (-3, 900, 900),
-            (-1, 800, 800),
-        ]
-        for step, timestamp, value in reversed(tuples_to_log):
-            self.store.log_metric(run_id, Metric(metric_name, value, timestamp, step))
-
-        metric_history = self.store.get_metric_history(run_id, metric_name)
-        logged_tuples = [(m.step, m.timestamp, m.value) for m in metric_history]
-        assert set(logged_tuples) == set(tuples_to_log)
-
-        run_data = self.store.get_run(run_id).data
-        run_metrics = run_data.metrics
-        assert len(run_metrics) == 1
-        assert run_metrics[metric_name] == 20
-        metric_obj = run_data._metric_objs[0]
-        assert metric_obj.key == metric_name
-        assert metric_obj.step == 3
-        assert metric_obj.timestamp == 50
-        assert metric_obj.value == 20
-
-    def test_get_metric_history_paginated_request_raises(self):
-        with pytest.raises(
-            MlflowException,
-            match="The SQLAlchemyStore backend does not support pagination for the "
-            "`get_metric_history` API.",
-        ):
-            self.store.get_metric_history(
-                "fake_run", "fake_metric", max_results=50, page_token="42"
-            )
-
-    def test_log_null_metric(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = None
-        metric = entities.Metric(tkey, tval, get_current_time_millis(), 0)
-
-        with pytest.raises(
-            MlflowException, match=r"Got invalid value None for metric"
-        ) as exception_context:
-            self.store.log_metric(run.info.run_id, metric)
-        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-    def test_log_param(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = "100.0"
-        param = entities.Param(tkey, tval)
-        param2 = entities.Param("new param", "new key")
-        self.store.log_param(run.info.run_id, param)
-        self.store.log_param(run.info.run_id, param2)
-        self.store.log_param(run.info.run_id, param2)
-
-        run = self.store.get_run(run.info.run_id)
-        assert len(run.data.params) == 2
-        assert tkey in run.data.params
-        assert run.data.params[tkey] == tval
-
-    def test_log_param_uniqueness(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = "100.0"
-        param = entities.Param(tkey, tval)
-        param2 = entities.Param(tkey, "newval")
-        self.store.log_param(run.info.run_id, param)
-
-        with pytest.raises(MlflowException, match=r"Changing param values is not allowed"):
-            self.store.log_param(run.info.run_id, param2)
-
-    def test_log_empty_str(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = ""
-        param = entities.Param(tkey, tval)
-        param2 = entities.Param("new param", "new key")
-        self.store.log_param(run.info.run_id, param)
-        self.store.log_param(run.info.run_id, param2)
-
-        run = self.store.get_run(run.info.run_id)
-        assert len(run.data.params) == 2
-        assert tkey in run.data.params
-        assert run.data.params[tkey] == tval
-
-    def test_log_null_param(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = None
-        param = entities.Param(tkey, tval)
-
-        dialect = self.store._get_dialect()
-        regex = {
-            SQLITE: r"NOT NULL constraint failed",
-            POSTGRES: r"null value in column .+ of relation .+ violates not-null constrain",
-            MYSQL: r"Column .+ cannot be null",
-            MSSQL: r"Cannot insert the value NULL into column .+, table .+",
-        }[dialect]
-        with pytest.raises(MlflowException, match=regex) as exception_context:
-            self.store.log_param(run.info.run_id, param)
-        if dialect != MYSQL:
-            assert exception_context.value.error_code == ErrorCode.Name(BAD_REQUEST)
-        else:
-            # Some MySQL client packages (and there are several available, e.g.
-            # PyMySQL, mysqlclient, mysql-connector-python... reports some
-            # errors, including NULL constraint violations, as a SQLAlchemy
-            # OperationalError, even though they should be reported as a more
-            # generic SQLAlchemyError. If that is fixed, we can remove this
-            # special case.
-            assert exception_context.value.error_code == ErrorCode.Name(
-                BAD_REQUEST
-            ) or exception_context.value.error_code == ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
-
-    @pytest.mark.skipif(
-        Version(sqlalchemy.__version__) < Version("2.0")
-        and mlflow.get_tracking_uri().startswith("mssql"),
-        reason="large string parameters are sent as TEXT/NTEXT; "
-        "see tests/db/compose.yml for details",
-    )
-    def test_log_param_max_length_value(self):
-        run = self._run_factory()
-        tkey = "blahmetric"
-        tval = "x" * 6000
-        param = entities.Param(tkey, tval)
-        self.store.log_param(run.info.run_id, param)
-        run = self.store.get_run(run.info.run_id)
-        assert run.data.params[tkey] == str(tval)
-        with pytest.raises(MlflowException, match="exceeded length"):
-            self.store.log_param(run.info.run_id, entities.Param(tkey, "x" * 6001))
-
-    def test_set_experiment_tag(self):
-        exp_id = self._experiment_factory("setExperimentTagExp")
-        tag = entities.ExperimentTag("tag0", "value0")
-        new_tag = entities.RunTag("tag0", "value00000")
-        self.store.set_experiment_tag(exp_id, tag)
-        experiment = self.store.get_experiment(exp_id)
-        assert experiment.tags["tag0"] == "value0"
-        # test that updating a tag works
-        self.store.set_experiment_tag(exp_id, new_tag)
-        experiment = self.store.get_experiment(exp_id)
-        assert experiment.tags["tag0"] == "value00000"
-        # test that setting a tag on 1 experiment does not impact another experiment.
-        exp_id_2 = self._experiment_factory("setExperimentTagExp2")
-        experiment2 = self.store.get_experiment(exp_id_2)
-        assert len(experiment2.tags) == 0
-        # setting a tag on different experiments maintains different values across experiments
-        different_tag = entities.RunTag("tag0", "differentValue")
-        self.store.set_experiment_tag(exp_id_2, different_tag)
-        experiment = self.store.get_experiment(exp_id)
-        assert experiment.tags["tag0"] == "value00000"
-        experiment2 = self.store.get_experiment(exp_id_2)
-        assert experiment2.tags["tag0"] == "differentValue"
-        # test can set multi-line tags
-        multi_line_Tag = entities.ExperimentTag("multiline tag", "value2\nvalue2\nvalue2")
-        self.store.set_experiment_tag(exp_id, multi_line_Tag)
-        experiment = self.store.get_experiment(exp_id)
-        assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
-        # test cannot set tags that are too long
-        long_tag = entities.ExperimentTag("longTagKey", "a" * 5001)
-        with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
-            self.store.set_experiment_tag(exp_id, long_tag)
-        # test can set tags that are somewhat long
-        long_tag = entities.ExperimentTag("longTagKey", "a" * 4999)
-        self.store.set_experiment_tag(exp_id, long_tag)
-        # test cannot set tags on deleted experiments
-        self.store.delete_experiment(exp_id)
-        with pytest.raises(MlflowException, match="must be in the 'active' state"):
-            self.store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
-
-    def test_set_tag(self):
-        run = self._run_factory()
-
-        tkey = "test tag"
-        tval = "a boogie"
-        new_val = "new val"
-        tag = entities.RunTag(tkey, tval)
-        new_tag = entities.RunTag(tkey, new_val)
-        self.store.set_tag(run.info.run_id, tag)
-        # Overwriting tags is allowed
-        self.store.set_tag(run.info.run_id, new_tag)
-        # test setting tags that are too long fails.
-        with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
-            self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
-        # test can set tags that are somewhat long
-        self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
-        run = self.store.get_run(run.info.run_id)
-        assert tkey in run.data.tags
-        assert run.data.tags[tkey] == new_val
-
-    def test_delete_tag(self):
-        run = self._run_factory()
-        k0, v0 = "tag0", "val0"
-        k1, v1 = "tag1", "val1"
-        tag0 = entities.RunTag(k0, v0)
-        tag1 = entities.RunTag(k1, v1)
-        self.store.set_tag(run.info.run_id, tag0)
-        self.store.set_tag(run.info.run_id, tag1)
-        # delete a tag and check whether it is correctly deleted.
-        self.store.delete_tag(run.info.run_id, k0)
-        run = self.store.get_run(run.info.run_id)
-        assert k0 not in run.data.tags
-        assert k1 in run.data.tags
-        assert run.data.tags[k1] == v1
-
-        # test that deleting a tag works correctly with multiple runs having the same tag.
-        run2 = self._run_factory(config=self._get_run_configs(run.info.experiment_id))
-        self.store.set_tag(run.info.run_id, tag0)
-        self.store.set_tag(run2.info.run_id, tag0)
-        self.store.delete_tag(run.info.run_id, k0)
-        run = self.store.get_run(run.info.run_id)
-        run2 = self.store.get_run(run2.info.run_id)
-        assert k0 not in run.data.tags
-        assert k0 in run2.data.tags
-        # test that you cannot delete tags that don't exist.
-        with pytest.raises(MlflowException, match="No tag with name"):
-            self.store.delete_tag(run.info.run_id, "fakeTag")
-        # test that you cannot delete tags for nonexistent runs
-        with pytest.raises(MlflowException, match="Run with id=randomRunId not found"):
-            self.store.delete_tag("randomRunId", k0)
-        # test that you cannot delete tags for deleted runs.
-        self.store.delete_run(run.info.run_id)
-        with pytest.raises(MlflowException, match="must be in the 'active' state"):
-            self.store.delete_tag(run.info.run_id, k1)
-
-    def test_get_metric_history(self):
-        run = self._run_factory()
-
-        key = "test"
-        expected = [
-            models.SqlMetric(key=key, value=0.6, timestamp=1, step=0).to_mlflow_entity(),
-            models.SqlMetric(key=key, value=0.7, timestamp=2, step=0).to_mlflow_entity(),
-        ]
-
-        for metric in expected:
-            self.store.log_metric(run.info.run_id, metric)
-
-        actual = self.store.get_metric_history(run.info.run_id, key)
-
-        assert sorted(
-            [(m.key, m.value, m.timestamp) for m in expected],
-        ) == sorted(
-            [(m.key, m.value, m.timestamp) for m in actual],
-        )
-
-    def test_rename_experiment(self):
-        new_name = "new name"
-        experiment_id = self._experiment_factory("test name")
-        experiment = self.store.get_experiment(experiment_id)
-        time.sleep(0.01)
-        self.store.rename_experiment(experiment_id, new_name)
-
-        renamed_experiment = self.store.get_experiment(experiment_id)
-
-        assert renamed_experiment.name == new_name
-        assert renamed_experiment.last_update_time > experiment.last_update_time
-
-    def test_update_run_info(self):
-        experiment_id = self._experiment_factory("test_update_run_info")
-        for new_status_string in models.RunStatusTypes:
-            run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
-            endtime = get_current_time_millis()
-            actual = self.store.update_run_info(
-                run.info.run_id, RunStatus.from_string(new_status_string), endtime, None
-            )
-            assert actual.status == new_status_string
-            assert actual.end_time == endtime
-
-        # test updating run name without changing other attributes.
-        origin_run_info = self.store.get_run(run.info.run_id).info
-        updated_info = self.store.update_run_info(run.info.run_id, None, None, "name_abc2")
-        assert updated_info.run_name == "name_abc2"
-        assert updated_info.status == origin_run_info.status
-        assert updated_info.end_time == origin_run_info.end_time
-
-    def test_update_run_name(self):
-        experiment_id = self._experiment_factory("test_update_run_name")
-        configs = self._get_run_configs(experiment_id=experiment_id)
-
-        run_id = self.store.create_run(**configs).info.run_id
-        run = self.store.get_run(run_id)
-        assert run.info.run_name == configs["run_name"]
-
-        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
-        run = self.store.get_run(run_id)
-        assert run.info.run_name == "new name"
-        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "new name"
-
-        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
-        run = self.store.get_run(run_id)
-        assert run.info.run_name == "new name"
-        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "new name"
-
-        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "")
-        run = self.store.get_run(run_id)
-        assert run.info.run_name == "new name"
-        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "new name"
-
-        self.store.delete_tag(run_id, mlflow_tags.MLFLOW_RUN_NAME)
-        run = self.store.get_run(run_id)
-        assert run.info.run_name == "new name"
-        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) is None
-
-        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "newer name")
-        run = self.store.get_run(run_id)
-        assert run.info.run_name == "newer name"
-        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "newer name"
-
-        self.store.set_tag(run_id, entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, "newest name"))
-        run = self.store.get_run(run_id)
-        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "newest name"
-        assert run.info.run_name == "newest name"
-
-        self.store.log_batch(
-            run_id,
-            metrics=[],
-            params=[],
-            tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, "batch name")],
-        )
-        run = self.store.get_run(run_id)
-        assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "batch name"
-        assert run.info.run_name == "batch name"
-
-    def test_restore_experiment(self):
-        experiment_id = self._experiment_factory("helloexp")
-        exp = self.store.get_experiment(experiment_id)
-        assert exp.lifecycle_stage == entities.LifecycleStage.ACTIVE
-
-        experiment_id = exp.experiment_id
-        self.store.delete_experiment(experiment_id)
-
-        deleted = self.store.get_experiment(experiment_id)
-        assert deleted.experiment_id == experiment_id
-        assert deleted.lifecycle_stage == entities.LifecycleStage.DELETED
-        time.sleep(0.01)
-        self.store.restore_experiment(exp.experiment_id)
-        restored = self.store.get_experiment(exp.experiment_id)
-        assert restored.experiment_id == experiment_id
-        assert restored.lifecycle_stage == entities.LifecycleStage.ACTIVE
-        assert restored.last_update_time > deleted.last_update_time
-
-    def test_delete_restore_run(self):
-        run = self._run_factory()
-        assert run.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
-
-        # Verify that active runs can be restored (run restoration is idempotent)
-        self.store.restore_run(run.info.run_id)
-
-        # Verify that run deletion is idempotent
-        self.store.delete_run(run.info.run_id)
-        self.store.delete_run(run.info.run_id)
-
-        deleted = self.store.get_run(run.info.run_id)
-        assert deleted.info.run_id == run.info.run_id
-        assert deleted.info.lifecycle_stage == entities.LifecycleStage.DELETED
-        with self.store.ManagedSessionMaker() as session:
-            assert self.store._get_run(session, deleted.info.run_id).deleted_time is not None
-        # Verify that restoration of a deleted run is idempotent
-        self.store.restore_run(run.info.run_id)
-        self.store.restore_run(run.info.run_id)
-        restored = self.store.get_run(run.info.run_id)
-        assert restored.info.run_id == run.info.run_id
-        assert restored.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
-        with self.store.ManagedSessionMaker() as session:
-            assert self.store._get_run(session, restored.info.run_id).deleted_time is None
-
-    def test_error_logging_to_deleted_run(self):
-        exp = self._experiment_factory("error_logging")
-        run_id = self._run_factory(self._get_run_configs(experiment_id=exp)).info.run_id
-
-        self.store.delete_run(run_id)
-        assert self.store.get_run(run_id).info.lifecycle_stage == entities.LifecycleStage.DELETED
-        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
-            self.store.log_param(run_id, entities.Param("p1345", "v1"))
-
-        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
-            self.store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
-
-        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
-            self.store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
-
-        # restore this run and try again
-        self.store.restore_run(run_id)
-        assert self.store.get_run(run_id).info.lifecycle_stage == entities.LifecycleStage.ACTIVE
-        self.store.log_param(run_id, entities.Param("p1345", "v22"))
-        self.store.log_metric(run_id, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
-        self.store.set_tag(run_id, entities.RunTag("t1345", "tv44"))
-
-        run = self.store.get_run(run_id)
-        assert run.data.params == {"p1345": "v22"}
-        assert run.data.metrics == {"m1345": 34.0}
-        metric_history = self.store.get_metric_history(run_id, "m1345")
-        assert len(metric_history) == 1
-        metric_obj = metric_history[0]
-        assert metric_obj.key == "m1345"
-        assert metric_obj.value == 34.0
-        assert metric_obj.timestamp == 85
-        assert metric_obj.step == 1
-        assert {("t1345", "tv44")} <= set(run.data.tags.items())
-
     # Tests for Search API
     def _search(
         self,
@@ -1509,250 +1800,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 order_by=order_clauses,
             )
         ]
-
-    def test_order_by_metric_tag_param(self):
-        experiment_id = self.store.create_experiment("order_by_metric")
-
-        def create_and_log_run(names):
-            name = str(names[0]) + "/" + names[1]
-            run_id = self.store.create_run(
-                experiment_id,
-                user_id="MrDuck",
-                start_time=123,
-                tags=[entities.RunTag("metric", names[1])],
-                run_name=name,
-            ).info.run_id
-            if names[0] is not None:
-                self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
-                self.store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
-            self.store.log_param(run_id, entities.Param("metric", names[1]))
-            return run_id
-
-        # the expected order in ascending sort is :
-        # inf > number > -inf > None > nan
-        for names in zip(
-            [None, "nan", "inf", "-inf", "-1000", "0", "0", "1000"],
-            ["1", "2", "3", "4", "5", "6", "7", "8"],
-        ):
-            create_and_log_run(names)
-
-        # asc/asc
-        assert self.get_ordered_runs(["metrics.x asc", "metrics.y asc"], experiment_id) == [
-            "-inf/4",
-            "-1000/5",
-            "0/6",
-            "0/7",
-            "1000/8",
-            "inf/3",
-            "nan/2",
-            "None/1",
-        ]
-
-        assert self.get_ordered_runs(["metrics.x asc", "tag.metric asc"], experiment_id) == [
-            "-inf/4",
-            "-1000/5",
-            "0/6",
-            "0/7",
-            "1000/8",
-            "inf/3",
-            "nan/2",
-            "None/1",
-        ]
-
-        # asc/desc
-        assert self.get_ordered_runs(["metrics.x asc", "metrics.y desc"], experiment_id) == [
-            "-inf/4",
-            "-1000/5",
-            "0/7",
-            "0/6",
-            "1000/8",
-            "inf/3",
-            "nan/2",
-            "None/1",
-        ]
-
-        assert self.get_ordered_runs(["metrics.x asc", "tag.metric desc"], experiment_id) == [
-            "-inf/4",
-            "-1000/5",
-            "0/7",
-            "0/6",
-            "1000/8",
-            "inf/3",
-            "nan/2",
-            "None/1",
-        ]
-
-        # desc / asc
-        assert self.get_ordered_runs(["metrics.x desc", "metrics.y asc"], experiment_id) == [
-            "inf/3",
-            "1000/8",
-            "0/6",
-            "0/7",
-            "-1000/5",
-            "-inf/4",
-            "nan/2",
-            "None/1",
-        ]
-
-        # desc / desc
-        assert self.get_ordered_runs(["metrics.x desc", "param.metric desc"], experiment_id) == [
-            "inf/3",
-            "1000/8",
-            "0/7",
-            "0/6",
-            "-1000/5",
-            "-inf/4",
-            "nan/2",
-            "None/1",
-        ]
-
-    def test_order_by_attributes(self):
-        experiment_id = self.store.create_experiment("order_by_attributes")
-
-        def create_run(start_time, end):
-            return self.store.create_run(
-                experiment_id,
-                user_id="MrDuck",
-                start_time=start_time,
-                tags=[],
-                run_name=str(end),
-            ).info.run_id
-
-        start_time = 123
-        for end in [234, None, 456, -123, 789, 123]:
-            run_id = create_run(start_time, end)
-            self.store.update_run_info(
-                run_id, run_status=RunStatus.FINISHED, end_time=end, run_name=None
-            )
-            start_time += 1
-
-        # asc
-        assert self.get_ordered_runs(["attribute.end_time asc"], experiment_id) == [
-            "-123",
-            "123",
-            "234",
-            "456",
-            "789",
-            "None",
-        ]
-
-        # desc
-        assert self.get_ordered_runs(["attribute.end_time desc"], experiment_id) == [
-            "789",
-            "456",
-            "234",
-            "123",
-            "-123",
-            "None",
-        ]
-
-        # Sort priority correctly handled
-        assert self.get_ordered_runs(
-            ["attribute.start_time asc", "attribute.end_time desc"], experiment_id
-        ) == ["234", "None", "456", "-123", "789", "123"]
-
-    def test_search_vanilla(self):
-        exp = self._experiment_factory("search_vanilla")
-        runs = [self._run_factory(self._get_run_configs(exp)).info.run_id for r in range(3)]
-
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ALL))
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        assert self._search(exp, run_view_type=ViewType.DELETED_ONLY) == []
-
-        first = runs[0]
-
-        self.store.delete_run(first)
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ALL))
-        assert sorted(
-            runs[1:],
-        ) == sorted(self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        assert self._search(exp, run_view_type=ViewType.DELETED_ONLY) == [first]
-
-        self.store.restore_run(first)
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ALL))
-        assert sorted(
-            runs,
-        ) == sorted(self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        assert self._search(exp, run_view_type=ViewType.DELETED_ONLY) == []
-
-    def test_search_params(self):
-        experiment_id = self._experiment_factory("search_params")
-        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-
-        self.store.log_param(r1, entities.Param("generic_param", "p_val"))
-        self.store.log_param(r2, entities.Param("generic_param", "p_val"))
-
-        self.store.log_param(r1, entities.Param("generic_2", "some value"))
-        self.store.log_param(r2, entities.Param("generic_2", "another value"))
-
-        self.store.log_param(r1, entities.Param("p_a", "abc"))
-        self.store.log_param(r2, entities.Param("p_b", "ABC"))
-
-        # test search returns both runs
-        filter_string = "params.generic_param = 'p_val'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        # test search returns appropriate run (same key different values per run)
-        filter_string = "params.generic_2 = 'some value'"
-        assert self._search(experiment_id, filter_string) == [r1]
-        filter_string = "params.generic_2 = 'another value'"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-        filter_string = "params.generic_param = 'wrong_val'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_param != 'p_val'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_param != 'wrong_val'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-        filter_string = "params.generic_2 != 'wrong_val'"
-        assert sorted(
-            [r1, r2],
-        ) == sorted(self._search(experiment_id, filter_string))
-
-        filter_string = "params.p_a = 'abc'"
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        filter_string = "params.p_a = 'ABC'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.p_a != 'ABC'"
-        assert self._search(experiment_id, filter_string) == [r1]
-
-        filter_string = "params.p_b = 'ABC'"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-        filter_string = "params.generic_2 LIKE '%other%'"
-        assert self._search(experiment_id, filter_string) == [r2]
-
-        filter_string = "params.generic_2 LIKE 'other%'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_2 LIKE '%other'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_2 LIKE 'other'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_2 LIKE '%Other%'"
-        assert self._search(experiment_id, filter_string) == []
-
-        filter_string = "params.generic_2 ILIKE '%Other%'"
-        assert self._search(experiment_id, filter_string) == [r2]
 
     def test_search_tags(self):
         experiment_id = self._experiment_factory("search_tags")

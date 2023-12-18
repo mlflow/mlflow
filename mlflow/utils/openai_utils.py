@@ -2,6 +2,8 @@ import json
 import os
 import time
 from contextlib import contextmanager
+from enum import Enum
+from typing import NamedTuple, Optional
 from unittest import mock
 
 import requests
@@ -30,6 +32,48 @@ TEST_INTERMEDIATE_STEPS = (
 REQUEST_URL_CHAT = "https://api.openai.com/v1/chat/completions"
 REQUEST_URL_COMPLETIONS = "https://api.openai.com/v1/completions"
 REQUEST_URL_EMBEDDINGS = "https://api.openai.com/v1/embeddings"
+
+REQUEST_FIELDS_CHAT = {
+    "model",
+    "messages",
+    "frequency_penalty",
+    "logit_bias",
+    "max_tokens",
+    "n",
+    "presence_penalty",
+    "response_format",
+    "seed",
+    "stop",
+    "stream",
+    "temperature",
+    "top_p",
+    "tools",
+    "tool_choice",
+    "user",
+    "function_call",
+    "functions",
+}
+REQUEST_FIELDS_COMPLETIONS = {
+    "model",
+    "prompt",
+    "best_of",
+    "echo",
+    "frequency_penalty",
+    "logit_bias",
+    "logprobs",
+    "max_tokens",
+    "n",
+    "presence_penalty",
+    "seed",
+    "stop",
+    "stream",
+    "suffix",
+    "temperature",
+    "top_p",
+    "user",
+}
+REQUEST_FIELDS_EMBEDDINGS = {"input", "model", "encoding_format", "user"}
+REQUEST_FIELDS = REQUEST_FIELDS_CHAT | REQUEST_FIELDS_COMPLETIONS | REQUEST_FIELDS_EMBEDDINGS
 
 
 class _MockResponse:
@@ -133,6 +177,8 @@ def _mock_openai_request():
 
     def request(*args, **kwargs):
         url = kwargs.get("url")
+        for key in kwargs.get("json"):
+            assert key in REQUEST_FIELDS, f"'{key}' is not a valid request field"
 
         if "/chat/completions" in url:
             messages = kwargs.get("json").get("messages")
@@ -166,9 +212,7 @@ def _validate_model_params(task, model, params):
 
 
 def _exclude_params_from_envs(params, envs):
-    """
-    params passed at inference time should override envs.
-    """
+    """Params passed at inference time should override envs."""
     return {k: v for k, v in envs.items() if k not in params} if params else envs
 
 
@@ -190,9 +234,8 @@ class _OAITokenHolder:
             self._credential = DefaultAzureCredential()
 
     def validate(self, logger=None):
-        """
-        Validates the token or API key configured for accessing the OpenAI resource.
-        """
+        """Validates the token or API key configured for accessing the OpenAI resource."""
+
         if self._key_configured:
             return
 
@@ -221,3 +264,41 @@ class _OAITokenHolder:
             raise mlflow.MlflowException(
                 "OpenAI API key must be set in the ``OPENAI_API_KEY`` environment variable."
             )
+
+
+class _OpenAIApiConfig(NamedTuple):
+    api_type: str
+    batch_size: int
+    max_requests_per_minute: int
+    max_tokens_per_minute: int
+    api_version: Optional[str]
+    api_base: str
+    engine: Optional[str]
+    deployment_id: Optional[str]
+
+
+# See https://github.com/openai/openai-python/blob/cf03fe16a92cd01f2a8867537399c12e183ba58e/openai/__init__.py#L30-L38
+# for the list of environment variables that openai-python uses
+class _OpenAIEnvVar(str, Enum):
+    OPENAI_API_TYPE = "OPENAI_API_TYPE"
+    OPENAI_API_BASE = "OPENAI_API_BASE"
+    OPENAI_API_KEY = "OPENAI_API_KEY"
+    OPENAI_API_KEY_PATH = "OPENAI_API_KEY_PATH"
+    OPENAI_API_VERSION = "OPENAI_API_VERSION"
+    OPENAI_ORGANIZATION = "OPENAI_ORGANIZATION"
+    OPENAI_ENGINE = "OPENAI_ENGINE"
+    # use deployment_name instead of deployment_id to be
+    # consistent with gateway
+    OPENAI_DEPLOYMENT_NAME = "OPENAI_DEPLOYMENT_NAME"
+
+    @property
+    def secret_key(self):
+        return self.value.lower()
+
+    @classmethod
+    def read_environ(cls):
+        env_vars = {}
+        for e in _OpenAIEnvVar:
+            if value := os.getenv(e.value):
+                env_vars[e.value] = value
+        return env_vars

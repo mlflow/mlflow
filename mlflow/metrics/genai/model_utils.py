@@ -3,8 +3,8 @@ import os
 import urllib.parse
 
 from mlflow.exceptions import MlflowException
-from mlflow.openai.utils import REQUEST_URL_CHAT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.openai_utils import REQUEST_URL_CHAT
 
 _logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ def _call_openai_api(openai_uri, payload, eval_parameters):
 
     from mlflow.openai import _get_api_config
     from mlflow.openai.api_request_parallel_processor import process_api_requests
-    from mlflow.openai.utils import _OAITokenHolder
+    from mlflow.utils.openai_utils import _OAITokenHolder
 
     api_config = _get_api_config()
     api_token = _OAITokenHolder(api_config.api_type)

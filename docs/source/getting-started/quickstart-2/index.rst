@@ -44,6 +44,11 @@ our MLflow tracking server:
 
   export MLFLOW_TRACKING_URI=http://localhost:5000
 
+.. note:: 
+    
+    If you would like to explore the possibilities of other tracking server deployments, including a fully-managed 
+    free-of-charge solution with Databricks Community Edition, please see `this page <../running-notebooks/index.html>`_.
+
 Import the following packages
 
 .. code-block:: python

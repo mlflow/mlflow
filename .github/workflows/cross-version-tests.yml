@@ -2,6 +2,11 @@ name: Cross version tests
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   workflow_dispatch:
     inputs:
       repository:
@@ -131,7 +136,7 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          if [ "${{ matrix.package }}" = "tensorflow" ] && [ "${{ matrix.version }}" = "dev" ]; then
+          if { [ "${{ matrix.package }}" = "tensorflow" ] || [ "${{ matrix.package }}" = "scikit-learn" ]; } && [ "${{ matrix.version }}" = "dev" ]; then
             python_version=3.9
           else
             python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")

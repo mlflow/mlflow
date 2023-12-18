@@ -491,7 +491,11 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         import langchain
         from langchain.schema.retriever import BaseRetriever
 
-        from mlflow.openai.utils import TEST_CONTENT, TEST_INTERMEDIATE_STEPS, TEST_SOURCE_DOCUMENTS
+        from mlflow.utils.openai_utils import (
+            TEST_CONTENT,
+            TEST_INTERMEDIATE_STEPS,
+            TEST_SOURCE_DOCUMENTS,
+        )
 
         from tests.langchain.test_langchain_model_export import _mock_async_request
 

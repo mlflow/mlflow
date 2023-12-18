@@ -85,7 +85,9 @@ module.exports = async ({ github, context }) => {
     });
 
     if (checks.some(({ status }) => status === STATE.failure)) {
-      throw new Error("Found failed job(s)");
+      throw new Error(
+        "This job ensures that all checks except for this one have passed to prevent accidental auto-merges."
+      );
     }
 
     if (checks.length > 0 && checks.every(({ status }) => status === STATE.success)) {

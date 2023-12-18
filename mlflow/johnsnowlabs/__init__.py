@@ -111,6 +111,8 @@ from mlflow.utils.uri import (
 
 FLAVOR_NAME = "johnsnowlabs"
 _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
+_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET = "HEALTHCARE_SECRET"
+_JOHNSNOWLABS_ENV_VISUAL_SECRET = "VISUAL_SECRET"
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
 default_predict_params = {
     "output_level": "",
@@ -149,16 +151,44 @@ def get_default_pip_requirements():
     """
     from johnsnowlabs import settings
 
+    if (
+        _JOHNSNOWLABS_ENV_HEALTHCARE_SECRET not in os.environ
+        and _JOHNSNOWLABS_ENV_VISUAL_SECRET not in os.environ
+    ):
+        raise Exception(
+            f"You need to set either {_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET} "
+            f"or {_JOHNSNOWLABS_ENV_VISUAL_SECRET} environment variable. "
+            f"Please contact John Snow Labs to get one."
+        )
+
     _SPARK_NLP_JSL_WHEEL_URI = (
         "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
         + f"{settings.raw_version_medical}-py3-none-any.whl"
     )
 
-    return [
+    _SPARK_NLP_VISUAL_WHEEL_URI = (
+        "https://pypi.johnsnowlabs.com/{secret}/spark-ocr/"
+        f"spark_ocr-{settings.raw_version_ocr}-py3-none-any.whl"
+    )
+
+    deps = [
         f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
         _get_pinned_requirement("pyspark"),
-        _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
     ]
+
+    if _JOHNSNOWLABS_ENV_HEALTHCARE_SECRET in os.environ:
+        _SPARK_NLP_JSL_WHEEL_URI = _SPARK_NLP_JSL_WHEEL_URI.format(
+            secret=os.environ[_JOHNSNOWLABS_ENV_HEALTHCARE_SECRET]
+        )
+        deps.append(_SPARK_NLP_JSL_WHEEL_URI)
+
+    if _JOHNSNOWLABS_ENV_VISUAL_SECRET in os.environ:
+        _SPARK_NLP_VISUAL_WHEEL_URI = _SPARK_NLP_VISUAL_WHEEL_URI.format(
+            secret=os.environ[_JOHNSNOWLABS_ENV_VISUAL_SECRET]
+        )
+        deps.append(_SPARK_NLP_VISUAL_WHEEL_URI)
+
+    return deps
 
 
 @experimental
@@ -471,11 +501,16 @@ def _save_jars_and_lic(dst_dir, store_license=False):
     deps_data_path = Path(dst_dir) / _JOHNSNOWLABS_MODEL_PATH_SUB / "jars.jsl"
     deps_data_path.mkdir(parents=True, exist_ok=True)
 
-    suite = get_install_suite_from_jsl_home(False)
+    suite = get_install_suite_from_jsl_home(
+        False,
+        visual=_JOHNSNOWLABS_ENV_VISUAL_SECRET in os.environ,
+    )
     if suite.hc.get_java_path():
         shutil.copy2(suite.hc.get_java_path(), deps_data_path / "hc_jar.jar")
     if suite.nlp.get_java_path():
         shutil.copy2(suite.nlp.get_java_path(), deps_data_path / "os_jar.jar")
+    if suite.ocr.get_java_path():
+        shutil.copy2(suite.ocr.get_java_path(), deps_data_path / "visual_nlp.jar")
 
     if store_license:
         # Read the secrets from env vars and write to license.json
@@ -760,7 +795,8 @@ def _load_pyfunc(path, spark=None):
     """
     return _PyFuncModelWrapper(
         _load_model(model_uri=path),
-        spark if spark else _get_or_create_sparksession(path),
+        spark or _get_or_create_sparksession(path),
+
     )
 
 

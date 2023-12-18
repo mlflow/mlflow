@@ -47,7 +47,8 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature, Schema
-from mlflow.openai.utils import (
+from mlflow.types.schema import ColSpec
+from mlflow.utils.openai_utils import (
     TEST_CONTENT,
     TEST_INTERMEDIATE_STEPS,
     TEST_SOURCE_DOCUMENTS,
@@ -55,7 +56,6 @@ from mlflow.openai.utils import (
     _mock_request,
     _MockResponse,
 )
-from mlflow.types.schema import ColSpec
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
