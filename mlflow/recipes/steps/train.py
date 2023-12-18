@@ -206,12 +206,14 @@ class TrainStep(BaseStep):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 try:
-                    param_details_to_pass["high"] = float(param_details_to_pass["high"])
-                    param_details_to_pass["low"] = float(param_details_to_pass["low"])
+                    if isinstance(param_details_to_pass["low"], str):
+                        param_details_to_pass["low"] = float(param_details_to_pass["low"])
+                    if isinstance(param_details_to_pass["high"], str):
+                        param_details_to_pass["high"] = float(param_details_to_pass["high"])
                 except ValueError:
                     raise MlflowException(
                         f"Parameter {param_name} distribution 'high' and 'low' values must be "
-                        f"valid floats",
+                        f"valid numbers",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 param_details_to_pass.pop("distribution")
