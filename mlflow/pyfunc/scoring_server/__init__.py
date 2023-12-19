@@ -308,6 +308,7 @@ def invocations(data, content_type, model, input_schema):
             mimetype="text/plain",
         )
     # Convert from CSV to pandas
+    data_in_unsupported_format = False
     if mime_type == CONTENT_TYPE_CSV:
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
