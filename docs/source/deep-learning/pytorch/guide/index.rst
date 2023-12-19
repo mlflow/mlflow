@@ -33,13 +33,13 @@ on the following APIs:
 Best Practice of Logging PyTorch to MLflow
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-While logging PyTorch experiments is identifcal to other kinds of manual logging, there are some best
+While logging PyTorch experiments is identical to other kinds of manual logging, there are some best
 practices that we recommend you to follow:
 
 - Log your model and training parameters via :py:func:`mlflow.log_params()` at the beginning of training
   loop, such as learning rate, batch size, etc. :py:func:`mlflow.log_params()` is the
   batched logging version of :py:func:`mlflow.log_param()`, which is more efficient than the latter.
-- Log your model architecture at the begnning of training via :py:func:`mlflow.log_artifact()`. You can use
+- Log your model architecture at the beginning of training via :py:func:`mlflow.log_artifact()`. You can use
   ``torchinfo`` package to get the model summary.
 - Log training and validation metrics via :py:func:`mlflow.log_metric()` inside your training loop, such as
   loss and accuracy for classification tasks. If you have multiple metrics per logging step, you can
