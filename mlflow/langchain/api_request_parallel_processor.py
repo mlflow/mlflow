@@ -122,7 +122,7 @@ class APIRequest:
 
         from mlflow.langchain.utils import lc_runnables_types, runnables_supports_batch_types
 
-        _logger.debug(f"Request #{self.index} started")
+        _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
         try:
             if isinstance(self.lc_model, BaseRetriever):
                 # Retrievers are invoked differently than Chains
@@ -161,7 +161,7 @@ class APIRequest:
                 else:
                     self._prepare_to_serialize(response)
 
-            _logger.debug(f"Request #{self.index} succeeded")
+            _logger.debug(f"Request #{self.index} succeeded with response: {response}")
             self.results.append((self.index, response))
             status_tracker.complete_task(success=True)
         except Exception as e:
@@ -192,21 +192,22 @@ def process_api_requests(
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
-            if next_request is None:
-                if not retry_queue.empty():
-                    next_request = retry_queue.get_nowait()
-                    _logger.warning(f"Retrying request {next_request.index}: {next_request}")
-                elif req := next(requests_iter, None):
-                    # get new request
-                    index, request_json = req
-                    next_request = APIRequest(
-                        index=index,
-                        lc_model=lc_model,
-                        request_json=request_json,
-                        results=results,
-                        errors=errors,
-                    )
-                    status_tracker.start_task()
+            if not retry_queue.empty():
+                next_request = retry_queue.get_nowait()
+                _logger.warning(f"Retrying request {next_request.index}: {next_request}")
+            elif req := next(requests_iter, None):
+                # get new request
+                index, request_json = req
+                next_request = APIRequest(
+                    index=index,
+                    lc_model=lc_model,
+                    request_json=request_json,
+                    results=results,
+                    errors=errors,
+                )
+                status_tracker.start_task()
+            else:
+                next_request = None
 
             # if enough capacity available, call API
             if next_request:
@@ -215,10 +216,11 @@ def process_api_requests(
                     next_request.call_api,
                     status_tracker=status_tracker,
                 )
-                next_request = None  # reset next_request to empty
 
             # if all tasks are finished, break
-            if status_tracker.num_tasks_in_progress == 0:
+            # check next_request to avoid terminating the process
+            # before extra requests need to be processed
+            if status_tracker.num_tasks_in_progress == 0 and next_request is None:
                 break
 
             time.sleep(0.001)  # avoid busy waiting
