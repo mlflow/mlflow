@@ -1198,6 +1198,8 @@ class DefaultEvaluator(ModelEvaluator):
                 elif column == "targets" or column == self.dataset.targets_name:
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
+                    elif "targets" in eval_df_copy:
+                        eval_fn_args.append(eval_df_copy["targets"])
                     else:
                         if param.default == inspect.Parameter.empty:
                             params_not_found.append(param_name)
