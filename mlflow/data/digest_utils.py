@@ -23,7 +23,7 @@ def compute_pandas_digest(df) -> str:
     trimmed_df = df.head(MAX_ROWS)
 
     # keep string and number columns, drop other column types
-    string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
+    string_columns = trimmed_df.columns[(df.map(type) == str).all(0)]
     numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
 
     desired_columns = string_columns.union(numeric_columns)
