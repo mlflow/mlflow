@@ -2,6 +2,7 @@ import random
 from collections import namedtuple
 from unittest import mock
 
+import numpy as np
 import pytest
 import sklearn.neighbors as knn
 from sklearn import datasets
@@ -9,8 +10,17 @@ from sklearn import datasets
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
+from mlflow.exceptions import MlflowException
 from mlflow.models import add_libraries_to_model
-from mlflow.models.utils import get_model_version_from_model_uri
+from mlflow.models.utils import (
+    _enforce_array,
+    _enforce_datatype,
+    _enforce_object,
+    _enforce_property,
+    get_model_version_from_model_uri,
+)
+from mlflow.types import DataType
+from mlflow.types.schema import Array, Object, Property
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -161,3 +171,262 @@ def test_adding_libraries_to_model_when_version_source_None(sklearn_knn_model):
         assert wheeled_model_info.run_id is not None
         assert wheeled_model_info.run_id != original_run_id
         mlflow_client_mock.assert_called_once_with(model_name, "1")
+
+
+@pytest.mark.parametrize(
+    ("data", "data_type"),
+    [
+        ("string", DataType.string),
+        (np.int32(1), DataType.integer),
+        (np.int32(1), DataType.long),
+        (np.int32(1), DataType.double),
+        (True, DataType.boolean),
+        (1.0, DataType.double),
+        (np.float32(0.1), DataType.float),
+        (np.float32(0.1), DataType.double),
+        (np.int64(100), DataType.long),
+        (np.datetime64("2023-10-13 00:00:00"), DataType.datetime),
+    ],
+)
+def test_enforce_datatype(data, data_type):
+    assert _enforce_datatype(data, data_type) == data
+
+
+def test_enforce_datatype_with_errors():
+    with pytest.raises(MlflowException, match=r"Expected dtype to be DataType, got str"):
+        _enforce_datatype("string", "string")
+
+    with pytest.raises(
+        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
+    ):
+        _enforce_datatype(123, DataType.string)
+
+
+def test_enforce_object():
+    data = {
+        "a": "some_sentence",
+        "b": b"some_bytes",
+        "c": ["sentence1", "sentence2"],
+        "d": {"str": "value", "arr": [0.1, 0.2]},
+    }
+    obj = Object(
+        [
+            Property("a", DataType.string),
+            Property("b", DataType.binary, required=False),
+            Property("c", Array(DataType.string)),
+            Property(
+                "d",
+                Object(
+                    [
+                        Property("str", DataType.string),
+                        Property("arr", Array(DataType.double), required=False),
+                    ]
+                ),
+            ),
+        ]
+    )
+    assert _enforce_object(data, obj) == data
+
+    data = {"a": "some_sentence", "c": ["sentence1", "sentence2"], "d": {"str": "some_value"}}
+    assert _enforce_object(data, obj) == data
+
+
+def test_enforce_object_with_errors():
+    with pytest.raises(MlflowException, match=r"Expected data to be dictionary, got list"):
+        _enforce_object(["some_sentence"], Object([Property("a", DataType.string)]))
+
+    with pytest.raises(MlflowException, match=r"Expected obj to be Object, got Property"):
+        _enforce_object({"a": "some_sentence"}, Property("a", DataType.string))
+
+    obj = Object([Property("a", DataType.string), Property("b", DataType.string, required=False)])
+    with pytest.raises(MlflowException, match=r"Missing required properties: {'a'}"):
+        _enforce_object({}, obj)
+
+    with pytest.raises(
+        MlflowException, match=r"Invalid properties not defined in the schema found: {'c'}"
+    ):
+        _enforce_object({"a": "some_sentence", "c": "some_sentence"}, obj)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type int",
+    ):
+        _enforce_object({"a": 1}, obj)
+
+
+def test_enforce_property():
+    data = "some_sentence"
+    prop = Property("a", DataType.string)
+    assert _enforce_property(data, prop) == data
+
+    data = ["some_sentence1", "some_sentence2"]
+    prop = Property("a", Array(DataType.string))
+    assert _enforce_property(data, prop) == data
+
+    prop = Property("a", Array(DataType.binary))
+    assert _enforce_property(data, prop) == data
+
+    data = np.array([np.int32(1), np.int32(2)])
+    prop = Property("a", Array(DataType.integer))
+    assert (_enforce_property(data, prop) == data).all()
+
+    data = {
+        "a": "some_sentence",
+        "b": b"some_bytes",
+        "c": ["sentence1", "sentence2"],
+        "d": {"str": "value", "arr": [0.1, 0.2]},
+    }
+    prop = Property(
+        "any_name",
+        Object(
+            [
+                Property("a", DataType.string),
+                Property("b", DataType.binary, required=False),
+                Property("c", Array(DataType.string), required=False),
+                Property(
+                    "d",
+                    Object(
+                        [
+                            Property("str", DataType.string),
+                            Property("arr", Array(DataType.double), required=False),
+                        ]
+                    ),
+                ),
+            ]
+        ),
+    )
+    assert _enforce_property(data, prop) == data
+    data = {"a": "some_sentence", "d": {"str": "some_value"}}
+    assert _enforce_property(data, prop) == data
+
+
+def test_enforce_property_with_errors():
+    with pytest.raises(
+        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
+    ):
+        _enforce_property(123, Property("a", DataType.string))
+
+    with pytest.raises(MlflowException, match=r"Missing required properties: {'a'}"):
+        _enforce_property(
+            {"b": ["some_sentence1", "some_sentence2"]},
+            Property(
+                "any_name",
+                Object([Property("a", DataType.string), Property("b", Array(DataType.string))]),
+            ),
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type list",
+    ):
+        _enforce_property(
+            {"a": ["some_sentence1", "some_sentence2"]},
+            Property("any_name", Object([Property("a", DataType.string)])),
+        )
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        # 1. Flat list
+        (["some_sentence1", "some_sentence2"], Array(DataType.string)),
+        # 2. Nested list
+        (
+            [
+                [["a", "b"], ["c", "d"]],
+                [["e", "f", "g"], ["h"]],
+                [[]],
+            ],
+            Array(Array(Array(DataType.string))),
+        ),
+        # 3. Array of Object
+        (
+            [
+                {"a": "some_sentence1", "b": "some_sentence2"},
+                {"a": "some_sentence3", "c": ["some_sentence4", "some_sentence5"]},
+            ],
+            Array(
+                Object(
+                    [
+                        Property("a", DataType.string),
+                        Property("b", DataType.string, required=False),
+                        Property("c", Array(DataType.string), required=False),
+                    ]
+                )
+            ),
+        ),
+        # 4. Empty list
+        ([], Array(DataType.string)),
+    ],
+)
+def test_enforce_array_on_list(data, schema):
+    assert _enforce_array(data, schema) == data
+
+
+@pytest.mark.parametrize(
+    ("data", "schema"),
+    [
+        # 1. 1D array
+        (np.array(["some_sentence1", "some_sentence2"]), Array(DataType.string)),
+        # 2. 2D array
+        (
+            np.array(
+                [
+                    ["a", "b"],
+                    ["c", "d"],
+                ]
+            ),
+            Array(Array(DataType.string)),
+        ),
+        # 3. Empty array
+        (np.array([[], []]), Array(Array(DataType.string))),
+    ],
+)
+def test_enforce_array_on_numpy_array(data, schema):
+    assert (_enforce_array(data, schema) == data).all()
+
+
+def test_enforce_array_with_errors():
+    with pytest.raises(MlflowException, match=r"Expected data to be list or numpy array, got str"):
+        _enforce_array("abc", Array(DataType.string))
+
+    with pytest.raises(
+        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
+    ):
+        _enforce_array([123, 456, 789], Array(DataType.string))
+
+    # Nested array with mixed type elements
+    with pytest.raises(
+        MlflowException, match=r"Failed to enforce schema of data `1` with dtype `string`"
+    ):
+        _enforce_array([["a", "b"], [1, 2]], Array(Array(DataType.string)))
+
+    # Nested array with different nest level
+    with pytest.raises(MlflowException, match=r"Expected data to be list or numpy array, got str"):
+        _enforce_array([["a", "b"], "c"], Array(Array(DataType.string)))
+
+    # Missing priperties in Object
+    with pytest.raises(MlflowException, match=r"Missing required properties: {'b'}"):
+        _enforce_array(
+            [
+                {"a": "some_sentence1", "b": "some_sentence2"},
+                {"a": "some_sentence3", "c": ["some_sentence4", "some_sentence5"]},
+            ],
+            Array(Object([Property("a", DataType.string), Property("b", DataType.string)])),
+        )
+
+    # Extra properties
+    with pytest.raises(
+        MlflowException, match=r"Invalid properties not defined in the schema found: {'c'}"
+    ):
+        _enforce_array(
+            [
+                {"a": "some_sentence1", "b": "some_sentence2"},
+                {"a": "some_sentence3", "c": ["some_sentence4", "some_sentence5"]},
+            ],
+            Array(
+                Object(
+                    [Property("a", DataType.string), Property("b", DataType.string, required=False)]
+                )
+            ),
+        )
