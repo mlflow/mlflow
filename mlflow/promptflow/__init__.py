@@ -26,7 +26,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example, ModelInputExample
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import DataType
+from mlflow.types import DataType, ColSpec, Schema
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -258,6 +258,7 @@ def save_model(
                 )
     """
     import promptflow
+    from promptflow.contracts.tool import ValueType
     from promptflow._sdk._mlflow import Flow
     from promptflow._sdk._mlflow import _merge_local_code_and_additional_includes
     from promptflow._sdk._mlflow import DAG_FILE_NAME
@@ -273,6 +274,7 @@ def save_model(
 
     model_flow_path = os.path.join(path, _MODEL_FLOW_DIRECTORY)
 
+    # Flow model doesn't have 'inputs' indicate it was not loaded by load_flow
     if not isinstance(model, Flow):
         raise mlflow.MlflowException.invalid_parameter_value(
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
@@ -284,6 +286,37 @@ def save_model(
         shutil.copytree(src=resolved_model_dir, dst=model_flow_path)
     # Get flow env in flow dag
     flow_env = _resolve_env_from_flow(model.flow_dag_path)
+
+    def _parse_pf_type(type_str):
+        if type_str == ValueType.INT.value:
+            return DataType.integer
+        if type_str == ValueType.DOUBLE.value:
+            return DataType.double
+        if type_str == ValueType.BOOL.value:
+            return DataType.boolean
+        if type_str == ValueType.STRING.value:
+            return DataType.string
+        # Return None for unsupported types
+        return None
+
+    def _all_types_supported(flow_model):
+        # Only support generate signature for supported flow i/o type
+        return all(_parse_pf_type(typ) is not None for typ in flow_model.inputs.values()) and \
+            all(_parse_pf_type(typ) is not None for typ in flow_model.outputs.values())
+
+    # infer signature if signature is not provided and all types are supported
+    if signature is None and _all_types_supported(model):
+        input_columns = [
+            ColSpec(type=_parse_pf_type(typ), name=k) for k, typ in model.inputs.items()
+        ]
+        input_schema = Schema(input_columns)
+
+        output_columns = [
+            ColSpec(type=_parse_pf_type(typ), name=k) for k, typ in model.outputs.items()
+        ]
+        output_schema = Schema(output_columns)
+
+        signature = ModelSignature(input_schema, output_schema)
 
     if mlflow_model is None:
         mlflow_model = Model()
