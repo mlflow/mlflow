@@ -305,7 +305,7 @@ export interface PendingEvaluationArtifactTableEntry {
 }
 
 /**
- * Descibes a single text evaluation artifact with a set of entries and its name
+ * Describes a single text evaluation artifact with a set of entries and its name
  */
 export interface EvaluationArtifactTable {
   path: string;

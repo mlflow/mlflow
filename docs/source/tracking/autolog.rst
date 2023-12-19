@@ -91,7 +91,7 @@ Customize Autologging Behavior
 ==============================
 
 You can also control the behavior of autologging by passing arguments to :py:func:`mlflow.autolog` function.
-For example, you can disable logging of model checkpoints and assosiate tags with your run as follows:
+For example, you can disable logging of model checkpoints and associate tags with your run as follows:
 
 .. code-block:: python
 

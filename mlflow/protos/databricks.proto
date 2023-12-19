@@ -18,7 +18,7 @@ extend google.protobuf.FieldOptions {
   // This annotation indicates that certain fields must be supplied for the request to be carried
   // out successfully.
   // A request field may go from being required to optional over time, but a field may not
-  // go from being optional to required, for backwards compatiblity reasons.
+  // go from being optional to required, for backwards compatibility reasons.
   // Request RPCs are validated automatically prior to processing for required fields, but
   // returned values are not validated in any way.
   optional bool validate_required = 51311;

@@ -1701,7 +1701,7 @@ MLflow 1.6.0 includes several new features, including a better runs table interf
 Features:
 
 - Adds a new runs table column view based on `ag-grid` which adds functionality for nested runs, serverside sorting, column reordering, highlighting, and more. (#2251, @Zangr)
-- Adds contour plot to the run comparsion page to better support parameter tuning (#2225, @harupy)
+- Adds contour plot to the run comparison page to better support parameter tuning (#2225, @harupy)
 - If you use EarlyStopping with Keras autologging, MLflow now automatically captures the best model trained and the associated metrics (#2301, #2219, @juntai-zheng)
 - Adds autologging functionality for LightGBM and XGBoost flavors to log feature importance, metrics per iteration, the trained model, and more. (#2275, #2238, @harupy)
 - Adds an experimental mlflow.spark.autolog() API for automatic logging of Spark datasource information to the current active run. (#2220, @smurching)
@@ -2143,7 +2143,7 @@ Features:
 - [Tracking] Include the Git repository URL as a tag when tracking an MLflow run within a Git repository (#741, @whiletruelearn, @mateiz)
 - [UI] Improved runs UI performance by using a react-virtualized table to optimize row rendering (#765, #762, #745, @smurching)
 - [UI] Significant performance improvements for rendering run metrics, tags, and parameter information (#764, #747, @smurching)
-- [UI] Scatter plots, including run comparsion plots, are now interactive (#737, @mateiz)
+- [UI] Scatter plots, including run comparison plots, are now interactive (#737, @mateiz)
 - [UI] Extended CSRF support by allowing the MLflow UI server to specify a set of expected headers that clients should set when making AJAX requests (#733, @aarondav)
 
 Bug fixes and documentation updates:
@@ -2281,7 +2281,7 @@ Features:
 - [UI] Added icons to source names in MLflow Experiments UI (#381, @andrewmchen)
 - [UI] Added support to view `.log` and `.tsv` files from MLflow artifacts UI (#393, @Shenggan; #433, @whiletruelearn)
 - [UI] Run names can now be edited from within the MLflow UI (#382, @smurching)
-- [Serving] Added `--host` option to `mlflow serve` to allow listening on non-local addressess (#401, @hamroune)
+- [Serving] Added `--host` option to `mlflow serve` to allow listening on non-local addresses (#401, @hamroune)
 - [Serving/SageMaker] SageMaker serving takes an AWS region argument (#366, @dbczumar)
 - [Python] Added environment variables to support providing HTTP auth (username, password, token) when talking to a remote MLflow tracking server (#402, @aarondav)
 - [Python] Added support to override S3 endpoint for S3 artifactory (#451, @hamroune)
@@ -2360,7 +2360,7 @@ Bug fixes:
 - Fix numpy array serialization for int64 and other related types, allowing pyfunc to return such results (#240, @arinto)
 - Fix DBFS artifactory calling `log_artifacts` with binary data (#295, @aarondav)
 - Fix Run Command shown in UI to reproduce a run when the original run is targeted at a subdirectory of a Git repo (#294, @adrian555)
-- Filter out ubiquitious dtype/ufunc warning messages (#317, @aarondav)
+- Filter out ubiquitous dtype/ufunc warning messages (#317, @aarondav)
 - Minor bug fixes and documentation updates (#261, @stbof; #279, @dmatrix; #313, @rbang1, #320, @yassineAlouini; #321, @tomasatdatabricks; #266, #282, #289, @smurching; #267, #265, @aarondav; #256, #290, @ToonKBC; #273, #263, @mateiz; #272, #319, @adrian555; #277, @aadamson; #283, #296, @andrewmchen)
 
 ## 0.4.2 (2018-08-07)
@@ -2446,7 +2446,7 @@ Features:
 
 - Spark MLlib integration: we now support logging SparkML Models directly in the log_model API, model format, and serving APIs (#72, @tomasatdatabricks)
 - Google Cloud Storage is now supported as an artifact storage root (#152, @bnekolny)
-- Support asychronous/parallel execution of MLflow runs (#82, @smurching)
+- Support asynchronous/parallel execution of MLflow runs (#82, @smurching)
 - [SageMaker] Support for deleting, updating applications deployed via SageMaker (#145, @dbczumar)
 - [SageMaker] Pushing the MLflow SageMaker container now includes the MLflow version that it was published with (#124, @sueann)
 - [SageMaker] Simplify parameters to SageMaker deploy by providing sane defaults (#126, @sueann)

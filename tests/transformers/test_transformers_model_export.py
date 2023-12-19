@@ -1471,7 +1471,7 @@ def test_text2text_generation_pipeline_with_params_success(text2text_generation_
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
-    # parameteres saved with ModelSignature is applied by default
+    # parameters saved with ModelSignature is applied by default
     res = pyfunc_loaded.predict(data)
     res2 = pyfunc_loaded.predict(data, parameters)
     assert res == res2

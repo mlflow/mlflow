@@ -76,7 +76,7 @@ AudioClassification               bytes*****, str, or np.ndarray pd.DataFrame (d
 ================================= ============================== ==========================================================================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
-Check the input requirments for the architecture that you're using to ensure that the correct dictionary key names are provided.
+Check the input requirements for the architecture that you're using to ensure that the correct dictionary key names are provided.
 
 \** A collection of these inputs can also be passed. The reference table must be a json encoded dict (i.e. {'query': 'what did we sell most of?', 'table': json.dumps(table_as_dict)})
 
@@ -153,7 +153,7 @@ params that may be needed to compute the predictions for their specific samples.
     # model_config will be applied
     result = pyfunc_loaded.predict(data)
 
-    # overriding some inference configuration with diferent values
+    # overriding some inference configuration with different values
     pyfunc_loaded = mlflow.pyfunc.load_model(
         "text2text", model_config=dict(do_sample=False)
     )

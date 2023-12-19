@@ -735,7 +735,7 @@ class SqlAlchemyStore(AbstractStore):
                 # timestamp, step, and key within the same run.
                 # Roll back the current session to make it usable for further transactions. In
                 # the event of an error during "commit", a rollback is required in order to
-                # continue using the session. In this case, we re-use the session to query
+                # continue using the session. In this case, we reuse the session to query
                 # SqlMetric
                 session.rollback()
                 # Divide metric keys into batches of 100 to avoid loading too much metric
@@ -1049,7 +1049,7 @@ class SqlAlchemyStore(AbstractStore):
             except sqlalchemy.exc.IntegrityError:
                 # Roll back the current session to make it usable for further transactions. In the
                 # event of an error during "commit", a rollback is required in order to continue
-                # using the session. In this case, we re-use the session because the SqlRun, `run`,
+                # using the session. In this case, we reuse the session because the SqlRun, `run`,
                 # is lazily evaluated during the invocation of `run.params`.
                 session.rollback()
                 existing_params = [p.value for p in run.params if p.key == param.key]

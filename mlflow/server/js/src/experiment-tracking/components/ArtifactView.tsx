@@ -82,7 +82,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     const activeNodeRealPath = this.getActiveNodeRealPath();
     return (
       <RegisterModelButton
-        // @ts-expect-error TS(2322): Type '{ runUuid: string; modelPath: string; disabl... Remove this comment to see the full error message
+        // @ts-expect-error TS(2322): Type '{ runUuid: string; modelPath: string; disable... Remove this comment to see the full error message
         runUuid={runUuid}
         modelPath={activeNodeRealPath}
         modelRelativePath={activeNodeId}

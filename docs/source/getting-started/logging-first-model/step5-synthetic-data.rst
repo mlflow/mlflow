@@ -5,7 +5,7 @@ In order to produce some meaningful data (and a model) for us to log to MLflow, 
 In the interests of sticking with our theme of modeling demand for produce sales, this data will
 actually need to be about apples.
 
-There's a distinctly miniscule probability of finding an actual dataset on the internet about this,
+There's a distinctly minuscule probability of finding an actual dataset on the internet about this,
 so we can just roll up our sleeves and make our own.
 
 Defining a dataset generator

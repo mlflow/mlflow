@@ -92,7 +92,7 @@ def set_experiment(
     both be specified.
 
     :param experiment_name: Case sensitive name of the experiment to be activated. If an experiment
-                            with this name does not exist, a new experiment wth this name is
+                            with this name does not exist, a new experiment with this name is
                             created. On certain platforms such as Databricks, the experiment name
                             must an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
     :param experiment_id: ID of the experiment to be activated. If an experiment with this ID

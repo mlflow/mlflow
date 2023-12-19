@@ -37,7 +37,7 @@ def metric_threshold_class_test_spec(request):
     """
     Test specification for MetricThreshold class:
     :return: (
-                class_params: A dictonary mapping MetricThreshold class parameter names to values,
+                class_params: A dictionary mapping MetricThreshold class parameter names to values,
                 expected_failure_message: expected failure message
              )
     """
@@ -113,7 +113,7 @@ def faulty_baseline_model_param_test_spec(request):
     """
     Test specification for faulty `baseline_model` parameter tests:
     :return: (
-                validation_thresholds: A dictonary mapping scalar metric names
+                validation_thresholds: A dictionary mapping scalar metric names
                     to MetricThreshold(threshold=0.2, greater_is_better=True),
                 baseline_model: value for the `baseline_model` param passed into mlflow.evaluate()
                 expected_failure_message: expected failure message
@@ -228,9 +228,9 @@ def value_threshold_test_spec(request):
     Test specification for value threshold tests:
     :return: (
                 metrics: A dictionary mapping scalar metric names to scalar metric values,
-                validation_thresholds: A dictonary mapping scalar metric names
+                validation_thresholds: A dictionary mapping scalar metric names
                     to MetricThreshold(threshold=0.2, greater_is_better=True),
-                expected_validation_results: A dictonary mapping scalar metric names
+                expected_validation_results: A dictionary mapping scalar metric names
                     to _MetricValidationResult
              )
     """
@@ -410,9 +410,9 @@ def min_absolute_change_threshold_test_spec(request):
                 metrics: A dictionary mapping scalar metric names to scalar metric values,
                 baseline_model_metrics: A dictionary mapping scalar metric names
                     to scalar metric values of baseline_model,
-                validation_thresholds: A dictonary mapping scalar metric names
+                validation_thresholds: A dictionary mapping scalar metric names
                     to MetricThreshold(threshold=0.2, greater_is_better=True),
-                expected_validation_results: A dictonary mapping scalar metric names
+                expected_validation_results: A dictionary mapping scalar metric names
                     to _MetricValidationResult
              )
     """
@@ -620,9 +620,9 @@ def min_relative_change_threshold_test_spec(request):
                 metrics: A dictionary mapping scalar metric names to scalar metric values,
                 baseline_model_metrics: A dictionary mapping scalar metric names
                     to scalar metric values of baseline_model,
-                validation_thresholds: A dictonary mapping scalar metric names
+                validation_thresholds: A dictionary mapping scalar metric names
                     to MetricThreshold(threshold=0.2, greater_is_better=True),
-                expected_validation_results: A dictonary mapping scalar metric names
+                expected_validation_results: A dictionary mapping scalar metric names
                     to _MetricValidationResult
              )
     """
@@ -852,9 +852,9 @@ def multi_thresholds_test_spec(request):
                 metrics: A dictionary mapping scalar metric names to scalar metric values,
                 baseline_model_metrics: A dictionary mapping scalar metric names
                     to scalar metric values of baseline_model,
-                validation_thresholds: A dictonary mapping scalar metric names
+                validation_thresholds: A dictionary mapping scalar metric names
                     to MetricThreshold(threshold=0.2, greater_is_better=True),
-                expected_validation_results: A dictonary mapping scalar metric names
+                expected_validation_results: A dictionary mapping scalar metric names
                     to _MetricValidationResult
              )
     """

@@ -127,7 +127,7 @@ def merge_dicts(dict_a, dict_b, raise_on_duplicates=True):
     This function takes two dictionaries and returns one singular merged dictionary.
 
     :param dict_a: The first dictionary.
-    :param dict_b: The second dictonary.
+    :param dict_b: The second dictionary.
     :param raise_on_duplicates: If True, the function raises ValueError if there are duplicate keys.
                                 Otherwise, duplicate keys in `dict_b` will override the ones in
                                 `dict_a`.

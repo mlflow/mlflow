@@ -880,7 +880,7 @@ def autolog(
 
     Explore the complete `PyTorch MNIST \
     <https://github.com/mlflow/mlflow/tree/master/examples/pytorch/MNIST>`_ for
-    an expansive example with implementation of additional lightening steps.
+    an expansive example with implementation of additional lightning steps.
 
     **Note**: Full autologging is only supported for PyTorch Lightning models,
     i.e., models that subclass

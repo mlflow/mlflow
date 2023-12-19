@@ -38,7 +38,7 @@ export const RunsCompareConfigureLineChartPreviewImpl = ({
   }
 
   if (error) {
-    return <>Error occured!</>;
+    return <>Error occurred!</>;
   }
 
   return (

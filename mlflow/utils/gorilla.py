@@ -58,7 +58,7 @@ def _load_module(finder, name):
 # Pattern for each internal attribute name.
 _PATTERN = "_gorilla_%s"
 
-# Pattern for the name of the overidden attributes to be stored.
+# Pattern for the name of the overridden attributes to be stored.
 _ORIGINAL_NAME = _PATTERN % ("original_%s",)
 
 # Pattern for the name of the patch attributes to be stored.
@@ -365,7 +365,7 @@ def revert(patch):
             )
         # restore original method
         # during reverting patch, we need restore the raw attribute to the patch point
-        # so get original attribute bypassing descriptor protocal
+        # so get original attribute bypassing descriptor protocol
         original = object.__getattribute__(patch.destination, original_name)
         setattr(patch.destination, patch.name, original)
     else:
@@ -657,12 +657,12 @@ def get_decorator_data(obj, set_default=False):
         The decorator data or ``None``.
     """
     if inspect.isclass(obj):
-        datas = getattr(obj, _DECORATOR_DATA, {})
-        data = datas.setdefault(obj, None)
+        data_recs = getattr(obj, _DECORATOR_DATA, {})
+        data = data_recs.setdefault(obj, None)
         if data is None and set_default:
             data = DecoratorData()
-            datas[obj] = data
-            setattr(obj, _DECORATOR_DATA, datas)
+            data_recs[obj] = data
+            setattr(obj, _DECORATOR_DATA, data_recs)
     else:
         data = getattr(obj, _DECORATOR_DATA, None)
         if data is None and set_default:

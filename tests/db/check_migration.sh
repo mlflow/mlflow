@@ -3,7 +3,7 @@ set -ex
 
 cd tests/db
 
-# Install the lastest version of mlflow from PyPI
+# Install the latest version of mlflow from PyPI
 pip install mlflow
 python check_migration.py pre-migration
 # Install mlflow from the repository

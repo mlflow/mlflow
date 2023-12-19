@@ -114,7 +114,7 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
         }}
       >
         <RenameRunModal
-          // @ts-expect-error TS(2322): Type '{ runUuid: string; onClose: () => void; runN... Remove this comment to see the full error message
+          // @ts-expect-error TS(2322): Type '{ runUuid: string; onClose: () => void; run... Remove this comment to see the full error message
           runUuid={runUuid}
           onClose={this.hideRenameRunModal}
           runName={this.props.runName}

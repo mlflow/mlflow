@@ -366,7 +366,7 @@ def test_bedrock_aws_client(provider, config, aws_config):
             fix["model_request"],
             marks=[]
             if fix["provider"] is not AWSBedrockModelProvider.COHERE
-            else pytest.mark.skip("Cohere isn't availabe on AWS Bedrock yet"),
+            else pytest.mark.skip("Cohere isn't available on AWS Bedrock yet"),
         )
         for fix in bedrock_model_provider_fixtures
     ],

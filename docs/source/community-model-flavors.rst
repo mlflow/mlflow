@@ -208,7 +208,7 @@ Documentation
 ^^^^^^^^^^^^^
 
 Usage examples for all flavors and the API reference can be found in the package
-`documenation <https://mlflavors.readthedocs.io/en/latest/index.html>`_.
+`documentation <https://mlflavors.readthedocs.io/en/latest/index.html>`_.
 
 
 Installation
@@ -279,7 +279,7 @@ Saving the model as an MLflow artifact
         )
         model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
 
-    # Print the run id wich is used below for serving the model to a local REST API endpoint
+    # Print the run id which is used below for serving the model to a local REST API endpoint
     print(f"\nMLflow run id:\n{run.info.run_id}")
 
 Loading the model from MLflow

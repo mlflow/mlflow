@@ -103,3 +103,11 @@ forced-separate = ["tests"]
 
 [tool.ruff.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "We're migrating away from pkg_resources. Please use importlib.resources or importlib.metadata instead."
+
+[tool.codespell]
+# TODO: remove skipping .java
+skip = '.git,*.pdf,*.svg,go.sum,*.lock,*.css,*.min.*,releases,pypi_package_index.json,pdf.worker.js,*.map,*.csv,*.java,pom.xml,vendor'
+check-hidden = true
+# ignore some camelcased variables and lines with German characters in them
+ignore-regex = '^\s*"image/\S+": ".*|.*data:application/font.*|\b(aParent|afterAll|ALS|doubleClick)\b|.*(\bIch bin\b|ß).*|\b[a-zA-Z]+\.\.\..*",?$|.*codespell-ignore.*|"lates"|\|fixe\|'
+ignore-words-list = 'aci,aks,als,astroid,convertor,crate,fpr,juli,mape,nd,ques,rouge'

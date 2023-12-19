@@ -121,7 +121,7 @@
   },
   "1jPG5D": {
     "defaultMessage": "Creator",
-    "description": "Lable name for the creator under details tab on the model view page"
+    "description": "Label name for the creator under details tab on the model view page"
   },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
@@ -1081,7 +1081,7 @@
   },
   "VP+qFF": {
     "defaultMessage": "Show diff only",
-    "description": "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
+    "description": "Label next to the switch that controls displaying only differing values in comparison tables on the compare runs page"
   },
   "VZRc73": {
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",

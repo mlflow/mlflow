@@ -959,7 +959,7 @@ def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mut
             return self
 
         def transform(self, X, y=None):  # pylint: disable=unused-argument
-            # Perform arbitary transformation
+            # Perform arbitrary transformation
             if "XXLarge Bags" in X.columns:
                 raise Exception("Found unexpected 'XXLarge Bags' column!")
             X["XXLarge Bags"] = X["XLarge Bags"] + 1

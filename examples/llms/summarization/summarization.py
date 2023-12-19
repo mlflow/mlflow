@@ -36,7 +36,7 @@ def build_and_evalute_model_with_prompt(prompt_template):
 prompt_template_1 = (
     "Write a summary of the following article that is between triple backticks: ```{article}```"
 )
-print(f"Bulding and evaluating model with prompt: '{prompt_template_1}'")
+print(f"Building and evaluating model with prompt: '{prompt_template_1}'")
 build_and_evalute_model_with_prompt(prompt_template_1)
 
 prompt_template_2 = (

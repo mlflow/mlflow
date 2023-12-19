@@ -20,7 +20,7 @@ MLflow is available on PyPI. If you don't already have it installed on your loca
 
         pip install mlflow
 
-Step 2 - Configure MLflow environment varialbles
+Step 2 - Configure MLflow environment variables
 ------------------------------------------------
 
 Set the tracking URI to a local SQLite database

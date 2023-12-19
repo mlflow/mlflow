@@ -325,7 +325,7 @@ export const searchRunsPayload = ({
       throw new Error(`Invalid format of the runs search response: ${String(response)}`);
     }
 
-    // Place aside ans save runs that matched filter naturally (not the pinned ones):
+    // Place aside and save runs that matched filter naturally (not the pinned ones):
     (response as any).runsMatchingFilter = (baseSearchResponse as any).runs?.slice() || [];
 
     // If we get pinned rows from the additional response, merge them into the base run list:

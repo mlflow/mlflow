@@ -253,7 +253,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
     }
   }
 
-  test("Initializing MlflowAutologEventPublisher fails if SparkSession doesn't exixt") {
+  test("Initializing MlflowAutologEventPublisher fails if SparkSession doesn't exist") {
     MlflowAutologEventPublisher.stop()
     spark.stop()
     try {
@@ -317,7 +317,7 @@ class SparkAutologgingSuite extends AnyFunSuite with Matchers with BeforeAndAfte
       }
     }
     MockReplAwarePublisher.init()
-    // Register several subcribers with different REPL IDs
+    // Register several subscribers with different REPL IDs
     val subscriber1 = spy(new MockSubscriber())
     val subscriber2 = spy(new MockSubscriber())
     val subscriber3 = spy(new MockSubscriber())

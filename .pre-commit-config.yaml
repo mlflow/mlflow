@@ -28,6 +28,13 @@ repos:
         types_or: [python, rst, markdown]
         stages: [commit]
 
+      - id: codespell
+        name: codespell
+        entry: codespell
+        language: system
+        types_or: [python, jupyter, rst, markdown]
+        stages: [commit]
+      
       - id: pylint
         name: pylint
         entry: pylint

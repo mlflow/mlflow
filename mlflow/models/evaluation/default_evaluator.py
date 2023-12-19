@@ -81,7 +81,7 @@ def _is_categorical(values):
 def _is_continuous(values):
     """
     Infer whether input values is continuous on best effort.
-    Return True represent they are continous, return False represent we cannot determine result.
+    Return True represent they are continuous, return False represent we cannot determine result.
     """
     dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
     return dtype_name.startswith("float")
@@ -614,7 +614,7 @@ def _evaluate_extra_metric(extra_metric_tuple, eval_fn_args):
                 f"{exception_header} must return MetricValue with justifications as a list."
             )
             return
-        if any(not (isinstance(jus, str) or jus is None) for jus in justifications):
+        if any(not (isinstance(just, str) or just is None) for just in justifications):
             _logger.warning(
                 f"{exception_header} must return MetricValue with string justifications."
             )

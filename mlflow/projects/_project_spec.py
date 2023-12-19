@@ -33,7 +33,7 @@ def load_project(directory):
         with open(mlproject_path) as mlproject_file:
             yaml_obj = yaml.safe_load(mlproject_file)
 
-    # Validate the project config does't contain multiple environment fields
+    # Validate the project config doesn't contain multiple environment fields
     env_fields = set(yaml_obj.keys()).intersection(env_type.ALL)
     if len(env_fields) > 1:
         raise ExecutionException(
