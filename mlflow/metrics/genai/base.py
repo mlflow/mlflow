@@ -72,17 +72,23 @@ class EvaluationExample:
         else:
             return self.grading_context
 
-    def __str__(self) -> str:
+    def print(self, include_input: bool = True) -> str:
         grading_context = (
             ""
             if self.grading_context is None
             else "Additional information used by the model:\n" f"{self._format_grading_context()}"
         )
 
-        return f"""
+        input_str = (
+            f"""
 Example Input:
 {self.input}
+"""
+            if include_input
+            else ""
+        )
 
+        return f"""{input_str}
 Example Output:
 {self.output}
 
@@ -91,3 +97,6 @@ Example Output:
 Example score: {self.score}
 Example justification: {self.justification}
         """
+
+    def __str__(self) -> str:
+        return self.print()

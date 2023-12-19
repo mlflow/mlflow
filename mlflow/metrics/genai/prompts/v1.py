@@ -84,7 +84,7 @@ class EvaluationModel:
     name: str
     definition: str
     grading_prompt: str
-    include_input: bool
+    include_input: bool = True
     examples: List[EvaluationExample] = None
     model: str = default_model
     parameters: Dict[str, Any] = field(default_factory=lambda: default_parameters)
@@ -114,7 +114,7 @@ class EvaluationModel:
         }
 
     def _format_examples(self):
-        return "\n".join(map(str, self.examples))
+        return "\n".join(example.print(self.include_input) for example in self.examples)
 
 
 @dataclass

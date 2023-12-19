@@ -625,8 +625,8 @@ def test_extract_score_and_justification():
     assert justification6 == "This is a justification"
 
 
-def test_correctness_metric():
-    correctness_metric = answer_similarity(
+def test_similarity_metric():
+    similarity_metric = answer_similarity(
         model="gateway:/gpt-3.5-turbo", metric_version="v1", examples=[mlflow_example]
     )
 
@@ -637,7 +637,7 @@ def test_correctness_metric():
         "score_model_on_payload",
         return_value=properly_formatted_openai_response1,
     ) as mock_predict_function:
-        metric_value = correctness_metric.eval_fn(
+        metric_value = similarity_metric.eval_fn(
             pd.Series([mlflow_prediction]), {}, pd.Series([input]), pd.Series([mlflow_ground_truth])
         )
 
@@ -664,7 +664,6 @@ def test_correctness_metric():
             f"\nMetric definition:\n{AnswerSimilarityMetric.definition}\n"
             f"\nGrading rubric:\n{AnswerSimilarityMetric.grading_prompt}\n"
             "\nExamples:\n"
-            f"\nExample Input:\n{mlflow_example.input}\n"
             f"\nExample Output:\n{mlflow_example.output}\n"
             "\nAdditional information used by the model:\nkey: targets\nvalue:\n"
             f"{mlflow_ground_truth}\n"
