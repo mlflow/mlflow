@@ -1707,10 +1707,6 @@ class DefaultEvaluator(ModelEvaluator):
                         F.lit("token_count").alias("key"), F.col("token_count").alias("value")
                     ),
                     F.struct(
-                        F.lit("perplexity").alias("key"),
-                        F.col("perplexity/v1/score").alias("value"),
-                    ),
-                    F.struct(
                         F.lit("flesch_kincaid_grade_level").alias("key"),
                         F.col("flesch_kincaid_grade_level/v1/score").alias("value"),
                     ),
