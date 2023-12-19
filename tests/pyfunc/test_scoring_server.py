@@ -47,6 +47,34 @@ else:
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
+class MyLLM(PythonModel):
+    def predict(self, context, model_input):
+        if isinstance(model_input, pd.DataFrame):
+            messages = model_input["messages"][0]
+        else:
+            messages = model_input["messages"]
+
+        ret = " ".join([m["content"] for m in messages])
+
+        return {
+            "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+            "object": "chat.completion",
+            "created": 1698916461,
+            "model": "llama-2-70b-chat-hf",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": ret,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 47, "completion_tokens": 49, "total_tokens": 96},
+        }
+
+
 @pytest.fixture
 def pandas_df_with_all_types():
     pdf = pd.DataFrame(
@@ -147,21 +175,6 @@ def test_scoring_server_responds_to_invalid_json_format_with_error_code_and_mess
         response_json = json.loads(response.content)
         assert response_json.get("error_code") == ErrorCode.Name(BAD_REQUEST)
         assert "message" in response_json
-        message = response_json.get("message")
-        assert "The input must be a JSON dictionary with exactly one of the input fields" in message
-
-    for incorrect_format in [
-        {"not": "a serialized dataframe"},
-        {"dataframe_records": [], "dataframe_split": {"data": []}},
-    ]:
-        incorrect_json_content = json.dumps(incorrect_format)
-        response = pyfunc_serve_and_score_model(
-            model_uri=os.path.abspath(model_path),
-            data=incorrect_json_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        )
-        response_json = json.loads(response.content)
-        assert response_json.get("error_code") == ErrorCode.Name(BAD_REQUEST)
         message = response_json.get("message")
         assert "The input must be a JSON dictionary with exactly one of the input fields" in message
 
@@ -699,3 +712,50 @@ def test_scoring_server_client(sklearn_model, model_path):
     finally:
         if server_proc is not None:
             os.kill(server_proc.pid, signal.SIGTERM)
+
+
+def test_scoring_server_allows_custom_dict_payloads(model_path):
+    mlflow.pyfunc.save_model(model_path, python_model=MyLLM())
+
+    payload = json.dumps(
+        {
+            "messages": [{"role": "user", "content": "hello!"}],
+            "max_tokens": 20,
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["choices"][0]["message"]["content"] == "hello!"
+
+
+def test_scoring_server_applies_schema_validation_to_custom_dict(model_path):
+    from mlflow.models import infer_signature
+
+    original_data = {
+        "messages": [{"role": "user", "content": "hello!"}],
+        "max_tokens": 20,
+    }
+    schema = infer_signature(original_data)
+    mlflow.pyfunc.save_model(model_path, python_model=MyLLM(), signature=schema)
+
+    bad_payload = json.dumps({"messages": [{"foo": "bar"}]})
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=bad_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    expect_status_code(response, 400)
+    assert "Failed to enforce schema" in json.loads(response.content.decode("utf-8"))["message"]
+
+    good_payload = json.dumps(original_data)
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=good_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["choices"][0]["message"]["content"] == "hello!"

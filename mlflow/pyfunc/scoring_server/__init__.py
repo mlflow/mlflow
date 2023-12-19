@@ -172,8 +172,13 @@ def _decode_json_input(json_input):
 
 def _split_data_and_params(json_input):
     input_dict = _decode_json_input(json_input)
-    data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
     params = input_dict.pop("params", None)
+
+    # if no key is in supported formats, just return the dict directly
+    if not set(input_dict.keys()).intersection(SUPPORTED_FORMATS):
+        return input_dict, params
+
+    data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
     return data, params
 
 
@@ -185,6 +190,13 @@ def infer_and_parse_data(data, schema: Schema = None):
     """
 
     format_keys = set(data.keys()).intersection(SUPPORTED_FORMATS)
+
+    # If the input doesn't contain any keys in the supported formats,
+    # then we assume that the client wants to treat the input as-is
+    # and we skip any additional processing
+    if len(format_keys) == 0:
+        return data
+
     if len(format_keys) != 1:
         message = f"Received dictionary with input fields: {list(data.keys())}"
         raise MlflowException(
@@ -225,6 +237,11 @@ def parse_csv_input(csv_input, schema: Schema = None):
             ),
             error_code=BAD_REQUEST,
         )
+
+
+def unwrapped_predictions_to_json(raw_predictions, output):
+    predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    return json.dump(predictions, output, cls=NumpyEncoder)
 
 
 def predictions_to_json(raw_predictions, output, metadata=None):
@@ -297,6 +314,13 @@ def invocations(data, content_type, model, input_schema):
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
         data, params = _split_data_and_params(data)
+
+        # we don't strictly enforce that the input is in one of the supported
+        # formats to make it easy for users to call the serving API in a way
+        # that is compatible with common LLM endpoints. if provided in this way,
+        # then we don't do any processing on the data and just pass the raw dict
+        # down to the model for inference.
+        data_in_unsupported_format = len(set(data.keys()).intersection(SUPPORTED_FORMATS)) == 0
         data = infer_and_parse_data(data, input_schema)
     else:
         return InvocationsResponse(
@@ -338,7 +362,16 @@ def invocations(data, content_type, model, input_schema):
             stack_trace=traceback.format_exc(),
         )
     result = StringIO()
-    predictions_to_json(raw_predictions, result)
+
+    # if the data was in an unsupported format, then we can assume that the user
+    # does not want the output to be formatted in the normal pyfunc way (otherwise
+    # they would have passed the data in a compatible way), so we return the raw
+    # predictions.
+    if data_in_unsupported_format:
+        unwrapped_predictions_to_json(raw_predictions, result)
+    else:
+        predictions_to_json(raw_predictions, result)
+
     return InvocationsResponse(response=result.getvalue(), status=200, mimetype="application/json")
 
 
