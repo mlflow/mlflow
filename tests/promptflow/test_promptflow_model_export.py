@@ -18,7 +18,9 @@ def get_promptflow_example_model():
 def test_promptflow_log_and_load_model():
     model = get_promptflow_example_model()
     with mlflow.start_run():
-        logged_model = mlflow.promptflow.log_model(model, "promptflow_model")
+        logged_model = mlflow.promptflow.log_model(
+            model, "promptflow_model", input_example={"text": "Python Hello World!"}
+        )
 
     loaded_model = mlflow.promptflow.load_model(logged_model.model_uri)
 
