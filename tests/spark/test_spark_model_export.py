@@ -949,12 +949,13 @@ def test_model_log_with_metadata(spark_model_iris):
 
 _df_input_example = iris_pandas_df().drop("label", axis=1).iloc[[0]]
 _dict_input_example = _df_input_example.iloc[0].to_dict()
-_array_input_example = list(_dict_input_example.values())
 
 
 @pytest.mark.parametrize(
     "input_example",
-    [_df_input_example, _dict_input_example, _array_input_example],
+    # array input example is not supported any more as it won't be converted
+    # to a pandas dataframe when saving example
+    [_df_input_example, _dict_input_example],
 )
 def test_model_log_with_signature_inference(spark_model_iris, input_example):
     artifact_path = "model"
