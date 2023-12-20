@@ -1611,6 +1611,31 @@ def test_enforce_schema_in_python_model_predict(sample_params_basic, param_schem
     ] == np.datetime64("2023-06-26 00:00:00")
 
 
+def test_schema_enforcement_all_feature_types_pandas():
+    data = {
+        "f1": list(range(0, 200)),
+        "f2": [(i % 3) == 0 for i in range(0, 200)],
+        "f3": [f"string id: {i}" for i in range(0, 200)],
+        "f4": [pd.Timestamp(f"2020-07-14 00:{i//60}:{i%60}") for i in range(1, 201)],
+        "f1_nulls": [True if i % 4 != 0 else None for i in range(200)],
+        "f2_nulls": ["test" if i % 4 != 1 else None for i in range(200)],
+        "f3_nulls": [i if i % 4 != 2 else None for i in range(200)],
+    }
+    df = pd.DataFrame.from_dict(data)
+    schema = Schema(
+        [
+            ColSpec(DataType.long, "f1"),
+            ColSpec(DataType.boolean, "f2"),
+            ColSpec(DataType.string, "f3"),
+            ColSpec(DataType.datetime, "f4"),
+            ColSpec(DataType.boolean, "f1_nulls", required=False),
+            ColSpec(DataType.string, "f2_nulls", required=False),
+            ColSpec(DataType.double, "f3_nulls", required=False),
+        ]
+    )
+    pd.testing.assert_frame_equal(_enforce_schema(df, schema), df, check_dtype=False)
+
+
 def test_enforce_schema_in_python_model_serving(sample_params_basic):
     signature = infer_signature(["input1"], params=sample_params_basic)
     with mlflow.start_run():
