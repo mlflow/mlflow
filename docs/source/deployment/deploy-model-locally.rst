@@ -98,7 +98,7 @@ JSON input must be a dictionary with exactly one of the following fields, furthe
       - ``{"instances": [1.0, 2.0, 5.0]}``
     * - ``inputs``
       - Same as ``instances`` but with a different key.
-      - ``{"inputs": [1.0, 2.0, 5.0]}``
+      - ``{"inputs": [["I", "have", "a",  "pen"], ["I" "have", "an", "apple"]]}``
 
 The JSON input can also include an optional ``params`` field for passing additional parameters.
 Valid parameter types are ``Union[DataType, List[DataType], None]``, where DataType is
