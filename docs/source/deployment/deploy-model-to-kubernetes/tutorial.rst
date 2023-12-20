@@ -56,7 +56,7 @@ First, please install mlflow to your local machine using the following command:
 
   pip install mlflow[extras]
 
-``[extra]`` will install additional dependencies required for this tutorial including `mlserver <https://mlserver.readthedocs.io/en/latest/>`_ and
+``[extras]`` will install additional dependencies required for this tutorial including `mlserver <https://mlserver.readthedocs.io/en/latest/>`_ and
 `scikit-learn <https://scikit-learn.org/stable/>`_. Note that scikit-learn is not required for deployment, just for training an example model for this tutorial.
 
 You can check if mlflow is installed correctly by running:
@@ -99,7 +99,6 @@ First, let's train a single model with the default hyperparameters. Execute the 
 .. code-block:: python
 
   import mlflow
-  import mlflow.sklearn
 
   from sklearn import datasets
   from sklearn.linear_model import ElasticNet
@@ -263,7 +262,7 @@ First, create a test namespace for deploying KServe resources and your model:
 
 .. code-block:: bash
 
-  $ kubectl create namespace mlflow-kserve-test
+  kubectl create namespace mlflow-kserve-test
 
 
 Create Deployment Configuration
