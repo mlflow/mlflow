@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-if grep -InP '(?<!import\s)\bM(lf|LF|lF)low\b(?!\()' "$@"; then
+ALLOWED_PATTERNS='Mlflow\(|"Mlflow"|import Mlflow$'
+if grep -InP ' \bM(lf|LF|lF)low\b' "$@" | grep -Pv "$ALLOWED_PATTERNS"; then
     exit 1
 else
     exit 0
