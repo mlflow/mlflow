@@ -324,7 +324,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
-      "<= 3.3.3": ["pandas<2"]
+      "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
