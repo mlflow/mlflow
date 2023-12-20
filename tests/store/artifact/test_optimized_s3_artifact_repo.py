@@ -33,7 +33,7 @@ def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
     with mock.patch("boto3.client") as mock_get_s3_client:
         s3_client_mock = mock.Mock()
         mock_get_s3_client.return_value = s3_client_mock
-        s3_client_mock.get_bucket_location.return_value = {"LocationConstraint": "us-west-2"}
+        s3_client_mock.head_bucket.return_value = {"BucketRegion": "us-west-2"}
 
         # pylint: disable=no-value-for-parameter
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
@@ -103,7 +103,7 @@ def test_get_s3_client_region_name_set_correctly(s3_artifact_root):
     with mock.patch("boto3.client") as mock_get_s3_client:
         s3_client_mock = mock.Mock()
         mock_get_s3_client.return_value = s3_client_mock
-        s3_client_mock.get_bucket_location.return_value = {"LocationConstraint": region_name}
+        s3_client_mock.head_bucket.return_value = {"BucketRegion": region_name}
 
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
         repo._get_s3_client()
