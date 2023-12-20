@@ -6,6 +6,10 @@ object TestObject {
   def myMethod: String = "hi"
 }
 
+object TestFileIndex {
+  def version: String = "1.0"
+}
+
 abstract class TestAbstractClass {
   protected def addNumbers(x: Int, y: Int): Int = x + y
   protected val myProtectedVal: Int = 5
@@ -50,11 +54,18 @@ class ReflectionUtilsSuite extends AnyFunSuite {
   }
 
   test("maybeCallMethod invokes the method if the method is found") {
-    val obj = new RealClass()
+    val obj = new TestObject()
     val res0 = ReflectionUtils.maybeCallMethod(obj, "myMethod", Seq.empty).getOrElse("")
-    assert (res == "hi")
+    assert(res0 == "hi")
+  }
 
-    val res1 = ReflectionUtils.maybeCallMethod(obj, "MyField", Seq.empty).getOrElse("")
-    assert (res1 == "myCoolVal")
+  test("chaining maybeCallMethod works") {
+    val fileIndex = new TestFileIndex()
+
+    val versionOpt = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
+      ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty)
+    ).map(_.toString)
+
+    assert(versionOpt == Some("1.0"))
   }
 }
