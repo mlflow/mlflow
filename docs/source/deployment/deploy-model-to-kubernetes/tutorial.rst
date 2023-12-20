@@ -84,11 +84,9 @@ Now that you have a Kubernetes cluster running as a deployment target, let's mov
 Step 3: Training the Model
 --------------------------
 
-In this tutorial, we will train a model that predicts the quality of wine based on quantitative features.
-We use the `wine quality dataset <http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv>`_ from the UCI Machine Learning Repository,
-and `ElasticNet <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_, a simple linear regression model.
+In this tutorial, we will train and deploy a simple regression model that predicts the quality of wine.
 
-First, let's train a single model with the default hyperparameters. Execute the following code in a notebook or as a Python script.
+Let's start from training a model with the default hyperparameters. Execute the following code in a notebook or as a Python script.
 
 .. note::
 
@@ -299,7 +297,7 @@ Please open the tabs below for details on each approach.
 
     .. code-block:: bash
 
-      $ mlflow models build-docker -m runs:/<run_id_for_your_best_run>/model -n <your_dockerhub_user_name>/mlflow-wine-classifier --enable-mlserver
+      mlflow models build-docker -m runs:/<run_id_for_your_best_run>/model -n <your_dockerhub_user_name>/mlflow-wine-classifier --enable-mlserver
 
     This command builds a Docker image with the model and dependencies, tagging it as ``mlflow-wine-classifier:latest``.
 
@@ -311,7 +309,7 @@ Please open the tabs below for details on each approach.
 
     .. code-block:: bash
 
-      $ docker push <your_dockerhub_user_name>/mlflow-wine-classifier
+      docker push <your_dockerhub_user_name>/mlflow-wine-classifier
 
     .. raw:: html
 
@@ -388,7 +386,7 @@ You can check the status of the deployment by running:
 
 .. code-block:: bash
 
- $ kubectl get inferenceservice mlflow-wine-classifier
+  $ kubectl get inferenceservice mlflow-wine-classifier
 
   NAME                     URL                                                     READY   PREV   LATEST   PREVROLLEDOUTREVISION   LATESTREADYREVISION
   mlflow-wine-classifier   http://mlflow-wine-classifier.mlflow-kserve-test.local   True             100                    mlflow-wine-classifier-100
