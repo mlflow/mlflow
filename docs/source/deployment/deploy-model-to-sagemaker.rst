@@ -31,7 +31,7 @@ prediction results. For more details on the endpoints, refer to :ref:`Local Infe
 
 Deploying Model to SageMaker Endpoint
 -------------------------------------
-This section outlines the process of deploying a model to SageMaker using the MLflow CLI. For Python API references and tutorials, see the :ref:`Other References <deployment-sagemaker-references>` section.
+This section outlines the process of deploying a model to SageMaker using the MLflow CLI. For Python API references and tutorials, see the :ref:`Useful links <deployment-sagemaker-references>` section.
 
 Step 0: Preparation
 ~~~~~~~~~~~~~~~~~~~
@@ -51,8 +51,8 @@ This role should also be assumable by the user performing the deployment. Learn 
 
 Create an MLflow Model
 **********************
-Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the `MLflow Tracking Quickstart <../getting-started/index.html>`.
-Remember to note down the model URI, such as ``runs:/<run_id>/model`` (or ``models:/<model_name>/<stage>`` if you registered the model in the `MLflow Model Registry <../model-registry.html>`_).
+Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the `MLflow Tracking Quickstart <../getting-started/index.html>`_.
+Remember to note down the model URI, such as ``runs:/<run_id>/<artifact_path>`` (or ``models:/<model_name>/<model_version>`` if you registered the model in the `MLflow Model Registry <../model-registry.html>`_).
 
 Step 1: Test your model locally
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -12,8 +12,8 @@ If you are new to MLflow model deployment, please read `MLflow Deployment <index
 Deploying Inference Server
 --------------------------
 
-Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the `MLflow Tracking Quickstart <../getting-started/index.html>`.
-Remember to note down the model URI, such as ``runs:/<run_id>/model`` (or ``models:/<model_name>/<stage>`` if you registered the model in the `MLflow Model Registry <../model-registry.html>`_).
+Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the `MLflow Tracking Quickstart <../getting-started/index.html>`_.
+Remember to note down the model URI, such as ``runs:/<run_id>/<artifact_path>`` (or ``models:/<model_name>/<model_version>`` if you registered the model in the `MLflow Model Registry <../model-registry.html>`_).
 
 Once you have the model ready, deploying to a local server is straightforward. Use the `mlflow models serve <../cli.html#mlflow-models-serve>`_ command for a one-step deployment.
 This command starts a local server that listens on the specified port and serves your model.
@@ -89,10 +89,10 @@ JSON input must be a dictionary with exactly one of the following fields, furthe
       - Example
     * - ``dataframe_split``
       - Pandas DataFrames in the ``split`` orientation.
-      - ``{"dataframe_split": pandas_df.to_dict(orient='split')``
+      - ``{"dataframe_split": pandas_df.to_dict(orient='split')}``
     * - ``dataframe_records``
       - Pandas DataFrame in the ``records`` orientation. **We do not recommend using this format because it is not guaranteed to preserve column ordering.**
-      - ``{"dataframe_records": pandas_df.to_dict(orient='records')``
+      - ``{"dataframe_records": pandas_df.to_dict(orient='records')}``
     * - ``instances``
       - Tensor input formatted as described in `TF Serving's API docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs will be cast to Numpy arrays.
       - ``{"instances": [1.0, 2.0, 5.0]}``
