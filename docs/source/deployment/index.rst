@@ -124,22 +124,17 @@ MLflow offers support for a variety of deployment targets. For detailed informat
                 </a>
             </div>
             <div class="simple-card">
-                <a href="deploy-model-to-ray-serve.html">
+                <a href="../plugins.html#deployment-plugins">
                     <div class="header-with-image">
-                        <img src="../_static/images/logos/ray-serve-logo.svg" alt="Ray Serve Logo" style="width: 90%"/>
+                        Community Supported Targets
                     </div>
                     <p>
-                        Ray Serve is a scalable model serving library built on Ray.
-                        MLflow Deployment offers a straightforward approach for deploying your model to Ray Serve.
+                        MLflow also supports more deployment targets such as Ray Serve, Redis AI, Torch Serve, Oracle Cloud Infrastructure (OCI), through community-supported plugins.
                     </p>
                 </a>
             </div>
         </article>
     </section>
-
-
-MLflow also supports additional custom targets such as Redis AI, Torch Serve, and Oracle Cloud Infrastructure (OCI), through community-supported plugins.
-For more information, please see `Deployment Plugins <../plugins.html#deployment-plugins>`_.
 
 
 API References
