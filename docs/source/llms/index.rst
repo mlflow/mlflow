@@ -244,13 +244,13 @@ Select the integration below to read the documentation on how to leverage MLflow
     <section>
     <div class="logo-grid">
         
-        <a href="../models.html#transformers-transformers-experimental">
+        <a href="transformers/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"/>
             </div>
         </a>
         
-        <a href="sentence-transformers/guide/index.html">
+        <a href="sentence-transformers/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo"/>
             </div>
@@ -262,7 +262,7 @@ Select the integration below to read the documentation on how to leverage MLflow
             </div>
         </a>
         
-        <a href="../models.html#openai-openai-experimental">
+        <a href="openai/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
             </div>
