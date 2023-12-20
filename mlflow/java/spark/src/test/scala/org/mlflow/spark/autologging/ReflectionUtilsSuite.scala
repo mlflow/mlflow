@@ -41,4 +41,20 @@ class ReflectionUtilsSuite extends AnyFunSuite {
     val res = ReflectionUtils.callMethod(obj, "myMethod", Seq.empty).asInstanceOf[String]
     assert(res == "hi")
   }
+
+  test("maybeCallMethod None if method not found") {
+    val obj = new RealClass()
+    val res = ReflectionUtils.maybeCallMethod(obj, "nonExistentMethod", Seq.empty)
+
+    assert (res.isEmpty)
+  }
+
+  test("maybeCallMethod invokes the method if the method is found") {
+    val obj = new RealClass()
+    val res0 = ReflectionUtils.maybeCallMethod(obj, "myMethod", Seq.empty).getOrElse("")
+    assert (res == "hi")
+
+    val res1 = ReflectionUtils.maybeCallMethod(obj, "MyField", Seq.empty).getOrElse("")
+    assert (res1 == "myCoolVal")
+  }
 }
