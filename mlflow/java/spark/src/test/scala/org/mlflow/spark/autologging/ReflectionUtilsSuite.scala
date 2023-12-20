@@ -62,10 +62,21 @@ class ReflectionUtilsSuite extends AnyFunSuite {
   test("chaining maybeCallMethod works") {
     val fileIndex = ReflectionUtils.getScalaObjectByName("org.mlflow.spark.autologging.TestFileIndex")
 
-    val versionOpt = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
+    val versionOpt0 = ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty).orElse(
+      "second thing"
+    ).map(_.toString)
+    assert(versionOpt1 == Some("1.0"))
+
+    // if only the second method exists, return it
+    val versionOpt1 = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
       ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty)
     ).map(_.toString)
+    assert(versionOpt1 == Some("1.0"))
 
-    assert(versionOpt == Some("1.0"))
+    // if both don't exist, just return None
+    val versionOpt2 = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
+      ReflectionUtils.maybeCallMethod(fileIndex, "anotherTableVersion", Seq.empty)
+    ).map(_.toString)
+    assert(versionOpt2 == None)
   }
 }
