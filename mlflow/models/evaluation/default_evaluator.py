@@ -1198,8 +1198,8 @@ class DefaultEvaluator(ModelEvaluator):
                 elif column == "targets" or column == self.dataset.targets_name:
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
-                    elif "targets" in eval_df_copy:
-                        eval_fn_args.append(eval_df_copy["targets"])
+                    elif "targets" in input_df:
+                        eval_fn_args.append(input_df["targets"])
                     else:
                         if param.default == inspect.Parameter.empty:
                             params_not_found.append(param_name)
@@ -1469,6 +1469,17 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             )
 
+    def _get_error_message_missing_columns(self, metric_name, param_names):
+        error_message_parts = [f"Metric '{metric_name}' requires "]
+        if "targets" in param_names:
+            param_names.remove("targets")
+            error_message_parts.append("that the 'targets' parameter be specified ")
+        if "predictions" in param_names:
+            param_names.remove("predictions")
+            error_message_parts.append("that the 'predictions' parameter be specified ")
+        error_message_parts.append(f"requires the columns {param_names}")
+        return error_message_parts.join("and ")
+
     def _check_args(self, metrics, eval_df):
         failed_metrics = []
         # collect all failures for getting metric arguments
@@ -1496,7 +1507,7 @@ class DefaultEvaluator(ModelEvaluator):
                     input_columns.append("targets")
 
             error_messages = [
-                f"Metric '{metric_name}' requires the columns {param_names}"
+                self._get_error_message_missing_columns(metric_name, param_names)
                 for metric_name, param_names in failed_metrics
             ]
             joined_error_message = "\n".join(error_messages)
