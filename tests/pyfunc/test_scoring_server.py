@@ -759,3 +759,81 @@ def test_scoring_server_applies_schema_validation_to_custom_dict(model_path):
     )
     expect_status_code(response, 200)
     assert json.loads(response.content)["choices"][0]["message"]["content"] == "hello!"
+
+
+def test_sklearn_model_custom_dict(model_path):
+    from sklearn.datasets import load_iris
+    from sklearn.linear_model import LogisticRegression
+
+    X, y = load_iris(return_X_y=True)
+    model = LogisticRegression().fit(X, y)
+
+    mlflow.sklearn.save_model(model, path=model_path)
+
+    bad_payload = json.dumps({"messages": [[1.2, 2.2, 3.4, 5.1]]})
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=bad_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+
+    # models that expect a certain input format should fail during inference
+    expect_status_code(response, 400)
+    assert (
+        "Verify that the serialized input Dataframe is compatible with the model for inference."
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
+
+    good_payload = json.dumps({"inputs": [[1.2, 2.2, 3.4, 5.1]]})
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=good_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["predictions"] == [2]
+
+
+def test_transformers_model_custom_dict(model_path):
+    import transformers
+
+    import mlflow.transformers
+
+    architecture = "distilbert-base-uncased"
+
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    model = transformers.AutoModelForMaskedLM.from_pretrained(architecture)
+    pipe = transformers.pipeline(task="fill-mask", model=model, tokenizer=tokenizer)
+
+    inference_params = {"top_k": 1}
+
+    signature = mlflow.models.infer_signature(
+        ["test1 [MASK]", "[MASK] test2"],
+        mlflow.transformers.generate_signature_output(pipe, ["test3 [MASK]"]),
+        inference_params,
+    )
+    mlflow.transformers.save_model(
+        pipe,
+        signature=signature,
+        path=model_path,
+    )
+
+    bad_payload = json.dumps({"things_to_fill": ["test1 [MASK]"]})
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=bad_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    expect_status_code(response, 400)
+    assert (
+        "Error: If supplying a list, all values must be of string type"
+        in json.loads(response.content.decode("utf-8"))["message"]
+    )
+
+    good_payload = json.dumps({"inputs": ["test1 [MASK]"]})
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=good_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    expect_status_code(response, 200)
