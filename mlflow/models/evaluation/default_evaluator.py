@@ -1471,14 +1471,19 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _get_error_message_missing_columns(self, metric_name, param_names):
         error_message_parts = [f"Metric '{metric_name}' requires "]
-        if "targets" in param_names:
-            param_names.remove("targets")
-            error_message_parts.append("that the 'targets' parameter be specified ")
-        if "predictions" in param_names:
-            param_names.remove("predictions")
-            error_message_parts.append("that the 'predictions' parameter be specified ")
-        error_message_parts.append(f"requires the columns {param_names}")
-        return error_message_parts.join("and ")
+
+        special_params = ["targets", "predictions"]
+        for param in special_params:
+            if param in param_names:
+                error_message_parts.append(f"that the '{param}' parameter be specified, ")
+
+        remaining_params = [param for param in param_names if param not in special_params]
+
+        if remaining_params:
+            formatted_params = ", ".join(remaining_params)
+            error_message_parts.append(f"the following columns: {formatted_params}")
+
+        return "and ".join(error_message_parts)
 
     def _check_args(self, metrics, eval_df):
         failed_metrics = []
