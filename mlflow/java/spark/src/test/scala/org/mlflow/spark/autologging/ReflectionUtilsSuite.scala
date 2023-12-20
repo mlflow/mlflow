@@ -65,7 +65,7 @@ class ReflectionUtilsSuite extends AnyFunSuite {
     val versionOpt0 = ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty).orElse(
       Option("second thing")
     ).map(_.toString)
-    assert(versionOpt1 == Some("1.0"))
+    assert(versionOpt0 == Some("1.0"))
 
     // if only the second method exists, return it
     val versionOpt1 = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
