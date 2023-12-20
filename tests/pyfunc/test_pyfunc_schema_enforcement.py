@@ -1613,13 +1613,13 @@ def test_enforce_schema_in_python_model_predict(sample_params_basic, param_schem
 
 def test_schema_enforcement_all_feature_types_pandas():
     data = {
-        "f1": list(range(0, 200)),
-        "f2": [(i % 3) == 0 for i in range(0, 200)],
-        "f3": [f"string id: {i}" for i in range(0, 200)],
-        "f4": [pd.Timestamp(f"2020-07-14 00:{i//60}:{i%60}") for i in range(1, 201)],
-        "f1_nulls": [True if i % 4 != 0 else None for i in range(200)],
-        "f2_nulls": ["test" if i % 4 != 1 else None for i in range(200)],
-        "f3_nulls": [i if i % 4 != 2 else None for i in range(200)],
+        "f1": [1, 2, 3],
+        "f2": [True, False, False],
+        "f3": ["a", "b", "c"],
+        "f4": [pd.Timestamp("2020-07-14 00:00:00")] * 3,
+        "f1_nulls": [True, None, False],
+        "f2_nulls": ["a", "b", None],
+        "f3_nulls": [1.0, 2.0, None],
     }
     df = pd.DataFrame.from_dict(data)
     schema = Schema(
