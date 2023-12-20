@@ -300,6 +300,17 @@ Native Integration Guides and Tutorials
                 </a>
             </div>
             <div class="simple-card">
+                <a href="langchain/index.html">
+                    <div class="header">
+                        LangChain
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with LangChain and see example notebooks that leverage 
+                        MLflow and LangChain to build LLM-backed applications.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="sentence-transformers/index.html">
                     <div class="header">
                         Sentence Transformers
@@ -320,6 +331,7 @@ Native Integration Guides and Tutorials
     transformers/index
     openai/index
     sentence-transformers/index
+    langchain/index
 
 Native Integration Examples
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
