@@ -1468,18 +1468,17 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
     def _get_error_message_missing_columns(self, metric_name, param_names):
-        error_message_parts = [f"Metric '{metric_name}' requires:\n"]
+        error_message_parts = [f"Metric '{metric_name}' requires the following:\n"]
 
         special_params = ["targets", "predictions"]
         for param in special_params:
             if param in param_names:
-                error_message_parts.append(f"  - that the '{param}' parameter be specified")
+                error_message_parts.append(f"  - the '{param}' parameter be specified")
 
         remaining_params = [param for param in param_names if param not in special_params]
 
         if remaining_params:
-            formatted_params = ", ".join(remaining_params)
-            error_message_parts.append(f"  - the following columns: {formatted_params}")
+            error_message_parts.append(f"  - columns {remaining_params} to be defined or mapped")
 
         return "".join(error_message_parts)
 
@@ -1520,6 +1519,7 @@ class DefaultEvaluator(ModelEvaluator):
             Below are the existing column names for the input/output data:
             Input Columns: {input_columns}
             Output Columns: {output_columns}
+
             To resolve this issue, you may want to map the missing column to an existing column
             using the following configuration:
             evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
