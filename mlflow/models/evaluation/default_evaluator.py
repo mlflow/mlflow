@@ -1478,7 +1478,9 @@ class DefaultEvaluator(ModelEvaluator):
         remaining_params = [param for param in param_names if param not in special_params]
 
         if remaining_params:
-            error_message_parts.append(f"  - columns {remaining_params} to be defined or mapped")
+            error_message_parts.append(
+                f"  - missing columns {remaining_params} to be defined or mapped"
+            )
 
         return "".join(error_message_parts)
 
@@ -1520,8 +1522,9 @@ class DefaultEvaluator(ModelEvaluator):
             Input Columns: {input_columns}
             Output Columns: {output_columns}
 
-            To resolve this issue, you may want specify any required parameters or map any missing
-            columns to an existing column using the following configuration:
+            To resolve this issue, you may need to specify any required parameters, or if you are
+            missing columns, you may want to map them to an existing column using the following
+            configuration:
             evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
             stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
             raise MlflowException(stripped_message)
