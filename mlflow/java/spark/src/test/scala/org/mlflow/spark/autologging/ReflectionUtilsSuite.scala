@@ -54,13 +54,13 @@ class ReflectionUtilsSuite extends AnyFunSuite {
   }
 
   test("maybeCallMethod invokes the method if the method is found") {
-    val obj = new TestObject()
+    val obj = ReflectionUtils.getScalaObjectByName("org.mlflow.spark.autologging.TestObject")
     val res0 = ReflectionUtils.maybeCallMethod(obj, "myMethod", Seq.empty).getOrElse("")
     assert(res0 == "hi")
   }
 
   test("chaining maybeCallMethod works") {
-    val fileIndex = new TestFileIndex()
+    val fileIndex = ReflectionUtils.getScalaObjectByName("org.mlflow.spark.autologging.TestFileIndex")
 
     val versionOpt = ReflectionUtils.maybeCallMethod(fileIndex, "tableVersion", Seq.empty).orElse(
       ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty)
