@@ -1520,7 +1520,7 @@ class DefaultEvaluator(ModelEvaluator):
             Input Columns: {input_columns}
             Output Columns: {output_columns}
 
-            To resolve this issue, you may want specify any required paramaters or map any missing
+            To resolve this issue, you may want specify any required parameters or map any missing
             columns to an existing column using the following configuration:
             evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
             stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
