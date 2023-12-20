@@ -7,10 +7,7 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <encoding>UTF-8</encoding>
-    <!-- Set default scala version to 2.12 and override it with 2.13 in one profile for DBR support.
-      We still need 2.12 jar for pyspark support as it still uses scala 2.12 in the latest version (3.5)
-      and raises an exception due to imcomptibility if mlflow-spark jar is built with 2.13.
-      This is temporary fix until (Py)Spark 4 release that will use scala 2.13 by default. -->
+    <!-- These scala versions will be overwritten in the release job when deploying mlflow-spark_2.13 -->
     <scala.version>2.12.18</scala.version>
     <scala.compat.version>2.12</scala.compat.version>
     <spec2.version>4.2.0</spec2.version>
@@ -22,18 +19,6 @@
     <version>2.9.3-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
-
-  <profiles>
-    <!-- A profile to override scala version to 2.13 for DBR support (default profile is 2.12).
-      TODO: move this default setting once (Py)Spark 4 is released and we migrate to it. -->
-    <profile>
-      <id>scala-2.13</id>
-      <properties>
-        <scala.version>2.13.10</scala.version>
-        <scala.compat.version>2.13</scala.compat.version>
-      </properties>
-    </profile>
-  </profiles>
 
   <dependencies>
     <dependency>
