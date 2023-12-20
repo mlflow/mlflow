@@ -3,10 +3,10 @@
 Deploy MLflow Model as a Local Inference Server
 ===============================================
 
-MLflow allows you to deploy your model as a local inference using just a single command.
-This approach is ideal for lightweight applications or for testing your model locally before moving it to a production environment.
+MLflow allows you to deploy your model as a locally using just a single command.
+This approach is ideal for lightweight applications or for testing your model locally before moving it to a staging or production environment.
 
-If you are new to MLflow model deployment, please read `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments.
+If you are new to MLflow model deployment, please read the guide on `MLflow Deployment <index.html>`_ first to understand the basic concepts of MLflow models and deployments.
 
 
 Deploying Inference Server
@@ -113,10 +113,10 @@ a valid :ref:`Model Signature <model-signature>` with ``params`` must be defined
         "params": {"max_answer_len": 10}
     }'
 
-.. note:: Since JSON loses type information, MLflow will cast the JSON input to the input type specified
+.. note:: Since JSON discards type information, MLflow will cast the JSON input to the input type specified
     in the model's schema if available. If your model is sensitive to input types, it is recommended that
     a schema is provided for the model to ensure that type mismatch errors do not occur at inference time.
-    In particular, DL models are typically strict about input types and will need model schema in order
+    In particular, Deep Learning models are typically strict about input types and will need a model schema in order
     for the model to score correctly. For complex data types, see :ref:`encoding-complex-data` below.
 
 .. _encoding-complex-data:
@@ -130,7 +130,7 @@ are supported:
 
 * binary: data is expected to be base64 encoded, MLflow will automatically base64 decode.
 
-* datetime: data is expected as string according to
+* datetime: data is expected to be encoded as a string according to
   `ISO 8601 specification <https://www.iso.org/iso-8601-date-and-time-format.html>`_.
   MLflow will parse this into the appropriate datetime representation on the given platform.
 
@@ -202,7 +202,7 @@ inference server in Kubernetes-native frameworks like `Seldon Core <https://docs
 
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
 To deploy with MLServer, first install additional dependencies with ``pip install mlflow[extras]``,
-then execute deployment command with ``--enable-mlserver`` option. For example,
+then execute the deployment command with the ``--enable-mlserver`` option. For example,
 
 .. tabs::
 
@@ -218,7 +218,7 @@ then execute deployment command with ``--enable-mlserver`` option. For example,
        model.serve(port=5000, enable_mlserver=True)
 
 To read more about the integration between MLflow and MLServer, please check the `end-to-end example <https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html>`_ in the MLServer documentation.
-Also you can find guides to deploy MLflow model to Kubernetes cluster using MLServer in `Deploying a model to Kubernetes <deploy-model-to-kubernetes/index.html>`_.
+You can also find guides to deploy MLflow models to a Kubernetes cluster using MLServer in `Deploying a model to Kubernetes <deploy-model-to-kubernetes/index.html>`_.
 
 Running Batch Inference
 -----------------------
