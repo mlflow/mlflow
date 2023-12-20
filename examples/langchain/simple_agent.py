@@ -5,10 +5,11 @@ from langchain.llms import OpenAI
 
 import mlflow
 
+# Ensuring necessary API keys are set
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 assert "SERPAPI_API_KEY" in os.environ, "Please set the SERPAPI_API_KEY environment variable."
 
-# First, let's load the language model we're going to use to control the agent.
+# Load the language model for agent control
 llm = OpenAI(temperature=0)
 
 # Next, let's load some tools to use. Note that the `llm-math` tool uses an LLM, so we need to pass that in.
@@ -17,10 +18,14 @@ tools = load_tools(["serpapi", "llm-math"], llm=llm)
 # Finally, let's initialize an agent with the tools, the language model, and the type of agent we want to use.
 agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
 
+# Log the agent in an MLflow run
 with mlflow.start_run():
     logged_model = mlflow.langchain.log_model(agent, "langchain_model")
 
+# Load the logged agent model for prediction
 loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+
+# Generate an inference result using the loaded model
 print(
     loaded_model.predict(
         [
