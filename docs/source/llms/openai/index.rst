@@ -110,6 +110,15 @@ Getting Started with the MLflow OpenAI Flavor - Tutorials and Guides
 Below, you will find a number of guides that focus on different ways that you can leverage the power of the `openai` library, leveraging MLflow's 
 APIs for tracking and inference capabilities. 
 
+The diagram below shows the basic scope of the level of complexity that the tutorials cover. 
+
+.. figure:: ../../_static/images/tutorials/llms/openai-tutorials-explanation.png
+   :alt: MLflow OpenAI tutorials
+   :width: 80%
+   :align: center
+
+   The range of content within the tutorials for the OpenAI flavor
+
 Introductory Tutorial
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -139,9 +148,10 @@ Introductory Tutorial
 Advanced Tutorials
 ^^^^^^^^^^^^^^^^^^
 
-In these tutorials, the topics aren't any more advanced than the introductory tutorial, but the teaching text is much less. More code; less chatter.
+In these tutorials, the topics cover applied interactions with OpenAI models, leveraging custom Python Models to enhance the functionality beyond what is 
+possible with the basic prompt-based interaction from the introductory tutorial.
 If you're new to this flavor, please start with the Introductory Tutorial above, as it has information about environment configurations that you'll need 
-to understand in order to get these notebooks to work.
+to understand in order to get the notebooks in this section to work.
 
 .. raw:: html
 
@@ -157,6 +167,26 @@ to understand in order to get these notebooks to work.
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="notebooks/openai-code-helper.html">
+                    <div class="header">
+                        OpenAI Custom Python Model - Code Helper
+                    </div>
+                    <p>
+                        Learn how to leverage Custom Python Models with a useful Code Helper application that leverages OpenAI Models and MLflow.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="notebooks/openai-embeddings-generation.html">
+                    <div class="header">
+                        OpenAI Embeddings - Document Comparison
+                    </div>
+                    <p>
+                        Explore the application of embeddings with document comparison using an OpenAI model with MLflow.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
@@ -169,7 +199,8 @@ To download the advanced OpenAI tutorial notebooks to run in your environment, c
 .. raw:: html
 
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-chat-completions.ipynb" class="notebook-download-btn">Download the ChatCompletions Notebook</a><br>
-    
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-code-helper.ipynb" class="notebook-download-btn">Download the Code Helper Notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/openai/notebooks/openai-embeddings-generation.ipynb" class="notebook-download-btn">Download the Embeddings Notebook</a><br>
 
 .. toctree::
     :maxdepth: 2
@@ -177,6 +208,8 @@ To download the advanced OpenAI tutorial notebooks to run in your environment, c
 
     notebooks/openai-quickstart.ipynb
     notebooks/openai-chat-completions.ipynb
+    notebooks/openai-code-helper.ipynb
+    notebooks/openai-embeddings-generation.ipynb
 
 `Detailed Documentation <guide/index.html>`_
 --------------------------------------------
