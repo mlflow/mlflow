@@ -1,68 +1,177 @@
 Deployment
 ==========
 
-In the modern age of machine learning, deploying models effectively and consistently plays a pivotal role. The capability to serve predictions 
-at scale, manage dependencies, and ensure reproducibility is paramount for businesses to derive actionable insights from their ML models. 
-Whether it's for real-time predictions, batch processing, or interactive analyses, a robust model serving framework is essential.
+.. important::
 
-MLflow offers a comprehensive suite tailored for seamless model deployment. With its focus on ease of use, consistency, and adaptability, 
-MLflow simplifies the model serving process, ensuring models are not just artifacts but actionable tools for decision-making.
+    This page describes the toolset for deploying your in-house MLflow Model. For information on the **LLM Deployment Server** (formerly known as AI Gateway), please refer to `MLflow Deployment Server <../llms/deployments/index.html>`_.
 
-The Power of MLflow in Model Serving
-------------------------------------
+After training your machine learning model and ensuring its performance, the next step is deploying it to a production environment.
+This process can be complex, but MLflow simplifies it by offering an easy toolset for deploying your ML models to various targets, including local environments, cloud services, and Kubernetes clusters.
 
+.. figure:: ../_static/images/deployment/mlflow-deployment-overview.png
+    :align: center
+    :figwidth: 90%
+
+
+By using MLflow deployment toolset, you can enjoy the following benefits:
+
+- **Effortless Deployment**: MLflow provides a simple interface for deploying models to various targets, eliminating the need to write boilorplate code.
 - **Dependency and Environment Management**: MLflow ensures that the deployment environment mirrors the training environment, capturing all dependencies. This guarantees that models run consistently, regardless of where they're deployed.
-  
 - **Packaging Models and Code**: With MLflow, not just the model, but any supplementary code and configurations are packaged along with the deployment container. This ensures that the model can be executed seamlessly without any missing components.
+- **Avoid Vendor Lock-in**: MLflow provides a standard format for packaging models and unified APIs for deployment. You can easily switch between deployment targets without having to rewrite your code.
 
-Deployment Avenues
-------------------
+Concepts
+--------
 
-MLflow offers multiple ways to deploy your models based on your needs:
+`MLflow Model <../models.html>`_
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+`MLflow Model <../models.html>`_ is a standard format that packages a machine learning model with its metadata, such as dependencies and inference schema.
+You typically create a model as a result of training execution using the `MLflow Tracking APIs <../tracking.html>`_, for instance, :py:func:`mlflow.pyfunc.log_model`. 
+Alternatively, models can be registered and retrieved via the `MLflow Model Registry <../model-registry.html>`_.
+To use MLflow deployment, you must first create a model.
 
-1. `Local Flask Server <../models.html#local-model-deployment>`_: Quickly deploy your model in a containerized local environment. This server runs a model container with the dependencies defined during model saving.
+Container
+~~~~~~~~~
+Container plays a critical role for simplifying and standardizing the model deployment process. MLflow uses Docker containers to package models with their dependencies,
+enabling deployment to various destinations without environment compatibility issues.
+If you're new to Docker, you can learn more at `"What is a Container" <https://www.docker.com/resources/what-container//>`_.
 
-2. `Local Flask Server with MLServer <../models.html#serving-with-mlserver>`_: Easily deploy a containerized model along with MLServer and KServe. This powerful alternative to a base Flask server leverages all of the benefits of Seldon's framework to enhance your inference capabilities.
+Deployment Target
+~~~~~~~~~~~~~~~~~
+Deployment target refers to the destination environment for your model. MLflow supports various targets, including local environments, cloud services (AWS, Azure), Kubernetes clusters, and others.
 
-3. **Remote Container Serving**: Once a model container has been defined and built, it can be deployed to a remote serving environment. This is especially useful for cloud deployments where providers offer elastic container execution capabilities.
 
-    - `AzureML <../models.html#deploy-a-python-function-model-on-microsoft-azure-ml>`_ 
-    - `AWS Sagemaker <../models.html#deploy-a-python-function-model-on-amazon-sagemaker>`_
+How it works
+------------
+An `MLflow Model <../models.html>`_ already packages your model and its dependencies, hence MLflow can create either a virtual environment (for local deployment)
+or a Docker container image containing everything needed to run your model. Subsequently, MLflow launches an inference server with REST endpoints using
+frameworks like `Flask <https://flask.palletsprojects.com/en/1.1.x/>`_, preparing it for deployment to various destinations to handle inference requests.
+Detailed information about the server and endpoints is available in :ref:`Inference Server Specification <local-inference-server-spec>`.
 
-4. **Kubernetes**: For those invested in the Kubernetes ecosystem, MLflow supports model deployment to Kubernetes clusters, ensuring scalability and resilience.
+MLflow provides :ref:`CLI commands <deployment-cli>` and :ref:`Python APIs <deployment-python-api>` to facilitate the deployment process.
+The required commands differ based on the deployment target, so please continue reading to the next section for more details about your specific target.
 
-5. **Databricks Model Serving**: Directly deploy models in a Databricks environment, taking advantage of Databricks' performance optimizations and integrations.
 
-Tutorials and Guides
---------------------
+Supported Deployment Targets
+----------------------------
+MLflow offers support for a variety of deployment targets. For detailed information and tutorials on each, please follow the respective links below.
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    deploy-model-locally
+    deploy-model-to-sagemaker
+    deploy-model-to-kubernetes/index
+    deploy-model-to-ray-serve
 
 .. raw:: html
 
     <section>
         <article class="simple-grid">
             <div class="simple-card">
-                <a href="deploy-model-to-kubernetes/index.html">
-                    <div class="header">
-                        Deploying a Model to Kubernetes with MLflow
+                <a href="deploy-model-locally.html">
+                    <div class="header-with-image">
+                        Deploying a Model Locally
                     </div>
                     <p>
-                        Explore an end-to-end guide on using MLflow to train a linear regression model, package it, and deploy it to a Kubernetes cluster. 
-                        Understand how MLflow simplifies the entire process, from training to serving.
+                       Deploying a model locally as an inference server is straightforward with MLflow, requiring just a single command <code>mlflow models serve</code>.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="deploy-model-to-sagemaker.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/amazon-sagemaker-logo.png" alt="Amazon SageMaker Logo" />
+                    </div>
+                    <p>
+                        Amazon SageMaker is a fully managed service for scaling ML inference containers.
+                        MLflow simplifies the deployment process with easy-to-use commands, eliminating the need to write container definitions.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/azure-ml-logo.png" alt="AzureML Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                        MLflow integrates seamlessly with Azure ML. You can deploy MLflow Model to the Azure ML managed online/batch endpoints,
+                        or to Azure Container Instances (ACI) / Azure Kubernetes Service (AKS).
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="https://docs.databricks.com/en/mlflow/models.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/databricks-logo.png" alt="Databricks Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                        Databricks Model Serving offers a fully managed service for serving MLflow models at scale,
+                        with added benefits of performance optimizations and monitoring capabilities.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="deploy-model-to-kubernetes/index.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/kubernetes-logo.png" alt="Kubernetes Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                       MLflow Deployment integrates with Kubernetes-native ML serving frameworks
+                       such as Seldon Core and KServe (formerly KFServing).
+                     </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="deploy-model-to-ray-serve.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/ray-serve-logo.svg" alt="Ray Serve Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                        Ray Serve is a scalable model serving library built on Ray.
+                        MLflow Deployment offers a straightforward approach for deploying your model to Ray Serve.
                     </p>
                 </a>
             </div>
         </article>
     </section>
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
 
-    deploy-model-to-kubernetes/index
+MLflow also supports additional custom targets such as Redis AI, Torch Serve, and Oracle Cloud Infrastructure (OCI), through community-supported plugins.
+For more information, please see `Deployment Plugins <../plugins.html#deployment-plugins>`_.
 
-Conclusion
-----------
 
-Model serving is an intricate process, and MLflow is designed to make it as intuitive and reliable as possible. With its myriad deployment options 
-and focus on consistency, MLflow ensures that models are ready for action, be it in a local environment, the cloud, or on a large-scale Kubernetes 
-cluster. Dive into the provided tutorials, explore the functionalities, and streamline your model deployment journey with MLflow.
+API References
+--------------
+
+.. _deployment-cli:
+
+Command Line Interface
+~~~~~~~~~~~~~~~~~~~~~~
+
+Deployment-related commands are primarily categorized under two modules:
+
+* `mlflow models <../cli.html#mlflow-models>`_ - typically used for local deployment.
+* `mlflow deployments <../cli.html#mlflow-deployments>`_ - typically used for deploying to custom targets.
+
+Note that these categories are not strictly separated and may overlap. Furthermore, certain targets require
+custom modules or plugins, for example, `mlflow sagemaker <../cli.html#mlflow-sagemaker>`_ is used for Amazon
+SageMaker deployments, and the `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ library is required for Azure ML.
+
+Therefore, it is advisable to consult the specific documentation for your chosen target to identify the appropriate commands.
+
+.. _deployment-python-api:
+
+Python APIs
+~~~~~~~~~~~
+
+Almost all functionalities available in MLflow deployment can also be accessed via Python APIs. For more details, refer to the following API references:
+
+* `mlflow.models <../python_api/mlflow.models.html>`_
+* `mlflow.deployments <../python_api/mlflow.deployments.html>`_
+* `mlflow.sagemaker <../python_api/mlflow.sagemaker.html>`_
+
+
+FAQ
+---
