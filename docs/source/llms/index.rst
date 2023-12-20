@@ -244,13 +244,13 @@ Select the integration below to read the documentation on how to leverage MLflow
     <section>
     <div class="logo-grid">
         
-        <a href="../models.html#transformers-transformers-experimental">
+        <a href="transformers/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"/>
             </div>
         </a>
         
-        <a href="sentence-transformers/guide/index.html">
+        <a href="sentence-transformers/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo"/>
             </div>
@@ -262,7 +262,7 @@ Select the integration below to read the documentation on how to leverage MLflow
             </div>
         </a>
         
-        <a href="../models.html#openai-openai-experimental">
+        <a href="openai/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
             </div>
@@ -335,12 +335,6 @@ directly to our up-to-date examples on GitHub below:
     * `Logging and using a Retrieval QA Chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retrieval_qa_chain.py>`_ :sup:`1`
 
 :sup:`1` Demonstrates the use of Retrieval Augmented Generation (RAG) using a Vector Store
-
-* **openai**
-
-    * `Performing Embeddings Generation <https://github.com/mlflow/mlflow/blob/master/examples/openai/embeddings.py>`_
-    * `Using OpenAI on a Spark DataFrame for Batch Processing <https://github.com/mlflow/mlflow/blob/master/examples/openai/spark_udf.py>`_
-    * `Using Azure OpenAI <https://github.com/mlflow/mlflow/blob/master/examples/openai/azure_openai.py>`_
 
 
 `LLM Tracking in MLflow <llm-tracking/index.html>`_
