@@ -63,7 +63,7 @@ class ReflectionUtilsSuite extends AnyFunSuite {
     val fileIndex = ReflectionUtils.getScalaObjectByName("org.mlflow.spark.autologging.TestFileIndex")
 
     val versionOpt0 = ReflectionUtils.maybeCallMethod(fileIndex, "version", Seq.empty).orElse(
-      "second thing"
+      Option("second thing")
     ).map(_.toString)
     assert(versionOpt1 == Some("1.0"))
 
