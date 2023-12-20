@@ -25,9 +25,6 @@ message GetTable {
   // Required. Full name of the Table (from URL).
   optional string full_name_arg = 1;
 
-  // True if delta metadata should be included in the response.
-  optional bool include_delta_metadata = 3;
-
   // Optional. Whether to omit the columns of the table from the response or not.
   optional bool omit_columns = 5;
 
@@ -39,12 +36,6 @@ message GetTable {
 
   // Optional. Whether to omit the dependencies of the table from the response or not.
   optional bool omit_dependencies = 8;
-
-  // Optional. When Specified, BROWSE privilege will be checked and returning browsable metadata when applicable
-  optional bool include_browse = 9;
-
-  // Optional. Whether to include information of shallow clones or not if this is base table.
-  optional bool include_shallow_clones = 10;
 
   // Optional. Whether to get usernames in response, including owner, created_by, updated_by.
   optional bool omit_username = 11;
