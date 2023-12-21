@@ -1468,7 +1468,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
     def _get_error_message_missing_columns(self, metric_name, param_names):
-        error_message_parts = [f"Metric '{metric_name}' requires the following:\n"]
+        error_message_parts = [f"Metric '{metric_name}' requires the following:"]
 
         special_params = ["targets", "predictions"]
         for param in special_params:
@@ -1479,10 +1479,10 @@ class DefaultEvaluator(ModelEvaluator):
 
         if remaining_params:
             error_message_parts.append(
-                f"  - missing columns {remaining_params} to be defined or mapped"
+                f"  - missing columns {remaining_params} need to be defined or mapped"
             )
 
-        return "".join(error_message_parts)
+        return "\n".join(error_message_parts)
 
     def _check_args(self, metrics, eval_df):
         failed_metrics = []

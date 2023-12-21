@@ -2190,13 +2190,17 @@ def test_missing_args_raises_exception():
 
     error_message = (
         r"Error: Metric calculation failed for the following metrics:\n"
-        r"Metric 'metric_1' requires the columns \['param_1', 'param_2'\]\n"
-        r"Metric 'metric_2' requires the columns \['param_3', 'builtin_metrics'\]\n\n"
+        r"Metric 'metric_1' requires the following:\n"
+        r"- the 'targets' parameter needs to be specified\n"
+        r"- missing columns \['param_1', 'param_2'\] need to be defined or mapped\n"
+        r"Metric 'metric_2' requires the following:\n"
+        r"- missing columns \['param_3', 'builtin_metrics'\] need to be defined or mapped\n\n"
         r"Below are the existing column names for the input/output data:\n"
         r"Input Columns: \['question', 'answer'\]\n"
-        r"Output Columns: \['predictions'\]\n"
-        r"To resolve this issue, you may want to map the missing column to an existing column\n"
-        r"using the following configuration:\n"
+        r"Output Columns: \['predictions'\]\n\n"
+        r"To resolve this issue, you may need to specify any required parameters, or if you are\n"
+        r"missing columns, you may want to map them to an existing column using the following\n"
+        r"configuration:\n"
         r"evaluator_config=\{'col_mapping': \{<missing column name>: <existing column name>\}\}"
     )
 
@@ -2208,7 +2212,6 @@ def test_missing_args_raises_exception():
             mlflow.evaluate(
                 model_info.model_uri,
                 data,
-                targets="answer",
                 evaluators="default",
                 model_type="question-answering",
                 extra_metrics=[metric_1, metric_2],
