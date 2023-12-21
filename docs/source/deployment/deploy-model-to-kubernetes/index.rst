@@ -7,7 +7,8 @@ to serve the inference endpoint. However, Flask is mainly designed for a lightwe
 at scale. To address this gap, MLflow integrates with `MLServer <https://mlserver.readthedocs.io/en/latest/>`_ as an alternative deployment option, which is used
 as a core Python inference server in Kubernetes-native frameworks like `Seldon Core <https://docs.seldon.io/projects/seldon-core/en/latest/>`_ and
 `KServe <https://kserve.github.io/website/>`_ (formerly known as KFServing). Using MLServer, you can take advantage of the scalability and reliability
-of Kubernetes to serve your model at scale.
+of Kubernetes to serve your model at scale. See :ref:`Serving Framework <serving_frameworks>` for the detailed comparison between Flask and MLServer,
+and why MLServer is a better choice for ML production use cases.
 
 Deployment Steps
 ----------------

@@ -24,8 +24,8 @@ Introduction: Scalable Model Serving with KServe and MLServer
 
 MLflow provides an easy-to-use interface for deploying models within a Flask-based inference server. You can deploy the same inference
 server to a Kubernetes cluster by containerizing it using the ``mlflow models build-docker`` command. However, this approach may not be scalable
-and could be unsuitable for production use cases. Flask is not designed for high performance, and manually managing multiple instances of
-inference servers is backbreaking.
+and could be unsuitable for production use cases. Flask is not designed for high performance and scale (:ref:`why? <serving_frameworks>`), and also 
+manually managing multiple instances of inference servers is backbreaking.
 
 Fortunately, MLflow offers a solution for this. MLflow provides an alternative inference engine that is better suited for larger-scale inference deployments with its support for `MLServer <https://mlserver.readthedocs.io/en/latest/>`_,
 which enables one-step deployment to popular serverless model serving frameworks on Kubernetes, such as `KServe <https://kserve.github.io/website/>`_, and 
@@ -40,7 +40,7 @@ It offers advanced features that aid in operating large-scale machine learning s
 **explability**, and more, leveraging the Kubernetes ecosystem, including `KNative <https://knative.dev/>`_ and `Istio <https://istio.io/>`_.
 
 Benefits of using MLflow with KServe
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 While KServe enables highly scalable and production-ready model serving, deplying your model there might require some effort.
 MLflow simplifies the process of deploying models to a Kubernetes cluster with KServe and MLServer. Additionally, it offers seamless **end-to-end model management** 
@@ -98,15 +98,16 @@ Let's start from training a model with the default hyperparameters. Execute the 
 
   import mlflow
 
-  from sklearn import datasets
+  import numpy as np
+  from sklearn import datasets, metrics
   from sklearn.linear_model import ElasticNet
   from sklearn.model_selection import train_test_split
 
 
   def eval_metrics(pred, actual):
-      rmse = np.sqrt(mean_squared_error(actual, pred))
-      mae = mean_absolute_error(actual, pred)
-      r2 = r2_score(actual, pred)
+      rmse = np.sqrt(metrics.mean_squared_error(actual, pred))
+      mae = metrics.mean_absolute_error(actual, pred)
+      r2 = metrics.r2_score(actual, pred)
       return rmse, mae, r2
 
 
@@ -145,50 +146,75 @@ Then visit http://localhost:5000 to open the UI.
 Please open the experient named "wine-quality" on the left, then click the run named "default-params" in the table.
 For this case, you should see parameters including ``alpha`` and ``l1_ratio`` and metrics like ``training_score`` and ``mean_absolute_error_X_test``.
 
+
 Step 4: Running Hyperparameter Tuning
 -------------------------------------
 
 Now that we have established a baseline model, let's attempt to improve its performance by tuning the hyperparameters.
-We will conduct a simple grid search to identify the optimal combination of ``alpha`` and ``l1_ratio``.
+We will conduct a random search to identify the optimal combination of ``alpha`` and ``l1_ratio``.
 
 .. code-block:: python
 
-  from itertools import product
-  import warnings
+  from scipy.stats import uniform
+  from sklearn.model_selection import RandomizedSearchCV
 
-  warnings.filterwarnings("ignore")
+  lr = ElasticNet()
 
-  alphas = [0.2, 0.5, 1.0]
-  l1_ratios = [0, 0.25, 0.5, 0.75, 1.0]
+  # Define distribution to pick parameter values from
+  distributions = dict(
+      alpha=uniform(loc=0, scale=10),  # sample alpha uniformly from [-5.0, 5.0]
+      l1_ratio=uniform(),  # sample l1_ratio uniformlyfrom [0, 1.0]
+  )
 
-  # Create a parent run bundles attempts
-  with mlflow.start_run(run_name="hyper-parameter-turning"):
-      # Create a child run for each hyperparameter combination
-      for alpha, l1 in product(alphas, l1s):
-          with mlflow.start_run(nested=True):
-              lr = ElasticNet(alpha=alpha, l1_ratio=l1)
-              lr.fit(X_train, y_train)
+  # Initialize random search instance
+  clf = RandomizedSearchCV(
+      estimator=lr,
+      param_distributions=distributions,
+      # Optimize for mean absolute error
+      scoring="neg_mean_absolute_error",
+      # Use 5-fold cross validation
+      cv=5,
+      # Try 100 samples. Note that MLflow only logs the top 5 runs.
+      n_iter=100,
+  )
 
-              # In real scenario, you should use a validation set to evaluate
-              # the model, but here we use the test set for simplicity
-              y_pred = lr.predict(X_test)
-              metrics = eval_metrics(y_pred, y_test)
+  # Start a parent run
+  with mlflow.start_run(run_name="hyperparameter-tuning"):
+      search = clf.fit(X_train, y_train)
 
-We experimented with 15 different combinations of ``alpha`` and ``l1_ratio``. to efficiently manage numerious runs, we utliized the parent-child run feature.
-This technique is particularly useful for grouping a set of runs, such as those in hyper parameter tuning. For more details, please refer to :ref:`Create Child Runs <child_runs>`.
+      # Evaluate the best model on test dataset
+      y_pred = clf.best_estimator_.predict(X_test)
+      rmse, mae, r2 = eval_metrics(clf.best_estimator_, y_pred, y_test)
+      mlflow.log_metrics(
+          {
+              "mean_squared_error_X_test": rmse,
+              "mean_absolute_error_X_test": mae,
+              "r2_score_X_test": r2,
+          }
+      )
 
-When you reopen the MLflow UI, you should notice that the runs are neatly organized under the parent run named "hyper-parameter-turning".
-
-To compare the results and identify the best model, you can utilize the visualization feature in the MLflow UI.
-1. Select the parent job ("hyper-parameter-turning") to select all the child runs together.
-2. Click on the "Chart" tab to visualize the metrics in a chart.
-3. By default, a bar chart for a single metric is displayed. You can add different chart, such as a scatter plot, to compare multiple metrics.
+When you reopen the MLflow UI, you should notice that the run "hyperparameter-tuning" contains 5 child runs. MLflow utilizes parent-child relationship, which is particularly
+useful for grouping a set of runs, such as those in hyper parameter tuning. Here the auto-logging is enabled and MLflow automatically create child runs for the top 5 runs
+based on the ``scoring`` metric, which is negative mean absolute error in this example. You can also create parent and child runs manually, please refer to :ref:`Create Child Runs <child_runs>`
+for more details.
 
 .. figure:: ../../_static/images/deployment/hyper-parameter-tuning-ui.png
     :align: center
     :figwidth: 80%
 
-In this example, the best model appears to be in the top-left corner, with ``alpha=0.2`` and ``l1_ratio=0`` (you may see different results).
+To compare the results and identify the best model, you can utilize the visualization feature in the MLflow UI.
+
+1. Select the first job ("default-params") and the parent job for hyperparameter tuning ("hyperparameter-turning").
+2. Click on the "Chart" tab to visualize the metrics in a chart.
+3. By default, a few bar charts for a predefined set of metrics are displayed.
+4. You can add different chart, such as a scatter plot, to compare multiple metrics. For example, we can see the best model from hyperparameter tuning outperforms the default parameter model, in the mean squared error on the test dataset:
+
+You can check the best combination of hyperparameters by looking at the parent run "hyperparameter-tuning".
+In this example, the best model was ``alpha=0.11714084185001972`` and ``l1_ratio=0.3599780644783639`` (you may see different results).
+
+.. note::
+
+  To learn more about hyperparameter tuning with MLflow, please refer to `Hyperparameter Tuning with MLflow and Optuna <../../../traditional-ml/hyperparameter-tuning-with-child-runs/index.html>`_.
 
 Step 5: Packaging the Model and Dependencies
 --------------------------------------------
@@ -348,7 +374,7 @@ Please open the tabs below for details on each approach.
     By default, MLflow stores the model in the local file system, so you need to configure MLflow to store the model in remote storage.
     Please refer to `Artifact Store <../../../tracking.html#artifact-stores>`_ for setup instructions.
 
-    After configuring the artifact store, repeat the model training steps.
+    After configuring the artifact store, load and re-log the best model to the new artifact store, or repeat the model training steps.
 
     .. raw:: html
 
@@ -465,7 +491,7 @@ Then send the request to your inference service:
 
 
 Troubleshooting
-------------
+---------------
 
 If you have any trouble during deployment, please consult with the `KServe official documentation <https://kserve.github.io/website/>`_
 and their `MLflow Deployment Guide <https://kserve.github.io/website/0.10/modelserving/v1beta1/mlflow/v2/>`_.

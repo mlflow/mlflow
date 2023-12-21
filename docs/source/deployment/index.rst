@@ -63,7 +63,6 @@ MLflow offers support for a variety of deployment targets. For detailed informat
     deploy-model-locally
     deploy-model-to-sagemaker
     deploy-model-to-kubernetes/index
-    deploy-model-to-ray-serve
 
 .. raw:: html
 

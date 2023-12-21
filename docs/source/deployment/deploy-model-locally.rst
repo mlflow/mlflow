@@ -158,9 +158,12 @@ Example requests:
 Serving Frameworks
 ------------------
 By default, MLflow uses `Flask <https://flask.palletsprojects.com/en/1.1.x/>`_, a lightweight WSGI web application framework for Python, to serve the
-inference endpoint. Alternatively, you can use `Seldon's MLServer <https://mlserver.readthedocs.io/en/latest/>`_, which is used as the core Python
+inference endpoint. However, Flask is mainly designed for a lightweight application and might not be suitable for production use cases at scale.
+To address this gap, MLflow integrates with `MLServer <https://mlserver.readthedocs.io/en/latest/>`_ as an alternative serving engine. MLServer achieves
+higher performance and scalability by leveraging asynchronous request/response paradigm and workload offloading. Also MLServer is used as the core Python
 inference server in Kubernetes-native frameworks like `Seldon Core <https://docs.seldon.io/projects/seldon-core/en/latest/>`_ and
-`KServe (formerly known as KFServing) <https://kserve.github.io/website/>`_.
+`KServe (formerly known as KFServing) <https://kserve.github.io/website/>`_, hence which provides advanced features such as canary deployment and
+auto scaling out of the box.
 
 .. |flask-logo| raw:: html
 
@@ -184,20 +187,31 @@ inference server in Kubernetes-native frameworks like `Seldon Core <https://docs
       - |flask-logo|
       - |mlserver-logo|
     * - **Use Case**
-      - General lightweight purpose including local testing.
-      - Kubernetes cluster deployment.
+      - Lightweight purpose including local testing.
+      - High-scale production environment.
     * - **Set Up**
       - Flask is installed by default with MLflow.
       - Needs to be installed separately.
-    * - **Maturity**
-      - Established and stable.
-      - Relatively less mature. 
     * - **Performance**
-      - Suitable for lightweight applications but not optimized for high performance.
-      - Designed for high-performance ML workloads, often delivering better throughput and efficiency.
+      - Suitable for lightweight applications but not optimized for high performance, as being a WSGI application.
+        WSGI is based on synchronous request/response paradigm, which is not ideal for ML workloads because of the
+        blocking nature. ML prediction typically involves heavy computation and can take a long time to complete,
+        hence blocking the server while the request is being processed is not ideal.
+        While Flask can be augmented with asynchronous frameworks such as `Uvicorn <https://www.uvicorn.org/>`_,
+        MLflow does not support them out of the box and simply uses Flask's default synchronous behavior.
+      - Designed for high-performance ML workloads, often delivering better throughput and efficiency. MLServer
+        support asynchronous request/response paradigm, by offloading ML inference workload to a separate worker
+        pool (processes), so that the server can continue to accept new requests while the inference is being processed.
+        Please refer to the `MLServer Parallel Inference <https://mlserver.readthedocs.io/en/latest/user-guide/parallel-inference.html>`_
+        for more details on how they achieve this. Additionally, MLServer supports `Adaptive Bacthing <https://mlserver.readthedocs.io/en/latest/user-guide/adaptive-batching.html>`_
+        that transparently batch requests together to improve throughput and efficiency.
     * - **Scalability**
-      - Not inherently scalable, but can be augmented with other tools.
-      - Achieves high scalability with Kubernetes-native frameworks such as Seldon Core and KServe.
+      - Not inherently scalable with the same reason as performance.
+      - Additionally to the support for parallel inference as mentioned above, MLServer is used as the core
+        inference server in Kubernetes-native frameworks such as `Seldon Core <https://docs.seldon.io/projects/seldon-core/en/latest/>`_
+        and `KServe <https://kserve.github.io/website/>`_ (formerly known as KFServing). By deploying `MLflow models
+        to Kubernetes with MLServer <deployment-model-to-kubernetes/index.rst>`_, you can leverage the advanced features of these frameworks
+        such as autoscaling to achieve high scalability.
 
 
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
