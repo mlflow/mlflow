@@ -2153,14 +2153,13 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
 
     # Log the image classification model
     with mlflow.start_run():
-        mlflow.transformers.log_model(
+        model_info = mlflow.transformers.log_model(
             transformers_model=small_vision_model,
             artifact_path=artifact_path,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
     pyfunc_inference_payload = json.dumps({"inputs": inference_payload})
     response = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=pyfunc_inference_payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
