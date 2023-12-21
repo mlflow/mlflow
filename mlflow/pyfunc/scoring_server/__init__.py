@@ -177,9 +177,8 @@ def _decode_json_input(json_input):
 
 def _split_data_and_params(json_input):
     input_dict = _decode_json_input(json_input)
-    params = input_dict.pop("params", None)
-
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
+    params = input_dict.pop("params", None)
     return data, params
 
 
@@ -191,7 +190,6 @@ def infer_and_parse_data(data, schema: Schema = None):
     """
 
     format_keys = set(data.keys()).intersection(SUPPORTED_FORMATS)
-
     if len(format_keys) != 1:
         message = f"Received dictionary with input fields: {list(data.keys())}"
         raise MlflowException(
