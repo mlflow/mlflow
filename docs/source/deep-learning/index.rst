@@ -91,6 +91,17 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="pytorch/index.html">
+                    <div class="header">
+                        Pytorch
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the PyTorch library and see example notebooks that leverage
+                        MLflow and PyTorch to build deep learning workflows.
+                    </p>
+                </a>
+            </div>
 
             <div class="simple-card">
                 <a href="keras/index.html">
@@ -112,6 +123,7 @@ For detailed guide on how to integrate MLflow with these libraries, refer to the
 
     keras/index
     tensorflow/index
+    pytorch/index
 
 MLflow Tracking for Deep Learning
 ---------------------------------
