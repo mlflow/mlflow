@@ -14,17 +14,18 @@ Promptflow (native) format
 import logging
 import os
 import shutil
-from typing import Union, List, Dict, Any, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+import pandas as pd
+import yaml
 
 import mlflow
-import pandas as pd
-from pathlib import Path
-import yaml
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
-from mlflow.models.utils import _save_example, ModelInputExample
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
@@ -60,7 +61,8 @@ _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "found {instance_type}."
 )
 _INVALID_PREDICT_INPUT_ERROR_MESSAGE = (
-    "Input must be a pandas DataFrame with only 1 row or a dictionary contains flow inputs key-value pairs."
+    "Input must be a pandas DataFrame with only 1 row "
+    "or a dictionary contains flow inputs key-value pairs."
 )
 
 
@@ -150,16 +152,18 @@ def log_model(
         for more details on how to set connection provider.
 
 
-        An example of providing overrides for a model to use azure machine learning workspace connection:
+        An example of providing overrides for a model to use azure machine
+        learning workspace connection:
 
         .. code-block:: python
 
             flow_folder = Path(__file__).parent / "basic"
             flow = load_flow(flow_folder)
 
-            workspace_resource_id = \
-                "azureml://subscriptions/<your-subscription>/resourceGroups/<your-resourcegroup>"
-                "/providers/Microsoft.MachineLearningServices/workspaces/<your-workspace>"
+            workspace_resource_id = (
+                "azureml://subscriptions/{your-subscription}/resourceGroups/{your-resourcegroup}"
+                "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
+            )
             model_config = {"connection.provider": workspace_resource_id}
 
             with mlflow.start_run():
@@ -240,16 +244,18 @@ def save_model(
         for more details on how to set connection provider.
 
 
-        An example of providing overrides for a model to use azure machine learning workspace connection:
+        An example of providing overrides for a model to use azure machine
+        learning workspace connection:
 
         .. code-block:: python
 
             flow_folder = Path(__file__).parent / "basic"
             flow = load_flow(flow_folder)
 
-            workspace_resource_id = \
-                "azureml://subscriptions/<your-subscription>/resourceGroups/<your-resourcegroup>"
-                "/providers/Microsoft.MachineLearningServices/workspaces/<your-workspace>"
+            workspace_resource_id = (
+                "azureml://subscriptions/{your-subscription}/resourceGroups/{your-resourcegroup}"
+                "/providers/Microsoft.MachineLearningServices/workspaces/{your-workspace}"
+            )
             model_config = {"connection.provider": workspace_resource_id}
 
             with mlflow.start_run():
@@ -258,10 +264,12 @@ def save_model(
                 )
     """
     import promptflow
-    from promptflow._sdk._mlflow import Flow
-    from promptflow._sdk._mlflow import _merge_local_code_and_additional_includes
-    from promptflow._sdk._mlflow import DAG_FILE_NAME
-    from promptflow._sdk._mlflow import remove_additional_includes
+    from promptflow._sdk._mlflow import (
+        DAG_FILE_NAME,
+        Flow,
+        _merge_local_code_and_additional_includes,
+        remove_additional_includes,
+    )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -306,7 +314,7 @@ def save_model(
         code=code_dir_subpath,
         version=promptflow.__version__,
         entry=f"{_MODEL_FLOW_DIRECTORY}/{DAG_FILE_NAME}",
-        **flow_env
+        **flow_env,
     )
 
     # append loader_module, data and env data to mlflow_model
@@ -355,17 +363,19 @@ def save_model(
 
 
 def _resolve_env_from_flow(flow_dag_path):
-    with open(flow_dag_path, "r") as f:
+    with open(flow_dag_path) as f:
         flow_dict = yaml.safe_load(f)
     environment = flow_dict.get("environment", {})
     if _FLOW_ENV_REQUIREMENTS in environment:
         # Append entry path to requirements
-        environment[_FLOW_ENV_REQUIREMENTS] = f"{_MODEL_FLOW_DIRECTORY}/{environment[_FLOW_ENV_REQUIREMENTS]}"
+        environment[
+            _FLOW_ENV_REQUIREMENTS
+        ] = f"{_MODEL_FLOW_DIRECTORY}/{environment[_FLOW_ENV_REQUIREMENTS]}"
     return environment
 
 
 class _PromptflowModelWrapper:
-    def __init__(self, model, model_config: Dict[str, Any] = None):
+    def __init__(self, model, model_config: Optional[Dict[str, Any]] = None):
         from promptflow._sdk._mlflow import FlowInvoker
 
         self.model = model
@@ -410,7 +420,7 @@ class _PromptflowModelWrapper:
         return self.model_invoker.invoke(messages)
 
 
-def _load_pyfunc(path, model_config: Dict[str, Any] = None):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     Load PyFunc implementation for Promptflow. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``promptflow`` flavor.
@@ -444,6 +454,9 @@ def load_model(model_uri, dst_path=None):
     :return: A Promptflow model instance
     """
     from promptflow import load_flow
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     model_data_path = os.path.join(local_model_path, _MODEL_FLOW_DIRECTORY)
-    return load_flow(model_data_path)
+    model = load_flow(model_data_path)
+    setattr(model, "predict", _PromptflowModelWrapper(model).predict)
+    return model

@@ -1,16 +1,26 @@
+import json
 from pathlib import Path
 
 import pytest
-
 from promptflow import load_flow
 from promptflow._sdk.entities._flow import Flow
+from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow import MlflowException
+from mlflow.deployments import PredictionsResponse
+from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
+
+from tests.helper_functions import pyfunc_serve_and_score_model
+
+
+@pytest.fixture(scope="module")
+def spark():
+    with SparkSession.builder.master("local[*]").getOrCreate() as s:
+        yield s
 
 
 def get_promptflow_example_model():
-
     flow_path = Path(__file__).parent / "flow_with_additional_includes"
     return load_flow(flow_path)
 
@@ -35,41 +45,59 @@ def test_log_model_with_config():
     model = get_promptflow_example_model()
     model_config = {"connection.provider": "local"}
     with mlflow.start_run():
-        logged_model = mlflow.promptflow.log_model(model, "promptflow_model", model_config=model_config)
+        logged_model = mlflow.promptflow.log_model(
+            model, "promptflow_model", model_config=model_config
+        )
 
     assert mlflow.pyfunc.FLAVOR_NAME in logged_model.flavors
     assert mlflow.pyfunc.MODEL_CONFIG in logged_model.flavors[mlflow.pyfunc.FLAVOR_NAME]
-    logged_model_config = logged_model.flavors[mlflow.pyfunc.FLAVOR_NAME][mlflow.pyfunc.MODEL_CONFIG]
+    logged_model_config = logged_model.flavors[mlflow.pyfunc.FLAVOR_NAME][
+        mlflow.pyfunc.MODEL_CONFIG
+    ]
     assert logged_model_config == model_config
 
 
-def test_pyfunc_load_promptflow_model():
+def test_promptflow_model_predict(spark):
     model = get_promptflow_example_model()
     with mlflow.start_run():
         logged_model = mlflow.promptflow.log_model(model, "promptflow_model")
-
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-
+    # Assert pyfunc model
     assert "promptflow" in logged_model.flavors
     assert type(loaded_model) == mlflow.pyfunc.PyFuncModel
-
-
-def test_promptflow_model_predict():
-    model = get_promptflow_example_model()
-    with mlflow.start_run():
-        logged_model = mlflow.promptflow.log_model(model, "promptflow_model")
-    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    # Assert predict with pyfunc model
     input_value = "Python Hello World!"
     result = loaded_model.predict({"text": input_value})
-    expected_result = f"Write a simple {input_value} program that displays the greeting message when executed.\n"
+    expected_result = (
+        f"Write a simple {input_value} program that displays the greeting message when executed.\n"
+    )
     assert result == {"output": expected_result}
+    # Assert predict with promptflow model
+    model = mlflow.promptflow.load_model(logged_model.model_uri)
+    logged_model_result = model.predict({"text": input_value})
+    assert logged_model_result == result
+    # Assert predict with serve model
+    response = pyfunc_serve_and_score_model(
+        logged_model.model_uri,
+        data=json.dumps({"inputs": {"text": input_value}}),
+        content_type=CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": {"output": expected_result}
+    }
+    # Assert predict with spark udf
+    udf = mlflow.pyfunc.spark_udf(spark, logged_model.model_uri, result_type="string")
+    df = spark.createDataFrame([{"text": input_value}])
+    df = df.withColumn("output", udf("text"))
+    pdf = df.toPandas()
+    assert pdf["output"].tolist() == [expected_result]
 
 
 def test_unsupported_class():
     mock_model = object()
     with pytest.raises(
-        MlflowException,
-        match="only supports instances loaded by ~promptflow.load_flow"
+        MlflowException, match="only supports instances loaded by ~promptflow.load_flow"
     ):
         with mlflow.start_run():
             mlflow.promptflow.log_model(mock_model, "mock_model_path")
