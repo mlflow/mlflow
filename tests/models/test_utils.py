@@ -17,7 +17,6 @@ from mlflow.models.utils import (
     _enforce_datatype,
     _enforce_object,
     _enforce_property,
-    _read_unified_llm_input,
     get_model_version_from_model_uri,
 )
 from mlflow.types import DataType
@@ -431,44 +430,3 @@ def test_enforce_array_with_errors():
                 )
             ),
         )
-
-
-@pytest.mark.parametrize(
-    ("dict_input", "expected"),
-    [
-        (
-            {"messages": [{"role": "user", "content": "hello!"}]},
-            ([{"role": "user", "content": "hello!"}], {}),
-        ),
-        (
-            {
-                "messages": [{"role": "user", "content": "hello!"}],
-                "max_tokens": 20,
-                "stop": ["\n"],
-                "temperature": 0.9,
-            },
-            (
-                [{"role": "user", "content": "hello!"}],
-                {
-                    "max_tokens": 20,
-                    "stop": ["\n"],
-                    "temperature": 0.9,
-                },
-            ),
-        ),
-        (
-            {"messages": [{"rolp": "user", "content": "hello!"}]},
-            "Missing required properties: {'role'}",
-        ),
-        (
-            {"message": [{"role": "user", "content": "hello!"}]},
-            r"Model is missing inputs \['messages'\]",
-        ),
-    ],
-)
-def test_read_unified_llm_input(dict_input, expected):
-    if type(expected) == str:
-        with pytest.raises(MlflowException, match=expected):
-            _read_unified_llm_input(dict_input)
-    else:
-        assert _read_unified_llm_input(dict_input) == expected

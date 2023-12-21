@@ -791,3 +791,33 @@ def test_scoring_server_rejects_payloads_with_messages_non_pyfunc(model_path):
         "The input must be a JSON dictionary with exactly one"
         in json.loads(response.content)["message"]
     )
+
+
+@pytest.mark.parametrize(
+    ("dict_input", "param_schema", "expected"),
+    [
+        (
+            # no param signature, everything should go
+            # to data no params should get dropped
+            {"messages": ["test"], "max_tokens": 20, "random": "test"},
+            None,
+            ({"messages": ["test"], "max_tokens": 20, "random": "test"}, {}),
+        ),
+        (
+            # params defined in the param schema should go to params
+            # rest should go to data
+            {"messages": ["test"], "max_tokens": 20, "random": "test"},
+            ParamSchema(
+                [
+                    ParamSpec("max_tokens", DataType.integer, default=20),
+                ]
+            ),
+            ({"messages": ["test"], "random": "test"}, {"max_tokens": 20}),
+        ),
+    ],
+)
+def test_read_unified_llm_input(dict_input, param_schema, expected):
+    data, params = pyfunc_scoring_server._read_unified_llm_input(dict_input, param_schema)
+    expected_data, expected_params = expected
+    assert data == expected_data
+    assert params == expected_params
