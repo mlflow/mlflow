@@ -2204,7 +2204,7 @@ def test_vision_pipeline_pyfunc_predict(small_vision_model, inference_payload):
 
     predictions = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    transformers_loaded_model = mlflow.transformers.load_model(model_uri)
+    transformers_loaded_model = mlflow.transformers.load_model(model_info.model_uri)
     expected_predictions = transformers_loaded_model.predict(inference_payload)
 
     assert [list(pred.values()) for pred in predictions.to_dict("records")] == expected_predictions
