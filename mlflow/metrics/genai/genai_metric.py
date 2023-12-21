@@ -207,6 +207,14 @@ def make_genai_metric(
                 f" Required grading context columns: {grading_context_columns}\n"
             )
 
+        if not include_input:
+            return EvaluationExample(
+                output=example.output,
+                score=example.score,
+                justification=example.justification,
+                grading_context=example.grading_context,
+            )
+
         return example
 
     if examples is not None:
@@ -231,7 +239,6 @@ def make_genai_metric(
         name,
         definition,
         grading_prompt,
-        include_input,
         examples,
         model,
         *(parameters,) if parameters is not None else (),
@@ -283,7 +290,9 @@ def make_genai_metric(
                 )
             grading_payloads.append(
                 evaluation_context["eval_prompt"].format(
-                    input=input, output=output, grading_context_columns=arg_string
+                    input=(input if include_input else None),
+                    output=output,
+                    grading_context_columns=arg_string,
                 )
             )
 
