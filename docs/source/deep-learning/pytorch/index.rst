@@ -28,12 +28,12 @@ will walk you through the basics of tracking PyTorch experiments.
 
     <a href="quickstart/pytorch_quickstart.html" class="download-btn">View the Quickstart</a>
 
-To download the PyTorch quickstart notebook to run in your environment, click the respective links below:
+To download the PyTorch quickstart notebook to run in your environment, click the respective link below:
 
 .. raw:: html
 
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/deep-learning/pytorch/quickstart/pytorch_quickstart.ipynb"
-    class="notebook-download-btn">Download the Quickstart of MLflow PyTorch Integration</a><br>
+    class="notebook-download-btn">Download the Quickstart of MLflow's PyTorch Integration</a><br>
 
 .. toctree::
     :maxdepth: 1
