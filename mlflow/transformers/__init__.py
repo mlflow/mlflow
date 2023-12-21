@@ -2761,11 +2761,8 @@ class _TransformersWrapper:
                 data_str = f"Received (truncated): {input_str[:20]}..."
             raise MlflowException(
                 "An invalid string input was provided. String inputs to "
-
                 "audio or image files must be either a file location or a uri.",
-
                 f"audio files must be either a file location or a uri. {data_str}",
-
                 error_code=BAD_REQUEST,
             )
 
