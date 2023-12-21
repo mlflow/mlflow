@@ -1611,6 +1611,31 @@ def test_enforce_schema_in_python_model_predict(sample_params_basic, param_schem
     ] == np.datetime64("2023-06-26 00:00:00")
 
 
+def test_schema_enforcement_all_feature_types_pandas():
+    data = {
+        "long": [1, 2, 3],
+        "bool": [True, False, False],
+        "string": ["a", "b", "c"],
+        "datetime": [pd.Timestamp("2020-07-14 00:00:00")] * 3,
+        "bool_nullable": [True, None, False],
+        "string_nullable": ["a", "b", None],
+        "double_nullable": [1.0, 2.0, None],
+    }
+    df = pd.DataFrame.from_dict(data)
+    schema = Schema(
+        [
+            ColSpec(DataType.long, "long"),
+            ColSpec(DataType.boolean, "bool"),
+            ColSpec(DataType.string, "string"),
+            ColSpec(DataType.datetime, "datetime"),
+            ColSpec(DataType.boolean, "bool_nullable", required=False),
+            ColSpec(DataType.string, "string_nullable", required=False),
+            ColSpec(DataType.double, "double_nullable", required=False),
+        ]
+    )
+    pd.testing.assert_frame_equal(_enforce_schema(df, schema), df, check_dtype=False)
+
+
 def test_enforce_schema_in_python_model_serving(sample_params_basic):
     signature = infer_signature(["input1"], params=sample_params_basic)
     with mlflow.start_run():
