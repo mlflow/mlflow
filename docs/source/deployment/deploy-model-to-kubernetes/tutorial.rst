@@ -192,7 +192,7 @@ In this example, the best model appears to be in the top-left corner, with ``alp
 
 Step 5: Packaging the Model and Dependencies
 --------------------------------------------
-Since we are using autologging, Mlflow automatically logsthe `Model <../../../models.html>`_ for each run. This process conveniently packages the model weight
+Since we are using autologging, MLflow automatically logs the `Model <../../../models.html>`_ for each run. This process conveniently packages the model weight
 and dependencies in a ready-to-deploy format.
 
 .. note::
