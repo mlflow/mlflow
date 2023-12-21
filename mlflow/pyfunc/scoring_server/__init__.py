@@ -194,6 +194,9 @@ def _read_unified_llm_input(dict_input, param_schema: ParamSchema = None):
     schema_params = {param.name for param in param_schema.params} if param_schema else {}
 
     for key, value in dict_input.items():
+        # if the model defines a param schema, then we can add
+        # it to the params dict. otherwise, add it to the data
+        # dict to prevent it from being ignored at inference time
         if key in schema_params:
             params[key] = value
         else:
@@ -474,11 +477,14 @@ def _predict(model_uri, input_path, output_path, content_type):
 
 
 def _should_parse_as_unified_llm_input(model, dict_input):
-    return (
-        len(model.metadata.flavors) == 1
-        and "python_function" in model.metadata.flavors
-        and (LLM_INPUT in dict_input or LLM_MESSAGES in dict_input or LLM_PROMPT in dict_input)
-    )
+    try:
+        return (
+            len(model.metadata.flavors) == 1
+            and "python_function" in model.metadata.flavors
+            and (LLM_INPUT in dict_input or LLM_MESSAGES in dict_input or LLM_PROMPT in dict_input)
+        )
+    except Exception:
+        return False
 
 
 def _serve(model_uri, port, host):

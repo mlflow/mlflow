@@ -185,6 +185,21 @@ def test_scoring_server_responds_to_invalid_json_format_with_error_code_and_mess
         message = response_json.get("message")
         assert "The input must be a JSON dictionary with exactly one of the input fields" in message
 
+    for incorrect_format in [
+        {"not": "a serialized dataframe"},
+        {"dataframe_records": [], "dataframe_split": {"data": []}},
+    ]:
+        incorrect_json_content = json.dumps(incorrect_format)
+        response = pyfunc_serve_and_score_model(
+            model_uri=os.path.abspath(model_path),
+            data=incorrect_json_content,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        response_json = json.loads(response.content)
+        assert response_json.get("error_code") == ErrorCode.Name(BAD_REQUEST)
+        message = response_json.get("message")
+        assert "The input must be a JSON dictionary with exactly one of the input fields" in message
+
 
 def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_and_error_code(
     sklearn_model, model_path
