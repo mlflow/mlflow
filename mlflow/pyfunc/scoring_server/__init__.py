@@ -31,6 +31,7 @@ from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 # dependencies to the minimum here.
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
+from mlflow.models.utils import _read_openai_input
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
 from mlflow.types import Schema
 from mlflow.utils import reraise
@@ -74,6 +75,10 @@ INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 
+MESSAGES_INPUT_FORMAT = (
+    'Invalid input provided for the "messages" key. Please ensure that the value of "messages" '
+    'is a list of objects with the following type: {"role": string, "content": string }.'
+)
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
 )
@@ -174,10 +179,6 @@ def _split_data_and_params(json_input):
     input_dict = _decode_json_input(json_input)
     params = input_dict.pop("params", None)
 
-    # if no key is in supported formats, just return the dict directly
-    if not set(input_dict.keys()).intersection(SUPPORTED_FORMATS):
-        return input_dict, params
-
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
     return data, params
 
@@ -190,12 +191,6 @@ def infer_and_parse_data(data, schema: Schema = None):
     """
 
     format_keys = set(data.keys()).intersection(SUPPORTED_FORMATS)
-
-    # If the input doesn't contain any keys in the supported formats,
-    # then we assume that the client wants to treat the input as-is
-    # and we skip any additional processing
-    if len(format_keys) == 0:
-        return data
 
     if len(format_keys) != 1:
         message = f"Received dictionary with input fields: {list(data.keys())}"
@@ -314,15 +309,18 @@ def invocations(data, content_type, model, input_schema):
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
-        data, params = _split_data_and_params(data)
-
-        # we don't strictly enforce that the input is in one of the supported
-        # formats to make it easy for users to call the serving API in a way
-        # that is compatible with common LLM endpoints. if provided in this way,
-        # then we don't do any processing on the data and just pass the raw dict
-        # down to the model for inference.
-        data_in_unsupported_format = len(set(data.keys()).intersection(SUPPORTED_FORMATS)) == 0
-        data = infer_and_parse_data(data, input_schema)
+        dict_input = _decode_json_input(data)
+        if _should_parse_as_openai_input(model, dict_input):
+            try:
+                data, params = _read_openai_input(dict_input)
+            except MlflowException:
+                _handle_serving_error(
+                    f"{MESSAGES_INPUT_FORMAT} Received '{dict_input}'",
+                    error_code=BAD_REQUEST,
+                )
+        else:
+            data, params = _split_data_and_params(data)
+            data = infer_and_parse_data(data, input_schema)
     else:
         return InvocationsResponse(
             response=(
@@ -452,6 +450,14 @@ def _predict(model_uri, input_path, output_path, content_type):
     else:
         with open(output_path, "w") as fout:
             predictions_to_json(raw_predictions, fout)
+
+
+def _should_parse_as_openai_input(model, dict_input):
+    return (
+        len(model.metadata.flavors) == 1
+        and "python_function" in model.metadata.flavors
+        and "messages" in dict_input
+    )
 
 
 def _serve(model_uri, port, host):

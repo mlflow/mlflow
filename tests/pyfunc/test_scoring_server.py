@@ -47,6 +47,16 @@ else:
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
+def build_and_save_sklearn_model(model_path):
+    from sklearn.datasets import load_iris
+    from sklearn.linear_model import LogisticRegression
+
+    X, y = load_iris(return_X_y=True)
+    model = LogisticRegression().fit(X, y)
+
+    mlflow.sklearn.save_model(model, path=model_path)
+
+
 class MyLLM(PythonModel):
     def predict(self, context, model_input):
         if isinstance(model_input, pd.DataFrame):
@@ -714,7 +724,7 @@ def test_scoring_server_client(sklearn_model, model_path):
             os.kill(server_proc.pid, signal.SIGTERM)
 
 
-def test_scoring_server_allows_custom_dict_payloads(model_path):
+def test_scoring_server_allows_payloads_with_messages_for_pyfunc(model_path):
     mlflow.pyfunc.save_model(model_path, python_model=MyLLM())
 
     payload = json.dumps(
@@ -727,68 +737,80 @@ def test_scoring_server_allows_custom_dict_payloads(model_path):
         model_uri=model_path,
         data=payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
     )
     expect_status_code(response, 200)
     assert json.loads(response.content)["choices"][0]["message"]["content"] == "hello!"
 
 
-def test_scoring_server_applies_schema_validation_to_custom_dict(model_path):
-    from mlflow.models import infer_signature
+def test_scoring_server_allows_payloads_with_messages_for_pyfunc_wrapped(model_path):
+    sklearn_path = model_path + "-sklearn"
+    build_and_save_sklearn_model(sklearn_path)
 
-    original_data = {
-        "messages": [{"role": "user", "content": "hello!"}],
-        "max_tokens": 20,
-    }
-    schema = infer_signature(original_data)
-    mlflow.pyfunc.save_model(model_path, python_model=MyLLM(), signature=schema)
+    # wrapped pyfuncs count as pyfuncs (sklearn is not present in model.metadata.flavors)
+    class WrappedSklearn(PythonModel):
+        def load_context(self, context):
+            self.model = mlflow.pyfunc.load_model(context.artifacts["model_path"])
 
-    bad_payload = json.dumps({"messages": [{"foo": "bar"}]})
-    response = pyfunc_serve_and_score_model(
-        model_uri=model_path,
-        data=bad_payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        # note: model_input is the value of "messages", not a dict
+        def predict(self, context, model_input):
+            weird_but_valid_parse = [json.loads(model_input[0]["content"])]
+            return self.model.predict(weird_but_valid_parse)
+
+    mlflow.pyfunc.save_model(
+        model_path, python_model=WrappedSklearn(), artifacts={"model_path": sklearn_path}
     )
-    expect_status_code(response, 400)
-    assert "Failed to enforce schema" in json.loads(response.content.decode("utf-8"))["message"]
 
-    good_payload = json.dumps(original_data)
+    payload = json.dumps(
+        {
+            "messages": [{"role": "user", "content": "[2,2,2,2]"}],
+            "max_tokens": 20,
+        }
+    )
     response = pyfunc_serve_and_score_model(
         model_uri=model_path,
-        data=good_payload,
+        data=payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
     )
     expect_status_code(response, 200)
-    assert json.loads(response.content)["choices"][0]["message"]["content"] == "hello!"
 
 
-def test_sklearn_model_custom_dict(model_path):
-    from sklearn.datasets import load_iris
-    from sklearn.linear_model import LogisticRegression
+def test_scoring_server_rejects_payloads_with_messages_non_pyfunc(model_path):
+    build_and_save_sklearn_model(model_path)
 
-    X, y = load_iris(return_X_y=True)
-    model = LogisticRegression().fit(X, y)
-
-    mlflow.sklearn.save_model(model, path=model_path)
-
-    bad_payload = json.dumps({"messages": [[1.2, 2.2, 3.4, 5.1]]})
+    # valid format, but the model is sklearn
+    payload = json.dumps(
+        {
+            "messages": [{"role": "user", "content": "hello!"}],
+            "max_tokens": 20,
+        }
+    )
     response = pyfunc_serve_and_score_model(
         model_uri=model_path,
-        data=bad_payload,
+        data=payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
     )
-
-    # models that expect a certain input format should fail during inference
     expect_status_code(response, 400)
-    assert (
-        "Verify that the serialized input Dataframe is compatible with the model for inference."
-        in json.loads(response.content.decode("utf-8"))["message"]
-    )
+    assert "asdasdasd" in json.loads(response.content)
 
-    good_payload = json.dumps({"inputs": [[1.2, 2.2, 3.4, 5.1]]})
+
+def test_scoring_server_rejecs_payloads_with_invalid_messages(model_path):
+    mlflow.pyfunc.save_model(model_path, python_model=MyLLM())
+
+    # invalid format
+    payload = json.dumps(
+        {
+            "messages": ["hello", "world"],
+            "max_tokens": 20,
+        }
+    )
     response = pyfunc_serve_and_score_model(
         model_uri=model_path,
-        data=good_payload,
+        data=payload,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
     )
-    expect_status_code(response, 200)
-    assert json.loads(response.content)["predictions"] == [2]
+    expect_status_code(response, 400)
+    assert 'Invalid input provided for the "messages" key.' in json.loads(response.content)

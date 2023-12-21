@@ -12,7 +12,7 @@ import pandas as pd
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
-from mlflow.types import DataType, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, Object, Property
 from mlflow.types.utils import (
     TensorsNotSupportedException,
@@ -58,6 +58,27 @@ PyFuncInput = Union[
     str,
 ]
 PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
+
+UNIFIED_LLM_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            Array(
+                Object(
+                    [
+                        Property("role", DataType.string),
+                        Property("content", DataType.string),
+                    ]
+                )
+            ),
+            name="messages",
+        ),
+        ColSpec(DataType.double, name="temperature", required=False),
+        ColSpec(DataType.long, name="max_tokens", required=False),
+        ColSpec(DataType.string, name="stop", required=False),
+        ColSpec(DataType.long, name="n", required=False),
+        ColSpec(DataType.boolean, name="stream", required=False),
+    ]
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -396,6 +417,17 @@ def _read_example_params(mlflow_model: Model, path: str):
         return None
     input_example_dict = _get_mlflow_model_input_example_dict(mlflow_model, path)
     return input_example_dict[EXAMPLE_PARAMS_KEY]
+
+
+def _read_openai_input(dict_input):
+    # enforce the schema, throw if invalid
+    _enforce_schema(dict_input, UNIFIED_LLM_INPUT_SCHEMA)
+
+    # messages goes into data
+    data = dict_input.pop("messages", None)
+    # rest of the dict goes into params
+    params = dict_input
+    return data, params
 
 
 def _read_tensor_input_from_json(path_or_data, schema=None):
