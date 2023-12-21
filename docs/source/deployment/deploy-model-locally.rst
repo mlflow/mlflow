@@ -210,7 +210,7 @@ auto scaling out of the box.
       - Additionally to the support for parallel inference as mentioned above, MLServer is used as the core
         inference server in Kubernetes-native frameworks such as `Seldon Core <https://docs.seldon.io/projects/seldon-core/en/latest/>`_
         and `KServe <https://kserve.github.io/website/>`_ (formerly known as KFServing). By deploying `MLflow models
-        to Kubernetes with MLServer <deployment-model-to-kubernetes/index.rst>`_, you can leverage the advanced features of these frameworks
+        to Kubernetes with MLServer <deploy-model-to-kubernetes/index.html>`_, you can leverage the advanced features of these frameworks
         such as autoscaling to achieve high scalability.
 
 
