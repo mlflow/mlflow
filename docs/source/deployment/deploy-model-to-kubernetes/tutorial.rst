@@ -45,7 +45,7 @@ Benefit of using MLflow with KServe
 While KServe enables highly scalable and production-ready model serving, deplying your model there might require some effort.
 MLflow simplifies the process of deploying models to a Kubernetes cluster with KServe and MLServer. Additionally, it offers seamless **end-to-end model management** 
 as a single place to manage the entire ML lifecycle. This includes `experiment tracking <../../../tracking.html>`_, `model packaging <../../../models.html>`_,
-`versioning <../../../model-registry.html>`_, `evaluation <../../model-evaluation.html>`_, and `deployment <../../deployments.html>`_, which we will cover in this tutorial.
+`versioning <../../../model-registry.html>`_, `evaluation <../../../model-evaluation/index.html>`_, and `deployment <../../index.html>`_, which we will cover in this tutorial.
 
 
 Step 1: Installing MLflow and Additional Dependencies
@@ -90,7 +90,7 @@ Let's start from training a model with the default hyperparameters. Execute the 
 
 .. note::
 
-  For the sake of convenience, we use the `mlflow.sklearn.autolog() <../../../api/python/mlflow.sklearn.html#mlflow.sklearn.autolog>`_ function.
+  For the sake of convenience, we use the `mlflow.sklearn.autolog() <../../../python_api/mlflow.sklearn.html#mlflow.sklearn.autolog>`_ function.
   This function let MLflow to automatically log the appropriate set of model parameters and metrics. To learn more about the autologging feature
   or how to log manually instead, see the `MLflow Tracking documentation <../../../tracking.html>`_.
 
@@ -479,6 +479,6 @@ and deploying the model to Kubernetes cluster.
 
 * `MLflow Tracking <../../../tracking.html>`_ - Explore more about MLflow Tracking and various ways to manage experiments and models, such as team collaboration.
 * `MLflow Model Registry <../../../model-registry.html>`_ - Discover more about MLflow Model Registry for managing model versions and stages in a centralized model store.
-* `MLflow Deployment <../../deployments.html>`_ - Learn more about MLflow deployment and different deployment targets.
+* `MLflow Deployment <../../index.html>`_ - Learn more about MLflow deployment and different deployment targets.
 * `KServe official documentation <https://kserve.github.io/website/>`_ - Dive deeper into KServe and its advanced features, including autoscaling, canary rollout, A/B testing, monitoring, explability, etc.
 * `Seldon Core official documentation <https://docs.seldon.io/projects/seldon-core/en/latest/>`_ - Learn about Seldon Core, an alternative serverless model serving framework we support for Kubernetes.
