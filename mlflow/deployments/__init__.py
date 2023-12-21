@@ -19,6 +19,7 @@ import json
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.databricks import DatabricksDeploymentClient, DatabricksEndpoint
 from mlflow.deployments.interface import get_deploy_client, run_local
+from mlflow.deployments.openai import OpenAIDeploymentClient
 from mlflow.deployments.utils import get_deployments_target, set_deployments_target
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -100,6 +101,7 @@ __all__ = [
     "run_local",
     "BaseDeploymentClient",
     "DatabricksDeploymentClient",
+    "OpenAIDeploymentClient",
     "DatabricksEndpoint",
     "MlflowDeploymentClient",
     "PredictionsResponse",

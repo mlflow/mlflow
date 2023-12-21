@@ -455,7 +455,7 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
             <hr />
             <div
               className='artifact-logged-model-view-schema-table'
-              style={{ width: '35%', marginLeft: 16, float: 'left' }}
+              style={{ width: '45%', marginLeft: 16, float: 'left' }}
             >
               <Title level={3}>
                 <FormattedMessage
@@ -492,7 +492,7 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
             </div>
             <div
               className='artifact-logged-model-view-code-group'
-              style={{ width: '60%', marginRight: 16, float: 'right' }}
+              style={{ width: '50%', marginRight: 16, float: 'right' }}
             >
               {this.state.flavor === 'pyfunc'
                 ? this.renderPyfuncCodeSnippet()

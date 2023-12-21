@@ -37,3 +37,27 @@ To download the tensorflow tutorial notebooks to run in your environment, click 
     :hidden:
 
     quickstart/quickstart_tensorflow.ipynb
+
+`Developer Guide of Tensorflow with MLflow <guide/index.html>`_
+----------------------------------------------------------------
+
+To learn more about the nuances of the `tensorflow` flavor in MLflow, please read the developer guide. It will walk you
+through the following topics:
+
+.. raw:: html
+
+    <a href="guide/index.html" class="download-btn">View the Developer Guide</a>
+
+- **Autologging Tensorflow Experiments with MLflow**: How to left MLflow autolog Tensorflow experiments, and what
+  metrics are logged.
+- **Control MLflow Logging with Keras Callback**: For people who don't like autologging, we offer an option to log
+  experiments to MLflow using a custom Keras callback.
+- **Log Your Tensorflow Models with MLflow**: How to log your Tensorflow models with MLflow and how to load them back
+  for inference.
+
+
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+
+    guide/index.rst

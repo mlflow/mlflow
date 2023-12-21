@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## 2.9.2 (2023-12-14)
+
+MLflow 2.9.2 is a patch release, containing several critical security fixes and configuration updates to support extremely large model artifacts. 
+
+Features:
+
+- [Deployments] Add the `mlflow.deployments.openai` API to simplify direct access to OpenAI services through the deployments API (#10473, @prithvikannan)
+- [Server-infra] Add a new environment variable that permits disabling http redirects within the Tracking Server for enhanced security in publicly accessible tracking server deployments (#10673, @daniellok-db)
+- [Artifacts] Add environment variable configurations for both Multi-part upload and Multi-part download that permits modifying the per-chunk size to support extremely large model artifacts (#10648, @harupy)
+
+Security fixes:
+
+- [Server-infra] Disable the ability to inject malicious code via manipulated YAML files by forcing YAML rendering to be performed in a secure Sandboxed mode (#10676, @BenWilson2, #10640, @harupy)
+- [Artifacts] Prevent path traversal attacks when querying artifact URI locations by disallowing `..` path traversal queries (#10653, @B-Step62)
+- [Data] Prevent a mechanism for conducting a malicious file traversal attack on Windows when using tracking APIs that interface with `HTTPDatasetSource` (#10647, @BenWilson2)
+- [Artifacts] Prevent a potential path traversal attack vector via encoded url traversal paths by decoding paths prior to evaluation  (#10650, @B-Step62)
+- [Artifacts] Prevent the ability to conduct path traversal attacks by enforcing the use of sanitized paths with the tracking server (#10666, @harupy)
+- [Artifacts] Prevent path traversal attacks when using an FTP server as a backend store by enforcing base path declarations prior to accessing user-supplied paths (#10657, @harupy)
+
+Documentation updates:
+
+- [Docs] Add an end-to-end tutorial for RAG creation and evaluation (#10661, @AbeOmor)
+- [Docs] Add Tensorflow landing page (#10646, @chenmoneygithub)
+- [Deployments / Tracking] Add endpoints to LLM evaluation docs (#10660, @prithvikannan)
+- [Examples] Add retriever evaluation tutorial for LangChain and improve the Question Generation tutorial notebook (#10419, @liangz1)
+
+Small bug fixes and documentation updates:
+
+#10677, #10636, @serena-ruan; #10652, #10649, #10641, @harupy; #10643, #10632, @BenWilson2
+
 ## 2.9.1 (2023-12-07)
 
 MLflow 2.9.1 is a patch release, containing a critical bug fix related to loading `pyfunc` models that were saved in previous versions of MLflow.

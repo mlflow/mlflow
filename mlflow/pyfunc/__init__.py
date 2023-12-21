@@ -466,7 +466,15 @@ class PyFuncModel:
         """
         input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
-            data = _enforce_schema(data, input_schema)
+            try:
+                data = _enforce_schema(data, input_schema)
+            except Exception as e:
+                # Include error in message for backwards compatibility
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to enforce schema of data '{data}' "
+                    f"with schema '{input_schema}'. "
+                    f"Error: {e}",
+                )
 
         params = _validate_params(params, self.metadata)
 
@@ -990,9 +998,24 @@ def _infer_spark_udf_return_type(model_output_schema):
 
 def _parse_spark_datatype(datatype: str):
     from pyspark.sql.functions import udf
+    from pyspark.sql.session import SparkSession
 
     return_type = "boolean" if datatype == "bool" else datatype
-    return udf(lambda x: x, returnType=return_type).returnType
+    parsed_datatype = udf(lambda x: x, returnType=return_type).returnType
+
+    if parsed_datatype.typeName() == "unparseddata":
+        # For spark 3.5.x, `udf(lambda x: x, returnType=return_type).returnType`
+        # returns UnparsedDataType, which is not compatible with signature inference.
+        # Note: SparkSession.active only exists for spark >= 3.5.0
+        schema = (
+            SparkSession.active()
+            .range(0)
+            .select(udf(lambda x: x, returnType=return_type)("id"))
+            .schema
+        )
+        return schema[0].dataType
+
+    return parsed_datatype
 
 
 def _is_none_or_nan(value):
@@ -1367,18 +1390,10 @@ Compound types:
 
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
-        pdf = None
-
-        for x in args:
-            if type(x) == pandas.DataFrame:
-                if len(args) != 1:
-                    raise Exception(
-                        "If passing a StructType column, there should be only one "
-                        f"input column, but got {len(args)}."
-                    )
-                pdf = x
-        if pdf is None:
-            args = list(args)
+        args = list(args)
+        if len(args) == 1 and isinstance(args[0], pandas.DataFrame):
+            pdf = args[0]
+        else:
             if input_schema is None:
                 names = [str(i) for i in range(len(args))]
             else:
@@ -1393,7 +1408,16 @@ Compound types:
                         " (Since the columns were passed unnamed they are expected to be in"
                         " the order specified by the schema).".format(len(names), names, len(args))
                     )
-            pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
+            pdf = pandas.DataFrame(
+                data={
+                    names[i]: arg if isinstance(arg, pandas.Series)
+                    # pandas_udf receives a StructType column as a pandas DataFrame.
+                    # We need to convert it back to a dict of pandas Series.
+                    else arg.apply(lambda row: row.to_dict(), axis=1)
+                    for i, arg in enumerate(args)
+                },
+                columns=names,
+            )
 
         result = predict_fn(pdf, params)
 
@@ -1416,7 +1440,7 @@ Compound types:
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
-            result = pandas.DataFrame(data=result)
+            result = pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
 
         if isinstance(result_type, SparkStructType):
             result_dict = {}

@@ -52,15 +52,14 @@ def patched_add_event(original, self, event, *args, mlflow_log_every_n_step, **k
         global_step = args[0] if len(args) > 0 else kwargs.get("global_step", None)
         global_step = global_step or 0
         for v in summary.value:
-            if v.HasField("simple_value"):
-                if global_step % mlflow_log_every_n_step == 0:
-                    add_to_metrics_queue(
-                        key=v.tag,
-                        value=v.simple_value,
-                        step=global_step,
-                        time=int((event.wall_time or time.time()) * 1000),
-                        run_id=run.info.run_id,
-                    )
+            if v.HasField("simple_value") and global_step % mlflow_log_every_n_step == 0:
+                add_to_metrics_queue(
+                    key=v.tag,
+                    value=v.simple_value,
+                    step=global_step,
+                    time=int((event.wall_time or time.time()) * 1000),
+                    run_id=run.info.run_id,
+                )
 
     return original(self, event, *args, **kwargs)
 
