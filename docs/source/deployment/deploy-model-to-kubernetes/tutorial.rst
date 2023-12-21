@@ -10,24 +10,24 @@ Develop ML model with MLflow and deploy to Kubernetes
 This guide demonstrates how to use MLflow end-to-end for:
 
 - Training a linear regression model with `MLflow Tracking <../../../tracking.html>`_.
-- Conducting hyper arameter tuning to find the best model.
-- Packaging the model weight and dependencies as an `MLflow Model <../../../models.html>`_.
+- Conducting hyper-parameter tuning to find the best model.
+- Packaging the model weights and dependencies as an `MLflow Model <../../../models.html>`_.
 - Testing model serving locally with `mlserver <https://mlserver.readthedocs.io/en/latest/>`_ using the `mlflow models serve <../../../cli.html#mlflow-models-serve>`_ command.
 - Deploying the model to a Kubernetes cluster using `KServe <https://kserve.github.io/website/>`_ with MLflow.
 
-We will cover end-to-end model developemnt process including model training and testing.
-However, if you already have a model and just want to learn how to deploy it to Kubernetes, you can skip to :ref:`Step 6 - Test Model Serving Locally <step-6-test-model-serving-locally>`
+We will cover an end-to-end model development process including model training and testing within this tutorial.
+If you already have a model and simply want to learn how to deploy it to Kubernetes, you can skip to :ref:`Step 6 - Test Model Serving Locally <step-6-test-model-serving-locally>`
 
 
 Introduction: Scalable Model Serving with KServe and MLServer
 -------------------------------------------------------------
 
-MLflow provides an easy-to-use interface for deploying modeles as a Flask-based inference server. You can deploy the same inference
+MLflow provides an easy-to-use interface for deploying models within a Flask-based inference server. You can deploy the same inference
 server to a Kubernetes cluster by containerizing it using the ``mlflow models build-docker`` command. However, this approach may not be scalable
 and could be unsuitable for production use cases. Flask is not designed for high performance, and manually managing multiple instances of
 inference servers is backbreaking.
 
-Fortunately, MLflow offers a solution for this. MLflow supports alternative inference engine called `MLServer <https://mlserver.readthedocs.io/en/latest/>`_,
+Fortunately, MLflow offers a solution for this. MLflow provides an alternative inference engine that is better suited for larger-scale inference deployments with its support for `MLServer <https://mlserver.readthedocs.io/en/latest/>`_,
 which enables one-step deployment to popular serverless model serving frameworks on Kubernetes, such as `KServe <https://kserve.github.io/website/>`_, and 
 `Seldon Core <https://docs.seldon.io/projects/seldon-core/en/latest/>`_.
 
@@ -35,11 +35,11 @@ which enables one-step deployment to popular serverless model serving frameworks
 What is KServe?
 ~~~~~~~~~~~~~~~
 
-`KServe <https://kserve.github.io/website/>`_, formally known as KFServing, provides performant, scalable, and high-abstraction interfaces for common machine learning frameworks like Tensorflow, XGBoost, scikit-learn, and Pytorch.
+`KServe <https://kserve.github.io/website/>`_, formally known as KFServing, provides performant, scalable, and highly-abstracted interfaces for common machine learning frameworks like Tensorflow, XGBoost, scikit-learn, and Pytorch.
 It offers advanced features that aid in operating large-scale machine learning systems, such as **autoscaling**, **canary rollout**, **A/B testing**, **monitoring**,
 **explability**, and more, leveraging the Kubernetes ecosystem, including `KNative <https://knative.dev/>`_ and `Istio <https://istio.io/>`_.
 
-Benefit of using MLflow with KServe
+Benefits of using MLflow with KServe
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 While KServe enables highly scalable and production-ready model serving, deplying your model there might require some effort.
@@ -57,9 +57,9 @@ First, please install mlflow to your local machine using the following command:
   pip install mlflow[extras]
 
 ``[extras]`` will install additional dependencies required for this tutorial including `mlserver <https://mlserver.readthedocs.io/en/latest/>`_ and
-`scikit-learn <https://scikit-learn.org/stable/>`_. Note that scikit-learn is not required for deployment, just for training an example model for this tutorial.
+`scikit-learn <https://scikit-learn.org/stable/>`_. Note that scikit-learn is not required for deployment, just for training the example model used in this tutorial.
 
-You can check if mlflow is installed correctly by running:
+You can check if MLflow is installed correctly by running:
 
 .. code-block:: bash
 
@@ -91,7 +91,7 @@ Let's start from training a model with the default hyperparameters. Execute the 
 .. note::
 
   For the sake of convenience, we use the `mlflow.sklearn.autolog() <../../../python_api/mlflow.sklearn.html#mlflow.sklearn.autolog>`_ function.
-  This function let MLflow to automatically log the appropriate set of model parameters and metrics. To learn more about the autologging feature
+  This function allows MLflow to automatically log the appropriate set of model parameters and metrics during training. To learn more about the auto-logging feature
   or how to log manually instead, see the `MLflow Tracking documentation <../../../tracking.html>`_.
 
 .. code-block:: python
@@ -228,7 +228,7 @@ The other files specify the dependencies required to run the model.
 Step 6: Testing Model Serving Locally
 -------------------------------------
 
-Now that you are ready to deploy the model, but let's first test the model serving locally. As outlined in the
+Before deploying the model, let's first test that the model can be served locally. As outlined in the
 `Deploy MLflow Model Locally <../deploy-model-locally.html>`_, you can run a local inferecen server with just a single command.
 Remember to use the ``enable-mlserver`` flag, which instructs MLflow to use MLServer as the inference server. This ensures the model runs in the
 same manner as it would in Kubernetes.
@@ -251,7 +251,7 @@ For more information about the request format and response formats, refer to :re
 Step 7: Deploying the Model to KServe
 -------------------------------------
 
-Finally we are all set to deploy the model to the Kubernetes cluster.
+Finally, we are all set to deploy the model to the Kubernetes cluster.
 
 Create Namespace
 ~~~~~~~~~~~~~~~~
@@ -283,9 +283,9 @@ Please open the tabs below for details on each approach.
 
       <h4>Register Docker Account</h4>
 
-    Since KServe cannot resolve locally built Docker image, you need to push the image to a Docker registry.
+    Since KServe cannot resolve a locally built Docker image, you need to push the image to a Docker registry.
     For this tutorial, we'll push the image to `Docker Hub <https://hub.docker.com/>`_, but you can use any other Docker registry,
-    such as `Amazon ECR <https://aws.amazon.com/ecr/>`_ or private registry.
+    such as `Amazon ECR <https://aws.amazon.com/ecr/>`_ or a private registry.
 
     If you don't have a Docker Hub account yet, create one at https://hub.docker.com/signup.
 
@@ -343,7 +343,7 @@ Please open the tabs below for details on each approach.
 
       <h4>Get Remote Model URI</h4>
 
-    KServe configuration allows direct specification of the model URI. However, it doesn't resolve MLflow-specific URI schema like ``runs:/`` and ``model:/``,
+    KServe configuration allows direct specification of the model URI. However, it doesn't resolve MLflow-specific URI schemas like ``runs:/`` and ``model:/``,
     nor local file URIs like ``file:///``. We need to specify the model URI in a remote storage URI format e.g. ``s3://xxx`` or ``gs://xxx``.
     By default, MLflow stores the model in the local file system, so you need to configure MLflow to store the model in remote storage.
     Please refer to `Artifact Store <../../../tracking.html#artifact-stores>`_ for setup instructions.
@@ -464,7 +464,7 @@ Then send the request to your inference service:
           http://localhost:8080/v2/models/mlflow-wine-classifier/infer
 
 
-Troubleshoot
+Troubleshooting
 ------------
 
 If you have any trouble during deployment, please consult with the `KServe official documentation <https://kserve.github.io/website/>`_
