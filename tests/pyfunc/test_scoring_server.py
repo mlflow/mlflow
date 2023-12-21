@@ -59,8 +59,8 @@ def build_and_save_sklearn_model(model_path):
 
 class MyLLM(PythonModel):
     def predict(self, context, model_input):
-        messages = model_input
-
+        key = model_input["key"]
+        messages = model_input[key]
         ret = " ".join([m["content"] for m in messages])
 
         return {
@@ -721,15 +721,11 @@ def test_scoring_server_client(sklearn_model, model_path):
             os.kill(server_proc.pid, signal.SIGTERM)
 
 
-def test_scoring_server_allows_payloads_with_messages_for_pyfunc(model_path):
+@pytest.mark.parametrize("key", ["messages", "input", "prompt"])
+def test_scoring_server_allows_payloads_with_llm_keys_for_pyfunc(model_path, key):
     mlflow.pyfunc.save_model(model_path, python_model=MyLLM())
 
-    payload = json.dumps(
-        {
-            "messages": [{"role": "user", "content": "hello!"}],
-            "max_tokens": 20,
-        }
-    )
+    payload = json.dumps({"key": key, key: [{"role": "user", "content": "hello!"}]})
     response = pyfunc_serve_and_score_model(
         model_uri=model_path,
         data=payload,
@@ -751,7 +747,7 @@ def test_scoring_server_allows_payloads_with_messages_for_pyfunc_wrapped(model_p
 
         # note: model_input is the value of "messages", not a dict
         def predict(self, context, model_input):
-            weird_but_valid_parse = [json.loads(model_input[0]["content"])]
+            weird_but_valid_parse = [json.loads(model_input["messages"][0]["content"])]
             return self.model.predict(weird_but_valid_parse)
 
     mlflow.pyfunc.save_model(
@@ -779,6 +775,7 @@ def test_scoring_server_rejects_payloads_with_messages_non_pyfunc(model_path):
     # valid format, but the model is sklearn
     payload = json.dumps(
         {
+            "key": "messages",
             "messages": [{"role": "user", "content": "hello!"}],
             "max_tokens": 20,
         }
@@ -790,26 +787,7 @@ def test_scoring_server_rejects_payloads_with_messages_non_pyfunc(model_path):
         extra_args=["--env-manager", "local"],
     )
     expect_status_code(response, 400)
-    assert "The input must be a JSON dictionary with exactly one of the input fields" in json.loads(
-        response.content
+    assert (
+        "The input must be a JSON dictionary with exactly one"
+        in json.loads(response.content)["message"]
     )
-
-
-def test_scoring_server_rejecs_payloads_with_invalid_messages(model_path):
-    mlflow.pyfunc.save_model(model_path, python_model=MyLLM())
-
-    # invalid format
-    payload = json.dumps(
-        {
-            "messages": ["hello", "world"],
-            "max_tokens": 20,
-        }
-    )
-    response = pyfunc_serve_and_score_model(
-        model_uri=model_path,
-        data=payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    expect_status_code(response, 400)
-    assert 'Invalid input provided for the "messages" key.' in json.loads(response.content)

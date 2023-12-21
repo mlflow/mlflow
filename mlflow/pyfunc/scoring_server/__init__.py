@@ -31,9 +31,8 @@ from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 # dependencies to the minimum here.
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _read_unified_llm_input
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
-from mlflow.types import Schema
+from mlflow.types import ParamSchema, Schema
 from mlflow.utils import reraise
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -75,9 +74,15 @@ INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 
-MESSAGES_INPUT_FORMAT = (
-    'Invalid input provided for the "messages" key. Please ensure that the value of "messages" '
-    'is a list of objects with the following type: {"role": string, "content": string }.'
+LLM_INPUT = "input"
+LLM_PROMPT = "prompt"
+LLM_MESSAGES = "messages"
+
+SUPPORTED_LLM_FORMATS = {LLM_INPUT, LLM_PROMPT, LLM_MESSAGES}
+
+REQUIRED_LLM_FORMAT = (
+    f"Inputs in this format may only specify one of {SUPPORTED_LLM_FORMATS}, along with "
+    "other optional params (e.g. temperature, max_tokens, n)"
 )
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
@@ -173,6 +178,26 @@ def _decode_json_input(json_input):
     raise MlflowInvalidInputException(
         f"{REQUIRED_INPUT_FORMAT}. Received unexpected input type '{type(decoded_input)}."
     )
+
+
+def _read_unified_llm_input(dict_input, param_schema: ParamSchema = None):
+    overlap = set(dict_input.keys()).intersection(SUPPORTED_LLM_FORMATS)
+    if len(overlap) != 1:
+        raise MlflowException(
+            message=f"{REQUIRED_LLM_FORMAT}. Received '{dict_input}'",
+        )
+
+    data = {}
+    params = {}
+    schema_params = {param.name for param in param_schema.params} if param_schema else {}
+
+    for key, value in dict_input.items():
+        if key in schema_params:
+            params[key] = value
+        else:
+            data[key] = value
+
+    return data, params
 
 
 def _split_data_and_params(json_input):
@@ -310,10 +335,14 @@ def invocations(data, content_type, model, input_schema):
         should_parse_as_unified_llm_input = _should_parse_as_unified_llm_input(model, dict_input)
         if should_parse_as_unified_llm_input:
             try:
-                data, params = _read_unified_llm_input(dict_input)
-            except MlflowException:
+                if hasattr(model.metadata, "get_params_schema"):
+                    params_schema = model.metadata.get_params_schema()
+                else:
+                    params_schema = None
+                data, params = _read_unified_llm_input(dict_input, params_schema)
+            except MlflowException as e:
                 _handle_serving_error(
-                    f"{MESSAGES_INPUT_FORMAT} Received '{dict_input}'",
+                    e.message,
                     error_code=BAD_REQUEST,
                 )
         else:
@@ -452,7 +481,7 @@ def _should_parse_as_unified_llm_input(model, dict_input):
     return (
         len(model.metadata.flavors) == 1
         and "python_function" in model.metadata.flavors
-        and "messages" in dict_input
+        and (LLM_INPUT in dict_input or LLM_MESSAGES in dict_input or LLM_PROMPT in dict_input)
     )
 
 
