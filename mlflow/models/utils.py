@@ -67,6 +67,7 @@ UNIFIED_LLM_INPUT_SCHEMA = Schema(
                     [
                         Property("role", DataType.string),
                         Property("content", DataType.string),
+                        Property("name", DataType.string, required=False),
                     ]
                 )
             ),
@@ -419,7 +420,7 @@ def _read_example_params(mlflow_model: Model, path: str):
     return input_example_dict[EXAMPLE_PARAMS_KEY]
 
 
-def _read_openai_input(dict_input):
+def _read_unified_llm_input(dict_input):
     # enforce the schema, throw if invalid
     _enforce_schema(dict_input, UNIFIED_LLM_INPUT_SCHEMA)
 

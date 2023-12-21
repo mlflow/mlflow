@@ -31,7 +31,7 @@ from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 # dependencies to the minimum here.
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _read_openai_input
+from mlflow.models.utils import _read_unified_llm_input
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
 from mlflow.types import Schema
 from mlflow.utils import reraise
@@ -307,10 +307,10 @@ def invocations(data, content_type, model, input_schema):
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
         dict_input = _decode_json_input(data)
-        should_parse_as_openai = _should_parse_as_openai_input(model, dict_input)
-        if should_parse_as_openai:
+        should_parse_as_unified_llm_input = _should_parse_as_unified_llm_input(model, dict_input)
+        if should_parse_as_unified_llm_input:
             try:
-                data, params = _read_openai_input(dict_input)
+                data, params = _read_unified_llm_input(dict_input)
             except MlflowException:
                 _handle_serving_error(
                     f"{MESSAGES_INPUT_FORMAT} Received '{dict_input}'",
@@ -360,11 +360,9 @@ def invocations(data, content_type, model, input_schema):
         )
     result = StringIO()
 
-    # if the data was in an unsupported format, then we can assume that the user
-    # does not want the output to be formatted in the normal pyfunc way (otherwise
-    # they would have passed the data in a compatible way), so we return the raw
-    # predictions.
-    if should_parse_as_openai:
+    # if the data was formatted using the unified LLM format,
+    # then return the data without the "predictions" key
+    if should_parse_as_unified_llm_input:
         unwrapped_predictions_to_json(raw_predictions, result)
     else:
         predictions_to_json(raw_predictions, result)
@@ -450,7 +448,7 @@ def _predict(model_uri, input_path, output_path, content_type):
             predictions_to_json(raw_predictions, fout)
 
 
-def _should_parse_as_openai_input(model, dict_input):
+def _should_parse_as_unified_llm_input(model, dict_input):
     return (
         len(model.metadata.flavors) == 1
         and "python_function" in model.metadata.flavors
