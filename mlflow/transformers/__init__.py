@@ -1403,6 +1403,7 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
             params = None
             if _contains_params(example):
                 example, params = example
+            example = _format_input_example_for_special_cases(example, pipeline)
             prediction = generate_signature_output(pipeline, example, model_config, params)
             return infer_signature(example, prediction, params)
         except Exception as e:
@@ -1757,7 +1758,7 @@ class _TransformersWrapper:
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
-        elif isinstance(data, dict):
+        elif isinstance(data, (dict, str, bytes, np.ndarray)):
             input_data = data
         elif isinstance(data, list):
             if not all(isinstance(entry, (str, dict)) for entry in data):
@@ -1767,8 +1768,6 @@ class _TransformersWrapper:
                     "dictionaries must be strings and values must be either str or List[str].",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            input_data = data
-        elif isinstance(data, (str, bytes, np.ndarray)):
             input_data = data
         else:
             raise MlflowException(
@@ -2664,6 +2663,10 @@ class _TransformersWrapper:
             return decode_audio(encoded_audio)
         elif isinstance(data, str):
             self._validate_str_input_uri_or_file(data)
+        # For new schema, we extract the data field out when converting
+        # pandas DataFrame to dictionary.
+        elif isinstance(data, bytes):
+            return decode_audio(data)
         return data
 
     @staticmethod
@@ -2685,9 +2688,13 @@ class _TransformersWrapper:
         valid_uri = os.path.isfile(input_str) or is_uri(input_str)
 
         if not valid_uri:
+            if len(input_str) <= 20:
+                data_str = f"Received: {input_str}"
+            else:
+                data_str = f"Received (truncated): {input_str[:20]}..."
             raise MlflowException(
                 "An invalid string input was provided. String inputs to "
-                "audio files must be either a file location or a uri.",
+                f"audio files must be either a file location or a uri. {data_str}",
                 error_code=BAD_REQUEST,
             )
 

@@ -33,6 +33,7 @@ from mlflow.langchain.utils import (
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -185,6 +186,7 @@ def save_model(
                         See a complete example in examples/langchain/retrieval_qa_chain.py.
     """
     import langchain
+    from langchain.schema import BaseRetriever
 
     lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
 
@@ -193,6 +195,40 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if signature is None:
+        if input_example is not None:
+            wrapped_model = _LangChainModelWrapper(lc_model)
+            signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        else:
+            if hasattr(lc_model, "input_keys"):
+                input_columns = [
+                    ColSpec(type=DataType.string, name=input_key)
+                    for input_key in lc_model.input_keys
+                ]
+                input_schema = Schema(input_columns)
+            else:
+                input_schema = None
+            if (
+                hasattr(lc_model, "output_keys")
+                and len(lc_model.output_keys) == 1
+                and not isinstance(lc_model, BaseRetriever)
+            ):
+                output_columns = [
+                    ColSpec(type=DataType.string, name=output_key)
+                    for output_key in lc_model.output_keys
+                ]
+                output_schema = Schema(output_columns)
+            else:
+                # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
+                # https://databricks.atlassian.net/browse/ML-34706
+                output_schema = None
+
+            signature = (
+                ModelSignature(input_schema, output_schema)
+                if input_schema or output_schema
+                else None
+            )
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -369,31 +405,7 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
-    from langchain.schema import BaseRetriever
-
     lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
-
-    # infer signature if signature is not provided
-    if signature is None:
-        if hasattr(lc_model, "input_keys") and hasattr(lc_model, "output_keys"):
-            input_columns = [
-                ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
-            ]
-            input_schema = Schema(input_columns)
-
-            output_columns = [
-                ColSpec(type=DataType.string, name=output_key)
-                for output_key in lc_model.output_keys
-            ]
-            output_schema = Schema(output_columns)
-
-            # TODO: empty output schema if multiple output_keys or is a retriever. fix later!
-            # https://databricks.atlassian.net/browse/ML-34706
-            if len(lc_model.output_keys) > 1 or isinstance(lc_model, BaseRetriever):
-                output_schema = None
-
-            signature = ModelSignature(input_schema, output_schema)
-        # TODO: support signature for other runnables
 
     return Model.log(
         artifact_path=artifact_path,
@@ -452,23 +464,42 @@ class _LangChainModelWrapper:
 
         :return: Model predictions.
         """
+
+        # numpy array is not json serializable, so we convert it to list
+        # then send it to the model
+        def _convert_ndarray_to_list(data):
+            import numpy as np
+
+            if isinstance(data, np.ndarray):
+                return data.tolist()
+            if isinstance(data, list):
+                return [_convert_ndarray_to_list(d) for d in data]
+            if isinstance(data, dict):
+                return {k: _convert_ndarray_to_list(v) for k, v in data.items()}
+            return data
+
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
+        return_first_element = False
         if isinstance(data, pd.DataFrame):
             messages = data.to_dict(orient="records")
-        elif isinstance(self.lc_model, lc_runnables_types()):
-            messages = [data]
-            return process_api_requests(lc_model=self.lc_model, requests=messages)[0]
-        elif isinstance(data, list) and (
-            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
-        ):
-            messages = data
         else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "Input must be a pandas DataFrame or a list of strings or a list of dictionaries "
-                f"for model {self.lc_model.__class__.__name__}"
-            )
-        return process_api_requests(lc_model=self.lc_model, requests=messages)
+            data = _convert_ndarray_to_list(data)
+            if isinstance(self.lc_model, lc_runnables_types()):
+                messages = [data]
+                return_first_element = True
+            elif isinstance(data, list) and (
+                all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
+            ):
+                messages = data
+            else:
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    "Input must be a pandas DataFrame or a list of strings "
+                    "or a list of dictionaries "
+                    f"for model {self.lc_model.__class__.__name__}"
+                )
+        results = process_api_requests(lc_model=self.lc_model, requests=messages)
+        return results[0] if return_first_element else results
 
 
 class _TestLangChainWrapper(_LangChainModelWrapper):

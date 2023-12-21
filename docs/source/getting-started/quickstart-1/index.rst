@@ -335,6 +335,6 @@ Note that while ``log_model`` saves environment-specifying files such as **conda
 (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by ``log_model``. 
 
 If you serve your model with ``mlflow models serve``, MLflow will automatically recreate the environment. Those commands also accept an 
-``--env-manager`` option for even more control. This is described in detail in :ref:`model-enviroment-management`. 
+``--env-manager`` option for even more control. This is described in detail in `CLI reference <../../cli.html#mlflow-models-serve>`_. 
 
 In the case of ``mlflow.pyfunc.spark_udf()``, you can use the ``--env-manager`` flag to recreate the environment during Spark batch inference.

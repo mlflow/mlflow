@@ -390,7 +390,7 @@ def iris_model():
             "petal length (cm)": 1.4,
             "petal width (cm)": 0.2,
         },
-        [5.1, 3.5, 1.4, 0.2],
+        pd.DataFrame([[5.1, 3.5, 1.4, 0.2]]),
         pd.DataFrame(
             {
                 "sepal length (cm)": 5.1,

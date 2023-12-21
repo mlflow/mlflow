@@ -5,12 +5,19 @@ import numpy as np
 import pandas as pd
 import pytest
 import tensorflow as tf
+from packaging.version import Version
 from pyspark.sql.functions import struct
 from sklearn import datasets
 from tensorflow.keras.layers import Concatenate, Dense, Input, Lambda
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.optimizers import SGD
-from tensorflow.keras.utils import register_keras_serializable
+
+# Tensorflow >= 2.16 removed register_keras_serializable from
+# keras.utils and only export it from keras.saving.
+if Version(tf.__version__).release >= (2, 16):
+    from tensorflow.keras.saving import register_keras_serializable
+else:
+    from tensorflow.keras.utils import register_keras_serializable
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
