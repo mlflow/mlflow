@@ -59,10 +59,7 @@ def build_and_save_sklearn_model(model_path):
 
 class MyLLM(PythonModel):
     def predict(self, context, model_input):
-        if isinstance(model_input, pd.DataFrame):
-            messages = model_input["messages"][0]
-        else:
-            messages = model_input["messages"]
+        messages = model_input
 
         ret = " ".join([m["content"] for m in messages])
 
@@ -793,7 +790,9 @@ def test_scoring_server_rejects_payloads_with_messages_non_pyfunc(model_path):
         extra_args=["--env-manager", "local"],
     )
     expect_status_code(response, 400)
-    assert "asdasdasd" in json.loads(response.content)
+    assert "The input must be a JSON dictionary with exactly one of the input fields" in json.loads(
+        response.content
+    )
 
 
 def test_scoring_server_rejecs_payloads_with_invalid_messages(model_path):

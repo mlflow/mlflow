@@ -303,14 +303,14 @@ def invocations(data, content_type, model, input_schema):
             mimetype="text/plain",
         )
     # Convert from CSV to pandas
-    data_in_unsupported_format = False
     if mime_type == CONTENT_TYPE_CSV:
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
         dict_input = _decode_json_input(data)
-        if _should_parse_as_openai_input(model, dict_input):
+        should_parse_as_openai = _should_parse_as_openai_input(model, dict_input)
+        if should_parse_as_openai:
             try:
                 data, params = _read_openai_input(dict_input)
             except MlflowException:
@@ -366,7 +366,7 @@ def invocations(data, content_type, model, input_schema):
     # does not want the output to be formatted in the normal pyfunc way (otherwise
     # they would have passed the data in a compatible way), so we return the raw
     # predictions.
-    if data_in_unsupported_format:
+    if should_parse_as_openai:
         unwrapped_predictions_to_json(raw_predictions, result)
     else:
         predictions_to_json(raw_predictions, result)
