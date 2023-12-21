@@ -183,8 +183,10 @@ def _decode_json_input(json_input):
 def _read_unified_llm_input(dict_input, param_schema: ParamSchema = None):
     overlap = set(dict_input.keys()).intersection(SUPPORTED_LLM_FORMATS)
     if len(overlap) != 1:
-        raise MlflowException(
-            message=f"{REQUIRED_LLM_FORMAT}. Received '{dict_input}'",
+        _handle_serving_error(
+            error_message=f"{REQUIRED_LLM_FORMAT}. Received '{dict_input}'",
+            error_code=BAD_REQUEST,
+            include_traceback=False,
         )
 
     data = {}
@@ -334,17 +336,11 @@ def invocations(data, content_type, model, input_schema):
         dict_input = _decode_json_input(data)
         should_parse_as_unified_llm_input = _should_parse_as_unified_llm_input(model, dict_input)
         if should_parse_as_unified_llm_input:
-            try:
-                if hasattr(model.metadata, "get_params_schema"):
-                    params_schema = model.metadata.get_params_schema()
-                else:
-                    params_schema = None
-                data, params = _read_unified_llm_input(dict_input, params_schema)
-            except MlflowException as e:
-                _handle_serving_error(
-                    e.message,
-                    error_code=BAD_REQUEST,
-                )
+            if hasattr(model.metadata, "get_params_schema"):
+                params_schema = model.metadata.get_params_schema()
+            else:
+                params_schema = None
+            data, params = _read_unified_llm_input(dict_input, params_schema)
         else:
             data, params = _split_data_and_params(data)
             data = infer_and_parse_data(data, input_schema)

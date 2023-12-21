@@ -793,6 +793,20 @@ def test_scoring_server_rejects_payloads_with_messages_non_pyfunc(model_path):
     )
 
 
+def test_scoring_server_rejects_payloads_with_multiple_llm_keys(model_path):
+    mlflow.pyfunc.save_model(model_path, python_model=MyLLM())
+
+    payload = json.dumps({"messages": "test", "input": "test"})
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 400)
+    assert "Inputs in this format may only specify one" in json.loads(response.content)["message"]
+
+
 @pytest.mark.parametrize(
     ("dict_input", "param_schema", "expected"),
     [
