@@ -1,4 +1,6 @@
 import logging
+import json
+import sys
 
 import click
 
@@ -272,3 +274,51 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
         install_mlflow=install_mlflow,
         enable_mlserver=enable_mlserver,
     )
+
+@commands.command("validate-local")
+@cli_args.MODEL_URI
+@click.option("--input-data", "-i", help="Sample input data for the endpoint. Either a path to a JSON file or a serialized string")
+@click.option("--header", help="Additional headers to add to the request, in a serialized JSON format")
+@cli_args.PORT
+@cli_args.ENV_MANAGER
+@cli_args.ENABLE_MLSERVER
+@click.option("--env", "-e", default=None, multiple=True,
+              help="A list of environment variables to be set in the container.")
+@click.option("--remove-image-on-success", "-rm", default=True, help="Remove the image after validation")
+def validate_local(
+    model_uri,
+    input_data,
+    header,
+    port,
+    env_manager,
+    enable_mlserver,
+    env,
+    remove_image_on_success):
+    """
+    Validates a model locally by starting a docker container and sending a request to the model
+    server. The input data can either be a path to a CSV/JSON file or a serialized string.
+    """
+    env_manager = env_manager or _EnvManager.VIRTUALENV
+    env_vars = {e.split("=")[0]: e.split("=")[1] for e in env}
+    headers = json.loads(header) if header else {}
+    backend = get_flavor_backend(model_uri, env_manager=env_manager)
+
+    try:
+        backend.validate_local(
+            model_uri=model_uri,
+            input_data_or_path=input_data,
+            headers=headers,
+            port=port,
+            enable_mlserver=enable_mlserver,
+            remove_image_on_success=remove_image_on_success,
+            env_vars=env_vars,
+        )
+        print ("\033[92mValidation succeeded!\33[0m")
+
+    except Exception:
+        print("\033[91mValidation failed with error!\33[0m")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    validate_local()

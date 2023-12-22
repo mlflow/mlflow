@@ -1,12 +1,15 @@
 import ctypes
+import json
 import logging
 import os
 import pathlib
 import posixpath
+import requests
 import shlex
 import signal
 import subprocess
 import sys
+import time
 import warnings
 from pathlib import Path
 
@@ -19,6 +22,9 @@ from mlflow.models.docker_utils import (
     _build_image,
     _generate_dockerfile_content,
     _get_mlflow_install_step,
+    remove_image,
+    run_container,
+    stop_container,
 )
 from mlflow.pyfunc import (
     ENV,
@@ -390,6 +396,81 @@ class PyFuncBackend(FlavorBackend):
                     """
 
         return copy_model_into_container
+
+    def validate_local(
+        self,
+        model_uri: str,
+        input_data_or_path: str,
+        headers: dict = {},
+        port: int = 5000,
+        enable_mlserver: bool = False,
+        env_vars: dict = None,
+        remove_image_on_success: bool = True,
+    ):
+        input_data = self._get_input_data(input_data_or_path)
+        # Build image
+        image_name = "mlflow-pyfunc-local-test"
+        self.build_image(
+            model_uri=model_uri,
+            image_name=image_name,
+            install_mlflow=self._install_mlflow,
+            mlflow_home=self._env_id,
+            enable_mlserver=enable_mlserver,
+        )
+        _logger.info(f"Built image {image_name}")
+
+        # Run container in the background
+        container = run_container(
+            image_name=image_name,
+            container_name="mlflow-validate-local-container",
+            port=port,
+            env_vars=env_vars,
+            wait_for_ready=True,
+        )
+
+        # Send request to the container
+        try:
+            predict_endpoint = f"http://localhost:{port}/invocations"
+            _logger.info(f"Sending request to container at {predict_endpoint}")
+
+            response = requests.post(
+                predict_endpoint,
+                data=input_data,
+                headers=headers if headers else {"Content-Type": "application/json"},
+            )
+
+            # Check the response
+            if response.status_code != 200:
+                raise Exception(f"Request failed with status code {response.status_code}. {response.text}")
+        except Exception as e:
+            _logger.error(e)
+            # Retain the container and image if the validation fails
+            stop_container(container.name, remove=False, show_logs=True)
+            raise
+
+        # Vlidation passed
+        stop_container(container.name, remove=True)
+        if remove_image_on_success:
+            remove_image(image_name)
+
+    def _get_input_data(self, input_data_or_path: str) -> dict:
+        """
+
+        """
+        if os.path.exists(input_data_or_path) and os.path.isfile(input_data_or_path):
+            try:
+                with open(input_data_or_path, "r") as f:
+                    input_data = json.load(f)
+            except Exception as e:
+                raise Exception(f"Failed to parse input data from file {input_data_or_path}: {e}")
+        else:
+            # Validate if the input data is in json format
+            try:
+                input_data = json.loads(input_data_or_path)
+            except Exception as e:
+                raise Exception(f"The sample request is not in peoper json format: {e}")
+
+        return input_data
 
 
 def _pyfunc_entrypoint(env_manager, model_uri, install_mlflow, enable_mlserver):
