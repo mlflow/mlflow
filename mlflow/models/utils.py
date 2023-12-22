@@ -341,8 +341,7 @@ def _save_example(
     if no_conversion:
         example_info = {
             INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
-            # TODO: update type to json_object and support in UI/_read_example
-            "type": "ndarray",
+            "type": "json_object",
         }
         try:
             with open(os.path.join(path, example_info[INPUT_EXAMPLE_PATH]), "w") as f:
@@ -371,7 +370,13 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
     if mlflow_model.saved_input_example_info is None:
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
-    if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
+    if example_type not in [
+        "dataframe",
+        "ndarray",
+        "sparse_matrix_csc",
+        "sparse_matrix_csr",
+        "json_object",
+    ]:
         raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     with open(path) as handle:
@@ -396,6 +401,8 @@ def _read_example(mlflow_model: Model, path: str):
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     if mlflow_model.saved_input_example_info.get(EXAMPLE_PARAMS_KEY, None):
         input_example = input_example[EXAMPLE_DATA_KEY]
+    if example_type == "json_object":
+        return input_example
     if example_type == "ndarray":
         return _read_tensor_input_from_json(input_example, schema=input_schema)
     if example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
