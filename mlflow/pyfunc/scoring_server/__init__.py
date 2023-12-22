@@ -74,7 +74,7 @@ INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 
-# TODO: Support other input key such as "prmopt", "input", used in other endpoint type like Embedding
+# TODO: Support other input keys like "prmopt", "input", for other endpoint types like Embedding
 SUPPORTED_LLM_FORMAT = "messages"
 
 REQUIRED_INPUT_FORMAT = (

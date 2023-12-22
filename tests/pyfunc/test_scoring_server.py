@@ -808,7 +808,9 @@ def test_scoring_server_allows_payloads_with_messages_for_pyfunc_wrapped(model_p
     ],
 )
 def test_split_data_and_params_for_llm_input(dict_input, param_schema, expected):
-    data, params = pyfunc_scoring_server._split_data_and_params_for_llm_input(dict_input, param_schema)
+    data, params = pyfunc_scoring_server._split_data_and_params_for_llm_input(
+        dict_input, param_schema
+    )
     expected_data, expected_params = expected
     assert data == expected_data
     assert params == expected_params
