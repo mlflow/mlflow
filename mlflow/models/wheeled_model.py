@@ -212,13 +212,24 @@ class WheeledModel:
 
         pip_wheel_options = MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS.get()
 
-        download_command = (
-            f"{sys.executable} -m pip wheel {pip_wheel_options} --wheel-dir={dst_path} -r"
-            f"{pip_requirements_path} --no-cache-dir"
-        )
 
         try:
-            subprocess.run([download_command], check=True, shell=True, capture_output=True)
+            subprocess.run(
+                [
+                    sys.executable,
+                     "-m",
+                     "pip",
+                     "wheel",
+                     pip_wheel_options,
+                     "--wheel-dir",
+                     dst_path,
+                     "-r",
+                     pip_requirements_path,
+                     "--no-cache-dir",
+                ],
+                check=True,
+                capture_output=True,
+            )
         except subprocess.CalledProcessError as e:
             raise MlflowException(
                 f"An error occurred while downloading the dependency wheels: {e.stderr}"
