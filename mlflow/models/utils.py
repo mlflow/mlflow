@@ -37,6 +37,7 @@ except ImportError:
 INPUT_EXAMPLE_PATH = "artifact_path"
 EXAMPLE_DATA_KEY = "inputs"
 EXAMPLE_PARAMS_KEY = "params"
+EXAMPLE_FILENAME = "input_example.json"
 
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
@@ -199,9 +200,8 @@ class _Example:
                 del result["columns"]
             return result
 
-        example_filename = "input_example.json"
         self.info = {
-            INPUT_EXAMPLE_PATH: example_filename,
+            INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
         }
         # Avoid changing the variable passed in
         input_example = deepcopy(input_example)
@@ -320,7 +320,9 @@ def _contains_params(input_example):
     )
 
 
-def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
+def _save_example(
+    mlflow_model: Model, input_example: ModelInputExample, path: str, no_conversion=False
+):
     """
     Save example to a file on the given path and updates passed Model with example metadata.
 
@@ -336,9 +338,24 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
     :param mlflow_model: Model metadata that will get updated with the example metadata.
     :param path: Where to store the example file. Should be model the model directory.
     """
-    example = _Example(input_example)
-    example.save(path)
-    mlflow_model.saved_input_example_info = example.info
+    if no_conversion:
+        example_info = {
+            INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
+            # TODO: update type to json_object and support in UI/_read_example
+            "type": "ndarray",
+        }
+        try:
+            with open(os.path.join(path, example_info[INPUT_EXAMPLE_PATH]), "w") as f:
+                json.dump(input_example, f, cls=NumpyEncoder)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                "Failed to save input example. Please make sure the input example is jsonable "
+                f"when no_conversion is True. Got error: {e}"
+            )
+    else:
+        example = _Example(input_example)
+        example.save(path)
+        mlflow_model.saved_input_example_info = example.info
 
 
 def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):

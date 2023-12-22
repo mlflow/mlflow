@@ -98,6 +98,7 @@ def save_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
+    **kwargs,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -236,7 +237,8 @@ def save_model(
         mlflow_model.signature = signature
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+        no_conversion = kwargs.get("example_no_conversion", False)
+        _save_example(mlflow_model, input_example, path, no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -306,6 +308,7 @@ def log_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
+    **kwargs,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -422,6 +425,7 @@ def log_model(
         metadata=metadata,
         loader_fn=loader_fn,
         persist_dir=persist_dir,
+        **kwargs,
     )
 
 

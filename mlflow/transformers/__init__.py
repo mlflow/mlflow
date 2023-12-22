@@ -453,7 +453,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         input_example = _format_input_example_for_special_cases(input_example, built_pipeline)
-        _save_example(mlflow_model, input_example, str(path))
+        no_conversion = kwargs.get("example_no_conversion", False)
+        _save_example(mlflow_model, input_example, str(path), no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
