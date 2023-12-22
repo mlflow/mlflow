@@ -736,7 +736,7 @@ def test_scoring_server_client(sklearn_model, model_path):
             os.kill(server_proc.pid, signal.SIGTERM)
 
 
-@pytest.mark.parametrize("key", ["messages", "input", "prompt"])
+@pytest.mark.parametrize("key", ["messages"])
 def test_scoring_server_allows_payloads_with_llm_keys_for_pyfunc(model_path, key):
     mlflow.pyfunc.save_model(model_path, python_model=MyLLM())
 
@@ -784,44 +784,6 @@ def test_scoring_server_allows_payloads_with_messages_for_pyfunc_wrapped(model_p
     expect_status_code(response, 200)
 
 
-def test_scoring_server_rejects_payloads_with_messages_non_pyfunc(model_path):
-    build_and_save_sklearn_model(model_path)
-
-    # valid format, but the model is sklearn
-    payload = json.dumps(
-        {
-            "key": "messages",
-            "messages": [{"role": "user", "content": "hello!"}],
-            "max_tokens": 20,
-        }
-    )
-    response = pyfunc_serve_and_score_model(
-        model_uri=model_path,
-        data=payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    expect_status_code(response, 400)
-    assert (
-        "The input must be a JSON dictionary with exactly one"
-        in json.loads(response.content)["message"]
-    )
-
-
-def test_scoring_server_rejects_payloads_with_multiple_llm_keys(model_path):
-    mlflow.pyfunc.save_model(model_path, python_model=MyLLM())
-
-    payload = json.dumps({"messages": "test", "input": "test"})
-    response = pyfunc_serve_and_score_model(
-        model_uri=model_path,
-        data=payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    expect_status_code(response, 400)
-    assert "Inputs in this format may only specify one" in json.loads(response.content)["message"]
-
-
 @pytest.mark.parametrize(
     ("dict_input", "param_schema", "expected"),
     [
@@ -845,8 +807,8 @@ def test_scoring_server_rejects_payloads_with_multiple_llm_keys(model_path):
         ),
     ],
 )
-def test_read_unified_llm_input(dict_input, param_schema, expected):
-    data, params = pyfunc_scoring_server._read_unified_llm_input(dict_input, param_schema)
+def test_split_data_and_params_for_llm_input(dict_input, param_schema, expected):
+    data, params = pyfunc_scoring_server._split_data_and_params_for_llm_input(dict_input, param_schema)
     expected_data, expected_params = expected
     assert data == expected_data
     assert params == expected_params

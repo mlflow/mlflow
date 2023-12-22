@@ -74,16 +74,9 @@ INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 
-LLM_INPUT = "input"
-LLM_PROMPT = "prompt"
-LLM_MESSAGES = "messages"
+# TODO: Support other input key such as "prmopt", "input", used in other endpoint type like Embedding
+SUPPORTED_LLM_FORMAT = "messages"
 
-SUPPORTED_LLM_FORMATS = {LLM_INPUT, LLM_PROMPT, LLM_MESSAGES}
-
-REQUIRED_LLM_FORMAT = (
-    f"Inputs in this format may only specify one of {SUPPORTED_LLM_FORMATS}, along with "
-    "other optional params (e.g. temperature, max_tokens, n)"
-)
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
 )
@@ -180,20 +173,12 @@ def _decode_json_input(json_input):
     )
 
 
-def _read_unified_llm_input(dict_input, param_schema: ParamSchema = None):
-    overlap = set(dict_input.keys()).intersection(SUPPORTED_LLM_FORMATS)
-    if len(overlap) != 1:
-        _handle_serving_error(
-            error_message=f"{REQUIRED_LLM_FORMAT}. Received '{dict_input}'",
-            error_code=BAD_REQUEST,
-            include_traceback=False,
-        )
-
+def _split_data_and_params_for_llm_input(json_input, param_schema: ParamSchema):
     data = {}
     params = {}
     schema_params = {param.name for param in param_schema.params} if param_schema else {}
 
-    for key, value in dict_input.items():
+    for key, value in json_input.items():
         # if the model defines a param schema, then we can add
         # it to the params dict. otherwise, add it to the data
         # dict to prevent it from being ignored at inference time
@@ -330,22 +315,29 @@ def invocations(data, content_type, model, input_schema):
             status=415,
             mimetype="text/plain",
         )
-    # Convert from CSV to pandas
+
+    # The traditional JSON request/response format, wraps the data with one of the supported keys
+    # like "dataframe_split" and "predictions". For LLM use cases, we also support unwrapped JSON
+    # payload, to provide unified prediction interface.
     should_parse_as_unified_llm_input = False
+
     if mime_type == CONTENT_TYPE_CSV:
+        # Convert from CSV to pandas
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
-        dict_input = _decode_json_input(data)
-        should_parse_as_unified_llm_input = _should_parse_as_unified_llm_input(model, dict_input)
+        json_input = _decode_json_input(data)
+        should_parse_as_unified_llm_input = SUPPORTED_LLM_FORMAT in json_input
         if should_parse_as_unified_llm_input:
+            # Unified LLM input format
             if hasattr(model.metadata, "get_params_schema"):
                 params_schema = model.metadata.get_params_schema()
             else:
                 params_schema = None
-            data, params = _read_unified_llm_input(dict_input, params_schema)
+            data, params = _split_data_and_params_for_llm_input(json_input, params_schema)
         else:
+            # Traditional json input format
             data, params = _split_data_and_params(data)
             data = infer_and_parse_data(data, input_schema)
     else:
@@ -475,17 +467,6 @@ def _predict(model_uri, input_path, output_path, content_type):
     else:
         with open(output_path, "w") as fout:
             predictions_to_json(raw_predictions, fout)
-
-
-def _should_parse_as_unified_llm_input(model, dict_input):
-    try:
-        return (
-            len(model.metadata.flavors) == 1
-            and "python_function" in model.metadata.flavors
-            and (LLM_INPUT in dict_input or LLM_MESSAGES in dict_input or LLM_PROMPT in dict_input)
-        )
-    except Exception:
-        return False
 
 
 def _serve(model_uri, port, host):
