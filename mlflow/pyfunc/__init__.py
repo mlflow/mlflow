@@ -1893,6 +1893,7 @@ def save_model(
                 "`pip_requirements`, or `extra_pip_requirements` must be specified."
             )
 
+    example_no_conversion = kwargs.pop("example_no_conversion", False)
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
         raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
@@ -1963,7 +1964,7 @@ def save_model(
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
