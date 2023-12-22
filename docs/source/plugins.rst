@@ -438,16 +438,16 @@ For more details, please visit the `oci-mlflow Quickstart <https://oci-mlflow.re
 
 
         exp_name = "myexp"
-        mlflow.create_experiment(exp_name, artifact_location="oci://<your bucket>@<your namespace>/myexperiment/")
+        mlflow.create_experiment(exp_name, artifact_location="oci://<your-bucket>@<your-namespace>/myexperiment/")
         mlflow.set_experiment(exp_name)
         mlflow.pyfunc.log_model("model_test", python_model=Mod())
 
-In the example provided above, the ``log_model`` saves the model to Object Storage ``oci://<my-bucket>@<my-namespace>/myexperiment/$RUN_ID/artifacts/model_test/``, the MLmodel file
+In the example provided above, the ``log_model`` saves the model to Object Storage ``oci://<your-bucket>@<your-namespace>/myexperiment/$RUN_ID/artifacts/model_test/``, the MLmodel file
 and the conda.yaml file associated with the model. To list the content in the object storage artifact location, run - 
 
 .. code-block:: bash
 
-  oci os object list -bn mayoor-dev -ns idtlxnfdweil --prefix myexperiment | jq '.data[].name'
+  oci os object list -bn <your-bucket> -ns <your-namespace> --prefix myexperiment | jq '.data[].name'
 
 Output should list following files -  
 
