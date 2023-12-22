@@ -2013,6 +2013,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
+    **kwargs,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2180,6 +2181,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         model_config=model_config,
+        **kwargs,
     )
 
 
