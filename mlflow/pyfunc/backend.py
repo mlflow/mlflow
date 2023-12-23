@@ -10,6 +10,7 @@ import signal
 import subprocess
 import sys
 import time
+from typing import List, Optional, Union
 import warnings
 from pathlib import Path
 
@@ -345,13 +346,20 @@ class PyFuncBackend(FlavorBackend):
             dockerfile.write(dockerfile_text)
 
     def build_image(
-        self, model_uri, image_name, install_mlflow=False, mlflow_home=None, enable_mlserver=False
+        self,
+        model_uri,
+        image_name,
+        install_mlflow=False,
+        mlflow_home=None,
+        enable_mlserver=False,
+        requirements_override=None,
     ):
         copy_model_into_container = self.copy_model_into_container_wrapper(
-            model_uri, install_mlflow, enable_mlserver
+            model_uri, install_mlflow, enable_mlserver, requirements_override=requirements_override
         )
+        _logger.info(f"[backend.build_image] requirements_override: {requirements_override}")
         pyfunc_entrypoint = _pyfunc_entrypoint(
-            self._env_manager, model_uri, install_mlflow, enable_mlserver
+            self._env_manager, model_uri, install_mlflow, enable_mlserver, requirements_override
         )
         _build_image(
             image_name=image_name,
@@ -361,13 +369,19 @@ class PyFuncBackend(FlavorBackend):
             entrypoint=pyfunc_entrypoint,
         )
 
-    def copy_model_into_container_wrapper(self, model_uri, install_mlflow, enable_mlserver):
+    def copy_model_into_container_wrapper(self, model_uri, install_mlflow, enable_mlserver, requirements_override=None):
         def copy_model_into_container(dockerfile_context_dir):
             # This function have to be included in another,
             # since `_build_image` function in `docker_utils` accepts only
             # single-argument function like this
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
+            _logger.info(f"[backend.copy_model_into_container] requirements_override: {requirements_override}")
+
+            def _make_list_repr_with_double_quote(l: list):
+                elms =  ', '.join([f'"{r}"' for r in l])
+                return f'[{elms}]'
+
             if model_uri:
                 model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
                 return """
@@ -378,7 +392,8 @@ class PyFuncBackend(FlavorBackend):
                         "/opt/ml/model", \
                         install_mlflow={install_mlflow}, \
                         enable_mlserver={enable_mlserver}, \
-                        env_manager="{env_manager}")'
+                        env_manager="{env_manager}", \
+                        requirements_override={requirements_override})'
                     ENV {disable_env}="true"
                     ENV {ENABLE_MLSERVER}={enable_mlserver}
                     """.format(
@@ -388,6 +403,7 @@ class PyFuncBackend(FlavorBackend):
                     ENABLE_MLSERVER=ENABLE_MLSERVER,
                     enable_mlserver=repr(enable_mlserver),
                     env_manager=self._env_manager,
+                    requirements_override=_make_list_repr_with_double_quote(requirements_override) if requirements_override else None,
                 )
             else:
                 return f"""
@@ -405,7 +421,8 @@ class PyFuncBackend(FlavorBackend):
         port: int = 5000,
         enable_mlserver: bool = False,
         env_vars: dict = None,
-        remove_image_on_success: bool = True,
+        requirements_override: list = None,
+        retain_image: bool = False,
     ):
         input_data = self._get_input_data(input_data_or_path)
         # Build image
@@ -413,9 +430,10 @@ class PyFuncBackend(FlavorBackend):
         self.build_image(
             model_uri=model_uri,
             image_name=image_name,
-            install_mlflow=self._install_mlflow,
-            mlflow_home=self._env_id,
+            install_mlflow=True, #self._install_mlflow,
+            mlflow_home="/Users/yuki.watanabe/Workspace/mlflow", #self._env_id,
             enable_mlserver=enable_mlserver,
+            requirements_override=requirements_override,
         )
         _logger.info(f"Built image {image_name}")
 
@@ -449,8 +467,8 @@ class PyFuncBackend(FlavorBackend):
             raise
 
         # Vlidation passed
-        stop_container(container.name, remove=True)
-        if remove_image_on_success:
+        stop_container(container.name, remove=True, show_logs=True) # TODO: turn off show logging
+        if not retain_image:
             remove_image(image_name)
 
     def _get_input_data(self, input_data_or_path: str) -> dict:
@@ -473,12 +491,18 @@ class PyFuncBackend(FlavorBackend):
         return input_data
 
 
-def _pyfunc_entrypoint(env_manager, model_uri, install_mlflow, enable_mlserver):
+def _pyfunc_entrypoint(
+        env_manager: Union[_EnvManager.CONDA, _EnvManager.VIRTUALENV, _EnvManager.LOCAL],
+        model_uri: str,
+        install_mlflow: bool,
+        enable_mlserver: bool,
+        requirements_override: Optional[List[str]]=None
+    ):
     if model_uri:
         # The pyfunc image runs the same server as the Sagemaker image
         pyfunc_entrypoint = (
             'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;'
-            f'C._serve({env_manager!r})"]'
+            f'C._serve({env_manager!r}, requirements_override={requirements_override!r})"]'
         )
     else:
         entrypoint_code = "; ".join(
@@ -490,7 +514,8 @@ def _pyfunc_entrypoint(env_manager, model_uri, install_mlflow, enable_mlserver):
                     + '"/opt/ml/model", '
                     + f"install_mlflow={install_mlflow}, "
                     + f"enable_mlserver={enable_mlserver}, "
-                    + f'env_manager="{env_manager}"'
+                    + f'env_manager="{env_manager}", '
+                    + f'requirements_override={requirements_override!r}'
                     + ")"
                 ),
                 f'C._serve("{env_manager}")',

@@ -59,12 +59,13 @@ def _init(cmd, env_manager):
         raise Exception(f"Unrecognized command {cmd}, full args = {sys.argv}")
 
 
-def _serve(env_manager):
+def _serve(env_manager, requirements_override=None):
     """
     Serve the model.
 
     Read the MLmodel config, initialize the Conda environment if needed and start python server.
     """
+    _logger.info(f"[_serve] requirements_override: {requirements_override}")
     model_config_path = os.path.join(MODEL_PATH, MLMODEL_FILE_NAME)
     m = Model.load(model_config_path)
 
@@ -74,18 +75,23 @@ def _serve(env_manager):
     if serving_flavor == mleap.FLAVOR_NAME:
         _serve_mleap()
     elif pyfunc.FLAVOR_NAME in m.flavors:
-        _serve_pyfunc(m, env_manager)
+        _serve_pyfunc(m, env_manager, requirements_override)
     else:
         raise Exception("This container only supports models with the MLeap or PyFunc flavors.")
 
 
 def _install_pyfunc_deps(
-    model_path=None, install_mlflow=False, enable_mlserver=False, env_manager=em.VIRTUALENV
+    model_path=None,
+    install_mlflow=False,
+    enable_mlserver=False,
+    env_manager=em.VIRTUALENV,
+    requirements_override=None,
 ):
     """
-    Creates a conda env for serving the model at the specified path and installs almost all serving
+    Creates a conda/virtual env for serving the model at the specified path and installs almost all serving
     dependencies into the environment - MLflow is not installed as it's not available via conda.
     """
+    _logger.info(f"[_install_pyfunc_deps] requirements_override: {requirements_override}")
     # If model is a pyfunc model, create its conda env (even if it also has mleap flavor)
     activate_cmd = []
     if model_path:
@@ -108,9 +114,14 @@ def _install_pyfunc_deps(
                 conda_create_model_env = f"conda env create -n custom_env -f {env_path_dst}"
                 if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
                     raise Exception("Failed to create model environment.")
+                # Install override dependencies
+                cmd = f"conda install -n custom_env -y {' '.join(requirements_override)}"
+                if Popen(["bash", "-c", cmd]).wait() != 0:
+                    raise Exception("Failed to install override dependencies into the conda environment."
+                                    "Executed command: {cmd}")
                 activate_cmd = ["source /miniconda/bin/activate custom_env"]
             elif env_manager == em.VIRTUALENV:
-                env_activate_cmd = _get_or_create_virtualenv(model_path)
+                env_activate_cmd = _get_or_create_virtualenv(model_path, requirements_override=requirements_override)
                 path = env_activate_cmd.split(" ")[-1]
                 os.symlink(path, "/opt/activate")
                 activate_cmd = [env_activate_cmd]
@@ -136,12 +147,13 @@ def _install_pyfunc_deps(
     return activate_cmd
 
 
-def _serve_pyfunc(model, env_manager):
+def _serve_pyfunc(model, env_manager, requirements_override=None):
     # option to disable manually nginx. The default behavior is to enable nginx.
     disable_nginx = os.getenv(DISABLE_NGINX, "false").lower() == "true"
     enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
     disable_env_creation = MLFLOW_DISABLE_ENV_CREATION.get()
 
+    _logger.info(f"[_serve_pyfunc] requirements_override: {requirements_override}")
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
@@ -151,6 +163,7 @@ def _serve_pyfunc(model, env_manager):
                 install_mlflow=True,
                 enable_mlserver=enable_mlserver,
                 env_manager=env_manager,
+                requirements_override=requirements_override,
             )
         if env_manager == em.CONDA:
             bash_cmds.append("source /miniconda/bin/activate custom_env")

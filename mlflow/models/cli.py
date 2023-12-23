@@ -284,7 +284,9 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
 @cli_args.ENABLE_MLSERVER
 @click.option("--env", "-e", default=None, multiple=True,
               help="A list of environment variables to be set in the container.")
-@click.option("--remove-image-on-success", "-rm", default=True, help="Remove the image after validation")
+@click.option("--requirements-override", "-r", default=None, help="Specify packages and versions to override the dependencies defined"
+              " in the model. This can be either a path to requirements.txt file or a comma-separated string in the format x==y,z==a.")
+@click.option("--retain-image", "-rt", is_flag=True, default=False, help="Remove the image after validation")
 def validate_local(
     model_uri,
     input_data,
@@ -293,7 +295,8 @@ def validate_local(
     env_manager,
     enable_mlserver,
     env,
-    remove_image_on_success):
+    requirements_override,
+    retain_image):
     """
     Validates a model locally by starting a docker container and sending a request to the model
     server. The input data can either be a path to a CSV/JSON file or a serialized string.
@@ -303,6 +306,15 @@ def validate_local(
     headers = json.loads(header) if header else {}
     backend = get_flavor_backend(model_uri, env_manager=env_manager)
 
+    # Load additional requirements
+    requiremens_override_list = []
+    if requirements_override:
+        if requirements_override.endswith(".txt"):
+            with open(requirements_override, "r") as f:
+                requiremens_override_list = [l.strip() for l in f.readlines()]
+        else:
+            requiremens_override_list = [l.strip() for l in requirements_override.split(",")]
+
     try:
         backend.validate_local(
             model_uri=model_uri,
@@ -310,14 +322,15 @@ def validate_local(
             headers=headers,
             port=port,
             enable_mlserver=enable_mlserver,
-            remove_image_on_success=remove_image_on_success,
             env_vars=env_vars,
+            requirements_override=requiremens_override_list,
+            retain_image=retain_image,
         )
         print ("\033[92mValidation succeeded!\33[0m")
 
-    except Exception:
+    except Exception as e:
         print("\033[91mValidation failed with error!\33[0m")
-        sys.exit(1)
+        raise(e)
 
 
 if __name__ == "__main__":

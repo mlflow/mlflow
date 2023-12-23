@@ -110,6 +110,9 @@ class _PythonEnv:
             data = {k: v for k, v in self.to_dict().items() if v}
             yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
 
+    def add_pip_dependencies(self, pip_deps: list):
+        self.dependencies += pip_deps
+
     @classmethod
     def from_yaml(cls, path):
         with open(path) as f:

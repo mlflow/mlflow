@@ -4,6 +4,7 @@ import os
 import requests
 from subprocess import PIPE, STDOUT, Popen
 import time
+from typing import Callable, Optional, Set, Union
 from urllib.parse import urlparse
 
 from mlflow.utils import env_manager as em
@@ -128,11 +129,11 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         return (
             f"COPY {mlflow_dir} /opt/mlflow\n"
             "RUN pip install /opt/mlflow\n"
-            "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            f"mvn --batch-mode package -DskipTests {maven_proxy} && "
-            "mkdir -p /opt/java/jars && "
-            "mv /opt/mlflow/mlflow/java/scoring/target/"
-            "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
+            # "RUN cd /opt/mlflow/mlflow/java/scoring && "
+            # f"mvn --batch-mode package -DskipTests {maven_proxy} && "
+            # "mkdir -p /opt/java/jars && "
+            # "mv /opt/mlflow/mlflow/java/scoring/target/"
+            # "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
         )
     else:
         return (
@@ -186,7 +187,11 @@ def _generate_dockerfile_content(
 
 
 def _build_image(
-    image_name, entrypoint, env_manager, mlflow_home=None, custom_setup_steps_hook=None
+    image_name: str,
+    entrypoint: str,
+    env_manager: Union[em.LOCAL, em.CONDA, em.VIRTUALENV],
+    mlflow_home: Optional[str] = None,
+    custom_setup_steps_hook: Optional[Callable[[str], str]]=None,
 ):
     """
     Build an MLflow Docker image that can be used to serve a
@@ -211,6 +216,7 @@ def _build_image(
     with TempDir() as tmp:
         cwd = tmp.path()
         install_mlflow = _get_mlflow_install_step(cwd, mlflow_home)
+        _logger.info(f"install_mlflow: {install_mlflow}")
         custom_setup_steps = custom_setup_steps_hook(cwd) if custom_setup_steps_hook else ""
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(

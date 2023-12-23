@@ -178,7 +178,7 @@ def _get_python_env_file(model_config):
     return _PYTHON_ENV_FILE_NAME
 
 
-def _get_python_env(local_model_path):
+def _get_python_env(local_model_path, requirements_override=None):
     """
     Constructs `_PythonEnv` from the model artifacts stored in `local_model_path`. If
     `python_env.yaml` is available, use it, otherwise extract model dependencies from `conda.yaml`.
@@ -195,7 +195,7 @@ def _get_python_env(local_model_path):
     requirements_file = local_model_path / _REQUIREMENTS_FILE_NAME
 
     if python_env_file.exists():
-        return _PythonEnv.from_yaml(python_env_file)
+        python_env = _PythonEnv.from_yaml(python_env_file)
     else:
         _logger.info(
             "This model is missing %s, which is because it was logged in an older version"
@@ -207,13 +207,17 @@ def _get_python_env(local_model_path):
         )
         if requirements_file.exists():
             deps = _PythonEnv.get_dependencies_from_conda_yaml(conda_env_file)
-            return _PythonEnv(
+            python_env = _PythonEnv(
                 python=deps["python"],
                 build_dependencies=deps["build_dependencies"],
                 dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
             )
-        else:
-            return _PythonEnv.from_conda_yaml(conda_env_file)
+
+    # Add requirements override if specified
+    if requirements_override:
+        python_env.add_pip_dependencies(requirements_override)
+
+    return python_env
 
 
 def _get_virtualenv_name(python_env, work_dir_path, env_id=None):
@@ -277,9 +281,17 @@ def _create_virtualenv(
 
                 tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
                 Path(tmpdir).joinpath(tmp_req_file).write_text("\n".join(deps))
+                with open(os.path.join(tmpdir, tmp_req_file)) as f:
+                    _logger.info("Installing dependencies from %s", f.name)
+                    _logger.info("File contents:\n%s", f.read())
+
                 cmd = _join_commands(
                     activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}"
                 )
+                _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
+
+                # Show pip denepdencies
+                cmd = _join_commands(activate_cmd, f"python -m pip list")
                 _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
 
     return activate_cmd
@@ -320,7 +332,11 @@ _PYENV_ROOT_DIR = "pyenv_root"
 
 
 def _get_or_create_virtualenv(
-    local_model_path, env_id=None, env_root_dir=None, capture_output=False
+    local_model_path,
+    env_id=None,
+    env_root_dir=None,
+    capture_output=False,
+    requirements_override=None,
 ):
     """
     Restores an MLflow model's environment with pyenv and virtualenv and returns a command
@@ -332,6 +348,7 @@ def _get_or_create_virtualenv(
                    same conda dependencies but are supposed to be different based on the context.
                    For example, when serving the model we may install additional dependencies to the
                    environment after the environment has been activated.
+    :requirements_override: TBA
     :return: Command to activate the created virtualenv environment
              (e.g. "source /path/to/bin/activate").
     """
@@ -340,7 +357,7 @@ def _get_or_create_virtualenv(
 
     # Read environment information
     local_model_path = Path(local_model_path)
-    python_env = _get_python_env(local_model_path)
+    python_env = _get_python_env(local_model_path, requirements_override=requirements_override)
 
     extra_env = _get_virtualenv_extra_env_vars(env_root_dir)
     if env_root_dir is not None:
