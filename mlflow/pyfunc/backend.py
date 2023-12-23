@@ -435,7 +435,7 @@ class PyFuncBackend(FlavorBackend):
 
             response = requests.post(
                 predict_endpoint,
-                data=input_data,
+                json=input_data,
                 headers=headers if headers else {"Content-Type": "application/json"},
             )
 
