@@ -130,9 +130,9 @@ def save_model(
                 predictions = model.predict(prediction_config)
                 signature = infer_signature(data, predictions)
 
-        input_example: Inserted after the argument name.
-        pip_requirements: Inserted after the argument name.
-        extra_pip_requirements: Inserted after the argument name.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
@@ -403,13 +403,13 @@ def log_model(
                 predictions = model.predict(n_periods=30, alpha=0.05, return_conf_int=True)
                 signature = infer_signature(data, predictions)
 
-        input_example: Inserted after the argument name.
+        input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version
             to finish being created and is in ``READY`` status.
             By default, the function waits for five minutes.
             Specify 0 or None to skip waiting.
-        pip_requirements: Inserted after the argument name.
-        extra_pip_requirements: Inserted after the argument name.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
             .. Note:: Experimental: This parameter may change or be removed in a future

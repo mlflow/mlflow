@@ -147,6 +147,22 @@ def load_image(artifact_uri: str):
 
     Returns:
         A PIL.Image object.
+
+    .. code-block:: python
+        :caption: Example
+            import mlflow
+            from PIL import Image
+
+            with mlflow.start_run() as run:
+                image = Image.new("RGB", (100, 100))
+                artifact_uri = run.info.artifact_uri
+                mlflow.log_image(image, "image.png")
+                image = mlflow.artifacts.load_image(artifact_uri + "/image.png")
+                print(image)
+
+    .. code-block:: text
+        :caption: Output
+        <PIL.PngImagePlugin.PngImageFile image mode=RGB size=100x100 at 0x11D2FA3D0>
     """
     try:
         from PIL import Image

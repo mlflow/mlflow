@@ -26,8 +26,9 @@ class DatasetSource:
     def load(self) -> Any:
         """
         Loads files / objects referred to by the DatasetSource. For example, depending on the type
-        of DatasetSource, this may download source CSV files from S3 to the local filesystem, load a
-        source Delta Table as a Spark DataFrame, etc.
+        of :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`, this may download
+        source CSV files from S3 to the local filesystem, load a source Delta Table as a Spark
+        DataFrame, etc.
 
         Returns:
             The downloaded source, e.g. a local filesystem path, a Spark DataFrame, etc.
