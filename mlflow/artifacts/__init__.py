@@ -162,7 +162,7 @@ def load_image(artifact_uri: str):
 
     .. code-block:: text
         :caption: Output
-        <PIL.PngImagePlugin.PngImageFile image mode=RGB size=100x100 at 0x11D2FA3D0>
+            <PIL.PngImagePlugin.PngImageFile image mode=RGB size=100x100 at 0x11D2FA3D0>
     """
     try:
         from PIL import Image
