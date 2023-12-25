@@ -102,10 +102,9 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Spark dataset source information.
 
         Returns:
-            An instance of :py:class:`SparkDatasetSource
-            <mlflow.data.spark_dataset_source.SparkDatasetSource>`
-            or :py:class:`DeltaDatasetSource
-            <mlflow.data.delta_dataset_source.DeltaDatasetSource>`.
+            An instance of
+            :py:class:`SparkDatasetSource <mlflow.data.spark_dataset_source.SparkDatasetSource>` or
+            :py:class:`DeltaDatasetSource <mlflow.data.delta_dataset_source.DeltaDatasetSource>`.
         """
         return self._source
 
@@ -273,48 +272,48 @@ def from_spark(
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> SparkDataset:
-    """Given a Spark DataFrame, constructs a
+    """
+    Given a Spark DataFrame, constructs a
     :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>` object for use with
     MLflow Tracking.
 
     Args:
         df: The Spark DataFrame from which to construct a SparkDataset.
-        path: The path of the Spark or Delta source that the DataFrame originally came from.
-            Note that the path does not have to match the DataFrame exactly, since the
-            DataFrame may have been modified by Spark operations. This is used to reload the
-            dataset upon request via :py:func:`SparkDataset.source.load()
-            <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of ``path``,
-            ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, which will
-            source information from the run context.
-        table_name: The name of the Spark or Delta table that the DataFrame originally came from.
-            Note that the table does not have to match the DataFrame exactly, since the
-            DataFrame may have been modified by Spark operations. This is used to reload
-            the dataset upon request via :py:func:`SparkDataset.source.load()
-            <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of
-            ``path``, ``table_name``, or ``sql`` are specified, a CodeDatasetSource is
-            used, which will source information from the run context.
-        version: If the DataFrame originally came from a Delta table, specifies the version
-            of the Delta table. This is used to reload the dataset upon request via
+        path: The path of the Spark or Delta source that the DataFrame originally came from. Note
+            that the path does not have to match the DataFrame exactly, since the DataFrame may have
+            been modified by Spark operations. This is used to reload the dataset upon request via
             :py:func:`SparkDataset.source.load()
-            <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`.  ``version``
-            cannot be specified if ``sql`` is specified.
-        sql: The Spark SQL statement that was originally used to construct the DataFrame.
-            Note that the Spark SQL statement does not have to match the DataFrame exactly,
-            since the DataFrame may have been modified by Spark operations. This is used to
-            reload the dataset upon request via :py:func:`SparkDataset.source.load()
-            <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of
-            ``path``, ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used,
-            which will source information from the run context.
+            <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of ``path``,
+            ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, which will source
+            information from the run context.
+        table_name: The name of the Spark or Delta table that the DataFrame originally came from.
+            Note that the table does not have to match the DataFrame exactly, since the DataFrame
+            may have been modified by Spark operations. This is used to reload the dataset upon
+            request via :py:func:`SparkDataset.source.load()
+            <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of ``path``,
+            ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, which will source
+            information from the run context.
+        version: If the DataFrame originally came from a Delta table, specifies the version of the
+            Delta table. This is used to reload the dataset upon request via
+            :py:func:`SparkDataset.source.load()
+            <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. ``version`` cannot be
+            specified if ``sql`` is specified.
+        sql: The Spark SQL statement that was originally used to construct the DataFrame. Note that
+            the Spark SQL statement does not have to match the DataFrame exactly, since the
+            DataFrame may have been modified by Spark operations. This is used to reload the dataset
+            upon request via :py:func:`SparkDataset.source.load()
+            <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of ``path``,
+            ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, which will source
+            information from the run context.
         targets: Optional. The name of the Data Frame column containing targets (labels) for
             supervised learning.
-        name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
-            automatically generated.
-        digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
-            is automatically computed.
+        name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is automatically
+            generated.
+        digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest is
+            automatically computed.
 
     Returns:
         An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
-
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.spark_delta_utils import (

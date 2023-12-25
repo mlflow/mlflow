@@ -171,7 +171,7 @@ def from_numpy(
     Args:
         features: NumPy features, represented as an np.ndarray or dictionary of named np.ndarrays.
         source: The source from which the numpy data was derived, e.g. a filesystem path, an S3 URI,
-             an HTTPS URL, a delta table name with version, or spark table etc. ``source`` may be
+            an HTTPS URL, a delta table name with version, or spark table etc. ``source`` may be
             specified as a URI, a path-like string, or an instance of
             :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`. If unspecified,
             the source is assumed to be the code location (e.g. notebook cell, script, etc.) where
@@ -182,27 +182,27 @@ def from_numpy(
         digest: The dataset digest (hash). If unspecified, a digest is computed automatically.
 
     .. testcode:: python
-      :caption: Basic Example
+        :caption: Basic Example
 
-      import mlflow
-      import numpy as np
+        import mlflow
+        import numpy as np
 
-      x = np.random.uniform(size=[2, 5, 4])
-      y = np.random.randint(2, size=[2])
-      dataset = mlflow.data.from_numpy(x, targets=y)
+        x = np.random.uniform(size=[2, 5, 4])
+        y = np.random.randint(2, size=[2])
+        dataset = mlflow.data.from_numpy(x, targets=y)
 
     .. testcode:: python
-      :caption: Dict Example
+        :caption: Dict Example
 
-      import mlflow
-      import numpy as np
+        import mlflow
+        import numpy as np
 
-      x = {
-          "feature_1": np.random.uniform(size=[2, 5, 4]),
-          "feature_2": np.random.uniform(size=[2, 5, 4]),
-      }
-      y = np.random.randint(2, size=[2])
-      dataset = mlflow.data.from_numpy(x, targets=y)
+        x = {
+            "feature_1": np.random.uniform(size=[2, 5, 4]),
+            "feature_2": np.random.uniform(size=[2, 5, 4]),
+        }
+        y = np.random.randint(2, size=[2])
+        dataset = mlflow.data.from_numpy(x, targets=y)
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source
