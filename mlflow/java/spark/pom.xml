@@ -8,8 +8,8 @@
     <maven.compiler.target>1.8</maven.compiler.target>
     <encoding>UTF-8</encoding>
     <!-- These scala versions will be overwritten in the release job when deploying mlflow-spark_2.13 -->
-    <scala.version>2.13.10</scala.version>
-    <scala.compat.version>2.13</scala.compat.version>
+    <scala.version>2.12.18</scala.version>
+    <scala.compat.version>2.12</scala.compat.version>
     <spec2.version>4.2.0</spec2.version>
   </properties>
 
