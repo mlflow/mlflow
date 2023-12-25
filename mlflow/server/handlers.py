@@ -11,7 +11,7 @@ import urllib
 from functools import wraps
 
 import requests
-from flask import Response, current_app, request, send_file
+from flask import Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
@@ -91,6 +91,7 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
 )
+from mlflow.server.graphql.graphql_schema_extensions import schema
 from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -1968,6 +1969,27 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+@catch_mlflow_exception
+def _graphql():
+    # Extracting the query, variables, and operationName from the request
+    request_json = _get_request_json()
+    query = request_json.get("query")
+    variables = request_json.get("variables")
+    operation_name = request_json.get("operationName")
+
+    # Executing the GraphQL query using the Graphene schema
+    result = schema.execute(query, variables=variables, operation_name=operation_name)
+
+    # Convert execution result into json.
+    result_data = {
+        "data": result.data,
+        "errors": [error.message for error in result.errors] if result.errors else None,
+    }
+
+    # Return the response
+    return jsonify(result_data)
+
+
 def _validate_support_multipart_upload(artifact_repo):
     if not isinstance(artifact_repo, MultipartUploadMixin):
         raise _UnsupportedMultipartUploadException()
@@ -2120,6 +2142,7 @@ def get_endpoints(get_handler=get_handler):
         get_service_endpoints(MlflowService, get_handler)
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
+        + [("/graphql", _graphql, ["GET", "POST"])]
     )
 
 

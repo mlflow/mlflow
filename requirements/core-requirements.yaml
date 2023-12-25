@@ -81,3 +81,7 @@ Jinja2-windows:
 matplotlib:
   pip_release: matplotlib
   max_major_version: 3
+
+graphene:
+  pip_release: graphene
+  max_major_version: 3
