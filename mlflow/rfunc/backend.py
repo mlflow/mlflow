@@ -99,6 +99,9 @@ class RFuncBackend(FlavorBackend):
         version = [int(x) for x in version.group(1).split(".")]
         return version[0] > 3 or version[0] == 3 and version[1] >= 3
 
+    def validate(self, *args, **kwargs):
+        raise NotImplementedError("RFuncBackend does not support 'validate' API.")
+
 
 def _execute(command):
     env = os.environ.copy()

@@ -1,3 +1,4 @@
+import docker
 import json
 import os
 import re
@@ -7,6 +8,7 @@ import sys
 import warnings
 from pathlib import Path
 from unittest import mock
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -58,6 +60,12 @@ gunicorn_options = "--timeout 60 -w 5"
 
 def env_with_tracking_uri():
     return {**os.environ, "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()}
+
+
+@pytest.fixture(autouse=True)
+def set_mlflow_home(monkeypatch):
+    # Set MLFLOW_HOME to the root of the local MLflow repo
+    monkeypatch.setenv("MLFLOW_HOME", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 
 @pytest.fixture(scope="module")
@@ -844,3 +852,225 @@ def test_signature_enforcement_with_model_serving(input_schema, output_schema, p
 
     # Assert the prediction result
     assert json.loads(scoring_result.content)["predictions"] == ["test"]
+
+
+# Test constants for testing `mlflow models validate` command
+_JSON_INPUT_DATA = "{\"dataframe_split\": {\"columns\": [\"a\", \"b\"], \"data\": [[1, 2], [3, 4]]}}"
+_CSV_INPUT_DATA = "a,b\n1,2\n3,4"
+_TEST_IMAGE_NAME = f"test-pyfunc-validate-{uuid.uuid4()}"
+_COMMON_ARGS = [
+    "--name",_TEST_IMAGE_NAME,
+    # Required to run container with local dev version of mlflow
+    "--install-mlflow",
+    # Ideally we shouldn't reuse the image across tests. However, current image takes
+    # ~10 minutes to build. Majority of the time is spent on installing core libraries
+    # and dependencies, which don't change across tests. Hence, we retain the image so
+    # those layers are cached for speed up.
+    # The image will be removed at the end of the test run.
+    "--retain-image",
+]
+
+
+@pytest.mark.parametrize(
+        ("input_data", "content_type"),
+        [
+            (_JSON_INPUT_DATA, CONTENT_TYPE_JSON),
+            # (_CSV_INPUT_DATA, CONTENT_TYPE_CSV),
+        ]
+)
+def test_validate_pass(sk_model, input_data, content_type):
+    with mlflow.start_run() as active_run:
+        mlflow.sklearn.log_model(sk_model, "model")
+        model_uri = f"runs:/{active_run.info.run_id}/model"
+
+    # Input is a serialized json/csv string
+    args = _COMMON_ARGS + [
+        "--model-uri", model_uri,
+        "--input-data", input_data,
+        "--content-type", content_type
+    ]
+    CliRunner().invoke(models_cli.validate, args, catch_exceptions=False,)
+
+    # Check if the image is retained (as we specify --retain-image), and the container is removed
+    assert (True, False) == _check_if_image_and_container_exists(_TEST_IMAGE_NAME)
+
+
+def test_validate_fail():
+    class BrokenModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            raise Exception("Test")
+    model = BrokenModel()
+
+    with mlflow.start_run() as active_run:
+        mlflow.pyfunc.log_model(model, "model")
+        model_uri = f"runs:/{active_run.info.run_id}/model"
+
+    args = _COMMON_ARGS + [
+        "--model-uri", model_uri,
+        "--input-data", _JSON_INPUT_DATA,
+        "--content-type", CONTENT_TYPE_JSON,
+    ]
+    with pytest.raises(RuntimeError, match=r"Request failed with status code 500. Message: \"Test\""):
+        CliRunner().invoke(models_cli.validate, args, catch_exceptions=False,)
+
+    # Check if the container and image are retained when validation fails
+    assert (True, True) == _check_if_image_and_container_exists(_TEST_IMAGE_NAME)
+
+
+@pytest.mark.parametrize(
+    ("enable_mlserver", "env_manager"),
+    [
+        (True, _EnvManager.CONDA),
+        (True, _EnvManager.VIRTUALENV),
+        (False, _EnvManager.CONDA),
+        (False, _EnvManager.VIRTUALENV),
+    ]
+)
+def test_validate_pass_with_different_engine_and_env_manager(sk_model, enable_mlserver, env_manager):
+    with mlflow.start_run() as active_run:
+        mlflow.sklearn.log_model(sk_model, "model")
+        model_uri = f"runs:/{active_run.info.run_id}/model"
+
+    args = _COMMON_ARGS + [
+        "--model-uri", model_uri,
+        "--input-data", _JSON_INPUT_DATA,
+    ]
+    if enable_mlserver:
+        args.append(["--enable-mlserver"])
+    if env_manager:
+        args.append(["--env-manager", env_manager])
+
+    CliRunner().invoke(models_cli.validate, args, catch_exceptions=False,)
+
+
+@pytest.mark.parametrize(
+    "env_manager", [_EnvManager.CONDA, _EnvManager.VIRTUALENV]
+)
+def test_validate_with_environment_variables_and_requirements_override(env_manager):
+    DEFAULT_VERSION = "2.30.0"
+    OVERRIDDEN_VERSION = "2.29.0"
+
+    ENV_KEY_1 = "test-key-1"
+    ENV_VAR_1 = "test-var-2"
+    ENV_KEY_2 = "test-key-2"
+    ENV_VAR_2 = "test-var-2"
+
+    class Model(mlflow.pyfunc.PythonModel):
+        """
+        A dummy model to check environment variables and package versions in the container.
+        """
+        def _check_env(self, key, value):
+            import os
+            actual = os.environ[key]
+            assert actual == value, \
+                f"Expected environment variable {key} is set to {value}, but got {actual}"
+
+        def predict(self, context, model_input):
+            required_version = model_input["version"]
+            # check package version is overrided or not
+            import requests
+            assert requests.__version__ == required_version, \
+                f"Expected requests version {required_version}, but got {requests.__version__}"
+
+            # check environment variables are passed or not
+            self._check_env(ENV_KEY_1, ENV_VAR_1)
+            self._check_env(ENV_KEY_2, ENV_VAR_2)
+
+    model = Model()
+
+    with mlflow.start_run() as active_run:
+        mlflow.pyfunc.log_model(model, "model",
+            extra_pip_requirements=[f"requests=={DEFAULT_VERSION}"])
+        model_uri = f"runs:/{active_run.info.run_id}/model"
+
+
+    # Check if logged model uses the base version
+    args = _COMMON_ARGS + [
+        "--model-uri", model_uri,
+        # We use input data to tell expected version
+        "--input-data", "{\"version\": \"" + DEFAULT_VERSION + "\"}",
+        "--env-manager", env_manager,
+        "--e", f"{ENV_KEY_1}={ENV_VAR_1}",
+        "--e", f"{ENV_KEY_2}={ENV_VAR_2}",
+    ]
+    CliRunner().invoke(models_cli.validate, args, catch_exceptions=False,)
+
+    # Test with requirements version
+    args = _COMMON_ARGS + [
+        "--model-uri", model_uri,
+        # We use input data to tell expected version
+        "--input-data", "{\"version\": \"" + OVERRIDDEN_VERSION + "\"}",
+        "--requirements-override", f"requests=={OVERRIDDEN_VERSION}",
+        "--e", f"{ENV_KEY_1}={ENV_VAR_1}",
+        "--e", f"{ENV_KEY_2}={ENV_VAR_2}",
+        "--env-manager", env_manager,
+    ]
+    CliRunner().invoke(models_cli.validate, args, catch_exceptions=False,)
+
+
+@pytest.mark.parametrize(
+    ("data", "content_type"),
+    [
+        (_JSON_INPUT_DATA, CONTENT_TYPE_JSON),
+        (_CSV_INPUT_DATA, CONTENT_TYPE_CSV),
+    ]
+)
+def test_parse_input_data_or_path(data, content_type):
+    assert models_cli._parse_input_data_or_path(data, content_type) == data
+
+    with TempDir() as tmp:
+        ext = content_type.split("/")[1]
+        input_path = tmp.path(f"input.{ext}")
+        with open(input_path, "w") as f:
+            f.write(data)
+        assert models_cli._parse_input_data_or_path(input_path, content_type) == data
+
+
+def test_parse_requirements_override():
+    input_args = "numpy,scikit-learn==0.23.2,pandas==1.0.5"
+    expected = ["numpy", "scikit-learn==0.23.2", "pandas==1.0.5"]
+
+    assert models_cli._parse_requirements_override(input_args) == expected
+
+    with TempDir() as tmp:
+        input_path = tmp.path("requirements.txt")
+        with open(input_path, "w") as f:
+            f.write("\n".join(expected))
+        assert models_cli._parse_requirements_override(input_path) == expected
+
+
+@pytest.fixture(scope="module", autouse=True)
+def docker_clean_up():
+    yield
+
+    # Clean up the containers and image created by the test
+    client = docker.from_env()
+    try:
+        containers = client.containers.list(filters={"ancestor": _TEST_IMAGE_NAME})
+        for container in containers:
+            container.remove(force=True)
+    except docker.errors.NotFound:
+        pass
+
+    try:
+        client.images.remove(_TEST_IMAGE_NAME, force=True)
+    except docker.errors.ImageNotFound:
+        pass
+
+
+def _check_if_image_and_container_exists(image_name):
+    client = docker.from_env()
+    try:
+        client.images.get(image_name)
+        image_exists = True
+    except docker.errors.ImageNotFound:
+        image_exists = False
+
+    try:
+        # search containers by image name
+        containers = client.containers.list(filters={"ancestor": image_name})
+        container_exists = len(containers) > 0
+    except docker.errors.NotFound:
+        container_exists = False
+
+    return image_exists, container_exists

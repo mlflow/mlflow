@@ -152,6 +152,25 @@ def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     return name
 
 
+def pyfunc_validate(model_uri, extra_args=None, env=None):
+    name = uuid.uuid4().hex
+    cmd = [
+        "mlflow",
+        "models",
+        "validate",
+        "-m", model_uri,
+        "-n", name,
+    ]
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+    if mlflow_home:
+        cmd += ["--mlflow-home", mlflow_home]
+    if extra_args:
+        cmd += extra_args
+    p = subprocess.Popen(cmd, env=env)
+    assert p.wait() == 0, f"Failed to build docker image to serve model from {model_uri}"
+    return name
+
+
 def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
     """
     Serves a model from a docker container, exposing it as an endpoint at the specified port

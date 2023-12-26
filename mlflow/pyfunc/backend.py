@@ -357,7 +357,6 @@ class PyFuncBackend(FlavorBackend):
         copy_model_into_container = self.copy_model_into_container_wrapper(
             model_uri, install_mlflow, enable_mlserver, requirements_override=requirements_override
         )
-        _logger.info(f"[backend.build_image] requirements_override: {requirements_override}")
         pyfunc_entrypoint = _pyfunc_entrypoint(
             self._env_manager, model_uri, install_mlflow, enable_mlserver, requirements_override
         )
@@ -376,7 +375,6 @@ class PyFuncBackend(FlavorBackend):
             # single-argument function like this
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
-            _logger.info(f"[backend.copy_model_into_container] requirements_override: {requirements_override}")
 
             def _make_list_repr_with_double_quote(l: list):
                 elms =  ', '.join([f'"{r}"' for r in l])
@@ -413,25 +411,26 @@ class PyFuncBackend(FlavorBackend):
 
         return copy_model_into_container
 
-    def validate_local(
+    def validate(
         self,
         model_uri: str,
-        input_data_or_path: str,
-        headers: dict = {},
-        port: int = 5000,
-        enable_mlserver: bool = False,
+        image_name: str,
+        input_data: str,
+        content_type: str,
+        port: int,
         env_vars: dict = None,
         requirements_override: list = None,
         retain_image: bool = False,
+        enable_mlserver: bool = False,
     ):
-        input_data = self._get_input_data(input_data_or_path)
+        """
+        """
         # Build image
-        image_name = "mlflow-pyfunc-local-test"
         self.build_image(
             model_uri=model_uri,
             image_name=image_name,
-            install_mlflow=True, #self._install_mlflow,
-            mlflow_home="/Users/yuki.watanabe/Workspace/mlflow", #self._env_id,
+            install_mlflow=self._install_mlflow,
+            mlflow_home=self._env_id,
             enable_mlserver=enable_mlserver,
             requirements_override=requirements_override,
         )
@@ -440,11 +439,12 @@ class PyFuncBackend(FlavorBackend):
         # Run container in the background
         container = run_container(
             image_name=image_name,
-            container_name="mlflow-validate-local-container",
+            container_name=image_name,
             port=port,
             env_vars=env_vars,
-            wait_for_ready=True,
         )
+
+        self._wait_for_server_start(port=port)
 
         # Send request to the container
         try:
@@ -453,42 +453,53 @@ class PyFuncBackend(FlavorBackend):
 
             response = requests.post(
                 predict_endpoint,
-                json=input_data,
-                headers=headers if headers else {"Content-Type": "application/json"},
+                data=input_data,
+                headers={"Content-Type": "text/csv" if content_type == "csv" else "application/json"},
             )
 
             # Check the response
             if response.status_code != 200:
-                raise Exception(f"Request failed with status code {response.status_code}. {response.text}")
-        except Exception as e:
-            _logger.error(e)
-            # Retain the container and image if the validation fails
-            stop_container(container.name, remove=False, show_logs=True)
-            raise
+                raise RuntimeError(f"Request failed with status code {response.status_code}. Message: \"{response.text}\"")
 
-        # Vlidation passed
-        stop_container(container.name, remove=True, show_logs=True) # TODO: turn off show logging
+        except Exception as e:
+            # Retain the container if the validation fails
+            stop_container(container.name, remove=False, show_logs=True)
+            raise e
+
+        # Validation passed
+        _logger.info(f"Stopping container {container.name}")
+        stop_container(container.name, remove=True)
         if not retain_image:
+            _logger.info(f"Removing image {image_name}. If you want to retain the image, use --retain-image option.")
             remove_image(image_name)
 
-    def _get_input_data(self, input_data_or_path: str) -> dict:
-        """
 
-        """
-        if os.path.exists(input_data_or_path) and os.path.isfile(input_data_or_path):
-            try:
-                with open(input_data_or_path, "r") as f:
-                    input_data = json.load(f)
-            except Exception as e:
-                raise Exception(f"Failed to parse input data from file {input_data_or_path}: {e}")
-        else:
-            # Validate if the input data is in json format
-            try:
-                input_data = json.loads(input_data_or_path)
-            except Exception as e:
-                raise Exception(f"The sample request is not in peoper json format: {e}")
+    def _wait_for_server_start(
+        self,
+        port: int,
+        host: str = "localhost",
+        health_endpoint: str = "/ping",
+        interval: int = 10,
+        timeout: int = 60
+    ):
+        ping_url = f"http://{host}:{port}{health_endpoint}"
+        _logger.info(f"Waiting for container to be ready at {ping_url}")
 
-        return input_data
+        while timeout > 0:
+            time.sleep(interval)
+
+            try:
+                response = requests.get(ping_url)
+                if response.status_code == 200:
+                    _logger.info(f"Inferense server is ready!")
+                    return
+            except Exception:
+                pass
+
+            _logger.info(f"Inferense server is not ready yet. Will retry check in {interval} seconds.")
+            timeout -= interval
+
+        raise RuntimeError(f"Inferense server to start or took too long to start.")
 
 
 def _pyfunc_entrypoint(

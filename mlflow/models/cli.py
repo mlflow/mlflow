@@ -1,13 +1,20 @@
+from io import StringIO
 import logging
 import json
+import os
 import sys
 
 import click
 
 from mlflow.models import build_docker as build_docker_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.pyfunc.scoring_server import (
+    CONTENT_TYPE_CSV,
+    CONTENT_TYPE_JSON,
+)
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils.network import get_safe_port
 
 _logger = logging.getLogger(__name__)
 
@@ -275,63 +282,112 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
         enable_mlserver=enable_mlserver,
     )
 
-@commands.command("validate-local")
+@commands.command("validate")
 @cli_args.MODEL_URI
+@click.option("--name", "-n", default="mlflow-pyfunc-validate", help="Name for the docker image used for validation")
 @click.option("--input-data", "-i", help="Sample input data for the endpoint. Either a path to a JSON file or a serialized string")
-@click.option("--header", help="Additional headers to add to the request, in a serialized JSON format")
-@cli_args.PORT
-@cli_args.ENV_MANAGER
-@cli_args.ENABLE_MLSERVER
-@click.option("--env", "-e", default=None, multiple=True,
-              help="A list of environment variables to be set in the container.")
+@click.option("--content-type", "-c", type=click.Choice([CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]),
+              default=CONTENT_TYPE_JSON, help="Content type of the input data")
+@click.option("--port", "-p", default=get_safe_port(), help="Port to use for the endpoint. If not specified, a random available port will be used.")
+@click.option("--env-vars", "-e", default=None, multiple=True, help="A list of environment variables to be set in the container.")
 @click.option("--requirements-override", "-r", default=None, help="Specify packages and versions to override the dependencies defined"
               " in the model. This can be either a path to requirements.txt file or a comma-separated string in the format x==y,z==a.")
 @click.option("--retain-image", "-rt", is_flag=True, default=False, help="Remove the image after validation")
-def validate_local(
+@cli_args.ENV_MANAGER
+@cli_args.ENABLE_MLSERVER
+@cli_args.INSTALL_MLFLOW
+def validate(
     model_uri,
+    name,
     input_data,
-    header,
+    content_type,
     port,
+    env_vars,
+    requirements_override,
+    retain_image,
     env_manager,
     enable_mlserver,
-    env,
-    requirements_override,
-    retain_image):
+    install_mlflow,
+):
     """
     Validates a model locally by starting a docker container and sending a request to the model
     server. The input data can either be a path to a CSV/JSON file or a serialized string.
     """
     env_manager = env_manager or _EnvManager.VIRTUALENV
-    env_vars = {e.split("=")[0]: e.split("=")[1] for e in env}
-    headers = json.loads(header) if header else {}
-    backend = get_flavor_backend(model_uri, env_manager=env_manager)
+    env_vars = {e.split("=")[0]: e.split("=")[1] for e in env_vars}
 
-    # Load additional requirements
-    requiremens_override_list = []
+    backend = get_flavor_backend(
+        model_uri,
+        env_manager=env_manager,
+        install_mlflow=install_mlflow,
+    )
+
+    input_data =_parse_input_data_or_path(input_data, content_type)
+    requirements_override = _parse_requirements_override(requirements_override)
+
+    try:
+        backend.validate(
+            model_uri=model_uri,
+            image_name=name,
+            input_data=input_data,
+            content_type=content_type,
+            port=port,
+            env_vars=env_vars,
+            requirements_override=requirements_override,
+            retain_image=retain_image,
+            enable_mlserver=enable_mlserver,
+        )
+        print ("\033[92mValidation succeeded!\33[0m")
+    except Exception as e:
+        print("\033[91mValidation failed with error!\33[0m")
+        raise e
+
+
+def _parse_input_data_or_path(input_data_or_path: str, content_type: str) -> str:
+    """
+    Parses the input data or path to a file into a string.
+
+    :param input_data_or_path: A path to a file or a serialized string.
+    :return: A string containing the input data.
+    """
+    if os.path.exists(input_data_or_path) and os.path.isfile(input_data_or_path):
+        with open(input_data_or_path, "r") as f:
+            input_data = f.read()
+    else:
+        input_data = input_data_or_path
+
+    # Validate that the input data matches the content type
+    if content_type == CONTENT_TYPE_JSON:
+        try:
+            json.loads(input_data)
+        except json.JSONDecodeError as e:
+            raise Exception("Input data is not a valid JSON string") from e
+    elif content_type == CONTENT_TYPE_CSV:
+        try:
+            import pandas as pd
+            pd.read_csv(StringIO(input_data))
+        except Exception as e:
+            raise Exception("Input data is not a valid CSV string") from e
+    else:
+        raise Exception("Unsupported content type: {}".format(content_type))
+
+    return input_data
+
+
+def _parse_requirements_override(requirements_override: str):
+    """
+    Parses the requirements override string or a file
+    into a list of strings in the format x==y,z==a.
+
+    :param requirements_override: A comma-separated string in the format x==y,z==a
+        or a path to requirements.txt file.
+    :return: A list of strings in the format x==y,z==a.
+    """
+    parsed = []
     if requirements_override:
         if requirements_override.endswith(".txt"):
             with open(requirements_override, "r") as f:
-                requiremens_override_list = [l.strip() for l in f.readlines()]
+                parsed = [l.strip() for l in f.readlines()]
         else:
-            requiremens_override_list = [l.strip() for l in requirements_override.split(",")]
-
-    try:
-        backend.validate_local(
-            model_uri=model_uri,
-            input_data_or_path=input_data,
-            headers=headers,
-            port=port,
-            enable_mlserver=enable_mlserver,
-            env_vars=env_vars,
-            requirements_override=requiremens_override_list,
-            retain_image=retain_image,
-        )
-        print ("\033[92mValidation succeeded!\33[0m")
-
-    except Exception as e:
-        print("\033[91mValidation failed with error!\33[0m")
-        raise(e)
-
-
-if __name__ == "__main__":
-    validate_local()
+            parsed = [l.strip() for l in requirements_override.split(",")]
+    return parsed

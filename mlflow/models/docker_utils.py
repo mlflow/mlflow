@@ -129,29 +129,27 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         return (
             f"COPY {mlflow_dir} /opt/mlflow\n"
             "RUN pip install /opt/mlflow\n"
-            # "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            # f"mvn --batch-mode package -DskipTests {maven_proxy} && "
-            # "mkdir -p /opt/java/jars && "
-            # "mv /opt/mlflow/mlflow/java/scoring/target/"
-            # "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
+            "RUN cd /opt/mlflow/mlflow/java/scoring && "
+            f"mvn --batch-mode package -DskipTests {maven_proxy} && "
+            "mkdir -p /opt/java/jars && "
+            "mv /opt/mlflow/mlflow/java/scoring/target/"
+            "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
         )
     else:
         return (
-            # For dev purpose
-            f"RUN pip install mlflow==2.9.2\n"
-            # f"RUN pip install mlflow=={VERSION}\n"
-            # "RUN mvn"
-            # " --batch-mode dependency:copy"
-            # f" -Dartifact=org.mlflow:mlflow-scoring:{VERSION}:pom"
-            # f" -DoutputDirectory=/opt/java {maven_proxy}\n"
-            # "RUN mvn"
-            # " --batch-mode dependency:copy"
-            # f" -Dartifact=org.mlflow:mlflow-scoring:{VERSION}:jar"
-            # f" -DoutputDirectory=/opt/java/jars {maven_proxy}\n"
-            # f"RUN cp /opt/java/mlflow-scoring-{VERSION}.pom /opt/java/pom.xml\n"
-            # "RUN cd /opt/java && mvn "
-            # "--batch-mode dependency:copy-dependencies "
-            # f"-DoutputDirectory=/opt/java/jars {maven_proxy}\n"
+            f"RUN pip install mlflow=={VERSION}\n"
+            "RUN mvn"
+            " --batch-mode dependency:copy"
+            f" -Dartifact=org.mlflow:mlflow-scoring:{VERSION}:pom"
+            f" -DoutputDirectory=/opt/java {maven_proxy}\n"
+            "RUN mvn"
+            " --batch-mode dependency:copy"
+            f" -Dartifact=org.mlflow:mlflow-scoring:{VERSION}:jar"
+            f" -DoutputDirectory=/opt/java/jars {maven_proxy}\n"
+            f"RUN cp /opt/java/mlflow-scoring-{VERSION}.pom /opt/java/pom.xml\n"
+            "RUN cd /opt/java && mvn "
+            "--batch-mode dependency:copy-dependencies "
+            f"-DoutputDirectory=/opt/java/jars {maven_proxy}\n"
         )
 
 
@@ -216,7 +214,6 @@ def _build_image(
     with TempDir() as tmp:
         cwd = tmp.path()
         install_mlflow = _get_mlflow_install_step(cwd, mlflow_home)
-        _logger.info(f"install_mlflow: {install_mlflow}")
         custom_setup_steps = custom_setup_steps_hook(cwd) if custom_setup_steps_hook else ""
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(
@@ -252,64 +249,12 @@ def _build_image_from_context(context_dir: str, image_name: str):
     ]
     proc = Popen(commands, cwd=context_dir, stdout=PIPE, stderr=STDOUT, text=True)
     for x in iter(proc.stdout.readline, ""):
+        print(x)
         eprint(x, end="")
 
     if proc.wait():
         raise RuntimeError("Docker build failed.")
 
-
-def stop_container(container_name: str,
-                   remove: bool = False,
-                   show_logs: bool = False):
-    client = docker.from_env()
-    # If the container is already running, stop it
-    try:
-        container = client.containers.get(container_name)
-
-        _logger.info(f"Stopping container {container_name}")
-        container.stop()
-
-        if show_logs:
-            print("\n\033[93m***** Container logs *****")
-            print(container.logs(tail=50).decode('utf-8'))
-            print("\033[0m")
-
-        if remove:
-            _logger.info(f"Removing container {container_name}")
-            container.remove()
-
-    except docker.errors.NotFound:
-        pass
-
-    # Catch exception for logs()
-    except docker.errors.APIError as e:
-        _logger.error(f"Exception happens during stopping the container {container_name}: {e}")
-        pass
-
-
-def _wait_for_startup(port: int,
-                      host: str = "localhost",
-                      health_endpoint: str = "/ping",
-                      interval: int = 10, # sec,
-                      timeout: int = 60): # sec
-    ping_url = f"http://{host}:{port}{health_endpoint}"
-    _logger.info(f"Waiting for container to be ready at {ping_url}")
-
-    while timeout > 0:
-        time.sleep(interval)
-
-        try:
-            response = requests.get(ping_url)
-            if response.status_code == 200:
-                _logger.info(f"Container is ready!")
-                return
-        except Exception:
-            pass
-
-        _logger.info(f"Container is not ready yet. Will retry check in {interval} seconds.")
-        timeout -= interval
-
-    raise RuntimeError(f"Container failed to start or took too long to start.")
 
 
 def run_container(
@@ -317,7 +262,6 @@ def run_container(
     container_name: str,
     port: int = 5000,
     env_vars: dict = None,
-    wait_for_ready: bool = True,
 ):
     """
     Run a Docker container from the specified image in a subprocess.
@@ -325,38 +269,54 @@ def run_container(
     :param image_name: Docker image name.
     :param container_name: Docker container name.
     :param port: Port to expose on the host.
-    :param detached: If True, run the container in detached mode.
-    :param env_vars: Environment variables to set in the container.
-    :param wait_for_ready: If True, wait for the container to be ready before returning.
-    :param health_endpoint: If wait is True, wait for the container to be ready
-                    by polling the specified endpoint.
+    :param env_vars: Environment variables to be passed to the container.
     """
-
-    # If the container is already running, remove it
+    # If the container is already running, stop and remove it
     stop_container(container_name, remove=True)
 
     # Run the container
     _logger.info(f"Starting container {container_name}")
+
+    client = docker.from_env()
+    container = client.containers.run(
+        image_name,
+        name=container_name,
+        ports={8080: port},  # MLflow serves the model on port 8080
+        environment=env_vars,
+        detach=True,
+    )
+
+    return container
+
+
+def stop_container(container_name: str, remove: bool = False, show_log: bool = False):
+    """
+    Stop the specified Docker container.
+
+    :param container_name: Docker container name.
+    :param remove: If specified, also remove the container.
+    :param show_log: If specified, print the container log before stopping the container.
+    """
+    client = docker.from_env()
+    # If the container is already running, stop it
     try:
-        # TODO: cache client
-        client = docker.from_env()
-        container = client.containers.run(
-            image_name,
-            name=container_name,
-            ports={8080: port},  # MLflow serves the model on port 8080
-            environment=env_vars,
-            detach=True,
-        )
+        container = client.containers.get(container_name)
 
-        if wait_for_ready:
-            _wait_for_startup(port=port, interval=10, timeout=60)
+        if show_log:
+            print("\n\033[93m***** Container logs *****")
+            print(container.logs(tail=50).decode('utf-8'))
+            print("\033[0m")
 
-        return container
+        _logger.info(f"Stopping container {container_name}")
+        container.stop()
 
-    except Exception as e:
-        _logger.error(f"Exception happens during starting the container {container_name}: {e}")
-        stop_container(container_name, show_logs=True)
-        raise e
+        if remove:
+            _logger.info(f"Removing container {container_name}")
+            container.remove()
+
+    except docker.errors.NotFound:
+        # No-op if the container is not running
+        return
 
 
 def remove_image(image_name: str):

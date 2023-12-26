@@ -65,7 +65,6 @@ def _serve(env_manager, requirements_override=None):
 
     Read the MLmodel config, initialize the Conda environment if needed and start python server.
     """
-    _logger.info(f"[_serve] requirements_override: {requirements_override}")
     model_config_path = os.path.join(MODEL_PATH, MLMODEL_FILE_NAME)
     m = Model.load(model_config_path)
 
@@ -91,7 +90,6 @@ def _install_pyfunc_deps(
     Creates a conda/virtual env for serving the model at the specified path and installs almost all serving
     dependencies into the environment - MLflow is not installed as it's not available via conda.
     """
-    _logger.info(f"[_install_pyfunc_deps] requirements_override: {requirements_override}")
     # If model is a pyfunc model, create its conda env (even if it also has mleap flavor)
     activate_cmd = []
     if model_path:
