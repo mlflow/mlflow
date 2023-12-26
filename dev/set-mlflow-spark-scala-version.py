@@ -1,6 +1,5 @@
-import re
-from pathlib import Path
 import argparse
+import re
 
 
 def create_pom_with_pinned_scala_version(pom_file_path: str, scala_version: str) -> str:
@@ -14,7 +13,7 @@ def create_pom_with_pinned_scala_version(pom_file_path: str, scala_version: str)
 
     scala_compat_version = ".".join(scala_version.split(".")[:2])
 
-    with open(pom_file_path, "r") as f:
+    with open(pom_file_path) as f:
         content = f.read()
 
     # Replace scala.version with the specified scala version
