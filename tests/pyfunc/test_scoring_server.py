@@ -7,6 +7,7 @@ from collections import namedtuple
 from io import StringIO
 
 import keras
+from mlflow.types.schema import Array, Object, Property
 import numpy as np
 import pandas as pd
 import pytest
@@ -58,9 +59,14 @@ def build_and_save_sklearn_model(model_path):
 
 
 class MyLLM(PythonModel):
-    def predict(self, context, model_input):
-        key = model_input["key"]
-        messages = model_input[key]
+    def predict(self, context, model_input, params=None):
+        # If (and only-if) we define model signature, input is converted
+        # to pandas DataFrame in _enforce_schema applied in Pyfunc.predict.
+        # TODO: Confirm if this is ok, for me it sounds confusing.
+        if isinstance(model_input, pd.DataFrame):
+            model_input = model_input.to_dict(orient="records")[0]
+
+        messages = model_input["messages"]
         ret = " ".join([m["content"] for m in messages])
 
         return {
@@ -79,6 +85,9 @@ class MyLLM(PythonModel):
                 }
             ],
             "usage": {"prompt_tokens": 47, "completion_tokens": 49, "total_tokens": 96},
+            # Echo model input and params for testing purposes
+            "model_input": model_input,
+            "params": params,
         }
 
 
@@ -736,11 +745,88 @@ def test_scoring_server_client(sklearn_model, model_path):
             os.kill(server_proc.pid, signal.SIGTERM)
 
 
-@pytest.mark.parametrize("key", ["messages"])
-def test_scoring_server_allows_payloads_with_llm_keys_for_pyfunc(model_path, key):
-    mlflow.pyfunc.save_model(model_path, python_model=MyLLM())
+_LLM_CHAT_INPUT_SCHEMA = Schema([
+    ColSpec(
+        Array(
+            Object([
+                Property("role", DataType.string),
+                Property("content", DataType.string),
+            ]),
+        ),
+        name="messages"
+    )
+])
+@pytest.mark.parametrize(
+    ("signature", "expected_model_input", "expected_params"),
+    [
+        # Test case: no signature, everything should go to data
+        (
+            None,
+            {
+                "messages": [{
+                    "role": "user",
+                    "content": "hello!"
+                }],
+                "max_tokens": 20,
+                "temperature": 0.5,
+            },
+            {},
+        ),
+        # Test case: signature with params, split params and data
+        (
+            ModelSignature(
+                inputs=_LLM_CHAT_INPUT_SCHEMA,
+                params=ParamSchema([
+                    ParamSpec("temperature", DataType.double, default=0.5),
+                    ParamSpec("max_tokens", DataType.integer, default=20),
+                    ParamSpec("top_p", DataType.double, default=0.9),
+                ]),
+            ),
+            {
+                "messages": [{
+                    "role": "user",
+                    "content": "hello!"
+                }],
+            },
+            {
+                "temperature": 0.5,
+                "max_tokens": 20,
+                "top_p": 0.9, # filled with the default value
+            },
+        ),
+        # Test case: signature but some params are not defeind, missing params are going to data
+        (
+            ModelSignature(
+                inputs=_LLM_CHAT_INPUT_SCHEMA,
+                params=ParamSchema([
+                    ParamSpec("temperature", DataType.double, default=0.5),
+                ]),
+            ),
+            {
+                "messages": [{
+                    "role": "user",
+                    "content": "hello!"
+                }],
+                # missing params are going to data
+                "max_tokens": 20,
+            },
+            {
+                "temperature": 0.5,
+            },
+        ),
+    ]
+)
+def test_scoring_server_allows_payloads_with_llm_keys_for_pyfunc(model_path, signature, expected_model_input, expected_params):
+    mlflow.pyfunc.save_model(model_path, python_model=MyLLM(), signature=signature)
 
-    payload = json.dumps({"key": key, key: [{"role": "user", "content": "hello!"}]})
+    payload = json.dumps({
+        "messages": [{
+            "role": "user",
+            "content": "hello!"
+        }],
+        "temperature": 0.5,
+        "max_tokens": 20,
+    })
     response = pyfunc_serve_and_score_model(
         model_uri=model_path,
         data=payload,
@@ -749,6 +835,8 @@ def test_scoring_server_allows_payloads_with_llm_keys_for_pyfunc(model_path, key
     )
     expect_status_code(response, 200)
     assert json.loads(response.content)["choices"][0]["message"]["content"] == "hello!"
+    assert json.loads(response.content)["model_input"] == expected_model_input
+    assert json.loads(response.content)["params"] == expected_params
 
 
 def test_scoring_server_allows_payloads_with_messages_for_pyfunc_wrapped(model_path):
