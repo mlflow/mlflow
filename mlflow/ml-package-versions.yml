@@ -354,13 +354,12 @@ spark:
       "< 3.4.0": ["pandas<2"]
     run: |
       # Build Java package
-      pushd mlflow/java/spark
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
       if [[ $(python -c "import pyspark;print(pyspark.__version__)") = "4.0.0.dev0" ]]; then
-        mvn package -DskipTests -P scala-2.13 -q
-      else
-        mvn package -DskipTests -q
+        python dev/set-mlflow-spark-scala-version.py --scala-version 2.13.10
       fi
+      pushd mlflow/java/spark
+      mvn package -DskipTests -q
       popd
 
       # NB: Running each .py file individually is important (instead of
