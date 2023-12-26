@@ -25,7 +25,7 @@ MLflow offers a list of features that power your deep learning workflows:
 
 Experiments Tracking
 ^^^^^^^^^^^^^^^^^^^^
-Tracking is the cornerstone of the MLflow ecosystem, especially vital for the iterative nature of deep learning:
+Tracking is the cornerstone of the MLflow ecosystem, and especially vital for the iterative nature of deep learning:
 
 - **Experiments and Runs**: Organize your deep learning projects into experiments, with each experiment containing multiple runs.
   Each run captures essential data like metrics at various training steps, hyperparameters, and the code state.
