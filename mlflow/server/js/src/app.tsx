@@ -14,7 +14,7 @@ import { ConfigProvider } from 'antd';
 import { LegacySkeleton } from '@databricks/design-system';
 import { shouldUsePathRouting } from './common/utils/FeatureUtils';
 import { MlflowRouter } from './MlflowRouter';
-import { useMLflowDarkTheme } from './common/components/GlobalStyles';
+import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
