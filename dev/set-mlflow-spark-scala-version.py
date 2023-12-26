@@ -17,11 +17,16 @@ def create_pom_with_pinned_scala_version(pom_file_path: str, scala_version: str)
         content = f.read()
 
     # Replace scala.version with the specified scala version
-    content = re.sub(r"<scala\.version>\d+\.\d+\.\d+</scala\.version>",
-                     f"<scala.version>{scala_version}</scala.version>", content)
-    content = re.sub(r"<scala\.compat\.version>\d+\.\d+</scala\.compat\.version>",
-                     f"<scala.compat.version>{scala_compat_version}</scala.compat.version>",
-                     content)
+    content = re.sub(
+        r"<scala\.version>\d+\.\d+\.\d+</scala\.version>",
+        f"<scala.version>{scala_version}</scala.version>",
+        content,
+    )
+    content = re.sub(
+        r"<scala\.compat\.version>\d+\.\d+</scala\.compat\.version>",
+        f"<scala.compat.version>{scala_compat_version}</scala.compat.version>",
+        content,
+    )
     with open(pom_file_path, "w") as f:
         f.write(content)
 
