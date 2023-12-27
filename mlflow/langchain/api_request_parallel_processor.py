@@ -192,7 +192,7 @@ class APIRequest:
         return APIRequest._transform_request_json_for_chat_if_necessary(request_json, self.lc_model)
 
     @staticmethod
-    def _transform_request_json_for_chat_if_necessary(request_json, lc_model) -> str:
+    def _transform_request_json_for_chat_if_necessary(request_json, lc_model):
         input_fields = APIRequest._get_lc_model_input_fields(lc_model)
         if "messages" in input_fields:
             # If the chain accepts a "messages" field directly, don't attempt to convert
