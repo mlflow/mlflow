@@ -1446,6 +1446,19 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         )
     ]
 
+    assert pyfunc_loaded_model.predict([input_example, input_example]) == [
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        ),
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        ),
+    ]
+
     with pytest.raises(MlflowException, match="Unrecognized chat message role"):
         pyfunc_loaded_model.predict({"messages": [{"role": "foobar", "content": "test content"}]})
 
@@ -1473,4 +1486,95 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
             "ai: What would you like to ask?\n"
             "human: Who owns MLflow?"
         )
+    ]
+
+
+def test_pyfunc_builtin_chat_conversion_fails_gracefully():
+    from langchain.schema.runnable import RunnablePassthrough
+
+    chain = RunnablePassthrough() | itemgetter("messages")
+    # Ensure we're going to test that "messages" remains intact & unchanged even if it
+    # doesn't appear explicitly in the chain's input schema
+    assert "messages" not in chain.input_schema().__fields__
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model_path")
+        pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    assert pyfunc_loaded_model.predict({"messages": "not an array"}) == "not an array"
+
+    # Verify that messages aren't converted to LangChain format if extra keys are present,
+    # under the assumption that additional keys can't be specified when calling LangChain invoke()
+    # / batch() with chat messages
+    assert pyfunc_loaded_model.predict(
+        {
+            "messages": [{"role": "user", "content": "blah"}],
+            "extrakey": "extra",
+        }
+    ) == [
+        {"role": "user", "content": "blah"},
+    ]
+
+    # Verify that messages aren't converted to LangChain format if role / content are missing
+    # or extra keys are present in the message
+    assert pyfunc_loaded_model.predict(
+        {
+            "messages": [{"content": "blah"}],
+        }
+    ) == [
+        {"content": "blah"},
+    ]
+    assert pyfunc_loaded_model.predict(
+        {
+            "messages": [{"role": "user", "content": "blah"}, {"role": "blah"}],
+        }
+    ) == [
+        {"role": "user", "content": "blah"},
+        {"role": "blah"},
+    ]
+    assert pyfunc_loaded_model.predict(
+        {
+            "messages": [{"role": "role", "content": "content", "extra": "extra"}],
+        }
+    ) == [
+        {"role": "role", "content": "content", "extra": "extra"},
+    ]
+
+    # Verify behavior for batches of message histories
+    assert pyfunc_loaded_model.predict(
+        [
+            {
+                "messages": "not an array",
+            },
+            {
+                "messages": [{"role": "user", "content": "content"}],
+            },
+        ]
+    ) == [
+        "not an array",
+        [{"role": "user", "content": "content"}],
+    ]
+    assert pyfunc_loaded_model.predict(
+        [
+            {
+                "messages": [{"role": "user", "content": "content"}],
+            },
+            {"messages": [{"role": "user", "content": "content"}], "extrakey": "extra"},
+        ]
+    ) == [
+        [{"role": "user", "content": "content"}],
+        [{"role": "user", "content": "content"}],
+    ]
+    assert pyfunc_loaded_model.predict(
+        [
+            {
+                "messages": [{"role": "user", "content": "content"}],
+            },
+            {
+                "messages": [{"role": "user", "content": "content"}, {"role": "user"}],
+            },
+        ]
+    ) == [
+        [{"role": "user", "content": "content"}],
+        [{"role": "user", "content": "content"}, {"role": "user"}],
     ]
