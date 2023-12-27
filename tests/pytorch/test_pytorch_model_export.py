@@ -1237,9 +1237,9 @@ def test_model_log_with_signature_inference(sequential_model, data):
 
 
 @pytest.mark.parametrize("scripted_model", [False])
-def test_load_model_to_device():
+def test_load_model_to_device(sequential_model):
     with mock.patch("mlflow.pytorch._load_model") as load_model_mock:
-        with mlflow.start_run(sequential_model):
+        with mlflow.start_run():
             model_info = mlflow.pytorch.log_model(sequential_model, artifact_path="pytorch")
             mlflow.pyfunc.load_model(
                 model_uri=model_info.model_uri, model_config={'device': 'cuda'}
