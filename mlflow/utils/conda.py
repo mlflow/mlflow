@@ -287,8 +287,9 @@ def get_or_create_conda_env(
                 "Installing additional dependencies specified"
                 f"by pip_requirements_override: {pip_requirements_override}"
             )
-            cmd = [conda_path, "install", "--yes", "--quiet", *pip_requirements_override]
-            conda_env.execute(" ".join(cmd), capture_output=capture_output)
+            cmd = [conda_path, "install", "-n", project_env_name,
+                    "--yes", "--quiet", *pip_requirements_override]
+            process._exec_cmd(cmd, extra_env=conda_extra_env_vars, capture_output=capture_output)
 
         return conda_env
 
