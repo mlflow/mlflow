@@ -107,7 +107,7 @@ class PyFuncBackend(FlavorBackend):
         self._env_root_dir = env_root_dir
         self._environment = None
 
-    def prepare_env(self, model_uri, capture_output=False):
+    def prepare_env(self, model_uri, capture_output=False, pip_requirements_override=None):
         if self._environment is not None:
             return self._environment
 
@@ -137,6 +137,7 @@ class PyFuncBackend(FlavorBackend):
                 self._env_id,
                 env_root_dir=env_root_dir,
                 capture_output=capture_output,
+                pip_requirements_override=pip_requirements_override,
             )
             self._environment = Environment(activate_cmd)
         elif self._env_manager == _EnvManager.CONDA:
@@ -146,6 +147,7 @@ class PyFuncBackend(FlavorBackend):
                 env_id=self._env_id,
                 capture_output=capture_output,
                 env_root_dir=env_root_dir,
+                pip_requirements_override=pip_requirements_override,
             )
 
         elif self._env_manager == _EnvManager.LOCAL:
@@ -160,7 +162,14 @@ class PyFuncBackend(FlavorBackend):
 
         return self._environment
 
-    def predict(self, model_uri, input_path, output_path, content_type):
+    def predict(
+        self,
+        model_uri,
+        input_path,
+        output_path,
+        content_type,
+        pip_requirements_override=None,
+    ):
         """
         Generate predictions using generic python model saved with MLflow. The expected format of
         the input JSON is the MLflow scoring format.
@@ -185,7 +194,15 @@ class PyFuncBackend(FlavorBackend):
             if output_path:
                 predict_cmd += ["--output-path", shlex.quote(str(output_path))]
 
-            environment = self.prepare_env(local_path)
+            if pip_requirements_override and self._env_manager == _EnvManager.CONDA:
+                # Conda use = instead of == for version pinning
+                pip_requirements_override = [
+                    l.replace("==", "=") for l in pip_requirements_override
+                ]
+
+            environment = self.prepare_env(
+                local_path, pip_requirements_override=pip_requirements_override
+            )
 
             try:
                 environment.execute(" ".join(predict_cmd))
@@ -196,6 +213,11 @@ class PyFuncBackend(FlavorBackend):
                     f"from the prediction subprocess by scrolling above."
                 ) from None
         else:
+            if pip_requirements_override:
+                raise Exception(
+                    "`pip_requirements_override` is not supported for local env manager."
+                    "Please use conda or virtualenv instead."
+                )
             scoring_server._predict(local_uri, input_path, output_path, content_type)
 
     def serve(

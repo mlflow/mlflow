@@ -200,7 +200,13 @@ def _get_conda_extra_env_vars(env_root_dir=None):
     }
 
 
-def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, env_root_dir=None):
+def get_or_create_conda_env(
+    conda_env_path,
+    env_id=None,
+    capture_output=False,
+    env_root_dir=None,
+    pip_requirements_override=None,
+):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
@@ -213,6 +219,8 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
     :param capture_output: Specify the capture_output argument while executing the
                            "conda env create" command.
     :param env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
+    :param pip_requirements_override: If specified, install the specified python dependencies to
+                                      the environment (upgrade if already installed).
     """
 
     conda_path = get_conda_bin_executable("conda")
@@ -266,13 +274,24 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
             if "PYTEST_CURRENT_TEST" in os.environ
             else _create_conda_env
         )
-        return _create_conda_env_func(
+        conda_env = _create_conda_env_func(
             conda_env_path,
             conda_env_create_path,
             project_env_name,
             conda_extra_env_vars,
             capture_output,
         )
+
+        if pip_requirements_override:
+            _logger.info(
+                "Installing additional dependencies specified"
+                f"by pip_requirements_override: {pip_requirements_override}"
+            )
+            cmd = [conda_path, "install", "--yes", "--quiet", *pip_requirements_override]
+            conda_env.execute(" ".join(cmd), capture_output=capture_output)
+
+        return conda_env
+
     except Exception:
         try:
             if project_env_name in _list_conda_environments(conda_extra_env_vars):

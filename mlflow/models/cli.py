@@ -125,6 +125,13 @@ def serve(
 )
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
+@click.option(
+    "--pip-requirements-override",
+    "-r",
+    default=None,
+    help="Specify packages and versions to override the dependencies defined"
+    "in the modela. Must be a comma-separated string like x==y,z==a.",
+)
 def predict(
     model_uri,
     input_path,
@@ -132,6 +139,7 @@ def predict(
     content_type,
     env_manager,
     install_mlflow,
+    pip_requirements_override,
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
@@ -146,6 +154,7 @@ def predict(
         input_path=input_path,
         output_path=output_path,
         content_type=content_type,
+        pip_requirements_override=pip_requirements_override,
     )
 
 

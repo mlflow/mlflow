@@ -31,7 +31,7 @@ The built-in flavors are:
 For details, see `MLflow Models <../models.html>`_.
 """
 import os
-from typing import Optional
+from typing import List, Optional
 
 from mlflow.models.evaluation import (
     EvaluationArtifact,
@@ -92,15 +92,33 @@ def build_docker(
 def predict(
     model_uri: str,
     input_data_or_path: str,
-    content_type: str = "json",
     output_path: Optional[str] = None,
+    content_type: str = "json",
     env_manager: _EnvManager = _EnvManager.VIRTUALENV,
-    install_mlflow=False,
+    install_mlflow: bool = False,
+    pip_requirements_override: Optional[List[str]] = None,
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
+
+    :param model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
+    :param input_data_or_path: A serialized JSON or CSV string, or a path to a local CSV file
+        containing input data.
+    :param output_path: File to output results to as json. If not provided, output to stdout.
+    :param content_type: Content type of the input file. Can be one of {‘json’, ‘csv’}.
+    :param env_manager: If specified, create an environment for MLmodel using the specified
+        environment manager. The following values are supported:
+            - virtualenv (default): use virtualenv (and pyenv for Python version management)
+            - local: use the local environment
+            - conda: use conda
+    :param install_mlflow: If specified and there is a conda or virtualenv environment to be
+        activated mlflow will be installed into the environment after it has been activated.
+        The version of installed mlflow will be the same as the one used to invoke this command.
+    :param pip_requirements_override: If specified, install the specified python dependencies to
+        the model inference environment. This is particularly useful when you want to add extra
+        dependencies or try different versions of the dependencies defined in the logged model.
     """
     if not isinstance(input_data_or_path, str):
         raise TypeError(
@@ -116,6 +134,7 @@ def predict(
             input_path=_input_path,
             output_path=output_path,
             content_type=content_type,
+            pip_requirements_override=pip_requirements_override,
         )
 
     if os.path.exists(input_data_or_path) and os.path.isfile(input_data_or_path):
