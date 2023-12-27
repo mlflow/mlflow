@@ -197,7 +197,7 @@ class APIRequest:
         if "messages" in input_fields:
             # If the chain accepts a "messages" field directly, don't attempt to convert
             # the request to LangChain's Message format automatically. Assume that the chain
-            # is handling the "messages" field itself
+            # is handling the "messages" field by itself
             return request_json
 
         def json_dict_might_be_chat_request(json: Dict):
