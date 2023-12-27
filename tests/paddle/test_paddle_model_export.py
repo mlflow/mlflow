@@ -578,7 +578,9 @@ def test_pyfunc_serve_and_score(pd_model):
     scores = pd.DataFrame(
         data=json.loads(resp.content.decode("utf-8"))["predictions"]
     ).values.squeeze()
-    np.testing.assert_array_almost_equal(scores, model(inference_dataframe).squeeze())
+    np.testing.assert_array_almost_equal(
+        scores, model(paddle.to_tensor(inference_dataframe)).squeeze()
+    )
 
 
 def test_log_model_with_code_paths(pd_model):
