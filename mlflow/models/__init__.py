@@ -30,6 +30,8 @@ The built-in flavors are:
 
 For details, see `MLflow Models <../models.html>`_.
 """
+import os
+from typing import Union
 
 from mlflow.models.evaluation import (
     EvaluationArtifact,
@@ -43,8 +45,10 @@ from mlflow.models.evaluation import (
 from mlflow.models.flavor_backend import FlavorBackend
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import Model, get_model_info
+from mlflow.pyfunc import PyfuncInput
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.environment import infer_pip_requirements
+from mlflow.utils.file_utils import TempDir
 
 
 def build_docker(
@@ -84,6 +88,38 @@ def build_docker(
         install_mlflow=install_mlflow,
         enable_mlserver=enable_mlserver,
     )
+
+
+def predict(
+    model_uri: str,
+    input_data_or_path: Union[str, PyfuncInput],
+    content_type: str = "json",
+    output_path: str = None,
+    env_manager: _EnvManager = _EnvManager.VIRTUALENV,
+    install_mlflow=False,
+):
+    """
+    Generate predictions in json format using a saved MLflow model. For information about the input
+    data formats accepted by this function, see the following documentation:
+    https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
+    """
+    def _predict(_input_path: str):
+        return get_flavor_backend(
+            model_uri, env_manager=env_manager, install_mlflow=install_mlflow
+        ).predict(
+                    model_uri=model_uri,
+                    input_path=_input_path,
+                    output_path=output_path,
+                    content_type=content_type,
+        )
+    if os.path.exists(input_data_or_path) and os.path.isfile(input_data_or_path):
+        _predict(input_data_or_path)
+    else:
+        with TempDir() as tmp:
+            input_path = os.path.join(tmp.path(), f"input.{content_type}")
+            with open(input_path, "w") as f:
+                f.write(input_data_or_path)
+            _predict(input_path)
 
 
 __all__ = [
