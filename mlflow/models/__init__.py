@@ -45,7 +45,6 @@ from mlflow.models.evaluation import (
 from mlflow.models.flavor_backend import FlavorBackend
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import Model, get_model_info
-from mlflow.pyfunc import PyfuncInput
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.file_utils import TempDir
@@ -92,7 +91,7 @@ def build_docker(
 
 def predict(
     model_uri: str,
-    input_data_or_path: Union[str, PyfuncInput],
+    input_data_or_path: str,
     content_type: str = "json",
     output_path: str = None,
     env_manager: _EnvManager = _EnvManager.VIRTUALENV,
@@ -103,6 +102,12 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
+    if not isinstance(input_data_or_path, str):
+        raise TypeError(
+            f"Input_data_or_path must be a string, but got {type(input_data_or_path)}. "
+            "Please serialize input data into a string before passing e.g. json.dumps(input)."
+        )
+
     def _predict(_input_path: str):
         return get_flavor_backend(
             model_uri, env_manager=env_manager, install_mlflow=install_mlflow
