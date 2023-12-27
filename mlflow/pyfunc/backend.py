@@ -37,7 +37,7 @@ from mlflow.utils.file_utils import (
     path_to_local_file_uri,
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
-from mlflow.utils.process import cache_return_value_per_process
+from mlflow.utils.process import ShellCommandException, cache_return_value_per_process
 from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,
     _get_pip_install_mlflow,
@@ -48,6 +48,29 @@ _logger = logging.getLogger(__name__)
 
 _IS_UNIX = os.name != "nt"
 _STDIN_SERVER_SCRIPT = Path(__file__).parent.joinpath("stdin_server.py")
+
+
+# Guidance for fixing missing module error
+_MISSING_MODULE_HELP_MSG = (
+    "Exception occurred while running inference: {e}"
+    "\n\n"
+    "\033[93m[Hint] It appears to be your MLflow Model doesn't contain the required "
+    "dependencies '{module_name}' to run inference. When logging a model, MLflow "
+    "detects dependencies based on the model flavor but it is possible that some "
+    "dependencies are not captured. In this case, you can manually add dependencies "
+    "using `extra_pip_requirements` parameter of `mlflow.pyfunc.log_model`.\033[0m"
+    """
+
+\033[1mSample code:\033[0m
+    ----
+    mlflow.pyfunc.log_model(
+        artifact_path="model",
+        python_model=your_model,
+        extra_pip_requirements=["{module_name}==x.y.z"]
+    )
+    ----
+"""
+)
 
 
 class PyFuncBackend(FlavorBackend):
@@ -161,7 +184,17 @@ class PyFuncBackend(FlavorBackend):
                 predict_cmd += ["--input-path", shlex.quote(str(input_path))]
             if output_path:
                 predict_cmd += ["--output-path", shlex.quote(str(output_path))]
-            return self.prepare_env(local_path).execute(" ".join(predict_cmd))
+
+            environment = self.prepare_env(local_path)
+
+            try:
+                environment.execute(" ".join(predict_cmd))
+            except ShellCommandException as e:
+                raise ShellCommandException(
+                    f"{e}\n\nAn exception occurred while running model prediction within a "
+                    f"{self._env_manager} environment. You can find the error message "
+                    f"from the prediction subprocess by scrolling above."
+                ) from None
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type)
 

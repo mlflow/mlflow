@@ -31,7 +31,7 @@ The built-in flavors are:
 For details, see `MLflow Models <../models.html>`_.
 """
 import os
-from typing import Union
+from typing import Optional
 
 from mlflow.models.evaluation import (
     EvaluationArtifact,
@@ -93,7 +93,7 @@ def predict(
     model_uri: str,
     input_data_or_path: str,
     content_type: str = "json",
-    output_path: str = None,
+    output_path: Optional[str] = None,
     env_manager: _EnvManager = _EnvManager.VIRTUALENV,
     install_mlflow=False,
 ):
@@ -112,11 +112,12 @@ def predict(
         return get_flavor_backend(
             model_uri, env_manager=env_manager, install_mlflow=install_mlflow
         ).predict(
-                    model_uri=model_uri,
-                    input_path=_input_path,
-                    output_path=output_path,
-                    content_type=content_type,
+            model_uri=model_uri,
+            input_path=_input_path,
+            output_path=output_path,
+            content_type=content_type,
         )
+
     if os.path.exists(input_data_or_path) and os.path.isfile(input_data_or_path):
         _predict(input_data_or_path)
     else:
