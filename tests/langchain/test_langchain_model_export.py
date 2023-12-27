@@ -1446,6 +1446,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         )
     ]
 
+    with pytest.raises(MlflowException, match="Unrecognized chat message role"):
+        pyfunc_loaded_model.predict({"messages": [{"role": "foobar", "content": "test content"}]})
+
     udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
     df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
     df = df.withColumn("answer", udf("messages"))
