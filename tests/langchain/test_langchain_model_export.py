@@ -1489,6 +1489,9 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     ]
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_pyfunc_builtin_chat_conversion_fails_gracefully():
     from langchain.schema.runnable import RunnablePassthrough
 
