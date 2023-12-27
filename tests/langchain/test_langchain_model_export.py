@@ -1404,8 +1404,7 @@ def test_chat_with_history(spark):
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_predict_with_builtin_pyfunc_chat_conversion():
-    # def test_predict_with_builtin_pyfunc_chat_conversion(spark):
+def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     from langchain.schema.output_parser import StrOutputParser
 
     from mlflow.langchain.utils import _fake_simple_chat_model
@@ -1447,18 +1446,28 @@ def test_predict_with_builtin_pyfunc_chat_conversion():
         )
     ]
 
-    # udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
-    # df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
-    # df = df.withColumn("answer", udf("messages"))
-    # pdf = df.toPandas()
-    # assert pdf["answer"].tolist() == ["Databricks"]
-    #
-    # response = pyfunc_serve_and_score_model(
-    #     model_info.model_uri,
-    #     data=json.dumps({"inputs": input_example}),
-    #     content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-    #     extra_args=["--env-manager", "local"],
-    # )
-    # assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
-    #     "predictions": ["Databricks"]
-    # }
+    udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
+    df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
+    df = df.withColumn("answer", udf("messages"))
+    pdf = df.toPandas()
+    assert pdf["answer"].tolist() == [
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        )
+    ]
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps(input_example),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == [
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        )
+    ]
