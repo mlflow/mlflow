@@ -89,8 +89,8 @@ class Dataset:
     @property
     def source(self) -> DatasetSource:
         """
-        This is information about the dataset's source. It is represented as an instance of
-        DatasetSource from the mlflow.data.dataset_source module. For example, this
+        Information about the dataset's source, represented as an instance of
+        :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`. For example, this
         may be the S3 location or the name of the managed Delta Table from which the dataset
         was derived.
         """

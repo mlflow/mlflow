@@ -110,7 +110,7 @@ def save_model(
         diviner_model: ``Diviner`` model that has been ``fit`` on a grouped temporal
             ``DataFrame``.
         path: Local path destination for the serialized model is to be saved.
-        conda_env: Inserted after the argument name.
+        conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system
             path when the model is loaded.
@@ -143,12 +143,13 @@ def save_model(
 
             Current supported options:
 
-            - `partition_by` for setting a (or several) partition columns as a list of column names.
-                Must be a list of strings of grouping key column(s).
-            - `partition_count` for setting the number of part files to write from a repartition per
-                `partition_by` group. The default part file count is 200.
-            - `dfs_tmpdir` for specifying the DFS temporary location where the model will be stored
-                while copying from a local file system to a Spark-supported "dbfs:/" scheme.
+            - `partition_by` for setting a (or several) partition columns as a list of \
+            column names. Must be a list of strings of grouping key column(s).
+            - `partition_count` for setting the number of part files to write from a \
+            repartition per `partition_by` group. The default part file count is 200.
+            - `dfs_tmpdir` for specifying the DFS temporary location where the model will \
+            be stored while copying from a local file system to a Spark-supported "dbfs:/" \
+            scheme.
 
     """
     import diviner
@@ -370,10 +371,9 @@ def log_model(
     """Log a ``Diviner`` object as an MLflow artifact for the current run.
 
     Args:
-        diviner_model: ``Diviner`` model that has been ``fit`` on a grouped temporal
-            ``DataFrame``.
+        diviner_model: ``Diviner`` model that has been ``fit`` on a grouped temporal ``DataFrame``.
         artifact_path: Run-relative artifact path to save the model instance to.
-        conda_env: Inserted after the argument name.
+        conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system
             path when the model is loaded.
@@ -411,21 +411,21 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
             .. Note:: Experimental: This parameter may change or be removed in a future
-                release without warning.
+                      release without warning.
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
             Additionally, for models that have been fit in Spark, the following supported
             configuration options are available to set.
+
             Current supported options:
 
-            - `partition_by` for setting a (or several) partition columns as a list of column names.
-                Must be a list of strings of grouping key column(s).
-            - `partition_count` for setting the number of part files to write from a repartition per
-                `partition_by` group. The default part file count is 200.
-            - `dfs_tmpdir` for specifying the DFS temporary location where the model will be stored
-                while copying from a local file system to a Spark-supported "dbfs:/" scheme.
-
+            - `partition_by` for setting a (or several) partition columns as a list of \
+            column names. Must be a list of strings of grouping key column(s).
+            - `partition_count` for setting the number of part files to write from a \
+            repartition per `partition_by` group. The default part file count is 200.
+            - `dfs_tmpdir` for specifying the DFS temporary location where the model will \
+            be stored while copying from a local file system to a Spark-supported "dbfs:/" \
+            scheme.
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
