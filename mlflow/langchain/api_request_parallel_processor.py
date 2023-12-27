@@ -23,14 +23,14 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from packaging.version import Version
-from typing import Any, Dict, List, Optional, Union, Set, Literal
+from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import langchain.chains
 import pydantic
-from langchain_core.messages import ChatMessage as LangChainChatMessage 
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage 
 from langchain.schema import AgentAction
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import ChatMessage as LangChainChatMessage
+from packaging.version import Version
 
 import mlflow
 
@@ -168,7 +168,7 @@ class APIRequest:
             else:
                 response = self.lc_model(
                     self._prepare_request_for_runnable_or_chain_inference(self.request_json),
-                    return_only_outputs=True
+                    return_only_outputs=True,
                 )
 
                 # to maintain existing code, single output chains will still return only the result
@@ -195,13 +195,14 @@ class APIRequest:
         input_fields = APIRequest._get_lc_model_input_fields(lc_model)
         if "messages" in input_fields:
             # If the chain accepts a "messages" field directly, don't attempt to convert
-            # the request to LangChain's Message format automatically. Assume that the chain 
-            # is handling the "messages" field itself 
+            # the request to LangChain's Message format automatically. Assume that the chain
+            # is handling the "messages" field itself
             return request_json
 
         def json_dict_might_be_chat_request(json: Dict):
             return (
-                "messages" in request_json and
+                "messages" in request_json
+                and
                 # Additional keys can't be specified when calling LangChain invoke() / batch()
                 # with chat messages
                 len(request_json) == 1
@@ -212,9 +213,8 @@ class APIRequest:
                 return APIRequest._convert_chat_request_or_throw(request_json)
             except pydantic.ValidationError:
                 return request_json
-        elif (
-            isinstance(request_json, list) and
-            all(json_dict_might_be_chat_request(json) for json in request_json)
+        elif isinstance(request_json, list) and all(
+            json_dict_might_be_chat_request(json) for json in request_json
         ):
             try:
                 return [
@@ -229,12 +229,8 @@ class APIRequest:
     @staticmethod
     def _get_lc_model_input_fields(lc_model) -> Set:
         try:
-            if (
-                hasattr(self.lc_model, "input_schema") and
-                isinstance(self.lc_model.input_schema, callable)
-            ):
-                input_schema_fields = set(self.lc_model.input_schema().__fields__)
-
+            if hasattr(lc_model, "input_schema") and isinstance(lc_model.input_schema, callable):
+                return set(lc_model.input_schema().__fields__)
         except Exception as e:
             _logger.debug(
                 f"Unexpected exception while checking LangChain input schema for"
