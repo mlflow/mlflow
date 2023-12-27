@@ -189,10 +189,12 @@ def from_huggingface(
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> HuggingFaceDataset:
-    """Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
+    """
+    Create a `mlflow.data.huggingface_dataset.HuggingFaceDataset` from a Hugging Face dataset.
 
     Args:
-        ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`. Other types, such as
+        ds:
+            A Hugging Face dataset. Must be an instance of `datasets.Dataset`. Other types, such as
             `datasets.DatasetDict`, are not supported.
         path: The path of the Hugging Face dataset used to construct the source. This is the same
             argument as `path` in `datasets.load_dataset()` function. To be able to reload the
