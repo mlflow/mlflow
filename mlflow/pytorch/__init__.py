@@ -737,7 +737,7 @@ class _PyTorchWrapper:
         """
         import torch
 
-        if "device" in params:
+        if params and "device" in params:
             raise ValueError(
                 "device' param is no longer inference param but becomes load-time param, "
                 "please use command like "
