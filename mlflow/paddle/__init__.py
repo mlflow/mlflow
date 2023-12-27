@@ -456,8 +456,8 @@ class _PaddleWrapper:
             Model predictions.
         """
         import numpy as np
-        import pandas as pd
         import paddle
+        import pandas as pd
 
         if isinstance(data, pd.DataFrame):
             inp_data = data.values.astype(np.float32)
