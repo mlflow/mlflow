@@ -737,6 +737,13 @@ class _PyTorchWrapper:
         """
         import torch
 
+        if "device" in params:
+            raise ValueError(
+                "device' param is no longer inference param but becomes load-time param, "
+                "please use command like "
+                "`mlflow.pyfunc.load_model(model_uri, model_config={'device': 'cuda'})`."
+            )
+
         if isinstance(data, pd.DataFrame):
             inp_data = data.values.astype(np.float32)
         elif isinstance(data, np.ndarray):
