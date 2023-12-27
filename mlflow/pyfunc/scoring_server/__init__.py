@@ -173,7 +173,7 @@ def _decode_json_input(json_input):
     )
 
 
-def _split_data_and_params_for_llm_input(json_input, param_schema: ParamSchema):
+def _split_data_and_params_for_llm_input(json_input, param_schema: Optional[ParamSchema]):
     data = {}
     params = {}
     schema_params = {param.name for param in param_schema.params} if param_schema else {}

@@ -343,7 +343,7 @@ def load_model(model_uri: str, dst_path: Optional[str] = None):
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    return sentence_transformers.SentenceTransformer.load(local_model_dir)
+    return sentence_transformers.SentenceTransformer.load(str(local_model_dir))
 
 
 def _get_default_signature():

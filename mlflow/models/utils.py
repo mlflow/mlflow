@@ -546,6 +546,11 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             raise MlflowException(
                 "Failed to convert column {name} from type {values.dtype} to {t}."
             ) from e
+
+    if t == DataType.boolean and values.dtype == object:
+        # Should not convert type otherwise it converts None to boolean False
+        return values
+
     if t == DataType.double and values.dtype == decimal.Decimal:
         # NB: Pyspark Decimal column get converted to decimal.Decimal when converted to pandas
         # DataFrame. In order to support decimal data training from spark data frame, we add this

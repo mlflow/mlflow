@@ -1355,6 +1355,17 @@ def test_log_param_async_throws():
             mlflow.log_params({"async batch param": "3"}, synchronous=False).wait()
 
 
+def test_flush_async_logging():
+    with mlflow.start_run() as run:
+        for i in range(100):
+            mlflow.log_metric("dummy", i, step=i, synchronous=False)
+
+        mlflow.flush_async_logging()
+
+        metric_history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "dummy")
+        assert len(metric_history) == 100
+
+
 def test_set_tag_async():
     run_operations = []
 
