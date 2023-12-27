@@ -229,9 +229,10 @@ class APIRequest:
     @staticmethod
     def _get_lc_model_input_fields(lc_model) -> Set:
         try:
-            if hasattr(lc_model, "input_schema") and isinstance(lc_model.input_schema, callable):
+            if hasattr(lc_model, "input_schema") and callable(lc_model.input_schema):
                 return set(lc_model.input_schema().__fields__)
         except Exception as e:
+            raise e
             _logger.debug(
                 f"Unexpected exception while checking LangChain input schema for"
                 f" request transformation: {e}"
@@ -263,7 +264,7 @@ class APIRequest:
         else:
             model = ChatRequest.model_validate(chat_request)
 
-        return [message.to_langchain_message for message in model.messages]
+        return [message.to_langchain_message() for message in model.messages]
 
 
 def process_api_requests(

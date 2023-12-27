@@ -36,6 +36,7 @@ from langchain.requests import TextRequestsWrapper
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
 from langchain.vectorstores import FAISS
+from langchain_core.messages import HumanMessage
 from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
 from packaging.version import Version
@@ -1398,3 +1399,66 @@ def test_chat_with_history(spark):
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
         "predictions": ["Databricks"]
     }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_predict_with_builtin_pyfunc_chat_conversion():
+    # def test_predict_with_builtin_pyfunc_chat_conversion(spark):
+    from langchain.schema.output_parser import StrOutputParser
+
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
+    class ChatModel(_fake_simple_chat_model()):
+        def _call(self, messages, stop, run_manager, **kwargs):  # pylint: disable=signature-differs
+            return "\n".join([f"{message.type}: {message.content}" for message in messages])
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    signature = infer_signature(model_input=input_example)
+
+    chain = ChatModel() | StrOutputParser()
+    assert chain.invoke([HumanMessage(content="Who owns MLflow?")]) == "human: Who owns MLflow?"
+    with pytest.raises(ValueError, match="Invalid input type"):
+        chain.invoke(input_example)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain, "model_path", signature=signature, input_example=input_example
+        )
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert (
+        loaded_model.invoke([HumanMessage(content="Who owns MLflow?")]) == "human: Who owns MLflow?"
+    )
+
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict(input_example) == [
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        )
+    ]
+
+    # udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
+    # df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
+    # df = df.withColumn("answer", udf("messages"))
+    # pdf = df.toPandas()
+    # assert pdf["answer"].tolist() == ["Databricks"]
+    #
+    # response = pyfunc_serve_and_score_model(
+    #     model_info.model_uri,
+    #     data=json.dumps({"inputs": input_example}),
+    #     content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    #     extra_args=["--env-manager", "local"],
+    # )
+    # assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+    #     "predictions": ["Databricks"]
+    # }
