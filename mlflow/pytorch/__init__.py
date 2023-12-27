@@ -691,7 +691,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config):
+def _load_pyfunc(path, model_config=None):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
@@ -699,7 +699,7 @@ def _load_pyfunc(path, model_config):
     """
     import torch
 
-    device = model_config.get("device", None)
+    device = model_config.get("device", None) if model_config else None
     # if CUDA is available, we use the default CUDA device.
     # To force inference to the CPU when the GPU is available, please set
     # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
@@ -739,8 +739,9 @@ class _PyTorchWrapper:
 
         if params and "device" in params:
             raise ValueError(
-                "device' param is no longer inference param but becomes load-time param, "
-                "please use command like "
+                "device' can no longer be specified as an inference parameter. "
+                "It must be specified at load time. "
+                "Please specify the device at load time, for example: "
                 "`mlflow.pyfunc.load_model(model_uri, model_config={'device': 'cuda'})`."
             )
 
