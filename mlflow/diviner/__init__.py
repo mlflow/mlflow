@@ -140,9 +140,7 @@ def save_model(
 
         kwargs: Optional configurations for Spark DataFrame storage iff the model has
             been fit in Spark.
-
             Current supported options:
-
             - `partition_by` for setting a (or several) partition columns as a list of \
             column names. Must be a list of strings of grouping key column(s).
             - `partition_count` for setting the number of part files to write from a \
@@ -389,19 +387,20 @@ def log_model(
             the training dataset), for example:
 
             .. code-block:: python
+              :caption: Example
 
-                from mlflow.models import infer_signature
+              from mlflow.models import infer_signature
 
-                auto_arima_obj = AutoARIMA(out_of_sample_size=60, maxiter=100)
-                base_auto_arima = GroupedPmdarima(model_template=auto_arima_obj).fit(
-                    df=training_data,
-                    group_key_columns=("region", "state"),
-                    y_col="y",
-                    datetime_col="ds",
-                    silence_warnings=True,
-                )
-                predictions = model.predict(n_periods=30, alpha=0.05, return_conf_int=True)
-                signature = infer_signature(data, predictions)
+              auto_arima_obj = AutoARIMA(out_of_sample_size=60, maxiter=100)
+              base_auto_arima = GroupedPmdarima(model_template=auto_arima_obj).fit(
+                  df=training_data,
+                  group_key_columns=("region", "state"),
+                  y_col="y",
+                  datetime_col="ds",
+                  silence_warnings=True,
+              )
+              predictions = model.predict(n_periods=30, alpha=0.05, return_conf_int=True)
+              signature = infer_signature(data, predictions)
 
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version
@@ -411,14 +410,14 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
             .. Note:: Experimental: This parameter may change or be removed in a future
-                      release without warning.
+                release without warning.
+
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
             Additionally, for models that have been fit in Spark, the following supported
             configuration options are available to set.
-
             Current supported options:
-
             - `partition_by` for setting a (or several) partition columns as a list of \
             column names. Must be a list of strings of grouping key column(s).
             - `partition_count` for setting the number of part files to write from a \
@@ -426,6 +425,7 @@ def log_model(
             - `dfs_tmpdir` for specifying the DFS temporary location where the model will \
             be stored while copying from a local file system to a Spark-supported "dbfs:/" \
             scheme.
+
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
