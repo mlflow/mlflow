@@ -243,10 +243,17 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
         "https://example.com?key=value&../../path",
         "https://example.com?key=value&%2E%2E%2Fpath",
         "https://example.com?key=value&%252E%252E%252Fpath",
+
+        # fragment contains '..' are invalid.
+        "https://example.com#..",
+        "https://example.com#/path/../path/../path",
+
+        # params contains '..' are also invalid.
+        "https://example.com/;..",
     ],
 )
-def test_append_to_uri_throws_for_malicious_query_string_in_uri(uri):
-    with pytest.raises(MlflowException, match=r"Invalid query string"):
+def test_append_to_uri_throws_for_malicious_uri(uri):
+    with pytest.raises(MlflowException, match=r"Invalid query string, fragment or params in URL"):
         append_to_uri_path(uri)
 
 
