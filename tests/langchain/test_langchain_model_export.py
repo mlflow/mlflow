@@ -33,10 +33,10 @@ from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
+from langchain.schema import HumanMessage
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
 from langchain.vectorstores import FAISS
-from langchain_core.messages import HumanMessage
 from langchain_experimental.sql import SQLDatabaseChain
 from packaging import version
 from packaging.version import Version

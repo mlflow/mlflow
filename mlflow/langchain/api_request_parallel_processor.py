@@ -27,9 +27,8 @@ from typing import Any, Dict, List, Optional, Set, Union
 
 import langchain.chains
 import pydantic
-from langchain.schema import AgentAction
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_core.messages import ChatMessage as LangChainChatMessage
+from langchain.schema import AgentAction, AIMessage, HumanMessage, SystemMessage
+from langchain.schema import ChatMessage as LangChainChatMessage
 from packaging.version import Version
 
 import mlflow
