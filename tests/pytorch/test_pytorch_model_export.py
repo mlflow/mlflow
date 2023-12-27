@@ -1242,10 +1242,8 @@ def test_load_model_to_device(sequential_model):
         with mlflow.start_run():
             model_info = mlflow.pytorch.log_model(sequential_model, artifact_path="pytorch")
             mlflow.pyfunc.load_model(
-                model_uri=model_info.model_uri, model_config={'device': 'cuda'}
+                model_uri=model_info.model_uri, model_config={"device": "cuda"}
             )
-            load_model_mock.assert_called_with(mock.ANY, device='cuda')
-            mlflow.pytorch.load_model(
-                model_uri=model_info.model_uri, device='cuda'
-            )
-            load_model_mock.assert_called_with(path=mock.ANY, device='cuda')
+            load_model_mock.assert_called_with(mock.ANY, device="cuda")
+            mlflow.pytorch.load_model(model_uri=model_info.model_uri, device="cuda")
+            load_model_mock.assert_called_with(path=mock.ANY, device="cuda")
