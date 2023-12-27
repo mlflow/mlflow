@@ -7,7 +7,6 @@ from collections import namedtuple
 from io import StringIO
 
 import keras
-from mlflow.types.schema import Array, Object, Property
 import numpy as np
 import pandas as pd
 import pytest
@@ -22,6 +21,7 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
+from mlflow.types.schema import Array, Object, Property
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
@@ -745,17 +745,23 @@ def test_scoring_server_client(sklearn_model, model_path):
             os.kill(server_proc.pid, signal.SIGTERM)
 
 
-_LLM_CHAT_INPUT_SCHEMA = Schema([
-    ColSpec(
-        Array(
-            Object([
-                Property("role", DataType.string),
-                Property("content", DataType.string),
-            ]),
-        ),
-        name="messages"
-    )
-])
+_LLM_CHAT_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            Array(
+                Object(
+                    [
+                        Property("role", DataType.string),
+                        Property("content", DataType.string),
+                    ]
+                ),
+            ),
+            name="messages",
+        )
+    ]
+)
+
+
 @pytest.mark.parametrize(
     ("signature", "expected_model_input", "expected_params"),
     [
@@ -763,10 +769,7 @@ _LLM_CHAT_INPUT_SCHEMA = Schema([
         (
             None,
             {
-                "messages": [{
-                    "role": "user",
-                    "content": "hello!"
-                }],
+                "messages": [{"role": "user", "content": "hello!"}],
                 "max_tokens": 20,
                 "temperature": 0.5,
             },
@@ -776,57 +779,74 @@ _LLM_CHAT_INPUT_SCHEMA = Schema([
         (
             ModelSignature(
                 inputs=_LLM_CHAT_INPUT_SCHEMA,
-                params=ParamSchema([
-                    ParamSpec("temperature", DataType.double, default=0.5),
-                    ParamSpec("max_tokens", DataType.integer, default=20),
-                    ParamSpec("top_p", DataType.double, default=0.9),
-                ]),
+                params=ParamSchema(
+                    [
+                        ParamSpec("temperature", DataType.double, default=0.5),
+                        ParamSpec("max_tokens", DataType.integer, default=20),
+                        ParamSpec("top_p", DataType.double, default=0.9),
+                    ]
+                ),
             ),
             {
-                "messages": [{
-                    "role": "user",
-                    "content": "hello!"
-                }],
+                "messages": [{"role": "user", "content": "hello!"}],
             },
             {
                 "temperature": 0.5,
                 "max_tokens": 20,
-                "top_p": 0.9, # filled with the default value
+                "top_p": 0.9,  # filled with the default value
             },
         ),
-        # Test case: signature but some params are not defeind, missing params are going to data
+        # Test case: if some params are not defeind in either input and params schema,
+        # they will be dropped
         (
             ModelSignature(
                 inputs=_LLM_CHAT_INPUT_SCHEMA,
-                params=ParamSchema([
-                    ParamSpec("temperature", DataType.double, default=0.5),
-                ]),
+                params=ParamSchema(
+                    [
+                        ParamSpec("temperature", DataType.double, default=0.5),
+                    ]
+                ),
             ),
             {
-                "messages": [{
-                    "role": "user",
-                    "content": "hello!"
-                }],
-                # missing params are going to data
-                "max_tokens": 20,
+                "messages": [{"role": "user", "content": "hello!"}],
             },
             {
+                # only params defined in the schema are passed
                 "temperature": 0.5,
             },
         ),
-    ]
+        # Test case: params can be defined in the input schema
+        (
+            ModelSignature(
+                inputs=Schema(
+                    [
+                        *_LLM_CHAT_INPUT_SCHEMA.inputs,
+                        ColSpec(DataType.long, "max_tokens", required=False),
+                        ColSpec(DataType.double, "temperature", required=False),
+                    ]
+                ),
+            ),
+            {
+                "messages": [{"role": "user", "content": "hello!"}],
+                "temperature": 0.5,
+                "max_tokens": 20,
+            },
+            {},
+        ),
+    ],
 )
-def test_scoring_server_allows_payloads_with_llm_keys_for_pyfunc(model_path, signature, expected_model_input, expected_params):
+def test_scoring_server_allows_payloads_with_llm_keys_for_pyfunc(
+    model_path, signature, expected_model_input, expected_params
+):
     mlflow.pyfunc.save_model(model_path, python_model=MyLLM(), signature=signature)
 
-    payload = json.dumps({
-        "messages": [{
-            "role": "user",
-            "content": "hello!"
-        }],
-        "temperature": 0.5,
-        "max_tokens": 20,
-    })
+    payload = json.dumps(
+        {
+            "messages": [{"role": "user", "content": "hello!"}],
+            "temperature": 0.5,
+            "max_tokens": 20,
+        }
+    )
     response = pyfunc_serve_and_score_model(
         model_uri=model_path,
         data=payload,
