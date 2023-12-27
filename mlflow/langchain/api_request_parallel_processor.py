@@ -68,6 +68,33 @@ class StatusTracker:
             self.num_api_errors += 1
 
 
+# NB: Even though _ChatMessage is only referenced in one method within this module
+# (as of 12/27/2023), it must be defined at the module level for compatibility with
+# pydantic < 2
+class _ChatMessage(pydantic.BaseModel, extra="forbid"):
+    role: str
+    content: str
+
+    def to_langchain_message(self) -> LangChainChatMessage:
+        if self.role == "system":
+            return SystemMessage(content=self.content)
+        elif self.role == "assistant":
+            return AIMessage(content=self.content)
+        elif self.role == "user":
+            return HumanMessage(content=self.content)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unrecognized chat message role: {self.role}"
+            )
+
+
+# NB: Even though _ChatRequest is only referenced in one method within this module
+# (as of 12/27/2023), it must be defined at the module level for compatibility with
+# pydantic < 2
+class _ChatRequest(pydantic.BaseModel, extra="forbid"):
+    messages: List[_ChatMessage]
+
+
 @dataclass
 class APIRequest:
     """
@@ -242,29 +269,10 @@ class APIRequest:
 
     @staticmethod
     def _convert_chat_request_or_throw(chat_request: Dict):
-        class ChatMessage(pydantic.BaseModel, extra="forbid"):
-            role: str
-            content: str
-
-            def to_langchain_message(self) -> LangChainChatMessage:
-                if self.role == "system":
-                    return SystemMessage(content=self.content)
-                elif self.role == "assistant":
-                    return AIMessage(content=self.content)
-                elif self.role == "user":
-                    return HumanMessage(content=self.content)
-                else:
-                    raise MlflowException.invalid_parameter_value(
-                        f"Unrecognized chat message role: {self.role}"
-                    )
-
-        class ChatRequest(pydantic.BaseModel, extra="forbid"):
-            messages: List[ChatMessage]
-
         if Version(pydantic.__version__) < Version("2.0"):
-            model = ChatRequest.parse_obj(chat_request)
+            model = _ChatRequest.parse_obj(chat_request)
         else:
-            model = ChatRequest.model_validate(chat_request)
+            model = _ChatRequest.model_validate(chat_request)
 
         return [message.to_langchain_message() for message in model.messages]
 
