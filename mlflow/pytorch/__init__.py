@@ -442,7 +442,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if signature is None and input_example is not None:
-        wrapped_model = _PyTorchWrapper(pytorch_model, device="cpu")
+        wrapped_model = _PyTorchWrapper(pytorch_model)
         signature = _infer_signature_from_input_example(input_example, wrapped_model)
     elif signature is False:
         signature = None
