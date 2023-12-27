@@ -131,7 +131,7 @@ def test_model_save_load(pd_model, model_path):
     )
 
     np.testing.assert_array_almost_equal(
-        reloaded_pd_model(pd_model.inference_dataframe),
+        reloaded_pd_model(paddle.to_tensor(pd_model.inference_dataframe)),
         reloaded_pyfunc.predict(pd_model.inference_dataframe),
         decimal=5,
     )
@@ -149,7 +149,7 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
     reloaded_model = mlflow.paddle.load_model(model_uri=model_uri)
     np.testing.assert_array_almost_equal(
         pd_model.model(paddle.to_tensor(pd_model.inference_dataframe)),
-        reloaded_model(pd_model.inference_dataframe),
+        reloaded_model(paddle.to_tensor(pd_model.inference_dataframe)),
         decimal=5,
     )
 
@@ -169,8 +169,8 @@ def test_model_log(pd_model, model_path, tmp_path):
 
         reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
         np.testing.assert_array_almost_equal(
-            model(pd_model.inference_dataframe),
-            reloaded_pd_model(pd_model.inference_dataframe),
+            model(paddle.to_tensor(pd_model.inference_dataframe)),
+            reloaded_pd_model(paddle.to_tensor(pd_model.inference_dataframe)),
             decimal=5,
         )
 
