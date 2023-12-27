@@ -125,13 +125,13 @@ def test_model_save_load(pd_model, model_path):
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
-        pd_model.model(pd_model.inference_dataframe),
+        pd_model.model(paddle.to_tensor(pd_model.inference_dataframe)),
         reloaded_pyfunc.predict(pd_model.inference_dataframe),
         decimal=5,
     )
 
     np.testing.assert_array_almost_equal(
-        reloaded_pd_model(pd_model.inference_dataframe),
+        reloaded_pd_model(paddle.to_tensor(pd_model.inference_dataframe)),
         reloaded_pyfunc.predict(pd_model.inference_dataframe),
         decimal=5,
     )
@@ -148,8 +148,8 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
     model_uri = artifact_root + "/" + artifact_path
     reloaded_model = mlflow.paddle.load_model(model_uri=model_uri)
     np.testing.assert_array_almost_equal(
-        pd_model.model(pd_model.inference_dataframe),
-        reloaded_model(pd_model.inference_dataframe),
+        pd_model.model(paddle.to_tensor(pd_model.inference_dataframe)),
+        reloaded_model(paddle.to_tensor(pd_model.inference_dataframe)),
         decimal=5,
     )
 
@@ -169,8 +169,8 @@ def test_model_log(pd_model, model_path, tmp_path):
 
         reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
         np.testing.assert_array_almost_equal(
-            model(pd_model.inference_dataframe),
-            reloaded_pd_model(pd_model.inference_dataframe),
+            model(paddle.to_tensor(pd_model.inference_dataframe)),
+            reloaded_pd_model(paddle.to_tensor(pd_model.inference_dataframe)),
             decimal=5,
         )
 
@@ -578,7 +578,9 @@ def test_pyfunc_serve_and_score(pd_model):
     scores = pd.DataFrame(
         data=json.loads(resp.content.decode("utf-8"))["predictions"]
     ).values.squeeze()
-    np.testing.assert_array_almost_equal(scores, model(inference_dataframe).squeeze())
+    np.testing.assert_array_almost_equal(
+        scores, model(paddle.to_tensor(inference_dataframe)).squeeze()
+    )
 
 
 def test_log_model_with_code_paths(pd_model):
