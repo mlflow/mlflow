@@ -1480,7 +1480,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == [
+    assert response.content.decode("utf-8") == [
         (
             "system: You are a helpful assistant.\n"
             "ai: What would you like to ask?\n"
