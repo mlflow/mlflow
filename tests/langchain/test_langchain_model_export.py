@@ -352,7 +352,7 @@ def test_langchain_native_log_and_load_qa_with_sources_chain():
 )
 def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
-    loader = TextLoader("tests/loader/state_of_the_union.txt")
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     docs = text_splitter.split_documents(documents)
@@ -413,7 +413,7 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
 )
 def test_log_and_load_retrieval_qa_chain_multiple_output(tmp_path):
     # Create the vector db, persist the db to a local fs folder
-    loader = TextLoader("tests/loader/state_of_the_union.txt")
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     docs = text_splitter.split_documents(documents)
@@ -503,7 +503,7 @@ def assert_equal_retrievers(retriever, expected_retreiver):
 
 def test_log_and_load_retriever_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
-    loader = TextLoader("tests/loader/state_of_the_union.txt")
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
     text_splitter = CharacterTextSplitter(chunk_size=10, chunk_overlap=0)
     docs = text_splitter.split_documents(documents)
@@ -1137,7 +1137,7 @@ def test_save_load_rag(tmp_path, spark):
     chat_model = _fake_simple_chat_model()()
 
     # Create the vector db, persist the db to a local fs folder
-    loader = TextLoader("tests/loader/state_of_the_union.txt")
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
     documents = loader.load()
     text_splitter = CharacterTextSplitter(chunk_size=10, chunk_overlap=0)
     docs = text_splitter.split_documents(documents)
