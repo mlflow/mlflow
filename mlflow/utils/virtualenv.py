@@ -195,7 +195,7 @@ def _get_python_env(local_model_path):
     requirements_file = local_model_path / _REQUIREMENTS_FILE_NAME
 
     if python_env_file.exists():
-        python_env = _PythonEnv.from_yaml(python_env_file)
+        return _PythonEnv.from_yaml(python_env_file)
     else:
         _logger.info(
             "This model is missing %s, which is because it was logged in an older version"
@@ -207,15 +207,13 @@ def _get_python_env(local_model_path):
         )
         if requirements_file.exists():
             deps = _PythonEnv.get_dependencies_from_conda_yaml(conda_env_file)
-            python_env = _PythonEnv(
+            return _PythonEnv(
                 python=deps["python"],
                 build_dependencies=deps["build_dependencies"],
                 dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
             )
         else:
-            python_env = _PythonEnv.from_conda_yaml(conda_env_file)
-
-    return python_env
+            return _PythonEnv.from_conda_yaml(conda_env_file)
 
 
 def _get_virtualenv_name(python_env, work_dir_path, env_id=None):
