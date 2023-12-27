@@ -50,29 +50,6 @@ _IS_UNIX = os.name != "nt"
 _STDIN_SERVER_SCRIPT = Path(__file__).parent.joinpath("stdin_server.py")
 
 
-# Guidance for fixing missing module error
-_MISSING_MODULE_HELP_MSG = (
-    "Exception occurred while running inference: {e}"
-    "\n\n"
-    "\033[93m[Hint] It appears to be your MLflow Model doesn't contain the required "
-    "dependencies '{module_name}' to run inference. When logging a model, MLflow "
-    "detects dependencies based on the model flavor but it is possible that some "
-    "dependencies are not captured. In this case, you can manually add dependencies "
-    "using `extra_pip_requirements` parameter of `mlflow.pyfunc.log_model`.\033[0m"
-    """
-
-\033[1mSample code:\033[0m
-    ----
-    mlflow.pyfunc.log_model(
-        artifact_path="model",
-        python_model=your_model,
-        extra_pip_requirements=["{module_name}==x.y.z"]
-    )
-    ----
-"""
-)
-
-
 class PyFuncBackend(FlavorBackend):
     """
     Flavor backend implementation for the generic python models.

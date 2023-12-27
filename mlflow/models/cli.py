@@ -130,7 +130,7 @@ def serve(
     "-r",
     default=None,
     help="Specify packages and versions to override the dependencies defined"
-    "in the modela. Must be a comma-separated string like x==y,z==a.",
+    "in the model. Must be a comma-separated string like x==y,z==a.",
 )
 def predict(
     model_uri,
