@@ -23,7 +23,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 import langchain.chains
 import pydantic
@@ -33,6 +33,7 @@ from langchain_core.messages import ChatMessage as LangChainChatMessage
 from packaging.version import Version
 
 import mlflow
+from mlflow.exceptions import MlflowException
 
 _logger = logging.getLogger(__name__)
 
@@ -243,7 +244,7 @@ class APIRequest:
     @staticmethod
     def _convert_chat_request_or_throw(chat_request: Dict):
         class ChatMessage(pydantic.BaseModel, extra="forbid"):
-            role: Literal["system", "assistant", "user"]
+            role: str
             content: str
 
             def to_langchain_message(self) -> LangChainChatMessage:
@@ -254,7 +255,9 @@ class APIRequest:
                 elif self.role == "user":
                     return HumanMessage(content=self.content)
                 else:
-                    raise ValueError(f"Unrecognized chat message role: {self.role}")
+                    raise MlflowException.invalid_parameter_value(
+                        f"Unrecognized chat message role: {self.role}"
+                    )
 
         class ChatRequest(pydantic.BaseModel, extra="forbid"):
             messages: List[ChatMessage]
