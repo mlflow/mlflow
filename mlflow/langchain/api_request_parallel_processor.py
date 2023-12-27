@@ -233,7 +233,6 @@ class APIRequest:
             if hasattr(lc_model, "input_schema") and callable(lc_model.input_schema):
                 return set(lc_model.input_schema().__fields__)
         except Exception as e:
-            raise e
             _logger.debug(
                 f"Unexpected exception while checking LangChain input schema for"
                 f" request transformation: {e}"
