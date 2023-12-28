@@ -55,7 +55,7 @@ _CONTENT_TYPE_JSON = "json"
 def predict(
     model_uri: str,
     # Subset of PyfuncInput
-    input_data_or_path: Union[str, Dict[str, Any], List[Any], 'pd.DataFrame', None],
+    input_data_or_path: Union[str, Dict[str, Any], List[Any], "pd.DataFrame", None],  # noqa: F821
     content_type: str = _CONTENT_TYPE_JSON,
     output_path: Optional[str] = None,
     env_manager: _EnvManager = _EnvManager.VIRTUALENV,
@@ -70,21 +70,23 @@ def predict(
     :param model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
     :param input_data_or_path: Input data for prediction. It can be one of the following:
 
-                  - A Python dictionary that contains either:
-                     - single input payload, when content type is "json".
-                     - Pandas DataFrame, when content type is "csv".
-                  - A Python list. The content type has to be "csv".
-                  - A Pandas DataFrame. The content type has to be "csv".
-                  - A string represents serialized input data. e.g. '{"inputs": [1, 2]}'
-                  - A path to a local file contains input data, either a JSON or a CSV file.
-                  - None to input data from stdin.
+        - A Python dictionary that contains either:
+           - single input payload, when content type is "json".
+           - Pandas DataFrame, when content type is "csv".
+        - A Python list. The content type has to be "csv".
+        - A Pandas DataFrame. The content type has to be "csv".
+        - A string represents serialized input data. e.g. '{"inputs": [1, 2]}'
+        - A path to a local file contains input data, either a JSON or a CSV file.
+        - None to input data from stdin.
+
     :param content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
     :param output_path: File to output results to as json. If not provided, output to stdout.
     :param env_manager: Specify a way to create an environment for MLmodel inference:
 
-                  - virtualenv (default): use virtualenv (and pyenv for Python version management)
-                  - local: use the local environment
-                  - conda: use conda
+        - virtualenv (default): use virtualenv (and pyenv for Python version management)
+        - local: use the local environment
+        - conda: use conda
+
     :param install_mlflow: If specified and there is a conda or virtualenv environment to be
         activated mlflow will be installed into the environment after it has been activated.
         The version of installed mlflow will be the same as the one used to invoke this command.
@@ -149,12 +151,12 @@ def _is_filepath(x):
     return isinstance(x, str) and os.path.exists(x) and os.path.isfile(x)
 
 
-def _serialize_input_data(input_data: Union[str, List, Dict, 'pd.DataFrame'], content_type: str):
+def _serialize_input_data(input_data, content_type):
     # build-docker command is available in mlflow-skinny (which doesn't contain pandas)
     # so we shouldn't import pandas at the top level
     import pandas as pd
 
-    valid_input_types =  {
+    valid_input_types = {
         _CONTENT_TYPE_CSV: (str, list, dict, pd.DataFrame),
         _CONTENT_TYPE_JSON: (str, dict),
     }.get(content_type)
@@ -186,6 +188,7 @@ def _validate_string(input_data: str, content_type: str):
     try:
         if content_type == _CONTENT_TYPE_CSV:
             import pandas as pd
+
             pd.read_csv(StringIO(input_data))
         else:
             json.loads(input_data)
