@@ -1,5 +1,5 @@
 from abc import ABC, abstractclassmethod
-from typing import Tuple, AsyncIterable
+from typing import AsyncIterable, Tuple
 
 from fastapi import HTTPException
 
