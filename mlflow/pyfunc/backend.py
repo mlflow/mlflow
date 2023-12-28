@@ -11,6 +11,7 @@ import warnings
 from pathlib import Path
 
 from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
+from mlflow.exceptions import MlflowException
 from mlflow.models import FlavorBackend
 from mlflow.models.container import ENABLE_MLSERVER
 from mlflow.models.docker_utils import (
@@ -184,14 +185,14 @@ class PyFuncBackend(FlavorBackend):
             try:
                 environment.execute(" ".join(predict_cmd))
             except ShellCommandException as e:
-                raise ShellCommandException(
+                raise MlflowException(
                     f"{e}\n\nAn exception occurred while running model prediction within a "
                     f"{self._env_manager} environment. You can find the error message "
                     f"from the prediction subprocess by scrolling above."
                 ) from None
         else:
             if pip_requirements_override:
-                raise Exception(
+                raise MlflowException(
                     "`pip_requirements_override` is not supported for local env manager."
                     "Please use conda or virtualenv instead."
                 )

@@ -30,9 +30,6 @@ The built-in flavors are:
 
 For details, see `MLflow Models <../models.html>`_.
 """
-import os
-from typing import List, Optional
-
 from mlflow.models.evaluation import (
     EvaluationArtifact,
     EvaluationMetric,
@@ -43,108 +40,10 @@ from mlflow.models.evaluation import (
     make_metric,
 )
 from mlflow.models.flavor_backend import FlavorBackend
-from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import Model, get_model_info
-from mlflow.utils import env_manager as _EnvManager
+from mlflow.models.python_api import build_docker, predict
 from mlflow.utils.environment import infer_pip_requirements
-from mlflow.utils.file_utils import TempDir
 
-
-def build_docker(
-    model_uri=None,
-    name="mlflow-pyfunc",
-    env_manager=_EnvManager.VIRTUALENV,
-    mlflow_home=None,
-    install_mlflow=False,
-    enable_mlserver=False,
-):
-    """
-    Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
-    python_function flavor. The container serves the model referenced by ``model_uri``, if
-    specified. If ``model_uri`` is not specified, an MLflow Model directory must be mounted as a
-    volume into the /opt/ml/model directory in the container.
-
-    .. warning::
-
-        If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
-        the RFunc or Java MLeap model servers.
-
-    NB: by default, the container will start nginx and gunicorn processes. If you don't need the
-    nginx process to be started (for instance if you deploy your container to Google Cloud Run),
-    you can disable it via the DISABLE_NGINX environment variable:
-
-    .. code:: bash
-
-        docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
-
-    See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
-    'python_function' flavor.
-    """
-    get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
-        model_uri,
-        name,
-        mlflow_home=mlflow_home,
-        install_mlflow=install_mlflow,
-        enable_mlserver=enable_mlserver,
-    )
-
-
-def predict(
-    model_uri: str,
-    input_data_or_path: str,
-    output_path: Optional[str] = None,
-    content_type: str = "json",
-    env_manager: _EnvManager = _EnvManager.VIRTUALENV,
-    install_mlflow: bool = False,
-    pip_requirements_override: Optional[List[str]] = None,
-):
-    """
-    Generate predictions in json format using a saved MLflow model. For information about the input
-    data formats accepted by this function, see the following documentation:
-    https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
-
-    :param model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
-    :param input_data_or_path: A serialized JSON or CSV string, or a path to a local CSV file
-        containing input data.
-    :param output_path: File to output results to as json. If not provided, output to stdout.
-    :param content_type: Content type of the input file. Can be one of {‘json’, ‘csv’}.
-    :param env_manager: If specified, create an environment for MLmodel using the specified
-        environment manager. The following values are supported:
-            - virtualenv (default): use virtualenv (and pyenv for Python version management)
-            - local: use the local environment
-            - conda: use conda
-    :param install_mlflow: If specified and there is a conda or virtualenv environment to be
-        activated mlflow will be installed into the environment after it has been activated.
-        The version of installed mlflow will be the same as the one used to invoke this command.
-    :param pip_requirements_override: If specified, install the specified python dependencies to
-        the model inference environment. This is particularly useful when you want to add extra
-        dependencies or try different versions of the dependencies defined in the logged model.
-    """
-    if not isinstance(input_data_or_path, str):
-        raise TypeError(
-            f"Input_data_or_path must be a string, but got {type(input_data_or_path)}. "
-            "Please serialize input data into a string before passing e.g. json.dumps(input)."
-        )
-
-    def _predict(_input_path: str):
-        return get_flavor_backend(
-            model_uri, env_manager=env_manager, install_mlflow=install_mlflow
-        ).predict(
-            model_uri=model_uri,
-            input_path=_input_path,
-            output_path=output_path,
-            content_type=content_type,
-            pip_requirements_override=pip_requirements_override,
-        )
-
-    if os.path.exists(input_data_or_path) and os.path.isfile(input_data_or_path):
-        _predict(input_data_or_path)
-    else:
-        with TempDir() as tmp:
-            input_path = os.path.join(tmp.path(), f"input.{content_type}")
-            with open(input_path, "w") as f:
-                f.write(input_data_or_path)
-            _predict(input_path)
 
 
 __all__ = [
@@ -160,6 +59,7 @@ __all__ = [
     "list_evaluators",
     "MetricThreshold",
     "build_docker",
+    "predict",
 ]
 
 
