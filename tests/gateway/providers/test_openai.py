@@ -285,7 +285,7 @@ async def test_completions_stream():
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
-                "object": "chat.completion.chunk",
+                "object": "text_completion_chunk",
             },
             {
                 "choices": [
@@ -294,7 +294,7 @@ async def test_completions_stream():
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
-                "object": "chat.completion.chunk",
+                "object": "text_completion_chunk",
             },
             {
                 "choices": [
@@ -307,7 +307,7 @@ async def test_completions_stream():
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
-                "object": "chat.completion.chunk",
+                "object": "text_completion_chunk",
             },
         ]
 
