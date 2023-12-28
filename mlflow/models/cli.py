@@ -2,7 +2,7 @@ import logging
 
 import click
 
-import mlflow.models.python_api as python_api
+from mlflow.models import python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as _EnvManager

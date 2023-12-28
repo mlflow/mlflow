@@ -44,8 +44,6 @@ from mlflow.models.model import Model, get_model_info
 from mlflow.models.python_api import build_docker, predict
 from mlflow.utils.environment import infer_pip_requirements
 
-
-
 __all__ = [
     "Model",
     "FlavorBackend",

@@ -1,8 +1,9 @@
-from io import StringIO
 import json
 import os
-import pandas as pd
+from io import StringIO
 from typing import Any, Dict, List, Optional, Union
+
+import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -76,10 +77,10 @@ def predict(
     :param model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
     :param input_data_or_path: Input data for prediction. It can be one of the following:
 
-                  - A Python dictionary that represents either
+                  - A Python dictionary that contains either:
                      - single input payload, when content type is "json".
                      - Pandas DataFrame, when content type is "csv".
-                  - A Python list that represents input data array. The content type has to be "csv".
+                  - A Python list. The content type has to be "csv".
                   - A Pandas DataFrame. The content type has to be "csv".
                   - A string represents serialized input data. e.g. '{"inputs": [1, 2]}'
                   - A path to a local file contains input data, either a JSON or a CSV file.
@@ -121,7 +122,7 @@ def predict(
         )
 
     """
-    if not content_type in [_CONTENT_TYPE_JSON, _CONTENT_TYPE_CSV]:
+    if content_type not in [_CONTENT_TYPE_JSON, _CONTENT_TYPE_CSV]:
         raise MlflowException.invalid_parameter_value(
             f"Content type must be one of {_CONTENT_TYPE_JSON} or {_CONTENT_TYPE_CSV}."
         )
@@ -176,7 +177,7 @@ def _serialize_input_data(input_data: Union[str, List, Dict, pd.DataFrame], cont
             return json.dumps(input_data)
     except Exception as e:
         raise MlflowException.invalid_parameter_value(
-            message="Input data could not be serialized to the specified content type: {content_type}."
+            message="Input data could not be serialized to {content_type}."
         ) from e
 
 
