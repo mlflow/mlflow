@@ -1,4 +1,3 @@
-import asyncio
 import json
 from typing import AsyncIterable
 
@@ -102,7 +101,6 @@ class OpenAIProvider(BaseProvider):
             if data == "[DONE]":
                 return
 
-            await asyncio.sleep(0.05)
             resp = json.loads(data)
             yield chat.StreamResponsePayload(
                 id=resp["id"],
@@ -232,7 +230,6 @@ class OpenAIProvider(BaseProvider):
             if data == "[DONE]":
                 return
 
-            await asyncio.sleep(0.05)
             resp = json.loads(data)
             yield completions.StreamResponsePayload(
                 id=resp["id"],
