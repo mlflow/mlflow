@@ -74,23 +74,23 @@ def predict(
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
     :param model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
-    :param input_data_or_path: A input data or a path to a local file contains input data.
-        Supported formats are:
-            - A Python dictionary that represents one of the following:
-              (1) single input payload, when content type is "json".
-              (2) Pandas DataFrame, when content type is "csv".
-            - A Python list that represents input data array. The content type has to be "csv".
-            - A Pandas DataFrame. The content type has to be "csv".
-            - A string represents serialized input data. e.g. '{"inputs": [1, 2]}'
-            - A path to a local file contains input data, either a JSON or a CSV file.
-            - None to input data from stdin.
+    :param input_data_or_path: Input data for prediction. It can be one of the following:
+
+                  - A Python dictionary that represents either
+                     - single input payload, when content type is "json".
+                     - Pandas DataFrame, when content type is "csv".
+                  - A Python list that represents input data array. The content type has to be "csv".
+                  - A Pandas DataFrame. The content type has to be "csv".
+                  - A string represents serialized input data. e.g. '{"inputs": [1, 2]}'
+                  - A path to a local file contains input data, either a JSON or a CSV file.
+                  - None to input data from stdin.
     :param content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
     :param output_path: File to output results to as json. If not provided, output to stdout.
-    :param env_manager: If specified, create an environment for MLmodel using the specified
-        environment manager. The following values are supported:
-            - virtualenv (default): use virtualenv (and pyenv for Python version management)
-            - local: use the local environment
-            - conda: use conda
+    :param env_manager: Specify a way to create an environment for MLmodel inference:
+
+                  - virtualenv (default): use virtualenv (and pyenv for Python version management)
+                  - local: use the local environment
+                  - conda: use conda
     :param install_mlflow: If specified and there is a conda or virtualenv environment to be
         activated mlflow will be installed into the environment after it has been activated.
         The version of installed mlflow will be the same as the one used to invoke this command.

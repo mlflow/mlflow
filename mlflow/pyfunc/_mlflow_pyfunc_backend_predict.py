@@ -35,6 +35,9 @@ _MISSING_MODULE_HELP_MSG = (
         extra_pip_requirements=["{missing_module}==x.y.z"]
     )
     ----
+
+    For mode guidance on fixing missing dependencies, please refer to the MLflow docs:
+    https://www.mlflow.org/docs/latest/deployment/index.html#how-to-fix-dependency-errors-when-serving-my-model
 """
 )
 
