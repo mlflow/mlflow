@@ -2,8 +2,7 @@ import logging
 
 import click
 
-from mlflow.models import build_docker as build_docker_api
-from mlflow.models import predict as predict_api
+import mlflow.models.python_api as python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as _EnvManager
@@ -148,13 +147,13 @@ def predict(
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
     env_manager = env_manager or _EnvManager.VIRTUALENV
-    return get_flavor_backend(
-        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
-    ).predict(
+    return python_api.predict(
         model_uri=model_uri,
-        input_path=input_path,
+        input_data_or_path=input_path,
         output_path=output_path,
         content_type=content_type,
+        env_manager=env_manager,
+        install_mlflow=install_mlflow,
         pip_requirements_override=pip_requirements_override,
     )
 
@@ -274,7 +273,7 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     'python_function' flavor.
     """
     env_manager = env_manager or _EnvManager.VIRTUALENV
-    build_docker_api(
+    python_api.build_docker(
         model_uri,
         name,
         env_manager=env_manager,

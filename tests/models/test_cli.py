@@ -368,7 +368,7 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
         check=False,
     )
     assert prc.returncode != 0
-    assert "Unknown content type" in prc.stderr.decode("utf-8")
+    assert "Content type must be one of json or csv." in prc.stderr.decode("utf-8")
 
 
 def test_predict_check_input_path(iris_data, sk_model, tmp_path):
