@@ -54,8 +54,9 @@ _CONTENT_TYPE_JSON = "json"
 
 def predict(
     model_uri: str,
-    # Subset of PyfuncInput
-    input_data_or_path: Union[str, Dict[str, Any], List[Any], "pd.DataFrame", None],  # noqa: F821
+    # TODO: This is currently subset of PyfuncInput, ideally we should cover all
+    input_data: Union[str, Dict[str, Any], List[Any], "pd.DataFrame", None] = None,  # noqa: F821
+    input_path: Optional[str] = None,
     content_type: str = _CONTENT_TYPE_JSON,
     output_path: Optional[str] = None,
     env_manager: _EnvManager = _EnvManager.VIRTUALENV,
@@ -68,7 +69,7 @@ def predict(
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
     :param model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
-    :param input_data_or_path: Input data for prediction. It can be one of the following:
+    :param input_data: Input data for prediction. It can be one of the following:
 
         - A Python dictionary that contains either:
            - single input payload, when content type is "json".
@@ -76,9 +77,9 @@ def predict(
         - A Python list. The content type has to be "csv".
         - A Pandas DataFrame. The content type has to be "csv".
         - A string represents serialized input data. e.g. '{"inputs": [1, 2]}'
-        - A path to a local file contains input data, either a JSON or a CSV file.
         - None to input data from stdin.
 
+    :param input_path: Path to a file containing input data. If provided, 'input_data' must be None.
     :param content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
     :param output_path: File to output results to as json. If not provided, output to stdout.
     :param env_manager: Specify a way to create an environment for MLmodel inference:
@@ -133,10 +134,12 @@ def predict(
             pip_requirements_override=pip_requirements_override,
         )
 
-    if input_data_or_path is None or _is_filepath(input_data_or_path):
-        _predict(input_data_or_path)
-    else:
-        input_data = _serialize_input_data(input_data_or_path, content_type)
+    if input_data is not None and input_path is not None:
+        raise MlflowException.invalid_parameter_value(
+            "Both input_data and input_path are provided. Only one of them should be specified."
+        )
+    elif input_data is not None:
+        input_data = _serialize_input_data(input_data, content_type)
 
         # Write input data to a temporary file
         with TempDir() as tmp:
@@ -145,10 +148,8 @@ def predict(
                 f.write(input_data)
 
             _predict(input_path)
-
-
-def _is_filepath(x):
-    return isinstance(x, str) and os.path.exists(x) and os.path.isfile(x)
+    else:
+        _predict(input_path)
 
 
 def _serialize_input_data(input_data, content_type):

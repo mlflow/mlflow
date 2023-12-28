@@ -26,7 +26,7 @@ def test_predict_with_input_path(mock_backend):
     with NamedTemporaryFile() as input_file:
         mlflow.models.predict(
             model_uri="runs:/test/Model",
-            input_data_or_path=input_file.name,
+            input_path=input_file.name,
             content_type=_CONTENT_TYPE_CSV,
         )
 
@@ -39,7 +39,7 @@ def test_predict_with_input_path(mock_backend):
     )
 
 
-def test_predict_with_input_csv(mock_backend):
+def test_predict_with_input_data_csv(mock_backend):
     input_data = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
 
     with TempDir() as tmp:
@@ -49,7 +49,7 @@ def test_predict_with_input_csv(mock_backend):
         with mock.patch("mlflow.models.python_api.TempDir", return_value=mock_tempdir):
             mlflow.models.predict(
                 model_uri="runs:/test/Model",
-                input_data_or_path=input_data,
+                input_data=input_data,
                 content_type=_CONTENT_TYPE_CSV,
             )
 
@@ -66,7 +66,7 @@ def test_predict_with_input_csv(mock_backend):
                 assert df.equals(input_data)
 
 
-def test_predict_with_input_json(mock_backend):
+def test_predict_with_input_data_json(mock_backend):
     input_data = {"inputs": [1, 2, 3]}
 
     with TempDir() as tmp:
@@ -76,7 +76,7 @@ def test_predict_with_input_json(mock_backend):
         with mock.patch("mlflow.models.python_api.TempDir", return_value=mock_tempdir):
             mlflow.models.predict(
                 model_uri="runs:/test/Model",
-                input_data_or_path=input_data,
+                input_data=input_data,
                 content_type=_CONTENT_TYPE_JSON,
             )
 
@@ -95,7 +95,6 @@ def test_predict_with_input_json(mock_backend):
 def test_predict_with_input_none(mock_backend):
     mlflow.models.predict(
         model_uri="runs:/test/Model",
-        input_data_or_path=None,
         content_type=_CONTENT_TYPE_CSV,
     )
 
@@ -108,11 +107,21 @@ def test_predict_with_input_none(mock_backend):
     )
 
 
+def test_predict_with_both_input_data_and_path_raise(mock_backend):
+    with pytest.raises(MlflowException, match=r"Both input_data and input_path are provided"):
+        mlflow.models.predict(
+            model_uri="runs:/test/Model",
+            input_data={"inputs": [1, 2, 3]},
+            input_path="input.csv",
+            content_type=_CONTENT_TYPE_CSV,
+        )
+
+
 def test_predict_invalid_content_type(mock_backend):
     with pytest.raises(MlflowException, match=r"Content type must be one of"):
         mlflow.models.predict(
             model_uri="runs:/test/Model",
-            input_data_or_path={"inputs": [1, 2, 3]},
+            input_data={"inputs": [1, 2, 3]},
             content_type="any",
         )
 

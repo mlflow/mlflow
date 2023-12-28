@@ -97,7 +97,7 @@ def serve(
         }'
 
     """
-    env_manager = _EnvManager.LOCAL if no_conda else env_manager or _EnvManager.VIRTUALENV
+    env_manager = _EnvManager.LOCAL if no_conda else env_manager
 
     return get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
@@ -132,30 +132,13 @@ def serve(
     help="Specify packages and versions to override the dependencies defined"
     "in the model. Must be a comma-separated string like x==y,z==a.",
 )
-def predict(
-    model_uri,
-    input_path,
-    output_path,
-    content_type,
-    env_manager,
-    install_mlflow,
-    pip_requirements_override,
-):
+def predict(**kwargs):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    env_manager = env_manager or _EnvManager.VIRTUALENV
-    return python_api.predict(
-        model_uri=model_uri,
-        input_data_or_path=input_path,
-        output_path=output_path,
-        content_type=content_type,
-        env_manager=env_manager,
-        install_mlflow=install_mlflow,
-        pip_requirements_override=pip_requirements_override,
-    )
+    return python_api.predict(**kwargs)
 
 
 @commands.command("prepare-env")
@@ -172,7 +155,6 @@ def prepare_env(
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
     """
-    env_manager = env_manager or _EnvManager.VIRTUALENV
     return get_flavor_backend(
         model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
@@ -203,7 +185,6 @@ def generate_dockerfile(
         _logger.info("Generating Dockerfile for model %s", model_uri)
     else:
         _logger.info("Generating Dockerfile")
-    env_manager = env_manager or _EnvManager.VIRTUALENV
     backend = get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
     if backend.can_build_image():
         backend.generate_dockerfile(
@@ -229,7 +210,7 @@ def generate_dockerfile(
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
-def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enable_mlserver):
+def build_docker(**kwargs):
     """
     Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
     python_function flavor. The container serves the model referenced by ``--model-uri``, if
@@ -272,12 +253,4 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
     """
-    env_manager = env_manager or _EnvManager.VIRTUALENV
-    python_api.build_docker(
-        model_uri,
-        name,
-        env_manager=env_manager,
-        mlflow_home=mlflow_home,
-        install_mlflow=install_mlflow,
-        enable_mlserver=enable_mlserver,
-    )
+    python_api.build_docker(**kwargs)

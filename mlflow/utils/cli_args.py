@@ -83,7 +83,7 @@ def _resolve_env_manager(_, __, env_manager):
 def _create_env_manager_option(help_string):
     return click.option(
         "--env-manager",
-        default=None,
+        default=_EnvManager.VIRTUALENV,
         type=click.UNPROCESSED,
         callback=_resolve_env_manager,
         help=help_string,
