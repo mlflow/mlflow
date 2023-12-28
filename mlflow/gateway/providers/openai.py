@@ -233,7 +233,7 @@ class OpenAIProvider(BaseProvider):
             resp = json.loads(data)
             yield completions.StreamResponsePayload(
                 id=resp["id"],
-                # The chat models response from OpenAI is of object type "chat.completion_chunk".
+                # The chat models response from OpenAI is of object type "chat.completion.chunk".
                 # Since we're using the completions response format here, we hardcode the
                 # "text_completion_chunk" object type in the response instead
                 object="text_completion_chunk",
