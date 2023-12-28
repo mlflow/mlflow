@@ -103,7 +103,23 @@ class OpenAIProvider(BaseProvider):
                 return
 
             await asyncio.sleep(0.05)
-            yield chat.StreamResponsePayload(**json.loads(data))
+            resp = json.loads(data)
+            yield chat.StreamResponsePayload(
+                id=resp["id"],
+                object=resp["object"],
+                created=resp["created"],
+                model=resp["model"],
+                choices=[
+                    chat.StreamChoice(
+                        index=idx,
+                        finish_reason=c["finish_reason"],
+                        delta=chat.StreamDelta(
+                            role=c["delta"].get("role"), content=c["delta"].get("content")
+                        ),
+                    )
+                    for idx, c in enumerate(resp["choices"])
+                ],
+            )
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -217,22 +233,22 @@ class OpenAIProvider(BaseProvider):
                 return
 
             await asyncio.sleep(0.05)
-            data = json.loads(data)
+            resp = json.loads(data)
             yield completions.StreamResponsePayload(
-                **{
-                    "choices": [
-                        {
-                            "index": choice["index"],
-                            "delta": {"text": choice["delta"].get("content")},
-                            "finish_reason": choice["finish_reason"],
-                        }
-                        for choice in data["choices"]
-                    ],
-                    "created": data["created"],
-                    "id": data["id"],
-                    "model": data["model"],
-                    "object": data["object"],
-                }
+                id=resp["id"],
+                object=resp["object"],
+                created=resp["created"],
+                model=resp["model"],
+                choices=[
+                    completions.StreamChoice(
+                        index=idx,
+                        finish_reason=c["finish_reason"],
+                        delta=completions.StreamDelta(
+                            content=c["delta"].get("content"),
+                        ),
+                    )
+                    for idx, c in enumerate(resp["choices"])
+                ],
             )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
