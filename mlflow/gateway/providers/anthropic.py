@@ -57,7 +57,7 @@ class AnthropicAdapter(ProviderAdapter):
 
         payload["max_tokens"] = max_tokens
 
-        if payload.get("stream", None) == "true":
+        if payload.get("stream", False):
             raise HTTPException(
                 status_code=422,
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
