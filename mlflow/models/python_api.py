@@ -3,8 +3,6 @@ import os
 from io import StringIO
 from typing import Any, Dict, List, Optional, Union
 
-import pandas as pd
-
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
@@ -53,16 +51,11 @@ def build_docker(
 _CONTENT_TYPE_CSV = "csv"
 _CONTENT_TYPE_JSON = "json"
 
-_SUPPORTED_INPUT_DATA_TYPES = {
-    _CONTENT_TYPE_CSV: (str, list, dict, pd.DataFrame),
-    _CONTENT_TYPE_JSON: (str, dict),
-}
-
 
 def predict(
     model_uri: str,
     # Subset of PyfuncInput
-    input_data_or_path: Union[str, Dict[str, Any], List[Any], pd.DataFrame, None],
+    input_data_or_path: Union[str, Dict[str, Any], List[Any], 'pd.DataFrame', None],
     content_type: str = _CONTENT_TYPE_JSON,
     output_path: Optional[str] = None,
     env_manager: _EnvManager = _EnvManager.VIRTUALENV,
@@ -156,8 +149,16 @@ def _is_filepath(x):
     return isinstance(x, str) and os.path.exists(x) and os.path.isfile(x)
 
 
-def _serialize_input_data(input_data: Union[str, List, Dict, pd.DataFrame], content_type: str):
-    valid_input_types = _SUPPORTED_INPUT_DATA_TYPES[content_type]
+def _serialize_input_data(input_data: Union[str, List, Dict, 'pd.DataFrame'], content_type: str):
+    # build-docker command is available in mlflow-skinny (which doesn't contain pandas)
+    # so we shouldn't import pandas at the top level
+    import pandas as pd
+
+    valid_input_types =  {
+        _CONTENT_TYPE_CSV: (str, list, dict, pd.DataFrame),
+        _CONTENT_TYPE_JSON: (str, dict),
+    }.get(content_type)
+
     if not isinstance(input_data, valid_input_types):
         raise MlflowException.invalid_parameter_value(
             f"Input data must be one of {valid_input_types} when content type is '{content_type}'."
@@ -184,6 +185,7 @@ def _serialize_input_data(input_data: Union[str, List, Dict, pd.DataFrame], cont
 def _validate_string(input_data: str, content_type: str):
     try:
         if content_type == _CONTENT_TYPE_CSV:
+            import pandas as pd
             pd.read_csv(StringIO(input_data))
         else:
             json.loads(input_data)

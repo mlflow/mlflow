@@ -41,7 +41,7 @@ from mlflow.models.evaluation import (
 )
 from mlflow.models.flavor_backend import FlavorBackend
 from mlflow.models.model import Model, get_model_info
-from mlflow.models.python_api import build_docker, predict
+from mlflow.models.python_api import build_docker
 from mlflow.utils.environment import infer_pip_requirements
 
 __all__ = [
@@ -57,13 +57,13 @@ __all__ = [
     "list_evaluators",
     "MetricThreshold",
     "build_docker",
-    "predict",
 ]
 
 
 # Under skinny-mlflow requirements, the following packages cannot be imported
 # because of lack of numpy/pandas library, so wrap them with try...except block
 try:
+    from mlflow.models.python_api import predict
     from mlflow.models.signature import ModelSignature, infer_signature, set_signature
     from mlflow.models.utils import ModelInputExample, add_libraries_to_model, validate_schema
 
@@ -74,6 +74,7 @@ try:
         "validate_schema",
         "add_libraries_to_model",
         "set_signature",
+        "predict",
     ]
 except ImportError:
     pass
