@@ -447,7 +447,7 @@ and the conda.yaml file associated with the model. To list the content in the ob
 
 .. code-block:: bash
 
-  oci os object list -bn <your-bucket> -ns <your-namespace> --prefix myexperiment | jq '.data[].name'
+        oci os object list -bn <your-bucket> -ns <your-namespace> --prefix myexperiment | jq '.data[].name'
 
 Output should list following files -  
 
