@@ -1741,6 +1741,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
+    example_no_conversion=False,
     **kwargs,
 ):
     """
@@ -1893,7 +1894,6 @@ def save_model(
                 "`pip_requirements`, or `extra_pip_requirements` must be specified."
             )
 
-    example_no_conversion = kwargs.pop("example_no_conversion", False)
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
         raise TypeError(f"save_model() got unexpected keyword arguments: {kwargs}")
@@ -2013,7 +2013,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
-    **kwargs,
+    example_no_conversion=False,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2181,7 +2181,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         model_config=model_config,
-        **kwargs,
+        example_no_conversion=example_no_conversion,
     )
 
 

@@ -259,6 +259,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    example_no_conversion=False,
     **kwargs,
 ):
     """
@@ -372,7 +373,7 @@ def save_model(
         )
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_data_path = os.path.join(path, MODEL_FILENAME)
@@ -457,6 +458,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    example_no_conversion=False,
     **kwargs,
 ):
     """
@@ -550,6 +552,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        example_no_conversion=example_no_conversion,
         **kwargs,
     )
 

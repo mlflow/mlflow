@@ -234,6 +234,7 @@ def save_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
@@ -453,8 +454,7 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         input_example = _format_input_example_for_special_cases(input_example, built_pipeline)
-        no_conversion = kwargs.get("example_no_conversion", False)
-        _save_example(mlflow_model, input_example, str(path), no_conversion)
+        _save_example(mlflow_model, input_example, str(path), example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -593,6 +593,7 @@ def log_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
     **kwargs,
 ):
     """
@@ -795,6 +796,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
+        example_no_conversion=example_no_conversion,
         **kwargs,
     )
 
