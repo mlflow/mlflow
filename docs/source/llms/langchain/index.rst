@@ -105,6 +105,16 @@ exploring these more advanced use cases.
                     </p>
                 </a>
             </div>
+            <div class="simple-card">
+                <a href="notebooks/langchain-retriever.html">
+                    <div class="header">
+                        RAG tutorial with LangChain
+                    </div>
+                    <p>
+                        Learn how to build a LangChain RAG with MLflow integration to answer highly specific questions about the legality of business ventures.
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 
@@ -124,6 +134,7 @@ To download the advanced LangChain tutorial notebooks to run in your environment
 
     notebooks/langchain-quickstart.ipynb
     notebooks/langchain-agent.ipynb
+    notebooks/langchain-retriever.ipynb
 
 `Detailed Documentation <guide/index.html>`_
 --------------------------------------------
@@ -139,3 +150,41 @@ To learn more about the details of the MLflow LangChain flavor, read the detaile
     :hidden:
 
     guide/index.rst
+
+FAQ
+---
+
+I can't save my chain, agent, or retriever with MLflow.
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Serialization Challenges with Cloudpickle**: Serialization with cloudpickle can encounter limitations depending on the complexity of the objects. 
+
+Some objects, especially those with intricate internal states or dependencies on external system resources, are not inherently pickleable. This limitation 
+arises because serialization essentially requires converting an object to a byte stream, which can be complex for objects tightly coupled with system states 
+or those having external I/O operations.
+
+- **Verifying Native Serialization Support**: Ensure that the langchain object (chain, agent, or retriever) is serializable natively using langchain APIs if saving or logging with MLflow doesn't work. 
+
+Due to their complex structures, not all langchain components are readily serializable. If native serialization 
+is not supported and MLflow doesn't support saving the model, you can file an issue `in the LangChain repository <https://github.com/langchain-ai/langchain/issues>`_ or 
+ask for guidance in the `LangChain Discussions board <https://github.com/langchain-ai/langchain/discussions>`_.
+
+- **Keeping Up with New Features in MLflow**: MLflow might not immediately support the latest LangChain features immediately. 
+
+If a new feature is not supported in MLflow, consider `filing a feature request on the MLflow GitHub issues page <https://github.com/mlflow/mlflow/issues>`_. 
+
+I'm getting an AttributeError when saving my model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Handling Dependency Installation in LangChain and MLflow**: LangChain and MLflow do not automatically install all dependencies. 
+
+Other packages that might be required for specific agents, retrievers, or tools may need to be explicitly defined when saving or logging your model. 
+If your model relies on these external component libraries (particularly for tools) that not included in the standard LangChain package, these dependencies 
+will not be automatically logged as part of the model at all times (see below for guidance on how to include them).
+
+- **Declaring Extra Dependencies**: Use the ``extra_pip_requirements`` parameter when saving and logging. 
+
+When saving or logging your model that contains external dependencies that are not part of the core langchain installation, you will need these additional 
+dependencies. The model flavor contains two options for declaring these dependencies: ``extra_pip_requirements`` and ``pip_requirements``. While specifying 
+``pip_requirements`` is entirely valid, we recommend using ``extra_pip_requirements`` as it does not rely on defining all of the core dependent packages that 
+are required to use the langchain model for inference (the other core dependencies will be inferred automatically).
