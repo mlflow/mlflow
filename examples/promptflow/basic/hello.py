@@ -1,7 +1,8 @@
 import os
+from typing import Optional
+
 from openai import OpenAI
 from openai.version import VERSION as OPENAI_VERSION
-
 from promptflow import tool
 
 # The inputs section will change based on the arguments of the tool function, after you save the code
@@ -25,18 +26,18 @@ def get_client():
 def my_python_tool(
     prompt: str,
     deployment_name: str,
-    suffix: str = None,
+    suffix: Optional[str] = None,
     max_tokens: int = 120,
     temperature: float = 1.0,
     top_p: float = 1.0,
     n: int = 1,
-    logprobs: int = None,
+    logprobs: Optional[int] = None,
     echo: bool = False,
-    stop: list = None,
+    stop: Optional[list] = None,
     presence_penalty: float = 0,
     frequency_penalty: float = 0,
     best_of: int = 1,
-    logit_bias: dict = None,
+    logit_bias: Optional[dict] = None,
     user: str = "",
     **kwargs,
 ) -> str:
