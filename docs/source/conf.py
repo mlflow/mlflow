@@ -46,7 +46,7 @@ extensions = [
 ]
 
 # Redirects definition in the form of ``("source", "target")``.
-# Note that the target is relative to the path of the source and that the 
+# Note that the target is relative to the path of the source and that the
 # target must define the final url (i.e. no trailing slash).
 redirects = {
     "registry": "model-registry.html",
