@@ -11,8 +11,14 @@ import requests
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
+# "dev" versions are installed from source so we can't programmatically get the required python.
+_DEV_PACKAGES_REQUIRE_PYTHON_39 = {"tensorflow", "scikit-learn", "statsmodels"}
+
 
 def get_requires_python(package: str, version: str) -> t.Optional[str]:
+    if version == "dev" and package in _DEV_PACKAGES_REQUIRE_PYTHON_39:
+        return ">=3.9"
+
     resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
     resp.raise_for_status()
     return next(
