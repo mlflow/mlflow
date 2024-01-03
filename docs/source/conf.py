@@ -42,7 +42,15 @@ extensions = [
     "sphinx_tabs.tabs",
     "testcode_block",
     "nbsphinx",
+    "sphinx_reredirects",
 ]
+
+# Redirects definition in the form of ``("source", "target")``.
+# Note that the target is relative to the path of the source and that the 
+# target must define the final url (i.e. no trailing slash).
+redirects = {
+    "registry": "model-registry.html",
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

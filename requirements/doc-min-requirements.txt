@@ -8,3 +8,5 @@ sphinx-autobuild
 sphinx-click
 # to be compatible with docutils==0.16
 sphinx-tabs==3.2.0
+# redirect handling
+sphinx-reredirects==0.1.3
