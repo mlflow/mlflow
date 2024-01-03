@@ -4010,7 +4010,6 @@ def test_pyfunc_model_log_load_with_artifacts_snapshot():
     assert values.to_dict(orient="records")[0]["answer"] != ""
 
 
-# test trigger
 def test_pyfunc_model_log_load_with_artifacts_snapshot_errors():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
