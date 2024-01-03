@@ -1,12 +1,12 @@
 import os
 from pathlib import Path
 
-import mlflow
-
 from promptflow import load_flow
 
+import mlflow
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
+
 
 # The example flow will write a simple code snippet that displays the greeting message with specific language.
 flow_folder = Path(__file__).parent / "basic"
