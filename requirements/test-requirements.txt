@@ -44,4 +44,4 @@ databricks-sdk
 openai<1.0
 # Required for showing pytest stats
 psutil
-typing_extensions>4.5.0
+typing_extensions>=4.6.0
