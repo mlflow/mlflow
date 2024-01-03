@@ -875,9 +875,13 @@ To include an input example with your model, add it to the appropriate log_model
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Input examples are also used to infer
 model signatures in log_model calls when signatures aren't specified.
 
-Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). We offer support for input_example with params by using tuple to combine model
-inputs and params. See examples below:
+By default, if input example is a dictionary, we convert it to pandas DataFrame format when saving.
+Note that for langchain, openai, pyfunc and transformers flavors, input example could be saved without
+conversion by setting ``example_no_conversion`` to ``False``.
+
+Similar to model signatures, model inputs can be column-based (i.e DataFrames), tensor-based
+(i.e numpy.ndarrays) or json object (i.e python dictionary). We offer support for input_example 
+with params by using tuple to combine model inputs and params. See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -928,6 +932,27 @@ The following example demonstrates how you can log a tensor-based input example 
         dtype=np.uint8,
     )
     mlflow.tensorflow.log_model(..., input_example=input_example)
+
+How To Log Model With Json Object
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For models accepting python dictionary inputs instead of pandas DataFrame, we support saving the example
+directly as it is. To enable this, ``example_no_conversion`` should be set to ``True`` when logging the model. 
+This feature is only supported for langchain, openai, pyfunc and transformers flavors, where saving the example
+directly is useful for inference and model serving.
+By default, ``example_no_conversion`` is set to ``False`` for backwards compatibility.
+
+The following example demonstrates how you can log a json object input example with your model:
+
+.. code-block:: python
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    mlflow.langchain.log_model(..., input_example=input_example, example_no_conversion=True)
 
 How To Log Model With Example Containing Params
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

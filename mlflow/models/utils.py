@@ -350,7 +350,7 @@ def _save_example(
             raise MlflowException.invalid_parameter_value(
                 "Failed to save input example. Please make sure the input example is jsonable "
                 f"when no_conversion is True. Got error: {e}"
-            )
+            ) from e
         else:
             mlflow_model.saved_input_example_info = example_info
     else:
