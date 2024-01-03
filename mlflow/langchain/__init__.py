@@ -185,6 +185,7 @@ def save_model(
                                 )
 
                         See a complete example in examples/langchain/retrieval_qa_chain.py.
+    :param example_no_conversion: {{ example_no_conversion }}
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -404,6 +405,7 @@ def log_model(
                                 )
 
                         See a complete example in examples/langchain/retrieval_qa_chain.py.
+    :param example_no_conversion: {{ example_no_conversion }}
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """

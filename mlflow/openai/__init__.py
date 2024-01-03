@@ -297,6 +297,7 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
             or ``top_p`` value to use for chat completion.
@@ -502,6 +503,7 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
             or ``top_p`` value to use for chat completion.

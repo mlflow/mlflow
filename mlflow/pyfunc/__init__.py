@@ -1881,6 +1881,7 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param example_no_conversion: {{ example_no_conversion }}
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
@@ -2161,6 +2162,7 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param example_no_conversion: {{ example_no_conversion }}
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """

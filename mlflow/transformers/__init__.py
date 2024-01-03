@@ -408,7 +408,7 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-
+    :param example_no_conversion: {{ example_no_conversion }}
     :param kwargs: Optional additional configurations for transformers serialization.
     :return: None
     """
@@ -776,6 +776,7 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param example_no_conversion: {{ example_no_conversion }}
     :param kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
