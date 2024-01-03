@@ -63,6 +63,8 @@ STATSMODELS_DATA_SUBPATH = "model.statsmodels"
 _logger = logging.getLogger(__name__)
 
 
+_I_AM_A_DUMMY = None
+
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
