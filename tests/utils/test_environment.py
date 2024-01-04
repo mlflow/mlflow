@@ -5,6 +5,7 @@ import yaml
 
 from mlflow.utils.environment import (
     _contains_mlflow_requirement,
+    _deduplicate_requirements,
     _find_duplicate_requirements,
     _get_pip_deps,
     _get_pip_requirement_specifier,
@@ -281,6 +282,19 @@ def test_process_pip_requirements(tmp_path):
     assert reqs == [expected_mlflow_ver, "b", "-c constraints.txt"]
     assert cons == ["c"]
 
+    conda_env, reqs, cons = _process_pip_requirements(["a"], extra_pip_requirements=["a[extras]"])
+    assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a[extras]"]
+    assert reqs == [expected_mlflow_ver, "a[extras]"]
+    assert cons == []
+
+    conda_env, reqs, cons = _process_pip_requirements(
+        ["mlflow==1.2.3", "b[extra1]", "a==1.2.3"],
+        extra_pip_requirements=["b[extra2]", "a[extras]"],
+    )
+    assert _get_pip_deps(conda_env) == ["mlflow==1.2.3", "b[extra1,extra2]", "a[extras]"]
+    assert reqs == ["mlflow==1.2.3", "b[extra1,extra2]", "a[extras]"]
+    assert cons == []
+
 
 def test_process_conda_env(tmp_path):
     def make_conda_env(pip_deps):
@@ -354,3 +368,37 @@ def test_duplicate_pip_requirements():
     ]
     evaluation = _find_duplicate_requirements(packages)
     assert sorted(evaluation) == ["fastapi", "numpy", "package"]
+
+
+@pytest.mark.parametrize(
+    ("input_requirements", "expected"),
+    [
+        # Simple cases
+        (["packageA", "packageB"], ["packageA", "packageB"]),
+        # Duplicates without extras, preserving version restrictions
+        (["packageA", "packageA==1.0"], ["packageA==1.0"]),
+        # Duplicates with extras
+        (["packageA", "packageA[extras]"], ["packageA[extras]"]),
+        # Mixed cases
+        (
+            ["packageA", "packageB", "packageA[extras]", "packageC<=2.0"],
+            ["packageA[extras]", "packageB", "packageC<=2.0"],
+        ),
+        # Mixed versions and extras
+        (["packageX==1.0", "packageX[extras]", "packageX==2.0"], ["packageX[extras]"]),
+        # Overlapping extras
+        (
+            ["packageZ[extra1]", "packageZ[extra2]", "packageZ"],
+            ["packageZ[extra1,extra2]"],
+        ),
+        # Version constraints with extras
+        (["packageW<=1.0", "packageW[extras]>=2.0"], ["packageW[extras]>=2.0"]),
+        # Version mixing with extras and conflicting base version
+        (
+            ["packageW==2.0.1", "packageW[extra1]", "packageW[extra1]==1.9.0"],
+            ["packageW[extra1]==1.9.0"],
+        ),
+    ],
+)
+def test_deduplicate_requirements(input_requirements, expected):
+    assert _deduplicate_requirements(input_requirements) == expected

@@ -6,6 +6,7 @@ from collections import Counter
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
+from packaging.version import parse as parse_version
 
 from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
@@ -514,12 +515,14 @@ def _process_pip_requirements(
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
+    sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
+
     if constraints:
-        pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+        sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
-    conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs, install_mlflow=False)
-    return conda_env, pip_reqs, constraints
+    conda_env = _mlflow_conda_env(additional_pip_deps=sanitized_pip_reqs, install_mlflow=False)
+    return conda_env, sanitized_pip_reqs, constraints
 
 
 def _find_duplicate_requirements(requirements):
@@ -539,6 +542,88 @@ def _find_duplicate_requirements(requirements):
 
     package_counts = Counter(base_package_names)
     return [package for package, count in package_counts.items() if count > 1]
+
+
+def _deduplicate_requirements(requirements):
+    """
+    Deduplicates a list of pip package requirements, prioritizing packages with extras and
+    higher versions.
+
+    Given a list of pip package requirements, this function deduplicates the list by keeping the
+    version with extras if present, or otherwise the highest version specified for each package.
+    It handles both standard PyPI packages and non-standard requirements (like URLs or local paths).
+
+    Args:
+        requirements (list of str): A list of pip package requirement strings.
+
+    Returns:
+        list of str: A deduplicated list of pip package requirements.
+
+    Examples:
+        - Input: ["packageA", "packageA==1.0"]
+          Output: ["packageA==1.0"]
+          Explanation: Keeps the version with a specific version number.
+
+        - Input: ["packageX==1.0", "packageX[extras]", "packageX==2.0"]
+          Output: ["packageX[extras]"]
+          Explanation: Prioritizes the version with extras over the specific version.
+
+        - Input: ["packageZ[extra1]", "packageZ[extra2]", "packageZ"]
+          Output: ["packageZ[extra1,extra2]"]
+          Explanation: Combines different sets of extras for the same package.
+
+        - Input: ["packageW<=1.0", "packageW[extras]>=2.0"]
+          Output: ["packageW[extras]>=2.0"]
+          Explanation: Prioritizes the version with extras and a higher version number.
+
+    Note:
+        - Non-standard requirements (like URLs or file paths) are included as-is.
+        - If a requirement appears multiple times with different sets of extras, they are merged.
+    """
+    deduped_reqs = {}
+
+    for req in requirements:
+        try:
+            parsed_req = Requirement(req)
+            base_pkg = parsed_req.name
+
+            existing_req = deduped_reqs.get(base_pkg)
+            if not existing_req:
+                deduped_reqs[base_pkg] = parsed_req
+            else:
+                existing_version = (
+                    next(iter(existing_req.specifier)).version if existing_req.specifier else None
+                )
+                new_version = (
+                    next(iter(parsed_req.specifier)).version if parsed_req.specifier else None
+                )
+
+                if parsed_req.extras:
+                    # If new requirement has extras, prioritize it
+                    # Merge extras if existing requirement also has extras
+                    if existing_req.extras:
+                        combined_extras = sorted(set(existing_req.extras).union(parsed_req.extras))
+                        deduped_reqs[base_pkg] = Requirement(
+                            f"{base_pkg}[{','.join(combined_extras)}]{parsed_req.specifier}"
+                        )
+                    else:
+                        deduped_reqs[base_pkg] = parsed_req
+                elif (
+                    not existing_req.extras
+                    and new_version
+                    and (
+                        not existing_version
+                        or parse_version(new_version) > parse_version(existing_version)
+                    )
+                ):
+                    # Update if new requirement has a higher version and no extras
+                    deduped_reqs[base_pkg] = parsed_req
+
+        except InvalidRequirement:
+            # Include non-standard package strings as-is
+            if req not in deduped_reqs:
+                deduped_reqs[req] = req
+    return [str(req) for req in deduped_reqs.values()]
 
 
 def _process_conda_env(conda_env):
