@@ -1474,11 +1474,11 @@ def evaluate(
                 return pd.DataFrame({"answer": ["bar"], "source": ["baz"]})
 
 
-            results = evalaute(model=model, data=data, predictions="answer", ...)
+            results = evaluate(model=model, data=data, predictions="answer", ...)
 
             # Evaluate a static dataset
             data = pd.DataFrame({"question": ["foo"], "answer": ["bar"], "source": ["baz"]})
-            results = evalaute(data=data, predictions="answer", ...)
+            results = evaluate(data=data, predictions="answer", ...)
 
     :param model_type: (Optional) A string describing the model type. The default evaluator
                        supports the following model types:
