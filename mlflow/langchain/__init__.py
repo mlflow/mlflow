@@ -98,6 +98,7 @@ def save_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
+    example_no_conversion=False,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -184,6 +185,7 @@ def save_model(
                                 )
 
                         See a complete example in examples/langchain/retrieval_qa_chain.py.
+    :param example_no_conversion: {{ example_no_conversion }}
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -236,7 +238,7 @@ def save_model(
         mlflow_model.signature = signature
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -306,6 +308,7 @@ def log_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
+    example_no_conversion=False,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -402,6 +405,7 @@ def log_model(
                                 )
 
                         See a complete example in examples/langchain/retrieval_qa_chain.py.
+    :param example_no_conversion: {{ example_no_conversion }}
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -422,6 +426,7 @@ def log_model(
         metadata=metadata,
         loader_fn=loader_fn,
         persist_dir=persist_dir,
+        example_no_conversion=example_no_conversion,
     )
 
 

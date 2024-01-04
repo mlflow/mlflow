@@ -1741,6 +1741,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
+    example_no_conversion=False,
     **kwargs,
 ):
     """
@@ -1880,6 +1881,7 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param example_no_conversion: {{ example_no_conversion }}
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
@@ -1963,7 +1965,7 @@ def save_model(
                     _logger.warning(f"Failed to infer model signature from input example. {e}")
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -2012,6 +2014,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config=None,
+    example_no_conversion=False,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -2159,6 +2162,7 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param example_no_conversion: {{ example_no_conversion }}
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -2179,6 +2183,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         model_config=model_config,
+        example_no_conversion=example_no_conversion,
     )
 
 
