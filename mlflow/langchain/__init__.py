@@ -455,10 +455,10 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(  # pylint: disable=unused-argument
+    def predict(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
-        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        params: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """
         :param data: Model input data.
@@ -467,6 +467,24 @@ class _LangChainModelWrapper:
                        .. Note:: Experimental: This parameter may change or be removed in a future
                                                release without warning.
 
+        :return: Model predictions.
+        """
+        return self._predict_with_callbacks(data, params)
+
+    @experimental
+    def _predict_with_callbacks(  # pylint: disable=unused-argument
+        self,
+        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        callback_handlers=None,  # [langchain.callbacks.base.BaseCallbackHandler]
+    ) -> List[str]:
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :param data: Callback handlers to pass to LangChain.
         :return: Model predictions.
         """
 
@@ -503,7 +521,9 @@ class _LangChainModelWrapper:
                     "or a list of dictionaries "
                     f"for model {self.lc_model.__class__.__name__}"
                 )
-        results = process_api_requests(lc_model=self.lc_model, requests=messages)
+        results = process_api_requests(
+            lc_model=self.lc_model, requests=messages, callback_handlers=callback_handlers
+        )
         return results[0] if return_first_element else results
 
 

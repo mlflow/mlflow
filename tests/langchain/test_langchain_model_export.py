@@ -885,6 +885,59 @@ def test_save_load_runnable_lambda_in_sequence():
         "predictions": [4, 6, 8]
     }
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_predict_with_callbacks():
+    from langchain.callbacks.base import BaseCallbackHandler
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
+    class TestCallbackHandler(BaseCallbackHandler):
+        def __init__(self):
+            super().__init__()
+            self.on_llm_start_called = False
+
+        def on_llm_start(
+            self,
+            serialized: Dict[str, Any],
+            prompts: List[str],
+            **kwargs: Any,
+        ) -> Any:
+            self.on_llm_start_called = True
+
+    chat_model = _fake_simple_chat_model()()
+    prompt = ChatPromptTemplate.from_template("What's up?")
+    chain = prompt | chat_model | StrOutputParser()
+    # Test the basic functionality of the chain
+    assert chain.invoke({"input": "hi"}) == "Databricks"
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model_path")
+
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    callback_handler1 = TestCallbackHandler()
+    callback_handler2 = TestCallbackHandler()
+
+    # Ensure handlers have not been called yet
+    assert not callback_handler1.on_llm_start_called
+    assert not callback_handler2.on_llm_start_called
+
+    callback_handler = TestCallbackHandler()
+    assert not callback_handler.on_llm_start_called
+    assert (
+        pyfunc_loaded_model._model_impl._predict_with_callbacks(
+            {"input": "hi"}, callback_handlers=[callback_handler1, callback_handler2]
+        )
+        == "Databricks"
+    )
+
+    # Test that the callback handlers were called
+    assert callback_handler1.on_llm_start_called
+    assert callback_handler2.on_llm_start_called
+
 
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"),
