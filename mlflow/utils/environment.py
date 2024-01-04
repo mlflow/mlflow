@@ -1,12 +1,13 @@
 import logging
 import os
 import re
+import subprocess
+import tempfile
 from collections import Counter
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
-from packaging.version import parse as parse_version
 
 from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
@@ -546,12 +547,14 @@ def _find_duplicate_requirements(requirements):
 
 def _deduplicate_requirements(requirements):
     """
-    Deduplicates a list of pip package requirements, prioritizing packages with extras and
-    higher versions.
+    De-duplicates a list of pip package requirements, handling complex scenarios such as merging
+    extras and combining version constraints.
 
-    Given a list of pip package requirements, this function deduplicates the list by keeping the
-    version with extras if present, or otherwise the highest version specified for each package.
-    It handles both standard PyPI packages and non-standard requirements (like URLs or local paths).
+    This function processes a list of pip package requirements and de-duplicates them. It handles
+    standard PyPI packages and non-standard requirements (like URLs or local paths). The function
+    merges extras and combines version constraints for duplicate packages. The most restrictive
+    version specifications or the ones with extras are prioritized. If incompatible version
+    constraints are detected, it raises an MlflowException.
 
     Args:
         requirements (list of str): A list of pip package requirement strings.
@@ -559,26 +562,28 @@ def _deduplicate_requirements(requirements):
     Returns:
         list of str: A deduplicated list of pip package requirements.
 
+    Raises:
+        MlflowException: If incompatible version constraints are detected among the provided
+                         requirements.
+
     Examples:
         - Input: ["packageA", "packageA==1.0"]
           Output: ["packageA==1.0"]
-          Explanation: Keeps the version with a specific version number.
 
-        - Input: ["packageX==1.0", "packageX[extras]", "packageX==2.0"]
-          Output: ["packageX[extras]"]
-          Explanation: Prioritizes the version with extras over the specific version.
+        - Input: ["packageX>1.0", "packageX[extras]", "packageX<2.0"]
+          Output: ["packageX[extras]>1.0,<2.0"]
 
-        - Input: ["packageZ[extra1]", "packageZ[extra2]", "packageZ"]
-          Output: ["packageZ[extra1,extra2]"]
-          Explanation: Combines different sets of extras for the same package.
+        - Input: ["markdown[extra1]>=3.5.1", "markdown[extra2]<4", "markdown"]
+          Output: ["markdown[extra1,extra2]>=3.5.1,<4"]
 
-        - Input: ["packageW<=1.0", "packageW[extras]>=2.0"]
-          Output: ["packageW[extras]>=2.0"]
-          Explanation: Prioritizes the version with extras and a higher version number.
+        - Input: ["scikit-learn==1.1", "scikit-learn<1"]
+          Raises MlflowException indicating incompatible versions.
 
     Note:
         - Non-standard requirements (like URLs or file paths) are included as-is.
         - If a requirement appears multiple times with different sets of extras, they are merged.
+        - The function uses `_validate_version_constraints` to check for incompatible version
+          constraints by doing a dry-run pip install of a requirements collection.
     """
     deduped_reqs = {}
 
@@ -588,42 +593,82 @@ def _deduplicate_requirements(requirements):
             base_pkg = parsed_req.name
 
             existing_req = deduped_reqs.get(base_pkg)
+
             if not existing_req:
                 deduped_reqs[base_pkg] = parsed_req
             else:
-                existing_version = (
-                    next(iter(existing_req.specifier)).version if existing_req.specifier else None
-                )
-                new_version = (
-                    next(iter(parsed_req.specifier)).version if parsed_req.specifier else None
-                )
-
-                if parsed_req.extras:
-                    # If new requirement has extras, prioritize it
-                    # Merge extras if existing requirement also has extras
-                    if existing_req.extras:
-                        combined_extras = sorted(set(existing_req.extras).union(parsed_req.extras))
-                        deduped_reqs[base_pkg] = Requirement(
-                            f"{base_pkg}[{','.join(combined_extras)}]{parsed_req.specifier}"
-                        )
-                    else:
-                        deduped_reqs[base_pkg] = parsed_req
-                elif (
-                    not existing_req.extras
-                    and new_version
-                    and (
-                        not existing_version
-                        or parse_version(new_version) > parse_version(existing_version)
-                    )
+                # Verify that there are not unresolvable constraints applied if set and combine
+                # if possible
+                if (
+                    existing_req.specifier
+                    and parsed_req.specifier
+                    and existing_req.specifier != parsed_req.specifier
                 ):
-                    # Update if new requirement has a higher version and no extras
-                    deduped_reqs[base_pkg] = parsed_req
+                    _validate_version_constraints([str(existing_req), req])
+                    parsed_req.specifier = ",".join(
+                        [str(existing_req.specifier), str(parsed_req.specifier)]
+                    )
+
+                # Preserve existing specifiers
+                if existing_req.specifier and not parsed_req.specifier:
+                    parsed_req.specifier = existing_req.specifier
+
+                # Combine and apply extras if specified
+                if (
+                    existing_req.extras
+                    and parsed_req.extras
+                    and existing_req.extras != parsed_req.extras
+                ):
+                    parsed_req.extras = sorted(set(existing_req.extras).union(parsed_req.extras))
+                elif existing_req.extras and not parsed_req.extras:
+                    parsed_req.extras = existing_req.extras
+
+                deduped_reqs[base_pkg] = parsed_req
 
         except InvalidRequirement:
             # Include non-standard package strings as-is
             if req not in deduped_reqs:
                 deduped_reqs[req] = req
     return [str(req) for req in deduped_reqs.values()]
+
+
+def _validate_version_constraints(requirements):
+    """
+    Validates the version constraints of given Python package requirements using pip's resolver with
+    the `--dry-run` option enabled that performs validation only (will not install packages).
+
+    This function writes the requirements to a temporary file and then attempts to resolve
+    them using pip's `--dry-run` install option. If any version conflicts are detected, it
+    raises an MlflowException with details of the conflict.
+
+    Args:
+        requirements (list of str): A list of package requirements (e.g., `["pandas>=1.15",
+        "pandas<2"]`).
+
+    Raises:
+        MlflowException: If any version conflicts are detected among the provided requirements.
+
+    Returns:
+        None: This function does not return anything. It either completes successfully or raises
+        an MlflowException.
+
+    Example:
+        _validate_version_constraints(["tensorflow<2.0", "tensorflow>2.3"])
+        # This will raise an exception due to boundary validity.
+    """
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp_file:
+        tmp_file.write("\n".join(requirements))
+        tmp_file_name = tmp_file.name
+
+    try:
+        subprocess.run(
+            ["pip", "install", "--dry-run", "-r", tmp_file_name], check=True, capture_output=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise MlflowException.invalid_parameter_value(
+            "The specified requirements versions are incompatible. Detected "
+            f"conflicts: \n{e.stderr.decode()}"
+        )
 
 
 def _process_conda_env(conda_env):

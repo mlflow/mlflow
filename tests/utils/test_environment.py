@@ -3,6 +3,7 @@ import os
 import pytest
 import yaml
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import (
     _contains_mlflow_requirement,
     _deduplicate_requirements,
@@ -291,8 +292,8 @@ def test_process_pip_requirements(tmp_path):
         ["mlflow==1.2.3", "b[extra1]", "a==1.2.3"],
         extra_pip_requirements=["b[extra2]", "a[extras]"],
     )
-    assert _get_pip_deps(conda_env) == ["mlflow==1.2.3", "b[extra1,extra2]", "a[extras]"]
-    assert reqs == ["mlflow==1.2.3", "b[extra1,extra2]", "a[extras]"]
+    assert _get_pip_deps(conda_env) == ["mlflow==1.2.3", "b[extra1,extra2]", "a[extras]==1.2.3"]
+    assert reqs == ["mlflow==1.2.3", "b[extra1,extra2]", "a[extras]==1.2.3"]
     assert cons == []
 
 
@@ -374,7 +375,7 @@ def test_duplicate_pip_requirements():
     ("input_requirements", "expected"),
     [
         # Simple cases
-        (["packageA", "packageB"], ["packageA", "packageB"]),
+        (["scikit-learn>1", "pandas"], ["scikit-learn>1", "pandas"]),
         # Duplicates without extras, preserving version restrictions
         (["packageA", "packageA==1.0"], ["packageA==1.0"]),
         # Duplicates with extras
@@ -385,20 +386,47 @@ def test_duplicate_pip_requirements():
             ["packageA[extras]", "packageB", "packageC<=2.0"],
         ),
         # Mixed versions and extras
-        (["packageX==1.0", "packageX[extras]", "packageX==2.0"], ["packageX[extras]"]),
+        (["markdown>=3.5.1", "markdown[extras]", "markdown<4"], ["markdown[extras]>=3.5.1,<4"]),
         # Overlapping extras
         (
             ["packageZ[extra1]", "packageZ[extra2]", "packageZ"],
             ["packageZ[extra1,extra2]"],
         ),
-        # Version constraints with extras
-        (["packageW<=1.0", "packageW[extras]>=2.0"], ["packageW[extras]>=2.0"]),
-        # Version mixing with extras and conflicting base version
+        # No version on extras with final version on non-extras
         (
-            ["packageW==2.0.1", "packageW[extra1]", "packageW[extra1]==1.9.0"],
-            ["packageW[extra1]==1.9.0"],
+            ["markdown[extra1]", "markdown[extra2]", "markdown>3", "markdown<4"],
+            ["markdown[extra1,extra2]>3,<4"],
         ),
+        # Version constraints with extras
+        (["markdown>1.0", "markdown[extras]<4"], ["markdown[extras]>1.0,<4"]),
+        # Verify duplicate specifiers are not preserved
+        (
+            ["markdown==3.5.1", "markdown[extras]==3.5.1", "markdown[extras]"],
+            ["markdown[extras]==3.5.1"],
+        ),
+        # Verify duplicate extras are not preserved
+        (["markdown[extras]", "markdown", "markdown[extras]"], ["markdown[extras]"]),
     ],
 )
-def test_deduplicate_requirements(input_requirements, expected):
+def test_deduplicate_requirements_resolve_correctly(input_requirements, expected):
     assert _deduplicate_requirements(input_requirements) == expected
+
+
+@pytest.mark.parametrize(
+    "input_requirements",
+    [
+        # Non-inclusive range with precise specifier
+        ["scikit-learn==1.1", "scikit-learn<1"],
+        # Incompatible ranges with extras
+        ["markdown[extras]==3.5.1", "markdown<3.4"],
+        # Invalid ranges
+        ["markdown<3", "markdown>3"],
+        # Conflicting versions
+        ["markdown==3.0", "markdown==3.5"],
+    ],
+)
+def test_invalid_requirements_raise(input_requirements):
+    with pytest.raises(
+        MlflowException, match="The specified requirements versions are incompatible"
+    ):
+        _deduplicate_requirements(input_requirements)
