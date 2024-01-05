@@ -1,3 +1,5 @@
+import botocore.errorfactory
+import botocore.session
 import os
 import posixpath
 from datetime import datetime
@@ -5,6 +7,8 @@ from unittest import mock
 from unittest.mock import ANY
 
 import pytest
+
+from botocore.exceptions import ClientError
 
 from mlflow.protos.service_pb2 import FileInfo
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
@@ -98,12 +102,29 @@ def test_get_s3_client_verify_param_set_correctly(
         )
 
 
-def test_get_s3_client_region_name_set_correctly(s3_artifact_root):
-    region_name = "us_random_region_42"
+@pytest.mark.parametrize("client_throws", [True, False])
+def test_get_s3_client_region_name_set_correctly(s3_artifact_root, client_throws):
+    if client_throws:
+        region_name = "us_random_throwing_region_42"
+    else:
+        region_name = "us_random_region_42"
+
     with mock.patch("boto3.client") as mock_get_s3_client:
         s3_client_mock = mock.Mock()
         mock_get_s3_client.return_value = s3_client_mock
-        s3_client_mock.head_bucket.return_value = {"BucketRegion": region_name}
+        if client_throws:
+            error = ClientError(
+                {
+                    "Error": {"Code": "403", "Message": "Forbidden"},
+                    "ResponseMetadata": {
+                        "HTTPHeaders": {"x-amz-bucket-region": region_name},
+                    },
+                },
+                "head_bucket",
+            )
+            s3_client_mock.head_bucket.side_effect = error
+        else:
+            s3_client_mock.head_bucket.return_value = {"BucketRegion": region_name}
 
         repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
         repo._get_s3_client()
