@@ -899,7 +899,7 @@ def test_predict_with_callbacks():
     class TestCallbackHandler(BaseCallbackHandler):
         def __init__(self):
             super().__init__()
-            self.on_llm_start_called = False
+            self.num_llm_start_calls = 0
 
         def on_llm_start(
             self,
@@ -907,7 +907,7 @@ def test_predict_with_callbacks():
             prompts: List[str],
             **kwargs: Any,
         ) -> Any:
-            self.on_llm_start_called = True
+            self.num_llm_start_calls += 1
 
     chat_model = _fake_simple_chat_model()()
     prompt = ChatPromptTemplate.from_template("What's up?")
@@ -924,11 +924,9 @@ def test_predict_with_callbacks():
     callback_handler2 = TestCallbackHandler()
 
     # Ensure handlers have not been called yet
-    assert not callback_handler1.on_llm_start_called
-    assert not callback_handler2.on_llm_start_called
+    assert callback_handler1.num_llm_start_calls == 0
+    assert callback_handler2.num_llm_start_calls == 0
 
-    callback_handler = TestCallbackHandler()
-    assert not callback_handler.on_llm_start_called
     assert (
         pyfunc_loaded_model._model_impl._predict_with_callbacks(
             {"input": "hi"}, callback_handlers=[callback_handler1, callback_handler2]
@@ -937,8 +935,8 @@ def test_predict_with_callbacks():
     )
 
     # Test that the callback handlers were called
-    assert callback_handler1.on_llm_start_called
-    assert callback_handler2.on_llm_start_called
+    assert callback_handler1.num_llm_start_calls == 1
+    assert callback_handler2.num_llm_start_calls == 1
 
 
 @pytest.mark.skipif(
