@@ -5,6 +5,9 @@ from langchain.llms import OpenAI
 
 import mlflow
 
+# Note: Ensure that the package 'google-search-results' is installed via pypi to run this example
+# and that you have a accounts with SerpAPI and OpenAI to use their APIs.
+
 # Ensuring necessary API keys are set
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 assert "SERPAPI_API_KEY" in os.environ, "Please set the SERPAPI_API_KEY environment variable."
@@ -26,12 +29,8 @@ with mlflow.start_run():
 loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
 
 # Generate an inference result using the loaded model
-print(
-    loaded_model.predict(
-        [
-            {
-                "input": "What was the high temperature in SF yesterday in Fahrenheit? What is that number raised to the .023 power?"
-            }
-        ]
-    )
-)
+question = "What was the high temperature in SF yesterday in Fahrenheit? What is that number raised to the .023 power?"
+
+answer = loaded_model.predict([{"input": question}])
+
+print(answer)

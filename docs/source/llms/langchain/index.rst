@@ -15,10 +15,19 @@ that utilize language models for reasoning and generating responses, enabling th
 
 Supported Elements in MLflow LangChain Integration
 --------------------------------------------------
-- **LLMChain Logging**: Integrate and log language model chains that interface with both SaaS and self-managed LLM models, for streamlined management and deployment.
-- **Agent Logging**: Log complex LangChain agents, allowing language models to dynamically determine action sequences.
-- **RetrievalQA Chain Logging**: Seamlessly manage RetrievalQA chains (RAG), combining retrieval capabilities with question-answering.
-- **Retriever Logging**: Independently log and evaluate retrievers, assessing the quality of documents retrieved without LLM processing.
+- `LLMChain <https://python.langchain.com/docs/modules/chains/foundational/llm_chain>`_
+- `Agents <https://python.langchain.com/docs/modules/agents/>`_
+- `RetrievalQA <https://js.langchain.com/docs/modules/chains/popular/vector_db_qa>`_
+- `Retrievers <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_
+
+Why use MLflow with LangChain?
+------------------------------
+Aside from the benefits of using MLflow for managing and deploying machine learning models, the integration of LangChain with MLflow provides a number of 
+benefits that are associated with using LangChain within the broader MLflow ecosystem. 
+
+- **MLflow Evaluate**: With the native capabilities within MLflow to evaluate language models, you can easily utilize automated evaluation algorithms on the results of your LangChain application's inference results. This integration facilitates the efficient assessment of inference results from your LangChain application, ensuring robust performance analytics.
+- **Simplified Experimentation**: LangChain's flexibility in experimenting with various agents, tools, and retrievers becomes even more powerful when paired with MLflow. This combination allows for rapid experimentation and iteration. You can effortlessly compare runs, making it easier to refine models and accelerate the journey from development to production deployment.
+- **Robust Dependency Management**: Deploy your LangChain application with confidence, leveraging MLflow's ability to manage and record all external dependencies. This ensures consistency between development and deployment environments, reducing deployment risks and simplifying the process.
 
 Capabilities of LangChain and MLflow
 ------------------------------------
@@ -28,7 +37,7 @@ Capabilities of LangChain and MLflow
 
 Overview of Chains, Agents, and Retrievers
 ------------------------------------------
-- **Chains**: Sequences of actions or steps hardcoded in code. Chains in LangChain combine various components like prompts, models, stateful memory, and output parsers to create a flow of processing steps.
+- **Chains**: Sequences of actions or steps hardcoded in code. Chains in LangChain combine various components like prompts, models, and output parsers to create a flow of processing steps.
 
 The figure below shows an example of interfacing directly with a SaaS LLM via API calls with no context to the history of the conversation in the top portion. The 
 bottom portion shows the same queries being submitted to a LangChain chain that incorporates a conversation history state such that the entire conversation's history 
@@ -118,15 +127,10 @@ exploring these more advanced use cases.
         </article>
     </section>
 
-Download the Advanced Tutorial Notebooks
-----------------------------------------
-
-To download the advanced LangChain tutorial notebooks to run in your environment, click the respective links below:
-
 .. raw:: html
 
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/langchain/notebooks/langchain-agent.ipynb" class="notebook-download-btn">Download the LangChain Agents Notebook</a><br>
-    
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/langchain/notebooks/langchain-retriever.ipynb" class="notebook-download-btn">Download the LangChain Retriever Notebook</a><br>
 
 .. toctree::
     :maxdepth: 2
@@ -159,32 +163,32 @@ I can't save my chain, agent, or retriever with MLflow.
 
 - **Serialization Challenges with Cloudpickle**: Serialization with cloudpickle can encounter limitations depending on the complexity of the objects. 
 
-Some objects, especially those with intricate internal states or dependencies on external system resources, are not inherently pickleable. This limitation 
-arises because serialization essentially requires converting an object to a byte stream, which can be complex for objects tightly coupled with system states 
-or those having external I/O operations.
+    Some objects, especially those with intricate internal states or dependencies on external system resources, are not inherently pickleable. This limitation 
+    arises because serialization essentially requires converting an object to a byte stream, which can be complex for objects tightly coupled with system states 
+    or those having external I/O operations.
 
 - **Verifying Native Serialization Support**: Ensure that the langchain object (chain, agent, or retriever) is serializable natively using langchain APIs if saving or logging with MLflow doesn't work. 
 
-Due to their complex structures, not all langchain components are readily serializable. If native serialization 
-is not supported and MLflow doesn't support saving the model, you can file an issue `in the LangChain repository <https://github.com/langchain-ai/langchain/issues>`_ or 
-ask for guidance in the `LangChain Discussions board <https://github.com/langchain-ai/langchain/discussions>`_.
+    Due to their complex structures, not all langchain components are readily serializable. If native serialization 
+    is not supported and MLflow doesn't support saving the model, you can file an issue `in the LangChain repository <https://github.com/langchain-ai/langchain/issues>`_ or 
+    ask for guidance in the `LangChain Discussions board <https://github.com/langchain-ai/langchain/discussions>`_.
 
 - **Keeping Up with New Features in MLflow**: MLflow might not immediately support the latest LangChain features immediately. 
 
-If a new feature is not supported in MLflow, consider `filing a feature request on the MLflow GitHub issues page <https://github.com/mlflow/mlflow/issues>`_. 
+    If a new feature is not supported in MLflow, consider `filing a feature request on the MLflow GitHub issues page <https://github.com/mlflow/mlflow/issues>`_. 
 
 I'm getting an AttributeError when saving my model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **Handling Dependency Installation in LangChain and MLflow**: LangChain and MLflow do not automatically install all dependencies. 
 
-Other packages that might be required for specific agents, retrievers, or tools may need to be explicitly defined when saving or logging your model. 
-If your model relies on these external component libraries (particularly for tools) that not included in the standard LangChain package, these dependencies 
-will not be automatically logged as part of the model at all times (see below for guidance on how to include them).
+    Other packages that might be required for specific agents, retrievers, or tools may need to be explicitly defined when saving or logging your model. 
+    If your model relies on these external component libraries (particularly for tools) that not included in the standard LangChain package, these dependencies 
+    will not be automatically logged as part of the model at all times (see below for guidance on how to include them).
 
 - **Declaring Extra Dependencies**: Use the ``extra_pip_requirements`` parameter when saving and logging. 
 
-When saving or logging your model that contains external dependencies that are not part of the core langchain installation, you will need these additional 
-dependencies. The model flavor contains two options for declaring these dependencies: ``extra_pip_requirements`` and ``pip_requirements``. While specifying 
-``pip_requirements`` is entirely valid, we recommend using ``extra_pip_requirements`` as it does not rely on defining all of the core dependent packages that 
-are required to use the langchain model for inference (the other core dependencies will be inferred automatically).
+    When saving or logging your model that contains external dependencies that are not part of the core langchain installation, you will need these additional 
+    dependencies. The model flavor contains two options for declaring these dependencies: ``extra_pip_requirements`` and ``pip_requirements``. While specifying 
+    ``pip_requirements`` is entirely valid, we recommend using ``extra_pip_requirements`` as it does not rely on defining all of the core dependent packages that 
+    are required to use the langchain model for inference (the other core dependencies will be inferred automatically).
