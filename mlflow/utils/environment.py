@@ -656,22 +656,23 @@ def _validate_version_constraints(requirements):
         _validate_version_constraints(["tensorflow<2.0", "tensorflow>2.3"])
         # This will raise an exception due to boundary validity.
     """
-    with tempfile.NamedTemporaryFile(mode="w+") as tmp_file:
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp_file:
         tmp_file.write("\n".join(requirements))
-        tmp_file.flush()
         tmp_file_name = tmp_file.name
 
-        try:
-            subprocess.run(
-                ["pip", "install", "--dry-run", "-r", tmp_file_name],
-                check=True,
-                capture_output=True,
-            )
-        except subprocess.CalledProcessError as e:
-            raise MlflowException.invalid_parameter_value(
-                "The specified requirements versions are incompatible. Detected "
-                f"conflicts: \n{e.stderr.decode()}"
-            )
+    try:
+        subprocess.run(
+            ["pip", "install", "--dry-run", "-r", tmp_file_name],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        raise MlflowException.invalid_parameter_value(
+            "The specified requirements versions are incompatible. Detected "
+            f"conflicts: \n{e.stderr.decode()}"
+        )
+    finally:
+        os.remove(tmp_file_name)
 
 
 def _process_conda_env(conda_env):
