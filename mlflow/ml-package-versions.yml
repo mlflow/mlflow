@@ -116,6 +116,10 @@ tensorflow:
       # They are also incompatible with alembic 1.10.1 and anyio 4.2.0 with the
       # TypeGuard dependency in py3.8
       "== 2.6.5": ["sqlalchemy<2", "alembic<1.10", "anyio<4.2.0"]
+      # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
+      # incompatible with SQLAlchemy 2.0.25 with error
+      # `cannot import name 'TypeAliasType' from 'typing_extensions'`
+      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
