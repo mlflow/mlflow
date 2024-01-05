@@ -910,13 +910,15 @@ def test_predict_with_callbacks():
             self.num_llm_start_calls += 1
 
     chat_model = _fake_simple_chat_model()()
-    prompt = ChatPromptTemplate.from_template("What's up?")
+    prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
     chain = prompt | chat_model | StrOutputParser()
     # Test the basic functionality of the chain
-    assert chain.invoke({"input": "hi"}) == "Databricks"
+    assert chain.invoke({"industry": "tech"}) == "Databricks"
 
     with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(chain, "model_path")
+        model_info = mlflow.langchain.log_model(
+            chain, "model_path", input_example={"industry": "tech"}
+        )
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
@@ -929,7 +931,7 @@ def test_predict_with_callbacks():
 
     assert (
         pyfunc_loaded_model._model_impl._predict_with_callbacks(
-            {"input": "hi"}, callback_handlers=[callback_handler1, callback_handler2]
+            {"industry": "tech"}, callback_handlers=[callback_handler1, callback_handler2]
         )
         == "Databricks"
     )
@@ -937,6 +939,16 @@ def test_predict_with_callbacks():
     # Test that the callback handlers were called
     assert callback_handler1.num_llm_start_calls == 1
     assert callback_handler2.num_llm_start_calls == 1
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": {"industry": "tech"}}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": ["Databricks"]
+    }
 
 
 @pytest.mark.skipif(
