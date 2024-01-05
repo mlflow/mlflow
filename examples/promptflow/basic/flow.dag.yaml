@@ -4,10 +4,12 @@ inputs:
   text:
     type: string
     default: Hello World!
+
 outputs:
   output:
     type: string
     reference: ${llm.output}
+
 nodes:
   - name: hello_prompt
     type: prompt
