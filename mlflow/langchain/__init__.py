@@ -460,6 +460,15 @@ class _LangChainModelWrapper:
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ) -> List[str]:
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+
+        :return: Model predictions.
+        """
         messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
@@ -476,6 +485,15 @@ class _LangChainModelWrapper:
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
         callback_handlers=None,
     ) -> List[str]:
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :param data: Callback handlers to pass to LangChain.
+        :return: Model predictions.
+        """
         messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
