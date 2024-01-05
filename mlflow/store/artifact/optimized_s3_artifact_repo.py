@@ -7,6 +7,7 @@ import urllib.parse
 from mimetypes import guess_type
 
 from botocore.exceptions import ClientError
+
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
@@ -67,9 +68,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             return temp_client.head_bucket(Bucket=self.bucket)["BucketRegion"]
         except ClientError as error:
             return error.response["ResponseMetadata"]["HTTPHeaders"]["x-amz-bucket-region"]
-        except Exception as e:
-            _logger.warning("Encountered an unexpected error getting the region name: %s", e)
-            raise e
 
     def _get_s3_client(self):
         return _get_s3_client(
