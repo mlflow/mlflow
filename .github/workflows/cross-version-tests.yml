@@ -188,8 +188,6 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
-          # SQLAlchemy == 2.0.25 requires typing_extensions >= 4.6.0
-          pip install typing_extensions -U
       - name: Install pydantic no-binary for langchain
         if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
         run: |
