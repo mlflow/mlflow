@@ -127,12 +127,12 @@ with your favorite provider!
 * `MosaicML quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md>`_
 * `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/anthropic/README.md>`_
 * `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md>`_
-* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_serving/README.md>`_
+* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_models/README.md>`_
 * `AWS Bedrock quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md>`_
-* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21labs/README.md>`_ 
+* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21_labs/README.md>`_ 
 * `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md>`_
 * `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md>`_
-* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/readme.md>`_
+* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md>`_
 
 .. note::
     The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source 
@@ -244,13 +244,13 @@ Select the integration below to read the documentation on how to leverage MLflow
     <section>
     <div class="logo-grid">
         
-        <a href="../models.html#transformers-transformers-experimental">
+        <a href="transformers/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"/>
             </div>
         </a>
         
-        <a href="sentence-transformers/guide/index.html">
+        <a href="sentence-transformers/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo"/>
             </div>
@@ -262,7 +262,7 @@ Select the integration below to read the documentation on how to leverage MLflow
             </div>
         </a>
         
-        <a href="../models.html#openai-openai-experimental">
+        <a href="openai/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
             </div>
@@ -335,12 +335,6 @@ directly to our up-to-date examples on GitHub below:
     * `Logging and using a Retrieval QA Chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retrieval_qa_chain.py>`_ :sup:`1`
 
 :sup:`1` Demonstrates the use of Retrieval Augmented Generation (RAG) using a Vector Store
-
-* **openai**
-
-    * `Performing Embeddings Generation <https://github.com/mlflow/mlflow/blob/master/examples/openai/embeddings.py>`_
-    * `Using OpenAI on a Spark DataFrame for Batch Processing <https://github.com/mlflow/mlflow/blob/master/examples/openai/spark_udf.py>`_
-    * `Using Azure OpenAI <https://github.com/mlflow/mlflow/blob/master/examples/openai/azure_openai.py>`_
 
 
 `LLM Tracking in MLflow <llm-tracking/index.html>`_

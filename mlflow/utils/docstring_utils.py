@@ -211,7 +211,7 @@ section of the model's conda environment (``conda.yaml``) file.
     - ``pip_requirements``
     - ``extra_pip_requirements``
 
-:ref:`This example<pip-requirements-example>` demonstrates how to specify pip requirements using
+`This example <https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py>`_ demonstrates how to specify pip requirements using
 ``pip_requirements`` and ``extra_pip_requirements``."""
         ),
         "signature": (
@@ -242,6 +242,13 @@ DataFrame and then serialized to json using the Pandas split-oriented
 format, or a numpy array where the example will be serialized to json
 by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
 ``None``, the input example is used to infer a model signature.
+"""
+        ),
+        "example_no_conversion": (
+            """If ``True``, the input example will not be converted to a Pandas DataFrame
+format when saving. This is useful when the model expects a non-DataFrame input and the
+input example could be passed directly to the model. Defaults to ``False`` for backwards
+compatibility.
 """
         ),
     }
