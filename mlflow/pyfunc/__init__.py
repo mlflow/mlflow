@@ -411,6 +411,14 @@ def _validate_params(params, model_metadata):
         )
     return
 
+def _is_functional_model(python_model):
+    """
+    Returns True if the given python model is a functional model.
+    If the model is a subclass of PythonModel, it is considered a functional model.
+    """
+    if not isinstance(python_model, PythonModel) and callable(python_model):
+        return True
+    return False
 
 class PyFuncModel:
     """
@@ -1709,13 +1717,13 @@ Compound types:
 
 
 def _validate_function_python_model(python_model):
-    if not (isinstance(python_model, PythonModel) or callable(python_model)):
+    if not (isinstance(python_model, PythonModel) or _is_functional_model(python_model)):
         raise MlflowException(
             "`python_model` must be a PythonModel instance or a callable object",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if callable(python_model):
+    if _is_functional_model(python_model):
         num_args = len(inspect.signature(python_model).parameters)
         if num_args != 1:
             raise MlflowException(
@@ -1887,7 +1895,7 @@ def save_model(
     _validate_pyfunc_model_config(model_config)
     if python_model:
         _validate_function_python_model(python_model)
-        if callable(python_model) and all(
+        if _is_functional_model(python_model) and all(
             a is None for a in (input_example, pip_requirements, extra_pip_requirements)
         ):
             raise MlflowException(
@@ -1942,7 +1950,7 @@ def save_model(
     if signature is not None:
         mlflow_model.signature = signature
     elif python_model is not None:
-        if callable(python_model):
+        if _is_functional_model(python_model):
             input_arg_index = 0  # first argument
             if signature := _infer_signature_from_type_hints(
                 python_model, input_arg_index, input_example=input_example

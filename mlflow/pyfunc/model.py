@@ -240,7 +240,7 @@ def _save_model_with_class_artifacts_params(
     custom_model_config_kwargs = {
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
     }
-    if callable(python_model):
+    if mlflow.pyfunc._is_functional_model(python_model):
         python_model = _FunctionPythonModel(python_model, hints, signature)
     saved_python_model_subpath = "python_model.pkl"
     with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
