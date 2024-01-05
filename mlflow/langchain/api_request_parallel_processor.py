@@ -26,8 +26,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 import langchain.chains
-from langchain.schema import AgentAction
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain.schema import AgentAction
 
 import mlflow
 
