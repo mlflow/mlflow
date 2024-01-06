@@ -66,7 +66,7 @@ To follow along and see the sections of the notebook guide, click below:
     <a href="rag-evaluation-llama2.html" class="download-btn">View the Notebook</a><br/>
 
 Evaluating a 🤗 Hugging Face LLM Notebook (using gpt-4-as-judge)
-----------------------------------------------------------------
+-----------------------------------------------------------------
 
 Learn how to evaluate an Open-Source 🤗 Hugging Face LLM with MLflow evaluate by downloading the notebook here:
 
