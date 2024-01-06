@@ -146,7 +146,6 @@ setup(
             "requests-auth-aws-sigv4",
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
-            "botocore",
             # Required to log artifacts and models to GCS artifact locations
             "google-cloud-storage>=1.30.0",
             "azureml-core>=1.2.0",

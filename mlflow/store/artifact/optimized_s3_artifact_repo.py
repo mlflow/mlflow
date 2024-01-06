@@ -6,8 +6,6 @@ import posixpath
 import urllib.parse
 from mimetypes import guess_type
 
-from botocore.exceptions import ClientError
-
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_MULTIPART_UPLOAD,
@@ -57,6 +55,8 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._region_name = self._get_region_name()
 
     def _get_region_name(self):
+        from botocore.exceptions import ClientError
+
         temp_client = _get_s3_client(
             addressing_style="path",
             access_key_id=self._access_key_id,

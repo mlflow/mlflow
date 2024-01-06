@@ -46,4 +46,3 @@ openai<1.0
 psutil
 # SQLAlchemy == 2.0.25 requires typing_extensions >= 4.6.0
 typing_extensions>=4.6.0
-botocore>=1.34
