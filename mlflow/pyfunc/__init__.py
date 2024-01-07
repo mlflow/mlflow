@@ -411,6 +411,7 @@ def _validate_params(params, model_metadata):
         )
     return
 
+
 def _is_functional_model(python_model):
     """
     Returns True if the given python model is a functional model.
@@ -419,6 +420,7 @@ def _is_functional_model(python_model):
     if not isinstance(python_model, PythonModel) and callable(python_model):
         return True
     return False
+
 
 class PyFuncModel:
     """
