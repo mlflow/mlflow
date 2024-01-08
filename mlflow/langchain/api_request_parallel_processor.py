@@ -23,12 +23,16 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 import langchain.chains
-from langchain.schema import AgentAction
+import pydantic
+from langchain.schema import AgentAction, AIMessage, HumanMessage, SystemMessage
+from langchain.schema import ChatMessage as LangChainChatMessage
+from packaging.version import Version
 
 import mlflow
+from mlflow.exceptions import MlflowException
 
 _logger = logging.getLogger(__name__)
 
@@ -62,6 +66,33 @@ class StatusTracker:
     def increment_num_api_errors(self):
         with self.lock:
             self.num_api_errors += 1
+
+
+# NB: Even though _ChatMessage is only referenced in one method within this module
+# (as of 12/27/2023), it must be defined at the module level for compatibility with
+# pydantic < 2
+class _ChatMessage(pydantic.BaseModel, extra="forbid"):
+    role: str
+    content: str
+
+    def to_langchain_message(self) -> LangChainChatMessage:
+        if self.role == "system":
+            return SystemMessage(content=self.content)
+        elif self.role == "assistant":
+            return AIMessage(content=self.content)
+        elif self.role == "user":
+            return HumanMessage(content=self.content)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unrecognized chat message role: {self.role}"
+            )
+
+
+# NB: Even though _ChatRequest is only referenced in one method within this module
+# (as of 12/27/2023), it must be defined at the module level for compatibility with
+# pydantic < 2
+class _ChatRequest(pydantic.BaseModel, extra="forbid"):
+    messages: List[_ChatMessage]
 
 
 @dataclass
@@ -123,6 +154,7 @@ class APIRequest:
         from mlflow.langchain.utils import lc_runnables_types, runnables_supports_batch_types
 
         _logger.debug(f"Request #{self.index} started with payload: {self.request_json}")
+
         try:
             if isinstance(self.lc_model, BaseRetriever):
                 # Retrievers are invoked differently than Chains
@@ -137,6 +169,9 @@ class APIRequest:
                     # does not accept dictionaries as input, it leads to errors like
                     # Expected Scalar value for String field 'query_text'
                     try:
+                        self.request_json = self._prepare_request_for_runnable_or_chain_inference(
+                            self.request_json
+                        )
                         response = self.lc_model.invoke(self.request_json)
                     except TypeError as e:
                         _logger.warning(
@@ -145,15 +180,24 @@ class APIRequest:
                             "invoke with the first value of the dictionary."
                         )
                         self.request_json = next(iter(self.request_json.values()))
-                        response = self.lc_model.invoke(self.request_json)
+                        response = self.lc_model.invoke(
+                            self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                        )
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, runnables_supports_batch_types()
                 ):
-                    response = self.lc_model.batch(self.request_json)
+                    response = self.lc_model.batch(
+                        self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                    )
                 else:
-                    response = self.lc_model.invoke(self.request_json)
+                    response = self.lc_model.invoke(
+                        self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                    )
             else:
-                response = self.lc_model(self.request_json, return_only_outputs=True)
+                response = self.lc_model(
+                    self._prepare_request_for_runnable_or_chain_inference(self.request_json),
+                    return_only_outputs=True,
+                )
 
                 # to maintain existing code, single output chains will still return only the result
                 if len(response) == 1:
@@ -170,6 +214,68 @@ class APIRequest:
             ] = f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
+
+    def _prepare_request_for_runnable_or_chain_inference(self, request_json):
+        return APIRequest._transform_request_json_for_chat_if_necessary(request_json, self.lc_model)
+
+    @staticmethod
+    def _transform_request_json_for_chat_if_necessary(request_json, lc_model):
+        input_fields = APIRequest._get_lc_model_input_fields(lc_model)
+        if "messages" in input_fields:
+            # If the chain accepts a "messages" field directly, don't attempt to convert
+            # the request to LangChain's Message format automatically. Assume that the chain
+            # is handling the "messages" field by itself
+            return request_json
+
+        def json_dict_might_be_chat_request(json: Dict):
+            return (
+                "messages" in request_json
+                and
+                # Additional keys can't be specified when calling LangChain invoke() / batch()
+                # with chat messages
+                len(request_json) == 1
+            )
+
+        if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
+            try:
+                return APIRequest._convert_chat_request_or_throw(request_json)
+            except pydantic.ValidationError:
+                return request_json
+        elif isinstance(request_json, list) and all(
+            json_dict_might_be_chat_request(json) for json in request_json
+        ):
+            try:
+                return [
+                    APIRequest._convert_chat_request_or_throw(json_dict)
+                    for json_dict in request_json
+                ]
+            except pydantic.ValidationError:
+                return request_json
+        else:
+            return request_json
+
+    @staticmethod
+    def _get_lc_model_input_fields(lc_model) -> Set:
+        try:
+            if hasattr(lc_model, "input_schema") and callable(lc_model.input_schema):
+                return set(lc_model.input_schema().__fields__)
+        except Exception as e:
+            raise e
+            _logger.debug(
+                f"Unexpected exception while checking LangChain input schema for"
+                f" request transformation: {e}"
+            )
+
+        return {}
+
+    @staticmethod
+    def _convert_chat_request_or_throw(chat_request: Dict):
+        if Version(pydantic.__version__) < Version("2.0"):
+            model = _ChatRequest.parse_obj(chat_request)
+        else:
+            model = _ChatRequest.model_validate(chat_request)
+
+        return [message.to_langchain_message() for message in model.messages]
 
 
 def process_api_requests(
