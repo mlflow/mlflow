@@ -16,6 +16,7 @@ Features:
 """
 from __future__ import annotations
 
+import json
 import logging
 import queue
 import threading
@@ -23,7 +24,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Union, Literal
+from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import langchain.chains
 import pydantic
@@ -186,10 +187,10 @@ class APIRequest:
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
             elif isinstance(self.lc_model, lc_runnables_types()):
-                prepared_request_json, did_perform_chat_conversion =\
-                    self._prepare_request_for_runnable_or_chain_inference(
-                        self.request_json
-                    )
+                (
+                    prepared_request_json,
+                    did_perform_chat_conversion,
+                ) = self._prepare_request_for_runnable_or_chain_inference(self.request_json)
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
@@ -203,27 +204,27 @@ class APIRequest:
                             f"with {self.request_json}. Error: {e!r}. Trying to "
                             "invoke with the first value of the dictionary."
                         )
-                        prepared_request_json, did_perform_chat_conversion =\
-                            self._prepare_request_for_runnable_or_chain_inference(
-                                prepared_request_json
-                            )
+                        (
+                            prepared_request_json,
+                            did_perform_chat_conversion,
+                        ) = self._prepare_request_for_runnable_or_chain_inference(
+                            prepared_request_json
+                        )
                         response = self.lc_model.invoke(prepared_request_json)
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, runnables_supports_batch_types()
                 ):
                     response = self.lc_model.batch(prepared_request_json)
                 else:
-                    response = self.lc_model.invoke(
-                        prepared_request_json
-                    )
+                    response = self.lc_model.invoke(prepared_request_json)
 
                 if did_perform_chat_conversion:
                     response = APIRequest._try_transform_response_to_chat_format(response)
             else:
-                prepared_request_json, did_perform_chat_conversion =\
-                    self._prepare_request_for_runnable_or_chain_inference(
-                        self.request_json
-                    )
+                (
+                    prepared_request_json,
+                    did_perform_chat_conversion,
+                ) = self._prepare_request_for_runnable_or_chain_inference(self.request_json)
                 response = self.lc_model(
                     prepared_request_json,
                     return_only_outputs=True,
@@ -291,7 +292,7 @@ class APIRequest:
                         APIRequest._convert_chat_request_or_throw(json_dict)
                         for json_dict in request_json
                     ],
-                    True
+                    True,
                 )
             except pydantic.ValidationError:
                 return request_json, False
@@ -307,7 +308,7 @@ class APIRequest:
         else:
             return response
 
-        return _ChatResponse(
+        transformed_response = _ChatResponse(
             id=None,
             created=int(time.time()),
             model=None,
@@ -325,8 +326,13 @@ class APIRequest:
                 prompt_tokens=None,
                 completion_tokens=None,
                 total_tokens=None,
-            )
-        ).model_dump()
+            ),
+        )
+
+        if Version(pydantic.__version__) < Version("2.0"):
+            return json.loads(transformed_response.json())
+        else:
+            return transformed_response.model_dump(mode="json")
 
     @staticmethod
     def _get_lc_model_input_fields(lc_model) -> Set:

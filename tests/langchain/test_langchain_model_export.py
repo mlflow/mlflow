@@ -34,7 +34,7 @@ from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
-from langchain.schema import HumanMessage
+from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
 from langchain.vectorstores import FAISS
@@ -1455,7 +1455,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
                                 "system: You are a helpful assistant.\n"
                                 "ai: What would you like to ask?\n"
                                 "human: Who owns MLflow?"
-                            )
+                            ),
                         },
                         "finish_reason": None,
                     }
@@ -1483,7 +1483,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
                                 "system: You are a helpful assistant.\n"
                                 "ai: What would you like to ask?\n"
                                 "human: Who owns MLflow?"
-                            )
+                            ),
                         },
                         "finish_reason": None,
                     }
@@ -1508,7 +1508,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
                                 "system: You are a helpful assistant.\n"
                                 "ai: What would you like to ask?\n"
                                 "human: Who owns MLflow?"
-                            )
+                            ),
                         },
                         "finish_reason": None,
                     }
@@ -1518,12 +1518,12 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
                     "completion_tokens": None,
                     "total_tokens": None,
                 },
-            }
+            },
         ]
 
     with pytest.raises(MlflowException, match="Unrecognized chat message role"):
         pyfunc_loaded_model.predict({"messages": [{"role": "foobar", "content": "test content"}]})
-    #
+
     udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
     df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
     df = df.withColumn("answer", udf("messages"))
@@ -1554,7 +1554,68 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
-def test_pyfunc_builtin_chat_conversion_fails_gracefully():
+def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
+    class ChatModel(_fake_simple_chat_model()):
+        def _call(self, messages, stop, run_manager, **kwargs):  # pylint: disable=signature-differs
+            return "You own MLflow"
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    signature = infer_signature(model_input=input_example)
+
+    chain = ChatModel()
+    assert chain.invoke([HumanMessage(content="Who owns MLflow?")]) == AIMessage(
+        content="You own MLflow"
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain, "model_path", signature=signature, input_example=input_example
+        )
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert loaded_model.invoke([HumanMessage(content="Who owns MLflow?")]) == AIMessage(
+        content="You own MLflow"
+    )
+
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    with mock.patch("time.time", return_value=1677858242):
+        assert pyfunc_loaded_model.predict(input_example) == [
+            {
+                "id": None,
+                "object": "chat.completion",
+                "created": 1677858242,
+                "model": None,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "You own MLflow",
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
+            }
+        ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
     from langchain.schema.runnable import RunnablePassthrough
 
     chain = RunnablePassthrough() | itemgetter("messages")
@@ -1643,3 +1704,47 @@ def test_pyfunc_builtin_chat_conversion_fails_gracefully():
         [{"role": "user", "content": "content"}],
         [{"role": "user", "content": "content"}, {"role": "user"}],
     ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
+    from langchain.schema.runnable import RunnablePassthrough
+
+    llm = OpenAI(temperature=0.9)
+    prompt = PromptTemplate(
+        input_variables=["messages"],
+        template="What is a good name for a company that makes {messages}?",
+    )
+    chain = RunnablePassthrough() | LLMChain(llm=llm, prompt=prompt) | RunnablePassthrough()
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    signature = infer_signature(model_input=input_example)
+
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        with mlflow.start_run():
+            logged_model = mlflow.langchain.log_model(
+                chain, "langchain_model", signature=signature, input_example=input_example
+            )
+        loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+        result = loaded_model.predict(input_example)
+        # Verify that the chat request format was converted into LangChain messages correctly, but
+        # the response was not converted to the chat response format because it does not have the
+        # expected structure (a nonstandard dict with 'messages' and 'text' fields is returned)
+        assert result == [
+            {
+                "messages": [
+                    SystemMessage(content="You are a helpful assistant."),
+                    AIMessage(content="What would you like to ask?"),
+                    HumanMessage(content="Who owns MLflow?"),
+                ],
+                "text": TEST_CONTENT,
+            }
+        ]
