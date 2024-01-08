@@ -91,7 +91,7 @@ def set_experiment(
     name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
     both be specified.
 
-    .. note:: If the experiment being set by name does not exist, a new experiment will be created with the 
+    .. note:: If the experiment being set by name does not exist, a new experiment will be created with the
         given name. After the experiment has been created, it will be set as the active experiment.
 
     :param experiment_name: Case sensitive name of the experiment to be activated. If an experiment
