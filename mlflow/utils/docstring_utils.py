@@ -257,6 +257,12 @@ input example could be passed directly to the model. Defaults to ``False`` for b
 compatibility.
 """
         ),
+        "prompt_template": (
+            """A template string that, if provided, will be used to wrap the user's input.
+The template string should contain a single placeholder, `{ prompt }`, which will be replaced with
+the user's input.
+"""
+        ),
     }
 )
 

@@ -71,8 +71,10 @@ from mlflow.utils.model_utils import (
     _download_artifact_from_uri,
     _get_flavor_configuration,
     _get_flavor_configuration_from_uri,
+    _get_prompt_template,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
+    _validate_prompt_template,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -241,6 +243,7 @@ def save_model(
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     example_no_conversion: bool = False,
+    prompt_template: Optional[str] = None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
@@ -416,8 +419,8 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        prompt_template: {{ prompt_template }}
         kwargs: Optional additional configurations for transformers serialization.
-
     """
     import transformers
 
@@ -464,6 +467,9 @@ def save_model(
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
+    if prompt_template:
+        _validate_prompt_template(prompt_template)
+        mlflow_model.prompt_template = prompt_template
 
     flavor_conf = _generate_base_flavor_configuration(built_pipeline, resolved_task)
 
@@ -593,6 +599,7 @@ def log_model(
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     example_no_conversion: bool = False,
+    prompt_template: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -776,6 +783,7 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        prompt_template: {{ prompt_template }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
@@ -797,6 +805,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        prompt_template=prompt_template,
         **kwargs,
     )
 
@@ -1632,10 +1641,13 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     local_path = pathlib.Path(path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
     model_config = _get_model_config(local_path.joinpath(_COMPONENTS_BINARY_KEY), model_config)
+    prompt_template = _get_prompt_template(local_path)
+
     return _TransformersWrapper(
         _load_model(str(local_path), flavor_configuration, "pipeline"),
         flavor_configuration,
         model_config,
+        prompt_template,
     )
 
 
@@ -1672,10 +1684,11 @@ def generate_signature_output(pipeline, data, model_config=None, params=None):
 
 
 class _TransformersWrapper:
-    def __init__(self, pipeline, flavor_config=None, model_config=None):
+    def __init__(self, pipeline, flavor_config=None, model_config=None, prompt_template=None):
         self.pipeline = pipeline
         self.flavor_config = flavor_config
         self.model_config = model_config or {}
+        self.prompt_template = prompt_template
         self._conversation = None
         # NB: Current special-case custom pipeline types that have not been added to
         # the native-supported transformers package but require custom parsing:
@@ -1875,21 +1888,31 @@ class _TransformersWrapper:
         # Optional stripping out of `\n` for specific generator pipelines.
         collapse_whitespace = self.model_config.pop("collapse_whitespace", False)
 
-        data = self._convert_cast_lists_from_np_back_to_list(data)
+        # text generation pipelines often include the original prompt as part of the
+        # output. if the model was saved with a prompt template, then users might be
+        # confused by the template being included in the output. we save the original
+        # input here in order to replace it later on.
+        original_data = self._convert_cast_lists_from_np_back_to_list(data)
+
+        # if applicable, wrap the data in the prompt template that was saved with the
+        # model. this function is a no-op if no prompt template was specified, or if the
+        # pipelines/inputs are not compatible with prompt templates.
+        wrapped_data = self._wrap_input_in_prompt_template(original_data)
 
         # Generate inference data with the pipeline object
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
-            raw_output = self._validate_model_config_and_return_output(data)
+            raw_output = self._validate_model_config_and_return_output(wrapped_data)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
             self.pipeline, transformers.TextGenerationPipeline
         ):
             output = self._strip_input_from_response_in_instruction_pipelines(
-                data,
+                original_data,
+                wrapped_data,
                 raw_output,
                 output_key,
                 self.flavor_config,
@@ -2181,6 +2204,7 @@ class _TransformersWrapper:
 
     def _strip_input_from_response_in_instruction_pipelines(
         self,
+        original_input_data,
         input_data,
         output,
         output_key,
@@ -2206,7 +2230,7 @@ class _TransformersWrapper:
 
         output = extract_response_data(output)
 
-        def trim_input(data_in, data_out):
+        def trim_input(original_data_in, actual_data_in, data_out):
             # NB: the '\n\n' pattern is exclusive to specific InstructionalTextGenerationPipeline
             # types that have been loaded as a plain TextGenerator. The structure of these
             # pipelines will precisely repeat the input question immediately followed by 2 carriage
@@ -2220,21 +2244,31 @@ class _TransformersWrapper:
             if (
                 not include_prompt
                 and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
-                and data_out.startswith(data_in + "\n\n")
+                and data_out.startswith(actual_data_in + "\n\n")
             ):
                 # If the user has indicated to not preserve the prompt input in the response,
                 # split the response output and trim the input prompt from the response.
-                data_out = data_out[len(data_in) :].lstrip()
+                data_out = data_out[len(actual_data_in) :].lstrip()
                 if data_out.startswith("A:"):
                     data_out = data_out[2:].lstrip()
-                # If the user has indicated to remove newlines and extra spaces from the generated
-                # text, replace them with a single space.
+            # if prompt templating was applied, replace the templated input
+            # with the original in order to avoid confusing the user.
+            elif self.prompt_template and data_out.startswith(actual_data_in):
+                data_out = original_data_in + data_out[len(actual_data_in) :]
+
+            # If the user has indicated to remove newlines and extra spaces from the generated
+            # text, replace them with a single space.
             if collapse_whitespace:
                 data_out = re.sub(r"\s+", " ", data_out).strip()
             return data_out
 
         if isinstance(input_data, list) and isinstance(output, list):
-            return [trim_input(data_in, data_out) for data_in, data_out in zip(input_data, output)]
+            return [
+                trim_input(original_data_in, actual_data_in, data_out)
+                for original_data_in, actual_data_in, data_out in zip(
+                    original_input_data, input_data, output
+                )
+            ]
         elif isinstance(input_data, str) and isinstance(output, str):
             return trim_input(input_data, output)
         else:
@@ -2779,6 +2813,42 @@ class _TransformersWrapper:
                 f"audio files must be either a file location or a uri. {data_str}",
                 error_code=BAD_REQUEST,
             )
+
+    def _wrap_input_in_prompt_template(self, input_data):
+        """
+        Wraps the input data in the specified prompt template. If no template is
+        specified, or if the pipeline is an unsupported type, or if the input type
+        is not a string or list of strings, then the input data is returned unchanged.
+        """
+        import transformers
+
+        # if no template is set, do nothing
+        if not self.prompt_template:
+            return input_data
+
+        if not isinstance(
+            self.pipeline,
+            (
+                transformers.FeatureExtractionPipeline,
+                transformers.FillMaskPipeline,
+                transformers.SummarizationPipeline,
+                transformers.Text2TextGenerationPipeline,
+                transformers.TextGenerationPipeline,
+            ),
+        ):
+            return input_data
+
+        if isinstance(input_data, str):
+            return self.prompt_template.format(prompt=input_data)
+        elif isinstance(input_data, list):
+            # if every item is a string, then apply formatting to every item
+            if all(isinstance(data, str) for data in input_data):
+                return [self.prompt_template.format(prompt=data) for data in input_data]
+            # otherwise, the input might be more complex (e.g. a dict), so we leave it alone
+            else:
+                return input_data
+        else:
+            return input_data
 
 
 @experimental
