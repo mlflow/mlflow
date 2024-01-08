@@ -33,6 +33,7 @@ from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.requests import TextRequestsWrapper
+from langchain.schema import HumanMessage
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.tools import Tool
 from langchain.vectorstores import FAISS
@@ -269,7 +270,7 @@ def test_langchain_log_huggingface_hub_model_metadata(model_path):
     assert str(logged_model.signature.outputs) == "['text': string (required)]"
 
     assert type(loaded_model) == langchain.chains.llm.LLMChain
-    assert type(loaded_model.llm) == langchain.llms.huggingface_pipeline.HuggingFacePipeline
+    assert type(loaded_model.llm) == HuggingFacePipeline
     assert type(loaded_model.prompt) == langchain.prompts.PromptTemplate
     assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
 
@@ -1463,3 +1464,185 @@ def test_chat_with_history(spark):
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
         "predictions": ["Databricks"]
     }
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_predict_with_builtin_pyfunc_chat_conversion(spark):
+    from langchain.schema.output_parser import StrOutputParser
+
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
+    class ChatModel(_fake_simple_chat_model()):
+        def _call(self, messages, stop, run_manager, **kwargs):  # pylint: disable=signature-differs
+            return "\n".join([f"{message.type}: {message.content}" for message in messages])
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    signature = infer_signature(model_input=input_example)
+
+    chain = ChatModel() | StrOutputParser()
+    assert chain.invoke([HumanMessage(content="Who owns MLflow?")]) == "human: Who owns MLflow?"
+    with pytest.raises(ValueError, match="Invalid input type"):
+        chain.invoke(input_example)
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain, "model_path", signature=signature, input_example=input_example
+        )
+
+    loaded_model = mlflow.langchain.load_model(model_info.model_uri)
+    assert (
+        loaded_model.invoke([HumanMessage(content="Who owns MLflow?")]) == "human: Who owns MLflow?"
+    )
+
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_loaded_model.predict(input_example) == [
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        )
+    ]
+
+    assert pyfunc_loaded_model.predict([input_example, input_example]) == [
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        ),
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        ),
+    ]
+
+    with pytest.raises(MlflowException, match="Unrecognized chat message role"):
+        pyfunc_loaded_model.predict({"messages": [{"role": "foobar", "content": "test content"}]})
+
+    udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
+    df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
+    df = df.withColumn("answer", udf("messages"))
+    pdf = df.toPandas()
+    assert pdf["answer"].tolist() == [
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        )
+    ]
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps(input_example),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert json.loads(response.content.decode("utf-8")) == [
+        (
+            "system: You are a helpful assistant.\n"
+            "ai: What would you like to ask?\n"
+            "human: Who owns MLflow?"
+        )
+    ]
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_pyfunc_builtin_chat_conversion_fails_gracefully():
+    from langchain.schema.runnable import RunnablePassthrough
+
+    chain = RunnablePassthrough() | itemgetter("messages")
+    # Ensure we're going to test that "messages" remains intact & unchanged even if it
+    # doesn't appear explicitly in the chain's input schema
+    assert "messages" not in chain.input_schema().__fields__
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "model_path")
+        pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    assert pyfunc_loaded_model.predict({"messages": "not an array"}) == "not an array"
+
+    # Verify that messages aren't converted to LangChain format if extra keys are present,
+    # under the assumption that additional keys can't be specified when calling LangChain invoke()
+    # / batch() with chat messages
+    assert pyfunc_loaded_model.predict(
+        {
+            "messages": [{"role": "user", "content": "blah"}],
+            "extrakey": "extra",
+        }
+    ) == [
+        {"role": "user", "content": "blah"},
+    ]
+
+    # Verify that messages aren't converted to LangChain format if role / content are missing
+    # or extra keys are present in the message
+    assert pyfunc_loaded_model.predict(
+        {
+            "messages": [{"content": "blah"}],
+        }
+    ) == [
+        {"content": "blah"},
+    ]
+    assert pyfunc_loaded_model.predict(
+        {
+            "messages": [{"role": "user", "content": "blah"}, {"role": "blah"}],
+        }
+    ) == [
+        {"role": "user", "content": "blah"},
+        {"role": "blah"},
+    ]
+    assert pyfunc_loaded_model.predict(
+        {
+            "messages": [{"role": "role", "content": "content", "extra": "extra"}],
+        }
+    ) == [
+        {"role": "role", "content": "content", "extra": "extra"},
+    ]
+
+    # Verify behavior for batches of message histories
+    assert pyfunc_loaded_model.predict(
+        [
+            {
+                "messages": "not an array",
+            },
+            {
+                "messages": [{"role": "user", "content": "content"}],
+            },
+        ]
+    ) == [
+        "not an array",
+        [{"role": "user", "content": "content"}],
+    ]
+    assert pyfunc_loaded_model.predict(
+        [
+            {
+                "messages": [{"role": "user", "content": "content"}],
+            },
+            {"messages": [{"role": "user", "content": "content"}], "extrakey": "extra"},
+        ]
+    ) == [
+        [{"role": "user", "content": "content"}],
+        [{"role": "user", "content": "content"}],
+    ]
+    assert pyfunc_loaded_model.predict(
+        [
+            {
+                "messages": [{"role": "user", "content": "content"}],
+            },
+            {
+                "messages": [{"role": "user", "content": "content"}, {"role": "user"}],
+            },
+        ]
+    ) == [
+        [{"role": "user", "content": "content"}],
+        [{"role": "user", "content": "content"}, {"role": "user"}],
+    ]
