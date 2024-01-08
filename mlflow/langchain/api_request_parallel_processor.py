@@ -23,7 +23,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union, Literal
 
 import langchain.chains
 import pydantic
@@ -95,6 +95,29 @@ class _ChatRequest(pydantic.BaseModel, extra="forbid"):
     messages: List[_ChatMessage]
 
 
+class _ChatChoice(pydantic.BaseModel, extra="forbid"):
+    index: int
+    message: _ChatMessage
+    finish_reason: Optional[str] = None
+
+
+class _ChatUsage(pydantic.BaseModel, extra="forbid"):
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
+
+class _ChatResponse(pydantic.BaseModel, extra="forbid"):
+    id: Optional[str] = None
+    object: Literal["chat.completion"] = "chat.completion"
+    created: int
+    # Make the model field optional since we may not be able to get a stable model identifier
+    # for an arbitrary LangChain model
+    model: Optional[str] = None
+    choices: List[_ChatChoice]
+    usage: _ChatUsage
+
+
 @dataclass
 class APIRequest:
     """
@@ -163,44 +186,54 @@ class APIRequest:
                     {"page_content": doc.page_content, "metadata": doc.metadata} for doc in docs
                 ]
             elif isinstance(self.lc_model, lc_runnables_types()):
+                prepared_request_json, did_perform_chat_conversion =\
+                    self._prepare_request_for_runnable_or_chain_inference(
+                        self.request_json
+                    )
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
                     # does not accept dictionaries as input, it leads to errors like
                     # Expected Scalar value for String field 'query_text'
                     try:
-                        self.request_json = self._prepare_request_for_runnable_or_chain_inference(
-                            self.request_json
-                        )
-                        response = self.lc_model.invoke(self.request_json)
+                        response = self.lc_model.invoke(prepared_request_json)
                     except TypeError as e:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} "
                             f"with {self.request_json}. Error: {e!r}. Trying to "
                             "invoke with the first value of the dictionary."
                         )
-                        self.request_json = next(iter(self.request_json.values()))
-                        response = self.lc_model.invoke(
-                            self._prepare_request_for_runnable_or_chain_inference(self.request_json)
-                        )
+                        prepared_request_json, did_perform_chat_conversion =\
+                            self._prepare_request_for_runnable_or_chain_inference(
+                                prepared_request_json
+                            )
+                        response = self.lc_model.invoke(prepared_request_json)
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, runnables_supports_batch_types()
                 ):
-                    response = self.lc_model.batch(
-                        self._prepare_request_for_runnable_or_chain_inference(self.request_json)
-                    )
+                    response = self.lc_model.batch(prepared_request_json)
                 else:
                     response = self.lc_model.invoke(
-                        self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                        prepared_request_json
                     )
+
+                if did_perform_chat_conversion:
+                    response = APIRequest._try_transform_response_to_chat_format(response)
             else:
+                prepared_request_json, did_perform_chat_conversion =\
+                    self._prepare_request_for_runnable_or_chain_inference(
+                        self.request_json
+                    )
                 response = self.lc_model(
-                    self._prepare_request_for_runnable_or_chain_inference(self.request_json),
+                    prepared_request_json,
                     return_only_outputs=True,
                 )
 
-                # to maintain existing code, single output chains will still return only the result
-                if len(response) == 1:
+                if did_perform_chat_conversion:
+                    response = APIRequest._try_transform_response_to_chat_format(response)
+                elif len(response) == 1:
+                    # to maintain existing code, single output chains will still return
+                    # only the result
                     response = response.popitem()[1]
                 else:
                     self._prepare_to_serialize(response)
@@ -216,16 +249,24 @@ class APIRequest:
             status_tracker.complete_task(success=False)
 
     def _prepare_request_for_runnable_or_chain_inference(self, request_json):
+        """
+        :return: A 2-element tuple containing: 1. the new request and 2. a boolean indicating
+                 whether or not the request was transformed from the OpenAI chat format
+        """
         return APIRequest._transform_request_json_for_chat_if_necessary(request_json, self.lc_model)
 
     @staticmethod
     def _transform_request_json_for_chat_if_necessary(request_json, lc_model):
+        """
+        :return: A 2-element tuple containing: 1. the new request and 2. a boolean indicating
+                 whether or not the request was transformed from the OpenAI chat format
+        """
         input_fields = APIRequest._get_lc_model_input_fields(lc_model)
         if "messages" in input_fields:
             # If the chain accepts a "messages" field directly, don't attempt to convert
             # the request to LangChain's Message format automatically. Assume that the chain
             # is handling the "messages" field by itself
-            return request_json
+            return request_json, False
 
         def json_dict_might_be_chat_request(json: Dict):
             return (
@@ -238,21 +279,54 @@ class APIRequest:
 
         if isinstance(request_json, dict) and json_dict_might_be_chat_request(request_json):
             try:
-                return APIRequest._convert_chat_request_or_throw(request_json)
+                return APIRequest._convert_chat_request_or_throw(request_json), True
             except pydantic.ValidationError:
-                return request_json
+                return request_json, False
         elif isinstance(request_json, list) and all(
             json_dict_might_be_chat_request(json) for json in request_json
         ):
             try:
-                return [
-                    APIRequest._convert_chat_request_or_throw(json_dict)
-                    for json_dict in request_json
-                ]
+                return (
+                    [
+                        APIRequest._convert_chat_request_or_throw(json_dict)
+                        for json_dict in request_json
+                    ],
+                    True
+                )
             except pydantic.ValidationError:
-                return request_json
+                return request_json, False
         else:
-            return request_json
+            return request_json, False
+
+    @staticmethod
+    def _try_transform_response_to_chat_format(response):
+        if isinstance(response, str):
+            message_content = response
+        elif isinstance(response, AIMessage):
+            message_content = response.content
+        else:
+            return response
+
+        return _ChatResponse(
+            id=None,
+            created=int(time.time()),
+            model=None,
+            choices=[
+                _ChatChoice(
+                    index=0,
+                    message=_ChatMessage(
+                        role="assistant",
+                        content=message_content,
+                    ),
+                    finish_reason=None,
+                )
+            ],
+            usage=_ChatUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            )
+        ).model_dump()
 
     @staticmethod
     def _get_lc_model_input_fields(lc_model) -> Set:

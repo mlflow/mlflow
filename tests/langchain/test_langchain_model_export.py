@@ -6,6 +6,7 @@ import sqlite3
 from contextlib import contextmanager
 from operator import itemgetter
 from typing import Any, Dict, List, Mapping, Optional
+from unittest import mock
 
 import langchain
 import numpy as np
@@ -1438,35 +1439,96 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     )
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    assert pyfunc_loaded_model.predict(input_example) == [
-        (
-            "system: You are a helpful assistant.\n"
-            "ai: What would you like to ask?\n"
-            "human: Who owns MLflow?"
-        )
-    ]
+    with mock.patch("time.time", return_value=1677858242):
+        assert pyfunc_loaded_model.predict(input_example) == [
+            {
+                "id": None,
+                "object": "chat.completion",
+                "created": 1677858242,
+                "model": None,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": (
+                                "system: You are a helpful assistant.\n"
+                                "ai: What would you like to ask?\n"
+                                "human: Who owns MLflow?"
+                            )
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
+            }
+        ]
 
-    assert pyfunc_loaded_model.predict([input_example, input_example]) == [
-        (
-            "system: You are a helpful assistant.\n"
-            "ai: What would you like to ask?\n"
-            "human: Who owns MLflow?"
-        ),
-        (
-            "system: You are a helpful assistant.\n"
-            "ai: What would you like to ask?\n"
-            "human: Who owns MLflow?"
-        ),
-    ]
+        assert pyfunc_loaded_model.predict([input_example, input_example]) == [
+            {
+                "id": None,
+                "object": "chat.completion",
+                "created": 1677858242,
+                "model": None,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": (
+                                "system: You are a helpful assistant.\n"
+                                "ai: What would you like to ask?\n"
+                                "human: Who owns MLflow?"
+                            )
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
+            },
+            {
+                "id": None,
+                "object": "chat.completion",
+                "created": 1677858242,
+                "model": None,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": (
+                                "system: You are a helpful assistant.\n"
+                                "ai: What would you like to ask?\n"
+                                "human: Who owns MLflow?"
+                            )
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": None,
+                    "completion_tokens": None,
+                    "total_tokens": None,
+                },
+            }
+        ]
 
     with pytest.raises(MlflowException, match="Unrecognized chat message role"):
         pyfunc_loaded_model.predict({"messages": [{"role": "foobar", "content": "test content"}]})
-
+    #
     udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, result_type="string")
     df = spark.createDataFrame([(input_example["messages"],)], ["messages"])
     df = df.withColumn("answer", udf("messages"))
     pdf = df.toPandas()
-    assert pdf["answer"].tolist() == [
+    assert pdf["answer"].tolist()[0]["choices"][0]["messages"]["content"] == [
         (
             "system: You are a helpful assistant.\n"
             "ai: What would you like to ask?\n"
@@ -1480,7 +1542,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert json.loads(response.content.decode("utf-8")) == [
+    assert json.loads(response.content.decode("utf-8"))[0]["choices"][0]["messages"]["content"] == [
         (
             "system: You are a helpful assistant.\n"
             "ai: What would you like to ask?\n"
