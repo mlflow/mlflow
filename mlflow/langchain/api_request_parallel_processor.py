@@ -170,7 +170,7 @@ class APIRequest:
                     # Expected Scalar value for String field 'query_text'
                     try:
                         self.request_json = self._prepare_request_for_runnable_or_chain_inference(self.request_json)
-                        response = self.lc_model.invoke(self.request_json))
+                        response = self.lc_model.invoke(self.request_json)
                     except TypeError as e:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} "
