@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional, Set, Union
 
 import langchain.chains
 import pydantic
+from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction, AIMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
 from packaging.version import Version
@@ -145,7 +146,9 @@ class APIRequest:
                 for doc in response["source_documents"]
             ]
 
-    def call_api(self, status_tracker: StatusTracker):
+    def call_api(
+        self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]
+    ):
         """
         Calls the LangChain API and stores results.
         """
@@ -172,7 +175,9 @@ class APIRequest:
                         self.request_json = self._prepare_request_for_runnable_or_chain_inference(
                             self.request_json
                         )
-                        response = self.lc_model.invoke(self.request_json)
+                        response = self.lc_model.invoke(
+                            self.request_json, config={"callbacks": callback_handlers}
+                        )
                     except TypeError as e:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} "
@@ -181,22 +186,28 @@ class APIRequest:
                         )
                         self.request_json = next(iter(self.request_json.values()))
                         response = self.lc_model.invoke(
-                            self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                            self._prepare_request_for_runnable_or_chain_inference(
+                                self.request_json
+                            ),
+                            config={"callbacks": callback_handlers},
                         )
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, runnables_supports_batch_types()
                 ):
                     response = self.lc_model.batch(
-                        self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                        self._prepare_request_for_runnable_or_chain_inference(self.request_json),
+                        config={"callbacks": callback_handlers},
                     )
                 else:
                     response = self.lc_model.invoke(
-                        self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                        self._prepare_request_for_runnable_or_chain_inference(self.request_json),
+                        config={"callbacks": callback_handlers},
                     )
             else:
                 response = self.lc_model(
                     self._prepare_request_for_runnable_or_chain_inference(self.request_json),
                     return_only_outputs=True,
+                    callbacks=callback_handlers,
                 )
 
                 # to maintain existing code, single output chains will still return only the result
@@ -282,6 +293,7 @@ def process_api_requests(
     lc_model,
     requests: Optional[List[Union[Any, Dict[str, Any]]]] = None,
     max_workers: int = 10,
+    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
 ):
     """
     Processes API requests in parallel.
@@ -321,6 +333,7 @@ def process_api_requests(
                 executor.submit(
                     next_request.call_api,
                     status_tracker=status_tracker,
+                    callback_handlers=callback_handlers,
                 )
 
             # if all tasks are finished, break

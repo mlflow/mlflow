@@ -469,7 +469,43 @@ class _LangChainModelWrapper:
 
         :return: Model predictions.
         """
+        messages = self._prepare_messages(data)
+        from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
+        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
+            data, pd.DataFrame
+        )
+        results = process_api_requests(lc_model=self.lc_model, requests=messages)
+        return results[0] if return_first_element else results
+
+    @experimental
+    def _predict_with_callbacks(  # pylint: disable=unused-argument
+        self,
+        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        callback_handlers=None,
+    ) -> List[str]:
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :param data: Callback handlers to pass to LangChain.
+        :return: Model predictions.
+        """
+        messages = self._prepare_messages(data)
+        from mlflow.langchain.api_request_parallel_processor import process_api_requests
+
+        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
+            data, pd.DataFrame
+        )
+        results = process_api_requests(
+            lc_model=self.lc_model, requests=messages, callback_handlers=callback_handlers
+        )
+        return results[0] if return_first_element else results
+
+    def _prepare_messages(self, data):
         # numpy array is not json serializable, so we convert it to list
         # then send it to the model
         def _convert_ndarray_to_list(data):
@@ -483,28 +519,21 @@ class _LangChainModelWrapper:
                 return {k: _convert_ndarray_to_list(v) for k, v in data.items()}
             return data
 
-        from mlflow.langchain.api_request_parallel_processor import process_api_requests
-
-        return_first_element = False
         if isinstance(data, pd.DataFrame):
-            messages = data.to_dict(orient="records")
-        else:
-            data = _convert_ndarray_to_list(data)
-            if isinstance(self.lc_model, lc_runnables_types()):
-                messages = [data]
-                return_first_element = True
-            elif isinstance(data, list) and (
-                all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
-            ):
-                messages = data
-            else:
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    "Input must be a pandas DataFrame or a list of strings "
-                    "or a list of dictionaries "
-                    f"for model {self.lc_model.__class__.__name__}"
-                )
-        results = process_api_requests(lc_model=self.lc_model, requests=messages)
-        return results[0] if return_first_element else results
+            return data.to_dict(orient="records")
+
+        data = _convert_ndarray_to_list(data)
+        if isinstance(self.lc_model, lc_runnables_types()):
+            return [data]
+        if isinstance(data, list) and (
+            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
+        ):
+            return data
+        raise mlflow.MlflowException.invalid_parameter_value(
+            "Input must be a pandas DataFrame or a list of strings "
+            "or a list of dictionaries "
+            f"for model {self.lc_model.__class__.__name__}"
+        )
 
 
 class _TestLangChainWrapper(_LangChainModelWrapper):
