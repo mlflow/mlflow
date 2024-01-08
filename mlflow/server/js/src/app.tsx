@@ -14,13 +14,13 @@ import { ConfigProvider } from 'antd';
 import { LegacySkeleton } from '@databricks/design-system';
 import { shouldUsePathRouting } from './common/utils/FeatureUtils';
 import { MlflowRouter } from './MlflowRouter';
+import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const i18n = useI18nInit();
-  const [isDarkTheme, setIsDarkTheme] = React.useState(
-    window.matchMedia('(prefers-color-scheme: dark)').matches || false,
-  );
+
+  const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
 
   if (!i18n) {
     return (
@@ -37,6 +37,7 @@ export function MLFlowRoot() {
       <Provider store={store}>
         <DesignSystemContainer isDarkTheme={isDarkTheme}>
           <ApplyGlobalStyles />
+          <MlflowThemeGlobalStyles />
           <ConfigProvider prefixCls='ant'>
             {shouldUsePathRouting() ? (
               <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
