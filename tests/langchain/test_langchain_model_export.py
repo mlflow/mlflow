@@ -889,6 +889,71 @@ def test_save_load_runnable_lambda_in_sequence():
 
 
 @pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+def test_predict_with_callbacks():
+    from langchain.callbacks.base import BaseCallbackHandler
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
+    class TestCallbackHandler(BaseCallbackHandler):
+        def __init__(self):
+            super().__init__()
+            self.num_llm_start_calls = 0
+
+        def on_llm_start(
+            self,
+            serialized: Dict[str, Any],
+            prompts: List[str],
+            **kwargs: Any,
+        ) -> Any:
+            self.num_llm_start_calls += 1
+
+    chat_model = _fake_simple_chat_model()()
+    prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
+    chain = prompt | chat_model | StrOutputParser()
+    # Test the basic functionality of the chain
+    assert chain.invoke({"industry": "tech"}) == "Databricks"
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain, "model_path", input_example={"industry": "tech"}
+        )
+
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    callback_handler1 = TestCallbackHandler()
+    callback_handler2 = TestCallbackHandler()
+
+    # Ensure handlers have not been called yet
+    assert callback_handler1.num_llm_start_calls == 0
+    assert callback_handler2.num_llm_start_calls == 0
+
+    assert (
+        pyfunc_loaded_model._model_impl._predict_with_callbacks(
+            {"industry": "tech"}, callback_handlers=[callback_handler1, callback_handler2]
+        )
+        == "Databricks"
+    )
+
+    # Test that the callback handlers were called
+    assert callback_handler1.num_llm_start_calls == 1
+    assert callback_handler2.num_llm_start_calls == 1
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=json.dumps({"inputs": {"industry": "tech"}}),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
+        "predictions": ["Databricks"]
+    }
+
+
+@pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"),
     reason="feature not existing",
 )

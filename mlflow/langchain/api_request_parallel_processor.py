@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Literal, Optional, Set, Union
 
 import langchain.chains
 import pydantic
+from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema import AgentAction, AIMessage, HumanMessage, SystemMessage
 from langchain.schema import ChatMessage as LangChainChatMessage
 from packaging.version import Version
@@ -169,7 +170,9 @@ class APIRequest:
                 for doc in response["source_documents"]
             ]
 
-    def call_api(self, status_tracker: StatusTracker):
+    def call_api(
+        self, status_tracker: StatusTracker, callback_handlers: Optional[List[BaseCallbackHandler]]
+    ):
         """
         Calls the LangChain API and stores results.
         """
@@ -197,26 +200,35 @@ class APIRequest:
                     # does not accept dictionaries as input, it leads to errors like
                     # Expected Scalar value for String field 'query_text'
                     try:
-                        response = self.lc_model.invoke(prepared_request_json)
+                        response = self.lc_model.invoke(
+                            prepared_request_json, config={"callbacks": callback_handlers}
+                        )
                     except TypeError as e:
                         _logger.warning(
                             f"Failed to invoke {self.lc_model.__class__.__name__} "
                             f"with {self.request_json}. Error: {e!r}. Trying to "
                             "invoke with the first value of the dictionary."
                         )
+
+                        self.request_json = next(iter(self.request_json.values()))
                         (
                             prepared_request_json,
                             did_perform_chat_conversion,
-                        ) = self._prepare_request_for_runnable_or_chain_inference(
-                            prepared_request_json
+                        ) = self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+
+                        response = self.lc_model.invoke(
+                            prepared_request_json, config={"callbacks": callback_handlers}
                         )
-                        response = self.lc_model.invoke(prepared_request_json)
                 elif isinstance(self.request_json, list) and isinstance(
                     self.lc_model, runnables_supports_batch_types()
                 ):
-                    response = self.lc_model.batch(prepared_request_json)
+                    response = self.lc_model.batch(
+                        prepared_request_json, config={"callbacks": callback_handlers}
+                    )
                 else:
-                    response = self.lc_model.invoke(prepared_request_json)
+                    response = self.lc_model.invoke(
+                        prepared_request_json, config={"callbacks": callback_handlers}
+                    )
 
                 if did_perform_chat_conversion:
                     response = APIRequest._try_transform_response_to_chat_format(response)
@@ -228,6 +240,7 @@ class APIRequest:
                 response = self.lc_model(
                     prepared_request_json,
                     return_only_outputs=True,
+                    callbacks=callback_handlers,
                 )
 
                 if did_perform_chat_conversion:
@@ -362,6 +375,7 @@ def process_api_requests(
     lc_model,
     requests: Optional[List[Union[Any, Dict[str, Any]]]] = None,
     max_workers: int = 10,
+    callback_handlers: Optional[List[BaseCallbackHandler]] = None,
 ):
     """
     Processes API requests in parallel.
@@ -401,6 +415,7 @@ def process_api_requests(
                 executor.submit(
                     next_request.call_api,
                     status_tracker=status_tracker,
+                    callback_handlers=callback_handlers,
                 )
 
             # if all tasks are finished, break
