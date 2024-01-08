@@ -548,19 +548,18 @@ def save_model(
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
+            if duplicates := _find_duplicate_requirements(pip_requirements):
+                _logger.warning(
+                    "Duplicate packages are present within the pip requirements. "
+                    f"Duplicate packages: {duplicates}. Please manually specify "
+                    "the requirements by using the `pip_requirements` argument in "
+                    "order to prevent unexpected installation issues for this model."
+                )
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
             default_reqs, pip_requirements, extra_pip_requirements
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
-
-    if duplicates := _find_duplicate_requirements(pip_requirements):
-        _logger.warning(
-            "Duplicate packages are present within the pip requirements. Duplicate packages: "
-            f"{duplicates}. Please manually specify the requirements by using the "
-            "`pip_requirements` argument in order to prevent unexpected installation "
-            "issues for this model."
-        )
 
     with path.joinpath(_CONDA_ENV_FILE_NAME).open("w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)

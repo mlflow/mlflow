@@ -1107,18 +1107,16 @@ def test_transformers_log_with_duplicate_pip_requirements(small_multi_modal_pipe
     )
 
 
-def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_modal_pipeline, capsys):
-    with mlflow.start_run():
-        mlflow.transformers.log_model(
-            small_multi_modal_pipeline,
-            "model",
-            extra_pip_requirements=["transformers==99.99.99"],
-        )
-    captured = capsys.readouterr()
-    assert (
-        "Duplicate packages are present within the pip requirements. "
-        "Duplicate packages: ['transformers']" in captured.err
-    )
+def test_transformers_log_with_duplicate_extra_pip_requirements(small_qa_pipeline):
+    with pytest.raises(
+        MlflowException, match="The specified requirements versions are incompatible."
+    ):
+        with mlflow.start_run():
+            mlflow.transformers.log_model(
+                small_qa_pipeline,
+                "model",
+                extra_pip_requirements=["transformers==99.99.99"],
+            )
 
 
 @pytest.mark.skipif(
