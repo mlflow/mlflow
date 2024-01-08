@@ -169,7 +169,9 @@ class APIRequest:
                     # does not accept dictionaries as input, it leads to errors like
                     # Expected Scalar value for String field 'query_text'
                     try:
-                        self.request_json = self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                        self.request_json = self._prepare_request_for_runnable_or_chain_inference(
+                            self.request_json
+                        )
                         response = self.lc_model.invoke(self.request_json)
                     except TypeError as e:
                         _logger.warning(
