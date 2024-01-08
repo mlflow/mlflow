@@ -209,7 +209,6 @@ class APIRequest:
                             f"with {self.request_json}. Error: {e!r}. Trying to "
                             "invoke with the first value of the dictionary."
                         )
-
                         self.request_json = next(iter(self.request_json.values()))
                         (
                             prepared_request_json,
