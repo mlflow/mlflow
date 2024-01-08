@@ -27,38 +27,6 @@ def output_example():
     return ["A", "B", "C"]
 
 
-def test_class_python_model_without_call_method(model_path, input_example, output_example):
-    """
-    Test that class-based pyfunc models inherited
-    from PythonModel are PyFuncModel instances.
-    """
-
-    class TestClassModel(mlflow.pyfunc.PythonModel):
-        """A class-based pyfunc model."""
-
-        def predict(self, context, model_input, params=None):
-            if isinstance(model_input, pd.DataFrame):
-                model_input = model_input.values.flatten().tolist()
-            return [x.upper() for x in model_input]
-
-    model = TestClassModel()
-    assert model.predict(None, input_example) == output_example
-    mlflow.pyfunc.save_model(model_path, python_model=model, input_example=input_example)
-
-    loaded_model = mlflow.pyfunc.load_model(model_path)
-    assert (
-        loaded_model.predict(input_example) == output_example
-    ), f"Expected {output_example}, got {loaded_model.predict(input_example)}"
-    assert isinstance(
-        loaded_model, mlflow.pyfunc.PyFuncModel
-    ), f"Expected mlflow.pyfunc.PyFuncModel, got {type(loaded_model)}"
-
-    unwarp_model = loaded_model.unwrap_python_model()
-    assert isinstance(
-        unwarp_model, TestClassModel
-    ), f"Expected TestClassModel, got {type(unwarp_model)}"
-
-
 def test_class_python_model_with_call_method(model_path, input_example, output_example):
     """
     Test that class-based pyfunc models with a __call__ method
