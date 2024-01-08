@@ -99,6 +99,7 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
 _logger = logging.getLogger(__name__)
 _DELTA_TABLE = "delta_table"
 
+
 def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
     default_values = [None] if default_values is None else default_values
     if arg_value not in default_values:
@@ -447,15 +448,20 @@ class UcModelRegistryStore(BaseRestStore):
         if run is None:
             return None
         table_details = []
-        for dataset in run.inputs.dataset_inputs:
-            dataset_source = mlflow.data.get_source(dataset)
-            if dataset_source._get_source_type() == _DELTA_TABLE:
-                source_dict = dataset_source._to_dict()
-                # check if dataset is a uc table and then append
-                if (source_dict.get("is_databricks_uc_table") and
-                        source_dict.get("delta_table_name") and
-                        source_dict.get("delta_table_id")):
-                    table_details.append((source_dict.get("delta_table_name"), source_dict.get("delta_table_id")))
+        if run.inputs is not None:
+            for dataset in run.inputs.dataset_inputs:
+                dataset_source = mlflow.data.get_source(dataset)
+                if dataset_source._get_source_type() == _DELTA_TABLE:
+                    source_dict = dataset_source._to_dict()
+                    # check if dataset is a uc table and then append
+                    if (
+                        source_dict.get("is_databricks_uc_table")
+                        and source_dict.get("delta_table_name")
+                        and source_dict.get("delta_table_id")
+                    ):
+                        table_details.append(
+                            (source_dict.get("delta_table_name"), source_dict.get("delta_table_id"))
+                        )
         return table_details
 
     def _validate_model_signature(self, local_model_path):
@@ -559,7 +565,9 @@ class UcModelRegistryStore(BaseRestStore):
                 for table_name, table_id in table_detail_list:
                     table_entity = Table(name=table_name, id=table_id)
                     securable_list.append(Securable(table=table_entity))
-            lineage_header_info = LineageHeaderInfo(entities=entity_list, lineages=Lineage(source_securables=securable_list))
+            lineage_header_info = LineageHeaderInfo(
+                entities=entity_list, lineages=Lineage(source_securables=securable_list)
+            )
             # Base64-encode the header value to ensure it's valid ASCII,
             # similar to JWT (see https://stackoverflow.com/a/40347926)
             header_json = message_to_json(lineage_header_info)

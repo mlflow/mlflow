@@ -30,6 +30,7 @@ DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
 
 _logger = logging.getLogger(__name__)
 
+
 @experimental
 class DeltaDatasetSource(DatasetSource):
     """
@@ -111,20 +112,22 @@ class DeltaDatasetSource(DatasetSource):
     def _lookup_table_id(self, table_name):
         try:
             req_body = message_to_json(GetTable(full_name_arg=table_name))
-            _METHOD_TO_INFO = extract_api_info_for_service(UnityCatalogService, _REST_API_PATH_PREFIX)
+            _METHOD_TO_INFO = extract_api_info_for_service(
+                UnityCatalogService, _REST_API_PATH_PREFIX
+            )
             endpoint, method = _METHOD_TO_INFO[GetTable]
             table_info: TableInfo = call_endpoint(
-                host_creds=functools.partial(get_databricks_host_creds, _DATABRICKS_UNITY_CATALOG_SCHEME),
+                host_creds=functools.partial(
+                    get_databricks_host_creds, _DATABRICKS_UNITY_CATALOG_SCHEME
+                ),
                 endpoint=endpoint,
                 method=method,
                 json_body=req_body,
                 response_proto=GetTable.Response,
-              ).table_info
+            ).table_info
             return table_info.table_id
         except Exception as e:
-            _logger.warning(
-                f"Unable to look up the UC table id for table '{table_name}': '", e
-            )
+            _logger.warning(f"Unable to look up the UC table id for table '{table_name}': '", e)
             return None
 
     def _to_dict(self) -> Dict[Any, Any]:
