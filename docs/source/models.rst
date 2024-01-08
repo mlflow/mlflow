@@ -875,9 +875,13 @@ To include an input example with your model, add it to the appropriate log_model
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Input examples are also used to infer
 model signatures in log_model calls when signatures aren't specified.
 
-Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). We offer support for input_example with params by using tuple to combine model
-inputs and params. See examples below:
+By default, if input example is a dictionary, we convert it to pandas DataFrame format when saving.
+Note that for langchain, openai, pyfunc and transformers flavors, input example could be saved without
+conversion by setting ``example_no_conversion`` to ``False``.
+
+Similar to model signatures, model inputs can be column-based (i.e DataFrames), tensor-based
+(i.e numpy.ndarrays) or json object (i.e python dictionary). We offer support for input_example 
+with params by using tuple to combine model inputs and params. See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -928,6 +932,27 @@ The following example demonstrates how you can log a tensor-based input example 
         dtype=np.uint8,
     )
     mlflow.tensorflow.log_model(..., input_example=input_example)
+
+How To Log Model With Json Object
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For models accepting python dictionary inputs instead of pandas DataFrame, we support saving the example
+directly as it is. To enable this, ``example_no_conversion`` should be set to ``True`` when logging the model. 
+This feature is only supported for langchain, openai, pyfunc and transformers flavors, where saving the example
+directly is useful for inference and model serving.
+By default, ``example_no_conversion`` is set to ``False`` for backwards compatibility.
+
+The following example demonstrates how you can log a json object input example with your model:
+
+.. code-block:: python
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    mlflow.langchain.log_model(..., input_example=input_example, example_no_conversion=True)
 
 How To Log Model With Example Containing Params
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2660,97 +2685,7 @@ The full guide, including tutorials and detailed documentation for using the ``o
 LangChain (``langchain``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. attention::
-    The ``langchain`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
-    subject to be added as additional functionality is brought to the flavor.
-
-The ``langchain`` model flavor enables logging of `LangChain models <https://github.com/hwchase17/langchain>`_ in MLflow format via
-the :py:func:`mlflow.langchain.save_model()` and :py:func:`mlflow.langchain.log_model()` functions. Use of these
-functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
-interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
-You can also use the :py:func:`mlflow.langchain.load_model()` function to load a saved or logged MLflow
-Model with the ``langchain`` flavor as a dictionary of the model's attributes.
-
-Example: Log a LangChain LLMChain
-
-.. literalinclude:: ../../examples/langchain/simple_chain.py
-    :language: python
-
-.. code-block:: python
-    :caption: Output
-
-    ["\n\nColorful Cozy Creations."]
-
-Example: Log a LangChain Agent
-
-.. literalinclude:: ../../examples/langchain/simple_agent.py
-    :language: python
-
-.. code-block:: python
-    :caption: Output
-
-    ["1.1044000282035853"]
-
-
-Logging RetrievalQA Chains
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-In MLflow, you can use the ``langchain`` flavor to save a ``RetrievalQA`` chain, including the retriever object.
-
-Native LangChain requires the user to handle the serialization and deserialization of the retriever object, but MLflow's ``langchain`` flavor handles that for you.
-
-Here are the two things you need to tell MLflow:
-
-1. Where the retriever object is stored (``persist_dir``).
-2. How to load the retriever object from that location (``loader_fn``).
-
-After you define these, MLflow takes care of the rest, saving both the content in the ``persist_dir`` and pickling the ``loader_fn`` function.
-
-Example: Log a LangChain RetrievalQA Chain
-
-.. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
-    :language: python
-
-.. code-block:: python
-    :caption: Output (truncated)
-
-    [" The president said..."]
-
-.. _log-retriever-chain:
-
-Logging a retriever and evaluate it individually
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``langchain`` flavor provides the functionality to log a retriever object and evaluate it individually. This is useful if
-you want to evaluate the quality of the relevant documents returned by a retriever object without directing these documents
-through a large language model (LLM) to yield a summarized response.
-
-In order to log the retriever object in the ``langchain`` flavor, it is also required to specify ``persist_dir``
-and ``loader_fn``, the same as logging the RetrievalQA chain. See the previous section for details about these parameters.
-
-See the following example for more details.
-
-Example: Log a LangChain Retriever
-
-.. literalinclude:: ../../examples/langchain/retriever_chain.py
-    :language: python
-
-.. code-block:: python
-    :caption: Output (truncated)
-
-    [
-        [
-            {
-                "page_content": "Tonight. I call...",
-                "metadata": {"source": "/state.txt"},
-            },
-            {
-                "page_content": "A former top...",
-                "metadata": {"source": "/state.txt"},
-            },
-        ]
-    ]
-
+The full guide, including tutorials and detailed documentation for using the `langchain flavor can be viewed here <llms/langchain/index.html>`_.
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

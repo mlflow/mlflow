@@ -84,6 +84,64 @@ Explore the guides and tutorials below to start your journey!
 LLM Guides and Tutorials
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+MLflow Native flavors for GenAI
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. raw:: html
+
+    <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="llms/transformers/index.html" >
+                    <div class="header">
+                        🤗 Transformers in MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage the HuggingFace Transformers package with MLflow. Explore multiple tutorials and examples that leverage 
+                        the power of state-of-the-art LLMs.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="llms/openai/index.html" >
+                    <div class="header">
+                        OpenAI in MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage the state-of-the-art LLMs offered by OpenAI directly as MLflow flavors to build and track useful language-based 
+                        applications.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="llms/langchain/index.html" >
+                    <div class="header">
+                        LangChain in MLflow
+                    </div>
+                    <p>
+                        Learn how to build both simple and complex LLM-powered applications with LangChain, using MLflow to simplify deployment, dependency 
+                        management, and service integration.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="llms/sentence-transformers/index.html" >
+                    <div class="header">
+                        Sentence Transformers in MLflow
+                    </div>
+                    <p>
+                        Learn how to leverage the advanced capabilities with semantic sentence embeddings within the Sentence Transformers package, using MLflow to simplify 
+                        inference, create custom deployable applications, and more.
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
+
+
+General GenAI Guides 
+~~~~~~~~~~~~~~~~~~~~
+
 .. raw:: html
 
     <section>
@@ -110,28 +168,7 @@ LLM Guides and Tutorials
                     </p>
                 </a>
             </div>
-            <div class="simple-card">
-                <a href="llms/transformers/index.html" >
-                    <div class="header">
-                        Guide to using 🤗 Transformers in MLflow
-                    </div>
-                    <p>
-                        Learn how to leverage the HuggingFace Transformers package with MLflow. Explore multiple tutorials and examples that leverage 
-                        the power of state-of-the-art LLMs.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="llms/openai/index.html" >
-                    <div class="header">
-                        Guide to using OpenAI in MLflow
-                    </div>
-                    <p>
-                        Learn how to leverage the state-of-the-art LLMs offered by OpenAI directly as MLflow flavors to build and track useful language-based 
-                        applications.
-                    </p>
-                </a>
-            </div>
+            
             <div class="simple-card">
                 <a href="llms/llm-evaluate/index.html" >
                     <div class="header">
@@ -171,17 +208,6 @@ LLM Guides and Tutorials
                     <p>
                         Dive into the intricacies of MLflow's LLM Tracking system. From capturing prompts to monitoring generated outputs, 
                         discover how MLflow provides a holistic solution for managing LLM interactions.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
-                <a href="llms/sentence-transformers/index.html" >
-                    <div class="header">
-                        Guide to using Sentence Transformers in MLflow
-                    </div>
-                    <p>
-                        Learn how to leverage the advanced capabilities with semantic sentence embeddings within the Sentence Transformers package, using MLflow to simplify 
-                        inference, create custom deployable applications, and more.
                     </p>
                 </a>
             </div>
