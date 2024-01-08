@@ -57,10 +57,15 @@ def test_log_model_with_config():
     assert logged_model_config == model_config
 
 
-def test_promptflow_model_predict(spark):
+def log_promptflow_example_model():
     model = get_promptflow_example_model()
     with mlflow.start_run():
         logged_model = mlflow.promptflow.log_model(model, "promptflow_model")
+    return logged_model
+
+
+def test_promptflow_model_predict_pyfunc():
+    logged_model = log_promptflow_example_model()
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     # Assert pyfunc model
     assert "promptflow" in logged_model.flavors
@@ -72,25 +77,39 @@ def test_promptflow_model_predict(spark):
         f"Write a simple {input_value} program that displays the greeting message when executed.\n"
     )
     assert result == {"output": expected_result}
+
+
+def test_promptflow_model_serve_predict():
     # Assert predict with promptflow model
-    model = mlflow.promptflow.load_model(logged_model.model_uri)
-    logged_model_result = model.predict({"text": input_value})
-    assert logged_model_result == result
+    logged_model = log_promptflow_example_model()
     # Assert predict with serve model
+    input_value = "Python Hello World!"
     response = pyfunc_serve_and_score_model(
         logged_model.model_uri,
         data=json.dumps({"inputs": {"text": input_value}}),
         content_type=CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
+    expected_result = (
+        f"Write a simple {input_value} program that displays the greeting message when executed.\n"
+    )
     assert PredictionsResponse.from_json(response.content.decode("utf-8")) == {
         "predictions": {"output": expected_result}
     }
+
+
+def test_promptflow_model_sparkudf_predict():
+    # Assert predict with promptflow model
+    logged_model = log_promptflow_example_model()
     # Assert predict with spark udf
     udf = mlflow.pyfunc.spark_udf(spark, logged_model.model_uri, result_type="string")
+    input_value = "Python Hello World!"
     df = spark.createDataFrame([{"text": input_value}])
     df = df.withColumn("output", udf("text"))
     pdf = df.toPandas()
+    expected_result = (
+        f"Write a simple {input_value} program that displays the greeting message when executed.\n"
+    )
     assert pdf["output"].tolist() == [expected_result]
 
 

@@ -53,8 +53,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "promptflow"
 
 _MODEL_FLOW_DIRECTORY = "flow"
-_MODEL_FLOW_PIP_REQUIREMENTS = "python_requirements_txt"
-_MODEL_CONFIG_CONNECTION_PROVIDER = "connection.provider"
 _FLOW_ENV_REQUIREMENTS = "python_requirements_txt"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow promptflow flavor only supports instances loaded by ~promptflow.load_flow(), "
@@ -104,7 +102,6 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
-    **kwargs,
 ):
     """
     Log a Promptflow model as an MLflow artifact for the current run.
@@ -205,7 +202,6 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     model_config: Optional[Dict[str, Any]] = None,
-    **kwargs,  # pylint: disable=unused-argument
 ):
     """
     Save a Promptflow model to a path on the local file system.
@@ -273,6 +269,12 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
+    # Flow model doesn't have 'inputs' indicate it was not loaded by load_flow
+    if not isinstance(model, Flow):
+        raise mlflow.MlflowException.invalid_parameter_value(
+            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
+        )
+
     # check if path exists
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
@@ -280,12 +282,6 @@ def save_model(
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     model_flow_path = os.path.join(path, _MODEL_FLOW_DIRECTORY)
-
-    # Flow model doesn't have 'inputs' indicate it was not loaded by load_flow
-    if not isinstance(model, Flow):
-        raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
-        )
 
     # Resolve additional includes in flow
     with _merge_local_code_and_additional_includes(code_path=model.code) as resolved_model_dir:
@@ -333,8 +329,6 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
-            # To ensure `_load_pyfunc` can successfully load the model during the dependency
-            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path, FLAVOR_NAME, fallback=default_reqs
             )
@@ -381,7 +375,7 @@ class _PromptflowModelWrapper:
         self.model = model
         # TODO: Improve this if we have more configs afterwards
         model_config = model_config or {}
-        connection_provider = model_config.get(_MODEL_CONFIG_CONNECTION_PROVIDER, "local")
+        connection_provider = model_config.get("connection.provider", "local")
         self.model_invoker = FlowInvoker(self.model, connection_provider=connection_provider)
 
     def predict(  # pylint: disable=unused-argument
@@ -457,6 +451,4 @@ def load_model(model_uri, dst_path=None):
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     model_data_path = os.path.join(local_model_path, _MODEL_FLOW_DIRECTORY)
-    model = load_flow(model_data_path)
-    setattr(model, "predict", _PromptflowModelWrapper(model).predict)
-    return model
+    return load_flow(model_data_path)
