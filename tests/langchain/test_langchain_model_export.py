@@ -953,6 +953,9 @@ def test_predict_with_callbacks():
     }
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
 def test_predict_with_callbacks_supports_chat_response_conversion():
     from langchain.prompts import ChatPromptTemplate
     from langchain.schema.output_parser import StrOutputParser
