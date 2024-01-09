@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
 
 
 class R2ArtifactRepository(OptimizedS3ArtifactRepository):
@@ -20,6 +21,30 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
             session_token=session_token,
             addressing_style="virtual",
             s3_endpoint_url=s3_endpoint_url,
+            region_name=self._get_region_name(),
+        )
+
+    # Cloudflare implementation of head_bucket is not the same as AWS's, so we temporarily use the old method of
+    # get_bucket_location until cloudflare updates their implementation
+    def _get_region_name(self):
+        # note: s3 client enforces path addressing style for get_bucket_location
+        temp_client = _get_s3_client(
+            addressing_style="path",
+            access_key_id=self._access_key_id,
+            secret_access_key=self._secret_access_key,
+            session_token=self._session_token,
+            s3_endpoint_url=self._s3_endpoint_url,
+        )
+        return temp_client.get_bucket_location(Bucket=self.bucket)["LocationConstraint"]
+
+    def _get_s3_client(self):
+        return _get_s3_client(
+            addressing_style=self._addressing_style,
+            access_key_id=self._access_key_id,
+            secret_access_key=self._secret_access_key,
+            session_token=self._session_token,
+            region_name=self._region_name,
+            s3_endpoint_url=self._s3_endpoint_url,
         )
 
     def parse_s3_compliant_uri(self, uri):
