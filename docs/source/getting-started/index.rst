@@ -9,12 +9,25 @@ how to use MLflow to solve a particular task.
 Guidance on Running Tutorials
 -----------------------------
 
-If you are new to MLflow and have never interfaced with the MLflow Tracking Server, we highly encourage you to head on over to quickly **read the guide below**. It 
+If you are new to MLflow and have never interfaced with the `MLflow Tracking Server <../tracking/server.html>`_, we highly encourage you to head on over to quickly **read the guide below**. It 
 will help you get started as quickly as possible with tutorial content throughout the documentation.
 
 .. raw:: html
 
-    <a href="running-notebooks/index.html" class="download-btn">View the Guide to Running Tutorial Notebooks</a>
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="running-notebooks/index.html" >
+                    <div class="header">
+                        Tracking Server Options
+                    </div>
+                    <p>
+                    Learn about your options for running an MLflow Tracking Server for executing any of the guides and tutorials in the MLflow documentation
+                    </p>
+                </a>
+            </div>
+        </article>
+    </section>
 
 .. toctree::
     :maxdepth: 1
@@ -28,21 +41,22 @@ Getting Started Guides
 MLflow Tracking
 ^^^^^^^^^^^^^^^
 
-This quick, 5-minute introductory tutorial will get you up to speed on the basics of MLflow tracking. 
+:ref:`MLflow Tracking <tracking>` is one of the primary service components of MLflow. In these guides, you will gain an understanding of what MLflow Tracking can do to 
+enhance your MLOps related activities while building ML models.
 
 .. figure:: ../_static/images/tutorials/introductory/tracking-basics.png
     :width: 100%
     :align: center
     :alt: The basics of MLflow tracking.
 
-In this brief introductory quickstart on MLflow Tracking, you will learn how to leverage MLflow to:
+In these introductory guides to MLflow Tracking, you will learn how to leverage MLflow to:
 
 * **Log** training statistics (loss, accuracy, etc.) and hyperparameters for a model
 * **Log** (save) a model for later retrieval
-* **Register** a model to enable deployment
+* **Register** a model using the :ref:`MLflow Model Registry <registry>` to enable deployment
 * **Load** the model and use it for inference
 
-In the process of learning these key concepts, you will be exposed to the MLflow fluent API, the MLflow Tracking UI, and learn how to add metadata associated with 
+In the process of learning these key concepts, you will be exposed to the `MLflow Tracking APIs <../tracking/tracking-api.html>`_, the MLflow Tracking UI, and learn how to add metadata associated with 
 a model training event to an MLflow run.
 
 .. raw:: html
@@ -56,6 +70,16 @@ a model training event to an MLflow run.
                     </div>
                     <p>
                     Learn the basics of MLflow Tracking in a fast-paced guide with a focus on seeing your first model in the MLflow UI
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="logging-first-model/index.html" >
+                    <div class="header">
+                        In-depth Tutorial for MLflow Tracking
+                    </div>
+                    <p>
+                        Learn the nuances of interfacing with the MLflow Tracking Server in an in-depth tutorial
                     </p>
                 </a>
             </div>
@@ -78,11 +102,11 @@ If you would like to get started immediately by downloading and running a notebo
 Autologging Basics
 ^^^^^^^^^^^^^^^^^^
 
-A great way to get started with MLflow is to use the autologging feature. Autologging automatically logs your model, metrics, and parameters 
+A great way to get started with MLflow is to use the autologging feature. Autologging automatically logs your model, metrics, examples, signature, and parameters 
 with only a single line of code for many of the most popular ML libraries in the Python ecosystem.
 
 .. figure:: ../_static/images/tutorials/introductory/autologging-intro.png
-    :width: 50%
+    :width: 80%
     :align: center
     :alt: The basics of MLflow tracking.
 
@@ -110,9 +134,9 @@ In this brief tutorial, you'll learn how to leverage MLflow's autologging featur
 Run Comparison Basics
 ^^^^^^^^^^^^^^^^^^^^^
 
-This quickstart tutorial focuses on the MLflow UI's run comparison feature, provides a brief overview of MLflow Projects, 
-and shows how to register a model. After locally serving the registered model, a brief example of preparing a model for remote deployment 
-via containerizing the model via Docker is covered. 
+This quickstart tutorial focuses on the MLflow UI's run comparison feature, provides a brief overview of `MLflow Projects <../projects.html>`_, 
+and shows how to register a model. After locally serving the registered model, a brief example of preparing a model for remote `deployment <../deployment/index.html>`_ 
+by containerizing the model using Docker is covered. 
 
 .. figure:: ../_static/images/tutorials/introductory/intro-run-comparison.png
     :width: 100%
@@ -171,38 +195,18 @@ your MLflow experiments.
 
     tracking-server-overview/index
 
-In-depth Guides
----------------
+Further Learning - What's Next?
+-------------------------------
 
-Logging your first MLflow Model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Now that you have the essentials under your belt, below are some recommended collections of tutorial and guide content that will help to broaden your 
+understanding of MLflow and its APIs. 
 
-In this lengthy tutorial, you will walk through the basics of MLflow in a sequential and guided manner. With each subsequent step, 
-you will increase your familiarity with the primary functionality around MLflow Tracking and how to navigate the MLflow UI.
-
-.. raw:: html
-
-     <section>
-        <article class="simple-grid">
-            <div class="simple-card">
-                <a href="logging-first-model/index.html" >
-                    <div class="header">
-                        In-depth Guide to MLflow Tracking
-                    </div>
-                    <p>
-                        Learn the nuances of interfacing with the MLflow Tracking Server in an in-depth tutorial
-                    </p>
-                </a>
-            </div>
-        </article>
-    </section>
-
-If you would like to get started immediately by interactively running the notebook, you can:
-
-.. raw:: html
-
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/getting-started/logging-first-model/notebooks/logging-first-model.ipynb" class="notebook-download-btn">
-        <i class="fas fa-download"></i>Download the Notebook</a><br/>
+- **Tracking** - Learn more abou the MLflow tracking APIs by `reading the tracking guide <../tracking.html>`_.
+- **LLMs** - Discover how you can leverage cutting-edge advanced LLMs to power your ML applications by `reading the LLMs guide <../llms/index.html>`_.
+- **MLflow Deployment** - Follow the comprehensive `guide on model deployment <../deployment/index.html>`_ to learn how to deploy your MLflow models to a variety of deployment targets.
+- **Model Registry** - Learn about the `MLflow Model Registry <../model-registry.html>`_ and how it can help you manage the lifecycle of your ML models.
+- **Deep Learning Library Integrations** - From PyTorch to TensorFlow and more, learn about the integrated deep learning capabilities in MLflow by `reading the deep learning guide <../deep-learning/index.html>`_.
+- **Traditional ML** - Learn about the `traditional ML capabilities <../traditional-ml/index.html>`_ in MLflow and how they can help you manage your traditional ML workflows.
 
 
 .. toctree::
