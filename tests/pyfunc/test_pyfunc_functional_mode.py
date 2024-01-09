@@ -86,10 +86,10 @@ def test_class_python_model_with_call_method(model_path, input_example, output_e
         loaded_model, mlflow.pyfunc.PyFuncModel
     ), f"Expected mlflow.pyfunc.PyFuncModel, got {type(loaded_model)}"
 
-    unwarp_model = loaded_model.unwrap_python_model()
+    unwarpped_model = loaded_model.unwrap_python_model()
     assert isinstance(
-        unwarp_model, TestPythonModelWithCallMethod
-    ), f"Expected TestClassModel, got {type(unwarp_model)}"
+        unwarpped_model, TestPythonModelWithCallMethod
+    ), f"Expected TestClassModel, got {type(unwarpped_model)}"
 
 
 def test_functional_model_class_with_call_method(model_path, input_example, output_example):
@@ -112,10 +112,10 @@ def test_functional_model_class_with_call_method(model_path, input_example, outp
         loaded_model, mlflow.pyfunc.PyFuncModel
     ), f"Expected mlflow.pyfunc.PyFuncModel, got {type(loaded_model)}"
 
-    unwarp_model = loaded_model.unwrap_python_model()
+    unwarpped_model = loaded_model.unwrap_python_model()
     assert isinstance(
-        unwarp_model, _FunctionPythonModel
-    ), f"Expected _FunctionPythonModel, got {type(unwarp_model)}"
+        unwarpped_model, _FunctionPythonModel
+    ), f"Expected _FunctionPythonModel, got {type(unwarpped_model)}"
 
 
 def test_functional_model_func(model_path, input_example, output_example):
@@ -137,10 +137,10 @@ def test_functional_model_func(model_path, input_example, output_example):
         loaded_model, mlflow.pyfunc.PyFuncModel
     ), f"Expected mlflow.pyfunc.PyFuncModel, got {type(loaded_model)}"
 
-    unwarp_model = loaded_model.unwrap_python_model()
+    unwarpped_model = loaded_model.unwrap_python_model()
     assert isinstance(
-        unwarp_model, _FunctionPythonModel
-    ), f"Expected _FunctionPythonModel, got {type(unwarp_model)}"
+        unwarpped_model, _FunctionPythonModel
+    ), f"Expected _FunctionPythonModel, got {type(unwarpped_model)}"
 
 @pytest.mark.skipcacheclean
 def test_pyfunc_serve_class_python_model_with_call_method(input_example, output_example):
