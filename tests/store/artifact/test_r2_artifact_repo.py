@@ -69,7 +69,7 @@ def test_s3_endpoint_url_is_used_to_get_s3_client(r2_artifact_root):
         )
 
 
-def test_get_r2_client_region_name_set_correctly(s3_artifact_root):
+def test_get_r2_client_region_name_set_correctly(r2_artifact_root):
     region_name = "us_random_region_42"
     with mock.patch("boto3.client") as mock_get_s3_client:
         s3_client_mock = mock.Mock()
