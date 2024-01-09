@@ -484,6 +484,7 @@ class _LangChainModelWrapper:
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
         callback_handlers=None,
+        convert_chat_responses=False,
     ) -> List[str]:
         """
         :param data: Model input data.
@@ -501,7 +502,10 @@ class _LangChainModelWrapper:
             data, pd.DataFrame
         )
         results = process_api_requests(
-            lc_model=self.lc_model, requests=messages, callback_handlers=callback_handlers
+            lc_model=self.lc_model,
+            requests=messages,
+            callback_handlers=callback_handlers,
+            convert_chat_responses=convert_chat_responses,
         )
         return results[0] if return_first_element else results
 
