@@ -60,12 +60,20 @@ local path to log data to a directory. The URI defaults to ``mlruns``.
 
 :py:func:`mlflow.get_tracking_uri` returns the current tracking URI.
 
-:py:func:`mlflow.create_experiment` creates a new experiment and returns its ID. Runs can be
-launched under the experiment by passing the experiment ID to ``mlflow.start_run``.
+:py:func:`mlflow.create_experiment` creates a new experiment and returns the experiment ID. Runs can be
+launched under the experiment by passing the experiment ID to ``mlflow.start_run`` or 
+by setting the active experiment with :py:func:`mlflow.set_experiment`, passing in the experiment ID of the created 
+experiment.
 
-:py:func:`mlflow.set_experiment` sets an experiment as active. If the experiment does not exist,
-creates a new experiment. If you do not specify an experiment in :py:func:`mlflow.start_run`, new
-runs are launched under this experiment.
+:py:func:`mlflow.set_experiment` sets an experiment as active and returns the active experiment instance. If you do not 
+specify an experiment in :py:func:`mlflow.start_run`, new runs are launched under this experiment.
+
+.. note:: 
+    If the experiment being set by name does not exist, a new experiment will be 
+    created with the given name. After the experiment has been created, it will be set 
+    as the active experiment. On certain platforms, such as Databricks, the experiment name 
+    must be an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
+
 
 :py:func:`mlflow.start_run` returns the currently active run (if one exists), or starts a new run
 and returns a :py:class:`mlflow.ActiveRun` object usable as a context manager for the

@@ -91,14 +91,13 @@ def set_experiment(
     name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
     both be specified.
 
-    .. note:: If the experiment being set by name does not exist, a new experiment will be 
-        created with the given name. After the experiment has been created, it will be set 
-        as the active experiment.
+    .. note::
+        If the experiment being set by name does not exist, a new experiment will be
+        created with the given name. After the experiment has been created, it will be set
+        as the active experiment. On certain platforms, such as Databricks, the experiment name
+        must be an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
 
-    :param experiment_name: Case sensitive name of the experiment to be activated. If an experiment
-                            with this name does not exist, a new experiment wth this name is
-                            created. On certain platforms such as Databricks, the experiment name
-                            must an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
+    :param experiment_name: Case sensitive name of the experiment to be activated.
     :param experiment_id: ID of the experiment to be activated. If an experiment with this ID
                           does not exist, an exception is thrown.
     :return: An instance of :py:class:`mlflow.entities.Experiment` representing the new active
