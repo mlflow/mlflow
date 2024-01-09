@@ -20,4 +20,15 @@ The topics in this tutorial cover:
 * Learning how to **log** metrics, parameters, and a model artifact to a run
 * Viewing our Experiment and our first run within the **MLflow UI**
 
-To get started with the tutorial, click NEXT below.
+To get started with the tutorial, click NEXT below or navigate to the section that you're interested in:
+
+.. toctree::
+    :maxdepth: 1
+
+    step1-tracking-server
+    step2-mlflow-client
+    step3-create-experiment
+    step4-experiment-search
+    step5-synthetic-data
+    step6-logging-a-run
+    notebooks/index
