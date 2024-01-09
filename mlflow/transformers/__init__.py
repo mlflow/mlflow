@@ -115,6 +115,14 @@ _SUPPORTED_SAVE_KEYS = {
     _TORCH_DTYPE_KEY,
 }
 
+_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES = {
+    "feature-extraction",
+    "fill-mask",
+    "summarization",
+    "text2text-generation",
+    "text-generation",
+}
+
 _logger = logging.getLogger(__name__)
 
 
@@ -468,6 +476,14 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
     if prompt_template:
+        # prevent saving prompt templates for unsupported pipeline types
+        if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
+            supported_tasks_repr = ", ".join(_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES)
+            raise MlflowException(
+                f"Prompt templating is not supported for the `{built_pipeline.task}` task type. "
+                f"Supported task types are: {supported_tasks_repr}."
+            )
+
         _validate_prompt_template(prompt_template)
         mlflow_model.prompt_template = prompt_template
 
@@ -2810,22 +2826,12 @@ class _TransformersWrapper:
         specified, or if the pipeline is an unsupported type, or if the input type
         is not a string or list of strings, then the input data is returned unchanged.
         """
-        import transformers
 
         # if no template is set, do nothing
         if not self.prompt_template:
             return input_data
 
-        if not isinstance(
-            self.pipeline,
-            (
-                transformers.FeatureExtractionPipeline,
-                transformers.FillMaskPipeline,
-                transformers.SummarizationPipeline,
-                transformers.Text2TextGenerationPipeline,
-                transformers.TextGenerationPipeline,
-            ),
-        ):
+        if self.pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
             return input_data
 
         if isinstance(input_data, str):
