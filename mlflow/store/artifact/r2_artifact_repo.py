@@ -13,7 +13,10 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
         # setup Cloudflare R2 backend to be endpoint_url, otherwise all s3 requests
         # will go to AWS S3 by default
         s3_endpoint_url = self.convert_r2_uri_to_s3_endpoint_url(artifact_uri)
-
+        self._access_key_id = access_key_id
+        self._secret_access_key = secret_access_key
+        self._session_token = session_token
+        self._s3_endpoint_url = s3_endpoint_url
         super().__init__(
             artifact_uri,
             access_key_id=access_key_id,
