@@ -8,7 +8,6 @@ from typing import ForwardRef, List, Optional, get_args, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.utils import PyFuncInput
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dump_input_data
@@ -61,7 +60,7 @@ _CONTENT_TYPE_JSON = "json"
 
 def predict(
     model_uri: str,
-    input_data: Optional[PyFuncInput] = None,
+    input_data: Optional["PyFuncInput"] = None,  # noqa: F821
     input_path: Optional[str] = None,
     content_type: str = _CONTENT_TYPE_JSON,
     output_path: Optional[str] = None,
@@ -150,20 +149,21 @@ def predict(
 
 
 def _get_pyfunc_supported_input_types():
+    # Importing here as the util module depends on optional packages not available in mlflow-skinny
+    from mlflow.models.utils import PyFuncInput
+
     supported_input_types = []
     for input_type in get_args(PyFuncInput):
         if isinstance(input_type, type):
             supported_input_types.append(input_type)
         elif isinstance(input_type, ForwardRef):
-            # Types depending on optinal packages are represented as ForwardRef
-            # We only include them if it's loaded in the same file as PyFuncInput
             name = input_type.__forward_arg__
             base_module = importlib.import_module("mlflow.models.utils")
             if hasattr(base_module, name):
                 cls = getattr(base_module, name)
                 supported_input_types.append(cls)
         else:
-            # This should be a typing type like List, Dict, Tuple, etc.
+            # typing instances like List, Dict, Tuple, etc.
             supported_input_types.append(get_origin(input_type))
     return tuple(supported_input_types)
 
