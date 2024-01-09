@@ -1,12 +1,19 @@
+import importlib
 import json
+import logging
 import os
+from datetime import datetime
 from io import StringIO
-from typing import Any, Dict, List, Optional, Union
+from typing import ForwardRef, List, Optional, get_args, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.models.utils import PyFuncInput
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.proto_json_utils import dump_input_data
+
+_logger = logging.getLogger(__name__)
 
 
 def build_docker(
@@ -54,8 +61,7 @@ _CONTENT_TYPE_JSON = "json"
 
 def predict(
     model_uri: str,
-    # TODO: This is currently subset of PyfuncInput, ideally we should cover all
-    input_data: Union[str, Dict[str, Any], List[Any], "pd.DataFrame", None] = None,  # noqa: F821
+    input_data: Optional[PyFuncInput] = None,
     input_path: Optional[str] = None,
     content_type: str = _CONTENT_TYPE_JSON,
     output_path: Optional[str] = None,
@@ -69,16 +75,7 @@ def predict(
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
     :param model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
-    :param input_data: Input data for prediction. It can be one of the following:
-
-        - A Python dictionary that contains either:
-           - single input payload, when content type is "json".
-           - Pandas DataFrame, when content type is "csv".
-        - A Python list. The content type has to be "csv".
-        - A Pandas DataFrame. The content type has to be "csv".
-        - A string represents serialized input data. e.g. '{"inputs": [1, 2]}'
-        - None to input data from stdin.
-
+    :param input_data: Input data for prediction. Must be valid input for the PyFunc model.
     :param input_path: Path to a file containing input data. If provided, 'input_data' must be None.
     :param content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
     :param output_path: File to output results to as json. If not provided, output to stdout.
@@ -152,6 +149,25 @@ def predict(
         _predict(input_path)
 
 
+def _get_pyfunc_supported_input_types():
+    supported_input_types = []
+    for input_type in get_args(PyFuncInput):
+        if isinstance(input_type, type):
+            supported_input_types.append(input_type)
+        elif isinstance(input_type, ForwardRef):
+            # Types depending on optinal packages are represented as ForwardRef
+            # We only include them if it's loaded in the same file as PyFuncInput
+            name = input_type.__forward_arg__
+            base_module = importlib.import_module("mlflow.models.utils")
+            if hasattr(base_module, name):
+                cls = getattr(base_module, name)
+                supported_input_types.append(cls)
+        else:
+            # This should be a typing type like List, Dict, Tuple, etc.
+            supported_input_types.append(get_origin(input_type))
+    return tuple(supported_input_types)
+
+
 def _serialize_input_data(input_data, content_type):
     # build-docker command is available in mlflow-skinny (which doesn't contain pandas)
     # so we shouldn't import pandas at the top level
@@ -159,12 +175,13 @@ def _serialize_input_data(input_data, content_type):
 
     valid_input_types = {
         _CONTENT_TYPE_CSV: (str, list, dict, pd.DataFrame),
-        _CONTENT_TYPE_JSON: (str, dict),
+        _CONTENT_TYPE_JSON: _get_pyfunc_supported_input_types(),
     }.get(content_type)
 
     if not isinstance(input_data, valid_input_types):
         raise MlflowException.invalid_parameter_value(
-            f"Input data must be one of {valid_input_types} when content type is '{content_type}'."
+            f"Input data must be one of {valid_input_types} when content type is '{content_type}', "
+            f"but got {type(input_data)}."
         )
 
     # If the input is already string, check if the input string can be deserialized correctly
@@ -178,11 +195,39 @@ def _serialize_input_data(input_data, content_type):
             # first row to be the header
             return pd.DataFrame(input_data).to_csv(index=False)
         else:
-            return json.dumps(input_data)
+            return _serialize_to_json(input_data)
     except Exception as e:
         raise MlflowException.invalid_parameter_value(
-            message="Input data could not be serialized to {content_type}."
+            message=f"Input data could not be serialized to {content_type}."
         ) from e
+
+
+def _serialize_to_json(input_data):
+    # imported inside function to avoid circular import
+    from mlflow.pyfunc.scoring_server import SUPPORTED_FORMATS, SUPPORTED_LLM_FORMAT
+
+    if isinstance(input_data, dict) and any(
+        key in input_data for key in SUPPORTED_FORMATS | {SUPPORTED_LLM_FORMAT}
+    ):
+        return json.dumps(input_data)
+    else:
+        original_input_data = input_data
+
+        if isinstance(input_data, (datetime, bool, bytes, float, int, str)):
+            input_data = [input_data]
+
+        input_data = dump_input_data(input_data)
+
+        _logger.warning(
+            f"Your input data has been transformed to comply with the expected input format for the"
+            "MLflow prediction server. If you want to deploy the model to online serving, make "
+            "sure applying the same preprocessing in your inference client. Please also refer to "
+            "https://www.mlflow.org/docs/latest/deployment/deploy-model-locally.html#json-input "
+            "for more details on the supported input format."
+            f"\n\nOriginal input data: {original_input_data}"
+            f"\n\nTransformed input data: {input_data}"
+        )
+        return input_data
 
 
 def _validate_string(input_data: str, content_type: str):
