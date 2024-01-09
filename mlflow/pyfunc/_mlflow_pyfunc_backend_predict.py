@@ -20,9 +20,9 @@ def parse_args():
 _MISSING_MODULE_HELP_MSG = (
     "Exception occurred while running inference: {e}"
     "\n\n"
-    "\033[93m[Hint] It appears to be your MLflow Model doesn't contain the required "
+    "\033[93m[Hint] It appears that your MLflow Model doesn't contain the required "
     "dependency '{missing_module}' to run model inference. When logging a model, MLflow "
-    "detects dependencies based on the model flavor but it is possible that some "
+    "detects dependencies based on the model flavor, but it is possible that some "
     "dependencies are not captured. In this case, you can manually add dependencies "
     "using the `extra_pip_requirements` parameter of `mlflow.pyfunc.log_model`.\033[0m"
     """
