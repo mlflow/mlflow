@@ -1600,13 +1600,11 @@ def test_predict_with_builtin_pyfunc_chat_conversion():
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert json.loads(response.content.decode("utf-8"))[0]["choices"][0]["message"]["content"] == [
-        (
-            "system: You are a helpful assistant.\n"
-            "ai: What would you like to ask?\n"
-            "human: Who owns MLflow?"
-        )
-    ]
+    assert json.loads(response.content.decode("utf-8"))[0]["choices"][0]["message"]["content"] == (
+        "system: You are a helpful assistant.\n"
+        "ai: What would you like to ask?\n"
+        "human: Who owns MLflow?"
+    )
 
 
 @pytest.mark.skipif(
