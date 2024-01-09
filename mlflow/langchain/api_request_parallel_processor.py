@@ -132,6 +132,7 @@ class APIRequest:
     request_json: dict
     results: list[tuple[int, str]]
     errors: dict
+    convert_chat_responses: bool
 
     def _prepare_to_serialize(self, response: dict):
         """
@@ -193,7 +194,9 @@ class APIRequest:
                 (
                     prepared_request_json,
                     did_perform_chat_conversion,
-                ) = self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                ) = APIRequest._transform_request_json_for_chat_if_necessary(
+                    self.request_json, self.lc_model
+                )
                 if isinstance(self.request_json, dict):
                     # This is a temporary fix for the case when spark_udf converts
                     # input into pandas dataframe with column name, while the model
@@ -213,7 +216,9 @@ class APIRequest:
                         (
                             prepared_request_json,
                             did_perform_chat_conversion,
-                        ) = self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                        ) = APIRequest._transform_request_json_for_chat_if_necessary(
+                            self.request_json, self.lc_model
+                        )
 
                         response = self.lc_model.invoke(
                             prepared_request_json, config={"callbacks": callback_handlers}
@@ -229,20 +234,22 @@ class APIRequest:
                         prepared_request_json, config={"callbacks": callback_handlers}
                     )
 
-                if did_perform_chat_conversion:
+                if did_perform_chat_conversion or self.convert_chat_responses:
                     response = APIRequest._try_transform_response_to_chat_format(response)
             else:
                 (
                     prepared_request_json,
                     did_perform_chat_conversion,
-                ) = self._prepare_request_for_runnable_or_chain_inference(self.request_json)
+                ) = APIRequest._transform_request_json_for_chat_if_necessary(
+                    self.request_json, self.lc_model
+                )
                 response = self.lc_model(
                     prepared_request_json,
                     return_only_outputs=True,
                     callbacks=callback_handlers,
                 )
 
-                if did_perform_chat_conversion:
+                if did_perform_chat_conversion or self.convert_chat_responses:
                     response = APIRequest._try_transform_response_to_chat_format(response)
                 elif len(response) == 1:
                     # to maintain existing code, single output chains will still return
@@ -260,13 +267,6 @@ class APIRequest:
             ] = f"error: {e!r} {traceback.format_exc()}\n request payload: {self.request_json}"
             status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
-
-    def _prepare_request_for_runnable_or_chain_inference(self, request_json):
-        """
-        :return: A 2-element tuple containing: 1. the new request and 2. a boolean indicating
-                 whether or not the request was transformed from the OpenAI chat format
-        """
-        return APIRequest._transform_request_json_for_chat_if_necessary(request_json, self.lc_model)
 
     @staticmethod
     def _transform_request_json_for_chat_if_necessary(request_json, lc_model):
@@ -375,6 +375,7 @@ def process_api_requests(
     requests: Optional[List[Union[Any, Dict[str, Any]]]] = None,
     max_workers: int = 10,
     callback_handlers: Optional[List[BaseCallbackHandler]] = None,
+    convert_chat_responses: bool = False,
 ):
     """
     Processes API requests in parallel.
@@ -403,6 +404,7 @@ def process_api_requests(
                     request_json=request_json,
                     results=results,
                     errors=errors,
+                    convert_chat_responses=convert_chat_responses,
                 )
                 status_tracker.start_task()
             else:

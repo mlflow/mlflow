@@ -953,6 +953,60 @@ def test_predict_with_callbacks():
     }
 
 
+def test_predict_with_callbacks_supports_chat_response_conversion():
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+
+    from mlflow.langchain.utils import _fake_simple_chat_model
+
+    chat_model = _fake_simple_chat_model()()
+    prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
+    chain = prompt | chat_model | StrOutputParser()
+    # Test the basic functionality of the chain
+    assert chain.invoke({"industry": "tech"}) == "Databricks"
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(
+            chain, "model_path", input_example={"industry": "tech"}
+        )
+
+    pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    expected_chat_response = {
+        "id": None,
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": None,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Databricks"},
+                "finish_reason": None,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        },
+    }
+    with mock.patch("time.time", return_value=1677858242):
+        assert (
+            pyfunc_loaded_model._model_impl._predict_with_callbacks(
+                {"industry": "tech"},
+                convert_chat_responses=True,
+            )
+            == expected_chat_response
+        )
+
+        assert (
+            pyfunc_loaded_model._model_impl._predict_with_callbacks(
+                {"industry": "tech"},
+                convert_chat_responses=False,
+            )
+            == "Databricks"
+        )
+
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"),
     reason="feature not existing",
@@ -1504,86 +1558,37 @@ def test_predict_with_builtin_pyfunc_chat_conversion():
     )
 
     pyfunc_loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
-    with mock.patch("time.time", return_value=1677858242):
-        assert pyfunc_loaded_model.predict(input_example) == [
+    expected_chat_response = {
+        "id": None,
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": None,
+        "choices": [
             {
-                "id": None,
-                "object": "chat.completion",
-                "created": 1677858242,
-                "model": None,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": (
-                                "system: You are a helpful assistant.\n"
-                                "ai: What would you like to ask?\n"
-                                "human: Who owns MLflow?"
-                            ),
-                        },
-                        "finish_reason": None,
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": None,
-                    "completion_tokens": None,
-                    "total_tokens": None,
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": (
+                        "system: You are a helpful assistant.\n"
+                        "ai: What would you like to ask?\n"
+                        "human: Who owns MLflow?"
+                    ),
                 },
+                "finish_reason": None,
             }
-        ]
+        ],
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        },
+    }
 
+    with mock.patch("time.time", return_value=1677858242):
+        assert pyfunc_loaded_model.predict(input_example) == [expected_chat_response]
         assert pyfunc_loaded_model.predict([input_example, input_example]) == [
-            {
-                "id": None,
-                "object": "chat.completion",
-                "created": 1677858242,
-                "model": None,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": (
-                                "system: You are a helpful assistant.\n"
-                                "ai: What would you like to ask?\n"
-                                "human: Who owns MLflow?"
-                            ),
-                        },
-                        "finish_reason": None,
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": None,
-                    "completion_tokens": None,
-                    "total_tokens": None,
-                },
-            },
-            {
-                "id": None,
-                "object": "chat.completion",
-                "created": 1677858242,
-                "model": None,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": (
-                                "system: You are a helpful assistant.\n"
-                                "ai: What would you like to ask?\n"
-                                "human: Who owns MLflow?"
-                            ),
-                        },
-                        "finish_reason": None,
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": None,
-                    "completion_tokens": None,
-                    "total_tokens": None,
-                },
-            },
+            expected_chat_response,
+            expected_chat_response,
         ]
 
     with pytest.raises(MlflowException, match="Unrecognized chat message role"):
@@ -1595,7 +1600,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion():
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    assert json.loads(response.content.decode("utf-8"))[0]["choices"][0]["messages"]["content"] == [
+    assert json.loads(response.content.decode("utf-8"))[0]["choices"][0]["message"]["content"] == [
         (
             "system: You are a helpful assistant.\n"
             "ai: What would you like to ask?\n"
