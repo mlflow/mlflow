@@ -2,7 +2,6 @@
 This script should be executed in a fresh python interpreter process using `subprocess`.
 """
 import argparse
-import re
 
 from mlflow.pyfunc.scoring_server import _predict
 
@@ -53,8 +52,7 @@ def main():
             content_type=args.content_type,
         )
     except ModuleNotFoundError as e:
-        missing_module = re.search(r"No module named '(.*)'", str(e)).group(1)
-        message = _MISSING_MODULE_HELP_MSG.format(e=str(e), missing_module=missing_module)
+        message = _MISSING_MODULE_HELP_MSG.format(e=str(e), missing_module=e.name)
         raise RuntimeError(message) from e
 
 

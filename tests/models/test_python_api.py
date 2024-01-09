@@ -1,7 +1,7 @@
-import json
-from tempfile import NamedTemporaryFile
+import sys
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -12,7 +12,84 @@ from mlflow.models.python_api import (
     _CONTENT_TYPE_JSON,
     _serialize_input_data,
 )
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.env_manager import CONDA, VIRTUALENV
+
+
+@pytest.mark.parametrize(
+    ("input_data", "expected_data", "content_type"),
+    [
+        (
+            "x,y\n1,3\n2,4",
+            pd.DataFrame({"x": [1, 2], "y": [3, 4]}),
+            _CONTENT_TYPE_CSV,
+        ),
+        (
+            {"inputs": {"a": [1]}},
+            {"a": np.array([1])},
+            _CONTENT_TYPE_JSON,
+        ),
+    ],
+)
+def test_predict(input_data, expected_data, content_type):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            if type(model_input) == pd.DataFrame:
+                assert model_input.equals(expected_data)
+            else:
+                assert model_input == expected_data
+            return {}
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            artifact_path="model",
+            python_model=TestModel(),
+        )
+        run_id = run.info.run_id
+
+    mlflow.models.predict(
+        model_uri=f"runs:/{run_id}/model",
+        input_data=input_data,
+        content_type=content_type,
+        install_mlflow=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "env_manager",
+    [VIRTUALENV, CONDA],
+)
+def test_predict_with_pip_requirements_override(env_manager):
+    if env_manager == CONDA and sys.platform == "win32":
+        pytest.skip("Skipping conda tests on Windows")
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            # XGBoost should be installed by pip_requirements_override
+            import xgboost
+
+            assert xgboost.__version__ == "2.0.3"
+
+            # Scikit-learn version should be overridden to 1.3.0 by pip_requirements_override
+            import sklearn
+
+            assert sklearn.__version__ == "1.3.0"
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            artifact_path="model",
+            python_model=TestModel(),
+            extra_pip_requirements=["scikit-learn==1.3.2"],
+        )
+        run_id = run.info.run_id
+
+    mlflow.models.predict(
+        model_uri=f"runs:/{run_id}/model",
+        input_data={"inputs": [1, 2, 3]},
+        content_type=_CONTENT_TYPE_JSON,
+        pip_requirements_override=["xgboost==2.0.3", "scikit-learn==1.3.0"],
+        env_manager=env_manager,
+        install_mlflow=True,
+    )
 
 
 @pytest.fixture
@@ -20,91 +97,6 @@ def mock_backend():
     mock_backend = mock.MagicMock()
     with mock.patch("mlflow.models.python_api.get_flavor_backend", return_value=mock_backend):
         yield mock_backend
-
-
-def test_predict_with_input_path(mock_backend):
-    with NamedTemporaryFile() as input_file:
-        mlflow.models.predict(
-            model_uri="runs:/test/Model",
-            input_path=input_file.name,
-            content_type=_CONTENT_TYPE_CSV,
-        )
-
-    mock_backend.predict.assert_called_once_with(
-        model_uri="runs:/test/Model",
-        input_path=input_file.name,
-        output_path=None,
-        content_type=_CONTENT_TYPE_CSV,
-        pip_requirements_override=None,
-    )
-
-
-def test_predict_with_input_data_csv(mock_backend):
-    input_data = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
-
-    with TempDir() as tmp:
-        # Mock TempDir in the predict function to return the same temp dir we created
-        mock_tempdir = mock.MagicMock()
-        mock_tempdir.__enter__.return_value.path.return_value = tmp.path()
-        with mock.patch("mlflow.models.python_api.TempDir", return_value=mock_tempdir):
-            mlflow.models.predict(
-                model_uri="runs:/test/Model",
-                input_data=input_data,
-                content_type=_CONTENT_TYPE_CSV,
-            )
-
-            mock_backend.predict.assert_called_once_with(
-                model_uri="runs:/test/Model",
-                input_path=tmp.path() + "/input.csv",
-                output_path=None,
-                content_type=_CONTENT_TYPE_CSV,
-                pip_requirements_override=None,
-            )
-
-            with open(tmp.path() + "/input.csv") as f:
-                df = pd.read_csv(f)
-                assert df.equals(input_data)
-
-
-def test_predict_with_input_data_json(mock_backend):
-    input_data = {"inputs": [1, 2, 3]}
-
-    with TempDir() as tmp:
-        # Mock TempDir in the predict function to return the same temp dir we created
-        mock_tempdir = mock.MagicMock()
-        mock_tempdir.__enter__.return_value.path.return_value = tmp.path()
-        with mock.patch("mlflow.models.python_api.TempDir", return_value=mock_tempdir):
-            mlflow.models.predict(
-                model_uri="runs:/test/Model",
-                input_data=input_data,
-                content_type=_CONTENT_TYPE_JSON,
-            )
-
-            mock_backend.predict.assert_called_once_with(
-                model_uri="runs:/test/Model",
-                input_path=tmp.path() + "/input.json",
-                output_path=None,
-                content_type=_CONTENT_TYPE_JSON,
-                pip_requirements_override=None,
-            )
-
-            with open(tmp.path() + "/input.json") as f:
-                assert json.load(f) == input_data
-
-
-def test_predict_with_input_none(mock_backend):
-    mlflow.models.predict(
-        model_uri="runs:/test/Model",
-        content_type=_CONTENT_TYPE_CSV,
-    )
-
-    mock_backend.predict.assert_called_once_with(
-        model_uri="runs:/test/Model",
-        input_path=None,
-        output_path=None,
-        content_type=_CONTENT_TYPE_CSV,
-        pip_requirements_override=None,
-    )
 
 
 def test_predict_with_both_input_data_and_path_raise(mock_backend):
@@ -124,6 +116,21 @@ def test_predict_invalid_content_type(mock_backend):
             input_data={"inputs": [1, 2, 3]},
             content_type="any",
         )
+
+
+def test_predict_with_input_none(mock_backend):
+    mlflow.models.predict(
+        model_uri="runs:/test/Model",
+        content_type=_CONTENT_TYPE_CSV,
+    )
+
+    mock_backend.predict.assert_called_once_with(
+        model_uri="runs:/test/Model",
+        input_path=None,
+        output_path=None,
+        content_type=_CONTENT_TYPE_CSV,
+        pip_requirements_override=None,
+    )
 
 
 @pytest.mark.parametrize(

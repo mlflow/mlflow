@@ -177,8 +177,8 @@ MLflow provides a few ways to test your model locally, either in a virtual envir
 
 Testing offline prediction with a virtual environment
 *****************************************************
-You can use MLflow `predict` API via CLI or Python to making test predictions with your model.
-This wiill load your model from the model URI, create a virtual environemnt with the model dependencies (defined in MLflow Model),
+You can use `mlflow models predict` API via CLI or Python to making test predictions with your model.
+This wiil load your model from the model URI, create a virtual environment with the model dependencies (defined in MLflow Model),
 and run offline predictions with the model.
 Please refer to :py:func:`mlflow.models.predict` or `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the `predict` API.
 
@@ -192,12 +192,12 @@ Please refer to :py:func:`mlflow.models.predict` or `CLI reference <../cli.html#
 
         import mlflow
 
-        mlflow.model.predict(
+        mlflow.models.predict(
             model_uri="runs:/<run_id>/model",
             input_data=<input_data>,
         )
 
-Using the `predict` API is convenient for testing your model and inference environment as being a relatively light weight and quick.
+Using the `predict` API is convenient for testing your model and inference environment quickly.
 However, it is not a perfect simulation of the serving because it does not start the online inference server.
 
 Testing online inference endpoint with a virtual environment
@@ -218,10 +218,12 @@ Please refer to `CLI reference <../cli.html#mlflow-models>`_ for more detailed u
 
 
 While this is reliable way to test your model before deployment, one caveat is that virtual environment doesn't absorb the OS level differences
-between your machine and the production environment. For example, if you are using Windows as a local dev machine but your deployment target is
+between your machine and the production environment. For example, if you are using MacOS as a local dev machine but your deployment target is
 running on Linux, you may encounter some issues that are not reproducible in the virtual environment.
 
-In this case, you can use Docker container to test your model.
+In this case, you can use Docker container to test your model. While it doesn't provide full OS level isolation unlike virtual machine e.g. we
+can't run Windows container on Linux machine, Docker covers some popular test scenario such as running different versions of Linux or simulating
+Linux environment on Mac/Windows.
 
 Testing online inference endpoint with a Docker container
 *********************************************************
@@ -257,8 +259,8 @@ The missing dependencies are listed in the error message. For example, if you se
 
     ModuleNotFoundError: No module named 'cv2'
 
-2. Try adding the dependencies using the `predict` API
-******************************************************
+2. Try adding the dependencies using the `mlflow models predict` API
+********************************************************************
 Now that you know the missing dependencies, you can create a new model version with the correct dependencies.
 However, creating a new model for trying new dependencies might be a bit tedious, particularly because you may need to
 iterate multiple times to find the correct solution. Instead, you can use the `predict` API to test your change without
@@ -279,7 +281,7 @@ To do so, use the `pip-requirements-override` option to specify pip dependencies
 
         import mlflow
 
-        mlflow.model.predict(
+        mlflow.models.predict(
             model_uri="runs:/<run_id>/model",
             input_data=<input_data>,
             pip_requirements="opencv-python==4.8.0",
@@ -291,7 +293,7 @@ defined in the model metadata. Since this doesn't mutate the model, you can iter
 3. Update the model metadata
 ****************************
 Once you find the correct dependencies, you can create a new model with the correct dependencies.
-To do so, specify either `pip_requirements` or `extra_pip_requirements` option when logging the model.
+To do so, specify `extra_pip_requirements` option when logging the model.
 
 .. code:: python
 
@@ -307,6 +309,6 @@ To do so, specify either `pip_requirements` or `extra_pip_requirements` option w
 
 .. note::
 
-    Alternatively, you can directly update the model metadata stored in the artifact storage. For example, `<path-to-model>/requirements.txt`
+    Alternatively, you can manually edit the model metadata stored in the artifact storage. For example, `<path-to-model>/requirements.txt`
     defines pip dependencies to be installed for serving your model (or `<path-to-model>/conda.yaml` if you use conda as a package manager).
     However, this approach is not recommended because this is error-prone and also you need to do this for every model version.

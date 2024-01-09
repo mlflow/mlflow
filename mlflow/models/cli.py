@@ -129,7 +129,7 @@ def serve(
     "--pip-requirements-override",
     "-r",
     default=None,
-    help="Specify packages and versions to override the dependencies defined"
+    help="Specify packages and versions to override the dependencies defined "
     "in the model. Must be a comma-separated string like x==y,z==a.",
 )
 def predict(**kwargs):
