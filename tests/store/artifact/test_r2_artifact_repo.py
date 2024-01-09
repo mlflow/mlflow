@@ -67,3 +67,26 @@ def test_s3_endpoint_url_is_used_to_get_s3_client(r2_artifact_root):
             aws_session_token=None,
             region_name=ANY,
         )
+
+
+def test_get_r2_client_region_name_set_correctly(s3_artifact_root):
+    region_name = "us_random_region_42"
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        mock_get_s3_client.return_value = s3_client_mock
+        s3_client_mock.get_bucket_location.return_value = {"LocationConstraint": region_name}
+
+        artifact_uri = posixpath.join(r2_artifact_root, "some/path")
+        repo = get_artifact_repository(artifact_uri)
+        repo._get_s3_client()
+
+        mock_get_s3_client.assert_called_with(
+            "s3",
+            config=ANY,
+            endpoint_url=ANY,
+            verify=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None,
+            aws_session_token=None,
+            region_name=region_name,
+        )
