@@ -1888,31 +1888,26 @@ class _TransformersWrapper:
         # Optional stripping out of `\n` for specific generator pipelines.
         collapse_whitespace = self.model_config.pop("collapse_whitespace", False)
 
-        # text generation pipelines often include the original prompt as part of the
-        # output. if the model was saved with a prompt template, then users might be
-        # confused by the template being included in the output. we save the original
-        # input here in order to replace it later on.
-        original_data = self._convert_cast_lists_from_np_back_to_list(data)
+        data = self._convert_cast_lists_from_np_back_to_list(data)
 
-        # if applicable, wrap the data in the prompt template that was saved with the
-        # model. this function is a no-op if no prompt template was specified, or if the
-        # pipelines/inputs are not compatible with prompt templates.
-        wrapped_data = self._wrap_input_in_prompt_template(original_data)
+        # if applicable, wrap the data in the prompt template that was saved
+        # with the model. this function is a no-op if no prompt template was
+        # specified, or if the pipelines/inputs are not compatible with templating.
+        data = self._wrap_input_in_prompt_template(data)
 
         # Generate inference data with the pipeline object
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
-            raw_output = self._validate_model_config_and_return_output(wrapped_data)
+            raw_output = self._validate_model_config_and_return_output(data)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
             self.pipeline, transformers.TextGenerationPipeline
         ):
             output = self._strip_input_from_response_in_instruction_pipelines(
-                original_data,
-                wrapped_data,
+                data,
                 raw_output,
                 output_key,
                 self.flavor_config,
@@ -2204,7 +2199,6 @@ class _TransformersWrapper:
 
     def _strip_input_from_response_in_instruction_pipelines(
         self,
-        original_input_data,
         input_data,
         output,
         output_key,
@@ -2230,7 +2224,7 @@ class _TransformersWrapper:
 
         output = extract_response_data(output)
 
-        def trim_input(original_data_in, actual_data_in, data_out):
+        def trim_input(data_in, data_out):
             # NB: the '\n\n' pattern is exclusive to specific InstructionalTextGenerationPipeline
             # types that have been loaded as a plain TextGenerator. The structure of these
             # pipelines will precisely repeat the input question immediately followed by 2 carriage
@@ -2244,17 +2238,18 @@ class _TransformersWrapper:
             if (
                 not include_prompt
                 and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
-                and data_out.startswith(actual_data_in + "\n\n")
+                and data_out.startswith(data_in + "\n\n")
             ):
                 # If the user has indicated to not preserve the prompt input in the response,
                 # split the response output and trim the input prompt from the response.
-                data_out = data_out[len(actual_data_in) :].lstrip()
+                data_out = data_out[len(data_in) :].lstrip()
                 if data_out.startswith("A:"):
                     data_out = data_out[2:].lstrip()
-            # if prompt templating was applied, replace the templated input
-            # with the original in order to avoid confusing the user.
-            elif self.prompt_template and data_out.startswith(actual_data_in):
-                data_out = original_data_in + data_out[len(actual_data_in) :]
+
+            # only return generated text if a prompt template was set.
+            # this is to avoid leaking system prompts.
+            if self.prompt_template and data_out.startswith(data_in):
+                data_out = data_out[len(data_in) :].lstrip()
 
             # If the user has indicated to remove newlines and extra spaces from the generated
             # text, replace them with a single space.
@@ -2263,12 +2258,7 @@ class _TransformersWrapper:
             return data_out
 
         if isinstance(input_data, list) and isinstance(output, list):
-            return [
-                trim_input(original_data_in, actual_data_in, data_out)
-                for original_data_in, actual_data_in, data_out in zip(
-                    original_input_data, input_data, output
-                )
-            ]
+            return [trim_input(data_in, data_out) for data_in, data_out in zip(input_data, output)]
         elif isinstance(input_data, str) and isinstance(output, str):
             return trim_input(input_data, output)
         else:
