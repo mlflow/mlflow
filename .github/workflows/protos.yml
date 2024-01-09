@@ -10,10 +10,6 @@ on:
     paths:
       - mlflow/protos/**
       - mlflow/java/client/src/main/java/com/databricks/api/proto/**
-  push:
-    branches:
-      - master
-      - branch-[0-9]+.[0-9]+
 
 permissions:
   contents: read
