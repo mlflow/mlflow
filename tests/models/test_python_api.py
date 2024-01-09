@@ -50,7 +50,6 @@ def test_predict(input_data, expected_data, content_type):
         model_uri=f"runs:/{run_id}/model",
         input_data=input_data,
         content_type=content_type,
-        install_mlflow=True,
     )
 
 
@@ -59,15 +58,16 @@ def test_predict(input_data, expected_data, content_type):
     [VIRTUALENV, CONDA],
 )
 def test_predict_with_pip_requirements_override(env_manager):
-    if env_manager == CONDA and sys.platform == "win32":
-        pytest.skip("Skipping conda tests on Windows")
+    if env_manager == CONDA:
+        if sys.platform == "win32":
+            pytest.skip("Skipping conda tests on Windows")
 
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             # XGBoost should be installed by pip_requirements_override
             import xgboost
 
-            assert xgboost.__version__ == "2.0.3"
+            assert xgboost.__version__ == "1.7.3"
 
             # Scikit-learn version should be overridden to 1.3.0 by pip_requirements_override
             import sklearn
@@ -82,13 +82,25 @@ def test_predict_with_pip_requirements_override(env_manager):
         )
         run_id = run.info.run_id
 
+    requirements_override = ["xgboost==1.7.3", "scikit-learn==1.3.0"]
+    if env_manager == CONDA:
+        # Install charset-normalizer with conda-forge to work around pip-vs-conda issue during
+        # CI tests. At the beginning of the CI test, it installs MLflow dependencies via pip,
+        # which includes charset-normalizer. Then when it runs this test case, the conda env
+        # is created but charset-normalizer is installed via the default channel, which is one
+        # major version behind the version installed via pip (as of 2024 Jan). As a result,
+        # Python env confuses pip and conda versions and cause errors like "ImportError: cannot
+        # import name 'COMMON_SAFE_ASCII_CHARACTERS' from 'charset_normalizer.constant'".
+        # To work around this, we install the latest cversion from the conda-forge.
+        # TODO: Implement better isolation approach for pip and conda environments during testing.
+        requirements_override.append("conda-forge::charset-normalizer")
+
     mlflow.models.predict(
         model_uri=f"runs:/{run_id}/model",
         input_data={"inputs": [1, 2, 3]},
         content_type=_CONTENT_TYPE_JSON,
-        pip_requirements_override=["xgboost==2.0.3", "scikit-learn==1.3.0"],
+        pip_requirements_override=requirements_override,
         env_manager=env_manager,
-        install_mlflow=True,
     )
 
 
