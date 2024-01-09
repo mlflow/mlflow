@@ -17,6 +17,7 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
         self._secret_access_key = secret_access_key
         self._session_token = session_token
         self._s3_endpoint_url = s3_endpoint_url
+        self.bucket, self.bucket_path = self.parse_s3_compliant_uri(self.artifact_uri)
         super().__init__(
             artifact_uri,
             access_key_id=access_key_id,
