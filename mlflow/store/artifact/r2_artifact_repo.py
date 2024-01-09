@@ -24,8 +24,9 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
             region_name=self._get_region_name(),
         )
 
-    # Cloudflare implementation of head_bucket is not the same as AWS's, so we temporarily use the old method of
-    # get_bucket_location until cloudflare updates their implementation
+    # Cloudflare implementation of head_bucket is not the same as AWS's, so we
+    # temporarily use the old method of get_bucket_location until cloudflare
+    # updates their implementation
     def _get_region_name(self):
         # note: s3 client enforces path addressing style for get_bucket_location
         temp_client = _get_s3_client(
