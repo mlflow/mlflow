@@ -17,10 +17,14 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import yaml
+from pydantic.v1.config import Extra
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.langchain._langchain_autolog import (
+    patched_invoke,
+)
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
@@ -30,8 +34,9 @@ from mlflow.langchain.utils import (
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
+    supported_lc_types,
 )
-from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
@@ -39,6 +44,11 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    autologging_is_disabled,
+    safe_patch,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -443,12 +453,22 @@ def _load_model(local_model_path, flavor_conf):
     # which load function to use
     model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
     if model_load_fn == _RUNNABLE_LOAD_KEY:
-        return _load_runnables(local_model_path, flavor_conf)
-    if model_load_fn == _BASE_LOAD_KEY:
-        return _load_base_lcs(local_model_path, flavor_conf)
-    raise mlflow.MlflowException(
-        f"Failed to load LangChain model. Unknown model type: {flavor_conf.get(_MODEL_TYPE_KEY)}"
-    )
+        model = _load_runnables(local_model_path, flavor_conf)
+    elif model_load_fn == _BASE_LOAD_KEY:
+        model = _load_base_lcs(local_model_path, flavor_conf)
+    else:
+        raise mlflow.MlflowException(
+            "Failed to load LangChain model. Unknown model type: "
+            f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
+        )
+    # To avoid double logging, we set model_logged to True
+    # when the model is loaded
+    if not autologging_is_disabled(FLAVOR_NAME):
+        if hasattr(model, "__config__"):
+            model.__config__.extra = Extra.allow
+        model.model_logged = True
+        model.run_id = get_model_info(local_model_path).run_id
+    return model
 
 
 class _LangChainModelWrapper:
@@ -605,3 +625,52 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     return _load_model_from_local_fs(local_model_path)
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    log_datasets=False,
+    disable=False,
+    silent=False,
+    registered_model_name=None,
+    extra_tags=None,
+):  # pylint: disable=unused-argument
+    """
+    Enables (or disables) and configures autologging from Langchain to MLflow.
+
+    :param log_input_examples: If ``True``, input examples from inference data are collected and
+                               logged along with Langchain model artifacts during inference. If
+                               ``False``, input examples are not logged.
+                               Note: Input examples are MLflow model attributes
+                               and are only collected if ``log_models`` is also ``True``.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with Langchain model artifacts during inference. If ``False``,
+                                 signatures are not logged.
+                                 Note: Model signatures are MLflow model attributes
+                                 and are only collected if ``log_models`` is also ``True``.
+    :param log_models: If ``True``, langchain models are logged as MLflow model artifacts.
+                       If ``False``, langchain models are not logged.
+                       Input examples and model signatures, which are attributes of MLflow models,
+                       are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking
+                         if applicable. If ``False``, dataset information is not logged.
+    :param disable: If ``True``, disables the Langchain autologging integration. If ``False``,
+                    enables the Langchain autologging integration.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during Langchain
+                   autologging. If ``False``, show all events and warnings during Langchain
+                   autologging.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    """
+
+    classes = supported_lc_types()
+    for clazz in classes:
+        safe_patch(FLAVOR_NAME, clazz, "invoke", patched_invoke, manage_run=False)
