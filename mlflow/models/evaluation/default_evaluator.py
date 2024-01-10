@@ -725,7 +725,7 @@ class DefaultEvaluator(ModelEvaluator):
                     timestamp=timestamp,
                     step=0,
                 )
-                for key, value in self.metrics.items()
+                for key, value in self.aggregate_metrics.items()
             ],
         )
 
@@ -1183,7 +1183,7 @@ class DefaultEvaluator(ModelEvaluator):
             param_0_name, param_1_name = parameters.keys()
         if len(parameters) == 2 and param_0_name != "predictions" and param_1_name != "targets":
             eval_fn_args.append(eval_df_copy)
-            eval_fn_args.append(copy.deepcopy(self.metrics))
+            eval_fn_args.append(copy.deepcopy(self.aggregate_metrics))
         # eval_fn can have parameters like (predictions, targets, metrics, random_col)
         else:
             for param_name, param in parameters.items():
@@ -1227,6 +1227,11 @@ class DefaultEvaluator(ModelEvaluator):
                     # case where the param is defined as part of the evaluator_config
                     elif column in self.evaluator_config:
                         eval_fn_args.append(self.evaluator_config.get(column))
+
+                    # case where this is the name of another metric
+                    elif column in self.metrics_values:
+                        eval_fn_args.append(self.metrics_values[column])
+
                     elif param.default == inspect.Parameter.empty:
                         params_not_found.append(param_name)
                     else:
@@ -1551,7 +1556,7 @@ class DefaultEvaluator(ModelEvaluator):
                     )
                 else:
                     exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
-        self._update_metrics()
+        self._update_aggregate_metrics()
         for metric in self.extra_metrics:
             try:
                 eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
@@ -1574,8 +1579,9 @@ class DefaultEvaluator(ModelEvaluator):
 
         # calculate metrics for the full eval_df
         self._evaluate_builtin_metrics(eval_df)
-        self._update_metrics()
+        self._update_aggregate_metrics()
         self._evaluate_extra_metrics(eval_df)
+
 
     def _evaluate_builtin_metrics(self, eval_df):
         for builtin_metric in self.builtin_metrics:
@@ -1677,16 +1683,63 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(artifact_file_name)
         )
 
-    def _update_metrics(self):
-        self.metrics = {}
+    def _update_aggregate_metrics(self):
+        self.aggregate_metrics = {}
         for metric_name, metric_value in self.metrics_values.items():
             if metric_value.aggregate_results:
                 for agg_name, agg_value in metric_value.aggregate_results.items():
                     if agg_value is not None:
                         if agg_name == metric_name.split("/")[0]:
-                            self.metrics[metric_name] = agg_value
+                            self.aggregate_metrics[metric_name] = agg_value
                         else:
-                            self.metrics[f"{metric_name}/{agg_name}"] = agg_value
+                            self.aggregate_metrics[f"{metric_name}/{agg_name}"] = agg_value
+
+    def _handle_builtin_metrics_by_model_type(self):
+        text_metrics = [
+            token_count(),
+            toxicity(),
+            flesch_kincaid_grade_level(),
+            ari_grade_level(),
+        ]
+
+        if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
+            self._compute_builtin_metrics()
+        elif self.model_type == _ModelType.QUESTION_ANSWERING:
+            self.ordered_metrics = [*text_metrics, exact_match()]
+        elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
+            self.ordered_metrics = [
+                *text_metrics,
+                rouge1(),
+                rouge2(),
+                rougeL(),
+                rougeLsum(),
+            ]
+        elif self.model_type == _ModelType.TEXT:
+            self.ordered_metrics = text_metrics
+        elif self.model_type == _ModelType.RETRIEVER:
+            # default k to 3 if not specified
+            retriever_k = self.evaluator_config.pop("retriever_k", 3)
+            self.ordered_metrics = [
+                precision_at_k(retriever_k),
+                recall_at_k(retriever_k),
+                ndcg_at_k(retriever_k),
+            ]
+
+    def _prefix_metrics(self):
+        def _prefix_value(value):
+            aggregate = (
+                {f"{prefix}{k}": v for k, v in value.aggregate_results.items()}
+                if value.aggregate_results
+                else None
+            )
+            return MetricValue(value.scores, value.justifications, aggregate)
+
+        if prefix := self.evaluator_config.get("metric_prefix"):
+            self.metrics_values = {
+                f"{prefix}{k}": _prefix_value(v) for k, v in self.metrics_values.items()
+            }
+
+        self._update_aggregate_metrics()
 
     def _evaluate(
         self,
@@ -1710,16 +1763,9 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.artifacts = {}
-            self.metrics = {}
+            self.aggregate_metrics = {}
             self.metrics_values = {}
-            self.builtin_metrics = []
-
-            text_metrics = [
-                token_count(),
-                toxicity(),
-                flesch_kincaid_grade_level(),
-                ari_grade_level(),
-            ]
+            self.ordered_metrics = []
 
             with mlflow.utils.autologging_utils.disable_autologging():
                 compute_latency = False
@@ -1732,28 +1778,7 @@ class DefaultEvaluator(ModelEvaluator):
                         self.extra_metrics.remove(extra_metric)
                         break
                 self._generate_model_predictions(compute_latency=compute_latency)
-                if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
-                    self._compute_builtin_metrics()
-                elif self.model_type == _ModelType.QUESTION_ANSWERING:
-                    self.builtin_metrics = [*text_metrics, exact_match()]
-                elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
-                    self.builtin_metrics = [
-                        *text_metrics,
-                        rouge1(),
-                        rouge2(),
-                        rougeL(),
-                        rougeLsum(),
-                    ]
-                elif self.model_type == _ModelType.TEXT:
-                    self.builtin_metrics = text_metrics
-                elif self.model_type == _ModelType.RETRIEVER:
-                    # default k to 3 if not specified
-                    retriever_k = self.evaluator_config.pop("retriever_k", 3)
-                    self.builtin_metrics = [
-                        precision_at_k(retriever_k),
-                        recall_at_k(retriever_k),
-                        ndcg_at_k(retriever_k),
-                    ]
+                self._handle_builtin_metrics_by_model_type()
 
                 eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
                 if self.dataset.has_targets:
@@ -1763,27 +1788,14 @@ class DefaultEvaluator(ModelEvaluator):
                 if not is_baseline_model:
                     self._log_custom_artifacts(eval_df)
 
-                def _prefix_value(value):
-                    aggregate = (
-                        {f"{prefix}{k}": v for k, v in value.aggregate_results.items()}
-                        if value.aggregate_results
-                        else None
-                    )
-                    return MetricValue(value.scores, value.justifications, aggregate)
-
-                if prefix := self.evaluator_config.get("metric_prefix"):
-                    self.metrics_values = {
-                        f"{prefix}{k}": _prefix_value(v) for k, v in self.metrics_values.items()
-                    }
-
-                self._update_metrics()
+                self._prefix_metrics()
 
                 if not is_baseline_model:
                     self._log_artifacts()
                     self._log_metrics()
                     self._log_eval_table()
                 return EvaluationResult(
-                    metrics=self.metrics, artifacts=self.artifacts, run_id=self.run_id
+                    metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
                 )
 
     def evaluate(
