@@ -169,3 +169,146 @@ Almost all functionalities available in MLflow deployment can also be accessed v
 
 FAQ
 ---
+
+How to test my model before deploying to the production environment?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Testing your model before deployment is a critical step to ensure production readiness.
+MLflow provides a few ways to test your model locally, either in a virtual environment or a Docker container.
+
+Testing offline prediction with a virtual environment
+*****************************************************
+You can use `mlflow models predict` API via CLI or Python to making test predictions with your model.
+This wiil load your model from the model URI, create a virtual environment with the model dependencies (defined in MLflow Model),
+and run offline predictions with the model.
+Please refer to :py:func:`mlflow.models.predict` or `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the `predict` API.
+
+.. tabs::
+
+    .. code-tab:: bash
+
+        mlflow models predict -m runs:/<run_id>/model-i <input_path>
+
+    .. code-tab:: python
+
+        import mlflow
+
+        mlflow.models.predict(
+            model_uri="runs:/<run_id>/model",
+            input_data=<input_data>,
+        )
+
+Using the `predict` API is convenient for testing your model and inference environment quickly.
+However, it is not a perfect simulation of the serving because it does not start the online inference server.
+
+Testing online inference endpoint with a virtual environment
+************************************************************
+If you want to test your model with actually running the online inference server, you can use MLflow `serve` API.
+This will create a virtual environment with your model and dependencies, similarly to the `predict` API, but will start the inference server
+and expose the REST endpoints. Then you can send a test request and validate the response.
+Please refer to `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the `serve` API.
+
+.. code-block:: bash
+
+    mlflow models serve -m runs:/<run_id>/model -p <port>
+
+    # In another terminal
+    curl -X POST -H "Content-Type: application/json" \
+        --data '{"inputs": [[1, 2], [3, 4]]}' \
+        http://localhost:<port>/invocations
+
+
+While this is reliable way to test your model before deployment, one caveat is that virtual environment doesn't absorb the OS level differences
+between your machine and the production environment. For example, if you are using MacOS as a local dev machine but your deployment target is
+running on Linux, you may encounter some issues that are not reproducible in the virtual environment.
+
+In this case, you can use Docker container to test your model. While it doesn't provide full OS level isolation unlike virtual machine e.g. we
+can't run Windows container on Linux machine, Docker covers some popular test scenario such as running different versions of Linux or simulating
+Linux environment on Mac/Windows.
+
+Testing online inference endpoint with a Docker container
+*********************************************************
+MLflow `build-docker` API for CLI and Python, which builds an Ubuntu-based Docker image for serving your mdoel.
+The image will contain your model and dependencies and has an entrypoint to start the inference server. Similarly to the `serve` API,
+you can send a test request and validate the response.
+Please refer to `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the `build-docker` API.
+
+.. code-block:: bash
+
+    mlflow models build-docker -m runs:/<run_id>/model -n <image_name>
+
+    docker run -p <port>:8080 <image_name>
+
+    # In another terminal
+    curl -X POST -H "Content-Type: application/json" \
+        --data '{"inputs": [[1, 2], [3, 4]]}' \
+        http://localhost:<port>/invocations
+
+
+How to fix dependency errors when serving my model?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+One common issue during model deployment is dependency issue. When logging/saving your model, MLflow tries to infer the
+model dependencies and save them as part of the MLflow Model metadata. However, this inference is not always accurate and may
+miss some dependencies. This can cause errors when serving your model, such as "ModuleNotFoundError" or "ImportError". Here 
+is the steps to fix missing dependencies error.
+
+1. Check the missing dependencies
+*********************************
+The missing dependencies are listed in the error message. For example, if you see the following error message:
+
+.. code-block:: bash
+
+    ModuleNotFoundError: No module named 'cv2'
+
+2. Try adding the dependencies using the `mlflow models predict` API
+********************************************************************
+Now that you know the missing dependencies, you can create a new model version with the correct dependencies.
+However, creating a new model for trying new dependencies might be a bit tedious, particularly because you may need to
+iterate multiple times to find the correct solution. Instead, you can use the `predict` API to test your change without
+actually mutating the model.
+
+To do so, use the `pip-requirements-override` option to specify pip dependencies like `opencv-python==4.8.0`.
+
+.. tabs::
+
+    .. code-tab:: bash
+
+        mlflow models predict \
+            -m runs:/<run_id>/model \
+            -i <input_path> \
+            --pip-requirements-override opencv-python==4.8.0
+
+    .. code-tab:: python
+
+        import mlflow
+
+        mlflow.models.predict(
+            model_uri="runs:/<run_id>/model",
+            input_data=<input_data>,
+            pip_requirements="opencv-python==4.8.0",
+        )
+
+The specified dependencies will be installed to the virtual environment in addition to (or instead of) the dependencies
+defined in the model metadata. Since this doesn't mutate the model, you can iterate quickly and safely to find the correct dependencies.
+
+3. Update the model metadata
+****************************
+Once you find the correct dependencies, you can create a new model with the correct dependencies.
+To do so, specify `extra_pip_requirements` option when logging the model.
+
+.. code:: python
+
+    import mlflow
+
+    mlflow.pyfunc.log_model(
+        artifact_path="model",
+        python_model=python_model,
+        # If you want to define all dependencies from scratch, use `pip_requirements` option.
+        # Both options also accept a path to a pip requirements file e.g. requirements.txt.
+        extra_pip_requirements=["opencv-python==4.8.0"],
+    )
+
+.. note::
+
+    Alternatively, you can manually edit the model metadata stored in the artifact storage. For example, `<path-to-model>/requirements.txt`
+    defines pip dependencies to be installed for serving your model (or `<path-to-model>/conda.yaml` if you use conda as a package manager).
+    However, this approach is not recommended because this is error-prone and also you need to do this for every model version.
