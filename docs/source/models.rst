@@ -3147,7 +3147,7 @@ The ``MetricValue`` class has three attributes:
 
 * ``scores``: a list that contains per-row metrics.
 * ``aggregate_results``: a dictionary that maps the aggregation method names to the corresponding aggregated values. This is intended to be used to aggregate ``scores``.
-* ``justification``: a per-row justification of the values in ``scores``. This is optional, and is usually used with genai metrics.
+* ``justifications``: a list that contains per-row justifications of the values in ``scores``. This is optional, and is usually used with genai metrics.
 
 The code block below demonstrates how to define a custom metric evaluation function:
 
