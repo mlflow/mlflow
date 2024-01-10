@@ -25,7 +25,6 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
             session_token=session_token,
             addressing_style="virtual",
             s3_endpoint_url=s3_endpoint_url,
-            region_name=self._get_region_name(),
         )
 
     # Cloudflare implementation of head_bucket is not the same as AWS's, so we
@@ -41,30 +40,6 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
             s3_endpoint_url=self._s3_endpoint_url,
         )
         return temp_client.get_bucket_location(Bucket=self.bucket)["LocationConstraint"]
-
-    def _get_s3_client(self):
-        return _get_s3_client(
-            addressing_style=self._addressing_style,
-            access_key_id=self._access_key_id,
-            secret_access_key=self._secret_access_key,
-            session_token=self._session_token,
-            region_name=self._region_name,
-            s3_endpoint_url=self._s3_endpoint_url,
-        )
-
-    def parse_s3_compliant_uri(self, uri):
-        # r2 uri format(virtual): r2://<bucket-name>@<account-id>.r2.cloudflarestorage.com/<path>
-        parsed = urlparse(uri)
-        if parsed.scheme != "r2":
-            raise Exception(f"Not an R2 URI: {uri}")
-
-        host = parsed.netloc
-        path = parsed.path
-
-        bucket = host.split("@")[0]
-        if path.startswith("/"):
-            path = path[1:]
-        return bucket, path
 
     @staticmethod
     def convert_r2_uri_to_s3_endpoint_url(r2_uri):
