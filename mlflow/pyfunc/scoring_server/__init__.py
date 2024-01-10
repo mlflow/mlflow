@@ -65,7 +65,6 @@ CONTENT_TYPES = [
     CONTENT_TYPE_JSON,
 ]
 
-
 _logger = logging.getLogger(__name__)
 
 DF_RECORDS = "dataframe_records"

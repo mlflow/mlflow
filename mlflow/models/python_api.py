@@ -224,8 +224,8 @@ def _serialize_to_json(input_data):
             "sure applying the same preprocessing in your inference client. Please also refer to "
             "https://www.mlflow.org/docs/latest/deployment/deploy-model-locally.html#json-input "
             "for more details on the supported input format."
-            f"\n\nOriginal input data: {original_input_data}"
-            f"\n\nTransformed input data: {input_data}"
+            f"\n\nOriginal input data:\n{original_input_data}"
+            f"\n\nTransformed input data:\n{input_data}"
         )
         return input_data
 
