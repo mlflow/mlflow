@@ -41,6 +41,20 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
         )
         return temp_client.get_bucket_location(Bucket=self.bucket)["LocationConstraint"]
 
+    def parse_s3_compliant_uri(self, uri):
+        # r2 uri format(virtual): r2://<bucket-name>@<account-id>.r2.cloudflarestorage.com/<path>
+        parsed = urlparse(uri)
+        if parsed.scheme != "r2":
+            raise Exception(f"Not an R2 URI: {uri}")
+
+        host = parsed.netloc
+        path = parsed.path
+
+        bucket = host.split("@")[0]
+        if path.startswith("/"):
+            path = path[1:]
+        return bucket, path
+
     @staticmethod
     def convert_r2_uri_to_s3_endpoint_url(r2_uri):
         host = urlparse(r2_uri).netloc
