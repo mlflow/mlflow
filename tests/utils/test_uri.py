@@ -100,7 +100,6 @@ def test_is_local_uri():
     assert is_local_uri("file://localhost:5000/mlruns")
     assert is_local_uri("file://127.0.0.1/mlruns")
     assert is_local_uri("file://127.0.0.1:5000/mlruns")
-    assert is_local_uri("file://myhostname/path/to/file")
     assert is_local_uri("//proc/self/root")
     assert is_local_uri("/proc/self/root")
 
@@ -109,6 +108,9 @@ def test_is_local_uri():
     assert not is_local_uri("databricks")
     assert not is_local_uri("databricks:whatever")
     assert not is_local_uri("databricks://whatever")
+
+    with pytest.raises(MlflowException, match="is not a valid remote uri."):
+        is_local_uri("file://myhostname/path/to/file")
 
 
 @pytest.mark.skipif(not is_windows(), reason="Windows-only test")
