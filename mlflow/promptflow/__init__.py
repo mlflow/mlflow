@@ -55,8 +55,8 @@ FLAVOR_NAME = "promptflow"
 _MODEL_FLOW_DIRECTORY = "flow"
 _FLOW_ENV_REQUIREMENTS = "python_requirements_txt"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
-    "MLflow promptflow flavor only supports instances loaded by ~promptflow.load_flow(), "
-    "found {instance_type}."
+    "MLflow promptflow flavor only supports instance defined with 'flow.dag.yaml' file "
+    "and loaded by ~promptflow.load_flow(), found {instance_type}."
 )
 _INVALID_PREDICT_INPUT_ERROR_MESSAGE = (
     "Input must be a pandas DataFrame with only 1 row "
@@ -269,8 +269,11 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    # Flow model doesn't have 'inputs' indicate it was not loaded by load_flow
-    if not isinstance(model, Flow):
+    if (
+        not isinstance(model, Flow)
+        or not hasattr(model, "flow_dag_path")
+        or not hasattr(model, "code")
+    ):
         raise mlflow.MlflowException.invalid_parameter_value(
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
         )
