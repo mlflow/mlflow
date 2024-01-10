@@ -258,9 +258,11 @@ compatibility.
 """
         ),
         "prompt_template": (
-            """A template string that, if provided, will be used to wrap the user's input.
-The template string should contain a single placeholder, `{prompt}`, which will be replaced with
-the user's input. Currently, only the following task types are supported:
+            """A string that, if provided, will be used to format the user's input prior
+to inference. The string should contain a single placeholder, ``{prompt}``, which will be
+replaced with the user's input. For example: ``"Answer the following question. Q: {prompt} A:"``.
+
+Currently, only the following pipeline types are supported:
 
 - `feature-extraction <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline>`_
 - `fill-mask <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FillMaskPipeline>`_
