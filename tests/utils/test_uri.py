@@ -702,7 +702,7 @@ def test_resolve_uri_if_local(input_uri, expected_uri):
     [
         ("my/path", "file://{cwd}/my/path"),
         ("#my/path?a=b", "file://{cwd}/#my/path?a=b"),
-        ("\\myhostname/my/path", "\\myhostname/my/path"),
+        ("\\myhostname/my/path", "file:///{drive}myhostname/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
         ("/home/my/path", "file:///{drive}home/my/path"),
