@@ -249,7 +249,7 @@ Testing offline prediction with a virtual environment
 You can use MLflow **predict** API via CLI or Python to make test predictions with your model.
 This will load your model from the model URI, create a virtual environment with the model dependencies (defined in MLflow Model),
 and run offline predictions with the model.
-Please refer to TBA or `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the `predict` API.
+Please refer to :py:func:`mlflow.models.predict` or `CLI reference <../cli.html#mlflow-models>`_ for more detailed usage for the predict API.
 
 .. tabs::
 
@@ -309,6 +309,7 @@ Please refer to `CLI reference <../cli.html#mlflow-models>`_ for more detailed u
         http://localhost:<port>/invocations
 
 
+.. _model-dependencies-troubleshooting:
 
 Troubleshooting
 ---------------
