@@ -43,7 +43,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _CustomArtifact,
     _CustomMetric,
     _evaluate_custom_artifacts,
-    _evaluate_extra_metric,
+    _evaluate_metric,
     _extract_output_and_other_columns,
     _extract_predict_fn,
     _extract_raw_model,
@@ -1333,7 +1333,7 @@ def test_gen_multiclass_roc_curve_with_sample_weights():
     np.testing.assert_allclose(results.auc, expected_auc, rtol=1e-3)
 
 
-def test_evaluate_extra_metric_backwards_compatible():
+def test_evaluate_metric_backwards_compatible():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     builtin_metrics = _get_regressor_metrics(
         eval_df["target"], eval_df["prediction"], sample_weights=None
@@ -1344,7 +1344,7 @@ def test_evaluate_extra_metric_backwards_compatible():
         return builtin_metrics["mean_absolute_error"] * 1.5
 
     eval_fn_args = [eval_df, builtin_metrics]
-    res_metric = _evaluate_extra_metric(_CustomMetric(old_fn, "old_fn", 0), eval_fn_args)
+    res_metric = _evaluate_metric(_CustomMetric(old_fn, "old_fn", 0), eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["old_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
@@ -1354,7 +1354,7 @@ def test_evaluate_extra_metric_backwards_compatible():
     def new_fn(predictions, targets=None, metrics=None):
         return metrics["mean_absolute_error"].aggregate_results["mean_absolute_error"] * 1.5
 
-    res_metric = _evaluate_extra_metric(_CustomMetric(new_fn, "new_fn", 0), new_eval_fn_args)
+    res_metric = _evaluate_metric(_CustomMetric(new_fn, "new_fn", 0), new_eval_fn_args)
     assert res_metric.scores is None
     assert res_metric.justifications is None
     assert res_metric.aggregate_results["new_fn"] == builtin_metrics["mean_absolute_error"] * 1.5
@@ -1371,7 +1371,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         pass
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(_CustomMetric(dummy_fn, "dummy_fn", 0), eval_fn_args)
+        _evaluate_metric(_CustomMetric(dummy_fn, "dummy_fn", 0), eval_fn_args)
         mock_warning.assert_called_once_with(
             "Did not log metric 'dummy_fn' at index 0 in the `extra_metrics` parameter"
             " because it returned None."
@@ -1381,7 +1381,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return ["stuff"], 3
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
+        _evaluate_metric(
             _CustomMetric(incorrect_return_type, incorrect_return_type.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
@@ -1393,9 +1393,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(scores=5)
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
-            _CustomMetric(non_list_scores, non_list_scores.__name__, 0), eval_fn_args
-        )
+        _evaluate_metric(_CustomMetric(non_list_scores, non_list_scores.__name__, 0), eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_scores.__name__}' at index 0 in the "
             "`extra_metrics` parameter because it must return MetricValue with scores as a list."
@@ -1405,7 +1403,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(scores=[{"val": "string"}])
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
+        _evaluate_metric(
             _CustomMetric(non_numeric_scores, non_numeric_scores.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
@@ -1417,7 +1415,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(justifications="string")
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
+        _evaluate_metric(
             _CustomMetric(non_list_justifications, non_list_justifications.__name__, 0),
             eval_fn_args,
         )
@@ -1431,7 +1429,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(justifications=[3, 4])
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
+        _evaluate_metric(
             _CustomMetric(non_str_justifications, non_str_justifications.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
@@ -1444,7 +1442,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(aggregate_results=[5.0, 4.0])
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
+        _evaluate_metric(
             _CustomMetric(non_dict_aggregates, non_dict_aggregates.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
@@ -1457,7 +1455,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(
+        _evaluate_metric(
             _CustomMetric(wrong_type_aggregates, wrong_type_aggregates.__name__, 0), eval_fn_args
         )
         mock_warning.assert_called_once_with(
@@ -1492,7 +1490,7 @@ def test_evaluate_custom_metric_lambda(fn):
     metrics = _get_aggregate_metrics_values(builtin_metrics)
     eval_fn_args = [eval_df, metrics]
     with mock.patch("mlflow.models.evaluation.default_evaluator._logger.warning") as mock_warning:
-        _evaluate_extra_metric(_CustomMetric(fn, "<lambda>", 0), eval_fn_args)
+        _evaluate_metric(_CustomMetric(fn, "<lambda>", 0), eval_fn_args)
         mock_warning.assert_not_called()
 
 
@@ -1515,9 +1513,7 @@ def test_evaluate_custom_metric_success():
         )
 
     eval_fn_args = [eval_df["prediction"], None, _get_aggregate_metrics_values(builtin_metrics)]
-    res_metric = _evaluate_extra_metric(
-        _CustomMetric(example_count_times_1_point_5, "", 0), eval_fn_args
-    )
+    res_metric = _evaluate_metric(_CustomMetric(example_count_times_1_point_5, "", 0), eval_fn_args)
     assert (
         res_metric.aggregate_results["example_count_times_1_point_5"]
         == builtin_metrics["example_count"] * 1.5

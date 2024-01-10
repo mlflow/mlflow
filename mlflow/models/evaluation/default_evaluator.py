@@ -565,7 +565,7 @@ def _is_string(value):
     return isinstance(value, str)
 
 
-def _evaluate_extra_metric(extra_metric_tuple, eval_fn_args):
+def _evaluate_metric(extra_metric_tuple, eval_fn_args):
     """
     This function calls the `extra_metric` function and performs validations on the returned
     result to ensure that they are in the expected format. It will warn and will not log metrics
@@ -1182,6 +1182,7 @@ class DefaultEvaluator(ModelEvaluator):
         if len(parameters) == 2:
             param_0_name, param_1_name = parameters.keys()
         if len(parameters) == 2 and param_0_name != "predictions" and param_1_name != "targets":
+            self._update_aggregate_metrics()
             eval_fn_args.append(eval_df_copy)
             eval_fn_args.append(copy.deepcopy(self.aggregate_metrics))
         # eval_fn can have parameters like (predictions, targets, metrics, random_col)
@@ -1240,24 +1241,6 @@ class DefaultEvaluator(ModelEvaluator):
         if len(params_not_found) > 0:
             return extra_metric.name, params_not_found
         return eval_fn_args
-
-    def _evaluate_extra_metrics(self, eval_df):
-        for index, extra_metric in enumerate(self.extra_metrics):
-            eval_fn_args = self._get_args_for_metrics(extra_metric, eval_df)
-            _logger.info(f"Evaluating metrics: {extra_metric.name}")
-            extra_metric_tuple = _CustomMetric(
-                function=extra_metric.eval_fn,
-                index=index,
-                name=extra_metric.name,
-            )
-            metric_value = _evaluate_extra_metric(extra_metric_tuple, eval_fn_args)
-            if metric_value:
-                name = (
-                    f"{extra_metric.name}/{extra_metric.version}"
-                    if extra_metric.version
-                    else extra_metric.name
-                )
-                self.metrics_values.update({name: metric_value})
 
     def _log_custom_artifacts(self, eval_df):
         if not self.custom_artifacts:
@@ -1539,7 +1522,7 @@ class DefaultEvaluator(ModelEvaluator):
         _logger.info("Testing metrics on first row...")
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
-        for metric in self.builtin_metrics:
+        for metric in self.ordered_metrics:
             try:
                 eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
                 metric_value = metric.eval_fn(*eval_fn_args)
@@ -1556,46 +1539,27 @@ class DefaultEvaluator(ModelEvaluator):
                     )
                 else:
                     exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
-        self._update_aggregate_metrics()
-        for metric in self.extra_metrics:
-            try:
-                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
-                metric.eval_fn(*eval_fn_args)
-            except Exception as e:
-                stacktrace_str = traceback.format_exc()
-                if isinstance(e, MlflowException):
-                    exceptions.append(
-                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
-                    )
-                else:
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
 
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
 
     def _evaluate_metrics(self, eval_df):
-        self._check_args(self.builtin_metrics + self.extra_metrics, eval_df)
+        self.ordered_metrics.extend(self.extra_metrics)
+        self._check_args(self.ordered_metrics, eval_df)
         self._test_first_row(eval_df)
 
         # calculate metrics for the full eval_df
-        self._evaluate_builtin_metrics(eval_df)
-        self._update_aggregate_metrics()
-        self._evaluate_extra_metrics(eval_df)
-
-
-    def _evaluate_builtin_metrics(self, eval_df):
-        for builtin_metric in self.builtin_metrics:
-            _logger.info(f"Evaluating builtin metrics: {builtin_metric.name}")
-
-            eval_fn_args = self._get_args_for_metrics(builtin_metric, eval_df)
-            metric_value = builtin_metric.eval_fn(*eval_fn_args)
+        for index, metric in enumerate(self.ordered_metrics):
+            eval_fn_args = self._get_args_for_metrics(metric, eval_df)
+            metric_tuple = _CustomMetric(
+                function=metric.eval_fn,
+                index=index,
+                name=metric.name,
+            )
+            metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
 
             if metric_value:
-                name = (
-                    f"{builtin_metric.name}/{builtin_metric.version}"
-                    if builtin_metric.version
-                    else builtin_metric.name
-                )
+                name = f"{metric.name}/{metric.version}" if metric.version else metric.name
                 self.metrics_values.update({name: metric_value})
 
     def _log_artifacts(self):
