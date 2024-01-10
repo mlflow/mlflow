@@ -8,6 +8,7 @@ from packaging.version import Version
 from pydantic.v1.config import Extra
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
@@ -43,6 +44,28 @@ def _get_input_data_from_invoke(model, args, kwargs):
     )
 
 
+def _combine_input_and_output(input, output):
+    """
+    Combine input and output into a single dictionary
+    """
+    if input is None:
+        if isinstance(output, dict):
+            return output
+        return {"output": output if isinstance(output, list) else [output]}
+    if isinstance(input, (str, dict)):
+        return {"input": [input], "output": [output]}
+    if isinstance(input, list) and (
+        all(isinstance(x, str) for x in input) or all(isinstance(x, dict) for x in input)
+    ):
+        if not isinstance(output, list) or len(output) != len(input):
+            raise MlflowException(
+                "Failed to combine input and output data with different lengths "
+                "into a single pandas DataFrame. "
+            )
+        return {"input": input, "output": output}
+    raise MlflowException("Unsupported input type.")
+
+
 def patched_invoke(original, self, *args, **kwargs):
     """
     A patched implementation of langchain runnables `invoke` which enables logging the
@@ -65,9 +88,6 @@ def patched_invoke(original, self, *args, **kwargs):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
-        # def flush_tracker(self, langchain_asset: Any = None, finish: bool = False) -> None:
-        #     return super().flush_tracker(langchain_asset, finish)
-
     if not MIN_REQ_VERSION <= _lc_version <= MAX_REQ_VERSION:
         warnings.warn(
             "Autologging is known to be compatible with langchain versions between "
@@ -78,8 +98,11 @@ def patched_invoke(original, self, *args, **kwargs):
     config = kwargs.get("config", None)
     run_id = self.run_id if hasattr(self, "run_id") else None
     if active_run := mlflow.active_run():
-        run_id = active_run.info.run_id
+        if run_id is None:
+            run_id = active_run.info.run_id
         # mlflow callback internally starts the run, so we end it here
+        # If run_id is not None, we would resume the previous run
+        # attached with the model and end current active run.
         mlflow.end_run()
     # TODO: test adding callbacks works
     mlflow_callback = _MLflowLangchainCallback(
@@ -106,6 +129,7 @@ def patched_invoke(original, self, *args, **kwargs):
     log_model_signatures = get_autologging_config(
         mlflow.langchain.FLAVOR_NAME, "log_model_signatures", False
     )
+    input_example = None
     if log_models and not hasattr(self, "model_logged"):
         if log_input_examples:
             input_example = deepcopy(_get_input_data_from_invoke(self, args, kwargs))
@@ -115,8 +139,6 @@ def patched_invoke(original, self, *args, **kwargs):
                     "input_example is provided. To disable log_model_signatures, "
                     "please also disable log_input_examples."
                 )
-        else:
-            input_example = None
 
         registered_model_name = get_autologging_config(
             mlflow.langchain.FLAVOR_NAME, "registered_model_name", None
@@ -135,11 +157,25 @@ def patched_invoke(original, self, *args, **kwargs):
         if hasattr(self, "__config__"):
             self.__config__.extra = Extra.allow
         self.model_logged = True
-        self.run_id = mlflow_callback.mlflg.run.info.run_id
 
-    # with mlflow.start_run(
-    #     run_id=mlflow_callback.mlflg.run.info.run_id
-    # ):
-    #     result = original(self, *args, **kwargs)
+    # Even if the model is not logged, we keep a single
+    # run per model
+    if hasattr(self, "__config__"):
+        self.__config__.extra = Extra.allow
+    self.run_id = mlflow_callback.mlflg.run.info.run_id
+
+    log_inference_history = get_autologging_config(
+        mlflow.langchain.FLAVOR_NAME, "log_inference_history", False
+    )
+    if log_inference_history:
+        if input_example is None:
+            input_data = deepcopy(_get_input_data_from_invoke(self, args, kwargs))
+            if input_data is None:
+                _logger.warning("Input data gathering failed, only log inference results.")
+        else:
+            input_data = input_example
+        data_dict = _combine_input_and_output(input_data, result)
+        with mlflow.start_run(run_id=mlflow_callback.mlflg.run.info.run_id):
+            mlflow.log_table(data_dict, "inference_history.json")
 
     return result

@@ -1585,7 +1585,13 @@ class MlflowClient:
                 "data must be a pandas.DataFrame or a dictionary"
             )
 
-        data = pd.DataFrame(data)
+        if isinstance(data, dict):
+            try:
+                data = pd.DataFrame(data)
+            # catch error `If using all scalar values, you must pass an index`
+            # for data like {"inputs": "What is MLflow?"}
+            except ValueError:
+                data = pd.DataFrame([data])
         norm_path = posixpath.normpath(artifact_file)
         artifact_dir = posixpath.dirname(norm_path)
         artifact_dir = None if artifact_dir == "" else artifact_dir

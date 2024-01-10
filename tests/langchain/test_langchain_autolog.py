@@ -19,36 +19,48 @@ from mlflow.utils.openai_utils import (
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
-MLFLOW_CALLBACK_METRICS = [
-    "step",
-    "starts",
-    "ends",
-    "errors",
-    "text_ctr",
-    "chain_starts",
-    "chain_ends",
-    "llm_starts",
-    "llm_ends",
-    "llm_streams",
-    "tool_starts",
-    "tool_ends",
-    "agent_ends",
-    "flesch_reading_ease",
-    "flesch_kincaid_grade",
-    "smog_index",
-    "coleman_liau_index",
-    "automated_readability_index",
-    "dale_chall_readability_score",
-    "difficult_words",
-    "linsear_write_formula",
-    "gunning_fog",
-    "fernandez_huerta",
-    "szigriszt_pazos",
-    "gutierrez_polini",
-    "crawford",
-    "gulpease_index",
-    "osman",
-]
+try:
+    from langchain_community.callbacks.mlflow_callback import (
+        get_text_complexity_metrics,
+        mlflow_callback_metrics,
+    )
+
+    MLFLOW_CALLBACK_METRICS = mlflow_callback_metrics()
+    TEXT_COMPLEXITY_METRICS = get_text_complexity_metrics()
+# TODO: remove this when langchain_community change is merged
+except ImportError:
+    MLFLOW_CALLBACK_METRICS = [
+        "step",
+        "starts",
+        "ends",
+        "errors",
+        "text_ctr",
+        "chain_starts",
+        "chain_ends",
+        "llm_starts",
+        "llm_ends",
+        "llm_streams",
+        "tool_starts",
+        "tool_ends",
+        "agent_ends",
+    ]
+    TEXT_COMPLEXITY_METRICS = [
+        "flesch_reading_ease",
+        "flesch_kincaid_grade",
+        "smog_index",
+        "coleman_liau_index",
+        "automated_readability_index",
+        "dale_chall_readability_score",
+        "difficult_words",
+        "linsear_write_formula",
+        "gunning_fog",
+        "fernandez_huerta",
+        "szigriszt_pazos",
+        "gutierrez_polini",
+        "crawford",
+        "gulpease_index",
+        "osman",
+    ]
 
 
 def get_mlflow_callback_artifacts(
@@ -135,7 +147,7 @@ def test_llmchain_autolog_metrics():
             run_id = run.info.run_id
         client = MlflowClient()
         metrics = client.get_run(run_id).data.metrics
-        for metric_key in MLFLOW_CALLBACK_METRICS:
+        for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
             assert metric_key in metrics
     assert mlflow.active_run() is None
 
@@ -182,6 +194,28 @@ def test_loaded_llmchain_autolog():
 
             signature = mlflow_model.signature
             assert signature == infer_signature(question, [TEST_CONTENT])
+
+
+def test_llmchain_autolog_log_inference_history(tmp_path):
+    mlflow.langchain.autolog(log_inference_history=True)
+    question = {"product": "MLflow"}
+    answer = {"product": "MLflow", "text": TEST_CONTENT}
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        with mlflow.start_run() as run:
+            model.invoke(question)
+        loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+        loaded_dict = loaded_table.to_dict("records")
+        assert loaded_dict == [{"input": question, "output": answer}]
+
+        # with or without a new run wrapper, the inference history is appended
+        # to the same table stored in last run
+        with mlflow.start_run():
+            model.invoke(question)
+        model.invoke(question)
+        loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+        loaded_dict = loaded_table.to_dict("records")
+        assert loaded_dict == [{"input": question, "output": answer}] * 3
 
 
 # def test_runnable_sequence_autolog_model():
