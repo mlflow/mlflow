@@ -191,6 +191,7 @@ To do so, specify **code_path** when logging the model. For example, if you have
             # .. your prediction logic
             return prediction
 
+
     # Log the model
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
@@ -233,14 +234,18 @@ Then the following model code does **not** work:
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             from src.utils import my_func
+
             # .. your prediction logic
             return prediction
+
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="model",
-            code_paths=["src/utils.py"],  # the file will be saved at code/utils.py not code/src/utils.py
+            code_paths=[
+                "src/utils.py"
+            ],  # the file will be saved at code/utils.py not code/src/utils.py
         )
 
     # => Model serving will fail with ModuleNotFoundError: No module named 'src'
@@ -258,8 +263,10 @@ This way, MLflow will copy the entire ``src/`` directory under ``code/`` and you
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             from src.utils import my_func
+
             # .. your prediction logic
             return prediction
+
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
