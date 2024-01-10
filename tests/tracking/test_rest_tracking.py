@@ -1389,8 +1389,8 @@ def test_create_model_version_with_file_uri(mlflow_client):
             "run_id": run.info.run_id,
         },
     )
-    assert response.status_code == 400
-    assert "To use a local path as a model version" in response.json()["message"]
+    assert response.status_code == 500, response.json()
+    assert "is not a valid remote uri" in response.json()["message"]
 
 
 def test_logging_model_with_local_artifact_uri(mlflow_client):
