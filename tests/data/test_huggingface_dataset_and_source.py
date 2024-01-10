@@ -71,7 +71,7 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
 
 def test_from_huggingface_dataset_constructs_expected_dataset_with_data_files():
     data_files = {"validation": "en/c4-validation.00001-of-00008.json.gz"}
-    ds = datasets.load_dataset("allenai/c4", data_files=data_files, split="validation")
+    ds = datasets.load_dataset("allenai/c4", "en", data_files=data_files, split="validation")
     mlflow_ds = mlflow.data.from_huggingface(ds, path="allenai/c4", data_files=data_files)
 
     assert isinstance(mlflow_ds, HuggingFaceDataset)
