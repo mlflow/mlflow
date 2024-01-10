@@ -2,8 +2,8 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import tempfile
-from collections import Counter
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
@@ -526,25 +526,6 @@ def _process_pip_requirements(
     return conda_env, sanitized_pip_reqs, constraints
 
 
-def _find_duplicate_requirements(requirements):
-    """
-    Checks if duplicate base package requirements are specified in any list of requirements
-    and returns the list of duplicate base package names.
-    Note that git urls and paths to local files are not being considered for duplication checking.
-    """
-    base_package_names = []
-
-    for package in requirements:
-        try:
-            base_package_names.append(Requirement(package).name)
-        except InvalidRequirement:
-            # Skip anything that's not a valid package requirement
-            continue
-
-    package_counts = Counter(base_package_names)
-    return [package for package, count in package_counts.items() if count > 1]
-
-
 def _deduplicate_requirements(requirements):
     """
     De-duplicates a list of pip package requirements, handling complex scenarios such as merging
@@ -662,7 +643,7 @@ def _validate_version_constraints(requirements):
 
     try:
         subprocess.run(
-            ["pip", "install", "--dry-run", "-r", tmp_file_name],
+            [sys.executable, "-m", "pip", "install", "--dry-run", "-r", tmp_file_name],
             check=True,
             capture_output=True,
         )
