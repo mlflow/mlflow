@@ -169,7 +169,6 @@ Saving Extra Code with MLflow Model
 -----------------------------------
 MLflow also supports saving your custom Python code as dependencies to the model. This is particularly useful
 when you want to deploy your custom modules required for prediction with the model.
-
 To do so, specify **code_path** when logging the model. For example, if you have the following file structure in your project:
 
 ::
@@ -192,13 +191,10 @@ To do so, specify **code_path** when logging the model. For example, if you have
             # .. your prediction logic
             return prediction
 
-
-    model = MyModel()
-
     # Log the model
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(
-            python_model=model,
+            python_model=MyModel(),
             artifact_path="model",
             code_paths=["utils.py"],
         )
@@ -213,26 +209,70 @@ Then MLflow will save ``utils.py`` under ``code/`` directory in the model direct
     └── code/
         └── utils.py
 
-When MLflow loads the model for serving, the ``code`` directory will be added to the system path so that you can use the module in your prediction logic.
-You can also specify a directory path as ``code_path`` to save multiple files under the directory:
+When MLflow loads the model for serving, the ``code`` directory will be added to the system path so that you can use the module in your model
+code like ``from utils import my_func``. You can also specify a directory path as ``code_path`` to save multiple files under the directory:
+
+Caveats of ``code_path`` Option
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When using the ``code_path`` option, please be aware of the limitation that the specified file or directory **must be in the same directory as your model script**.
+If the specified file or direcotry is in a parent or child directory like ``my_project/src/utils.py``, model serving will fail with ``ModuleNotFoundError``.
+For example, let's say if you have the following file structure in your project
+
+::
+
+    my_project/
+    |── train.py
+    └── src/
+        └──  utils.py
+
+Then the following model code does **not** work:
+
+.. code-block:: python
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            from src.utils import my_func
+            # .. your prediction logic
+            return prediction
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            python_model=MyModel(),
+            artifact_path="model",
+            code_paths=["src/utils.py"],  # the file will be saved at code/utils.py not code/src/utils.py
+        )
+
+    # => Model serving will fail with ModuleNotFoundError: No module named 'src'
+
+This limitation is due to how MLflow saves and loads the specified files/directories. When it copies the specified files or directries in ``code/`` target,
+it does **not** preserve the relative path for them. For instance, in the above example, MLflow will copy ``utils.py`` to ``code/utils.py``, not
+``code/src/utils.py``. As a result, it has to be imported as ``from utils import my_func``, instead of ``from src.utils import my_func``.
+However, this may not be pleasant as the import path is different from the original training script.
+
+One workaround for this issue is to use the parent directory instead, which means doing ``code_path=["src"]`` in this example.
+This way, MLflow will copy the entire ``src/`` directory under ``code/`` and your model code will be able to import ``src.utils``.
+
+.. code-block:: python
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            from src.utils import my_func
+            # .. your prediction logic
+            return prediction
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            python_model=model,
+            artifact_path="model",
+            code_paths=["src"],  # the whole /src directory will be saved at code/src
+        )
+
+    # => This will work
 
 .. warning::
 
-    When using the ``code_path`` parameter, please be aware of the limitation that the file or directory specified by ``code_path`` **must be in the same directory as your model script**. For example, in the above example, 
-    ``utils.py`` must be in ``my_project/`` directory, not any parent or child directories like ``my_project/src/utils.py``.
-    This limitation is because MLflow copies the specified files/directories without preserving the directory structure. If you specify
-    ``code_path=["src/utils.py"]``, only the ``utils.py`` file will be copied directly under ``code/``, not the parent directory. However, your model
-    code will try to import it with ``src.utils`` and will fail.
-
-    To work around this, you have to specify the entire directory path as ``code_path=["src"]``. This way, MLflow will copy the entire ``src/`` directory
-    under ``code/`` and your model code will be able to import ``src.utils``. Also note that the module will be loaded via the system path, so it doesn't handle the relative import like ``code_path=["../src"]``.
-
-
-.. note::
-
-    Once you log the model with custom Python code, it is advisable to test prediction in a sandbox environment using MLflow predict API,
-    to avoid any dependency issues when deploying the model to production.
-    Please refer to :ref:`Validating Environment for Prediction <validating-environment-for-prediction>` for more details.
+    By the same reason, ``code_path`` option doesn't handle the relative import like ``code_path=["../src"]``.
 
 
 .. _validating-environment-for-prediction:
