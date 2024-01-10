@@ -305,7 +305,7 @@ def _validate_prompt_template(prompt_template):
     if len(format_args) != 1 or format_args[0] != "prompt":
         raise MlflowException(
             "Argument `prompt_template` should be a string with a single format arg, 'prompt'. "
-            "For example: 'Answer the following question in a friendly tone: {prompt}.'\n"
+            "For example: 'Answer the following question in a friendly tone. Q: {prompt}. A:'\n"
             f"Received {prompt_template}. ",
             INVALID_PARAMETER_VALUE,
         )

@@ -66,6 +66,8 @@ def saved_transformers_model_path(tmp_path_factory, small_text_generation_model)
         "{multiple} {placeholders}",
         "No placeholders",
         "Placeholder {that} isn't `prompt`",
+        "Placeholder without a {} name",
+        "Placeholder with {prompt} and {} empty",
         1001,  # not a string
     ],
 )
