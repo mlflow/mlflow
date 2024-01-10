@@ -7,10 +7,10 @@ def get_method_type(method_descriptor):
     return method_descriptor.GetOptions().Extensions[databricks_pb2.rpc].endpoints[0].method
 
 
-"""
-Given a method descriptor, add information being referenced into the GenerateSchemaState.
-"""
 def process_method(method_descriptor, state):
+    """
+    Given a method descriptor, add information being referenced into the GenerateSchemaState.
+    """
     if not method_descriptor.GetOptions().HasExtension(databricks_pb2.graphql):
         return
     rpcOptions = method_descriptor.GetOptions().Extensions[databricks_pb2.rpc]
@@ -30,11 +30,11 @@ def process_method(method_descriptor, state):
         populate_message_types(method_descriptor.output_type, state, False, set([]))
 
 
-"""
-Given a field descriptor, recursively walk through the referenced message types and add
-information being referenced into the GenerateSchemaState.
-"""
 def populate_message_types(field_descriptor, state, is_input, visited):
+    """
+    Given a field descriptor, recursively walk through the referenced message types and add
+    information being referenced into the GenerateSchemaState.
+    """
     if field_descriptor in visited:
         # Break the loop for recursive types.
         return

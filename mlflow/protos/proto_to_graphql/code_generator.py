@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 from mlflow.protos import service_pb2
 from parsing_utils import process_method
@@ -20,8 +19,6 @@ class GenerateSchemaState:
         self.enums = set([])  # enum_descriptor
         self.outputs = set([])  # field_descriptor
         self.method_names = set([])  # package_name_method_name
-        self.queries = set([])  # method_descriptor
-        self.mutations = set([])  # method_descriptor
 
 
 # Entry point for generating the GraphQL schema.
