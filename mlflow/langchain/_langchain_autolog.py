@@ -85,8 +85,10 @@ def patched_invoke(original, self, *args, **kwargs):
     - model parameters
     - invoke data
     """
-    from langchain.callbacks import MlflowCallbackHandler
     from langchain.schema.runnable.config import RunnableConfig
+
+    # import from langchain_community for test purpose
+    from langchain_community.callbacks import MlflowCallbackHandler
 
     class _MLflowLangchainCallback(MlflowCallbackHandler, metaclass=ExceptionSafeAbstractClass):
         """
