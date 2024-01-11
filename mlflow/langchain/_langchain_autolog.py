@@ -6,7 +6,7 @@ from copy import deepcopy
 
 import langchain
 from packaging.version import Version
-from pydantic.v1.config import Extra
+from pydantic.config import Extra
 
 import mlflow
 from mlflow.exceptions import MlflowException
