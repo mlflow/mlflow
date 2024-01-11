@@ -134,8 +134,8 @@ In this brief tutorial, you'll learn how to leverage MLflow's autologging featur
 Run Comparison Basics
 ^^^^^^^^^^^^^^^^^^^^^
 
-This quickstart tutorial focuses on the MLflow UI's run comparison feature, provides a brief overview of `MLflow Projects <../projects.html>`_, 
-and shows how to register a model. After locally serving the registered model, a brief example of preparing a model for remote `deployment <../deployment/index.html>`_ 
+This quickstart tutorial focuses on the MLflow UI's run comparison feature and provides a step-by-step walkthrough of registering the best model found from a 
+hyperparameter tuning execution. After locally serving the registered model, a brief example of preparing a model for remote `deployment <../deployment/index.html>`_ 
 by containerizing the model using Docker is covered. 
 
 .. figure:: ../_static/images/tutorials/introductory/intro-run-comparison.png
@@ -169,7 +169,7 @@ by containerizing the model using Docker is covered.
 Tracking Server Quickstart
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This quickstart tutorial walks through different types of MLflow Tracking Servers and how to use them to log 
+This quickstart tutorial walks through different types of `MLflow Tracking Servers <../tracking/server.html>`_ and how to use them to log 
 your MLflow experiments.
 
 .. raw:: html
