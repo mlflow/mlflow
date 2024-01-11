@@ -615,7 +615,7 @@ def _evaluate_metric(extra_metric_tuple, eval_fn_args):
                 f"{exception_header} must return MetricValue with justifications as a list."
             )
             return
-        if any(not (isinstance(jus, str) or jus is None) for jus in justifications):
+        if any(not (_is_string(jus) or jus is None) for jus in justifications):
             _logger.warning(
                 f"{exception_header} must return MetricValue with string justifications."
             )
@@ -1232,11 +1232,12 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(self.evaluator_config.get(column))
 
                     # case where this is the name of another metric
-                    elif column in self.ordered_metrics:
-                        if column in self.metrics_values:
-                            eval_fn_args.append(self.metrics_values[column])
-                        else:
-                            eval_fn_args.append(None)
+                    elif column in self.metrics_values:
+                        eval_fn_args.append(self.metrics_values[column])
+
+                    # only for checking dependencies
+                    elif column in [metric_tuple.name for metric_tuple in self.ordered_metrics]:
+                        eval_fn_args.append(None)
 
                     elif param.default == inspect.Parameter.empty:
                         params_not_found.append(param_name)
@@ -1546,8 +1547,7 @@ class DefaultEvaluator(ModelEvaluator):
         for metric_tuple in self.ordered_metrics:
             try:
                 eval_fn_args = self._get_args_for_metrics(metric_tuple, first_row_df)
-                metric_value = metric_tuple.function(*eval_fn_args)
-
+                metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
                 # need to update metrics because they might be used in calculating extra_metrics
                 if metric_value:
                     name = (
