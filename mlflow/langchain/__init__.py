@@ -11,19 +11,21 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
+import contextlib
+import functools
 import logging
 import os
 from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import yaml
-from pydantic.config import Extra
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.langchain._langchain_autolog import (
-    patched_invoke,
+    _update_langchain_model_config,
+    patched_inference,
 )
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
@@ -33,6 +35,7 @@ from mlflow.langchain.utils import (
     _load_base_lcs,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
+    base_lc_types,
     lc_runnables_types,
     supported_lc_types,
 )
@@ -464,10 +467,9 @@ def _load_model(local_model_path, flavor_conf):
     # To avoid double logging, we set model_logged to True
     # when the model is loaded
     if not autologging_is_disabled(FLAVOR_NAME):
-        if hasattr(model, "__config__"):
-            model.__config__.extra = Extra.allow
-        model.model_logged = True
-        model.run_id = get_model_info(local_model_path).run_id
+        if _update_langchain_model_config(model):
+            model.model_logged = True
+            model.run_id = get_model_info(local_model_path).run_id
     return model
 
 
@@ -678,4 +680,13 @@ def autolog(
 
     classes = supported_lc_types()
     for clazz in classes:
-        safe_patch(FLAVOR_NAME, clazz, "invoke", patched_invoke, manage_run=False)
+        safe_patch(FLAVOR_NAME, clazz, "invoke", functools.partial(patched_inference, "invoke"))
+
+    with contextlib.suppress(ImportError):
+        from langchain.agents.agent import AgentExecutor
+        from langchain.chains.base import Chain
+
+        for clazz in [AgentExecutor, Chain]:
+            safe_patch(
+                FLAVOR_NAME, clazz, "__call__", functools.partial(patched_inference, "__call__")
+            )
