@@ -1,5 +1,11 @@
-from autogeneration_utils import INDENT, INDENT2, SCHEMA_EXTENSION, get_method_name, get_descriptor_full_pascal_name, \
-    method_descriptor_to_generated_pb2_file_name
+from autogeneration_utils import (
+    INDENT,
+    INDENT2,
+    SCHEMA_EXTENSION,
+    get_method_name,
+    get_descriptor_full_pascal_name,
+    method_descriptor_to_generated_pb2_file_name,
+)
 from string_utils import snake_to_pascal, camel_to_snake
 from google.protobuf.descriptor import FieldDescriptor
 
@@ -22,7 +28,7 @@ PROTO_TO_GRAPHENE_TYPE = {
     FieldDescriptor.TYPE_FIXED64: "LongString",
     FieldDescriptor.TYPE_SFIXED32: "graphene.Int",
     FieldDescriptor.TYPE_SFIXED64: "LongString",
-    FieldDescriptor.TYPE_ENUM: "graphene.Enum"
+    FieldDescriptor.TYPE_ENUM: "graphene.Enum",
 }
 
 """
@@ -32,6 +38,8 @@ For example
     class AutogenExtension(OriginalAutogen)
 would give us {"OriginalAutogen": "AutogenExtension"}
 """
+
+
 class ClassInheritanceVisitor(ast.NodeVisitor):
     def __init__(self):
         self.inheritance_map = {}
@@ -40,13 +48,16 @@ class ClassInheritanceVisitor(ast.NodeVisitor):
         for base in node.bases:
             if isinstance(base, ast.Name):  # Direct superclass
                 if base.id in self.inheritance_map:
-                    raise Exception(f"{base.id} is being extended more than once in {SCHEMA_EXTENSION}. " +
-                                    f"A GraphQL schema class should not be extended more than once.")
+                    raise Exception(
+                        f"{base.id} is being extended more than once in {SCHEMA_EXTENSION}. "
+                        + f"A GraphQL schema class should not be extended more than once."
+                    )
                 self.inheritance_map[base.id] = node.name
         self.generic_visit(node)
 
+
 def get_manual_extensions():
-    with open(SCHEMA_EXTENSION, 'r') as file:
+    with open(SCHEMA_EXTENSION, "r") as file:
         file_content = file.read()
 
     parsed_content = ast.parse(file_content)
@@ -55,12 +66,15 @@ def get_manual_extensions():
 
     return visitor.inheritance_map
 
+
 # The resulting map
 EXTENDED_TO_EXTENDING = get_manual_extensions()
 
 """
 Given the GenerateSchemaState, generate the whole schema with Graphene.
 """
+
+
 def generate_schema(state):
     schema_builder = ""
     schema_builder += "import graphene\n"
@@ -123,6 +137,7 @@ def generate_schema(state):
 
     return schema_builder
 
+
 def apply_schema_extension(referenced_class_name):
     if referenced_class_name in EXTENDED_TO_EXTENDING:
         return f"graphql_schema_extensions.{EXTENDED_TO_EXTENDING[referenced_class_name]}"
@@ -132,17 +147,23 @@ def apply_schema_extension(referenced_class_name):
 
 def get_graphene_type_for_field(field, is_input):
     if field.type == FieldDescriptor.TYPE_ENUM:
-        referenced_class_name = apply_schema_extension(get_descriptor_full_pascal_name(field.enum_type))
+        referenced_class_name = apply_schema_extension(
+            get_descriptor_full_pascal_name(field.enum_type)
+        )
         if field.label == FieldDescriptor.LABEL_REPEATED:
             return f"graphene.List(graphene.NonNull({referenced_class_name}))"
         else:
             return f"graphene.Field({referenced_class_name})"
     elif field.type == FieldDescriptor.TYPE_GROUP or field.type == FieldDescriptor.TYPE_MESSAGE:
         if is_input:
-            referenced_class_name = apply_schema_extension(f"{get_descriptor_full_pascal_name(field.message_type)}Input")
+            referenced_class_name = apply_schema_extension(
+                f"{get_descriptor_full_pascal_name(field.message_type)}Input"
+            )
             field_type_base = f"graphene.InputField({referenced_class_name})"
         else:
-            referenced_class_name = apply_schema_extension(get_descriptor_full_pascal_name(field.message_type))
+            referenced_class_name = apply_schema_extension(
+                get_descriptor_full_pascal_name(field.message_type)
+            )
             field_type_base = f"graphene.Field({referenced_class_name})"
         if field.label == FieldDescriptor.LABEL_REPEATED:
             return f"graphene.List(graphene.NonNull({referenced_class_name}))"
@@ -155,6 +176,7 @@ def get_graphene_type_for_field(field, is_input):
         else:
             return f"{field_type_base}()"
 
+
 def proto_method_to_graphql_operation(method):
     method_name = get_method_name(method)
     input_descriptor = method.input_type
@@ -162,6 +184,7 @@ def proto_method_to_graphql_operation(method):
     input_class_name = get_descriptor_full_pascal_name(input_descriptor) + "Input"
     out_put_class_name = get_descriptor_full_pascal_name(output_descriptor)
     return f"\n{INDENT}{method_name} = graphene.Field({out_put_class_name}, input={input_class_name}())"
+
 
 def generate_resolver_function(method):
     full_method_name = get_method_name(method)
@@ -172,8 +195,12 @@ def generate_resolver_function(method):
     function_builder = ""
     function_builder += f"\n{INDENT}def resolve_{full_method_name}(self, info, input):"
     function_builder += f"\n{INDENT2}input_dict = vars(input)"
-    function_builder += f"\n{INDENT2}request_message = mlflow.protos.{pb2_file_name}.{pascal_case_method_name}()"
+    function_builder += (
+        f"\n{INDENT2}request_message = mlflow.protos.{pb2_file_name}.{pascal_case_method_name}()"
+    )
     function_builder += f"\n{INDENT2}parse_dict(input_dict, request_message)"
-    function_builder += f"\n{INDENT2}return mlflow.server.handlers.{snake_case_method_name}_impl(request_message)"
+    function_builder += (
+        f"\n{INDENT2}return mlflow.server.handlers.{snake_case_method_name}_impl(request_message)"
+    )
     function_builder += "\n"
     return function_builder
