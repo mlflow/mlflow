@@ -1,21 +1,15 @@
-from __future__ import annotations
-
 import json
 import logging
 import os
 from datetime import datetime
 from io import StringIO
-from typing import TYPE_CHECKING, ForwardRef, List, Optional, get_args, get_origin
+from typing import ForwardRef, List, Optional, get_args, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dump_input_data
-
-# Import PyFuncInput only for type annotation.
-if TYPE_CHECKING:
-    from mlflow.models.utils import PyFuncInput  # noqa: F401
 
 _logger = logging.getLogger(__name__)
 
@@ -65,7 +59,7 @@ _CONTENT_TYPE_JSON = "json"
 
 def predict(
     model_uri: str,
-    input_data: PyFuncInput = None,
+    input_data: Optional["PyFuncInput"] = None,  # noqa: F821
     input_path: Optional[str] = None,
     content_type: str = _CONTENT_TYPE_JSON,
     output_path: Optional[str] = None,
@@ -223,8 +217,8 @@ def _serialize_to_json(input_data):
         input_data = dump_input_data(input_data)
 
         _logger.info(
-            f"Your input data has been transformed to comply with the expected input format for the "
-            "MLflow prediction server. If you want to deploy the model to online serving, make "
+            f"Your input data has been transformed to comply with the expected input format for "
+            "the MLflow scoring server. If you want to deploy the model to online serving, make "
             "sure to apply the same preprocessing in your inference client. Please also refer to "
             "https://www.mlflow.org/docs/latest/deployment/deploy-model-locally.html#json-input "
             "for more details on the supported input format."
@@ -243,7 +237,7 @@ def _validate_string(input_data: str, content_type: str):
         else:
             json.loads(input_data)
     except Exception as e:
-        target = "JSON" if content_type == _CONTENT_TYPE_JSON else "Pandas Dataframe"
+        target = "JSON" if content_type == _CONTENT_TYPE_JSON else "Pandas DataFrame"
         raise MlflowException.invalid_parameter_value(
             message=f"Failed to deserialize input string data to {target}."
         ) from e
