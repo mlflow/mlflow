@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 import yaml
-from pydantic.v1.config import Extra
+from pydantic.config import Extra
 
 import mlflow
 from mlflow import pyfunc
