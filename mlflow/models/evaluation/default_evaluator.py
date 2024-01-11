@@ -1171,12 +1171,12 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
-    def _get_args_for_metrics(self, metric, eval_df):
+    def _get_args_for_metrics(self, metric_tuple, eval_df):
         # deepcopying eval_df and builtin_metrics for each custom metric function call,
         # in case the user modifies them inside their function(s).
         eval_df_copy = eval_df.copy()
         input_df = self.X.copy_to_avoid_mutation()
-        parameters = inspect.signature(metric.function).parameters
+        parameters = inspect.signature(metric_tuple.function).parameters
         eval_fn_args = []
         params_not_found = []
         if len(parameters) == 2:
@@ -1244,7 +1244,7 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(param.default)
 
         if len(params_not_found) > 0:
-            return metric.name, params_not_found
+            return metric_tuple.name, params_not_found
         return eval_fn_args
 
     def _log_custom_artifacts(self, eval_df):
@@ -1482,23 +1482,25 @@ class DefaultEvaluator(ModelEvaluator):
 
         while len(remaining_metrics) > 0:
             pending_metrics = []
+            failed_results = []
             did_append_metric = False
             for metric_tuple in remaining_metrics:
                 result = self._get_args_for_metrics(metric_tuple, eval_df)
                 # cannot calculate the metric yet
                 if isinstance(result, tuple):
-                    pending_metrics.append(result)
+                    pending_metrics.append(metric_tuple)
+                    failed_results.append(result)
                 else:  # can calculate this metric "immediately"
                     self.ordered_metrics.append(metric_tuple)
                     did_append_metric = True
 
             # cant calculate any more metrics
             if not did_append_metric:
-                self._raise_exception_for_malformed_metrics(pending_metrics, eval_df)
+                self._raise_exception_for_malformed_metrics(failed_results, eval_df)
 
             remaining_metrics = pending_metrics
 
-    def _raise_exception_for_malformed_metrics(self, malformed_metrics, eval_df):
+    def _raise_exception_for_malformed_metrics(self, malformed_results, eval_df):
         output_columns = (
             [] if self.other_output_columns is None else list(self.other_output_columns.columns)
         )
@@ -1518,7 +1520,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         error_messages = [
             self._get_error_message_missing_columns(metric_name, param_names)
-            for metric_name, param_names in malformed_metrics
+            for metric_name, param_names in malformed_results
         ]
         joined_error_message = "\n".join(error_messages)
         # TODO: update error message for potentially bad dependency graph for metrics
