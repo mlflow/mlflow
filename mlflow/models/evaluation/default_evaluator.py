@@ -1179,9 +1179,10 @@ class DefaultEvaluator(ModelEvaluator):
         parameters = inspect.signature(metric.function).parameters
         eval_fn_args = []
         params_not_found = []
-        # eval_fn has parameters (eval_df, builtin_metrics) for backwards compatibility
         if len(parameters) == 2:
             param_0_name, param_1_name = parameters.keys()
+
+        # eval_fn has parameters (eval_df, builtin_metrics) for backwards compatibility
         if len(parameters) == 2 and param_0_name != "predictions" and param_1_name != "targets":
             eval_fn_args.append(eval_df_copy)
             self._update_aggregate_metrics()
@@ -1231,8 +1232,11 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(self.evaluator_config.get(column))
 
                     # case where this is the name of another metric
-                    elif column in self.metrics_values:
-                        eval_fn_args.append(self.metrics_values[column])
+                    elif column in self.ordered_metrics:
+                        if column in self.metrics_values:
+                            eval_fn_args.append(self.metrics_values[column])
+                        else:
+                            eval_fn_args.append(None)
 
                     elif param.default == inspect.Parameter.empty:
                         params_not_found.append(param_name)
@@ -1473,50 +1477,64 @@ class DefaultEvaluator(ModelEvaluator):
 
         return "\n".join(error_message_parts)
 
-    def _check_args(self, metrics, eval_df):
-        failed_metrics = []
-        # collect all failures for getting metric arguments
-        for metric_tuple in metrics:
-            result = self._get_args_for_metrics(metric_tuple, eval_df)
-            if isinstance(result, tuple):
-                failed_metrics.append(result)
+    def _order_extra_metrics(self, eval_df):
+        remaining_metrics = self.extra_metrics
 
-        if len(failed_metrics) > 0:
-            output_columns = (
-                [] if self.other_output_columns is None else list(self.other_output_columns.columns)
-            )
-            if self.predictions:
-                output_columns.append(self.predictions)
-            elif self.dataset.predictions_name:
-                output_columns.append(self.dataset.predictions_name)
+        while len(remaining_metrics) > 0:
+            pending_metrics = []
+            did_append_metric = False
+            for metric_tuple in remaining_metrics:
+                result = self._get_args_for_metrics(metric_tuple, eval_df)
+                # cannot calculate the metric yet
+                if isinstance(result, tuple):
+                    pending_metrics.append(result)
+                else:  # can calculate this metric "immediately"
+                    self.ordered_metrics.append(metric_tuple)
+                    did_append_metric = True
+
+            # cant calculate any more metrics
+            if not did_append_metric:
+                self._raise_exception_for_malformed_metrics(pending_metrics, eval_df)
+
+            remaining_metrics = pending_metrics
+
+    def _raise_exception_for_malformed_metrics(self, malformed_metrics, eval_df):
+        output_columns = (
+            [] if self.other_output_columns is None else list(self.other_output_columns.columns)
+        )
+        if self.predictions:
+            output_columns.append(self.predictions)
+        elif self.dataset.predictions_name:
+            output_columns.append(self.dataset.predictions_name)
+        else:
+            output_columns.append("predictions")
+
+        input_columns = list(self.X.copy_to_avoid_mutation().columns)
+        if "target" in eval_df:
+            if self.dataset.targets_name:
+                input_columns.append(self.dataset.targets_name)
             else:
-                output_columns.append("predictions")
+                input_columns.append("targets")
 
-            input_columns = list(self.X.copy_to_avoid_mutation().columns)
-            if "target" in eval_df:
-                if self.dataset.targets_name:
-                    input_columns.append(self.dataset.targets_name)
-                else:
-                    input_columns.append("targets")
+        error_messages = [
+            self._get_error_message_missing_columns(metric_name, param_names)
+            for metric_name, param_names in malformed_metrics
+        ]
+        joined_error_message = "\n".join(error_messages)
+        # TODO: update error message for potentially bad dependency graph for metrics
+        full_message = f"""Error: Metric calculation failed for the following metrics:
+        {joined_error_message}
 
-            error_messages = [
-                self._get_error_message_missing_columns(metric_name, param_names)
-                for metric_name, param_names in failed_metrics
-            ]
-            joined_error_message = "\n".join(error_messages)
-            full_message = f"""Error: Metric calculation failed for the following metrics:
-            {joined_error_message}
+        Below are the existing column names for the input/output data:
+        Input Columns: {input_columns}
+        Output Columns: {output_columns}
 
-            Below are the existing column names for the input/output data:
-            Input Columns: {input_columns}
-            Output Columns: {output_columns}
-
-            To resolve this issue, you may need to specify any required parameters, or if you are
-            missing columns, you may want to map them to an existing column using the following
-            configuration:
-            evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
-            stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
-            raise MlflowException(stripped_message)
+        To resolve this issue, you may need to specify any required parameters, or if you are
+        missing columns, you may want to map them to an existing column using the following
+        configuration:
+        evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
+        stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
+        raise MlflowException(stripped_message)
 
     def _test_first_row(self, eval_df):
         # test calculations on first row of eval_df
@@ -1556,12 +1574,7 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
     def _evaluate_metrics(self, eval_df):
-        extra_metrics = [
-            self._metric_to_metric_tuple(index, metric)
-            for index, metric in enumerate(self.extra_metrics)
-        ]
-        self.ordered_metrics.extend(extra_metrics)
-        self._check_args(self.ordered_metrics, eval_df)
+        self._order_extra_metrics(eval_df)
         self._test_first_row(eval_df)
 
         # calculate metrics for the full eval_df
@@ -1840,15 +1853,13 @@ class DefaultEvaluator(ModelEvaluator):
                 FutureWarning,
                 stacklevel=2,
             )
-            self.extra_metrics = custom_metrics
-        else:
-            self.extra_metrics = extra_metrics
+            extra_metrics = custom_metrics
 
-        if self.extra_metrics is None:
-            self.extra_metrics = []
+        if extra_metrics is None:
+            extra_metrics = []
 
         bad_metrics = []
-        for metric in self.extra_metrics:
+        for metric in extra_metrics:
             if not isinstance(metric, EvaluationMetric):
                 bad_metrics.append(metric)
         if len(bad_metrics) > 0:
@@ -1861,6 +1872,11 @@ class DefaultEvaluator(ModelEvaluator):
                 f"Please ensure that all extra metrics are instances of "
                 f"mlflow.metrics.EvaluationMetric."
             )
+
+        self.extra_metrics = [
+            self._metric_to_metric_tuple(index, metric)
+            for index, metric in enumerate(extra_metrics)
+        ]
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             inferred_model_type = _infer_model_type_by_labels(self.y)
