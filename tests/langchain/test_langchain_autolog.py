@@ -1,5 +1,7 @@
 import os
 import re
+from operator import itemgetter
+from typing import Any, List, Optional
 from unittest import mock
 
 import pytest
@@ -73,12 +75,12 @@ def get_mlflow_callback_artifacts(
     contains_tool=False,
     contains_agent=False,
     contains_agent_action=False,
+    contains_on_text_action=True,
 ):
     artifacts = [
         "chat_html.html",
         "table_action_records.html",
         "table_session_analysis.html",
-        re.compile(r"on_text_\d+\.json"),
     ]
     if contains_llm:
         artifacts += [
@@ -104,6 +106,10 @@ def get_mlflow_callback_artifacts(
     if contains_agent_action:
         artifacts += [
             re.compile(r"agent_action_\d+\.json"),
+        ]
+    if contains_on_text_action:
+        artifacts += [
+            re.compile(r"on_text_\d+\.json"),
         ]
     return artifacts
 
@@ -152,6 +158,58 @@ def create_openai_llmagent():
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
     }
     return model, agent_input, mock_response
+
+
+def create_runnable_sequence():
+    from langchain.callbacks.manager import CallbackManagerForLLMRun
+    from langchain.chat_models.base import SimpleChatModel
+    from langchain.schema.messages import BaseMessage
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableLambda
+
+    prompt_with_history_str = """
+    Here is a history between you and a human: {chat_history}
+
+    Now, please answer this question: {question}
+    """
+    prompt_with_history = PromptTemplate(
+        input_variables=["chat_history", "question"], template=prompt_with_history_str
+    )
+
+    class FakeChatModel(SimpleChatModel):
+        """Fake Chat Model wrapper for testing purposes."""
+
+        def _call(
+            self,
+            messages: List[BaseMessage],
+            stop: Optional[List[str]] = None,
+            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            **kwargs: Any,
+        ) -> str:
+            return TEST_CONTENT
+
+        @property
+        def _llm_type(self) -> str:
+            return "fake chat model"
+
+    def extract_question(input):
+        return input[-1]["content"]
+
+    def extract_history(input):
+        return input[:-1]
+
+    chat_model = FakeChatModel()
+    chain_with_history = (
+        {
+            "question": itemgetter("messages") | RunnableLambda(extract_question),
+            "chat_history": itemgetter("messages") | RunnableLambda(extract_history),
+        }
+        | prompt_with_history
+        | chat_model
+        | StrOutputParser()
+    )
+    input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
+    return chain_with_history, input_example
 
 
 def test_autolog_manage_run():
@@ -355,41 +413,72 @@ def test_agent_autolog_log_inference_history():
         assert loaded_dict == [{"input": input, "output": output}] * 2
 
 
-# def test_runnable_sequence_autolog_model():
-#     from langchain.schema.output_parser import StrOutputParser
-#     from langchain.schema.runnable import RunnableLambda
+def test_runnable_sequence_autolog():
+    mlflow.langchain.autolog(log_models=True)
+    chain, input_example = create_runnable_sequence()
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        assert chain.invoke(input_example) == TEST_CONTENT
+        assert chain.invoke(input_example) == TEST_CONTENT
+        log_model_mock.assert_called_once()
 
-#     mlflow.langchain.autolog(log_models=True)
 
-#     from mlflow.langchain.utils import _fake_simple_chat_model
+def test_runnable_sequence_autolog_metrics_and_artifacts():
+    mlflow.langchain.autolog()
+    chain, input_example = create_runnable_sequence()
+    with mlflow.start_run() as run:
+        chain.invoke(input_example)
+    client = MlflowClient()
+    metrics = client.get_run(run.info.run_id).data.metrics
+    for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
+        assert metric_key in metrics
 
-#     prompt_with_history_str = """
-#     Here is a history between you and a human: {chat_history}
+    artifacts = client.list_artifacts(run.info.run_id)
+    artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+    for artifact_name in get_mlflow_callback_artifacts(
+        contains_llm=True, contains_on_text_action=False
+    ):
+        if isinstance(artifact_name, str):
+            assert artifact_name in artifacts
+        else:
+            assert any(artifact_name.match(artifact) for artifact in artifacts)
+    assert mlflow.active_run() is None
 
-#     Now, please answer this question: {question}
-#     """
 
-#     prompt_with_history = PromptTemplate(
-#         input_variables=["chat_history", "question"], template=prompt_with_history_str
-#     )
+def test_loaded_runnable_sequence_autolog():
+    mlflow.langchain.autolog(log_models=True, log_input_examples=True)
+    chain, input_example = create_runnable_sequence()
+    with mlflow.start_run() as run:
+        assert chain.invoke(input_example) == TEST_CONTENT
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
+        assert loaded_model.invoke(input_example) == TEST_CONTENT
+        log_model_mock.assert_not_called()
 
-#     chat_model = _fake_simple_chat_model()()
+        mlflow_model = get_mlflow_model(run.info.artifact_uri)
+        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
+        saved_example = _read_example(mlflow_model, model_path)
+        assert saved_example.to_dict("records") == [input_example]
 
-#     def extract_question(input):
-#         return input[-1]["content"]
+        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
+        assert pyfunc_model.predict(input_example) == [TEST_CONTENT]
+        log_model_mock.assert_not_called()
 
-#     def extract_history(input):
-#         return input[:-1]
+        signature = mlflow_model.signature
+        assert signature == infer_signature(input_example, [TEST_CONTENT])
 
-#     chain_with_history = (
-#         {
-#             "question": itemgetter("messages") | RunnableLambda(extract_question),
-#             "chat_history": itemgetter("messages") | RunnableLambda(extract_history),
-#         }
-#         | prompt_with_history
-#         | chat_model
-#         | StrOutputParser()
-#     )
-#     input_example = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
-#     assert chain_with_history.invoke(input_example) == "Databricks"
-#     assert chain_with_history.invoke(input_example) == "Databricks"
+
+def test_runnable_sequence_autolog_log_inference_history():
+    mlflow.langchain.autolog(log_inference_history=True)
+    chain, input_example = create_runnable_sequence()
+    output = TEST_CONTENT
+    with mlflow.start_run() as run:
+        assert chain.invoke(input_example) == output
+    loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+    loaded_dict = loaded_table.to_dict("records")
+    assert loaded_dict == [{"input": input_example, "output": output}]
+
+    with mlflow.start_run(run.info.run_id):
+        chain.invoke(input_example)
+    loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+    loaded_dict = loaded_table.to_dict("records")
+    assert loaded_dict == [{"input": input_example, "output": output}] * 2
