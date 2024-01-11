@@ -97,7 +97,7 @@ Managing Model Dependencies
 
 MLflow Model infers dependencies required for the model flavor and automatically logs them. However, it also allows
 you to define extra dependencies or custom Python code, and offer a tool to validate them in a sandbox environment.
-Please refer to `Managing Dependencies in MLflow Model <model/dependencies.html>`_ for more details.
+Please refer to `Managing Dependencies in MLflow Models <model/dependencies.html>`_ for more details.
 
 .. _model-metadata:
 
