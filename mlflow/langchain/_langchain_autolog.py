@@ -1,3 +1,4 @@
+import contextlib
 import inspect
 import logging
 import warnings
@@ -66,6 +67,15 @@ def _combine_input_and_output(input, output):
     raise MlflowException("Unsupported input type.")
 
 
+@contextlib.contextmanager
+def _wrap_func_with_run(run_id, **kwargs):
+    if mlflow.active_run():
+        yield
+    else:
+        with mlflow.start_run(run_id=run_id, **kwargs):
+            yield
+
+
 def patched_invoke(original, self, *args, **kwargs):
     """
     A patched implementation of langchain runnables `invoke` which enables logging the
@@ -100,10 +110,13 @@ def patched_invoke(original, self, *args, **kwargs):
     if active_run := mlflow.active_run():
         if run_id is None:
             run_id = active_run.info.run_id
-        # mlflow callback internally starts the run, so we end it here
-        # If run_id is not None, we would resume the previous run
-        # attached with the model and end current active run.
-        mlflow.end_run()
+        else:
+            if run_id != active_run.info.run_id:
+                raise MlflowException(
+                    "Please end current run when autologging is on "
+                    "because we need to use the run attached to current "
+                    "model instance for logging."
+                )
     # TODO: test adding callbacks works
     mlflow_callback = _MLflowLangchainCallback(
         tracking_uri=mlflow.get_tracking_uri(),
@@ -120,7 +133,7 @@ def patched_invoke(original, self, *args, **kwargs):
     with disable_autologging():
         result = original(self, *args, **kwargs)
 
-    mlflow_callback.flush_tracker(finish=True)
+    mlflow_callback.flush_tracker()
 
     log_models = get_autologging_config(mlflow.langchain.FLAVOR_NAME, "log_models", False)
     log_input_examples = get_autologging_config(
@@ -147,7 +160,7 @@ def patched_invoke(original, self, *args, **kwargs):
         tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, extra_tags)
         # self manage the run as we need to get the run_id from mlflow_callback
         # only log the tags once the first time we log the model
-        with mlflow.start_run(run_id=mlflow_callback.mlflg.run.info.run_id, tags=tags):
+        with _wrap_func_with_run(mlflow_callback.mlflg.run.info.run_id, tags=tags):
             mlflow.langchain.log_model(
                 self,
                 "model",
@@ -175,7 +188,7 @@ def patched_invoke(original, self, *args, **kwargs):
         else:
             input_data = input_example
         data_dict = _combine_input_and_output(input_data, result)
-        with mlflow.start_run(run_id=mlflow_callback.mlflg.run.info.run_id):
+        with _wrap_func_with_run(mlflow_callback.mlflg.run.info.run_id):
             mlflow.log_table(data_dict, "inference_history.json")
 
     return result

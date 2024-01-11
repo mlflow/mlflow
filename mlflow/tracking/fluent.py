@@ -2081,6 +2081,7 @@ def autolog(
         "pytorch_lightning": "mlflow.pytorch",
         "setfit": "mlflow.transformers",
         "transformers": "mlflow.transformers",
+        "langchain": "mlflow.langchain",
     }
 
     def get_autologging_params(autolog_fn):

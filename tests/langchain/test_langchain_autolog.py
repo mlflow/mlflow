@@ -2,12 +2,14 @@ import os
 import re
 from unittest import mock
 
+import pytest
 from langchain.chains import LLMChain
 from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -115,6 +117,17 @@ def create_openai_llmchain():
     return LLMChain(llm=llm, prompt=prompt)
 
 
+def test_autolog_manage_run():
+    mlflow.langchain.autolog(log_models=True)
+    run = mlflow.start_run()
+    with _mock_request(return_value=_mock_chat_completion_response()):
+        model = create_openai_llmchain()
+        model.invoke("MLflow")
+    assert mlflow.active_run() is not None
+    assert MlflowClient().get_run(run.info.run_id).data.metrics != {}
+    mlflow.end_run()
+
+
 def test_llmchain_autolog():
     mlflow.langchain.autolog(log_models=True)
     question = "MLflow"
@@ -144,9 +157,8 @@ def test_llmchain_autolog_metrics():
         model = create_openai_llmchain()
         with mlflow.start_run() as run:
             model.invoke("MLflow")
-            run_id = run.info.run_id
         client = MlflowClient()
-        metrics = client.get_run(run_id).data.metrics
+        metrics = client.get_run(run.info.run_id).data.metrics
         for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
             assert metric_key in metrics
     assert mlflow.active_run() is None
@@ -208,14 +220,17 @@ def test_llmchain_autolog_log_inference_history(tmp_path):
         loaded_dict = loaded_table.to_dict("records")
         assert loaded_dict == [{"input": question, "output": answer}]
 
-        # with or without a new run wrapper, the inference history is appended
-        # to the same table stored in last run
-        with mlflow.start_run():
+        # inference history is appended to the same table
+        with mlflow.start_run(run.info.run_id):
             model.invoke(question)
         model.invoke(question)
         loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
         assert loaded_dict == [{"input": question, "output": answer}] * 3
+
+        with pytest.raises(MlflowException, match="Please end current run when autologging is on "):
+            with mlflow.start_run():
+                model.invoke(question)
 
 
 # def test_runnable_sequence_autolog_model():
