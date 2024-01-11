@@ -8,7 +8,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.utils.file_utils import local_file_uri_to_path, mkdir, path_to_local_file_uri
+from mlflow.utils.file_utils import mkdir, path_to_local_file_uri
 from mlflow.utils.os import is_windows
 
 Artifact = namedtuple("Artifact", ["uri", "content"])
@@ -246,24 +246,4 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
             assert (
                 rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
                 rf"\artifacts\{text_artifact.artifact_name}" == local_path
-            )
-
-    experiment_test_2_artifact_location = "file://my_server/my_path/my_sub_path"
-    experiment_test_2_id = mlflow.create_experiment(
-        "test_exp_e", experiment_test_2_artifact_location
-    )
-    with mlflow.start_run(experiment_id=experiment_test_2_id) as run:
-        with mock.patch("shutil.copy2") as copyfile_mock, mock.patch(
-            "os.path.exists", return_value=True
-        ) as exists_mock:
-            mlflow.log_artifact(text_artifact.artifact_path)
-            copyfile_mock.assert_called_once()
-            exists_mock.assert_called_once()
-            local_path = mlflow.artifacts.download_artifacts(
-                run_id=run.info.run_id, artifact_path=text_artifact.artifact_name
-            )
-            assert (
-                local_file_uri_to_path(experiment_test_2_artifact_location)
-                + rf"\{run.info.run_id}\artifacts\{text_artifact.artifact_name}"
-                == local_path
             )

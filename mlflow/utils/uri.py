@@ -45,15 +45,22 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
     if scheme == "":
         return True
 
-    if parsed_uri.hostname and not (
+    is_remote_hostname = parsed_uri.hostname and not (
         parsed_uri.hostname == "."
         or parsed_uri.hostname.startswith("localhost")
         or parsed_uri.hostname.startswith("127.0.0.1")
-    ):
-        return False
-
+    )
     if scheme == "file":
+        if is_remote_hostname:
+            raise MlflowException(
+                f"{uri} is not a valid remote uri. For remote access "
+                "on windows, please consider using a different scheme "
+                "such as SMB (e.g. smb://<hostname>/<path>)."
+            )
         return True
+
+    if is_remote_hostname:
+        return False
 
     if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
         return True
@@ -62,7 +69,8 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
 
 
 def is_file_uri(uri):
-    return urllib.parse.urlparse(uri).scheme == "file"
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == "file"
 
 
 def is_http_uri(uri):
