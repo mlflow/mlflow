@@ -1530,30 +1530,36 @@ class DefaultEvaluator(ModelEvaluator):
 
                 # need to update metrics because they might be used in calculating extra_metrics
                 if metric_value:
-                    name = f"{metric_tuple.name}/{metric_tuple.version}" if metric_tuple.version else metric_tuple.name
+                    name = (
+                        f"{metric_tuple.name}/{metric_tuple.version}"
+                        if metric_tuple.version
+                        else metric_tuple.name
+                    )
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
                 stacktrace_str = traceback.format_exc()
                 if isinstance(e, MlflowException):
                     exceptions.append(
-                        f"Metric '{metric.name}': Error:\n{e.message}\n{stacktrace_str}"
+                        f"Metric '{metric_tuple.name}': Error:\n{e.message}\n{stacktrace_str}"
                     )
                 else:
-                    exceptions.append(f"Metric '{metric.name}': Error:\n{e!r}\n{stacktrace_str}")
+                    exceptions.append(
+                        f"Metric '{metric_tuple.name}': Error:\n{e!r}\n{stacktrace_str}"
+                    )
 
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
 
     def _metric_to_metric_tuple(self, index, metric):
         return _Metric(
-            function=metric.eval_fn,
-            index=index,
-            name=metric.name,
-            version=metric.version
+            function=metric.eval_fn, index=index, name=metric.name, version=metric.version
         )
 
     def _evaluate_metrics(self, eval_df):
-        extra_metrics = [self._metric_to_metric_tuple(index, metric) for index, metric in enumerate(self.extra_metrics)]
+        extra_metrics = [
+            self._metric_to_metric_tuple(index, metric)
+            for index, metric in enumerate(self.extra_metrics)
+        ]
         self.ordered_metrics.extend(extra_metrics)
         self._check_args(self.ordered_metrics, eval_df)
         self._test_first_row(eval_df)
@@ -1564,7 +1570,11 @@ class DefaultEvaluator(ModelEvaluator):
             metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
 
             if metric_value:
-                name = f"{metric_tuple.name}/{metric_tuple.version}" if metric_tuple.version else metric_tuple.name
+                name = (
+                    f"{metric_tuple.name}/{metric_tuple.version}"
+                    if metric_tuple.version
+                    else metric_tuple.name
+                )
                 self.metrics_values.update({name: metric_value})
 
     def _log_artifacts(self):
@@ -1695,8 +1705,10 @@ class DefaultEvaluator(ModelEvaluator):
                 ndcg_at_k(retriever_k),
             ]
 
-        self.ordered_metrics = [self.metric_to_metric_tuple(-1, metric) for metric in builtin_metrics]
-                
+        self.ordered_metrics = [
+            self._metric_to_metric_tuple(-1, metric) for metric in builtin_metrics
+        ]
+
     def _prefix_metrics(self):
         def _prefix_value(value):
             aggregate = (
