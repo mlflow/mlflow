@@ -527,7 +527,7 @@ def _extract_output_and_other_columns(model_predictions, output_column_name):
     )
 
 
-class _CustomMetric(NamedTuple):
+class _Metric(NamedTuple):
     """
     A namedtuple representing a metric function and its properties.
 
@@ -539,6 +539,7 @@ class _CustomMetric(NamedTuple):
     function: Callable
     name: str
     index: int
+    version: str
 
 
 class _CustomArtifact(NamedTuple):
@@ -1104,7 +1105,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         :param artifact_name: the name of the artifact
         :param raw_artifact:  the object representing the artifact
-        :param custom_metric_tuple: an instance of the _CustomMetric namedtuple
+        :param custom_metric_tuple: an instance of the _Metric namedtuple
         :return: EvaluationArtifact
         """
 
@@ -1170,20 +1171,20 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
-    def _get_args_for_metrics(self, extra_metric, eval_df):
+    def _get_args_for_metrics(self, metric, eval_df):
         # deepcopying eval_df and builtin_metrics for each custom metric function call,
         # in case the user modifies them inside their function(s).
         eval_df_copy = eval_df.copy()
         input_df = self.X.copy_to_avoid_mutation()
-        parameters = inspect.signature(extra_metric.eval_fn).parameters
+        parameters = inspect.signature(metric.function).parameters
         eval_fn_args = []
         params_not_found = []
         # eval_fn has parameters (eval_df, builtin_metrics) for backwards compatibility
         if len(parameters) == 2:
             param_0_name, param_1_name = parameters.keys()
         if len(parameters) == 2 and param_0_name != "predictions" and param_1_name != "targets":
-            self._update_aggregate_metrics()
             eval_fn_args.append(eval_df_copy)
+            self._update_aggregate_metrics()
             eval_fn_args.append(copy.deepcopy(self.aggregate_metrics))
         # eval_fn can have parameters like (predictions, targets, metrics, random_col)
         else:
@@ -1239,7 +1240,7 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(param.default)
 
         if len(params_not_found) > 0:
-            return extra_metric.name, params_not_found
+            return metric.name, params_not_found
         return eval_fn_args
 
     def _log_custom_artifacts(self, eval_df):
@@ -1475,8 +1476,8 @@ class DefaultEvaluator(ModelEvaluator):
     def _check_args(self, metrics, eval_df):
         failed_metrics = []
         # collect all failures for getting metric arguments
-        for metric in metrics:
-            result = self._get_args_for_metrics(metric, eval_df)
+        for metric_tuple in metrics:
+            result = self._get_args_for_metrics(metric_tuple, eval_df)
             if isinstance(result, tuple):
                 failed_metrics.append(result)
 
@@ -1522,14 +1523,14 @@ class DefaultEvaluator(ModelEvaluator):
         _logger.info("Testing metrics on first row...")
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
-        for metric in self.ordered_metrics:
+        for metric_tuple in self.ordered_metrics:
             try:
-                eval_fn_args = self._get_args_for_metrics(metric, first_row_df)
-                metric_value = metric.eval_fn(*eval_fn_args)
+                eval_fn_args = self._get_args_for_metrics(metric_tuple, first_row_df)
+                metric_value = metric_tuple.function(*eval_fn_args)
 
                 # need to update metrics because they might be used in calculating extra_metrics
                 if metric_value:
-                    name = f"{metric.name}/{metric.version}" if metric.version else metric.name
+                    name = f"{metric_tuple.name}/{metric_tuple.version}" if metric_tuple.version else metric_tuple.name
                     self.metrics_values.update({name: metric_value})
             except Exception as e:
                 stacktrace_str = traceback.format_exc()
@@ -1543,23 +1544,27 @@ class DefaultEvaluator(ModelEvaluator):
         if len(exceptions) > 0:
             raise MlflowException("\n".join(exceptions))
 
+    def _metric_to_metric_tuple(self, index, metric):
+        return _Metric(
+            function=metric.eval_fn,
+            index=index,
+            name=metric.name,
+            version=metric.version
+        )
+
     def _evaluate_metrics(self, eval_df):
-        self.ordered_metrics.extend(self.extra_metrics)
+        extra_metrics = [self._metric_to_metric_tuple(index, metric) for index, metric in enumerate(self.extra_metrics)]
+        self.ordered_metrics.extend(extra_metrics)
         self._check_args(self.ordered_metrics, eval_df)
         self._test_first_row(eval_df)
 
         # calculate metrics for the full eval_df
-        for index, metric in enumerate(self.ordered_metrics):
-            eval_fn_args = self._get_args_for_metrics(metric, eval_df)
-            metric_tuple = _CustomMetric(
-                function=metric.eval_fn,
-                index=index,
-                name=metric.name,
-            )
+        for metric_tuple in self.ordered_metrics:
+            eval_fn_args = self._get_args_for_metrics(metric_tuple, eval_df)
             metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
 
             if metric_value:
-                name = f"{metric.name}/{metric.version}" if metric.version else metric.name
+                name = f"{metric_tuple.name}/{metric_tuple.version}" if metric_tuple.version else metric_tuple.name
                 self.metrics_values.update({name: metric_value})
 
     def _log_artifacts(self):
@@ -1665,13 +1670,14 @@ class DefaultEvaluator(ModelEvaluator):
             flesch_kincaid_grade_level(),
             ari_grade_level(),
         ]
+        builtin_metrics = []
 
         if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
             self._compute_builtin_metrics()
         elif self.model_type == _ModelType.QUESTION_ANSWERING:
-            self.ordered_metrics = [*text_metrics, exact_match()]
+            builtin_metrics = [*text_metrics, exact_match()]
         elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
-            self.ordered_metrics = [
+            builtin_metrics = [
                 *text_metrics,
                 rouge1(),
                 rouge2(),
@@ -1679,16 +1685,18 @@ class DefaultEvaluator(ModelEvaluator):
                 rougeLsum(),
             ]
         elif self.model_type == _ModelType.TEXT:
-            self.ordered_metrics = text_metrics
+            builtin_metrics = text_metrics
         elif self.model_type == _ModelType.RETRIEVER:
             # default k to 3 if not specified
             retriever_k = self.evaluator_config.pop("retriever_k", 3)
-            self.ordered_metrics = [
+            builtin_metrics = [
                 precision_at_k(retriever_k),
                 recall_at_k(retriever_k),
                 ndcg_at_k(retriever_k),
             ]
 
+        self.ordered_metrics = [self.metric_to_metric_tuple(-1, metric) for metric in builtin_metrics]
+                
     def _prefix_metrics(self):
         def _prefix_value(value):
             aggregate = (
