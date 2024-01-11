@@ -1,16 +1,21 @@
-import importlib
+from __future__ import annotations
+
 import json
 import logging
 import os
 from datetime import datetime
 from io import StringIO
-from typing import ForwardRef, List, Optional, get_args, get_origin
+from typing import TYPE_CHECKING, ForwardRef, List, Optional, get_args, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dump_input_data
+
+# Import PyFuncInput only for type annotation.
+if TYPE_CHECKING:
+    from mlflow.models.utils import PyFuncInput  # noqa: F401
 
 _logger = logging.getLogger(__name__)
 
@@ -60,7 +65,7 @@ _CONTENT_TYPE_JSON = "json"
 
 def predict(
     model_uri: str,
-    input_data: Optional["PyFuncInput"] = None,  # noqa: F821
+    input_data: PyFuncInput = None,
     input_path: Optional[str] = None,
     content_type: str = _CONTENT_TYPE_JSON,
     output_path: Optional[str] = None,
@@ -105,7 +110,7 @@ def predict(
             content_type="json",
         )
 
-        # Run prediction with addtioanl pip dependencies
+        # Run prediction with additional pip dependencies
         mlflow.pyfunc.predict(
             model_uri=f"runs:/{run_id}/model",
             input_data='{"x": 1, "y": 2}',
@@ -150,15 +155,14 @@ def predict(
 
 def _get_pyfunc_supported_input_types():
     # Importing here as the util module depends on optional packages not available in mlflow-skinny
-    from mlflow.models.utils import PyFuncInput
+    import mlflow.models.utils as base_module
 
     supported_input_types = []
-    for input_type in get_args(PyFuncInput):
+    for input_type in get_args(base_module.PyFuncInput):
         if isinstance(input_type, type):
             supported_input_types.append(input_type)
         elif isinstance(input_type, ForwardRef):
             name = input_type.__forward_arg__
-            base_module = importlib.import_module("mlflow.models.utils")
             if hasattr(base_module, name):
                 cls = getattr(base_module, name)
                 supported_input_types.append(cls)
@@ -218,10 +222,10 @@ def _serialize_to_json(input_data):
 
         input_data = dump_input_data(input_data)
 
-        _logger.warning(
-            f"Your input data has been transformed to comply with the expected input format for the"
+        _logger.info(
+            f"Your input data has been transformed to comply with the expected input format for the "
             "MLflow prediction server. If you want to deploy the model to online serving, make "
-            "sure applying the same preprocessing in your inference client. Please also refer to "
+            "sure to apply the same preprocessing in your inference client. Please also refer to "
             "https://www.mlflow.org/docs/latest/deployment/deploy-model-locally.html#json-input "
             "for more details on the supported input format."
             f"\n\nOriginal input data:\n{original_input_data}"
