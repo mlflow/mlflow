@@ -227,6 +227,7 @@ import pandas
 import yaml
 
 import mlflow
+import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
 from mlflow.environment_variables import (
     _MLFLOW_TESTING,
@@ -254,6 +255,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.pyfunc.model import (
+    ChatModel,
     PythonModel,
     PythonModelContext,  # noqa: F401
     _log_warning_if_params_not_in_predict_signature,
@@ -263,6 +265,7 @@ from mlflow.pyfunc.model import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.llm import CHAT_MODEL_INPUT_EXAMPLE, CHAT_MODEL_SIGNATURE
 from mlflow.utils import (
     PYTHON_VERSION,
     _is_in_ipython_notebook,
@@ -1999,6 +2002,9 @@ def save_model(
                 python_model, input_arg_index, input_example=input_example
             ):
                 mlflow_model.signature = signature
+        elif isinstance(python_model, ChatModel):
+            mlflow_model.signature = CHAT_MODEL_SIGNATURE
+            input_example = CHAT_MODEL_INPUT_EXAMPLE
         elif isinstance(python_model, PythonModel):
             input_arg_index = 1  # second argument
             if signature := _infer_signature_from_type_hints(

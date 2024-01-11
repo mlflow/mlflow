@@ -21,6 +21,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -152,6 +153,16 @@ class _FunctionPythonModel(PythonModel):
             return self.func(model_input, params=params)
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.func(model_input)
+
+
+class ChatModel(PythonModel):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
+        """
+        Evaluates a chat input and produces a chat output.
+        """
 
 
 class PythonModelContext:
@@ -306,7 +317,7 @@ def _save_model_with_class_artifacts_params(
 
     mlflow.pyfunc.add_to_model(
         model=mlflow_model,
-        loader_module=__name__,
+        loader_module=_get_pyfunc_loader_module(python_model),
         code=saved_code_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
@@ -467,3 +478,9 @@ class _PythonModelPyfuncWrapper:
             )
         _log_warning_if_params_not_in_predict_signature(_logger, params)
         return self.python_model.predict(self.context, self._convert_input(model_input))
+
+
+def _get_pyfunc_loader_module(python_model):
+    if isinstance(python_model, ChatModel):
+        return mlflow.pyfunc.loaders.chat_model.__name__
+    return __name__

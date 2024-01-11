@@ -3,6 +3,19 @@ The :py:mod:`mlflow.types` module defines data types and utilities to be used by
 components to describe interface independent of other frameworks or languages.
 """
 
+from mlflow.types.llm import CHAT_MODEL_SIGNATURE, ChatMessage, ChatParams, ChatResponse
 from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 
-__all__ = ["Schema", "ColSpec", "DataType", "TensorSpec", "ParamSchema", "ParamSpec"]
+__all__ = [
+    "Schema",
+    "ColSpec",
+    "DataType",
+    "TensorSpec",
+    "ParamSchema",
+    "ParamSpec",
+    "ChatMessage",
+    "ChatParams",
+    "ChatRequest",
+    "ChatResponse",
+    "CHAT_MODEL_SIGNATURE",
+]
