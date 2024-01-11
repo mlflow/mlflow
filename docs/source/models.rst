@@ -33,6 +33,9 @@ scikit-learn, or as a generic Python function for use in tools that just need to
 (for example, the ``mlflow deployments`` tool with the option ``-t sagemaker`` for deploying models
 to Amazon SageMaker).
 
+MLmodel file
+^^^^^^^^^^^^
+
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
 format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
 
@@ -60,29 +63,21 @@ And its ``MLmodel`` file describes two flavors:
       python_function:
         loader_module: mlflow.sklearn
 
-This model can then be used with any tool that supports either the ``sklearn`` or
-``python_function`` model flavor. For example, the ``mlflow models serve`` command
-can serve a model with the ``python_function`` or the ``crate`` (R Function) flavor:
+Apart from a **flavors** field listing the model flavors, the MLmodel YAML format can contain
+the following fields:
 
-.. code-block:: bash
+* ``time_created``: Date and time when the model was created, in UTC ISO 8601 format.
+* ``run_id``: ID of the run that created the model, if the model was saved using :ref:`tracking`.
+* ``signature``: :ref:`model signature <model-signature>` in JSON format.
+* ``input_example``: reference to an artifact with :ref:`input example <input-example>`.
+* ``databricks_runtime``: Databricks runtime version and type, if the model was trained in a Databricks notebook or job.
+* ``mlflow_version``: The version of MLflow that was used to log the model.
 
-    mlflow models serve -m my_model
-
-.. note::
-    If you wish to serve a model from inside a docker container (or to
-    query it from another machine), you need to change the network address to ``0.0.0.0``
-    using the ``-h`` argument.
-
-    .. code-block:: bash
-
-        mlflow models serve -h 0.0.0.0 -m my_model
-
-In addition, the ``mlflow deployments`` command-line tool can package and deploy models to AWS
-SageMaker as long as they support the ``python_function`` flavor:
-
-.. code-block:: bash
-
-    mlflow deployments create -t sagemaker -m my_model [other options]
+Additional Logged Files
+^^^^^^^^^^^^^^^^^^^^^^^
+For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged.
+These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``. Please see 
+:ref:`How MLflow Model Records Dependencies <how-mlflow-records-dependencies>` for more details about these files.
 
 .. note::
     When a model registered in the MLflow Model Registry is downloaded, a YAML file named
@@ -90,119 +85,19 @@ SageMaker as long as they support the ``python_function`` flavor:
     This file contains the name and version of the model referenced in the MLflow Model Registry,
     and will be used for deployment and other purposes.
 
-Fields in the MLmodel Format
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Apart from a **flavors** field listing the model flavors, the MLmodel YAML format can contain
-the following fields:
 
-time_created
-    Date and time when the model was created, in UTC ISO 8601 format.
+.. toctree::
+    :maxdepth: 1
+    :hidden:
 
-run_id
-    ID of the run that created the model, if the model was saved using :ref:`tracking`.
+    model/dependencies
 
-signature
-  :ref:`model signature <model-signature>` in JSON format.
+Managing Model Dependencies
+---------------------------
 
-input_example
-  reference to an artifact with :ref:`input example <input-example>`.
-
-databricks_runtime
-    Databricks runtime version and type, if the model was trained in a Databricks notebook or job.
-
-mlflow_version
-    The version of MLflow that was used to log the model.
-
-
-
-
-Additional Logged Files
-^^^^^^^^^^^^^^^^^^^^^^^
-For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``.
-
-.. note::
-    Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
-
-    MLflow models logged before `v1.18 <https://mlflow.org/news/2021/06/18/1.18.0-release/index.html>`_ were by default logged with the conda ``defaults`` channel (`https://repo.anaconda.com/pkgs/ <https://repo.anaconda.com/pkgs/>`_) as a dependency. Because of this license change, MLflow has stopped the use of the ``defaults`` channel for models logged using MLflow v1.18 and above. The default channel logged is now ``conda-forge``, which points at the community managed `https://conda-forge.org/ <https://conda-forge.org/>`_.
-
-    If you logged a model before MLflow v1.18 without excluding the ``defaults`` channel from the conda environment for the model, that model may have a dependency on the ``defaults`` channel that you may not have intended.
-    To manually confirm whether a model has this dependency, you can examine ``channel`` value in the ``conda.yaml`` file that is packaged with the logged model. For example, a model’s ``conda.yaml`` with a ``defaults`` channel dependency may look like this:
-
-    .. code-block:: yaml
-
-        name: mlflow-env
-        channels:
-        - defaults
-        dependencies:
-        - python=3.8.8
-        - pip
-        - pip:
-            - mlflow==2.3
-            - scikit-learn==0.23.2
-            - cloudpickle==1.6.0
-
-    If you would like to change the channel used in a model’s environment, you can re-register the model to the model registry with a new ``conda.yaml``. You can do this by specifying the channel in the ``conda_env`` parameter of ``log_model()``.
-
-    For more information on the ``log_model()`` API, see the MLflow documentation for the model flavor you are working with, for example, :py:func:`mlflow.sklearn.log_model() <mlflow.sklearn.log_model>`.
-
-conda.yaml
-    When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
-python_env.yaml
-    This file contains the following information that's required to restore a model environment using virtualenv:
-
-    - Python version
-    - Version specifiers for ``pip``, ``setuptools``, and ``wheel``
-    - Pip requirements of the model (reference to ``requirements.txt``)
-
-requirements.txt
-    The requirements file is created from the `pip portion <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_ of the ``conda.yaml`` environment specification. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment or using the ``pip_requirements`` argument of the `mlflow.<flavor>.log_model` API.
-
-The following shows an example of saving a model with a manually specified conda environment and the corresponding content of the generated ``conda.yaml`` and ``requirements.txt`` files.
-
-.. code-block:: python
-
-    conda_env = {
-        "channels": ["conda-forge"],
-        "dependencies": ["python=3.8.8", "pip"],
-        "pip": ["mlflow==2.3", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
-        "name": "mlflow-env",
-    }
-    mlflow.sklearn.log_model(..., conda_env=conda_env)
-
-The written ``conda.yaml`` file:
-
-.. code-block:: yaml
-
-    name: mlflow-env
-    channels:
-      - conda-forge
-    dependencies:
-    - python=3.8.8
-    - pip
-    - pip:
-      - mlflow==2.3
-      - scikit-learn==0.23.2
-      - cloudpickle==1.6.0
-
-The written ``python_env.yaml`` file:
-
-.. code-block:: yaml
-
-    python: 3.8.8
-    build_dependencies:
-      - pip==21.1.3
-      - setuptools==57.4.0
-      - wheel==0.37.0
-    dependencies:
-      - -r requirements.txt
-
-The written ``requirements.txt`` file:
-
-.. code-block:: text
-
-    mlflow==2.3
-    scikit-learn==0.23.2
-    cloudpickle==1.6.0
+MLflow Model infers dependencies required for the model flavor and automatically logs them. However, it also allows
+you to define extra dependencies or custom Python code, and offer a tool to validate them in a sandbox environment.
+Please refer to `Managing Dependencies in MLflow Models <model/dependencies.html>`_ for more details.
 
 .. _model-metadata:
 
