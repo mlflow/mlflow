@@ -1,6 +1,6 @@
+import importlib.metadata
 import os
 import sys
-import importlib.metadata
 
 
 def is_windows():
