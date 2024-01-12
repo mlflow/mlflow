@@ -1,8 +1,10 @@
 import os
-from mlflow.protos import service_pb2
+
+from autogeneration_utils import SCHEMA_EXTENSION
 from parsing_utils import process_method
 from schema_autogeneration import generate_schema
-from autogeneration_utils import SCHEMA_EXTENSION
+
+from mlflow.protos import service_pb2
 
 # Add proto descriptors to onboard RPCs to graphql.
 ONBOARDED_DESCRIPTORS = [service_pb2.DESCRIPTOR]

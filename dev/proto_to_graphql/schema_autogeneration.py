@@ -1,15 +1,15 @@
+import ast
+
 from autogeneration_utils import (
     INDENT,
     INDENT2,
     SCHEMA_EXTENSION,
-    get_method_name,
     get_descriptor_full_pascal_name,
+    get_method_name,
     method_descriptor_to_generated_pb2_file_name,
 )
-from string_utils import snake_to_pascal, camel_to_snake
 from google.protobuf.descriptor import FieldDescriptor
-
-import ast
+from string_utils import camel_to_snake, snake_to_pascal
 
 # Mapping from proto descriptor type to graphene object type.
 PROTO_TO_GRAPHENE_TYPE = {
@@ -32,7 +32,7 @@ PROTO_TO_GRAPHENE_TYPE = {
 }
 
 """
-Based on graphql_schema_extensions.py, constructs a map from the name of the 
+Based on graphql_schema_extensions.py, constructs a map from the name of the
 extended class to the name of the extending class.
 For example
     class AutogenExtension(OriginalAutogen)
@@ -50,14 +50,14 @@ class ClassInheritanceVisitor(ast.NodeVisitor):
                 if base.id in self.inheritance_map:
                     raise Exception(
                         f"{base.id} is being extended more than once in {SCHEMA_EXTENSION}. "
-                        + f"A GraphQL schema class should not be extended more than once."
+                        + "A GraphQL schema class should not be extended more than once."
                     )
                 self.inheritance_map[base.id] = node.name
         self.generic_visit(node)
 
 
 def get_manual_extensions():
-    with open(SCHEMA_EXTENSION, "r") as file:
+    with open(SCHEMA_EXTENSION) as file:
         file_content = file.read()
 
     parsed_content = ast.parse(file_content)
@@ -114,7 +114,7 @@ def generate_schema(state):
 
         schema_builder += "\n\n"
 
-    schema_builder += f"\nclass QueryType(graphene.ObjectType):"
+    schema_builder += "\nclass QueryType(graphene.ObjectType):"
 
     for query in state.queries:
         schema_builder += proto_method_to_graphql_operation(query)
@@ -125,7 +125,7 @@ def generate_schema(state):
         schema_builder += generate_resolver_function(query)
 
     schema_builder += "\n"
-    schema_builder += f"\nclass MutationType(graphene.ObjectType):"
+    schema_builder += "\nclass MutationType(graphene.ObjectType):"
 
     for mutation in state.mutations:
         schema_builder += proto_method_to_graphql_operation(mutation)

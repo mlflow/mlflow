@@ -1,6 +1,7 @@
-from string_utils import camel_to_snake, snake_to_pascal
-import sys
 import re
+import sys
+
+from string_utils import camel_to_snake, snake_to_pascal
 
 INDENT = " " * 4
 INDENT2 = INDENT * 2

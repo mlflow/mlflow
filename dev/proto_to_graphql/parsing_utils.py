@@ -1,6 +1,7 @@
-from mlflow.protos import databricks_pb2
 from autogeneration_utils import get_method_name
 from google.protobuf.descriptor import FieldDescriptor
+
+from mlflow.protos import databricks_pb2
 
 
 def get_method_type(method_descriptor):
@@ -26,8 +27,8 @@ def process_method(method_descriptor, state):
             state.queries.add(method_descriptor)
         else:
             state.mutations.add(method_descriptor)
-        populate_message_types(method_descriptor.input_type, state, True, set([]))
-        populate_message_types(method_descriptor.output_type, state, False, set([]))
+        populate_message_types(method_descriptor.input_type, state, True, set())
+        populate_message_types(method_descriptor.output_type, state, False, set())
 
 
 def populate_message_types(field_descriptor, state, is_input, visited):
