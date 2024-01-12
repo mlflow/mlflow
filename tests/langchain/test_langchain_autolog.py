@@ -4,14 +4,12 @@ from operator import itemgetter
 from typing import Any, List, Optional
 from unittest import mock
 
-import pytest
 from langchain.chains import LLMChain
 from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -317,14 +315,12 @@ def test_llmchain_autolog_log_inference_history():
         # inference history is appended to the same table
         with mlflow.start_run(run.info.run_id):
             model.invoke(question)
+        with mlflow.start_run():
+            model.invoke(question)
         model.invoke(question)
         loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
-        assert loaded_dict == [{"input": question, "output": answer}] * 3
-
-        with pytest.raises(MlflowException, match="Please end current run when autologging is on "):
-            with mlflow.start_run():
-                model.invoke(question)
+        assert loaded_dict == [{"input": question, "output": answer}] * 4
 
 
 def test_agent_autolog():

@@ -154,16 +154,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         )
 
     run_id = self.run_id if hasattr(self, "run_id") else None
-    if active_run := mlflow.active_run():
-        if run_id is None:
-            run_id = active_run.info.run_id
-        else:
-            if run_id != active_run.info.run_id:
-                raise MlflowException(
-                    "Please end current run when autologging is on "
-                    "because we need to use the run attached to current "
-                    "model instance for logging."
-                )
+    if (active_run := mlflow.active_run()) and run_id is None:
+        run_id = active_run.info.run_id
     # TODO: test adding callbacks works
     mlflow_callback = _MLflowLangchainCallback(
         tracking_uri=mlflow.get_tracking_uri(),
@@ -200,21 +192,22 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, extra_tags)
         # self manage the run as we need to get the run_id from mlflow_callback
         # only log the tags once the first time we log the model
-        with _wrap_func_with_run(
-            mlflow_callback.mlflg.run.info.run_id, tags=tags
-        ), disable_autologging():
+        for key, value in tags.items():
+            mlflow.MlflowClient().set_tag(mlflow_callback.mlflg.run_id, key, value)
+        with disable_autologging():
             mlflow.langchain.log_model(
                 self,
                 "model",
                 input_example=input_example,
                 registered_model_name=registered_model_name,
+                run_id=mlflow_callback.mlflg.run_id,
             )
         if _update_langchain_model_config(self):
             self.model_logged = True
 
     # Even if the model is not logged, we keep a single run per model
     if _update_langchain_model_config(self):
-        self.run_id = mlflow_callback.mlflg.run.info.run_id
+        self.run_id = mlflow_callback.mlflg.run_id
 
     log_inference_history = get_autologging_config(
         mlflow.langchain.FLAVOR_NAME, "log_inference_history", False
@@ -227,7 +220,6 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         else:
             input_data = input_example
         data_dict = _combine_input_and_output(input_data, result)
-        with _wrap_func_with_run(mlflow_callback.mlflg.run.info.run_id):
-            mlflow.log_table(data_dict, "inference_history.json")
+        mlflow.log_table(data_dict, "inference_history.json", run_id=mlflow_callback.mlflg.run_id)
 
     return result

@@ -35,7 +35,6 @@ from mlflow.langchain.utils import (
     _load_base_lcs,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
-    base_lc_types,
     lc_runnables_types,
     supported_lc_types,
 )
@@ -322,6 +321,7 @@ def log_model(
     loader_fn=None,
     persist_dir=None,
     example_no_conversion=False,
+    run_id=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -419,6 +419,9 @@ def log_model(
 
                         See a complete example in examples/langchain/retrieval_qa_chain.py.
     :param example_no_conversion: {{ example_no_conversion }}
+    :param run_id: run_id to associate with this model version. If specified, we resume the
+                   run and log the model to that run. Otherwise, a new run is created.
+                   Default to None.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -440,6 +443,7 @@ def log_model(
         loader_fn=loader_fn,
         persist_dir=persist_dir,
         example_no_conversion=example_no_conversion,
+        run_id=run_id,
     )
 
 
