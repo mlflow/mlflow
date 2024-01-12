@@ -10,6 +10,7 @@ import logging
 import os
 import pathlib
 import re
+import string
 import sys
 from functools import lru_cache
 from typing import Any, Dict, List, NamedTuple, Optional, Union
@@ -39,7 +40,11 @@ from mlflow.models import (
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _contains_params, _save_example
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
@@ -71,10 +76,8 @@ from mlflow.utils.model_utils import (
     _download_artifact_from_uri,
     _get_flavor_configuration,
     _get_flavor_configuration_from_uri,
-    _get_prompt_template,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
-    _validate_prompt_template,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -97,6 +100,7 @@ _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _PROCESSOR_KEY = "processor"
 _PROCESSOR_TYPE_KEY = "processor_type"
+_PROMPT_TEMPLATE_KEY = "prompt_template"
 _SUPPORTED_RETURN_TYPES = {"pipeline", "components"}
 # The default device id for CPU is -1 and GPU IDs are ordinal starting at 0, as documented here:
 # https://huggingface.co/transformers/v4.7.0/main_classes/pipelines.html
@@ -478,14 +482,16 @@ def save_model(
     if prompt_template:
         # prevent saving prompt templates for unsupported pipeline types
         if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
-            supported_tasks_repr = ", ".join(_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES)
             raise MlflowException(
                 f"Prompt templating is not supported for the `{built_pipeline.task}` task type. "
-                f"Supported task types are: {supported_tasks_repr}."
+                f"Supported task types are: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}."
             )
 
         _validate_prompt_template(prompt_template)
-        mlflow_model.prompt_template = prompt_template
+        if mlflow_model.metadata:
+            mlflow_model.metadata[_PROMPT_TEMPLATE_KEY] = prompt_template
+        else:
+            mlflow_model.metadata = {_PROMPT_TEMPLATE_KEY: prompt_template}
 
     flavor_conf = _generate_base_flavor_configuration(built_pipeline, resolved_task)
 
@@ -2897,3 +2903,37 @@ def autolog(
         for clazz in classes:
             for method in methods:
                 safe_patch(FLAVOR_NAME, clazz, method, functools.partial(train), manage_run=False)
+
+
+def _get_prompt_template(model_path):
+    if not os.path.exists(model_path):
+        raise MlflowException(
+            f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{model_path}"',
+            RESOURCE_DOES_NOT_EXIST,
+        )
+
+    model_conf = Model.load(model_path)
+    return model_conf.metadata[_PROMPT_TEMPLATE_KEY]
+
+
+def _validate_prompt_template(prompt_template):
+    if prompt_template is None:
+        return
+
+    if not isinstance(prompt_template, str):
+        raise MlflowException(
+            f"Argument `prompt_template` must be a string, received {type(prompt_template)}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    format_args = [
+        tup[1] for tup in string.Formatter().parse(prompt_template) if tup[1] is not None
+    ]
+
+    # expect there to only be one format arg, and for that arg to be "prompt"
+    if format_args != ["prompt"]:
+        raise MlflowException.invalid_parameter_value(
+            "Argument `prompt_template` must be a string with a single format arg, 'prompt'. "
+            "For example: 'Answer the following question in a friendly tone. Q: {prompt}. A:'\n"
+            f"Received {prompt_template}. "
+        )

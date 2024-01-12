@@ -265,7 +265,6 @@ class Model:
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[Dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
-        prompt_template: Optional[str] = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -281,7 +280,6 @@ class Model:
         self.mlflow_version = mlflow_version
         self.metadata = metadata
         self.model_size_bytes = model_size_bytes
-        self.prompt_template = prompt_template
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -446,23 +444,6 @@ class Model:
         # pylint: disable=attribute-defined-outside-init
         self._model_size_bytes = value
 
-    @property
-    def prompt_template(self) -> Optional[str]:
-        """
-        An optional string that represents the prompt template for the model. Only relevant
-        for the `transformers` flavor.
-
-        :getter: Retrieves the prompt template if it's set when the model is saved
-        :setter: Sets the prompt template to a model instance
-        :type: Optional[str]
-        """
-        return self._prompt_template
-
-    @prompt_template.setter
-    def prompt_template(self, value: Optional[str]):
-        # pylint: disable=attribute-defined-outside-init
-        self._prompt_template = value
-
     def get_model_info(self):
         """
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -498,8 +479,6 @@ class Model:
             res["metadata"] = self.metadata
         if self.model_size_bytes is not None:
             res["model_size_bytes"] = self.model_size_bytes
-        if self.prompt_template is not None:
-            res["prompt_template"] = self.prompt_template
         return res
 
     def to_yaml(self, stream=None):

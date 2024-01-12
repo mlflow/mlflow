@@ -1,6 +1,5 @@
 import json
 import os
-import string
 import sys
 from typing import Any, Dict
 
@@ -8,7 +7,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -272,40 +270,4 @@ def _validate_pyfunc_model_config(model_config):
         raise MlflowException(
             "Values in the provided ``model_config`` are of an unsupported type. Only "
             "JSON-serializable data types can be provided as values."
-        )
-
-
-def _get_prompt_template(model_path):
-    model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
-    if not os.path.exists(model_configuration_path):
-        raise MlflowException(
-            f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{model_path}"',
-            RESOURCE_DOES_NOT_EXIST,
-        )
-
-    model_conf = Model.load(model_configuration_path)
-    return model_conf.prompt_template
-
-
-def _validate_prompt_template(prompt_template):
-    if prompt_template is None:
-        return
-
-    if not isinstance(prompt_template, str):
-        raise MlflowException(
-            f"Argument `prompt_template` should be a string, received {type(prompt_template)}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-    format_args = [
-        tup[1] for tup in string.Formatter().parse(prompt_template) if tup[1] is not None
-    ]
-
-    # expect there to only be one format arg, and for that arg to be "prompt"
-    if len(format_args) != 1 or format_args[0] != "prompt":
-        raise MlflowException(
-            "Argument `prompt_template` should be a string with a single format arg, 'prompt'. "
-            "For example: 'Answer the following question in a friendly tone. Q: {prompt}. A:'\n"
-            f"Received {prompt_template}. ",
-            INVALID_PARAMETER_VALUE,
         )
