@@ -59,7 +59,6 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
-    _find_duplicate_requirements,
     _mlflow_conda_env,
     _process_conda_env,
     _process_pip_requirements,
@@ -234,6 +233,7 @@ def save_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
@@ -407,7 +407,7 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-
+    :param example_no_conversion: {{ example_no_conversion }}
     :param kwargs: Optional additional configurations for transformers serialization.
     :return: None
     """
@@ -453,7 +453,7 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         input_example = _format_input_example_for_special_cases(input_example, built_pipeline)
-        _save_example(mlflow_model, input_example, str(path))
+        _save_example(mlflow_model, input_example, str(path), example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -553,14 +553,6 @@ def save_model(
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
-    if duplicates := _find_duplicate_requirements(pip_requirements):
-        _logger.warning(
-            "Duplicate packages are present within the pip requirements. Duplicate packages: "
-            f"{duplicates}. Please manually specify the requirements by using the "
-            "`pip_requirements` argument in order to prevent unexpected installation "
-            "issues for this model."
-        )
-
     with path.joinpath(_CONDA_ENV_FILE_NAME).open("w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
@@ -592,6 +584,7 @@ def log_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
     **kwargs,
 ):
     """
@@ -774,6 +767,7 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param example_no_conversion: {{ example_no_conversion }}
     :param kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
@@ -794,6 +788,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
+        example_no_conversion=example_no_conversion,
         **kwargs,
     )
 

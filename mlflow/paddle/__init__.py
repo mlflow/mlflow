@@ -456,6 +456,7 @@ class _PaddleWrapper:
             Model predictions.
         """
         import numpy as np
+        import paddle
         import pandas as pd
 
         if isinstance(data, pd.DataFrame):
@@ -473,7 +474,7 @@ class _PaddleWrapper:
 
         self.pd_model.eval()
 
-        predicted = self.pd_model(inp_data)
+        predicted = self.pd_model(paddle.to_tensor(inp_data))
         return pd.DataFrame(predicted.numpy())
 
 

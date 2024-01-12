@@ -127,12 +127,12 @@ with your favorite provider!
 * `MosaicML quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md>`_
 * `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/anthropic/README.md>`_
 * `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md>`_
-* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_serving/README.md>`_
+* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_models/README.md>`_
 * `AWS Bedrock quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md>`_
-* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21labs/README.md>`_ 
+* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21_labs/README.md>`_ 
 * `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md>`_
 * `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md>`_
-* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/readme.md>`_
+* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md>`_
 
 .. note::
     The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source 
@@ -256,7 +256,7 @@ Select the integration below to read the documentation on how to leverage MLflow
             </div>
         </a>
         
-        <a href="../models.html#langchain-langchain-experimental">
+        <a href="langchain/index.html">
             <div class="logo-card">
                 <img src="../_static/images/logos/langchain-logo.png" alt="LangChain Logo"/>
             </div>
@@ -300,6 +300,17 @@ Native Integration Guides and Tutorials
                 </a>
             </div>
             <div class="simple-card">
+                <a href="langchain/index.html">
+                    <div class="header">
+                        LangChain
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with LangChain and see example notebooks that leverage 
+                        MLflow and LangChain to build LLM-backed applications.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="sentence-transformers/index.html">
                     <div class="header">
                         Sentence Transformers
@@ -320,22 +331,7 @@ Native Integration Guides and Tutorials
     transformers/index
     openai/index
     sentence-transformers/index
-
-Native Integration Examples
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you'd like to directly explore code examples for how to get started with using our official library integrations, you can navigate 
-directly to our up-to-date examples on GitHub below:
-
-* **langchain**
-
-    * `Logging and using a Chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/simple_chain.py>`_
-    * `Logging and using an Agent <https://github.com/mlflow/mlflow/blob/master/examples/langchain/simple_agent.py>`_
-    * `Logging and using a Retriever Chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retriever_chain.py>`_ :sup:`1`
-    * `Logging and using a Retrieval QA Chain <https://github.com/mlflow/mlflow/blob/master/examples/langchain/retrieval_qa_chain.py>`_ :sup:`1`
-
-:sup:`1` Demonstrates the use of Retrieval Augmented Generation (RAG) using a Vector Store
-
+    langchain/index
 
 `LLM Tracking in MLflow <llm-tracking/index.html>`_
 ---------------------------------------------------

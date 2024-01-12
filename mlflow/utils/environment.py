@@ -1,7 +1,9 @@
 import logging
 import os
 import re
-from collections import Counter
+import subprocess
+import sys
+import tempfile
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
@@ -514,31 +516,144 @@ def _process_pip_requirements(
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
+    sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
+
     if constraints:
-        pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+        sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
-    conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs, install_mlflow=False)
-    return conda_env, pip_reqs, constraints
+    conda_env = _mlflow_conda_env(additional_pip_deps=sanitized_pip_reqs, install_mlflow=False)
+    return conda_env, sanitized_pip_reqs, constraints
 
 
-def _find_duplicate_requirements(requirements):
+def _deduplicate_requirements(requirements):
     """
-    Checks if duplicate base package requirements are specified in any list of requirements
-    and returns the list of duplicate base package names.
-    Note that git urls and paths to local files are not being considered for duplication checking.
-    """
-    base_package_names = []
+    De-duplicates a list of pip package requirements, handling complex scenarios such as merging
+    extras and combining version constraints.
 
-    for package in requirements:
+    This function processes a list of pip package requirements and de-duplicates them. It handles
+    standard PyPI packages and non-standard requirements (like URLs or local paths). The function
+    merges extras and combines version constraints for duplicate packages. The most restrictive
+    version specifications or the ones with extras are prioritized. If incompatible version
+    constraints are detected, it raises an MlflowException.
+
+    Args:
+        requirements (list of str): A list of pip package requirement strings.
+
+    Returns:
+        list of str: A deduplicated list of pip package requirements.
+
+    Raises:
+        MlflowException: If incompatible version constraints are detected among the provided
+                         requirements.
+
+    Examples:
+        - Input: ["packageA", "packageA==1.0"]
+          Output: ["packageA==1.0"]
+
+        - Input: ["packageX>1.0", "packageX[extras]", "packageX<2.0"]
+          Output: ["packageX[extras]>1.0,<2.0"]
+
+        - Input: ["markdown[extra1]>=3.5.1", "markdown[extra2]<4", "markdown"]
+          Output: ["markdown[extra1,extra2]>=3.5.1,<4"]
+
+        - Input: ["scikit-learn==1.1", "scikit-learn<1"]
+          Raises MlflowException indicating incompatible versions.
+
+    Note:
+        - Non-standard requirements (like URLs or file paths) are included as-is.
+        - If a requirement appears multiple times with different sets of extras, they are merged.
+        - The function uses `_validate_version_constraints` to check for incompatible version
+          constraints by doing a dry-run pip install of a requirements collection.
+    """
+    deduped_reqs = {}
+
+    for req in requirements:
         try:
-            base_package_names.append(Requirement(package).name)
-        except InvalidRequirement:
-            # Skip anything that's not a valid package requirement
-            continue
+            parsed_req = Requirement(req)
+            base_pkg = parsed_req.name
 
-    package_counts = Counter(base_package_names)
-    return [package for package, count in package_counts.items() if count > 1]
+            existing_req = deduped_reqs.get(base_pkg)
+
+            if not existing_req:
+                deduped_reqs[base_pkg] = parsed_req
+            else:
+                # Verify that there are not unresolvable constraints applied if set and combine
+                # if possible
+                if (
+                    existing_req.specifier
+                    and parsed_req.specifier
+                    and existing_req.specifier != parsed_req.specifier
+                ):
+                    _validate_version_constraints([str(existing_req), req])
+                    parsed_req.specifier = ",".join(
+                        [str(existing_req.specifier), str(parsed_req.specifier)]
+                    )
+
+                # Preserve existing specifiers
+                if existing_req.specifier and not parsed_req.specifier:
+                    parsed_req.specifier = existing_req.specifier
+
+                # Combine and apply extras if specified
+                if (
+                    existing_req.extras
+                    and parsed_req.extras
+                    and existing_req.extras != parsed_req.extras
+                ):
+                    parsed_req.extras = sorted(set(existing_req.extras).union(parsed_req.extras))
+                elif existing_req.extras and not parsed_req.extras:
+                    parsed_req.extras = existing_req.extras
+
+                deduped_reqs[base_pkg] = parsed_req
+
+        except InvalidRequirement:
+            # Include non-standard package strings as-is
+            if req not in deduped_reqs:
+                deduped_reqs[req] = req
+    return [str(req) for req in deduped_reqs.values()]
+
+
+def _validate_version_constraints(requirements):
+    """
+    Validates the version constraints of given Python package requirements using pip's resolver with
+    the `--dry-run` option enabled that performs validation only (will not install packages).
+
+    This function writes the requirements to a temporary file and then attempts to resolve
+    them using pip's `--dry-run` install option. If any version conflicts are detected, it
+    raises an MlflowException with details of the conflict.
+
+    Args:
+        requirements (list of str): A list of package requirements (e.g., `["pandas>=1.15",
+        "pandas<2"]`).
+
+    Raises:
+        MlflowException: If any version conflicts are detected among the provided requirements.
+
+    Returns:
+        None: This function does not return anything. It either completes successfully or raises
+        an MlflowException.
+
+    Example:
+        _validate_version_constraints(["tensorflow<2.0", "tensorflow>2.3"])
+        # This will raise an exception due to boundary validity.
+    """
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp_file:
+        tmp_file.write("\n".join(requirements))
+        tmp_file_name = tmp_file.name
+
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--dry-run", "-r", tmp_file_name],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        raise MlflowException.invalid_parameter_value(
+            "The specified requirements versions are incompatible. Detected "
+            f"conflicts: \n{e.stderr.decode()}"
+        )
+    finally:
+        os.remove(tmp_file_name)
 
 
 def _process_conda_env(conda_env):

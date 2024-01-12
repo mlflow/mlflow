@@ -98,6 +98,7 @@ def save_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
+    example_no_conversion=False,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -184,6 +185,7 @@ def save_model(
                                 )
 
                         See a complete example in examples/langchain/retrieval_qa_chain.py.
+    :param example_no_conversion: {{ example_no_conversion }}
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -236,7 +238,7 @@ def save_model(
         mlflow_model.signature = signature
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -306,6 +308,7 @@ def log_model(
     metadata=None,
     loader_fn=None,
     persist_dir=None,
+    example_no_conversion=False,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -402,6 +405,7 @@ def log_model(
                                 )
 
                         See a complete example in examples/langchain/retrieval_qa_chain.py.
+    :param example_no_conversion: {{ example_no_conversion }}
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -422,6 +426,7 @@ def log_model(
         metadata=metadata,
         loader_fn=loader_fn,
         persist_dir=persist_dir,
+        example_no_conversion=example_no_conversion,
     )
 
 
@@ -464,7 +469,47 @@ class _LangChainModelWrapper:
 
         :return: Model predictions.
         """
+        messages = self._prepare_messages(data)
+        from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
+        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
+            data, pd.DataFrame
+        )
+        results = process_api_requests(lc_model=self.lc_model, requests=messages)
+        return results[0] if return_first_element else results
+
+    @experimental
+    def _predict_with_callbacks(  # pylint: disable=unused-argument
+        self,
+        data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]], Any],
+        params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
+        callback_handlers=None,
+        convert_chat_responses=False,
+    ) -> List[str]:
+        """
+        :param data: Model input data.
+        :param params: Additional parameters to pass to the model for inference.
+
+                       .. Note:: Experimental: This parameter may change or be removed in a future
+                                               release without warning.
+        :param data: Callback handlers to pass to LangChain.
+        :return: Model predictions.
+        """
+        messages = self._prepare_messages(data)
+        from mlflow.langchain.api_request_parallel_processor import process_api_requests
+
+        return_first_element = isinstance(self.lc_model, lc_runnables_types()) and not isinstance(
+            data, pd.DataFrame
+        )
+        results = process_api_requests(
+            lc_model=self.lc_model,
+            requests=messages,
+            callback_handlers=callback_handlers,
+            convert_chat_responses=convert_chat_responses,
+        )
+        return results[0] if return_first_element else results
+
+    def _prepare_messages(self, data):
         # numpy array is not json serializable, so we convert it to list
         # then send it to the model
         def _convert_ndarray_to_list(data):
@@ -478,28 +523,21 @@ class _LangChainModelWrapper:
                 return {k: _convert_ndarray_to_list(v) for k, v in data.items()}
             return data
 
-        from mlflow.langchain.api_request_parallel_processor import process_api_requests
-
-        return_first_element = False
         if isinstance(data, pd.DataFrame):
-            messages = data.to_dict(orient="records")
-        else:
-            data = _convert_ndarray_to_list(data)
-            if isinstance(self.lc_model, lc_runnables_types()):
-                messages = [data]
-                return_first_element = True
-            elif isinstance(data, list) and (
-                all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
-            ):
-                messages = data
-            else:
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    "Input must be a pandas DataFrame or a list of strings "
-                    "or a list of dictionaries "
-                    f"for model {self.lc_model.__class__.__name__}"
-                )
-        results = process_api_requests(lc_model=self.lc_model, requests=messages)
-        return results[0] if return_first_element else results
+            return data.to_dict(orient="records")
+
+        data = _convert_ndarray_to_list(data)
+        if isinstance(self.lc_model, lc_runnables_types()):
+            return [data]
+        if isinstance(data, list) and (
+            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
+        ):
+            return data
+        raise mlflow.MlflowException.invalid_parameter_value(
+            "Input must be a pandas DataFrame or a list of strings "
+            "or a list of dictionaries "
+            f"for model {self.lc_model.__class__.__name__}"
+        )
 
 
 class _TestLangChainWrapper(_LangChainModelWrapper):

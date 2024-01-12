@@ -33,6 +33,9 @@ scikit-learn, or as a generic Python function for use in tools that just need to
 (for example, the ``mlflow deployments`` tool with the option ``-t sagemaker`` for deploying models
 to Amazon SageMaker).
 
+MLmodel file
+^^^^^^^^^^^^
+
 All of the flavors that a particular model supports are defined in its ``MLmodel`` file in YAML
 format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
 
@@ -60,29 +63,21 @@ And its ``MLmodel`` file describes two flavors:
       python_function:
         loader_module: mlflow.sklearn
 
-This model can then be used with any tool that supports either the ``sklearn`` or
-``python_function`` model flavor. For example, the ``mlflow models serve`` command
-can serve a model with the ``python_function`` or the ``crate`` (R Function) flavor:
+Apart from a **flavors** field listing the model flavors, the MLmodel YAML format can contain
+the following fields:
 
-.. code-block:: bash
+* ``time_created``: Date and time when the model was created, in UTC ISO 8601 format.
+* ``run_id``: ID of the run that created the model, if the model was saved using :ref:`tracking`.
+* ``signature``: :ref:`model signature <model-signature>` in JSON format.
+* ``input_example``: reference to an artifact with :ref:`input example <input-example>`.
+* ``databricks_runtime``: Databricks runtime version and type, if the model was trained in a Databricks notebook or job.
+* ``mlflow_version``: The version of MLflow that was used to log the model.
 
-    mlflow models serve -m my_model
-
-.. note::
-    If you wish to serve a model from inside a docker container (or to
-    query it from another machine), you need to change the network address to ``0.0.0.0``
-    using the ``-h`` argument.
-
-    .. code-block:: bash
-
-        mlflow models serve -h 0.0.0.0 -m my_model
-
-In addition, the ``mlflow deployments`` command-line tool can package and deploy models to AWS
-SageMaker as long as they support the ``python_function`` flavor:
-
-.. code-block:: bash
-
-    mlflow deployments create -t sagemaker -m my_model [other options]
+Additional Logged Files
+^^^^^^^^^^^^^^^^^^^^^^^
+For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged.
+These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``. Please see 
+:ref:`How MLflow Model Records Dependencies <how-mlflow-records-dependencies>` for more details about these files.
 
 .. note::
     When a model registered in the MLflow Model Registry is downloaded, a YAML file named
@@ -90,119 +85,19 @@ SageMaker as long as they support the ``python_function`` flavor:
     This file contains the name and version of the model referenced in the MLflow Model Registry,
     and will be used for deployment and other purposes.
 
-Fields in the MLmodel Format
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Apart from a **flavors** field listing the model flavors, the MLmodel YAML format can contain
-the following fields:
 
-time_created
-    Date and time when the model was created, in UTC ISO 8601 format.
+.. toctree::
+    :maxdepth: 1
+    :hidden:
 
-run_id
-    ID of the run that created the model, if the model was saved using :ref:`tracking`.
+    model/dependencies
 
-signature
-  :ref:`model signature <model-signature>` in JSON format.
+Managing Model Dependencies
+---------------------------
 
-input_example
-  reference to an artifact with :ref:`input example <input-example>`.
-
-databricks_runtime
-    Databricks runtime version and type, if the model was trained in a Databricks notebook or job.
-
-mlflow_version
-    The version of MLflow that was used to log the model.
-
-
-
-
-Additional Logged Files
-^^^^^^^^^^^^^^^^^^^^^^^
-For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``.
-
-.. note::
-    Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
-
-    MLflow models logged before `v1.18 <https://mlflow.org/news/2021/06/18/1.18.0-release/index.html>`_ were by default logged with the conda ``defaults`` channel (`https://repo.anaconda.com/pkgs/ <https://repo.anaconda.com/pkgs/>`_) as a dependency. Because of this license change, MLflow has stopped the use of the ``defaults`` channel for models logged using MLflow v1.18 and above. The default channel logged is now ``conda-forge``, which points at the community managed `https://conda-forge.org/ <https://conda-forge.org/>`_.
-
-    If you logged a model before MLflow v1.18 without excluding the ``defaults`` channel from the conda environment for the model, that model may have a dependency on the ``defaults`` channel that you may not have intended.
-    To manually confirm whether a model has this dependency, you can examine ``channel`` value in the ``conda.yaml`` file that is packaged with the logged model. For example, a model’s ``conda.yaml`` with a ``defaults`` channel dependency may look like this:
-
-    .. code-block:: yaml
-
-        name: mlflow-env
-        channels:
-        - defaults
-        dependencies:
-        - python=3.8.8
-        - pip
-        - pip:
-            - mlflow==2.3
-            - scikit-learn==0.23.2
-            - cloudpickle==1.6.0
-
-    If you would like to change the channel used in a model’s environment, you can re-register the model to the model registry with a new ``conda.yaml``. You can do this by specifying the channel in the ``conda_env`` parameter of ``log_model()``.
-
-    For more information on the ``log_model()`` API, see the MLflow documentation for the model flavor you are working with, for example, :py:func:`mlflow.sklearn.log_model() <mlflow.sklearn.log_model>`.
-
-conda.yaml
-    When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
-python_env.yaml
-    This file contains the following information that's required to restore a model environment using virtualenv:
-
-    - Python version
-    - Version specifiers for ``pip``, ``setuptools``, and ``wheel``
-    - Pip requirements of the model (reference to ``requirements.txt``)
-
-requirements.txt
-    The requirements file is created from the `pip portion <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_ of the ``conda.yaml`` environment specification. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment or using the ``pip_requirements`` argument of the `mlflow.<flavor>.log_model` API.
-
-The following shows an example of saving a model with a manually specified conda environment and the corresponding content of the generated ``conda.yaml`` and ``requirements.txt`` files.
-
-.. code-block:: python
-
-    conda_env = {
-        "channels": ["conda-forge"],
-        "dependencies": ["python=3.8.8", "pip"],
-        "pip": ["mlflow==2.3", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
-        "name": "mlflow-env",
-    }
-    mlflow.sklearn.log_model(..., conda_env=conda_env)
-
-The written ``conda.yaml`` file:
-
-.. code-block:: yaml
-
-    name: mlflow-env
-    channels:
-      - conda-forge
-    dependencies:
-    - python=3.8.8
-    - pip
-    - pip:
-      - mlflow==2.3
-      - scikit-learn==0.23.2
-      - cloudpickle==1.6.0
-
-The written ``python_env.yaml`` file:
-
-.. code-block:: yaml
-
-    python: 3.8.8
-    build_dependencies:
-      - pip==21.1.3
-      - setuptools==57.4.0
-      - wheel==0.37.0
-    dependencies:
-      - -r requirements.txt
-
-The written ``requirements.txt`` file:
-
-.. code-block:: text
-
-    mlflow==2.3
-    scikit-learn==0.23.2
-    cloudpickle==1.6.0
+MLflow Model infers dependencies required for the model flavor and automatically logs them. However, it also allows
+you to define extra dependencies or custom Python code, and offer a tool to validate them in a sandbox environment.
+Please refer to `Managing Dependencies in MLflow Models <model/dependencies.html>`_ for more details.
 
 .. _model-metadata:
 
@@ -875,9 +770,13 @@ To include an input example with your model, add it to the appropriate log_model
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Input examples are also used to infer
 model signatures in log_model calls when signatures aren't specified.
 
-Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). We offer support for input_example with params by using tuple to combine model
-inputs and params. See examples below:
+By default, if input example is a dictionary, we convert it to pandas DataFrame format when saving.
+Note that for langchain, openai, pyfunc and transformers flavors, input example could be saved without
+conversion by setting ``example_no_conversion`` to ``False``.
+
+Similar to model signatures, model inputs can be column-based (i.e DataFrames), tensor-based
+(i.e numpy.ndarrays) or json object (i.e python dictionary). We offer support for input_example 
+with params by using tuple to combine model inputs and params. See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -928,6 +827,27 @@ The following example demonstrates how you can log a tensor-based input example 
         dtype=np.uint8,
     )
     mlflow.tensorflow.log_model(..., input_example=input_example)
+
+How To Log Model With Json Object
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For models accepting python dictionary inputs instead of pandas DataFrame, we support saving the example
+directly as it is. To enable this, ``example_no_conversion`` should be set to ``True`` when logging the model. 
+This feature is only supported for langchain, openai, pyfunc and transformers flavors, where saving the example
+directly is useful for inference and model serving.
+By default, ``example_no_conversion`` is set to ``False`` for backwards compatibility.
+
+The following example demonstrates how you can log a json object input example with your model:
+
+.. code-block:: python
+
+    input_example = {
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "assistant", "content": "What would you like to ask?"},
+            {"role": "user", "content": "Who owns MLflow?"},
+        ]
+    }
+    mlflow.langchain.log_model(..., input_example=input_example, example_no_conversion=True)
 
 How To Log Model With Example Containing Params
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2660,97 +2580,7 @@ The full guide, including tutorials and detailed documentation for using the ``o
 LangChain (``langchain``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. attention::
-    The ``langchain`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
-    subject to be added as additional functionality is brought to the flavor.
-
-The ``langchain`` model flavor enables logging of `LangChain models <https://github.com/hwchase17/langchain>`_ in MLflow format via
-the :py:func:`mlflow.langchain.save_model()` and :py:func:`mlflow.langchain.log_model()` functions. Use of these
-functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
-interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
-You can also use the :py:func:`mlflow.langchain.load_model()` function to load a saved or logged MLflow
-Model with the ``langchain`` flavor as a dictionary of the model's attributes.
-
-Example: Log a LangChain LLMChain
-
-.. literalinclude:: ../../examples/langchain/simple_chain.py
-    :language: python
-
-.. code-block:: python
-    :caption: Output
-
-    ["\n\nColorful Cozy Creations."]
-
-Example: Log a LangChain Agent
-
-.. literalinclude:: ../../examples/langchain/simple_agent.py
-    :language: python
-
-.. code-block:: python
-    :caption: Output
-
-    ["1.1044000282035853"]
-
-
-Logging RetrievalQA Chains
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-In MLflow, you can use the ``langchain`` flavor to save a ``RetrievalQA`` chain, including the retriever object.
-
-Native LangChain requires the user to handle the serialization and deserialization of the retriever object, but MLflow's ``langchain`` flavor handles that for you.
-
-Here are the two things you need to tell MLflow:
-
-1. Where the retriever object is stored (``persist_dir``).
-2. How to load the retriever object from that location (``loader_fn``).
-
-After you define these, MLflow takes care of the rest, saving both the content in the ``persist_dir`` and pickling the ``loader_fn`` function.
-
-Example: Log a LangChain RetrievalQA Chain
-
-.. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
-    :language: python
-
-.. code-block:: python
-    :caption: Output (truncated)
-
-    [" The president said..."]
-
-.. _log-retriever-chain:
-
-Logging a retriever and evaluate it individually
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``langchain`` flavor provides the functionality to log a retriever object and evaluate it individually. This is useful if
-you want to evaluate the quality of the relevant documents returned by a retriever object without directing these documents
-through a large language model (LLM) to yield a summarized response.
-
-In order to log the retriever object in the ``langchain`` flavor, it is also required to specify ``persist_dir``
-and ``loader_fn``, the same as logging the RetrievalQA chain. See the previous section for details about these parameters.
-
-See the following example for more details.
-
-Example: Log a LangChain Retriever
-
-.. literalinclude:: ../../examples/langchain/retriever_chain.py
-    :language: python
-
-.. code-block:: python
-    :caption: Output (truncated)
-
-    [
-        [
-            {
-                "page_content": "Tonight. I call...",
-                "metadata": {"source": "/state.txt"},
-            },
-            {
-                "page_content": "A former top...",
-                "metadata": {"source": "/state.txt"},
-            },
-        ]
-    ]
-
+The full guide, including tutorials and detailed documentation for using the `langchain flavor can be viewed here <llms/langchain/index.html>`_.
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3212,7 +3042,7 @@ The ``MetricValue`` class has three attributes:
 
 * ``scores``: a list that contains per-row metrics.
 * ``aggregate_results``: a dictionary that maps the aggregation method names to the corresponding aggregated values. This is intended to be used to aggregate ``scores``.
-* ``justification``: a per-row justification of the values in ``scores``. This is optional, and is usually used with genai metrics.
+* ``justifications``: a list that contains per-row justifications of the values in ``scores``. This is optional, and is usually used with genai metrics.
 
 The code block below demonstrates how to define a custom metric evaluation function:
 
