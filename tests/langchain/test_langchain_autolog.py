@@ -301,7 +301,7 @@ def test_loaded_llmchain_autolog():
 
 
 def test_llmchain_autolog_log_inference_history():
-    mlflow.langchain.autolog(log_inference_history=True)
+    mlflow.langchain.autolog(log_models=True, log_inference_history=True)
     question = {"product": "MLflow"}
     answer = {"product": "MLflow", "text": TEST_CONTENT}
     with _mock_request(return_value=_mock_chat_completion_response()):
@@ -310,7 +310,10 @@ def test_llmchain_autolog_log_inference_history():
             model.invoke(question)
         loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
-        assert loaded_dict == [{"input": question, "output": answer}]
+        assert len(loaded_dict) == 1
+        assert loaded_dict[0]["input"] == question
+        assert loaded_dict[0]["output"] == answer
+        session_id = loaded_dict[0]["session_id"]
 
         # inference history is appended to the same table
         with mlflow.start_run(run.info.run_id):
@@ -320,7 +323,16 @@ def test_llmchain_autolog_log_inference_history():
         model.invoke(question)
         loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
-        assert loaded_dict == [{"input": question, "output": answer}] * 4
+        assert loaded_dict == [{"input": question, "output": answer, "session_id": session_id}] * 4
+
+        # A different inference session adds a different session_id
+        loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
+        loaded_model.invoke(question)
+        loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+        loaded_dict = loaded_table.to_dict("records")
+        assert len(loaded_dict) == 5
+        new_session_id = loaded_dict[-1]["session_id"]
+        assert new_session_id != session_id
 
 
 def test_agent_autolog():
@@ -400,13 +412,16 @@ def test_agent_autolog_log_inference_history():
             assert model(input, return_only_outputs=True) == output
         loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
-        assert loaded_dict == [{"input": input, "output": output}]
+        assert len(loaded_dict) == 1
+        assert loaded_dict[0]["input"] == input
+        assert loaded_dict[0]["output"] == output
+        session_id = loaded_dict[0]["session_id"]
 
         with mlflow.start_run(run.info.run_id):
             model.invoke(input, return_only_outputs=True)
         loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
-        assert loaded_dict == [{"input": input, "output": output}] * 2
+        assert loaded_dict == [{"input": input, "output": output, "session_id": session_id}] * 2
 
 
 def test_runnable_sequence_autolog():
@@ -471,10 +486,13 @@ def test_runnable_sequence_autolog_log_inference_history():
         assert chain.invoke(input_example) == output
     loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
     loaded_dict = loaded_table.to_dict("records")
-    assert loaded_dict == [{"input": input_example, "output": output}]
+    assert len(loaded_dict) == 1
+    assert loaded_dict[0]["input"] == input_example
+    assert loaded_dict[0]["output"] == output
+    session_id = loaded_dict[0]["session_id"]
 
     with mlflow.start_run(run.info.run_id):
         chain.invoke(input_example)
     loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
     loaded_dict = loaded_table.to_dict("records")
-    assert loaded_dict == [{"input": input_example, "output": output}] * 2
+    assert loaded_dict == [{"input": input_example, "output": output, "session_id": session_id}] * 2

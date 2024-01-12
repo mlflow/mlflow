@@ -1,6 +1,7 @@
 import contextlib
 import inspect
 import logging
+import uuid
 import warnings
 from copy import deepcopy
 
@@ -25,13 +26,13 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_input_data_from_function(func_name, model, args, kwargs):
-    supported_func_names = ["__call__", "invoke"]
+    func_param_name_mapping = {
+        "__call__": "inputs",
+        "invoke": "input",
+    }
     input_example_exc = None
-    if func_name in supported_func_names:
-        if func_name == "__call__":
-            param_name = "inputs"
-        elif func_name == "invoke":
-            param_name = "input"
+    if func_name in func_param_name_mapping:
+        param_name = func_param_name_mapping[func_name]
         inference_func = getattr(model, func_name)
         try:
             # A guard to make sure `param_name` is the first argument of inference function
@@ -51,16 +52,17 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
     )
 
 
-def _combine_input_and_output(input, output):
+def _combine_input_and_output(input, output, session_id):
     """
     Combine input and output into a single dictionary
     """
     if input is None:
-        if isinstance(output, dict):
-            return output
-        return {"output": output if isinstance(output, list) else [output]}
+        return {
+            "output": output if isinstance(output, (list, dict)) else [output],
+            "session_id": session_id,
+        }
     if isinstance(input, (str, dict)):
-        return {"input": [input], "output": [output]}
+        return {"input": [input], "output": [output], "session_id": session_id}
     if isinstance(input, list) and (
         all(isinstance(x, str) for x in input) or all(isinstance(x, dict) for x in input)
     ):
@@ -69,7 +71,7 @@ def _combine_input_and_output(input, output):
                 "Failed to combine input and output data with different lengths "
                 "into a single pandas DataFrame. "
             )
-        return {"input": input, "output": output}
+        return {"input": input, "output": output, "session_id": session_id}
     raise MlflowException("Unsupported input type.")
 
 
@@ -179,7 +181,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         if log_input_examples:
             input_example = deepcopy(_get_input_data_from_function(func_name, self, args, kwargs))
             if not log_model_signatures:
-                _logger.warning(
+                _logger.info(
                     "Signature is automatically generated for logged model if "
                     "input_example is provided. To disable log_model_signatures, "
                     "please also disable log_input_examples."
@@ -207,7 +209,10 @@ def patched_inference(func_name, original, self, *args, **kwargs):
 
     # Even if the model is not logged, we keep a single run per model
     if _update_langchain_model_config(self):
-        self.run_id = mlflow_callback.mlflg.run_id
+        if not hasattr(self, "run_id"):
+            self.run_id = mlflow_callback.mlflg.run_id
+        if not hasattr(self, "session_id"):
+            self.session_id = uuid.uuid4().hex
 
     log_inference_history = get_autologging_config(
         mlflow.langchain.FLAVOR_NAME, "log_inference_history", False
@@ -216,10 +221,10 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         if input_example is None:
             input_data = deepcopy(_get_input_data_from_function(func_name, self, args, kwargs))
             if input_data is None:
-                _logger.warning("Input data gathering failed, only log inference results.")
+                _logger.info("Input data gathering failed, only log inference results.")
         else:
             input_data = input_example
-        data_dict = _combine_input_and_output(input_data, result)
+        data_dict = _combine_input_and_output(input_data, result, self.session_id)
         mlflow.log_table(data_dict, "inference_history.json", run_id=mlflow_callback.mlflg.run_id)
 
     return result
