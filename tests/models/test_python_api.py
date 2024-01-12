@@ -1,9 +1,11 @@
+import datetime
 import sys
 from unittest import mock
 
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.sparse
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -28,13 +30,30 @@ from mlflow.utils.env_manager import CONDA, VIRTUALENV
             {"a": np.array([1])},
             _CONTENT_TYPE_JSON,
         ),
+        (
+            1,
+            [1],
+            _CONTENT_TYPE_JSON,
+        ),
+        (
+            np.array([1, 2, 3]),
+            np.array([1, 2, 3]),
+            _CONTENT_TYPE_JSON,
+        ),
+        (
+            scipy.sparse.csc_matrix([[1, 2], [3, 4]]),
+            np.array([[1, 2], [3, 4]]),
+            _CONTENT_TYPE_JSON,
+        ),
     ],
 )
 def test_predict(input_data, expected_data, content_type):
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
-            if type(model_input) == pd.DataFrame:
+            if isinstance(model_input, pd.DataFrame):
                 assert model_input.equals(expected_data)
+            elif isinstance(model_input, np.ndarray):
+                assert np.array_equal(model_input, expected_data)
             else:
                 assert model_input == expected_data
             return {}
@@ -151,6 +170,18 @@ def test_predict_with_input_none(mock_backend):
         # String (no change)
         ('{"inputs": [1, 2, 3]}', _CONTENT_TYPE_JSON, '{"inputs": [1, 2, 3]}'),
         ("x,y,z\n1,2,3\n4,5,6", _CONTENT_TYPE_CSV, "x,y,z\n1,2,3\n4,5,6"),
+        # Bool
+        (True, _CONTENT_TYPE_JSON, '{"inputs": [true]}'),
+        # Int
+        (1, _CONTENT_TYPE_JSON, '{"inputs": [1]}'),
+        # Float
+        (1.0, _CONTENT_TYPE_JSON, '{"inputs": [1.0]}'),
+        # Datatime
+        (
+            datetime.datetime(2021, 1, 1, 0, 0, 0),
+            _CONTENT_TYPE_JSON,
+            '{"inputs": ["2021-01-01T00:00:00"]}',
+        ),
         # List
         ([1, 2, 3], _CONTENT_TYPE_CSV, "0\n1\n2\n3\n"),  # a header '0' is added by pandas
         ([[1, 2, 3], [4, 5, 6]], _CONTENT_TYPE_CSV, "0,1,2\n1,2,3\n4,5,6\n"),
@@ -168,8 +199,29 @@ def test_predict_with_input_none(mock_backend):
         ),
         # Dict (json)
         ({"inputs": [1, 2, 3]}, _CONTENT_TYPE_JSON, '{"inputs": [1, 2, 3]}'),
-        # Pandas DataFrame
+        # Pandas DataFrame (csv)
         (pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]}), _CONTENT_TYPE_CSV, "x,y\n1,4\n2,5\n3,6\n"),
+        # Pandas DataFrame (json)
+        (
+            pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]}),
+            _CONTENT_TYPE_JSON,
+            '{"dataframe_split": {"index": [0, 1, 2], '
+            '"columns": ["x", "y"], "data": [[1, 4], [2, 5], [3, 6]]}}',
+        ),
+        # Numpy Array
+        (np.array([1, 2, 3]), _CONTENT_TYPE_JSON, '{"inputs": [1, 2, 3]}'),
+        # CSC Matrix
+        (
+            scipy.sparse.csc_matrix([[1, 2], [3, 4]]),
+            _CONTENT_TYPE_JSON,
+            '{"inputs": [[1, 2], [3, 4]]}',
+        ),
+        # CSR Matrix
+        (
+            scipy.sparse.csr_matrix([[1, 2], [3, 4]]),
+            _CONTENT_TYPE_JSON,
+            '{"inputs": [[1, 2], [3, 4]]}',
+        ),
     ],
 )
 def test_serialize_input_data(input_data, content_type, expected):
@@ -182,9 +234,6 @@ def test_serialize_input_data(input_data, content_type, expected):
         # Invalid input datatype for the content type
         (1, _CONTENT_TYPE_CSV),
         ({1, 2, 3}, _CONTENT_TYPE_CSV),
-        (1, _CONTENT_TYPE_JSON),
-        (True, _CONTENT_TYPE_JSON),
-        ([1, 2, 3], _CONTENT_TYPE_JSON),
         # Invalid string
         ("{inputs: [1, 2, 3]}", _CONTENT_TYPE_JSON),
         ("x,y\n1,2\n3,4,5\n", _CONTENT_TYPE_CSV),

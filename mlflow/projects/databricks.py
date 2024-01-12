@@ -7,6 +7,7 @@ import re
 import tempfile
 import textwrap
 import time
+from shlex import quote
 
 from mlflow import tracking
 from mlflow.entities import RunStatus
@@ -22,7 +23,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID,
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
-from mlflow.utils.string_utils import quote
 from mlflow.utils.uri import is_databricks_uri, is_http_uri
 from mlflow.version import VERSION, is_release_version
 

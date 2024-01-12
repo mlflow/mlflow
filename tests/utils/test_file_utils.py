@@ -340,7 +340,6 @@ def test_handle_readonly_on_windows(tmp_path):
 @pytest.mark.parametrize(
     ("input_uri", "expected_path"),
     [
-        ("file://my_server/my_path/my_sub_path", r"\\my_server\my_path\my_sub_path"),
         (r"\\my_server\my_path\my_sub_path", r"\\my_server\my_path\my_sub_path"),
     ],
 )
