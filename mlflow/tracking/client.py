@@ -1609,7 +1609,13 @@ class MlflowClient:
             )
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
-            data.to_json(artifact_path, orient="split", index=False)
+            try:
+                data.to_json(artifact_path, orient="split", index=False)
+            except Exception as e:
+                raise MlflowException(
+                    f"Failed to save {data} as table as the data is not JSON serializable. "
+                    f"Error: {e}"
+                )
 
         run = self.get_run(run_id)
 
