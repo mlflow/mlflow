@@ -67,6 +67,17 @@ Getting Started Guides and Quickstarts
                     </p>
                 </a>
             </div>
+             <div class="simple-card">
+                <a href="getting-started/model-registry/index.html" >
+                    <div class="header">
+                        Intro to MLflow Model Registry Tutorial 
+                    </div>
+                    <p>
+                        Learn how to get started with the basics of MLflow in a step-by-step instructional tutorial that shows the critical 
+                        path to logging your first model
+                    </p>
+                </a>
+            </div>
         </article>
     </section>
 

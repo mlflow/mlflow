@@ -341,3 +341,34 @@ your MLflow experiments.
     :hidden:
 
     tracking-server-overview/index
+
+`5 Minute Model Registry Overview <model-registry/index.html>`_
+---------------------------------------------------------------------------
+
+This quickstart tutorial walks through registering a model in the MLflow model registry and how to
+retreive registered models. 
+
+.. raw:: html
+
+     <section>
+        <article class="simple-grid">
+            <div class="simple-card">
+                <a href="model-registry/index.html" >
+                    <div class="header">
+                        5 Minute Model Registry Overview
+                    </div>
+                </a>
+                <p>
+                    Learn how to log MLflow models to the model registry
+                </p>
+            </div>
+        </article>
+    </section>
+
+
+
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    model-registry/index
