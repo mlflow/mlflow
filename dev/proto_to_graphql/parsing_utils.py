@@ -55,13 +55,13 @@ def populate_message_types(field_descriptor, state, is_input, visited):
             continue
 
 
-def add_message_descriptor_to_list(descriptor, list):
+def add_message_descriptor_to_list(descriptor, target_list):
     # Always put the referenced message at the beginning, so that when generating the schema,
     # the ordering can be maintained in a way that correspond to the reference graph.
-    # list.remove() and insert(0) are not optimal in terms of efficiency but are fine because the amount of data is
-    # very small here.
-    if descriptor not in list:
-        list.insert(0, descriptor)
+    # list.remove() and insert(0) are not optimal in terms of efficiency but are fine because
+    # the amount of data is very small here.
+    if descriptor not in target_list:
+        target_list.insert(0, descriptor)
     else:
-        list.remove(descriptor)
-        list.insert(0, descriptor)
+        target_list.remove(descriptor)
+        target_list.insert(0, descriptor)

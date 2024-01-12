@@ -1,6 +1,7 @@
 import ast
 
 from autogeneration_utils import (
+    DUMMY_FIELD,
     INDENT,
     INDENT2,
     SCHEMA_EXTENSION,
@@ -99,7 +100,7 @@ def generate_schema(state):
             schema_builder += f"\n{INDENT}{camel_to_snake(field.name)} = {graphene_type}"
 
         if len(type.fields) == 0:
-            schema_builder += f"\n{INDENT}dummy = graphene.Boolean(description='Dummy field required because GraphQL does not support empty types.')"
+            schema_builder += f"\n{INDENT}{DUMMY_FIELD}"
 
         schema_builder += "\n\n"
 
@@ -110,7 +111,7 @@ def generate_schema(state):
             graphene_type = get_graphene_type_for_field(field, True)
             schema_builder += f"\n{INDENT}{camel_to_snake(field.name)} = {graphene_type}"
         if len(input.fields) == 0:
-            schema_builder += f"\n{INDENT}dummy = graphene.Boolean(description='Dummy field required because GraphQL does not support empty types.')"
+            schema_builder += f"\n{INDENT}{DUMMY_FIELD}"
 
         schema_builder += "\n\n"
 
@@ -183,7 +184,8 @@ def proto_method_to_graphql_operation(method):
     output_descriptor = method.output_type
     input_class_name = get_descriptor_full_pascal_name(input_descriptor) + "Input"
     out_put_class_name = get_descriptor_full_pascal_name(output_descriptor)
-    return f"\n{INDENT}{method_name} = graphene.Field({out_put_class_name}, input={input_class_name}())"
+    field_def = f"graphene.Field({out_put_class_name}, input={input_class_name}())"
+    return f"\n{INDENT}{method_name} = {field_def}"
 
 
 def generate_resolver_function(method):

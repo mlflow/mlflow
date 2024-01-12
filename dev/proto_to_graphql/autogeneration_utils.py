@@ -6,6 +6,10 @@ from string_utils import camel_to_snake, snake_to_pascal
 INDENT = " " * 4
 INDENT2 = INDENT * 2
 SCHEMA_EXTENSION = "mlflow/server/graphql/graphql_schema_extensions.py"
+DUMMY_FIELD = (
+    "dummy = graphene.Boolean(description="
+    "'Dummy field required because GraphQL does not support empty types.')"
+)
 
 
 def get_package_name(method_descriptor):
