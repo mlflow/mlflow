@@ -127,6 +127,12 @@ _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES = {
     "text-generation",
 }
 
+_PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
+    "text-generation pipelines saved with prompt templates have the `return_full_text` "
+    "pipeline kwarg set to False by default. To override this behavior, provide a "
+    "`model_config` dict with `return_full_text` set to `True` when saving the model."
+)
+
 _logger = logging.getLogger(__name__)
 
 
@@ -479,7 +485,7 @@ def save_model(
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
-    if prompt_template:
+    if prompt_template is not None:
         # prevent saving prompt templates for unsupported pipeline types
         if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
             raise MlflowException(
@@ -543,6 +549,18 @@ def save_model(
             mlflow_model.signature = _get_default_pipeline_signature(
                 built_pipeline, input_example, model_config or inference_config
             )
+
+        # if pipeline is text-generation and a prompt template is specified,
+        # provide the return_full_text=False config by default to avoid confusing
+        # extra text for end-users
+        if prompt_template is not None and built_pipeline.task == "text-generation":
+            return_full_text_key = "return_full_text"
+            if model_config is None:
+                model_config = {return_full_text_key: False}
+                _logger.info(_PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO)
+            elif return_full_text_key not in model_config:
+                model_config[return_full_text_key] = False
+                _logger.info(_PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO)
 
         pyfunc.add_to_model(
             mlflow_model,
@@ -1849,18 +1867,22 @@ class _TransformersWrapper:
             output_key = "translation_text"
         elif isinstance(self.pipeline, transformers.SummarizationPipeline):
             self._validate_str_or_list_str(data)
+            data = self._format_prompt_template(data)
             output_key = "summary_text"
         elif isinstance(self.pipeline, transformers.Text2TextGenerationPipeline):
             data = self._parse_text2text_input(data)
+            data = self._format_prompt_template(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.TextGenerationPipeline):
             self._validate_str_or_list_str(data)
+            data = self._format_prompt_template(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.QuestionAnsweringPipeline):
             data = self._parse_question_answer_input(data)
             output_key = "answer"
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             self._validate_str_or_list_str(data)
+            data = self._format_prompt_template(data)
             output_key = "token_str"
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
             output_key = "label"
@@ -1878,6 +1900,7 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
             output_key = None
             data = self._parse_feature_extraction_input(data)
+            data = self._format_prompt_template(data)
         elif isinstance(self.pipeline, transformers.ConversationalPipeline):
             output_key = None
             if not self._conversation:
@@ -1911,11 +1934,6 @@ class _TransformersWrapper:
         collapse_whitespace = self.model_config.pop("collapse_whitespace", False)
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
-
-        # if applicable, wrap the data in the prompt template that was saved
-        # with the model. this function is a no-op if no prompt template was
-        # specified, or if the pipelines/inputs are not compatible with templating.
-        data = self._wrap_input_in_prompt_template(data)
 
         # Generate inference data with the pipeline object
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
@@ -2267,11 +2285,6 @@ class _TransformersWrapper:
                 data_out = data_out[len(data_in) :].lstrip()
                 if data_out.startswith("A:"):
                     data_out = data_out[2:].lstrip()
-
-            # only return generated text if a prompt template was set.
-            # this is to avoid leaking system prompts.
-            if self.prompt_template and data_out.startswith(data_in):
-                data_out = data_out[len(data_in) :].lstrip()
 
             # If the user has indicated to remove newlines and extra spaces from the generated
             # text, replace them with a single space.
@@ -2826,19 +2839,21 @@ class _TransformersWrapper:
                 error_code=BAD_REQUEST,
             )
 
-    def _wrap_input_in_prompt_template(self, input_data):
+    def _format_prompt_template(self, input_data):
         """
         Wraps the input data in the specified prompt template. If no template is
         specified, or if the pipeline is an unsupported type, or if the input type
         is not a string or list of strings, then the input data is returned unchanged.
         """
-
-        # if no template is set, do nothing
         if not self.prompt_template:
             return input_data
 
         if self.pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
-            return input_data
+            raise MlflowException(
+                f"_format_prompt_template called on an unexpected pipeline type. "
+                f"Expected one of: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}. "
+                f"Received: {self.pipeline.task}"
+            )
 
         if isinstance(input_data, str):
             return self.prompt_template.format(prompt=input_data)
@@ -2846,11 +2861,11 @@ class _TransformersWrapper:
             # if every item is a string, then apply formatting to every item
             if all(isinstance(data, str) for data in input_data):
                 return [self.prompt_template.format(prompt=data) for data in input_data]
-            # otherwise, the input might be more complex (e.g. a dict), so we leave it alone
-            else:
-                return input_data
-        else:
-            return input_data
+
+        # throw for unsupported types
+        raise MlflowException.invalid_parameter_value(
+            "Prompt templating is only supported for data of type str or List[str]. "
+        )
 
 
 @experimental
@@ -2913,7 +2928,10 @@ def _get_prompt_template(model_path):
         )
 
     model_conf = Model.load(model_path)
-    return model_conf.metadata[_PROMPT_TEMPLATE_KEY]
+    if model_conf.metadata:
+        return model_conf.metadata.get(_PROMPT_TEMPLATE_KEY)
+
+    return None
 
 
 def _validate_prompt_template(prompt_template):

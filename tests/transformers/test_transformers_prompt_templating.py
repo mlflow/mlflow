@@ -107,6 +107,18 @@ def test_prompt_save_and_load(saved_transformers_model_path):
 
     model = mlflow.pyfunc.load_model(saved_transformers_model_path)
     assert model._model_impl.prompt_template == TEST_PROMPT_TEMPLATE
+    assert model._model_impl.model_config["return_full_text"] is False
+
+
+def test_model_save_override_return_full_text(tmp_path, small_text_generation_model):
+    mlflow.transformers.save_model(
+        transformers_model=small_text_generation_model,
+        path=tmp_path,
+        prompt_template=TEST_PROMPT_TEMPLATE,
+        model_config={"return_full_text": True},
+    )
+    model = mlflow.pyfunc.load_model(tmp_path)
+    assert model._model_impl.model_config["return_full_text"] is True
 
 
 def test_saving_prompt_throws_on_unsupported_task():
@@ -130,24 +142,24 @@ def test_saving_prompt_throws_on_unsupported_task():
 def test_prompt_formatting(saved_transformers_model_path):
     model_impl = mlflow.pyfunc.load_model(saved_transformers_model_path)._model_impl
 
-    # test that unsupported pipelines don't apply the prompt template.
-    # this is a bit of a redundant test, because the pipeline should not
-    # be able to be saved with a prompt template in the first place.
+    # test that the formatting function throws for unsupported pipelines
+    # this is a bit of a redundant test, because the function is explicitly
+    # called only on supported pipelines.
     for pipeline_type in UNSUPPORTED_PIPELINES:
         model_impl.pipeline = MagicMock(task=pipeline_type, return_value="")
-        result = model_impl._wrap_input_in_prompt_template("test")
-        assert result == "test"
-
-        result_list = model_impl._wrap_input_in_prompt_template(["item1", "item2"])
-        assert result_list == ["item1", "item2"]
+        with pytest.raises(
+            MlflowException,
+            match="_format_prompt_template called on an unexpected pipeline type.",
+        ):
+            result = model_impl._format_prompt_template("test")
 
     # test that supported pipelines apply the prompt template
     for pipeline_type in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
         model_impl.pipeline = MagicMock(task=pipeline_type, return_value="")
-        result = model_impl._wrap_input_in_prompt_template("test")
+        result = model_impl._format_prompt_template("test")
         assert result == TEST_PROMPT_TEMPLATE.format(prompt="test")
 
-        result_list = model_impl._wrap_input_in_prompt_template(["item1", "item2"])
+        result_list = model_impl._format_prompt_template(["item1", "item2"])
         assert result_list == [
             TEST_PROMPT_TEMPLATE.format(prompt="item1"),
             TEST_PROMPT_TEMPLATE.format(prompt="item2"),
@@ -166,9 +178,6 @@ def test_prompt_used_in_predict(saved_transformers_model_path):
         spec=model._model_impl.pipeline, task="text-generation", return_value=mock_return
     )
 
-    response = model.predict(prompt)
+    model.predict(prompt)
     # check that the underlying pipeline was called with the formatted prompt template
-    model._model_impl.pipeline.assert_called_once_with([formatted_prompt])
-
-    # check that the response strips the prompt template from the generated text
-    assert response == [mock_response]
+    model._model_impl.pipeline.assert_called_once_with([formatted_prompt], return_full_text=False)
