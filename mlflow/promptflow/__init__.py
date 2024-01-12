@@ -72,8 +72,10 @@ def get_default_pip_requirements():
     """
     tools_package = None
     try:
+        # Note: If user don't use built-in tool in their flow,
+        # then promptflow-tools is not a mandatory dependency.
         tools_package = _get_pinned_requirement("promptflow-tools")
-    except Exception:  # pylint: disable=broad-except
+    except ImportError:  # pylint: disable=broad-except
         pass
     requirements = [tools_package] if tools_package else []
     return requirements + [_get_pinned_requirement("promptflow")]
