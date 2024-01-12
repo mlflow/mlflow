@@ -234,17 +234,6 @@ Select the integration below to read the documentation on how to leverage MLflow
                 </a>
             </div>
             <div class="simple-card">
-                <a href="sentence-transformers/index.htmls">
-                    <div class="header-with-image">
-                        <img src="../_static/images/logos/sentence-transformers-logo.png"  alt="Sentence Transformers Logo" style="width: 70%"/>
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage 
-                        MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
                 <a href="openai/index.html">
                     <div class="header-with-image">
                         <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo" style="width: 80%"/>
@@ -252,6 +241,17 @@ Select the integration below to read the documentation on how to leverage MLflow
                     <p>
                         Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage 
                         MLflow and OpenAI's advanced LLMs to build interesting and fun applications.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="sentence-transformers/index.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/sentence-transformers-logo.png"  alt="Sentence Transformers Logo" style="width: 70%"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage 
+                        MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval.
                     </p>
                 </a>
             </div>
