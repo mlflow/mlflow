@@ -70,9 +70,11 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset_with_data_files():
-    data_files = {"validation": "en/c4-validation.00001-of-00008.json.gz"}
-    ds = datasets.load_dataset("allenai/c4", data_files=data_files, split="validation")
-    mlflow_ds = mlflow.data.from_huggingface(ds, path="allenai/c4", data_files=data_files)
+    data_files = {"train": "prompts.csv"}
+    ds = datasets.load_dataset("fka/awesome-chatgpt-prompts", data_files=data_files, split="train")
+    mlflow_ds = mlflow.data.from_huggingface(
+        ds, path="fka/awesome-chatgpt-prompts", data_files=data_files
+    )
 
     assert isinstance(mlflow_ds, HuggingFaceDataset)
     assert mlflow_ds.ds == ds
@@ -87,11 +89,11 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_data_files():
     reloaded_ds = mlflow_ds.source.load()
     assert reloaded_ds.builder_name == ds.builder_name
     assert reloaded_ds.config_name == ds.config_name
-    assert reloaded_ds.split == ds.split == "validation"
+    assert reloaded_ds.split == ds.split == "train"
     assert reloaded_ds.num_rows == ds.num_rows
 
     reloaded_mlflow_ds = mlflow.data.from_huggingface(
-        reloaded_ds, path="allenai/c4", data_files=data_files
+        reloaded_ds, path="fka/awesome-chatgpt-prompts", data_files=data_files
     )
     assert reloaded_mlflow_ds.digest == mlflow_ds.digest
 
@@ -101,7 +103,7 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_data_dir(tmp_
     data_dir = "data"
     os.makedirs(tmp_path / data_dir)
     df.to_csv(tmp_path / data_dir / "my_data.csv")
-    ds = datasets.load_dataset(str(tmp_path), data_dir=data_dir, name="csv", split="train")
+    ds = datasets.load_dataset(str(tmp_path), data_dir=data_dir, name="default", split="train")
     mlflow_ds = mlflow.data.from_huggingface(ds, path=str(tmp_path), data_dir=data_dir)
 
     assert mlflow_ds.ds == ds
@@ -150,7 +152,7 @@ def test_from_huggingface_dataset_digest_is_consistent_for_large_ordered_dataset
     os.makedirs(tmp_path / data_dir)
     df.to_csv(tmp_path / data_dir / "my_data.csv")
 
-    ds = datasets.load_dataset(str(tmp_path), data_dir=data_dir, name="csv", split="train")
+    ds = datasets.load_dataset(str(tmp_path), data_dir=data_dir, name="default", split="train")
     mlflow_ds = mlflow.data.from_huggingface(ds, path=str(tmp_path), data_dir=data_dir)
     assert mlflow_ds.digest == "1dda4ce8"
 

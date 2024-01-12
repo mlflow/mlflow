@@ -2076,8 +2076,8 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
     ("input_uri", "expected_uri"),
     [
         (
-            "file://my_server/my_path/my_sub_path",
-            "file://my_server/my_path/my_sub_path/{e}/{r}/artifacts",
+            "\\my_server/my_path/my_sub_path",
+            "file:///{drive}my_server/my_path/my_sub_path/{e}/{r}/artifacts",
         ),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}/{r}/artifacts"),
         ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}/{r}/artifacts"),
@@ -2179,7 +2179,7 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
 @pytest.mark.parametrize(
     ("input_uri", "expected_uri"),
     [
-        ("file://my_server/my_path/my_sub_path", "file://my_server/my_path/my_sub_path/{e}"),
+        ("\\my_server/my_path/my_sub_path", "file:///{drive}my_server/my_path/my_sub_path/{e}"),
         ("path/to/local/folder", "file://{cwd}/path/to/local/folder/{e}"),
         ("/path/to/local/folder", "file:///{drive}path/to/local/folder/{e}"),
         ("#path/to/local/folder?", "file://{cwd}/{e}#path/to/local/folder?"),

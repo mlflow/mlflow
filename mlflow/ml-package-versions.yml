@@ -93,6 +93,10 @@ tensorflow:
       # They are also incompatible with alembic 1.10.1 and anyio 4.2.0 with the
       # TypeGuard dependency in py3.8
       "== 2.6.5": ["sqlalchemy<2", "alembic<1.10", "anyio<4.2.0"]
+      # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
+      # incompatible with SQLAlchemy 2.0.25 with error
+      # `cannot import name 'TypeAliasType' from 'typing_extensions'`
+      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
     run: |
       pytest \
         tests/tensorflow/test_load_saved_tensorflow_estimator.py \
@@ -112,6 +116,10 @@ tensorflow:
       # They are also incompatible with alembic 1.10.1 and anyio 4.2.0 with the
       # TypeGuard dependency in py3.8
       "== 2.6.5": ["sqlalchemy<2", "alembic<1.10", "anyio<4.2.0"]
+      # TensorFlow 2.12.1 and 2.13.1 requires typing_extensions < 4.6.0, which is
+      # incompatible with SQLAlchemy 2.0.25 with error
+      # `cannot import name 'TypeAliasType' from 'typing_extensions'`
+      ">= 2.12.1, <= 2.13.1": ["sqlalchemy<2.0.25"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
@@ -276,7 +284,7 @@ spacy:
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0", "werkzeug<3"]
-      "<3.4.0": ["typing_extensions<4.6.0"]
+      ">= 3.0.9, < 3.4.0": ["typing_extensions<4.6.0", "sqlalchemy<2.0.25"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
 
@@ -324,7 +332,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
-      "<= 3.3.3": ["pandas<2"]
+      "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
@@ -351,16 +359,15 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["scikit-learn"]
-      "<= 3.3.3": ["pandas<2"]
+      "< 3.4.0": ["pandas<2"]
     run: |
       # Build Java package
-      pushd mlflow/java/spark
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
       if [[ $(python -c "import pyspark;print(pyspark.__version__)") = "4.0.0.dev0" ]]; then
-        mvn package -DskipTests -P scala-2.13 -q
-      else
-        mvn package -DskipTests -q
+        python dev/set-mlflow-spark-scala-version.py --scala-version 2.13.10
       fi
+      pushd mlflow/java/spark
+      mvn package -DskipTests -q
       popd
 
       # NB: Running each .py file individually is important (instead of
@@ -501,6 +508,7 @@ transformers:
           "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
           "sentencepiece", # required for transformers text2text generation pipeline
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
+          "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
         ]
       # tensorflow 2.13.0 made all Keras private functions inaccessible. transformers versions
       # prior to 4.30.0 are incompatible with this breaking change in Keras.

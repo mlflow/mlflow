@@ -442,7 +442,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
 
     if signature is None and input_example is not None:
-        wrapped_model = _PyTorchWrapper(pytorch_model)
+        wrapped_model = _PyTorchWrapper(pytorch_model, device="cpu")
         signature = _infer_signature_from_input_example(input_example, wrapped_model)
     elif signature is False:
         signature = None
@@ -531,6 +531,7 @@ def save_model(
         code=code_dir_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        model_config={"device": None},
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -571,7 +572,7 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_model(path, **kwargs):
+def _load_model(path, device=None, **kwargs):
     """
     :param path: The path to a serialized PyTorch model.
     :param kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
@@ -608,16 +609,21 @@ def _load_model(path, **kwargs):
         model_path = path
 
     if Version(torch.__version__) >= Version("1.5.0"):
-        return torch.load(model_path, **kwargs)
+        pytorch_model = torch.load(model_path, **kwargs)
     else:
         try:
             # load the model as an eager model.
-            return torch.load(model_path, **kwargs)
+            pytorch_model = torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
             # `torch.jit.load` does not accept `pickle_module`.
             kwargs.pop("pickle_module", None)
-            return torch.jit.load(model_path, **kwargs)
+            pytorch_model = torch.jit.load(model_path, **kwargs)
+
+    pytorch_model.eval()
+    if device:
+        pytorch_model.to(device=device)
+    return pytorch_model
 
 
 def load_model(model_uri, dst_path=None, **kwargs):
@@ -685,13 +691,28 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, **kwargs):
+def _load_pyfunc(path, model_config=None):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``pytorch`` flavor.
     """
-    return _PyTorchWrapper(_load_model(path, **kwargs))
+    import torch
+
+    device = model_config.get("device", None) if model_config else None
+    # if CUDA is available, we use the default CUDA device.
+    # To force inference to the CPU when the GPU is available, please set
+    # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
+    # If a specific non-default device is passed in, we continue to respect that.
+    if device is None:
+        if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
+            device = MLFLOW_DEFAULT_PREDICTION_DEVICE.get()
+        elif torch.cuda.is_available():
+            device = _TORCH_DEFAULT_GPU_DEVICE_NAME
+        else:
+            device = _TORCH_CPU_DEVICE_NAME
+
+    return _PyTorchWrapper(_load_model(path, device=device), device=device)
 
 
 class _PyTorchWrapper:
@@ -700,8 +721,9 @@ class _PyTorchWrapper:
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
     """
 
-    def __init__(self, pytorch_model):
+    def __init__(self, pytorch_model, device):
         self.pytorch_model = pytorch_model
+        self.device = device
 
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
@@ -715,18 +737,14 @@ class _PyTorchWrapper:
         """
         import torch
 
-        device = params.get("device", None) if params else None
-        # if CUDA is available, we use the default CUDA device.
-        # To force inference to the CPU when the GPU is available, please set
-        # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
-        # If a specific non-default device is passed in, we continue to respect that.
-        if device is None:
-            if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
-                device = MLFLOW_DEFAULT_PREDICTION_DEVICE.get()
-            elif torch.cuda.is_available():
-                device = _TORCH_DEFAULT_GPU_DEVICE_NAME
-            else:
-                device = _TORCH_CPU_DEVICE_NAME
+        if params and "device" in params:
+            raise ValueError(
+                "device' can no longer be specified as an inference parameter. "
+                "It must be specified at load time. "
+                "Please specify the device at load time, for example: "
+                "`mlflow.pyfunc.load_model(model_uri, model_config={'device': 'cuda'})`."
+            )
+
         if isinstance(data, pd.DataFrame):
             inp_data = data.values.astype(np.float32)
         elif isinstance(data, np.ndarray):
@@ -739,8 +757,7 @@ class _PyTorchWrapper:
         else:
             raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
 
-        self.pytorch_model.to(device)
-        self.pytorch_model.eval()
+        device = self.device
         with torch.no_grad():
             input_tensor = torch.from_numpy(inp_data).to(device)
             preds = self.pytorch_model(input_tensor)

@@ -1,5 +1,6 @@
 import base64
 import datetime
+import importlib
 import json
 import os
 from collections import defaultdict
@@ -575,6 +576,13 @@ def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] 
     """
     import numpy as np
     import pandas as pd
+
+    # Convert scipy data to numpy array
+    if importlib.util.find_spec("scipy.sparse"):
+        from scipy.sparse import csc_matrix, csr_matrix
+
+        if isinstance(data, (csc_matrix, csr_matrix)):
+            data = data.toarray()
 
     if isinstance(data, pd.DataFrame):
         post_data = {"dataframe_split": data.to_dict(orient="split")}
