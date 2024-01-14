@@ -72,6 +72,12 @@ class _ChatModelPyfuncWrapper:
                         ``python_model`` may use when performing inference.
         :param signature: :class:`~ModelSignature` instance describing model input and output.
         """
+        # pydantic import here is necessary so that it gets picked up by
+        # _capture_imported_modules. it seems that using ChatRequest in
+        # _convert_input doesn't trigger the import, but it will throw at
+        # inference time if the package is not installed.
+        import pydantic  # noqa: F401
+
         self.chat_model = chat_model
         self.context = context
         self.signature = signature

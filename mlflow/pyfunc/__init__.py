@@ -265,7 +265,11 @@ from mlflow.pyfunc.model import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types.llm import CHAT_MODEL_INPUT_EXAMPLE, CHAT_MODEL_SIGNATURE
+from mlflow.types.llm import (
+    CHAT_MODEL_INPUT_EXAMPLE,
+    CHAT_MODEL_INPUT_SCHEMA,
+    CHAT_MODEL_OUTPUT_SCHEMA,
+)
 from mlflow.utils import (
     PYTHON_VERSION,
     _is_in_ipython_notebook,
@@ -2003,7 +2007,10 @@ def save_model(
             ):
                 mlflow_model.signature = signature
         elif isinstance(python_model, ChatModel):
-            mlflow_model.signature = CHAT_MODEL_SIGNATURE
+            mlflow_model.signature = ModelSignature(
+                CHAT_MODEL_INPUT_SCHEMA,
+                CHAT_MODEL_OUTPUT_SCHEMA,
+            )
             input_example = CHAT_MODEL_INPUT_EXAMPLE
         elif isinstance(python_model, PythonModel):
             input_arg_index = 1  # second argument

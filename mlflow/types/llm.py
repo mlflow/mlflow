@@ -2,7 +2,6 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Schema
 
 
@@ -20,29 +19,9 @@ class ChatParams(BaseModel):
     stream: bool = False
 
 
-class LogProbCandidate(BaseModel):
-    token: str
-    logprob: float
-    bytes: List[int]
-
-
-# represents the most likely token, along with a list of the next top tokens
-class LogProbEntry(BaseModel):
-    token: str
-    logprob: float
-    bytes: List[int]
-    top_logprobs: List[LogProbCandidate]
-
-
-# represents the value of the "logprobs" key in the response
-class LogProbsValue(BaseModel):
-    content: List[LogProbEntry]
-
-
 class ChatChoice(BaseModel):
     index: int
     message: ChatMessage
-    logprobs: Optional[LogProbsValue]
     finish_reason: str
 
 
@@ -105,56 +84,12 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                                 ]
                             ),
                         ),
-                        Property(
-                            "logprobs",
-                            Object(
-                                [
-                                    Property(
-                                        "content",
-                                        Array(
-                                            Object(
-                                                [
-                                                    Property("token", DataType.string),
-                                                    Property("logprob", DataType.double),
-                                                    Property("bytes", Array(DataType.long)),
-                                                    Property(
-                                                        "top_logprobs",
-                                                        Array(
-                                                            Object(
-                                                                [
-                                                                    Property(
-                                                                        "token", DataType.string
-                                                                    ),
-                                                                    Property(
-                                                                        "logprob", DataType.double
-                                                                    ),
-                                                                    Property(
-                                                                        "bytes",
-                                                                        Array(DataType.long),
-                                                                    ),
-                                                                ]
-                                                            )
-                                                        ),
-                                                    ),
-                                                ]
-                                            )
-                                        ),
-                                    )
-                                ]
-                            ),
-                            False,
-                        ),
                         Property("finish_reason", DataType.string),
                     ]
                 )
             ),
         ),
     ]
-)
-
-CHAT_MODEL_SIGNATURE = ModelSignature(
-    inputs=CHAT_MODEL_INPUT_SCHEMA,
-    outputs=CHAT_MODEL_OUTPUT_SCHEMA,
 )
 
 CHAT_MODEL_INPUT_EXAMPLE = {
@@ -164,7 +99,7 @@ CHAT_MODEL_INPUT_EXAMPLE = {
     ],
     "temperature": 1.0,
     "max_tokens": 20,
-    "stop": None,
+    "stop": ["\n"],
     "n": 1,
     "stream": False,
 }

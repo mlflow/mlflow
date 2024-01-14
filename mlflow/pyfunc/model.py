@@ -155,16 +155,6 @@ class _FunctionPythonModel(PythonModel):
         return self.func(model_input)
 
 
-class ChatModel(PythonModel):
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
-        """
-        Evaluates a chat input and produces a chat output.
-        """
-
-
 class PythonModelContext:
     """
     A collection of artifacts that a :class:`~PythonModel` can use when performing inference.
@@ -201,6 +191,18 @@ class PythonModelContext:
         """
 
         return self._model_config
+
+
+class ChatModel(PythonModel):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def predict(
+        self, context: PythonModelContext, messages: List[ChatMessage], params: ChatParams
+    ) -> ChatResponse:
+        """
+        Evaluates a chat input and produces a chat output.
+        """
 
 
 def _save_model_with_class_artifacts_params(
