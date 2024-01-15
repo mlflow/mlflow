@@ -42,7 +42,9 @@ class DeltaDatasetSource(DatasetSource):
     def load(self, **kwargs):  # pylint: disable=unused-argument
         """
         Loads the dataset source as a Delta Dataset Source.
-        :return: An instance of ``pyspark.sql.DataFrame``.
+
+        Returns:
+            An instance of ``pyspark.sql.DataFrame``.
         """
         from pyspark.sql import SparkSession
 
