@@ -594,10 +594,6 @@ langchain:
           "numexpr",
         ]
     run: |
-      # temp workaround to install from feature branch
-      pip install poetry
-      poetry add git+https://github.com/serena-ruan/langchain.git#mlflow_callback
-      poetry install
       pytest tests/langchain/test_langchain_autolog.py
 
 sentence_transformers:
