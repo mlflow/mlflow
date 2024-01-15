@@ -96,7 +96,7 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 class StreamResponsePayload(ResponseModel):
     id: str
-    object: str
+    object: Literal["text_completion_chunk"] = "text_completion_chunk"
     created: int
     model: str
     choices: List[StreamChoice]
