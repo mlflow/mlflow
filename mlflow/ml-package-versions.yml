@@ -578,7 +578,7 @@ langchain:
     run: |
       pytest tests/langchain/test_langchain_model_export.py
   autologging:
-    minimum: "0.0.244"
+    minimum: "0.1.0"
     maximum: "0.1.0"
     requirements:
       ">= 0.0.0":
@@ -594,6 +594,10 @@ langchain:
           "numexpr",
         ]
     run: |
+      # temp workaround to install from feature branch
+      pip install poetry
+      poetry add git+https://github.com/serena-ruan/langchain.git#mlflow_callback
+      poetry install
       pytest tests/langchain/test_langchain_autolog.py
 
 sentence_transformers:
