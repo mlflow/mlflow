@@ -68,17 +68,19 @@ _MODEL_TYPE_KEY = "model_type"
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at a minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at a minimum, contains these requirements.
     """
     return [_get_pinned_requirement("langchain")]
 
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -100,92 +102,92 @@ def save_model(
     persist_dir=None,
     example_no_conversion=False,
 ):
-    """
-    Save a LangChain model to a path on the local file system.
+    """Save a LangChain model to a path on the local file system.
 
-    :param lc_model: A LangChain model, which could be a
-                     `Chain <https://python.langchain.com/docs/modules/chains/>`_,
-                     `Agent <https://python.langchain.com/docs/modules/agents/>`_,
-                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_,
-                     or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_.
-    :param path: Local path where the serialized model (as YAML) is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      If not specified, the model signature would be set according to
-                      `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
-                      `DataType.string` as the column type.
-                      Alternatively, you can explicitly specify the model signature.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+    Args:
+        lc_model: A LangChain model, which could be a
+            `Chain <https://python.langchain.com/docs/modules/chains/>`_,
+            `Agent <https://python.langchain.com/docs/modules/agents/>`_,
+            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_,
+            or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_.
+        path: Local path where the serialized model (as YAML) is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            If not specified, the model signature would be set according to
+            `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
+            `DataType.string` as the column type.
+            Alternatively, you can explicitly specify the model signature.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-                      .. code-block:: python
+            .. code-block:: python
 
-                        from mlflow.models import infer_signature
+                from mlflow.models import infer_signature
 
-                        chain = LLMChain(llm=llm, prompt=prompt)
-                        prediction = chain.run(input_str)
-                        input_columns = [
-                            {"type": "string", "name": input_key} for input_key in chain.input_keys
-                        ]
-                        signature = infer_signature(input_columns, predictions)
+                chain = LLMChain(llm=llm, prompt=prompt)
+                prediction = chain.run(input_str)
+                input_columns = [
+                    {"type": "string", "name": input_key} for input_key in chain.input_keys
+                ]
+                signature = infer_signature(input_columns, predictions)
 
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param loader_fn: A function that's required for models containing objects that aren't natively
-                      serialized by LangChain.
-                      This function takes a string `persist_dir` as an argument and returns the
-                      specific object that the model needs. Depending on the model,
-                      this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database. For RetrievalQA Chain and retriever models, the object is a
-                      (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
-                      For APIChain models, it's a
-                      (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
-                      For HypotheticalDocumentEmbedder models, it's an
-                      (`embeddings <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
-                      For SQLDatabaseChain models, it's a
-                      (`database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
-    :param persist_dir: The directory where the object is stored. The `loader_fn`
-                        takes this string as the argument to load the object.
-                        This is optional for models containing objects that aren't natively
-                        serialized by LangChain. MLflow logs the content in this directory as
-                        artifacts in the subdirectory named `persist_dir_data`.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
+        loader_fn: A function that's required for models containing objects that aren't natively
+            serialized by LangChain.
+            This function takes a string `persist_dir` as an argument and returns the
+            specific object that the model needs. Depending on the model,
+            this could be a retriever, vectorstore, requests_wrapper, embeddings, or
+            database. For RetrievalQA Chain and retriever models, the object is a
+            (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
+            For APIChain models, it's a
+            (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
+            For HypotheticalDocumentEmbedder models, it's an
+            (`embeddings <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
+            For SQLDatabaseChain models, it's a
+            (`database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
+        persist_dir: The directory where the object is stored. The `loader_fn`
+            takes this string as the argument to load the object.
+            This is optional for models containing objects that aren't natively
+            serialized by LangChain. MLflow logs the content in this directory as
+            artifacts in the subdirectory named `persist_dir_data`.
 
-                        Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
-                        and `persist_dir`:
+            Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
+            and `persist_dir`:
 
-                        .. code-block:: python
+            .. code-block:: python
 
-                            qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
-
-
-                            def load_retriever(persist_directory):
-                                embeddings = OpenAIEmbeddings()
-                                vectorstore = FAISS.load_local(persist_directory, embeddings)
-                                return vectorstore.as_retriever()
+                qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
 
 
-                            with mlflow.start_run() as run:
-                                logged_model = mlflow.langchain.log_model(
-                                    qa,
-                                    artifact_path="retrieval_qa",
-                                    loader_fn=load_retriever,
-                                    persist_dir=persist_dir,
-                                )
+                def load_retriever(persist_directory):
+                    embeddings = OpenAIEmbeddings()
+                    vectorstore = FAISS.load_local(persist_directory, embeddings)
+                    return vectorstore.as_retriever()
 
-                        See a complete example in examples/langchain/retrieval_qa_chain.py.
-    :param example_no_conversion: {{ example_no_conversion }}
+
+                with mlflow.start_run() as run:
+                    logged_model = mlflow.langchain.log_model(
+                        qa,
+                        artifact_path="retrieval_qa",
+                        loader_fn=load_retriever,
+                        persist_dir=persist_dir,
+                    )
+
+            See a complete example in examples/langchain/retrieval_qa_chain.py.
+        example_no_conversion: {{ example_no_conversion }}
     """
     import langchain
     from langchain.schema import BaseRetriever
@@ -310,104 +312,104 @@ def log_model(
     persist_dir=None,
     example_no_conversion=False,
 ):
-    """
-    Log a LangChain model as an MLflow artifact for the current run.
+    """Log a LangChain model as an MLflow artifact for the current run.
 
-    :param lc_model: A LangChain model, which could be a
-                     `Chain <https://python.langchain.com/docs/modules/chains/>`_,
-                     `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
-                     `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
+    Args:
+        lc_model: A LangChain model, which could be a
+            `Chain <https://python.langchain.com/docs/modules/chains/>`_,
+            `Agent <https://python.langchain.com/docs/modules/agents/>`, or
+            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: This argument may change or be removed in a
+            future release without warning. If given, create a model
+            version under ``registered_model_name``, also creating a
+            registered model if one with the given name does not exist.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output
+            :py:class:`Schema <mlflow.types.Schema>`.
+            If not specified, the model signature would be set according to
+            `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
+            `DataType.string` as the column type.
+            Alternatively, you can explicitly specify the model signature.
+            The model signature can be :py:func:`inferred
+            <mlflow.models.infer_signature>` from datasets with valid model input
+            (e.g. the training dataset with target column omitted) and valid model
+            output (e.g. model predictions generated on the training dataset),
+            for example:
 
-    :param registered_model_name: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output
-                      :py:class:`Schema <mlflow.types.Schema>`.
-                      If not specified, the model signature would be set according to
-                      `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
-                      `DataType.string` as the column type.
-                      Alternatively, you can explicitly specify the model signature.
-                      The model signature can be :py:func:`inferred
-                      <mlflow.models.infer_signature>` from datasets with valid model input
-                      (e.g. the training dataset with target column omitted) and valid model
-                      output (e.g. model predictions generated on the training dataset),
-                      for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models import infer_signature
 
-                        from mlflow.models import infer_signature
+                chain = LLMChain(llm=llm, prompt=prompt)
+                prediction = chain.run(input_str)
+                input_columns = [
+                    {"type": "string", "name": input_key} for input_key in chain.input_keys
+                ]
+                signature = infer_signature(input_columns, predictions)
 
-                        chain = LLMChain(llm=llm, prompt=prompt)
-                        prediction = chain.run(input_str)
-                        input_columns = [
-                            {"type": "string", "name": input_key} for input_key in chain.input_keys
-                        ]
-                        signature = infer_signature(input_columns, predictions)
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version
+            to finish being created and is in ``READY`` status.
+            By default, the function waits for five minutes.
+            Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-    :param input_example: {{ input_example }}
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
+        loader_fn: A function that's required for models containing objects that aren't natively
+            serialized by LangChain.
+            This function takes a string `persist_dir` as an argument and returns the
+            specific object that the model needs. Depending on the model,
+            this could be a retriever, vectorstore, requests_wrapper, embeddings, or
+            database. For RetrievalQA Chain and retriever models, the object is a
+            (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
+            For APIChain models, it's a
+            (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
+            For HypotheticalDocumentEmbedder models, it's an
+            (`embeddings <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
+            For SQLDatabaseChain models, it's a
+            (`database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
+        persist_dir: The directory where the object is stored. The `loader_fn`
+            takes this string as the argument to load the object.
+            This is optional for models containing objects that aren't natively
+            serialized by LangChain. MLflow logs the content in this directory as
+            artifacts in the subdirectory named `persist_dir_data`.
 
-    :param await_registration_for: Number of seconds to wait for the model version
-                        to finish being created and is in ``READY`` status.
-                        By default, the function waits for five minutes.
-                        Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+            Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
+            and `persist_dir`:
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param loader_fn: A function that's required for models containing objects that aren't natively
-                      serialized by LangChain.
-                      This function takes a string `persist_dir` as an argument and returns the
-                      specific object that the model needs. Depending on the model,
-                      this could be a retriever, vectorstore, requests_wrapper, embeddings, or
-                      database. For RetrievalQA Chain and retriever models, the object is a
-                      (`retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_).
-                      For APIChain models, it's a
-                      (`requests_wrapper <https://python.langchain.com/docs/modules/agents/tools/integrations/requests>`_).
-                      For HypotheticalDocumentEmbedder models, it's an
-                      (`embeddings <https://python.langchain.com/docs/modules/data_connection/text_embedding/>`_).
-                      For SQLDatabaseChain models, it's a
-                      (`database <https://python.langchain.com/docs/modules/agents/toolkits/sql_database>`_).
-    :param persist_dir: The directory where the object is stored. The `loader_fn`
-                        takes this string as the argument to load the object.
-                        This is optional for models containing objects that aren't natively
-                        serialized by LangChain. MLflow logs the content in this directory as
-                        artifacts in the subdirectory named `persist_dir_data`.
+            .. code-block:: python
 
-                        Here is the code snippet for logging a RetrievalQA chain with `loader_fn`
-                        and `persist_dir`:
-
-                        .. code-block:: python
-
-                            qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
+                qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
 
 
-                            def load_retriever(persist_directory):
-                                embeddings = OpenAIEmbeddings()
-                                vectorstore = FAISS.load_local(persist_directory, embeddings)
-                                return vectorstore.as_retriever()
+                def load_retriever(persist_directory):
+                    embeddings = OpenAIEmbeddings()
+                    vectorstore = FAISS.load_local(persist_directory, embeddings)
+                    return vectorstore.as_retriever()
 
 
-                            with mlflow.start_run() as run:
-                                logged_model = mlflow.langchain.log_model(
-                                    qa,
-                                    artifact_path="retrieval_qa",
-                                    loader_fn=load_retriever,
-                                    persist_dir=persist_dir,
-                                )
+                with mlflow.start_run() as run:
+                    logged_model = mlflow.langchain.log_model(
+                        qa,
+                        artifact_path="retrieval_qa",
+                        loader_fn=load_retriever,
+                        persist_dir=persist_dir,
+                    )
 
-                        See a complete example in examples/langchain/retrieval_qa_chain.py.
-    :param example_no_conversion: {{ example_no_conversion }}
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+            See a complete example in examples/langchain/retrieval_qa_chain.py.
+        example_no_conversion: {{ example_no_conversion }}
+
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
     """
     lc_model = _validate_and_wrap_lc_model(lc_model, loader_fn)
 
@@ -461,13 +463,15 @@ class _LangChainModelWrapper:
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ) -> List[str]:
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
@@ -487,13 +491,16 @@ class _LangChainModelWrapper:
         convert_chat_responses=False,
     ) -> List[str]:
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-        :param data: Callback handlers to pass to LangChain.
-        :return: Model predictions.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+            data: Callback handlers to pass to LangChain.
+
+        Returns:
+            Model predictions.
         """
         messages = self._prepare_messages(data)
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
@@ -549,13 +556,17 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
         self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
     ):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Model input data and additional parameters.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-        :return: Model predictions.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+
+        Returns:
+            Model predictions.
         """
         import langchain
         from langchain.schema.retriever import BaseRetriever
@@ -601,9 +612,10 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
 
 
 def _load_pyfunc(path):
-    """
-    Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
-    :param path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
+    """Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
+
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
     wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
     return wrapper_cls(_load_model_from_local_fs(path))
@@ -617,24 +629,25 @@ def _load_model_from_local_fs(local_model_path):
 
 @experimental
 def load_model(model_uri, dst_path=None):
-    """
-    Load a LangChain model from a local file or a run.
+    """Load a LangChain model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+            artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
 
-    :return: A LangChain model instance
+    Returns:
+        A LangChain model instance.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     return _load_model_from_local_fs(local_model_path)
