@@ -592,8 +592,11 @@ langchain:
           "faiss-cpu",
           "langchain-experimental",
           "numexpr",
+          "spacy",
         ]
     run: |
+      # For MlflowCallback text analysis
+      python -m spacy download en_core_web_sm
       pytest tests/langchain/test_langchain_autolog.py
 
 sentence_transformers:
