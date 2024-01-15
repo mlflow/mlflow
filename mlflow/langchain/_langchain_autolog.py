@@ -5,7 +5,6 @@ import uuid
 import warnings
 from copy import deepcopy
 
-import langchain
 from packaging.version import Version
 
 import mlflow
@@ -21,7 +20,6 @@ from mlflow.utils.autologging_utils.safety import _resolve_extra_tags
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["minimum"])
 MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["maximum"])
 
-_lc_version = Version(langchain.__version__)
 _logger = logging.getLogger(__name__)
 
 UNSUPPORT_LOG_MODEL_MESSAGE = (
@@ -186,6 +184,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     based on their usage.
     """
 
+    import langchain
+
     # import from langchain_community for test purpose
     from langchain_community.callbacks import MlflowCallbackHandler
 
@@ -199,6 +199,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
+    _lc_version = Version(langchain.__version__)
     if not MIN_REQ_VERSION <= _lc_version <= MAX_REQ_VERSION:
         warnings.warn(
             "Autologging is known to be compatible with langchain versions between "
