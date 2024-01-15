@@ -118,9 +118,26 @@ def chat_stream_response():
     ]
 
 
+def chat_stream_response_incomplete():
+    return [
+        # contains first half of a chunk
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test","choi'
+        # contains second half of first chunk and first half of second chunk
+        b'ces":[{"index":0,"finish_reason":null,"delta":{"role":"assistant"}}]}\n\n'
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"te',
+        # contains second half of second chunk
+        b'st","choices":[{"index":0,"finish_reason":null,"delta":{"content":"test"}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":"stop","delta":{}}]}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
 @pytest.mark.asyncio
-async def test_chat_stream():
-    resp = chat_stream_response()
+async def test_chat_stream(resp):
     config = chat_config()
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
@@ -261,9 +278,29 @@ def completions_stream_response():
     ]
 
 
+def completions_stream_response_incomplete():
+    return [
+        # contains first half of a chunk
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test","choi',
+        # contains second half of first chunk and first half of second chunk
+        b'ces":[{"index":0,"finish_reason":null,"delta":{"role":"assistant", '
+        b'"content": ""}}]}\n\ndata: {"id":"test-id","object":"chat.comp',
+        # contains second half of second chunk
+        b'letion.chunk","created":1,"model":"test","choices":[{"index":0,"finish_reason":null,'
+        b'"delta":{"content":"test"}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":"length","delta":{}}]}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.parametrize(
+    "resp", [completions_stream_response(), completions_stream_response_incomplete()]
+)
 @pytest.mark.asyncio
-async def test_completions_stream():
-    resp = completions_stream_response()
+async def test_completions_stream(resp):
     config = completions_config()
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 

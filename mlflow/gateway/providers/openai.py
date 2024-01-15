@@ -6,7 +6,7 @@ from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.gateway.utils import strip_sse_prefix
+from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 
@@ -92,7 +92,7 @@ class OpenAIProvider(BaseProvider):
             payload=self._add_model_to_payload_if_necessary(payload),
         )
 
-        async for chunk in stream:
+        async for chunk in handle_incomplete_chunks(stream):
             chunk = chunk.strip()
             if not chunk:
                 continue
@@ -221,7 +221,7 @@ class OpenAIProvider(BaseProvider):
             payload=self._add_model_to_payload_if_necessary(payload),
         )
 
-        async for chunk in stream:
+        async for chunk in handle_incomplete_chunks(stream):
             chunk = chunk.strip()
             if not chunk:
                 continue

@@ -7,7 +7,7 @@ import posixpath
 import re
 import textwrap
 import warnings
-from typing import List, Optional
+from typing import Any, AsyncGenerator, List, Optional
 from urllib.parse import urlparse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
@@ -269,3 +269,26 @@ def strip_sse_prefix(s: str) -> str:
 def to_sse_chunk(data: str) -> str:
     # https://html.spec.whatwg.org/multipage/server-sent-events.html
     return f"data: {data}\n\n"
+
+
+def _find_boundary(buffer: bytes) -> int:
+    try:
+        boundary = buffer.index(b"\n")
+    except ValueError:
+        return -1
+    return boundary
+
+
+async def handle_incomplete_chunks(
+    stream: AsyncGenerator[bytes, Any]
+) -> AsyncGenerator[bytes, Any]:
+    """Wraps a streaming response and handles incomplete chunks from the server."""
+    buffer = b""
+    async for chunk in stream:
+        buffer += chunk
+        boundary = _find_boundary(buffer)
+        while boundary != -1:
+            obj = buffer[:boundary]
+            buffer = buffer[boundary + 1 :]
+            yield obj
+            boundary = _find_boundary(buffer)
