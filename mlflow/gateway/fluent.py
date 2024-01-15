@@ -9,27 +9,31 @@ from mlflow.utils import get_results_from_paginated_fn
 
 @gateway_deprecated
 def get_route(name: str) -> Route:
-    """
-    Retrieves a specific route from the MLflow Gateway service.
+    """Retrieves a specific route from the MLflow Gateway service.
 
     This function creates an instance of MlflowGatewayClient and uses it to fetch a route by its
     name from the Gateway service.
 
-    :param name: The name of the route to fetch.
-    :return: An instance of the Route class representing the fetched route.
+    Args:
+        name: The name of the route to fetch.
+
+    Returns:
+        An instance of the Route class representing the fetched route.
+
     """
     return MlflowGatewayClient().get_route(name)
 
 
 @gateway_deprecated
 def search_routes() -> List[Route]:
-    """
-    Searches for routes in the MLflow Gateway service.
+    """Searches for routes in the MLflow Gateway service.
 
     This function creates an instance of MlflowGatewayClient and uses it to fetch a list of routes
     from the Gateway service.
 
-    :return: A list of Route instances.
+    Returns:
+        A list of Route instances.
+
     """
 
     def pagination_wrapper_func(_, next_page_token):
@@ -46,8 +50,7 @@ def search_routes() -> List[Route]:
 def create_route(
     name: str, route_type: Optional[str] = None, model: Optional[Dict[str, Any]] = None
 ) -> Route:
-    """
-    Create a new route in the Gateway.
+    """Create a new route in the Gateway.
 
     .. warning::
 
@@ -55,26 +58,26 @@ def create_route(
         route configuration is handled via updates to the route configuration YAML file that
         is specified during Gateway server start.
 
-    :param name: The name of the route. This parameter is required for all routes.
-    :param route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
-                       'llm/v1/embeddings'). This parameter is required for routes that are
-                       not managed by Databricks (the provider isn't 'databricks').
-    :param model: A dictionary representing the model details to be associated with the route.
-                  This parameter is required for all routes. This dictionary should define:
+    Args:
+        name: The name of the route. This parameter is required for all routes.
+        route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
+            'llm/v1/embeddings'). This parameter is required for routes that are
+            not managed by Databricks (the provider isn't 'databricks').
+        model: A dictionary representing the model details to be associated with the route.
+            This parameter is required for all routes. This dictionary should define:
+            - The model name (e.g., "gpt-3.5-turbo")
+            - The provider (e.g., "openai", "anthropic")
+            - The configuration for the model used in the route
 
-                  - The model name (e.g., "gpt-3.5-turbo")
-                  - The provider (e.g., "openai", "anthropic")
-                  - The configuration for the model used in the route
-
-    :return: A serialized representation of the `Route` data structure,
-             providing information about the name, type, and model details for the
-             newly created route endpoint.
+    Returns:
+        A serialized representation of the `Route` data structure,
+        providing information about the name, type, and model details for the
+        newly created route endpoint.
 
     .. note::
 
         See the official Databricks documentation for MLflow Gateway for examples of supported
         model configurations and how to dynamically create new routes within Databricks.
-
 
     Example usage from within Databricks:
 
@@ -97,15 +100,13 @@ def create_route(
                 },
             },
         )
-
     """
     return MlflowGatewayClient().create_route(name, route_type, model)
 
 
 @gateway_deprecated
 def delete_route(name: str) -> None:
-    """
-    Delete an existing route in the Gateway.
+    """Delete an existing route in the Gateway.
 
     .. warning::
 
@@ -113,7 +114,8 @@ def delete_route(name: str) -> None:
         route deletion is handled by removing the corresponding entry from the route
         configuration YAML file that is specified during Gateway server start.
 
-    :param name: The name of the route to delete.
+    Args:
+        name: The name of the route to delete.
 
     Example usage from within Databricks:
 
@@ -124,22 +126,21 @@ def delete_route(name: str) -> None:
         set_gateway_uri(gateway_uri="databricks")
 
         delete_route("my-new-route")
-
     """
     MlflowGatewayClient().delete_route(name)
 
 
 @gateway_deprecated
 def set_limits(route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
-    """
-    Set limits on an existing route in the Gateway.
+    """Set limits on an existing route in the Gateway.
 
     .. warning::
 
         This API is **only available** when running within Databricks.
 
-    :param route: The name of the route to set limits on.
-    :param limits: Limits to set on the route.
+    Args:
+        route: The name of the route to set limits on.
+        limits: Limits to set on the route.
 
     Example usage from within Databricks:
 
@@ -150,21 +151,20 @@ def set_limits(route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
         set_gateway_uri(gateway_uri="databricks")
 
         set_limits("my-new-route", [{"key": "user", "renewal_period": "minute", "calls": 50}])
-
     """
     return MlflowGatewayClient().set_limits(route=route, limits=limits)
 
 
 @gateway_deprecated
 def get_limits(route: str) -> LimitsConfig:
-    """
-    Get limits of an existing route in the Gateway.
+    """Get limits of an existing route in the Gateway.
 
     .. warning::
 
         This API is **only available** when connected to a Databricks-hosted AI Gateway.
 
-    :param route: The name of the route to get limits of.
+    Args:
+        route: The name of the route to get limits of.
 
     Example usage from within Databricks:
 
@@ -175,23 +175,24 @@ def get_limits(route: str) -> LimitsConfig:
         set_gateway_uri(gateway_uri="databricks")
 
         get_limits("my-new-route")
-
     """
     return MlflowGatewayClient().get_limits(route=route)
 
 
 @gateway_deprecated
 def query(route: str, data):
-    """
-    Issues a query request to a configured service through a named route on the Gateway Server.
+    """Issues a query request to a configured service through a named route on the Gateway Server.
     This function will interface with a configured route name (examples below) and return the
     response from the provider in a standardized format.
 
-    :param route: The name of the configured route. Route names can be obtained by running
-                  `mlflow.gateway.search_routes()`
-    :param data: The request payload to be submitted to the route. The exact configuration of
-                 the expected structure varies based on the route configuration.
-    :return: The response from the configured route endpoint provider in a standardized format.
+    Args:
+        route: The name of the configured route. Route names can be obtained by running
+            `mlflow.gateway.search_routes()`
+        data: The request payload to be submitted to the route. The exact configuration of
+            the expected structure varies based on the route configuration.
+
+    Returns:
+        The response from the configured route endpoint provider in a standardized format.
 
     Chat example:
 
@@ -242,6 +243,5 @@ def query(route: str, data):
                 "max_tokens": 1000,
             },
         )
-
     """
     return MlflowGatewayClient().query(route, data)
