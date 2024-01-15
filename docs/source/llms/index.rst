@@ -20,11 +20,8 @@ capabilities into their applications.
 
     deployments/index
 
-Serving as a unified interface, the `MLflow Deployments Server <deployments/index.html>`_ simplifies interactions with multiple LLM providers, such as 
-`OpenAI <https://openai.com/>`_, `MosaicML <https://www.mosaicml.com/>`_, `Cohere <https://cohere.com/>`_, `Anthropic <https://www.anthropic.com/>`_, 
-`PaLM 2 <https://ai.google/discover/palm2/>`_, `AWS Bedrock <https://aws.amazon.com/bedrock/>`_, and `AI21 Labs <https://www.ai21.com/>`_. 
-
-In addition to supporting the most popular SaaS LLM providers, the MLflow Deployments Server (previously known as "MLflow AI Gateway")
+Serving as a unified interface, the `MLflow Deployments Server <deployments/index.html>`_ (previously known as "MLflow AI Gateway") 
+simplifies interactions with multiple LLM providers. In addition to supporting the most popular SaaS LLM providers, the MLflow Deployments Server 
 provides an integration to MLflow model serving, allowing you to serve your own LLM or a fine-tuned foundation model within your own serving infrastructure.
 
 .. note:: 
@@ -54,85 +51,75 @@ Benefits of the MLflow Deployments Server
   - Zero downtime provider, model, or route swapping.
 
 
-Explore the Native Provider integrations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Explore the Native Providers of the MLflow Deployments Server
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The MLflow Deployments Server supports a large range of foundational models from popular SaaS model vendors, as well as providing a means of self-hosting your 
-own open source model via an integration with MLflow model serving. To learn more about how to get started using the MLflow Deployments Server to simplify the 
-configuration and management of your LLM serving needs, select the provider that you're interested in below: 
+own open source model via an integration with MLflow model serving. 
+
+Please refer to `Supported Provider Models <deployments/index.html#providers>`_ for the full list of supported providers and models.
+
+If you're interested in learning about how to set up the MLflow Deployments Server for a specific provider, follow the links below for our up-to-date 
+documentation on GitHub. Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as 
+the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started 
+with your favorite provider!
 
 .. raw:: html
 
     <section>
         <div class="logo-grid">
-            <a href="deployments/index.html#providers">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
                 </div>
             </a>
-            <a href="deployments/index.html#providers">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/mosaicml-logo.svg" alt="MosaicML Logo"/>
                 </div>
             </a>
-            <a href="deployments/index.html#providers">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/anthropic-logo.svg" alt="Anthropic Logo"/>
                 </div>
             </a>
-            <a href="deployments/index.html#providers">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/cohere-logo.png" alt="Cohere Logo"/>
                 </div>
             </a>
-            <a href="deployments/index.html#providers">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_models/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/mlflow-logo.svg" alt="MLflow Logo"/>
                 </div>
             </a>
-            <a href="deployments/index.html#providers">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/aws-logo.svg" alt="AWS Logo" style="max-height: 3rem;"/>
+                    <img src="../_static/images/logos/aws-logo.svg" alt="AWS BedLock Logo" style="max-height: 3rem;"/>
                 </div>
             </a>
-            <a href="deployments/index.html#providers">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/PaLM-logo.png" alt="PaLM Logo"/>
                 </div>
             </a>
-            <a href="deployments/index.html#providers">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21_labs/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/ai21labs-logo.svg" alt="ai21Labs Logo"/>
                 </div>
             </a>
-            <a href="deployments/index.html#providers">
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md">
+                <div class="logo-card">
+                    <img src="../_static/images/logos/ai21labs-logo.svg" alt="Azure OpenAI Logo"/>
+                </div>
+            </a>
+            <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md">
                 <div class="logo-card">
                     <img src="../_static/images/logos/huggingface-logo.svg" alt="Hugging Face Logo"/>
                 </div>
             </a>
         </div>
     </section>
-
-`Getting Started Examples for each Provider <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/README.md>`_
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you're interested in learning about how to set up the MLflow Deployments Server for a specific provider, follow the links below for our up-to-date 
-documentation on GitHub. 
-
-Each link will take you to a README file that will explain how to set up a route for the provider. In the same directory as 
-the README, you will find a runnable example of how to query the routes that the example creates, providing you with a quick reference for getting started 
-with your favorite provider!
-
-* `OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/openai/README.md>`_
-* `MosaicML quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mosaicml/README.md>`_
-* `Anthropic quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/anthropic/README.md>`_
-* `Cohere quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/cohere/README.md>`_
-* `MLflow quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/mlflow_models/README.md>`_
-* `AWS Bedrock quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/bedrock/README.md>`_
-* `AI21 Labs quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/ai21_labs/README.md>`_ 
-* `PaLM 2 quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/palm/README.md>`_
-* `Azure OpenAI quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md>`_
-* `Hugging Face Text Generation Interface (TGI) quickstart <https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md>`_
 
 .. note::
     The **MLflow** and **Hugging Face TGI** providers are for self-hosted LLM serving of either foundation open-source LLM models, fine-tuned open-source 
@@ -214,15 +201,7 @@ Native MLflow Flavors for LLMs
 
 Harnessing the power of LLMs becomes effortless with flavors designed specifically for working with LLM libraries and frameworks.
 
-Benefits of MLflow's Native Flavors for LLMs
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- **Support for Popular Packages**: 
-
-  - Native integration with packages like `transformers <https://huggingface.co/docs/transformers/index>`_, 
-    `sentence-transformers <https://www.sbert.net/>`_, `open-ai <https://platform.openai.com/docs/libraries/python-library>`_ , and 
-    `langchain <https://www.langchain.com/>`_.
-  - Standardized interfaces for tasks like saving, logging, and managing inference configurations.
+- **Native Support for Popular Packages**: Standardized interfaces for tasks like saving, logging, and managing inference configurations.
 
 - **PyFunc Compatibility**: 
 
@@ -242,56 +221,22 @@ Select the integration below to read the documentation on how to leverage MLflow
 .. raw:: html
 
     <section>
-    <div class="logo-grid">
-        
-        <a href="transformers/index.html">
-            <div class="logo-card">
-                <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"/>
-            </div>
-        </a>
-        
-        <a href="sentence-transformers/index.html">
-            <div class="logo-card">
-                <img src="../_static/images/logos/sentence-transformers-logo.png" alt="Sentence Transformers Logo"/>
-            </div>
-        </a>
-        
-        <a href="langchain/index.html">
-            <div class="logo-card">
-                <img src="../_static/images/logos/langchain-logo.png" alt="LangChain Logo"/>
-            </div>
-        </a>
-        
-        <a href="openai/index.html">
-            <div class="logo-card">
-                <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo"/>
-            </div>
-        </a>
-    </div>
- </section>
-
-Native Integration Guides and Tutorials
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. raw:: html
-
-    <section>
         <article class="simple-grid">
             <div class="simple-card">
                 <a href="transformers/index.html">
-                    <div class="header">
-                        🤗 Transformers
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/huggingface-logo.svg" alt="HuggingFace Logo"/>
                     </div>
                     <p>
-                        Learn about MLflow's native integration with the Transformers library and see example notebooks that leverage 
+                        Learn about MLflow's native integration with the Transformers 🤗 library and see example notebooks that leverage 
                         MLflow and Transformers to build Open-Source LLM powered solutions.
                     </p>
                 </a>
             </div>
             <div class="simple-card">
                 <a href="openai/index.html">
-                    <div class="header">
-                        OpenAI
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/openai-logo.png" alt="OpenAI Logo" style="width: 80%"/>
                     </div>
                     <p>
                         Learn about MLflow's native integration with the OpenAI SDK and see example notebooks that leverage 
@@ -300,24 +245,24 @@ Native Integration Guides and Tutorials
                 </a>
             </div>
             <div class="simple-card">
-                <a href="langchain/index.html">
-                    <div class="header">
-                        LangChain
-                    </div>
-                    <p>
-                        Learn about MLflow's native integration with LangChain and see example notebooks that leverage 
-                        MLflow and LangChain to build LLM-backed applications.
-                    </p>
-                </a>
-            </div>
-            <div class="simple-card">
                 <a href="sentence-transformers/index.html">
-                    <div class="header">
-                        Sentence Transformers
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/sentence-transformers-logo.png"  alt="Sentence Transformers Logo" style="width: 70%"/>
                     </div>
                     <p>
                         Learn about MLflow's native integration with the Sentence Transformers library and see example notebooks that leverage 
                         MLflow and Sentence Transformers to perform operations with encoded text such as semantic search, text similarity, and information retrieval.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
+                <a href="langchain/index.html">
+                    <div class="header-with-image">
+                        <img src="../_static/images/logos/langchain-logo.png" alt="LangChain Logo" style="width: 90%"/>
+                    </div>
+                    <p>
+                        Learn about MLflow's native integration with LangChain and see example notebooks that leverage 
+                        MLflow and LangChain to build LLM-backed applications.
                     </p>
                 </a>
             </div>
