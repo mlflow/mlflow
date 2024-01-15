@@ -193,7 +193,16 @@ class PythonModelContext:
         return self._model_config
 
 
+@experimental
 class ChatModel(PythonModel):
+    """
+    A subclass of :class:`~PythonModel` that makes it more convenient to implement models
+    that are compatible with popular LLM chat APIs. Test.
+
+    By subclassing :class:`~ChatModel`, users can create MLflow models with a ``predict``
+    method that is more convenient for chat tasks than the generic :class:`~PythonModel` API.
+    """
+
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -201,7 +210,8 @@ class ChatModel(PythonModel):
         self, context: PythonModelContext, messages: List[ChatMessage], params: ChatParams
     ) -> ChatResponse:
         """
-        Evaluates a chat input and produces a chat output.
+        Evaluates a chat input and produces a chat output. ChatMessage and ChatParams are
+        passed in as pydantic objects.
         """
 
 

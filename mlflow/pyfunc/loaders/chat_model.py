@@ -12,7 +12,8 @@ from mlflow.pyfunc.model import (
     CONFIG_KEY_PYTHON_MODEL,
     PythonModelContext,
 )
-from mlflow.types.llm import ChatParams, ChatRequest
+from mlflow.types.llm import ChatParams, ChatRequest, ChatResponse
+from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 
@@ -59,10 +60,10 @@ def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None)
     return _ChatModelPyfuncWrapper(chat_model=chat_model, context=context, signature=signature)
 
 
+@experimental
 class _ChatModelPyfuncWrapper:
     """
-    Wrapper class that creates a predict function such that
-    predict(model_input: ChatMessages, params: ChatParams) -> model's output as ChatResponse
+    Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ChatModel`.
     """
 
     def __init__(self, chat_model, context, signature):
@@ -94,11 +95,13 @@ class _ChatModelPyfuncWrapper:
         """
         :param model_input: Model input data.
         :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-
         :return: Model predictions.
         """
         messages, params = self._convert_input(model_input)
-        return self.chat_model.predict(self.context, messages, params)
+
+        response = self.chat_model.predict(self.context, messages, params)
+        if isinstance(response, ChatResponse):
+            # dump to dict as pydantic objects are not directly serializable
+            return response.model_dump(exclude_none=True)
+
+        return response

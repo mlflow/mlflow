@@ -6,12 +6,20 @@ from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Sche
 
 
 class ChatMessage(BaseModel):
+    """
+    A pydantic model representing a single message in a chat conversation.
+    """
+
     role: str
     content: str
     name: Optional[str] = None
 
 
 class ChatParams(BaseModel):
+    """
+    A pydantic model representing a standard set of parameters for chat model inference.
+    """
+
     temperature: float = 1.0
     max_tokens: Optional[int] = None
     stop: Optional[List[str]] = None
@@ -20,23 +28,44 @@ class ChatParams(BaseModel):
 
 
 class ChatChoice(BaseModel):
+    """
+    A pydantic model representing a single choice returned by the model in a chat response.
+    """
+
     index: int
     message: ChatMessage
     finish_reason: str
 
 
 class ChatRequest(ChatParams):
+    """
+    A pydantic model representing the request body for a chat model inference request.
+    """
+
     messages: List[ChatMessage]
 
 
+class TokenUsageStats(BaseModel):
+    """
+    A pydantic model representing token usage statistics for a chat model inference request.
+    """
+
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
 class ChatResponse(BaseModel):
+    """
+    A pydantic model representing the response body for a chat model inference request.
+    """
+
     id: str
     object: str
     created: int
     model: str
-    system_fingerprint: Optional[str]
     choices: List[ChatChoice]
-    usage: dict
+    usage: TokenUsageStats
 
 
 CHAT_MODEL_INPUT_SCHEMA = Schema(
@@ -67,7 +96,6 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
         ColSpec(name="object", type=DataType.string),
         ColSpec(name="created", type=DataType.long),
         ColSpec(name="model", type=DataType.string),
-        ColSpec(name="system_fingerprint", type=DataType.string, required=False),
         ColSpec(
             name="choices",
             type=Array(
@@ -87,6 +115,16 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                         Property("finish_reason", DataType.string),
                     ]
                 )
+            ),
+        ),
+        ColSpec(
+            name="usage",
+            type=Object(
+                [
+                    Property("prompt_tokens", DataType.long),
+                    Property("completion_tokens", DataType.long),
+                    Property("total_tokens", DataType.long),
+                ]
             ),
         ),
     ]
