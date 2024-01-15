@@ -3,7 +3,7 @@ from typing import List
 
 import mlflow
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
-from mlflow.types.llm import (
+from mlflow.types import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
     ChatMessage,
