@@ -10,6 +10,8 @@ import warnings
 from typing import Any, AsyncGenerator, List, Optional
 from urllib.parse import urlparse
 
+from starlette.responses import StreamingResponse
+
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES
@@ -291,3 +293,13 @@ async def handle_incomplete_chunks(
             buffer = buffer[boundary + 1 :]
             yield obj
             boundary = _find_boundary(buffer)
+
+
+async def make_streaming_response(resp):
+    if isinstance(resp, AsyncGenerator):
+        return StreamingResponse(
+            (to_sse_chunk(d.json()) async for d in resp),
+            media_type="text/event-stream",
+        )
+    else:
+        return await resp
