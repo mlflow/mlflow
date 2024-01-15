@@ -145,6 +145,10 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         "disable_for_unsupported_versions": True,
         "silent": True,
     }
+    if library == langchain:
+        # not supported yet
+        args_to_test.pop("log_datasets")
+        args_to_test.update({"log_input_examples": False, "log_model_signatures": False})
     if library in integrations_with_additional_config:
         args_to_test.update({"log_input_examples": True, "log_model_signatures": True})
 
