@@ -98,6 +98,7 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
 
 _logger = logging.getLogger(__name__)
 _DELTA_TABLE = "delta_table"
+_MAX_LINEAGE_DATA_SOURCES = 10
 
 
 def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
@@ -444,10 +445,10 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return run.data.tags.get(MLFLOW_DATABRICKS_JOB_RUN_ID, None)
 
-    def _get_table_details(self, run):
+    def _get_lineage_input_sources(self, run):
         if run is None:
             return None
-        table_details = []
+        securable_list = []
         if run.inputs is not None:
             for dataset in run.inputs.dataset_inputs:
                 dataset_source = mlflow.data.get_source(dataset)
@@ -459,10 +460,14 @@ class UcModelRegistryStore(BaseRestStore):
                         and source_dict.get("delta_table_name")
                         and source_dict.get("delta_table_id")
                     ):
-                        table_details.append(
-                            (source_dict.get("delta_table_name"), source_dict.get("delta_table_id"))
+                        table_entity = Table(
+                            name=source_dict.get("delta_table_name"),
+                            id=source_dict.get("delta_table_id"),
                         )
-        return table_details
+                        securable_list.append(Securable(table=table_entity))
+            return securable_list[0:_MAX_LINEAGE_DATA_SOURCES]
+        else:
+            return None
 
     def _validate_model_signature(self, local_model_path):
         # Import Model here instead of in the top level, to avoid circular import; the
@@ -548,26 +553,22 @@ class UcModelRegistryStore(BaseRestStore):
         headers, run = self._get_run_and_headers(run_id)
         source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
-        table_detail_list = self._get_table_details(run)
+        lineage_securable_list = self._get_lineage_input_sources(run)
         job_id = self._get_job_id(run)
         job_run_id = self._get_job_run_id(run)
         extra_headers = None
         if notebook_id is not None or job_id is not None:
             entity_list = []
-            securable_list = []
+            lineage_list = None
             if notebook_id is not None:
                 notebook_entity = Notebook(id=str(notebook_id))
                 entity_list.append(Entity(notebook=notebook_entity))
             if job_id is not None:
                 job_entity = Job(id=job_id, job_run_id=job_run_id)
                 entity_list.append(Entity(job=job_entity))
-            if table_detail_list is not None:
-                for table_name, table_id in table_detail_list:
-                    table_entity = Table(name=table_name, id=table_id)
-                    securable_list.append(Securable(table=table_entity))
-            lineage_header_info = LineageHeaderInfo(
-                entities=entity_list, lineages=Lineage(source_securables=securable_list)
-            )
+            if lineage_securable_list is not None:
+                lineage_list = [Lineage(source_securables=securable_list)]
+            lineage_header_info = LineageHeaderInfo(entities=entity_list, lineages=lineage_list)
             # Base64-encode the header value to ensure it's valid ASCII,
             # similar to JWT (see https://stackoverflow.com/a/40347926)
             header_json = message_to_json(lineage_header_info)

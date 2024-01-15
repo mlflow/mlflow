@@ -5,11 +5,11 @@ import logging
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_managed_catalog_messages_pb2 import (
     GetTable,
     TableInfo,
 )
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_managed_catalog_service_pb2 import UnityCatalogService
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds, is_in_databricks_runtime
@@ -126,8 +126,7 @@ class DeltaDatasetSource(DatasetSource):
                 response_proto=GetTable.Response,
             ).table_info
             return table_info.table_id
-        except Exception as e:
-            _logger.warning(f"Unable to look up the UC table id for table '{table_name}': '", e)
+        except Exception:
             return None
 
     def _to_dict(self) -> Dict[Any, Any]:
