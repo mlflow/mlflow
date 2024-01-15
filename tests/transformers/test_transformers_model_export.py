@@ -136,18 +136,19 @@ def clean_cache(request):
     # 14GB of storage space on the provided SSDs and 7GB of RAM which are both insufficient to run
     # all validations of this test suite due to the model sizes.
     # This fixture will clear the cache iff the cache storage is > 2GB when called.
-    if "skipcacheclean" in request.keywords:
-        return
-    else:
-        full_cache = scan_cache_dir()
-        cache_size_in_gb = full_cache.size_on_disk / 1000**3
+    # if "skipcacheclean" in request.keywords:
+    #     return
+    # else:
+    #     full_cache = scan_cache_dir()
+    #     cache_size_in_gb = full_cache.size_on_disk / 1000**3
 
-        if cache_size_in_gb > 2:
-            commits_to_purge = [
-                rev.commit_hash for repo in full_cache.repos for rev in repo.revisions
-            ]
-            delete_strategy = full_cache.delete_revisions(*commits_to_purge)
-            delete_strategy.execute()
+    #     if cache_size_in_gb > 2:
+    #         commits_to_purge = [
+    #             rev.commit_hash for repo in full_cache.repos for rev in repo.revisions
+    #         ]
+    #         delete_strategy = full_cache.delete_revisions(*commits_to_purge)
+    #         delete_strategy.execute()
+    pass
 
 
 @pytest.fixture
