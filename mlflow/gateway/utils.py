@@ -273,10 +273,9 @@ def to_sse_chunk(data: str) -> str:
 
 def _find_boundary(buffer: bytes) -> int:
     try:
-        boundary = buffer.index(b"\n")
+        return buffer.index(b"\n")
     except ValueError:
         return -1
-    return boundary
 
 
 async def handle_incomplete_chunks(
