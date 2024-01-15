@@ -36,7 +36,6 @@ from mlflow.langchain.utils import (
     _save_base_lcs,
     _validate_and_wrap_lc_model,
     lc_runnables_types,
-    supported_lc_types,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -682,15 +681,25 @@ def autolog(
     :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
 
-    classes = supported_lc_types()
-    for clazz in classes:
-        safe_patch(FLAVOR_NAME, clazz, "invoke", functools.partial(patched_inference, "invoke"))
-
     with contextlib.suppress(ImportError):
         from langchain.agents.agent import AgentExecutor
         from langchain.chains.base import Chain
+        from langchain.schema import BaseRetriever
+
+        classes = lc_runnables_types() + (AgentExecutor, Chain)
+        for clazz in classes:
+            # IF runnable also contains loader_fn and persist_dir, warn
+            # BaseRetrievalQA, BaseREtriever, ...
+            safe_patch(FLAVOR_NAME, clazz, "invoke", functools.partial(patched_inference, "invoke"))
 
         for clazz in [AgentExecutor, Chain]:
             safe_patch(
                 FLAVOR_NAME, clazz, "__call__", functools.partial(patched_inference, "__call__")
             )
+
+        safe_patch(
+            FLAVOR_NAME,
+            BaseRetriever,
+            "get_relevant_documents",
+            functools.partial(patched_inference, "get_relevant_documents"),
+        )

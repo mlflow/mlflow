@@ -29,6 +29,7 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
     func_param_name_mapping = {
         "__call__": "inputs",
         "invoke": "input",
+        "get_relevant_documents": "query",
     }
     input_example_exc = None
     if func_name in func_param_name_mapping:
@@ -42,7 +43,7 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
             input_example_exc = e
     else:
         input_example_exc = MlflowException(
-            "Unsupported inference function. Please use either `__call__` or `invoke`."
+            f"Unsupported inference function. Only support {list(func_param_name_mapping.keys())}."
         )
     _logger.warning(
         f"Failed to gather input example of model {model.__class__.__name__}"
@@ -52,10 +53,12 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
     )
 
 
-def _combine_input_and_output(input, output, session_id):
+def _combine_input_and_output(input, output, session_id, func_name):
     """
     Combine input and output into a single dictionary
     """
+    if func_name == "get_relevant_documents" and output is not None:
+        output = [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in output]
     if input is None:
         return {
             "output": output if isinstance(output, (list, dict)) else [output],
@@ -106,7 +109,7 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
             config["callbacks"] = callbacks
         kwargs["config"] = config
         return args, kwargs
-    if func_name == "__call__":
+    if func_name in ("__call__", "get_relevant_documents"):
         callbacks = kwargs.get("callbacks", [])
         callbacks.append(mlflow_callback)
         kwargs["callbacks"] = callbacks
@@ -178,34 +181,43 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     )
     input_example = None
     if log_models and not hasattr(self, "model_logged"):
-        if log_input_examples:
-            input_example = deepcopy(_get_input_data_from_function(func_name, self, args, kwargs))
-            if not log_model_signatures:
-                _logger.info(
-                    "Signature is automatically generated for logged model if "
-                    "input_example is provided. To disable log_model_signatures, "
-                    "please also disable log_input_examples."
-                )
-
-        registered_model_name = get_autologging_config(
-            mlflow.langchain.FLAVOR_NAME, "registered_model_name", None
-        )
-        extra_tags = get_autologging_config(mlflow.langchain.FLAVOR_NAME, "extra_tags", None)
-        tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, extra_tags)
-        # self manage the run as we need to get the run_id from mlflow_callback
-        # only log the tags once the first time we log the model
-        for key, value in tags.items():
-            mlflow.MlflowClient().set_tag(mlflow_callback.mlflg.run_id, key, value)
-        with disable_autologging():
-            mlflow.langchain.log_model(
-                self,
-                "model",
-                input_example=input_example,
-                registered_model_name=registered_model_name,
-                run_id=mlflow_callback.mlflg.run_id,
+        if func_name == "get_relevant_documents":
+            _logger.info(
+                "MLflow autologging does not support logging such model because logging "
+                "the model requires loader_fn and persist_dir. Please log the model manually using "
+                "`mlflow.langchain.log_model(model, artifact_path, loader_fn=..., persist_dir=...)`"
             )
-        if _update_langchain_model_config(self):
-            self.model_logged = True
+        else:
+            if log_input_examples:
+                input_example = deepcopy(
+                    _get_input_data_from_function(func_name, self, args, kwargs)
+                )
+                if not log_model_signatures:
+                    _logger.info(
+                        "Signature is automatically generated for logged model if "
+                        "input_example is provided. To disable log_model_signatures, "
+                        "please also disable log_input_examples."
+                    )
+
+            registered_model_name = get_autologging_config(
+                mlflow.langchain.FLAVOR_NAME, "registered_model_name", None
+            )
+            extra_tags = get_autologging_config(mlflow.langchain.FLAVOR_NAME, "extra_tags", None)
+            tags = _resolve_extra_tags(mlflow.langchain.FLAVOR_NAME, extra_tags)
+            # self manage the run as we need to get the run_id from mlflow_callback
+            # only log the tags once the first time we log the model
+            for key, value in tags.items():
+                mlflow.MlflowClient().set_tag(mlflow_callback.mlflg.run_id, key, value)
+            with disable_autologging():
+                mlflow.langchain.log_model(
+                    self,
+                    "model",
+                    input_example=input_example,
+                    registered_model_name=registered_model_name,
+                    run_id=mlflow_callback.mlflg.run_id,
+                )
+            if _update_langchain_model_config(self):
+                self.model_logged = True
 
     # Even if the model is not logged, we keep a single run per model
     if _update_langchain_model_config(self):
@@ -224,7 +236,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
                 _logger.info("Input data gathering failed, only log inference results.")
         else:
             input_data = input_example
-        data_dict = _combine_input_and_output(input_data, result, self.session_id)
+        data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
         mlflow.log_table(data_dict, "inference_history.json", run_id=mlflow_callback.mlflg.run_id)
 
     return result

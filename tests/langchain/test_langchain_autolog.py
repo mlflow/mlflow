@@ -5,8 +5,11 @@ from typing import Any, List, Optional
 from unittest import mock
 
 from langchain.chains import LLMChain
+from langchain.document_loaders import TextLoader
 from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
+from langchain.text_splitter import CharacterTextSplitter
+from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 
 import mlflow
 from mlflow import MlflowClient
@@ -46,6 +49,8 @@ except ImportError:
         "tool_starts",
         "tool_ends",
         "agent_ends",
+        "retriever_starts",
+        "retriever_ends",
     ]
     TEXT_COMPLEXITY_METRICS = [
         "flesch_reading_ease",
@@ -67,21 +72,22 @@ except ImportError:
 
 
 def get_mlflow_callback_artifacts(
-    contains_llm=False,
+    contains_llm=True,
+    contains_on_text_action=True,
     llm_new_token=False,
     contains_chain=False,
     contains_tool=False,
     contains_agent=False,
     contains_agent_action=False,
-    contains_on_text_action=True,
+    contains_retriever=False,
 ):
     artifacts = [
-        "chat_html.html",
         "table_action_records.html",
-        "table_session_analysis.html",
     ]
     if contains_llm:
         artifacts += [
+            "chat_html.html",
+            "table_session_analysis.html",
             re.compile(r"llm_start_\d+_prompt_\d+\.json"),
             re.compile(r"llm_end_\d+_generation_\d+\.json"),
         ]
@@ -108,6 +114,11 @@ def get_mlflow_callback_artifacts(
     if contains_on_text_action:
         artifacts += [
             re.compile(r"on_text_\d+\.json"),
+        ]
+    if contains_retriever:
+        artifacts += [
+            re.compile(r"retriever_start_\d+\.json"),
+            re.compile(r"retriever_end_\d+\.json"),
         ]
     return artifacts
 
@@ -156,6 +167,20 @@ def create_openai_llmagent():
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
     }
     return model, agent_input, mock_response
+
+
+def create_retriever(tmp_path):
+    # Create the vector db, persist the db to a local fs folder
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=10, chunk_overlap=0)
+    docs = text_splitter.split_documents(documents)
+    embeddings = DeterministicDummyEmbeddings(size=5)
+    db = FAISS.from_documents(docs, embeddings)
+    persist_dir = str(tmp_path / "faiss_index")
+    db.save_local(persist_dir)
+    query = "What did the president say about Ketanji Brown Jackson"
+    return db.as_retriever(), query
 
 
 def create_runnable_sequence():
@@ -266,7 +291,7 @@ def test_llmchain_autolog_artifacts():
         client = MlflowClient()
         artifacts = client.list_artifacts(run.info.run_id)
         artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
-        for artifact_name in get_mlflow_callback_artifacts(contains_llm=True):
+        for artifact_name in get_mlflow_callback_artifacts():
             if isinstance(artifact_name, str):
                 assert artifact_name in artifacts
             else:
@@ -370,7 +395,7 @@ def test_agent_autolog_metrics_and_artifacts():
         artifacts = client.list_artifacts(run.info.run_id)
         artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
         for artifact_name in get_mlflow_callback_artifacts(
-            contains_llm=True, contains_agent=True, contains_chain=True
+            contains_agent=True, contains_chain=True
         ):
             if isinstance(artifact_name, str):
                 assert artifact_name in artifacts
@@ -445,9 +470,7 @@ def test_runnable_sequence_autolog_metrics_and_artifacts():
 
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
-    for artifact_name in get_mlflow_callback_artifacts(
-        contains_llm=True, contains_on_text_action=False
-    ):
+    for artifact_name in get_mlflow_callback_artifacts(contains_on_text_action=False):
         if isinstance(artifact_name, str):
             assert artifact_name in artifacts
         else:
@@ -496,3 +519,62 @@ def test_runnable_sequence_autolog_log_inference_history():
     loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
     loaded_dict = loaded_table.to_dict("records")
     assert loaded_dict == [{"input": input_example, "output": output, "session_id": session_id}] * 2
+
+
+def test_retriever_autolog(tmp_path):
+    mlflow.langchain.autolog(log_models=True)
+    model, query = create_retriever(tmp_path)
+    with mock.patch("mlflow.langchain.log_model") as log_model_mock, mock.patch(
+        "mlflow.langchain._langchain_autolog._logger.info"
+    ) as logger_mock:
+        model.get_relevant_documents(query)
+        log_model_mock.assert_not_called()
+        assert logger_mock.call_count == 1
+        message, *_ = logger_mock.call_args[0]
+        assert "MLflow autologging does not support logging such model because logging " in message
+
+
+def test_retriever_metrics_and_artifacts(tmp_path):
+    mlflow.langchain.autolog()
+    model, query = create_retriever(tmp_path)
+    with mlflow.start_run() as run:
+        model.get_relevant_documents(query)
+    client = MlflowClient()
+    metrics = client.get_run(run.info.run_id).data.metrics
+    for metric_key in MLFLOW_CALLBACK_METRICS:
+        assert metric_key in metrics
+
+    artifacts = client.list_artifacts(run.info.run_id)
+    artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+    for artifact_name in get_mlflow_callback_artifacts(
+        contains_llm=False,
+        contains_on_text_action=False,
+        contains_retriever=True,
+    ):
+        if isinstance(artifact_name, str):
+            assert artifact_name in artifacts
+        else:
+            assert any(artifact_name.match(artifact) for artifact in artifacts)
+    assert mlflow.active_run() is None
+
+
+def test_retriever_autlog_inference_history(tmp_path):
+    mlflow.langchain.autolog(log_inference_history=True)
+    model, query = create_retriever(tmp_path)
+    with mlflow.start_run() as run:
+        documents = model.get_relevant_documents(query)
+        documents = [
+            {"page_content": doc.page_content, "metadata": doc.metadata} for doc in documents
+        ]
+    loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+    loaded_dict = loaded_table.to_dict("records")
+    assert len(loaded_dict) == 1
+    assert loaded_dict[0]["input"] == query
+    assert loaded_dict[0]["output"] == documents
+    session_id = loaded_dict[0]["session_id"]
+
+    with mlflow.start_run(run.info.run_id):
+        model.get_relevant_documents(query)
+    loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+    loaded_dict = loaded_table.to_dict("records")
+    assert loaded_dict == [{"input": query, "output": documents, "session_id": session_id}] * 2

@@ -14,8 +14,3 @@ def set_envs(monkeypatch):
         }
     )
     importlib.reload(openai)
-
-
-@pytest.fixture(scope="module")
-def model_path(tmp_path):
-    return tmp_path / "model"
