@@ -19,13 +19,22 @@ class BaseProvider(ABC):
         self.config = config
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        raise NotImplementedError
+        raise HTTPException(
+            status_code=404,
+            detail=f"The chat route is not available for {self.NAME} models.",
+        )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        raise NotImplementedError
+        raise HTTPException(
+            status_code=404,
+            detail=f"The completions route is not available for {self.NAME} models.",
+        )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        raise NotImplementedError
+        raise HTTPException(
+            status_code=404,
+            detail=f"The embeddings route is not available for {self.NAME} models.",
+        )
 
     @staticmethod
     def check_for_model_field(payload):

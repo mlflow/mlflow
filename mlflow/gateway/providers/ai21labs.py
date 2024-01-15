@@ -6,10 +6,12 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.gateway.config import AI21LabsConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas import completions
 
 
 class AI21LabsProvider(BaseProvider):
+    NAME = "AI21Labs"
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AI21LabsConfig):
@@ -81,16 +83,4 @@ class AI21LabsProvider(BaseProvider):
                 completion_tokens=None,
                 total_tokens=None,
             ),
-        )
-
-    async def chat(self, payload: chat.RequestPayload) -> None:
-        # AI21Labs does not have a chat endpoint
-        raise HTTPException(
-            status_code=404, detail="The chat route is not available for AI21Labs models."
-        )
-
-    async def embeddings(self, payload: embeddings.RequestPayload) -> None:
-        # AI21Labs does not have an embeddings endpoint
-        raise HTTPException(
-            status_code=404, detail="The embeddings route is not available for AI21Labs models."
         )

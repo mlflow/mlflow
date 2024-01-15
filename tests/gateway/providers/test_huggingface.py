@@ -140,7 +140,7 @@ async def test_chat_is_not_supported_for_tgi():
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
     assert (
-        "The chat route is not available for the Text Generation Inference provider."
+        "The chat route is not available for Hugging Face Text Generation Inference models."
         in e.value.detail
     )
     assert e.value.status_code == 404
@@ -155,7 +155,7 @@ async def test_embeddings_are_not_supported_for_tgi():
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))
     assert (
-        "The embedding route is not available for the Text Generation Inference provider."
+        "The embeddings route is not available for Hugging Face Text Generation Inference models."
         in e.value.detail
     )
     assert e.value.status_code == 404
