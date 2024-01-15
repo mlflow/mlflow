@@ -151,10 +151,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         See https://docs.databricks.com/api/workspace/servingendpoints/query for request/response
         schema.
 
-        :param deployment_name: Unused.
-        :param inputs: A dictionary containing the model inputs to query.
-        :param endpoint: The name of the serving endpoint to query.
-        :return: A :py:class:`DatabricksEndpoint` object containing the query response.
+        Args:
+            deployment_name: Unused.
+            inputs: A dictionary containing the model inputs to query.
+            endpoint: The name of the serving endpoint to query.
+
+        Returns:
+            A :py:class:`DatabricksEndpoint` object containing the query response.
 
         Example:
 
@@ -203,14 +206,17 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def create_endpoint(self, name, config=None):
-        """
-        Create a new serving endpoint with the provided name and configuration.
+        """Create a new serving endpoint with the provided name and configuration.
+
         See https://docs.databricks.com/api/workspace/servingendpoints/create for request/response
         schema.
 
-        :param name: The name of the serving endpoint to create.
-        :param config: A dictionary containing the configuration of the serving endpoint to create.
-        :return: A :py:class:`DatabricksEndpoint` object containing the request response.
+        Args:
+            name: The name of the serving endpoint to create.
+            config: A dictionary containing the configuration of the serving endpoint to create.
+
+        Returns:
+            A :py:class:`DatabricksEndpoint` object containing the request response.
 
         Example:
 
@@ -247,6 +253,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 "tags": [...],
                 "id": "88fd3f75a0d24b0380ddc40484d7a31b",
             }
+
         """
         config = config.copy() if config else {}  # avoid mutating config
         extras = {}
@@ -258,14 +265,16 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def update_endpoint(self, endpoint, config=None):
-        """
-        Update a specified serving endpoint with the provided configuration.
+        """Update a specified serving endpoint with the provided configuration.
         See https://docs.databricks.com/api/workspace/servingendpoints/updateconfig for
         request/response schema.
 
-        :param endpoint: The name of the serving endpoint to update.
-        :param config: A dictionary containing the configuration of the serving endpoint to update.
-        :return: A :py:class:`DatabricksEndpoint` object containing the request response.
+        Args:
+            endpoint: The name of the serving endpoint to update.
+            config: A dictionary containing the configuration of the serving endpoint to update.
+
+        Returns:
+            A :py:class:`DatabricksEndpoint` object containing the request response.
 
         Example:
 
@@ -341,8 +350,11 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         See https://docs.databricks.com/api/workspace/servingendpoints/delete for request/response
         schema.
 
-        :param endpoint: The name of the serving endpoint to delete.
-        :return: A :py:class:`DatabricksEndpoint` object containing the request response.
+        Args:
+            endpoint: The name of the serving endpoint to delete.
+
+        Returns:
+            A DatabricksEndpoint object containing the request response.
 
         Example:
 
@@ -357,12 +369,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def list_endpoints(self):
-        """
-        Retrieve all serving endpoints.
+        """Retrieve all serving endpoints.
+
         See https://docs.databricks.com/api/workspace/servingendpoints/list for request/response
         schema.
 
-        :return: A list of :py:class:`DatabricksEndpoint` objects containing the request response.
+        Returns:
+            A list of :py:class:`DatabricksEndpoint` objects containing the request response.
 
         Example:
 
@@ -384,18 +397,21 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                     "id": "88fd3f75a0d24b0380ddc40484d7a31b",
                 },
             ]
+
         """
         return self._call_endpoint(method="GET").endpoints
 
     @experimental
     def get_endpoint(self, endpoint):
-        """
-        Get a specified serving endpoint.
+        """Get a specified serving endpoint.
         See https://docs.databricks.com/api/workspace/servingendpoints/get for request/response
         schema.
 
-        :param endpoint: The name of the serving endpoint to get.
-        :return: A :py:class:`DatabricksEndpoint` object containing the request response.
+        Args:
+            endpoint: The name of the serving endpoint to get.
+
+        Returns:
+            A DatabricksEndpoint object containing the request response.
 
         Example:
 

@@ -141,11 +141,13 @@ class MlflowDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def get_endpoint(self, endpoint) -> "Endpoint":
-        """
-        Gets a specified endpoint configured for the MLflow Deployments Server.
+        """Gets a specified endpoint configured for the MLflow Deployments Server.
 
-        :param endpoint: The name of the endpoint to retrieve.
-        :return: An `Endpoint` object representing the endpoint.
+        Args:
+            endpoint: The name of the endpoint to retrieve.
+
+        Returns:
+            An `Endpoint` object representing the endpoint.
 
         Example:
 
@@ -193,9 +195,10 @@ class MlflowDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def list_endpoints(self) -> "List[Endpoint]":
-        """
-        List endpoints configured for the MLflow Deployments Server.
-        :return: A list of ``Endpoint`` objects.
+        """List endpoints configured for the MLflow Deployments Server.
+
+        Returns:
+            A list of ``Endpoint`` objects.
 
         Example:
 
@@ -214,6 +217,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                     "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
                 },
             ]
+
         """
         endpoints = []
         next_page_token = None
@@ -227,13 +231,15 @@ class MlflowDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None) -> Dict[str, Any]:
-        """
-        Submit a query to a configured provider endpoint.
+        """Submit a query to a configured provider endpoint.
 
-        :param deployment_name: Unused.
-        :param inputs: The inputs to the query, as a dictionary.
-        :param endpoint: The name of the endpoint to query.
-        :return: A dictionary containing the response from the endpoint.
+        Args:
+            deployment_name: Unused.
+            inputs: The inputs to the query, as a dictionary.
+            endpoint: The name of the endpoint to query.
+
+        Returns:
+            A dictionary containing the response from the endpoint.
 
         Example:
 
