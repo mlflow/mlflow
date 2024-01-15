@@ -4,6 +4,7 @@ from io import StringIO
 from unittest import mock
 
 import fastai
+import langchain
 import lightgbm
 import pyspark
 import pyspark.ml
@@ -40,6 +41,7 @@ library_to_mlflow_module_without_spark_datasource = {
     pytorch_lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
     setfit: mlflow.transformers,
+    langchain: mlflow.langchain,
 }
 
 library_to_mlflow_module = {
