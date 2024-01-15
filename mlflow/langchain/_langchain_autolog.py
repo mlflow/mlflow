@@ -24,6 +24,12 @@ MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["langchain"]["autologging"]["maxi
 _lc_version = Version(langchain.__version__)
 _logger = logging.getLogger(__name__)
 
+UNSUPPORT_LOG_MODEL_MESSAGE = (
+    "MLflow autologging does not support logging models containing BaseRetriever because "
+    "logging the model requires `loader_fn` and `persist_dir`. Please log the model manually "
+    "using `mlflow.langchain.log_model(model, artifact_path, loader_fn=..., persist_dir=...)`"
+)
+
 
 def _get_input_data_from_function(func_name, model, args, kwargs):
     func_param_name_mapping = {
@@ -95,11 +101,16 @@ def _update_langchain_model_config(model):
 
 
 def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
-    # TODO: check args as well
     if func_name == "invoke":
         from langchain.schema.runnable.config import RunnableConfig
 
-        config = kwargs.get("config", None)
+        in_args = False
+        # `config` is the second positional argument of runnable.invoke function
+        if len(args) >= 2:
+            config = args[1]
+            in_args = True
+        else:
+            config = kwargs.get("config", None)
         if config is None:
             callbacks = [mlflow_callback]
             config = RunnableConfig(callbacks=callbacks)
@@ -107,22 +118,59 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
             callbacks = config.get("callbacks", [])
             callbacks.append(mlflow_callback)
             config["callbacks"] = callbacks
-        kwargs["config"] = config
+        if in_args:
+            args = (args[0], config) + args[2:]
+        else:
+            kwargs["config"] = config
         return args, kwargs
-    if func_name in ("__call__", "get_relevant_documents"):
+
+    if func_name == "__call__":
+        # `callbacks` is the third positional argument of chain.__call__ function
+        if len(args) >= 3:
+            callbacks = args[2]
+            callbacks.append(mlflow_callback)
+            args = args[:2] + (callbacks,) + args[3:]
+        else:
+            callbacks = kwargs.get("callbacks", None)
+            callbacks.append(mlflow_callback)
+            kwargs["callbacks"] = callbacks
+        return args, kwargs
+
+    if func_name == "get_relevant_documents":
         callbacks = kwargs.get("callbacks", [])
         callbacks.append(mlflow_callback)
         kwargs["callbacks"] = callbacks
         return args, kwargs
 
 
-@contextlib.contextmanager
-def _wrap_func_with_run(run_id, **kwargs):
-    if mlflow.active_run():
-        yield
-    else:
-        with mlflow.start_run(run_id=run_id, **kwargs):
-            yield
+def _runnable_with_retriever(model):
+    from langchain.schema import BaseRetriever
+
+    with contextlib.suppress(ImportError):
+        from langchain.schema.runnable import RunnableBranch, RunnableParallel, RunnableSequence
+        from langchain.schema.runnable.passthrough import RunnableAssign
+
+        if isinstance(model, RunnableBranch):
+            return not any(_runnable_with_retriever(runnable) for _, runnable in model.branches)
+
+        if isinstance(model, RunnableParallel):
+            return not any(_runnable_with_retriever(runnable) for runnable in model.steps.values())
+
+        if isinstance(model, RunnableSequence):
+            return not any(_runnable_with_retriever(runnable) for runnable in model.steps)
+
+        if isinstance(model, RunnableAssign):
+            return not _runnable_with_retriever(model.mapper)
+
+    return isinstance(model, BaseRetriever)
+
+
+def _chain_with_retriever(model):
+    with contextlib.suppress(ImportError):
+        from langchain.chains import RetrievalQA
+
+        return isinstance(model, RetrievalQA)
+    return False
 
 
 def patched_inference(func_name, original, self, *args, **kwargs):
@@ -181,13 +229,15 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     )
     input_example = None
     if log_models and not hasattr(self, "model_logged"):
-        if func_name == "get_relevant_documents":
-            _logger.info(
-                "MLflow autologging does not support logging such model because logging "
-                "the model requires loader_fn and persist_dir. Please log the model manually using "
-                "`mlflow.langchain.log_model(model, artifact_path, loader_fn=..., persist_dir=...)`"
-            )
+        if (
+            (func_name == "get_relevant_documents")
+            or _runnable_with_retriever(self)
+            or _chain_with_retriever(self)
+        ):
+            _logger.info(UNSUPPORT_LOG_MODEL_MESSAGE)
         else:
+            # warn user in case we did't capture some cases where retriever is used
+            warnings.warn(UNSUPPORT_LOG_MODEL_MESSAGE)
             if log_input_examples:
                 input_example = deepcopy(
                     _get_input_data_from_function(func_name, self, args, kwargs)

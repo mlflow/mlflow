@@ -13,6 +13,7 @@ from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.langchain._langchain_autolog import UNSUPPORT_LOG_MODEL_MESSAGE
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -25,50 +26,14 @@ from mlflow.utils.openai_utils import (
 
 MODEL_DIR = "model"
 TEST_CONTENT = "test"
-try:
-    from langchain_community.callbacks.mlflow_callback import (
-        get_text_complexity_metrics,
-        mlflow_callback_metrics,
-    )
 
-    MLFLOW_CALLBACK_METRICS = mlflow_callback_metrics()
-    TEXT_COMPLEXITY_METRICS = get_text_complexity_metrics()
-# TODO: remove this when langchain_community change is merged
-except ImportError:
-    MLFLOW_CALLBACK_METRICS = [
-        "step",
-        "starts",
-        "ends",
-        "errors",
-        "text_ctr",
-        "chain_starts",
-        "chain_ends",
-        "llm_starts",
-        "llm_ends",
-        "llm_streams",
-        "tool_starts",
-        "tool_ends",
-        "agent_ends",
-        "retriever_starts",
-        "retriever_ends",
-    ]
-    TEXT_COMPLEXITY_METRICS = [
-        "flesch_reading_ease",
-        "flesch_kincaid_grade",
-        "smog_index",
-        "coleman_liau_index",
-        "automated_readability_index",
-        "dale_chall_readability_score",
-        "difficult_words",
-        "linsear_write_formula",
-        "gunning_fog",
-        "fernandez_huerta",
-        "szigriszt_pazos",
-        "gutierrez_polini",
-        "crawford",
-        "gulpease_index",
-        "osman",
-    ]
+from langchain_community.callbacks.mlflow_callback import (
+    get_text_complexity_metrics,
+    mlflow_callback_metrics,
+)
+
+MLFLOW_CALLBACK_METRICS = mlflow_callback_metrics()
+TEXT_COMPLEXITY_METRICS = get_text_complexity_metrics()
 
 
 def get_mlflow_callback_artifacts(
@@ -183,21 +148,10 @@ def create_retriever(tmp_path):
     return db.as_retriever(), query
 
 
-def create_runnable_sequence():
+def create_fake_chat_model():
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
     from langchain.schema.messages import BaseMessage
-    from langchain.schema.output_parser import StrOutputParser
-    from langchain.schema.runnable import RunnableLambda
-
-    prompt_with_history_str = """
-    Here is a history between you and a human: {chat_history}
-
-    Now, please answer this question: {question}
-    """
-    prompt_with_history = PromptTemplate(
-        input_variables=["chat_history", "question"], template=prompt_with_history_str
-    )
 
     class FakeChatModel(SimpleChatModel):
         """Fake Chat Model wrapper for testing purposes."""
@@ -215,13 +169,29 @@ def create_runnable_sequence():
         def _llm_type(self) -> str:
             return "fake chat model"
 
+    return FakeChatModel()
+
+
+def create_runnable_sequence():
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnableLambda
+
+    prompt_with_history_str = """
+    Here is a history between you and a human: {chat_history}
+
+    Now, please answer this question: {question}
+    """
+    prompt_with_history = PromptTemplate(
+        input_variables=["chat_history", "question"], template=prompt_with_history_str
+    )
+
     def extract_question(input):
         return input[-1]["content"]
 
     def extract_history(input):
         return input[:-1]
 
-    chat_model = FakeChatModel()
+    chat_model = create_fake_chat_model()
     chain_with_history = (
         {
             "question": itemgetter("messages") | RunnableLambda(extract_question),
@@ -529,9 +499,7 @@ def test_retriever_autolog(tmp_path):
     ) as logger_mock:
         model.get_relevant_documents(query)
         log_model_mock.assert_not_called()
-        assert logger_mock.call_count == 1
-        message, *_ = logger_mock.call_args[0]
-        assert "MLflow autologging does not support logging such model because logging " in message
+        logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
 
 
 def test_retriever_metrics_and_artifacts(tmp_path):
@@ -578,3 +546,32 @@ def test_retriever_autlog_inference_history(tmp_path):
     loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
     loaded_dict = loaded_table.to_dict("records")
     assert loaded_dict == [{"input": query, "output": documents, "session_id": session_id}] * 2
+
+
+def test_unsupported_log_model_models_autolog(tmp_path):
+    from langchain.prompts import ChatPromptTemplate
+    from langchain.schema.output_parser import StrOutputParser
+    from langchain.schema.runnable import RunnablePassthrough
+
+    mlflow.langchain.autolog(log_models=True)
+    retriever, _ = create_retriever(tmp_path)
+    prompt = ChatPromptTemplate.from_template(
+        "Answer the following question based on the context: {context}\nQuestion: {question}"
+    )
+    chat_model = create_fake_chat_model()
+    retrieval_chain = (
+        {
+            "context": retriever,
+            "question": RunnablePassthrough(),
+        }
+        | prompt
+        | chat_model
+        | StrOutputParser()
+    )
+    question = "What is a good name for a company that makes MLflow?"
+    with _mock_request(return_value=_mock_chat_completion_response()), mock.patch(
+        "mlflow.langchain._langchain_autolog._logger.info"
+    ) as logger_mock, mock.patch("mlflow.langchain.log_model") as log_model_mock:
+        assert retrieval_chain.invoke(question) == TEST_CONTENT
+        logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
+        log_model_mock.assert_not_called()

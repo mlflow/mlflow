@@ -95,6 +95,7 @@ def picklable_runnable_types():
         pass
 
     try:
+        # TODO: fix this, RunnableAssign is not picklable
         from langchain.schema.runnable.passthrough import RunnableAssign
 
         types += (RunnableAssign,)
