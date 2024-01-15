@@ -93,8 +93,9 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
             """
             The URI with scheme '{scheme}' referring to the dataset source filesystem location.
 
-            :return: The URI with scheme '{scheme}' referring to the dataset source filesystem
-                     location.
+            Returns
+                The URI with scheme '{scheme}' referring to the dataset source filesystem
+                location.
             """
             return self._uri
 
@@ -106,13 +107,16 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
             """
             Downloads the dataset source to the local filesystem.
 
-            :param dst_path: Path of the local filesystem destination directory to which to download
-                             the dataset source. If the directory does not exist, it is created. If
-                             unspecified, the dataset source is downloaded to a new uniquely-named
-                             directory on the local filesystem, unless the dataset source already
-                             exists on the local filesystem, in which case its local path is
-                             returned directly.
-            :return: The path to the downloaded dataset source on the local filesystem.
+            Args:
+                dst_path: Path of the local filesystem destination directory to which to download
+                    the dataset source. If the directory does not exist, it is created. If
+                    unspecified, the dataset source is downloaded to a new uniquely-named
+                    directory on the local filesystem, unless the dataset source already
+                    exists on the local filesystem, in which case its local path is
+                    returned directly.
+
+            Returns:
+                The path to the downloaded dataset source on the local filesystem.
             """
             return download_artifacts(artifact_uri=self.uri, dst_path=dst_path)
 
@@ -140,7 +144,8 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
 
         def _to_dict(self) -> Dict[Any, Any]:
             """
-            :return: A JSON-compatible dictionary representation of the {dataset_source_name}.
+            Returns:
+                A JSON-compatible dictionary representation of the {dataset_source_name}.
             """
             return {
                 "uri": self.uri,
