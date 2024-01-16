@@ -113,7 +113,7 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
             callbacks = [mlflow_callback]
             config = RunnableConfig(callbacks=callbacks)
         else:
-            callbacks = config.get("callbacks", [])
+            callbacks = config.get("callbacks") or []
             callbacks.append(mlflow_callback)
             config["callbacks"] = callbacks
         if in_args:
@@ -129,13 +129,13 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
             callbacks.append(mlflow_callback)
             args = args[:2] + (callbacks,) + args[3:]
         else:
-            callbacks = kwargs.get("callbacks", [])
+            callbacks = kwargs.get("callbacks") or []
             callbacks.append(mlflow_callback)
             kwargs["callbacks"] = callbacks
         return args, kwargs
 
     if func_name == "get_relevant_documents":
-        callbacks = kwargs.get("callbacks", [])
+        callbacks = kwargs.get("callbacks") or []
         callbacks.append(mlflow_callback)
         kwargs["callbacks"] = callbacks
         return args, kwargs
