@@ -811,6 +811,7 @@ def load_model(
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
+
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
