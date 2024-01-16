@@ -7,7 +7,7 @@ Introduction
 Keras is a deep learning API written in Python, running on top of the machine learning platform TensorFlow. 
 It was developed with a focus on enabling fast experimentation.
 
-Keras 3.0 (Keras Core) makes it possible to run Keras workflows on top of TensorFlow, JAX, and PyTorch. 
+Keras 3.0 makes it possible to run Keras workflows on top of TensorFlow, JAX, and PyTorch. 
 It also enables you to seamlessly integrate Keras components (like layers, models, or metrics) as part of 
 low-level TensorFlow, JAX, and PyTorch workflows.
 

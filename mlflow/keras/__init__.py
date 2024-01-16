@@ -1,9 +1,13 @@
-from mlflow.tensorflow import (
-    # Redirect `mlflow.keras._load_pyfunc` to `mlflow.tensorflow._load_pyfunc`,
-    # For backwards compatibility on loading keras model saved by old mlflow versions.
-    _load_pyfunc,  # noqa: F401
-    autolog,  # noqa: F401
-    load_model,  # noqa: F401
-    log_model,  # noqa: F401
-    save_model,  # noqa: F401
-)
+from mlflow.keras.autolog import autolog
+from mlflow.keras.callback import MLflowCallback
+from mlflow.keras.load import _load_pyfunc, load_model
+from mlflow.keras.save import log_model, save_model
+
+__all__ = [
+    "_load_pyfunc",
+    "MLflowCallback",
+    "autolog",
+    "load_model",
+    "save_model",
+    "log_model",
+]
