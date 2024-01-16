@@ -33,15 +33,19 @@ _request_auth_provider_registry.register_entrypoints()
 
 
 def fetch_auth(request_auth):
-    """Find the request auth from registered providers based on the auth provider's name.
+    """
+    Find the request auth from registered providers based on the auth provider's name.
     The auth provider's name can be provided through environment variable `MLFLOW_TRACKING_AUTH`.
 
     This function iterates through all request auth providers in the registry. Additional context
     providers can be registered as described in
     :py:class:`mlflow.tracking.request_auth.RequestAuthProvider`.
 
-    :param request_auth: The name of request auth provider.
-    :return: The auth object.
+    Args:
+        request_auth: The name of request auth provider.
+
+    Returns:
+        The auth object.
     """
 
     for auth_provider in _request_auth_provider_registry:
