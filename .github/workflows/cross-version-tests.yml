@@ -199,6 +199,10 @@ jobs:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
+      - name: Prefetch Transformer models
+        if: matrix.package == 'transformers'
+        run: |
+          python tests/transformers/helper.py
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:

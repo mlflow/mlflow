@@ -13,9 +13,6 @@ from mlflow.version import VERSION
 
 from tests.helper_functions import get_safe_port
 
-# Additional fixtures to be discovered by pytest
-pytest_plugins = ["tests.transformers.models"]
-
 
 def pytest_addoption(parser):
     parser.addoption(

@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import pathlib
-import shutil
 import textwrap
 from unittest import mock
 
@@ -69,8 +68,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     pyfunc_serve_model,
 )
-from tests.transformers.models import IS_NEW_FEATURE_EXTRACTION_API, flaky, get_prefetch_fixtures
-
+from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, flaky
 
 transformers_version = Version(transformers.__version__)
 _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
@@ -91,30 +89,6 @@ image_file_path = pathlib.Path(pathlib.Path(__file__).parent.parent, "datasets",
 # - Conversational pipeline tests
 
 _logger = logging.getLogger(__name__)
-
-
-@pytest.mark.skipif(not RUNNING_IN_GITHUB_ACTIONS, reason="Model prefetch is skipped in local runs")
-@pytest.fixture(autouse=True, scope="module")
-def prefetch_models():
-    """
-    Prefetches all models used in the test suite to avoid downloading them during the test run.
-    Fetching model weights from the HuggingFace Hub has been proven to be flaky in the past, so
-    we want to avoid doing it in the middle of the test run, instead, failing fast.
-    """
-    # Check disk space before prefetching models
-    # This is to avoid running out of disk space during the test run
-    # which can cause the test run to fail
-    available_disk_space = shutil.disk_usage("/").free
-    if available_disk_space < 10 * 1024 * 1024 * 1024:
-        _logger.warn(
-            "Available disk space is less than 10GB. Skipping prefetching Transformers models."
-            "The models will be downloaded one by one during the test run."
-        )
-
-    # Invoke all model fixtures to prefetch model weights
-    model_fixtures = get_prefetch_fixtures()
-    for model_fixture in model_fixtures:
-        model_fixture()
 
 
 @pytest.fixture(autouse=True)
@@ -579,7 +553,7 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
         processor_key = "feature_extractor"
         assert isinstance(loaded_components[processor_key], transformers.ViltProcessor)
         assert isinstance(loaded_components["processor"], transformers.ViltProcessor)
-    if IS_NEW_FEATURE_EXTRACTION_API:
+    if not IS_NEW_FEATURE_EXTRACTION_API:
         # NB: This simulated behavior is no longer valid in versions 4.27.4 and above.
         # With the port of functionality away from feature extractor types, the new architecture
         # for multi-modal models is entirely pipeline based.
@@ -763,14 +737,16 @@ def test_transformers_log_with_pip_requirements(small_qa_pipeline, tmp_path):
         )
 
 
-def test_transformers_log_with_extra_pip_requirements(small_qa_pipeline, tmp_path):
+def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
-    default_requirements = mlflow.transformers.get_default_pip_requirements(small_qa_pipeline.model)
+    default_requirements = mlflow.transformers.get_default_pip_requirements(
+        small_multi_modal_pipeline.model
+    )
     requirements_file = tmp_path.joinpath("requirements.txt")
     requirements_file.write_text("coolpackage")
     with mlflow.start_run():
         mlflow.transformers.log_model(
-            small_qa_pipeline, "model", extra_pip_requirements=str(requirements_file)
+            small_multi_modal_pipeline, "model", extra_pip_requirements=str(requirements_file)
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -779,7 +755,7 @@ def test_transformers_log_with_extra_pip_requirements(small_qa_pipeline, tmp_pat
         )
     with mlflow.start_run():
         mlflow.transformers.log_model(
-            small_qa_pipeline,
+            small_multi_modal_pipeline,
             "model",
             extra_pip_requirements=[f"-r {requirements_file}", "alsocool"],
         )
@@ -790,7 +766,7 @@ def test_transformers_log_with_extra_pip_requirements(small_qa_pipeline, tmp_pat
         )
     with mlflow.start_run():
         mlflow.transformers.log_model(
-            small_qa_pipeline,
+            small_multi_modal_pipeline,
             "model",
             extra_pip_requirements=[f"-c {requirements_file}", "constrainedcool"],
         )
@@ -1815,60 +1791,6 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
         values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
         assert values.to_dict(orient="records") == [{0: "Run"}]
-
-
-def test_qa_pipeline_pyfunc_predict_origin(small_qa_pipeline):
-    artifact_path = "qa_model"
-    with mlflow.start_run():
-        mlflow.transformers.log_model(
-            transformers_model=small_qa_pipeline,
-            artifact_path=artifact_path,
-        )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "question": [
-                    "What color is it?",
-                    "How do the people go?",
-                    "What does the 'wolf' howl at?",
-                ],
-                "context": [
-                    "Some people said it was green but I know that it's pink.",
-                    "The people on the bus go up and down. Up and down.",
-                    "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
-                    "the moon for hours.",
-                ],
-            }
-        }
-    )
-    response = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-    )
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-
-    assert values.to_dict(orient="records") == [{0: "pink"}, {0: "up and down"}, {0: "the moon"}]
-
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "question": "Who's house?",
-                "context": "The house is owned by a man named Run.",
-            }
-        }
-    )
-
-    response = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-    )
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-
-    assert values.to_dict(orient="records") == [{0: "Run"}]
 
 
 @pytest.mark.parametrize(
