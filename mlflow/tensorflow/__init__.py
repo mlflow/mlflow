@@ -213,7 +213,7 @@ def log_model(
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-                metadata of the logged model.
+        metadata of the logged model.
     """
 
     return Model.log(
