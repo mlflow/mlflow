@@ -317,6 +317,11 @@ def log_model(
 
 
         main()
+
+    .. code-block:: text
+        :caption: Output
+
+        artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.fastai']
     """
     return Model.log(
         artifact_path=artifact_path,
