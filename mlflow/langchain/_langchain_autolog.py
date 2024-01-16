@@ -129,7 +129,7 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
             callbacks.append(mlflow_callback)
             args = args[:2] + (callbacks,) + args[3:]
         else:
-            callbacks = kwargs.get("callbacks", None)
+            callbacks = kwargs.get("callbacks", [])
             callbacks.append(mlflow_callback)
             kwargs["callbacks"] = callbacks
         return args, kwargs
@@ -149,16 +149,16 @@ def _runnable_with_retriever(model):
         from langchain.schema.runnable.passthrough import RunnableAssign
 
         if isinstance(model, RunnableBranch):
-            return not any(_runnable_with_retriever(runnable) for _, runnable in model.branches)
+            return any(_runnable_with_retriever(runnable) for _, runnable in model.branches)
 
         if isinstance(model, RunnableParallel):
-            return not any(_runnable_with_retriever(runnable) for runnable in model.steps.values())
+            return any(_runnable_with_retriever(runnable) for runnable in model.steps.values())
 
         if isinstance(model, RunnableSequence):
-            return not any(_runnable_with_retriever(runnable) for runnable in model.steps)
+            return any(_runnable_with_retriever(runnable) for runnable in model.steps)
 
         if isinstance(model, RunnableAssign):
-            return not _runnable_with_retriever(model.mapper)
+            return _runnable_with_retriever(model.mapper)
 
     return isinstance(model, BaseRetriever)
 
