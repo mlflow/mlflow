@@ -71,7 +71,6 @@ from tests.helper_functions import (
 )
 from tests.transformers.models import IS_NEW_FEATURE_EXTRACTION_API, flaky, get_prefetch_fixtures
 
-pytestmark = pytest.mark.large
 
 transformers_version = Version(transformers.__version__)
 _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
