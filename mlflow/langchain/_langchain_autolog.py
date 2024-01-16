@@ -125,7 +125,7 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
     if func_name == "__call__":
         # `callbacks` is the third positional argument of chain.__call__ function
         if len(args) >= 3:
-            callbacks = args[2]
+            callbacks = args[2] or []
             callbacks.append(mlflow_callback)
             args = args[:2] + (callbacks,) + args[3:]
         else:
@@ -259,14 +259,17 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             # only log the tags once the first time we log the model
             for key, value in tags.items():
                 mlflow.MlflowClient().set_tag(mlflow_callback.mlflg.run_id, key, value)
-            with disable_autologging():
-                mlflow.langchain.log_model(
-                    self,
-                    "model",
-                    input_example=input_example,
-                    registered_model_name=registered_model_name,
-                    run_id=mlflow_callback.mlflg.run_id,
-                )
+            try:
+                with disable_autologging():
+                    mlflow.langchain.log_model(
+                        self,
+                        "model",
+                        input_example=input_example,
+                        registered_model_name=registered_model_name,
+                        run_id=mlflow_callback.mlflg.run_id,
+                    )
+            except Exception as e:
+                _logger.warning(f"Failed to log model due to error {e}.")
             if _update_langchain_model_config(self):
                 self.model_logged = True
 
