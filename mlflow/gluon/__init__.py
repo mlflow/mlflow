@@ -327,17 +327,17 @@ def log_model(
     Args:
         gluon_model: Gluon model to be saved. Must be already hybridized.
         artifact_path: Run-relative artifact path.
-        conda_env: Description of conda_env.
+        conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system
             path when the model is loaded.
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
-        signature: Description of signature.
-        input_example: Description of input_example.
-        pip_requirements: Description of pip_requirements.
-        extra_pip_requirements: Description of extra_pip_requirements.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
