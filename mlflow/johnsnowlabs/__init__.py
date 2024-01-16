@@ -209,7 +209,8 @@ def log_model(
     metadata=None,
     store_license=False,
 ):
-    """Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
+    """
+    Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
     <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_, as an MLflow artifact for the current
     run. This uses the MLlib persistence format and produces an MLflow Model with the
     ``johnsnowlabs`` flavor.
@@ -264,6 +265,7 @@ def log_model(
                 train = df.drop_column("target_label")
                 predictions = ...  # compute model predictions
                 signature = infer_signature(train, predictions)
+
         input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
@@ -501,7 +503,8 @@ def save_model(
     metadata=None,
     store_license=False,
 ):
-    """Save a Spark johnsnowlabs Model to a local path.
+    """
+    Save a Spark johnsnowlabs Model to a local path.
 
     By default, this function saves models using the Spark MLlib persistence mechanism.
     Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
@@ -668,11 +671,11 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
 def load_model(
     model_uri, dfs_tmpdir=None, dst_path=None, **kwargs
 ):  # pylint: disable=unused-argument
-    """Load the Johnsnowlabs MLflow model from the path.
+    """
+    Load the Johnsnowlabs MLflow model from the path.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
-
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
@@ -691,7 +694,8 @@ def load_model(
             path will be created.
 
     Returns:
-        `nlu.NLUPipeline <https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api>`_
+        A
+        `nlu.NLUPipeline <https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api>`_.
 
     .. code-block:: python
         :caption: Example

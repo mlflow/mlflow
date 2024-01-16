@@ -120,6 +120,7 @@ def save_model(
                 train = df.drop_column("target_label")
                 predictions = ...  # compute model predictions
                 signature = infer_signature(train, predictions)
+
         input_example: Inserted after the argument name.
         pip_requirements: Inserted after the argument name.
         extra_pip_requirements: Inserted after the argument name.
@@ -127,6 +128,7 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
+
         kwargs: kwargs to pass to ``Learner.save`` method.
 
     .. code-block:: python
@@ -263,11 +265,13 @@ def log_model(
             the training dataset), for example:
 
             .. code-block:: python
+
               from mlflow.models import infer_signature
 
               train = df.drop_column("target_label")
               predictions = ...  # compute model predictions
               signature = infer_signature(train, predictions)
+
         input_example: Inserted after the argument name.
         kwargs: kwargs to pass to `fastai.Learner.export`_ method.
         await_registration_for: Number of seconds to wait for the model version to finish
@@ -344,7 +348,6 @@ def load_model(model_uri, dst_path=None):
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
-
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
@@ -407,25 +410,26 @@ def autolog(
     and `OneCycleScheduler <https://docs.fast.ai/callback.schedule.html#ParamScheduler>`_ callbacks
 
     Args:
-        log_models: If ``True``, trained models are logged as MLflow model artifacts.
-            If ``False``, trained models are not logged.
-        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-            If ``False``, dataset information is not logged.
-        disable: If ``True``, disables the Fastai autologging integration. If ``False``,
-            enables the Fastai autologging integration.
-        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-            If ``False``, autologged content is logged to the active fluent run,
-            which may be user-created.
-        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-            fastai that have not been tested against this version of the MLflow client
-            or are incompatible.
+        log_models: If ``True``, trained models are logged as MLflow model artifacts. If ``False``,
+            trained models are not logged.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking. If ``False``,
+            dataset information is not logged.
+        disable: If ``True``, disables the Fastai autologging integration. If ``False``, enables
+            the Fastai autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs. If
+            ``False``, autologged content is logged to the active fluent run, which may
+            be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of fastai
+            that have not been tested against this version of the MLflow client or are
+            incompatible.
         silent: If ``True``, suppress all event logs and warnings from MLflow during Fastai
-            autologging. If ``False``, show all events and warnings during Fastai
+            autologging. If ``False``, show all events and warnings during Fastai autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a new
+            model version of the registered model with this name. The registered model is created
+            if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by
             autologging.
-        registered_model_name: If given, each time a model is trained, it is registered as a
-            new model version of the registered model with this name.
-            The registered model is created if it does not already exist.
-        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+
 
     .. code-block:: python
         :caption: Example

@@ -50,7 +50,8 @@ def search_routes() -> List[Route]:
 def create_route(
     name: str, route_type: Optional[str] = None, model: Optional[Dict[str, Any]] = None
 ) -> Route:
-    """Create a new route in the Gateway.
+    """
+    Create a new route in the Gateway.
 
     .. warning::
 

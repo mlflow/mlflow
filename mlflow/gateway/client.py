@@ -162,7 +162,8 @@ class MlflowGatewayClient:
     def create_route(
         self, name: str, route_type: Optional[str] = None, model: Optional[Dict[str, Any]] = None
     ) -> Route:
-        """Create a new route in the Gateway.
+        """
+        Create a new route in the Gateway.
 
         .. warning::
 
@@ -173,8 +174,8 @@ class MlflowGatewayClient:
         Args:
             name: The name of the route. This parameter is required for all routes.
             route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
-                'llm/v1/embeddings'). This parameter is required for routes that are
-                not managed by Databricks (the provider isn't 'databricks').
+                'llm/v1/embeddings'). This parameter is required for routes that are not managed by
+                Databricks (the provider isn't 'databricks').
             model: A dictionary representing the model details to be associated with the route.
                 This parameter is required for all routes. This dictionary should define:
                 - The model name (e.g., "gpt-3.5-turbo")
@@ -272,7 +273,8 @@ class MlflowGatewayClient:
 
     @gateway_deprecated
     def query(self, route: str, data: Dict[str, Any]):
-        """Submit a query to a configured provider route.
+        """
+        Submit a query to a configured provider route.
 
         Args:
             route: The name of the route to submit the query to.
@@ -367,7 +369,8 @@ class MlflowGatewayClient:
 
     @gateway_deprecated
     def set_limits(self, route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
-        """Set limits on an existing route in the Gateway.
+        """
+        Set limits on an existing route in the Gateway.
 
         .. warning::
 
@@ -376,16 +379,11 @@ class MlflowGatewayClient:
         Args:
             route: The name of the route to set limits on.
             limits: Limits (Array of dictionary) to set on the route. Each limit is defined by a
-                dictionary representing the limit details to be associated with the route.
-                This dictionary should define:
-
-                - renewal_period: a string representing the length of the window
-                  to enforce limit on (only supports "minute" for now).
-                - calls: a non-negative integer representing the number of calls
-                  allowed per renewal_period (e.g., 10, 0, 55).
-                - key: an optional string represents per route limit or per user
-                  limit ("user" for per user limit, "route" for per route limit, if not
-                  supplied, default to per route limit).
+                dictionary representing the limit details to be associated with the route. This
+                dictionary should define:
+                - renewal_period: a string representing the length of the window to enforce limit on (only supports "minute" for now). # pylint: disable=line-too-long
+                - calls: a non-negative integer representing the number of calls allowed per  renewal_period (e.g., 10, 0, 55). # pylint: disable=line-too-long
+                - key: an optional string represents per route limit or per user limit ("user" for per user limit, "route" for per route limit, if not supplied, default to per route limit). # pylint: disable=line-too-long
 
         Returns:
             The returned data structure is a serialized representation of the `Limit`

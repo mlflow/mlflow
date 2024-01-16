@@ -46,11 +46,11 @@ _MODEL_SAVE_PATH = "net"
 
 @deprecated(since="2.5.0")
 def load_model(model_uri, ctx, dst_path=None):
-    """Load a Gluon model from a local file or a run.
+    """
+    Load a Gluon model from a local file or a run.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
-
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
@@ -105,9 +105,7 @@ class _GluonModelWrapper:
     def predict(
         self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
     ):
-        """This is a docstring. Here is info.
-
-        Here is more info.
+        """This is a docstring. Here is more info.
 
         Args:
             data: Either a pandas DataFrame or a numpy array containing input array values.
@@ -172,7 +170,8 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
 ):
-    """Save a Gluon model to a path on the local file system.
+    """
+    Save a Gluon model to a path on the local file system.
 
     Args:
         gluon_model: Gluon model to be saved. Must be already hybridized.
@@ -321,7 +320,8 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
 ):
-    """Log a Gluon model as an MLflow artifact for the current run.
+    """
+    Log a Gluon model as an MLflow artifact for the current run.
 
     Args:
         gluon_model: Gluon model to be saved. Must be already hybridized.

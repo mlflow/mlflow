@@ -102,7 +102,8 @@ def save_model(
     persist_dir=None,
     example_no_conversion=False,
 ):
-    """Save a LangChain model to a path on the local file system.
+    """
+    Save a LangChain model to a path on the local file system.
 
     Args:
         lc_model: A LangChain model, which could be a
@@ -312,7 +313,8 @@ def log_model(
     persist_dir=None,
     example_no_conversion=False,
 ):
-    """Log a LangChain model as an MLflow artifact for the current run.
+    """
+    Log a LangChain model as an MLflow artifact for the current run.
 
     Args:
         lc_model: A LangChain model, which could be a
@@ -629,7 +631,8 @@ def _load_model_from_local_fs(local_model_path):
 
 @experimental
 def load_model(model_uri, dst_path=None):
-    """Load a LangChain model from a local file or a run.
+    """
+    Load a LangChain model from a local file or a run.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
