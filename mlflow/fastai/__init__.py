@@ -286,6 +286,37 @@ def log_model(
 
     Returns:
         A ModelInfo instance that contains the metadata of the logged model.
+
+    .. code-block:: python
+        :caption: Example
+
+        import fastai.vision as vis
+        import mlflow.fastai
+        from mlflow import MlflowClient
+
+
+        def main(epochs=5, learning_rate=0.01):
+            # Download and untar the MNIST data set
+            path = vis.untar_data(vis.URLs.MNIST_SAMPLE)
+            # Prepare, transform, and normalize the data
+            data = vis.ImageDataBunch.from_folder(
+                path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64
+            )
+            data.normalize(vis.imagenet_stats)
+            # Create the CNN Learner model
+            model = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
+            # Start MLflow session and log model
+            with mlflow.start_run() as run:
+                model.fit(epochs, learning_rate)
+                mlflow.fastai.log_model(model, "model")
+            # fetch the logged model artifacts
+            artifacts = [
+                f.path for f in MlflowClient().list_artifacts(run.info.run_id, "model")
+            ]
+            print(f"artifacts: {artifacts}")
+
+
+        main()
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -348,6 +379,7 @@ def load_model(model_uri, dst_path=None):
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
+
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
@@ -400,7 +432,8 @@ def autolog(
     registered_model_name=None,
     extra_tags=None,
 ):  # pylint: disable=unused-argument
-    """Enable automatic logging from Fastai to MLflow.
+    """
+    Enable automatic logging from Fastai to MLflow.
 
     Logs loss and any other metrics specified in the fit function, and optimizer data as parameters.
     Model checkpoints are logged as artifacts to a 'models' directory.

@@ -141,7 +141,8 @@ class MlflowDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def get_endpoint(self, endpoint) -> "Endpoint":
-        """Gets a specified endpoint configured for the MLflow Deployments Server.
+        """
+        Gets a specified endpoint configured for the MLflow Deployments Server.
 
         Args:
             endpoint: The name of the endpoint to retrieve.
@@ -195,7 +196,8 @@ class MlflowDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def list_endpoints(self) -> "List[Endpoint]":
-        """List endpoints configured for the MLflow Deployments Server.
+        """
+        List endpoints configured for the MLflow Deployments Server.
 
         Returns:
             A list of ``Endpoint`` objects.
@@ -231,7 +233,8 @@ class MlflowDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None) -> Dict[str, Any]:
-        """Submit a query to a configured provider endpoint.
+        """
+        Submit a query to a configured provider endpoint.
 
         Args:
             deployment_name: Unused.

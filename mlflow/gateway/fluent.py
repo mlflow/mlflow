@@ -9,7 +9,8 @@ from mlflow.utils import get_results_from_paginated_fn
 
 @gateway_deprecated
 def get_route(name: str) -> Route:
-    """Retrieves a specific route from the MLflow Gateway service.
+    """
+    Retrieves a specific route from the MLflow Gateway service.
 
     This function creates an instance of MlflowGatewayClient and uses it to fetch a route by its
     name from the Gateway service.
@@ -26,7 +27,8 @@ def get_route(name: str) -> Route:
 
 @gateway_deprecated
 def search_routes() -> List[Route]:
-    """Searches for routes in the MLflow Gateway service.
+    """
+    Searches for routes in the MLflow Gateway service.
 
     This function creates an instance of MlflowGatewayClient and uses it to fetch a list of routes
     from the Gateway service.
@@ -107,7 +109,8 @@ def create_route(
 
 @gateway_deprecated
 def delete_route(name: str) -> None:
-    """Delete an existing route in the Gateway.
+    """
+    Delete an existing route in the Gateway.
 
     .. warning::
 
@@ -133,7 +136,8 @@ def delete_route(name: str) -> None:
 
 @gateway_deprecated
 def set_limits(route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
-    """Set limits on an existing route in the Gateway.
+    """
+    Set limits on an existing route in the Gateway.
 
     .. warning::
 
@@ -158,7 +162,8 @@ def set_limits(route: str, limits: List[Dict[str, Any]]) -> LimitsConfig:
 
 @gateway_deprecated
 def get_limits(route: str) -> LimitsConfig:
-    """Get limits of an existing route in the Gateway.
+    """
+    Get limits of an existing route in the Gateway.
 
     .. warning::
 
@@ -182,7 +187,8 @@ def get_limits(route: str) -> LimitsConfig:
 
 @gateway_deprecated
 def query(route: str, data):
-    """Issues a query request to a configured service through a named route on the Gateway Server.
+    """
+    Issues a query request to a configured service through a named route on the Gateway Server.
     This function will interface with a configured route name (examples below) and return the
     response from the provider in a standardized format.
 

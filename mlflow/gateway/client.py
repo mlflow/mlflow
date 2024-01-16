@@ -64,7 +64,8 @@ class MlflowGatewayClient:
 
     @property
     def gateway_uri(self):
-        """Get the current value for the URI of the MLflow Gateway.
+        """
+        Get the current value for the URI of the MLflow Gateway.
 
         Returns:
             The gateway URI.
@@ -72,7 +73,8 @@ class MlflowGatewayClient:
         return self._gateway_uri
 
     def _call_endpoint(self, method: str, route: str, json_body: Optional[str] = None):
-        """Call a specific endpoint on the Gateway API.
+        """
+        Call a specific endpoint on the Gateway API.
 
         Args:
             method: The HTTP method to use.
@@ -106,7 +108,8 @@ class MlflowGatewayClient:
 
     @gateway_deprecated
     def get_route(self, name: str):
-        """Get a specific query route from the gateway. The routes that are available to retrieve
+        """
+        Get a specific query route from the gateway. The routes that are available to retrieve
         are only those that have been configured through the MLflow Gateway Server configuration
         file (set during server start or through server update commands).
 
@@ -127,7 +130,8 @@ class MlflowGatewayClient:
 
     @gateway_deprecated
     def search_routes(self, page_token: Optional[str] = None) -> PagedList[Route]:
-        """Search for routes in the Gateway.
+        """
+        Search for routes in the Gateway.
 
         Args:
             page_token: Token specifying the next page of results. It should be obtained from
@@ -178,9 +182,10 @@ class MlflowGatewayClient:
                 Databricks (the provider isn't 'databricks').
             model: A dictionary representing the model details to be associated with the route.
                 This parameter is required for all routes. This dictionary should define:
-                - The model name (e.g., "gpt-3.5-turbo")
-                - The provider (e.g., "openai", "anthropic")
-                - The configuration for the model used in the route
+
+                    - The model name (e.g., "gpt-3.5-turbo")
+                    - The provider (e.g., "openai", "anthropic")
+                    - The configuration for the model used in the route
 
         Returns:
             A serialized representation of the `Route` data structure,
@@ -237,7 +242,8 @@ class MlflowGatewayClient:
 
     @gateway_deprecated
     def delete_route(self, name: str) -> None:
-        """Delete an existing route in the Gateway.
+        """
+        Delete an existing route in the Gateway.
 
         .. warning::
 
@@ -413,7 +419,8 @@ class MlflowGatewayClient:
 
     @gateway_deprecated
     def get_limits(self, route: str) -> LimitsConfig:
-        """Get limits of an existing route in the Gateway.
+        """
+        Get limits of an existing route in the Gateway.
 
         .. warning::
 

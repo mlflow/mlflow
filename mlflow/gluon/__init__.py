@@ -51,6 +51,7 @@ def load_model(model_uri, ctx, dst_path=None):
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
+
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
@@ -345,6 +346,32 @@ def log_model(
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
+
+    .. code-block:: python
+        :caption: Example
+
+        from mxnet.gluon import Trainer
+        from mxnet.gluon.contrib import estimator
+        from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
+        from mxnet.gluon.nn import HybridSequential
+        from mxnet.metric import Accuracy
+        import mlflow
+
+        # Build, compile, and train your model
+        net = HybridSequential()
+        with net.name_scope():
+            ...
+        net.hybridize()
+        net.collect_params().initialize()
+        softmax_loss = SoftmaxCrossEntropyLoss()
+        trainer = Trainer(net.collect_params())
+        est = estimator.Estimator(
+            net=net, loss=softmax_loss, metrics=Accuracy(), trainer=trainer
+        )
+        # Log metrics and log the model
+        with mlflow.start_run():
+            est.fit(train_data=train_data, epochs=100, val_data=validation_data)
+            mlflow.gluon.log_model(net, "model")
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -372,7 +399,8 @@ def autolog(
     silent=False,
     registered_model_name=None,
 ):  # pylint: disable=unused-argument
-    """Enables (or disables) and configures autologging from Gluon to MLflow.
+    """
+    Enables (or disables) and configures autologging from Gluon to MLflow.
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.

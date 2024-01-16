@@ -206,7 +206,8 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def create_endpoint(self, name, config=None):
-        """Create a new serving endpoint with the provided name and configuration.
+        """
+        Create a new serving endpoint with the provided name and configuration.
 
         See https://docs.databricks.com/api/workspace/servingendpoints/create for request/response
         schema.
@@ -265,7 +266,8 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def update_endpoint(self, endpoint, config=None):
-        """Update a specified serving endpoint with the provided configuration.
+        """
+        Update a specified serving endpoint with the provided configuration.
         See https://docs.databricks.com/api/workspace/servingendpoints/updateconfig for
         request/response schema.
 
@@ -369,7 +371,8 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def list_endpoints(self):
-        """Retrieve all serving endpoints.
+        """
+        Retrieve all serving endpoints.
 
         See https://docs.databricks.com/api/workspace/servingendpoints/list for request/response
         schema.
@@ -403,7 +406,8 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
     @experimental
     def get_endpoint(self, endpoint):
-        """Get a specified serving endpoint.
+        """
+        Get a specified serving endpoint.
         See https://docs.databricks.com/api/workspace/servingendpoints/get for request/response
         schema.
 
