@@ -41,7 +41,7 @@ class PredictionsResponse(dict):
 
         Args:
             predictions_format: The format in which to return the predictions. Either
-                "dataframe" or "ndarray".
+                ``"dataframe"`` or ``"ndarray"``.
             dtype: The NumPy datatype to which to coerce the predictions. Only used when
                 the "ndarray" predictions_format is specified.
 

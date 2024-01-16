@@ -103,7 +103,7 @@ def save_model(
     Args:
         fastai_learner: fastai Learner to be saved.
         path: Local path where the model is to be saved.
-        conda_env: Inserted after the argument name.
+        conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system
             path when the model is loaded.
@@ -121,9 +121,9 @@ def save_model(
                 predictions = ...  # compute model predictions
                 signature = infer_signature(train, predictions)
 
-        input_example: Inserted after the argument name.
-        pip_requirements: Inserted after the argument name.
-        extra_pip_requirements: Inserted after the argument name.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
@@ -251,7 +251,7 @@ def log_model(
     Args:
         fastai_learner: Fastai model (an instance of `fastai.Learner`_) to be saved.
         artifact_path: Run-relative artifact path.
-        conda_env: Inserted after the argument name.
+        conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system
             path when the model is loaded.
@@ -272,13 +272,13 @@ def log_model(
               predictions = ...  # compute model predictions
               signature = infer_signature(train, predictions)
 
-        input_example: Inserted after the argument name.
+        input_example: {{ input_example }}
         kwargs: kwargs to pass to `fastai.Learner.export`_ method.
         await_registration_for: Number of seconds to wait for the model version to finish
             being created and is in ``READY`` status. By default, the function
             waits for five minutes. Specify 0 or None to skip waiting.
-        pip_requirements: Inserted after the argument name.
-        extra_pip_requirements: Inserted after the argument name.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
             .. Note:: Experimental: This parameter may change or be removed in a future

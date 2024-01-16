@@ -177,14 +177,14 @@ def save_model(
         gluon_model: Gluon model to be saved. Must be already hybridized.
         path: Local path where the model is to be saved.
         mlflow_model: MLflow model config this flavor is being added to.
-        conda_env: Inserted after the argument name.
+        conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system
             path when the model is loaded.
-        signature: Inserted after the argument name.
-        input_example: Inserted after the argument name.
-        pip_requirements: Inserted after the argument name.
-        extra_pip_requirements: Inserted after the argument name.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
