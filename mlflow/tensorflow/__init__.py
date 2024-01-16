@@ -100,9 +100,10 @@ _MODEL_TYPE_TF2_MODULE = "tf2-module"
 
 def get_default_pip_requirements(include_cloudpickle=False):
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     pip_deps = [_get_pinned_requirement("tensorflow")]
     if include_cloudpickle:
@@ -113,15 +114,17 @@ def get_default_pip_requirements(include_cloudpickle=False):
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def get_global_custom_objects():
     """
-    :return: A live reference to the global dictionary of custom objects.
+    Returns:
+        A live reference to the global dictionary of custom objects.
     """
     try:
         from tensorflow import keras
@@ -179,36 +182,38 @@ def log_model(
             #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
             signature = ModelSignature(inputs=input_schema)
 
-    :param model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
-    :param artifact_path: The run-relative path to which to log model artifacts.
-    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
-                           custom classes or functions associated with the Keras model. MLflow saves
-                           these custom layers using CloudPickle and restores them automatically
-                           when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
-                           :py:func:`mlflow.pyfunc.load_model`.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
+    Args:
+        model: The TF2 core model (inheriting tf.Module) or Keras model to be saved.
+        artifact_path: The run-relative path to which to log model artifacts.
+        custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+            custom classes or functions associated with the Keras model. MLflow saves
+            these custom layers using CloudPickle and restores them automatically
+            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
+            :py:func:`mlflow.pyfunc.load_model`.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
+        keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
-    :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+                        .. Note:: Experimental: This parameter may change or be removed in a future
+                                                release without warning.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+    Returns
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+                metadata of the logged model.
     """
 
     return Model.log(
@@ -234,14 +239,15 @@ def _save_keras_custom_objects(path, custom_objects, file_name):
     """
     Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
 
-    :param path: An absolute path that points to the data directory within /path/to/model.
-    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
-                           names (strings) to custom classes or functions to be considered
-                           during deserialization. MLflow saves these custom layers using
-                           CloudPickle and restores them automatically when the model is
-                           loaded with :py:func:`mlflow.keras.load_model` and
-                           :py:func:`mlflow.pyfunc.load_model`.
-    :param file_name: The file name to save the custom objects to.
+    Args:
+        path: An absolute path that points to the data directory within /path/to/model.
+        custom_objects: Keras ``custom_objects`` is a dictionary mapping
+            names (strings) to custom classes or functions to be considered
+            during deserialization. MLflow saves these custom layers using
+            CloudPickle and restores them automatically when the model is
+            loaded with :py:func:`mlflow.keras.load_model` and
+            :py:func:`mlflow.pyfunc.load_model`.
+        file_name: The file name to save the custom objects to.
     """
     import cloudpickle
 
@@ -304,30 +310,31 @@ def save_model(
             #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
             signature = ModelSignature(inputs=input_schema)
 
-    :param model: The Keras model or Tensorflow module to be saved.
-    :param path: Local path where the MLflow model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
-    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
-                           custom classes or functions associated with the Keras model. MLflow saves
-                           these custom layers using CloudPickle and restores them automatically
-                           when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
-                           :py:func:`mlflow.pyfunc.load_model`.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method
-                               if the model to be saved is a Tensorflow module.
-    :param keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
-                               to be saved is a keras model.
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        model: The Keras model or Tensorflow module to be saved.
+        path: Local path where the MLflow model is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
+        custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+            custom classes or functions associated with the Keras model. MLflow saves
+            these custom layers using CloudPickle and restores them automatically
+            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
+            :py:func:`mlflow.pyfunc.load_model`.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method
+            if the model to be saved is a Tensorflow module.
+        keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
+            to be saved is a keras model.
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
     """
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
@@ -585,27 +592,28 @@ def load_model(model_uri, dst_path=None, saved_model_kwargs=None, keras_model_kw
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
+        saved_model_kwargs: kwargs to pass to ``tensorflow.saved_model.load`` method.
+            Only available when you are loading a tensorflow2 core model.
+        keras_model_kwargs: kwargs to pass to ``keras.models.load_model`` method.
+            Only available when you are loading a Keras model.
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
-    :param saved_model_kwargs: kwargs to pass to ``tensorflow.saved_model.load`` method.
-                               Only available when you are loading a tensorflow2 core model.
-    :param keras_model_kwargs: kwargs to pass to ``keras.models.load_model`` method.
-                               Only available when you are loading a Keras model.
-
-    :return: A callable graph (tf.function) that takes inputs and returns inferences.
+    Returns
+        A callable graph (tf.function) that takes inputs and returns inferences.
     """
     import tensorflow as tf
 
@@ -653,18 +661,21 @@ def _load_tf1_estimator_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_s
     Load a specified TensorFlow model consisting of a TensorFlow metagraph and signature definition
     from a serialized TensorFlow ``SavedModel`` collection.
 
-    :param tf_saved_model_dir: The local filesystem path or run-relative artifact path to the model.
-    :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
-                               serialized ``SavedModel`` object. For more information, see the
-                               ``tags`` parameter of the `tf.saved_model.builder.SavedModelBuilder
-                               method <https://www.tensorflow.org/api_docs/python/tf/saved_model/
-                               builder/SavedModelBuilder#add_meta_graph>`_.
-    :param tf_signature_def_key: A string identifying the input/output signature associated with the
-                                 model. This is a key within the serialized ``SavedModel``'s
-                                 signature definition mapping. For more information, see the
-                                 ``signature_def_map`` parameter of the
-                                 ``tf.saved_model.builder.SavedModelBuilder`` method.
-    :return: A callable graph (tensorflow.function) that takes inputs and returns inferences.
+    Args:
+        tf_saved_model_dir: The local filesystem path or run-relative artifact path to the model.
+        tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
+            serialized ``SavedModel`` object. For more information, see the
+            ``tags`` parameter of the `tf.saved_model.builder.SavedModelBuilder
+            method <https://www.tensorflow.org/api_docs/python/tf/saved_model/
+            builder/SavedModelBuilder#add_meta_graph>`_.
+        tf_signature_def_key: A string identifying the input/output signature associated with the
+            model. This is a key within the serialized ``SavedModel``'s
+            signature definition mapping. For more information, see the
+            ``signature_def_map`` parameter of the
+            ``tf.saved_model.builder.SavedModelBuilder`` method.
+
+    Returns:
+        A callable graph (tensorflow.function) that takes inputs and returns inferences.
     """
     import tensorflow as tf
 
@@ -686,7 +697,8 @@ def _load_pyfunc(path):
     model with the TensorFlow flavor into a new TensorFlow graph and exposes it behind the
     ``pyfunc.predict`` interface.
 
-    :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     """
     import tensorflow as tf
 
@@ -751,8 +763,9 @@ class _TF2Wrapper:
 
     def __init__(self, model, infer):
         """
-        :param model: A Tensorflow SavedModel.
-        :param infer: Tensorflow function returned by a saved model that is used for inference.
+        Args:
+            model: A Tensorflow SavedModel.
+            infer: Tensorflow function returned by a saved model that is used for inference.
         """
         # Note: we need to retain the model reference in TF2Wrapper object, because the infer
         #  function in tensorflow will be `ConcreteFunction` which only retains WeakRefs to the
@@ -765,13 +778,15 @@ class _TF2Wrapper:
         self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
     ):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                                        release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         import tensorflow as tf
 
@@ -817,13 +832,15 @@ class _TF2ModuleWrapper:
         self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
     ):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                                        release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         import tensorflow as tf
 
@@ -849,13 +866,15 @@ class _KerasModelWrapper:
         self, data, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
     ):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                                        release without warning.
 
-        :return: Model predictions.
+        Returns
+            Model predictions.
         """
         if isinstance(data, pandas.DataFrame):
             # This line is for backwards compatibility:
@@ -1011,43 +1030,44 @@ def autolog(
     If you want to include `mlflow.tensorflow.MLflowCallback` in the callback list, please turn off
     autologging by calling `mlflow.tensorflow.autolog(disable=True)`.
 
-    :param every_n_iter: The frequency with which metrics should be logged. For example, a value of
-                         100 will log metrics at step 0, 100, 200, etc.
-    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                       If ``False``, trained models are not logged.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                         If ``False``, dataset information is not logged.
-    :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
-                    enables the TensorFlow integration autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      tensorflow that have not been tested against this version of the MLflow
-                      client or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during TensorFlow
-                   autologging. If ``False``, show all events and warnings during TensorFlow
-                   autologging.
-    :param registered_model_name: If given, each time a model is trained, it is registered as a
-                                  new model version of the registered model with this name.
-                                  The registered model is created if it does not already exist.
-    :param log_input_examples: If ``True``, input examples from training datasets are collected and
-                               logged along with tf/keras model artifacts during training. If
-                               ``False``, input examples are not logged.
-    :param log_model_signatures: If ``True``,
-                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
-                                 describing model inputs and outputs are collected and logged along
-                                 with tf/keras model artifacts during training. If ``False``,
-                                 signatures are not logged. Note that logging TensorFlow models
-                                 with signatures changes their pyfunc inference behavior when
-                                 Pandas DataFrames are passed to ``predict()``.
-                                 When a signature is present, an ``np.ndarray``
-                                 (for single-output models) or a mapping from
-                                 ``str`` -> ``np.ndarray`` (for multi-output models) is returned;
-                                 when a signature is not present, a Pandas DataFrame is returned.
-    :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
-    :param keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
-    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    Args:
+        every_n_iter: The frequency with which metrics should be logged. For example, a value of
+            100 will log metrics at step 0, 100, 200, etc.
+        log_models: If ``True``, trained models are logged as MLflow model artifacts.
+            If ``False``, trained models are not logged.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+            If ``False``, dataset information is not logged.
+        disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
+            enables the TensorFlow integration autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            tensorflow that have not been tested against this version of the MLflow
+            client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during TensorFlow
+            autologging. If ``False``, show all events and warnings during TensorFlow
+            autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+        log_input_examples: If ``True``, input examples from training datasets are collected and
+            logged along with tf/keras model artifacts during training. If
+            ``False``, input examples are not logged.
+        log_model_signatures: If ``True``,
+            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+            describing model inputs and outputs are collected and logged along
+            with tf/keras model artifacts during training. If ``False``,
+            signatures are not logged. Note that logging TensorFlow models
+            with signatures changes their pyfunc inference behavior when
+            Pandas DataFrames are passed to ``predict()``.
+            When a signature is present, an ``np.ndarray``
+            (for single-output models) or a mapping from
+            ``str`` -> ``np.ndarray`` (for multi-output models) is returned;
+            when a signature is not present, a Pandas DataFrame is returned.
+        saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
+        keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     import tensorflow as tf
 
