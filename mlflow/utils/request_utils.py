@@ -134,18 +134,21 @@ def _cached_get_request_session(
 
 
 def _get_request_session(max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status):
-    """
-    Returns a `Requests.Session` object for making an HTTP request.
+    """Returns a `Requests.Session` object for making an HTTP request.
 
-    :param max_retries: Maximum total number of retries.
-    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
-      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
-      exponential backoff.
-    :param backoff_jitter: A random jitter to add to the backoff interval.
-    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :param raise_on_status: whether to raise an exception, or return a response, if status falls
-      in retry_codes range and retries have been exhausted.
-    :return: requests.Session object.
+    Args:
+        max_retries: Maximum total number of retries.
+        backoff_factor: A time factor for exponential backoff. e.g. value 5 means the HTTP
+            request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+            exponential backoff.
+        backoff_jitter: A random jitter to add to the backoff interval.
+        retry_codes: A list of HTTP response error codes that qualifies for retry.
+        raise_on_status: Whether to raise an exception, or return a response, if status falls
+            in retry_codes range and retries have been exhausted.
+
+    Returns:
+        requests.Session object.
+
     """
     return _cached_get_request_session(
         max_retries,
@@ -168,22 +171,23 @@ def _get_http_response_with_retries(
     allow_redirects=None,
     **kwargs,
 ):
-    """
-    Performs an HTTP request using Python's `requests` module with an automatic retry policy.
+    """Performs an HTTP request using Python's `requests` module with an automatic retry policy.
 
-    :param method: a string indicating the method to use, e.g. "GET", "POST", "PUT".
-    :param url: the target URL address for the HTTP request.
-    :param max_retries: Maximum total number of retries.
-    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
-      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
-      exponential backoff.
-    :param backoff_jitter: A random jitter to add to the backoff interval.
-    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :param raise_on_status: whether to raise an exception, or return a response, if status falls
-      in retry_codes range and retries have been exhausted.
-    :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
+    Args:
+        method: A string indicating the method to use, e.g. "GET", "POST", "PUT".
+        url: The target URL address for the HTTP request.
+        max_retries: Maximum total number of retries.
+        backoff_factor: A time factor for exponential backoff. e.g. value 5 means the HTTP
+            request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+            exponential backoff.
+        backoff_jitter: A random jitter to add to the backoff interval.
+        retry_codes: A list of HTTP response error codes that qualifies for retry.
+        raise_on_status: Whether to raise an exception, or return a response, if status falls
+            in retry_codes range and retries have been exhausted.
+        kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
-    :return: requests.Response object.
+    Returns:
+        requests.Response object.
     """
     session = _get_request_session(
         max_retries, backoff_factor, backoff_jitter, retry_codes, raise_on_status
@@ -207,22 +211,23 @@ def cloud_storage_http_request(
     timeout=None,
     **kwargs,
 ):
-    """
-    Performs an HTTP PUT/GET/PATCH request using Python's `requests` module with automatic retry.
+    """Performs an HTTP PUT/GET/PATCH request using Python's `requests` module with automatic retry.
 
-    :param method: string of 'PUT' or 'GET' or 'PATCH', specify to do http PUT or GET or PATCH
-    :param url: the target URL address for the HTTP request.
-    :param max_retries: maximum number of retries before throwing an exception.
-    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
-      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
-      exponential backoff.
-    :param backoff_jitter: A random jitter to add to the backoff interval.
-    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :param timeout: wait for timeout seconds for response from remote server for connect and
-      read request. Default to None owing to long duration operation in read / write.
-    :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
+    Args:
+        method: string of 'PUT' or 'GET' or 'PATCH', specify to do http PUT or GET or PATCH.
+        url: the target URL address for the HTTP request.
+        max_retries: maximum number of retries before throwing an exception.
+        backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
+            request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+            exponential backoff.
+        backoff_jitter: A random jitter to add to the backoff interval.
+        retry_codes: a list of HTTP response error codes that qualifies for retry.
+        timeout: wait for timeout seconds for response from remote server for connect and
+            read request. Default to None owing to long duration operation in read / write.
+        kwargs: Additional keyword arguments to pass to `requests.Session.request()`.
 
-    :return requests.Response object.
+    Returns:
+        requests.Response object.
     """
     if method.lower() not in ("put", "get", "patch", "delete"):
         raise ValueError("Illegal http method: " + method)
