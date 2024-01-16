@@ -567,7 +567,7 @@ class UcModelRegistryStore(BaseRestStore):
                 job_entity = Job(id=job_id, job_run_id=job_run_id)
                 entity_list.append(Entity(job=job_entity))
             if lineage_securable_list is not None:
-                lineage_list = [Lineage(source_securables=securable_list)]
+                lineage_list = [Lineage(source_securables=lineage_securable_list)]
             lineage_header_info = LineageHeaderInfo(entities=entity_list, lineages=lineage_list)
             # Base64-encode the header value to ensure it's valid ASCII,
             # similar to JWT (see https://stackoverflow.com/a/40347926)
