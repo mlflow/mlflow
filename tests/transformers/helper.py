@@ -63,11 +63,9 @@ def run_loader(loader_func):
     start_time = time.time()
     loader_func()
     end_time = time.time()
-    _logger.warn(f"Prefetched model `{loader_func.__name__}` in {end_time - start_time} seconds")
+    _logger.info(f"Prefetched model `{loader_func.__name__}` in {end_time - start_time} seconds")
 
 
-# @pytest.mark.skipif(not RUNNING_IN_GITHUB_ACTIONS, reason="Model prefetch is skipped in local runs")
-# @pytest.fixture(autouse=True, scope="module")
 def prefetch_models():
     """
     Prefetches all models used in the test suite to avoid downloading them during the test run.
@@ -85,9 +83,6 @@ def prefetch_models():
         )
 
     model_fixtures = get_prefetch_fixtures()
-    print("Found following model fixtures to prefetch:")
-    print(model_fixtures)
-
     with multiprocessing.Pool() as pool:
         pool.map(run_loader, model_fixtures)
 
@@ -277,4 +272,3 @@ def load_feature_extraction_pipeline():
 
 if __name__ == "__main__":
     prefetch_models()
-    print("done")
