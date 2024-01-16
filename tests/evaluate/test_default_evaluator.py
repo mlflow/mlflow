@@ -2982,6 +2982,135 @@ def test_default_metrics_as_custom_metrics_static_dataset():
     assert "exact_match/v1" in results.metrics.keys()
 
 
+def test_derived_metrics():
+    def metric_1(predictions, targets, metrics):
+        return MetricValue(
+            scores=[0, 1],
+            justifications=["first justification", "second justification"],
+            aggregate_results={"aggregate": 0.5},
+        )
+
+    def metric_2(predictions, targets, metrics, metric_1):
+        return MetricValue(
+            scores=[score * 5 for score in metric_1.scores],
+            justifications=[
+                "metric_2: " + justification for justification in metric_1.justifications
+            ],
+            aggregate_results={
+                **metric_1.aggregate_results,
+                **metrics["toxicity/v1"].aggregate_results,
+            },
+        )
+
+    def metric_3(predictions, targets, metric_1, metric_2):
+        return MetricValue(
+            scores=[score - 1 for score in metric_2.scores],
+            justifications=metric_1.justifications,
+            aggregate_results=metric_2.aggregate_results,
+        )
+
+    with mlflow.start_run():
+        data = pd.DataFrame(
+            {
+                "question": ["words random", "This is a sentence."],
+                "truth": ["words random", "This is a sentence."],
+                "answer": ["words random", "This is a sentence."],
+            }
+        )
+        results = evaluate(
+            data=data,
+            targets="truth",
+            predictions="answer",
+            model_type="text",
+            extra_metrics=[
+                make_metric(eval_fn=metric_1, greater_is_better=True),
+                make_metric(eval_fn=metric_2, greater_is_better=True),
+                make_metric(eval_fn=metric_3, greater_is_better=True),
+            ],
+            evaluators="default",
+        )
+
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    assert set(logged_data.columns.tolist()) == {
+        "question",
+        "truth",
+        "answer",
+        "token_count",
+        "toxicity/v1/score",
+        "flesch_kincaid_grade_level/v1/score",
+        "ari_grade_level/v1/score",
+        "metric_1/score",
+        "metric_2/score",
+        "metric_3/score",
+        "metric_1/justification",
+        "metric_2/justification",
+        "metric_3/justification",
+    }
+
+    assert logged_data["metric_1/score"].tolist() == [0, 1]
+    assert logged_data["metric_2/score"].tolist() == [0, 5]
+    assert logged_data["metric_3/score"].tolist() == [-1, 4]
+    assert logged_data["metric_1/justification"].tolist() == [
+        "first justification",
+        "second justification",
+    ]
+    assert logged_data["metric_2/justification"].tolist() == [
+        "metric_2: first justification",
+        "metric_2: second justification",
+    ]
+    assert logged_data["metric_3/justification"].tolist() == [
+        "first justification",
+        "second justification",
+    ]
+
+    assert results.metrics["metric_1/aggregate"] == 0.5
+    assert results.metrics["metric_2/aggregate"] == 0.5
+    assert results.metrics["metric_3/aggregate"] == 0.5
+    assert "metric_2/mean" in results.metrics.keys()
+    assert "metric_2/variance" in results.metrics.keys()
+    assert "metric_2/p90" in results.metrics.keys()
+    assert "metric_3/mean" in results.metrics.keys()
+    assert "metric_3/variance" in results.metrics.keys()
+    assert "metric_3/p90" in results.metrics.keys()
+
+
+def test_derived_metrics_circular_dependencies_raises_exception():
+    def metric_1(predictions, targets, metric_2):
+        return 0
+
+    def metric_2(predictions, targets, metric_3):
+        return 0
+
+    def metric_3(predictions, targets, metric_1):
+        return 0
+
+    error_message = r"Error: Metric calculation failed for the following metrics:\n"
+
+    data = pd.DataFrame(
+        {
+            "question": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+        }
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        with mlflow.start_run():
+            mlflow.evaluate(
+                data=data,
+                predictions="answer",
+                model_type="text",
+                extra_metrics=[
+                    make_metric(eval_fn=metric_1, greater_is_better=True),
+                    make_metric(eval_fn=metric_2, greater_is_better=True),
+                    make_metric(eval_fn=metric_3, greater_is_better=True),
+                ],
+                evaluators="default",
+            )
+
+
 def test_multi_output_model_error_handling():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(

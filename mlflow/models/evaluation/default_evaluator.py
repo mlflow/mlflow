@@ -566,30 +566,33 @@ def _is_string(value):
     return isinstance(value, str)
 
 
-def _evaluate_metric(extra_metric_tuple, eval_fn_args):
+def _evaluate_metric(metric_tuple, eval_fn_args):
     """
-    This function calls the `extra_metric` function and performs validations on the returned
+    This function calls the `metric` function and performs validations on the returned
     result to ensure that they are in the expected format. It will warn and will not log metrics
     that are in the wrong format.
 
-    :param extra_metric_tuple: Containing a user provided function and its index in the
+    :param metric_tuple: Containing a user provided function and its index in the
         ``extra_metrics`` parameter of ``mlflow.evaluate``
     :param eval_fn_args: A dictionary of args needed to compute the eval metrics.
     :return: MetricValue
     """
-    exception_header = (
-        f"Did not log metric '{extra_metric_tuple.name}' at index "
-        f"{extra_metric_tuple.index} in the `extra_metrics` parameter because it"
-    )
+    if metric_tuple.index < 0:
+        exception_header = f"Did not log builtin metric '{metric_tuple.name}' because it"
+    else:
+        exception_header = (
+            f"Did not log metric '{metric_tuple.name}' at index "
+            f"{metric_tuple.index} in the `extra_metrics` parameter because it"
+        )
 
-    metric = extra_metric_tuple.function(*eval_fn_args)
+    metric = metric_tuple.function(*eval_fn_args)
 
     if metric is None:
         _logger.warning(f"{exception_header} returned None.")
         return
 
     if _is_numeric(metric):
-        return MetricValue(aggregate_results={extra_metric_tuple.name: metric})
+        return MetricValue(aggregate_results={metric_tuple.name: metric})
 
     if not isinstance(metric, MetricValue):
         _logger.warning(f"{exception_header} did not return a MetricValue.")
@@ -1478,29 +1481,6 @@ class DefaultEvaluator(ModelEvaluator):
 
         return "\n".join(error_message_parts)
 
-    def _order_extra_metrics(self, eval_df):
-        remaining_metrics = self.extra_metrics
-
-        while len(remaining_metrics) > 0:
-            pending_metrics = []
-            failed_results = []
-            did_append_metric = False
-            for metric_tuple in remaining_metrics:
-                result = self._get_args_for_metrics(metric_tuple, eval_df)
-                # cannot calculate the metric yet
-                if isinstance(result, tuple):
-                    pending_metrics.append(metric_tuple)
-                    failed_results.append(result)
-                else:  # can calculate this metric "immediately"
-                    self.ordered_metrics.append(metric_tuple)
-                    did_append_metric = True
-
-            # cant calculate any more metrics
-            if not did_append_metric:
-                self._raise_exception_for_malformed_metrics(failed_results, eval_df)
-
-            remaining_metrics = pending_metrics
-
     def _raise_exception_for_malformed_metrics(self, malformed_results, eval_df):
         output_columns = (
             [] if self.other_output_columns is None else list(self.other_output_columns.columns)
@@ -1540,6 +1520,29 @@ class DefaultEvaluator(ModelEvaluator):
         stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
         raise MlflowException(stripped_message)
 
+    def _order_extra_metrics(self, eval_df):
+        remaining_metrics = self.extra_metrics
+
+        while len(remaining_metrics) > 0:
+            pending_metrics = []
+            failed_results = []
+            did_append_metric = False
+            for metric_tuple in remaining_metrics:
+                result = self._get_args_for_metrics(metric_tuple, eval_df)
+                # cannot calculate the metric yet
+                if isinstance(result, tuple):
+                    pending_metrics.append(metric_tuple)
+                    failed_results.append(result)
+                else:  # can calculate this metric "immediately"
+                    self.ordered_metrics.append(metric_tuple)
+                    did_append_metric = True
+
+            # cant calculate any more metrics
+            if not did_append_metric:
+                self._raise_exception_for_malformed_metrics(failed_results, eval_df)
+
+            remaining_metrics = pending_metrics
+
     def _test_first_row(self, eval_df):
         # test calculations on first row of eval_df
         _logger.info("Testing metrics on first row...")
@@ -1549,7 +1552,6 @@ class DefaultEvaluator(ModelEvaluator):
             try:
                 eval_fn_args = self._get_args_for_metrics(metric_tuple, first_row_df)
                 metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
-                # need to update metrics because they might be used in calculating extra_metrics
                 if metric_value:
                     name = (
                         f"{metric_tuple.name}/{metric_tuple.version}"
