@@ -2920,7 +2920,7 @@ def multi_output_model(inputs):
     )
 
 
-def test_default_metrics_as_custom_metrics():
+def test_default_metrics_as_extra_metrics():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
             artifact_path="model", python_model=multi_output_model, input_example=["a"]
@@ -2937,7 +2937,7 @@ def test_default_metrics_as_custom_metrics():
             targets="truth",
             predictions="answer",
             model_type="question-answering",
-            custom_metrics=[
+            extra_metrics=[
                 mlflow.metrics.exact_match(),
             ],
             evaluators="default",
@@ -2949,7 +2949,7 @@ def test_default_metrics_as_custom_metrics():
     assert "exact_match/v1" in results.metrics.keys()
 
 
-def test_default_metrics_as_custom_metrics_static_dataset():
+def test_default_metrics_as_extra_metrics_static_dataset():
     with mlflow.start_run() as run:
         data = pd.DataFrame(
             {
@@ -2964,7 +2964,7 @@ def test_default_metrics_as_custom_metrics_static_dataset():
             targets="truth",
             predictions="answer",
             model_type="question-answering",
-            custom_metrics=[
+            extra_metrics=[
                 mlflow.metrics.flesch_kincaid_grade_level(),
                 mlflow.metrics.ari_grade_level(),
                 mlflow.metrics.toxicity(),
@@ -3131,7 +3131,7 @@ def test_multi_output_model_error_handling():
                 data,
                 targets="truth",
                 model_type="question-answering",
-                custom_metrics=[
+                extra_metrics=[
                     mlflow.metrics.flesch_kincaid_grade_level(),
                     mlflow.metrics.ari_grade_level(),
                     mlflow.metrics.toxicity(),
