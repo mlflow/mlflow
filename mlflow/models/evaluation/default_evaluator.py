@@ -1524,7 +1524,6 @@ class DefaultEvaluator(ModelEvaluator):
             for metric_name, param_names in malformed_results
         ]
         joined_error_message = "\n".join(error_messages)
-        # TODO: update error message for potentially bad dependency graph for metrics
         full_message = f"""Error: Metric calculation failed for the following metrics:
         {joined_error_message}
 
@@ -1532,9 +1531,11 @@ class DefaultEvaluator(ModelEvaluator):
         Input Columns: {input_columns}
         Output Columns: {output_columns}
 
-        To resolve this issue, you may need to specify any required parameters, or if you are
-        missing columns, you may want to map them to an existing column using the following
-        configuration:
+        To resolve this issue, you may need to:
+         - specify any required parameters
+         - if you are missing columns, check that there are no circular dependencies among your
+         metrics, and you may want to map them to an existing column using the following
+         configuration:
         evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
         stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
         raise MlflowException(stripped_message)

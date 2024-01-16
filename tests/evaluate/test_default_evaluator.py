@@ -41,7 +41,6 @@ from mlflow.models.evaluation.base import evaluate
 from mlflow.models.evaluation.default_evaluator import (
     _compute_df_mode_or_mean,
     _CustomArtifact,
-    _Metric,
     _evaluate_custom_artifacts,
     _evaluate_metric,
     _extract_output_and_other_columns,
@@ -54,6 +53,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_multiclass_classifier_metrics,
     _get_regressor_metrics,
     _infer_model_type_by_labels,
+    _Metric,
 )
 
 from tests.evaluate.test_evaluation import (
@@ -2194,10 +2194,6 @@ def test_missing_args_raises_exception():
         r"Below are the existing column names for the input/output data:\n"
         r"Input Columns: \['question', 'answer'\]\n"
         r"Output Columns: \['predictions'\]\n\n"
-        r"To resolve this issue, you may need to specify any required parameters, or if you are\n"
-        r"missing columns, you may want to map them to an existing column using the following\n"
-        r"configuration:\n"
-        r"evaluator_config=\{'col_mapping': \{<missing column name>: <existing column name>\}\}"
     )
 
     with pytest.raises(
