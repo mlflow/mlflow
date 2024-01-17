@@ -46,7 +46,7 @@ Getting Started Guides and Quickstarts
                 </a>
             </div>
             <div class="simple-card">
-                <a href="getting-started/quickstart-1/index.html" >
+                <a href="tracking/autolog.html" >
                     <div class="header">
                         Autologging Quickstart
                     </div>

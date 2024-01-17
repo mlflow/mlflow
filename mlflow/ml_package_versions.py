@@ -253,6 +253,15 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.1.0"
         }
     },
+    "promptflow": {
+        "package_info": {
+            "pip_release": "promptflow"
+        },
+        "models": {
+            "minimum": "1.1.0",
+            "maximum": "1.3.0"
+        }
+    },
     "sentence_transformers": {
         "package_info": {
             "pip_release": "sentence-transformers"
