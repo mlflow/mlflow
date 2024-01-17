@@ -120,13 +120,15 @@ class DeltaDatasetSource(DatasetSource):
             final_endpoint = endpoint.replace("{full_name_arg}", table_name)
             _logger.info("endpoint = %s", final_endpoint)
             _logger.info("method = %s", method)
-            table_info: TableInfo = call_endpoint(
+            resp = call_endpoint(
                 host_creds=db_creds,
                 endpoint=final_endpoint,
                 method=method,
                 json_body=req_body,
                 response_proto=GetTable.Response,
-            ).table_info
+            )
+            _logger.info("resp = %s", str(resp))
+            table_info: TableInfo = resp.table_info
             return table_info.table_id
         except Exception as e:
             _logger.info("Failed with %s", e)
