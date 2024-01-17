@@ -219,6 +219,7 @@ import sys
 import tempfile
 import threading
 from copy import deepcopy
+from functools import lru_cache
 from typing import Any, Dict, Iterator, Optional, Tuple, Union
 
 import numpy as np
@@ -950,6 +951,30 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
+def _convert_spec_type_to_spark_type(spec_type):
+    from pyspark.sql.types import ArrayType, StructField, StructType
+
+    from mlflow.types.schema import Array, DataType, Object
+
+    if isinstance(spec_type, DataType):
+        return spec_type.to_spark()
+
+    if isinstance(spec_type, Array):
+        return ArrayType(_convert_spec_type_to_spark_type(spec_type.dtype))
+
+    if isinstance(spec_type, Object):
+        return StructType(
+            [
+                StructField(
+                    property.name,
+                    _convert_spec_type_to_spark_type(property.dtype),
+                    nullable=not property.required,
+                )
+                for property in spec_type.properties
+            ]
+        )
+
+
 def _cast_output_spec_to_spark_type(spec):
     from pyspark.sql.types import ArrayType
 
@@ -957,7 +982,7 @@ def _cast_output_spec_to_spark_type(spec):
 
     # TODO: handle optional output columns.
     if isinstance(spec, ColSpec):
-        return spec.type.to_spark()
+        return _convert_spec_type_to_spark_type(spec.type)
     elif isinstance(spec, TensorSpec):
         data_type = DataType.from_numpy_type(spec.type)
         if data_type is None:
@@ -1024,26 +1049,34 @@ def _is_none_or_nan(value):
     return value is None or isinstance(value, float) and np.isnan(value)
 
 
-def _convert_array_values(values, elem_type, array_dim, spark_primitive_type_to_np_type):
+def _convert_array_values(values, result_type):
     """
     Convert list or numpy array values to spark dataframe column values.
     """
-    np_type = spark_primitive_type_to_np_type.get(type(elem_type))
-    if np_type is None:
-        raise MlflowException(
-            "Unsupported array type field with element type "
-            f"{elem_type.simpleString()} in struct type.",
-            error_code=INVALID_PARAMETER_VALUE,
+    from pyspark.sql.types import ArrayType, StructType
+
+    if not isinstance(result_type, ArrayType):
+        raise MlflowException.invalid_parameter_value(
+            f"result_type must be ArrayType, got {result_type.simpleString()}",
         )
 
-    # For array type result values, if provided value is None or NaN, regard it as a null array.
-    # see https://github.com/mlflow/mlflow/issues/8986
-    if array_dim == 1:
+    spark_primitive_type_to_np_type = _get_spark_primitive_type_to_np_type()
+
+    if type(result_type.elementType) in spark_primitive_type_to_np_type:
+        np_type = spark_primitive_type_to_np_type[type(result_type.elementType)]
         return [None if _is_none_or_nan(v) else np.array(v, dtype=np_type) for v in values]
-    else:
-        return [None if _is_none_or_nan(v) else list(np.array(v, dtype=np_type)) for v in values]
+    if isinstance(result_type.elementType, ArrayType):
+        return [_convert_array_values(v, result_type.elementType) for v in values]
+    if isinstance(result_type.elementType, StructType):
+        return [_convert_struct_values(v, result_type.elementType) for v in values]
+
+    raise MlflowException.invalid_parameter_value(
+        "Unsupported array type field with element type "
+        f"{result_type.elementType.simpleString()} in Array type.",
+    )
 
 
+@lru_cache
 def _get_spark_primitive_types():
     from pyspark.sql import types
 
@@ -1057,8 +1090,22 @@ def _get_spark_primitive_types():
     )
 
 
+@lru_cache
+def _get_spark_primitive_type_to_np_type():
+    from pyspark.sql import types
+
+    return {
+        types.IntegerType: np.int32,
+        types.LongType: np.int64,
+        types.FloatType: np.float32,
+        types.DoubleType: np.float64,
+        types.BooleanType: np.bool_,
+        types.StringType: np.str_,
+    }
+
+
 def _check_udf_return_struct_type(struct_type):
-    from pyspark.sql.types import ArrayType
+    from pyspark.sql.types import ArrayType, StructType
 
     primitive_types = _get_spark_primitive_types()
 
@@ -1068,8 +1115,11 @@ def _check_udf_return_struct_type(struct_type):
             continue
 
         if isinstance(field_type, ArrayType) and _check_udf_return_array_type(
-            field_type, allow_struct=False
+            field_type, allow_struct=True
         ):
+            continue
+
+        if isinstance(field_type, StructType) and _check_udf_return_struct_type(field_type):
             continue
 
         return False
@@ -1083,14 +1133,11 @@ def _check_udf_return_array_type(array_type, allow_struct):
     elem_type = array_type.elementType
     primitive_types = _get_spark_primitive_types()
 
-    if (
-        # 1D array of primitives
-        isinstance(elem_type, primitive_types)
-        or
-        # 2D array of primitives
-        (isinstance(elem_type, ArrayType) and isinstance(elem_type.elementType, primitive_types))
-    ):
+    if isinstance(elem_type, primitive_types):
         return True
+
+    if isinstance(elem_type, ArrayType):
+        return _check_udf_return_array_type(elem_type, allow_struct)
 
     if isinstance(elem_type, StructType):
         if allow_struct:
@@ -1116,6 +1163,67 @@ def _check_udf_return_type(data_type):
         return _check_udf_return_struct_type(data_type)
 
     return False
+
+
+def _convert_struct_values(
+    result: Union[pandas.DataFrame, Dict[str, Any]],
+    result_type,
+):
+    """
+    Convert spark StructType values to spark dataframe column values.
+    """
+
+    from pyspark.sql.types import ArrayType, StructType
+
+    if not isinstance(result_type, StructType):
+        raise MlflowException.invalid_parameter_value(
+            f"result_type must be StructType, got {result_type.simpleString()}",
+        )
+
+    if not isinstance(result, (dict, pandas.DataFrame)):
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported result type {type(result)}, expected dict or pandas DataFrame",
+        )
+
+    spark_primitive_type_to_np_type = _get_spark_primitive_type_to_np_type()
+    is_pandas_df = isinstance(result, pandas.DataFrame)
+    result_dict = {}
+    for field_name in result_type.fieldNames():
+        field_type = result_type[field_name].dataType
+        field_values = result[field_name]
+
+        if type(field_type) in spark_primitive_type_to_np_type:
+            np_type = spark_primitive_type_to_np_type[type(field_type)]
+            field_values = (
+                field_values.astype(np_type)
+                if is_pandas_df
+                else np.array(field_values, dtype=np_type).item()
+            )
+        elif isinstance(field_type, ArrayType):
+            field_values = [
+                _convert_array_values(field_value, field_type) for field_value in field_values
+            ]
+            if is_pandas_df:
+                field_values = pandas.Series(field_values)
+        elif isinstance(field_type, StructType):
+            if is_pandas_df:
+                field_values = pandas.Series(
+                    [
+                        _convert_struct_values(field_value, field_type)
+                        for field_value in field_values
+                    ]
+                )
+            else:
+                field_values = _convert_struct_values(field_values, field_type)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported field type {field_type.simpleString()} in struct type.",
+            )
+        result_dict[field_name] = field_values
+
+    if is_pandas_df:
+        return pandas.DataFrame(result_dict)
+    return result_dict
 
 
 def _is_spark_connect():
@@ -1424,53 +1532,15 @@ Compound types:
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
 
-        spark_primitive_type_to_np_type = {
-            IntegerType: np.int32,
-            LongType: np.int64,
-            FloatType: np.float32,
-            DoubleType: np.float64,
-            BooleanType: np.bool_,
-            StringType: np.str_,
-        }
-
         if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
-            result_values = _convert_array_values(
-                result, result_type.elementType.elementType, 2, spark_primitive_type_to_np_type
-            )
+            result_values = _convert_array_values(result, result_type)
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
 
         if isinstance(result_type, SparkStructType):
-            result_dict = {}
-            for field_name in result_type.fieldNames():
-                field_type = result_type[field_name].dataType
-                field_values = result[field_name]
-
-                if type(field_type) in spark_primitive_type_to_np_type:
-                    np_type = spark_primitive_type_to_np_type[type(field_type)]
-                    field_values = field_values.astype(np_type)
-
-                elif isinstance(field_type, ArrayType):
-                    if isinstance(field_type.elementType, ArrayType):
-                        array_dim = 2
-                        elem_type = field_type.elementType.elementType
-                    else:
-                        array_dim = 1
-                        elem_type = field_type.elementType
-
-                    field_values = _convert_array_values(
-                        field_values, elem_type, array_dim, spark_primitive_type_to_np_type
-                    )
-                else:
-                    raise MlflowException(
-                        f"Unsupported field type {field_type.simpleString()} in struct type.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                result_dict[field_name] = field_values
-
-            return pandas.DataFrame(result_dict)
+            return _convert_struct_values(result, result_type)
 
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
 
