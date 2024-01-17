@@ -115,12 +115,11 @@ class DeltaDatasetSource(DatasetSource):
             _METHOD_TO_INFO = extract_api_info_for_service(
                 UnityCatalogService, _REST_API_PATH_PREFIX
             )
-            _logger.info("lookup request body = %s", req_body)
             db_creds = get_databricks_host_creds()
             endpoint, method = _METHOD_TO_INFO[GetTable]
+            # we need to replace the full_name_arg in the endpoint definition with the actual table name for
+            # the REST API to work.
             final_endpoint = endpoint.replace("{full_name_arg}", table_name)
-            _logger.info("endpoint = %s", final_endpoint)
-            _logger.info("method = %s", method)
             resp = call_endpoint(
                 host_creds=db_creds,
                 endpoint=final_endpoint,
@@ -128,12 +127,7 @@ class DeltaDatasetSource(DatasetSource):
                 json_body=req_body,
                 response_proto=GetTableResponse,
             )
-            #_logger.info("response is %s", )
-            _logger.info("table name %s", str(resp.full_name))
-            _logger.info("table id %s", str(resp.table_id))
-            #_logger.info("table info is %s", str(resp.table_info))
-            table_info: TableInfo = resp.table_info
-            return table_info.table_id
+            return resp.table_id
         except Exception as e:
             _logger.info("Failed with %s", e)
             return None
