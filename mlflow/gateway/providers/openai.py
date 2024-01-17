@@ -109,13 +109,13 @@ class OpenAIProvider(BaseProvider):
                 model=resp["model"],
                 choices=[
                     chat.StreamChoice(
-                        index=idx,
+                        index=c["index"],
                         finish_reason=c["finish_reason"],
                         delta=chat.StreamDelta(
                             role=c["delta"].get("role"), content=c["delta"].get("content")
                         ),
                     )
-                    for idx, c in enumerate(resp["choices"])
+                    for c in resp["choices"]
                 ],
             )
 
@@ -241,13 +241,13 @@ class OpenAIProvider(BaseProvider):
                 model=resp["model"],
                 choices=[
                     completions.StreamChoice(
-                        index=idx,
+                        index=c["index"],
                         finish_reason=c["finish_reason"],
                         delta=completions.StreamDelta(
                             content=c["delta"].get("content"),
                         ),
                     )
-                    for idx, c in enumerate(resp["choices"])
+                    for c in resp["choices"]
                 ],
             )
 
