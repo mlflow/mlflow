@@ -1549,17 +1549,17 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
         [{"text": "test1", "text_pair": "pair1"}, {"text": "test2", "text_pair": "pair2"}],
     ],
 )
-def test_classifier_pipeline(small_seq2seq_pipeline, model_path, data):
+def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(small_seq2seq_pipeline, data)
+        data, mlflow.transformers.generate_signature_output(text_classification_pipeline, data)
     )
-    mlflow.transformers.save_model(small_seq2seq_pipeline, path=model_path, signature=signature)
+    mlflow.transformers.save_model(text_classification_pipeline, path=model_path, signature=signature)
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     inference = pyfunc_loaded.predict(data)
 
     # verify that native transformers outputs match the pyfunc return values
-    native_inference = small_seq2seq_pipeline(data)
+    native_inference = text_classification_pipeline(data)
     inference_dict = inference.to_dict()
 
     if isinstance(data, str):
@@ -1868,30 +1868,25 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
             signature=signature,
         )
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=json.dumps({"inputs": data}),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    proc, port, _ = pyfunc_serve_model(model_info.model_uri, extra_args=["--env-manager", "local"])
+    with RestEndpoint(proc, port) as endpoint:
+        response = endpoint.invoke(
+            data=json.dumps({"inputs": data}),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        )
+        values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert len(values.to_dict()) == 2
-    assert len(values.to_dict()["score"]) == 5
+        assert len(values.to_dict()) == 2
+        assert len(values.to_dict()["score"]) == 5
 
-    # test simple string input
-    inference_payload = json.dumps({"inputs": ["testing"]})
+        # test simple string input
+        inference_payload = json.dumps({"inputs": ["testing"]})
 
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=inference_payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+        response = endpoint.invoke(inference_payload, pyfunc_scoring_server.CONTENT_TYPE_JSON)
+        values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert len(values.to_dict()) == 2
-    assert len(values.to_dict()["score"]) == 1
+        assert len(values.to_dict()) == 2
+        assert len(values.to_dict()["score"]) == 1
 
     # Test the alternate TextClassificationPipeline input structure where text_pair is used
     # and ensure that model serving and direct native inference match
@@ -1907,21 +1902,22 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
             artifact_path=artifact_path,
             signature=signature,
         )
-    inference_payload = json.dumps({"inputs": inference_data})
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=inference_payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-    values_dict = values.to_dict()
-    native_predict = text_classification_pipeline(inference_data)
 
-    # validate that the pyfunc served model registers text_pair in the same manner as native
-    for key in ["score", "label"]:
-        for value in [0, 1]:
-            assert values_dict[key][value] == native_predict[value][key]
+    proc, port, _ = pyfunc_serve_model(model_info.model_uri, extra_args=["--env-manager", "local"])
+    with RestEndpoint(proc, port) as endpoint:
+        inference_payload = json.dumps({"inputs": inference_data})
+        response = endpoint.invoke(
+            data=inference_payload, content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON
+        )
+
+        values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+        values_dict = values.to_dict()
+        native_predict = text_classification_pipeline(inference_data)
+
+        # validate that the pyfunc served model registers text_pair in the same manner as native
+        for key in ["score", "label"]:
+            for value in [0, 1]:
+                assert values_dict[key][value] == native_predict[value][key]
 
 
 def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
@@ -2579,7 +2575,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             },
         ),
         (
-            "small_seq2seq_pipeline",
+            "text_classification_pipeline",
             "We're just going to have to agree to disagree, then.",
             {
                 "inputs": '[{"type": "string", "required": true}]',

@@ -14,6 +14,7 @@ from tests.transformers.helper import (
     load_small_vision_model,
     load_summarizer_pipeline,
     load_table_question_answering_pipeline,
+    load_text_classification_pipeline,
     load_text2text_generation_pipeline,
     load_text_generation_pipeline,
     load_translation_pipeline,
@@ -22,18 +23,17 @@ from tests.transformers.helper import (
 )
 
 
-# Some model is used for many test cases so reuse at module level
-@pytest.fixture(scope="module")
+@pytest.fixture
 def small_seq2seq_pipeline():
     return load_small_seq2seq_pipeline()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def small_qa_pipeline():
     return load_small_qa_pipeline()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def small_vision_model():
     return load_small_vision_model()
 
@@ -66,6 +66,11 @@ def text_generation_pipeline():
 @pytest.fixture
 def translation_pipeline():
     return load_translation_pipeline()
+
+
+@pytest.fixture
+def text_classification_pipeline():
+    return load_text_classification_pipeline()
 
 
 @pytest.fixture

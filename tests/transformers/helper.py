@@ -1,7 +1,6 @@
 import inspect
 import logging
 import multiprocessing
-import shutil
 import sys
 import time
 from functools import wraps
@@ -59,32 +58,15 @@ def get_prefetch_fixtures():
     return model_fixtures
 
 
-def run_loader(loader_func):
-    start_time = time.time()
-    loader_func()
-    end_time = time.time()
-    _logger.info(f"Prefetched model `{loader_func.__name__}` in {end_time - start_time} seconds")
-
-
 def prefetch_models():
     """
     Prefetches all models used in the test suite to avoid downloading them during the test run.
     Fetching model weights from the HuggingFace Hub has been proven to be flaky in the past, so
     we want to avoid doing it in the middle of the test run, instead, failing fast.
     """
-    # Check disk space before prefetching models
-    # This is to avoid running out of disk space during the test run
-    # which can cause the test run to fail
-    available_disk_space = shutil.disk_usage("/").free
-    if available_disk_space < 10 * 1024 * 1024 * 1024:
-        _logger.warn(
-            "Available disk space is less than 10GB. Skipping prefetching Transformers models."
-            "The models will be downloaded one by one during the test run."
-        )
-
     model_fixtures = get_prefetch_fixtures()
     with multiprocessing.Pool() as pool:
-        pool.map(run_loader, model_fixtures)
+        pool.map(lambda f: f(), model_fixtures)
 
 
 @flaky()
@@ -196,6 +178,20 @@ def load_summarizer_pipeline():
     model = transformers.BartForConditionalGeneration.from_pretrained(architecture)
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
     return transformers.pipeline(task=task, tokenizer=tokenizer, model=model)
+
+
+@prefetch
+@flaky()
+def load_text_classification_pipeline():
+    task = "text-classification"
+    architecture = "distilbert-base-uncased-finetuned-sst-2-english"
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    return transformers.pipeline(
+        task=task,
+        tokenizer=tokenizer,
+        model=model,
+    )
 
 
 @prefetch
