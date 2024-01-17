@@ -38,10 +38,13 @@ def is_tracking_uri_set():
 
 def set_tracking_uri(uri: Union[str, Path]) -> None:
     # pylint: disable=line-too-long
-    """Set the tracking server URI. This does not affect the
+    """
+    Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.
+
     Args:
         uri:
+
             - An empty string, or a local file path, prefixed with ``file:/``. Data is stored locally at the provided file (or ``./mlruns`` if empty).
             - An HTTP URI like ``https://my-tracking-server:5000``.
             - A Databricks workspace, provided as the string "databricks" or, to use a Databricks CLI `profile <https://github.com/databricks/databricks-cli#installation>`_, "databricks://<profileName>".
