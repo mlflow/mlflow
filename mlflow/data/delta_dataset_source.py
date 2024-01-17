@@ -6,6 +6,7 @@ from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_managed_catalog_messages_pb2 import (
     GetTable,
+    GetTableResponse,
     TableInfo,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -125,7 +126,7 @@ class DeltaDatasetSource(DatasetSource):
                 endpoint=final_endpoint,
                 method=method,
                 json_body=req_body,
-                response_proto=GetTable.Response,
+                response_proto=GetTableResponse,
             )
             _logger.info("table name %s", str(resp.full_name))
             _logger.info("table id %s", str(resp.table_id))
