@@ -90,14 +90,17 @@ class OpenAIDeploymentClient(BaseDeploymentClient):
         raise NotImplementedError
 
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
-        """
-        Query an OpenAI endpoint.
+        """Query an OpenAI endpoint.
         See https://platform.openai.com/docs/api-reference for more information.
 
-        :param deployment_name: Unused.
-        :param inputs: A dictionary containing the model inputs to query.
-        :param endpoint: The name of the endpoint to query.
-        :return: A dictionary containing the model outputs.
+        Args:
+            deployment_name: Unused.
+            inputs: A dictionary containing the model inputs to query.
+            endpoint: The name of the endpoint to query.
+
+        Returns:
+            A dictionary containing the model outputs.
+
         """
         _check_openai_key()
 
