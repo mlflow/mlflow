@@ -313,6 +313,7 @@ CODE = "code"
 DATA = "data"
 ENV = "env"
 MODEL_CONFIG = "config"
+DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
 
 
 class EnvType:
@@ -588,7 +589,7 @@ class PyFuncModel:
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def _warn_dependency_requirement_mismatches(model_path):
+def _warn_dependency_requirement_mismatches(model_path, module_name=""):
     """
     Inspects the model's dependencies and prints a warning if the current Python environment
     doesn't satisfy them.
@@ -603,6 +604,12 @@ def _warn_dependency_requirement_mismatches(model_path):
             req_line = req.req_str
             mismatch_info = _check_requirement_satisfied(req_line)
             if mismatch_info is not None:
+                # Suppress databricks-feature-lookup warning for feature store cases
+                if (
+                    mismatch_info.package_name == DATABRICKS_FEATURE_LOOKUP
+                    and module_name == _DATABRICKS_FS_LOADER_MODULE
+                ):
+                    continue
                 mismatch_infos.append(str(mismatch_info))
 
         if len(mismatch_infos) > 0:
@@ -660,17 +667,19 @@ def load_model(
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
-    if not suppress_warnings:
-        _warn_dependency_requirement_mismatches(local_path)
-
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
+
     if conf is None:
         raise MlflowException(
             f'Model does not have the "{FLAVOR_NAME}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
+
+    if not suppress_warnings:
+        _warn_dependency_requirement_mismatches(local_path, conf[MAIN])
+
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
