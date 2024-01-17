@@ -22,13 +22,13 @@ you through how to use the callback for tracking experiments, as well as how to 
 
 .. raw:: html
 
-    <a href="quickstart/quickstart_keras_core.html" class="download-btn">View the Quickstart</a>
+    <a href="quickstart/quickstart_keras.html" class="download-btn">View the Quickstart</a>
 
 To download the Keras 3.0 tutorial notebook to run in your environment, click the link below:
 
 .. raw:: html
 
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/deep-learning/keras/quickstart/quickstart_keras_core.ipynb"
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/deep-learning/keras/quickstart/quickstart_keras.ipynb"
     class="notebook-download-btn">Download the Quickstart of MLflow Keras Integration</a><br>
 
 
@@ -36,4 +36,4 @@ To download the Keras 3.0 tutorial notebook to run in your environment, click th
     :maxdepth: 1
     :hidden:
 
-    quickstart/quickstart_keras_core.ipynb
+    quickstart/quickstart_keras.ipynb
