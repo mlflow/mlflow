@@ -117,6 +117,8 @@ class DeltaDatasetSource(DatasetSource):
             _logger.info("lookup request body = %s", req_body)
             db_creds = get_databricks_host_creds()
             endpoint, method = _METHOD_TO_INFO[GetTable]
+            _logger.info("endpoint = %s", endpoint)
+            _logger.info("method = %s", method)
             table_info: TableInfo = call_endpoint(
                 host_creds=db_creds,
                 endpoint=endpoint,
