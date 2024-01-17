@@ -41,21 +41,26 @@ def flaky(max_tries=3):
 
 def prefetch(func):
     """
-    Annotation decorator for marking a fixture to run for prefetching model weights before testing.
+    Annotation decorator for marking model loading functions to run before testing.
     """
     func.is_prefetch = True
     return func
 
 
-def get_prefetch_fixtures():
+def get_prefetch_model_loaders():
     """
-    Returns a list of fixtures that are marked as @prefetch.
+    Returns a list of model loading functions that are marked as @prefetch.
     """
-    model_fixtures = []
-    for _, fixture in inspect.getmembers(sys.modules[__name__]):
-        if inspect.isfunction(fixture) and hasattr(fixture, "is_prefetch") and fixture.is_prefetch:
-            model_fixtures.append(fixture)
-    return model_fixtures
+    model_loaders = []
+    for _, func in inspect.getmembers(sys.modules[__name__]):
+        if inspect.isfunction(func) and hasattr(func, "is_prefetch") and func.is_prefetch:
+            model_loaders.append(func)
+    return model_loaders
+
+
+# Just for serialization purposes
+def _invoke_model_loader(model_loader):
+    return model_loader()
 
 
 def prefetch_models():
@@ -64,13 +69,13 @@ def prefetch_models():
     Fetching model weights from the HuggingFace Hub has been proven to be flaky in the past, so
     we want to avoid doing it in the middle of the test run, instead, failing fast.
     """
-    model_fixtures = get_prefetch_fixtures()
+    model_loaders = get_prefetch_model_loaders()
     with multiprocessing.Pool() as pool:
-        pool.map(lambda f: f(), model_fixtures)
+        pool.map(_invoke_model_loader, model_loaders)
 
 
-@flaky()
 @prefetch
+@flaky()
 def load_small_seq2seq_pipeline():
     architecture = "lordtt13/emo-mobilebert"
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
