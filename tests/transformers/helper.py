@@ -1,4 +1,6 @@
+import inspect
 import logging
+import sys
 import time
 from functools import wraps
 
@@ -251,6 +253,19 @@ def load_feature_extraction_pipeline():
     model = transformers.AutoModel.from_pretrained(st_arch)
     tokenizer = transformers.AutoTokenizer.from_pretrained(st_arch)
     return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
+
+
+def prefetch_models():
+    """
+    Prefetches models used in the test suite to avoid downloading them during the test run.
+    Fetching model weights from the HuggingFace Hub has been proven to be flaky in the past, so
+    we want to avoid doing it in the middle of the test run, instead, failing fast.
+    """
+    # Get all model loading functions that are marked as @prefetch
+    for _, func in inspect.getmembers(sys.modules[__name__]):
+        if inspect.isfunction(func) and hasattr(func, "is_prefetch") and func.is_prefetch:
+            # Call the function to download the model to HuggingFace cache
+            func()
 
 
 if __name__ == "__main__":
