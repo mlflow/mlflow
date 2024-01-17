@@ -43,7 +43,16 @@ class JitteredRetry(Retry):
         backoff_value = super().get_backoff_time()
         if self.backoff_jitter != 0.0:
             backoff_value += random.random() * self.backoff_jitter
-        return float(max(0, min(Retry.DEFAULT_BACKOFF_MAX, backoff_value)))
+        # The attribute `BACKOFF_MAX` was renamed to `DEFAULT_BACKOFF_MAX` in this commit:
+        # https://github.com/urllib3/urllib3/commit/f69b1c89f885a74429cabdee2673e030b35979f0
+        # which was part of the major release of 2.0 for urllib3
+        default_backoff = (
+            Retry.BACKOFF_MAX
+            if Version(urllib3.__version__) < Version("2.0")
+            else Retry.DEFAULT_BACKOFF_MAX
+        )
+
+        return float(max(0, min(default_backoff, backoff_value)))
 
 
 def augmented_raise_for_status(response):
