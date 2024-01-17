@@ -126,7 +126,8 @@ class DeltaDatasetSource(DatasetSource):
                 response_proto=GetTable.Response,
             ).table_info
             return table_info.table_id
-        except Exception:
+        except Exception as e:
+            _logger.info("Failed with %s", e)
             return None
 
     def _to_dict(self) -> Dict[Any, Any]:
