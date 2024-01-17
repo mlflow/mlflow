@@ -1,7 +1,6 @@
-from typing import Any, Dict, Optional
-
 import functools
 import logging
+from typing import Any, Dict, Optional
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
