@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 
+import keras
 import yaml
 
 import mlflow
@@ -60,6 +61,38 @@ def get_default_conda_env():
         `log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+def _export_keras_model(model, path, signature):
+    if signature is None:
+        raise ValueError(
+            "`signature` cannot be None when `save_exported_model=True` for "
+            "`mlflow.keras.save_model()` method."
+        )
+    try:
+        import tensorflow as tf
+    except ImportError:
+        raise MlflowException(
+            "`tensorflow` must be installed if you want to export a Keras 3 model, please "
+            "install `tensorflow` by `pip install tensorflow`, or set `save_exported_model=False`."
+        )
+    input_schema = signature.inputs.to_dict()
+    export_signature = []
+    for schema in input_schema:
+        dtype = schema["tensor-spec"]["dtype"]
+        shape = schema["tensor-spec"]["shape"]
+        # Replace -1 with None in shape.
+        new_shape = [size if size != -1 else None for size in shape]
+        export_signature.append(tf.TensorSpec(shape=new_shape, dtype=dtype))
+
+    export_archive = keras.export.ExportArchive()
+    export_archive.track(model)
+    export_archive.add_endpoint(
+        name="serve",
+        fn=model.call,
+        input_signature=export_signature,
+    )
+    export_archive.write_out(path)
 
 
 @experimental
@@ -163,8 +196,7 @@ def save_model(
         f.write(keras_module.__name__)
 
     if save_exported_model:
-        # TODO(chenmoneygithub): implement saving the exported model to MLflow.
-        pass
+        _export_keras_model(model, path, signature)
     else:
         # Save path requires ".keras" suffix.
         file_extension = ".keras"

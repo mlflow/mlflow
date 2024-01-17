@@ -14,13 +14,21 @@ _MODEL_SAVE_PATH = "model"
 
 
 class KerasModelWrapper:
-    def __init__(self, model, signature):
+    def __init__(self, model, signature, save_exported_model=False):
         self.model = model
         self.signature = signature
+        self.save_exported_model = save_exported_model
+
+    def get_model_call_method(self):
+        if self.save_exported_model:
+            return self.model.serve
+        else:
+            return self.model.predict
 
     def predict(self, data, **kwargs):
+        model_call = self.get_model_call_method()
         if isinstance(data, pd.DataFrame):
-            return pd.DataFrame(self.keras_model.predict(data.values), index=data.index)
+            return pd.DataFrame(model_call(data.values), index=data.index)
 
         supported_input_types = (np.ndarray, list, tuple, dict)
         if not isinstance(data, supported_input_types):
@@ -29,13 +37,20 @@ class KerasModelWrapper:
                 f"received type: {type(data)}.",
                 INVALID_PARAMETER_VALUE,
             )
-        return self.model.predict(data)
+        return model_call(data)
 
 
 def _load_keras_model(path, model_conf, custom_objects=None, **load_model_kwargs):
     save_exported_model = model_conf.flavors["keras"].get("save_exported_model")
     if save_exported_model:
-        pass
+        try:
+            import tensorflow as tf
+        except ImportError:
+            raise MlflowException(
+                "`tensorflow` must be installed if you want to load an exported Keras 3 model, "
+                "please install `tensorflow` by `pip install tensorflow`."
+            )
+        return tf.saved_model.load(path)
     else:
         model_path = os.path.join(path, model_conf.flavors["keras"].get("data", _MODEL_SAVE_PATH))
         if os.path.isdir(model_path):
@@ -103,12 +118,8 @@ def load_model(model_uri, dst_path=None, custom_objects=None, load_model_kwargs=
 
     model_configuration_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
     model_conf = Model.load(model_configuration_path)
-    save_exported_model = model_conf.flavors["keras"].get("save_exported_model")
 
-    if save_exported_model:
-        pass
-    else:
-        return _load_keras_model(local_model_path, model_conf, custom_objects, **load_model_kwargs)
+    return _load_keras_model(local_model_path, model_conf, custom_objects, **load_model_kwargs)
 
 
 def _load_pyfunc(path):
@@ -129,8 +140,6 @@ def _load_pyfunc(path):
         raise MlflowException(f"Cannot find file {MLMODEL_FILE_NAME} for the logged model.")
 
     save_exported_model = model_conf.flavors["keras"].get("save_exported_model")
-    if save_exported_model:
-        pass
-    else:
-        loaded_model = _load_keras_model(path, model_conf)
-        return KerasModelWrapper(loaded_model, model_conf.signature)
+
+    loaded_model = _load_keras_model(path, model_conf)
+    return KerasModelWrapper(loaded_model, model_conf.signature, save_exported_model)

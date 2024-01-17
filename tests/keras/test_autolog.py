@@ -115,13 +115,33 @@ def test_default_autolog_behavior():
     _check_logged_model_signature_is_expected(run, input_schema, output_schema)
 
 
-def test_custom_autolog_behavior():
+@pytest.mark.parametrize(
+    (
+        "log_every_epoch",
+        "log_every_n_steps",
+        "log_models",
+        "log_model_signatures",
+        "save_exported_model",
+    ),
+    [
+        (False, 1, False, False, False),
+        (False, 2, True, True, True),
+        (True, None, False, False, False),
+    ],
+)
+def test_custom_autolog_behavior(
+    log_every_epoch,
+    log_every_n_steps,
+    log_models,
+    log_model_signatures,
+    save_exported_model,
+):
     mlflow.keras.autolog(
-        log_every_epoch=False,
-        log_every_n_steps=1,
-        log_models=False,
-        log_datasets=False,
-        log_model_signatures=False,
+        log_every_epoch=log_every_epoch,
+        log_every_n_steps=log_every_n_steps,
+        log_models=log_models,
+        log_model_signatures=log_model_signatures,
+        save_exported_model=save_exported_model,
     )
 
     # Prepare data for a 2-class classification.
@@ -157,7 +177,11 @@ def test_custom_autolog_behavior():
 
     # Assert metrics are logged in the correct number of times.
     loss_history = client.get_metric_history(run_id=run.info.run_id, key="loss")
-    assert len(loss_history) == num_epochs * (data.shape[0] // batch_size)
+    if log_every_n_steps:
+        metric_length = model.optimizer.iterations.numpy() // log_every_n_steps
+    else:
+        metric_length = num_epochs
+    assert len(loss_history) == metric_length
 
     validation_loss_history = client.get_metric_history(
         run_id=run.info.run_id,
@@ -165,8 +189,9 @@ def test_custom_autolog_behavior():
     )
     assert len(validation_loss_history) == num_epochs
 
-    # Test the model is not logged.
-    assert "mlflow.log-model.history" not in mlflow_run.data.tags
+    if not log_models:
+        # Test the model is not logged.
+        assert "mlflow.log-model.history" not in mlflow_run.data.tags
 
 
 @pytest.mark.parametrize("log_datasets", [True, False])
