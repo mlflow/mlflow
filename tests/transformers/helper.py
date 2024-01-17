@@ -1,7 +1,4 @@
-import inspect
 import logging
-import multiprocessing
-import sys
 import time
 from functools import wraps
 
@@ -45,33 +42,6 @@ def prefetch(func):
     """
     func.is_prefetch = True
     return func
-
-
-def get_prefetch_model_loaders():
-    """
-    Returns a list of model loading functions that are marked as @prefetch.
-    """
-    model_loaders = []
-    for _, func in inspect.getmembers(sys.modules[__name__]):
-        if inspect.isfunction(func) and hasattr(func, "is_prefetch") and func.is_prefetch:
-            model_loaders.append(func)
-    return model_loaders
-
-
-# Just for serialization purposes
-def _invoke_model_loader(model_loader):
-    return model_loader()
-
-
-def prefetch_models():
-    """
-    Prefetches all models used in the test suite to avoid downloading them during the test run.
-    Fetching model weights from the HuggingFace Hub has been proven to be flaky in the past, so
-    we want to avoid doing it in the middle of the test run, instead, failing fast.
-    """
-    model_loaders = get_prefetch_model_loaders()
-    with multiprocessing.Pool() as pool:
-        pool.map(_invoke_model_loader, model_loaders)
 
 
 @prefetch

@@ -202,7 +202,7 @@ jobs:
       - name: Prefetch Transformer models
         if: matrix.package == 'transformers' && matrix.category == 'models'
         run: |
-          python tests/transformers/helper.py
+          python dev/prefetch_transformers_models.py
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
