@@ -114,7 +114,7 @@ class DeltaDatasetSource(DatasetSource):
             _METHOD_TO_INFO = extract_api_info_for_service(
                 UnityCatalogService, _REST_API_PATH_PREFIX
             )
-            db_creds = get_databricks_host_creds("databricks-uc")
+            db_creds = get_databricks_host_creds()
             endpoint, method = _METHOD_TO_INFO[GetTable]
             table_info: TableInfo = call_endpoint(
                 host_creds=db_creds,
