@@ -127,6 +127,8 @@ class DeltaDatasetSource(DatasetSource):
                 json_body=req_body,
                 response_proto=GetTable.Response,
             )
+            _logger.info("table name %s", str(resp.full_name))
+            _logger.info("table id %s", str(resp.table_id))
             table_info: TableInfo = resp.table_info
             _logger.info("table info is %s", str(table_info))
             return table_info.table_id
