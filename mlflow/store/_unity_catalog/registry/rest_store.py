@@ -462,7 +462,7 @@ class UcModelRegistryStore(BaseRestStore):
                     ):
                         table_entity = Table(
                             name=source_dict.get("delta_table_name"),
-                            id=source_dict.get("delta_table_id"),
+                            table_id=source_dict.get("delta_table_id"),
                         )
                         securable_list.append(Securable(table=table_entity))
             return securable_list[0:_MAX_LINEAGE_DATA_SOURCES]
