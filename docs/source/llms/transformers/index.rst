@@ -180,6 +180,7 @@ To download the transformers tutorial notebooks to run in your environment, clic
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/translation/component-translation.ipynb" class="notebook-download-btn">Download the Translation Notebook</a><br>        
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/conversational/conversational-model.ipynb" class="notebook-download-btn">Download the Chat Conversational Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/fine-tuning/transformers-fine-tuning.ipynb" class="notebook-download-btn">Download the Fine Tuning Notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/prompt-templating/prompt-templating.ipynb" class="notebook-download-btn">Download the Prompt Templating Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm.ipynb" class="notebook-download-btn">Download the Custom PyFunc transformers Notebook</a><br>
 
 .. toctree::
@@ -191,6 +192,7 @@ To download the transformers tutorial notebooks to run in your environment, clic
     tutorials/translation/component-translation.ipynb
     tutorials/conversational/conversational-model.ipynb
     tutorials/fine-tuning/transformers-fine-tuning.ipynb
+    tutorials/prompt-templating/prompt-templating.ipynb
 
 
 Options for Logging Transformers Models - Pipelines vs. Component logging
