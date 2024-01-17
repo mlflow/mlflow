@@ -877,13 +877,13 @@ Chat
 
 .. code-block:: text
 
-    data: {"choices":[{"delta":{"content":null,"role":"assistant"} "finish_reason":null,"index":0}],"created":1701161926,"id":"chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3","model":"gpt-35-turbo","object":"chat.completion.chunk"}
+    data: {"choices": [{"delta": {"content": null, "role": "assistant"}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
 
-    data: {"choices":[{"delta":{"content":"Hello","role":null},"finish_reason":null,"index":0}],"created":1701161926,"id":"chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3","model":"gpt-35-turbo","object":"chat.completion.chunk"}
+    data: {"choices": [{"delta": {"content": "Hello", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
 
-    data: {"choices":[{"delta":{"content":" there","role":null},"finish_reason":null,"index":0}],"created":1701161926,"id":"chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3","model":"gpt-35-turbo","object":"chat.completion.chunk"}
+    data: {"choices": [{"delta": {"content": " there", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
 
-    data: {"choices":[{"delta":{"content":null,"role":null},"finish_reason":"stop","index":0}],"created":1701161926,"id":"chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3","model":"gpt-35-turbo","object":"chat.completion.chunk"}
+    data: {"choices": [{"delta": {"content": null, "role": null}, "finish_reason": "stop", "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
 
 
 Completions
@@ -891,15 +891,15 @@ Completions
 
 .. code-block:: text
 
-    data: {"choices":[{"delta":{"role":null,"content":null},"finish_reason":null,"index":0}],"created":1701161629,"id":"chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2","model":"gpt-35-turbo","object":"text_completion_chunk"}
+    data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
 
-    data: {"choices":[{"delta":{"role":null,"content":"If"},"finish_reason":null,"index":0}],"created":1701161629,"id":"chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2","model":"gpt-35-turbo","object":"text_completion_chunk"}
+    data: {"choices": [{"delta": {"role": null, "content": "If"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
 
-    data: {"choices":[{"delta":{"role":null,"content":" an"},"finish_reason":null,"index":0}],"created":1701161629,"id":"chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2","model":"gpt-35-turbo","object":"text_completion_chunk"}
+    data: {"choices": [{"delta": {"role": null, "content": " an"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
 
-    data: {"choices":[{"delta":{"role":null,"content":" asteroid"},"finish_reason":null,"index":0}],"created":1701161629,"id":"chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2","model":"gpt-35-turbo","object":"text_completion_chunk"}
+    data: {"choices": [{"delta": {"role": null, "content": " asteroid"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
 
-    data: {"choices":[{"delta":{"role":null,"content":null},"finish_reason":"length","index":0}],"created":1701161629,"id":"chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2","model":"gpt-35-turbo","object":"text_completion_chunk"}
+    data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": "length", "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
 
 
 FastAPI Documentation ("/docs")
