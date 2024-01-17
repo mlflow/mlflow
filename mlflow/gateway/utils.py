@@ -283,16 +283,17 @@ def _find_boundary(buffer: bytes) -> int:
 async def handle_incomplete_chunks(
     stream: AsyncGenerator[bytes, Any]
 ) -> AsyncGenerator[bytes, Any]:
-    """Wraps a streaming response and handles incomplete chunks from the server."""
+    """
+    Wraps a streaming response and handles incomplete chunks from the server.
+    See https://community.openai.com/t/incomplete-stream-chunks-for-completions-api/383520
+    for more information.
+    """
     buffer = b""
     async for chunk in stream:
         buffer += chunk
-        boundary = _find_boundary(buffer)
-        while boundary != -1:
-            obj = buffer[:boundary]
+        while (boundary := _find_boundary(buffer)) != -1:
+            yield buffer[:boundary]
             buffer = buffer[boundary + 1 :]
-            yield obj
-            boundary = _find_boundary(buffer)
 
 
 async def make_streaming_response(resp):
