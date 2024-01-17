@@ -200,7 +200,7 @@ jobs:
         run: |
           python dev/show_package_release_dates.py
       - name: Prefetch Transformer models
-        if: matrix.package == 'transformers'
+        if: matrix.package == 'transformers' && matrix.category == 'model'
         run: |
           python tests/transformers/helper.py
       - uses: ./.github/actions/pipdeptree
