@@ -189,13 +189,22 @@ def pyfunc_serve_from_docker_image_with_env_override(
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
 
 
-def pyfunc_serve_model(
+def pyfunc_serve_and_score_model(
     model_uri,
+    data,
+    content_type,
+    activity_polling_timeout_seconds=500,
     extra_args=None,
     stdout=sys.stdout,
 ):
     """
     :param model_uri: URI to the model to be served.
+    :param data: The data to send to the pyfunc server for testing. This is either a
+                 Pandas dataframe or string of the format specified by `content_type`.
+    :param content_type: The type of the data to send to the pyfunc server for testing. This is
+                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
+    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+                                             declaring the scoring process to have failed.
     :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
                        example, passing ``extra_args=["--env-manager", "local"]`` will pass the
                        ``--env-manager local`` flag to the scoring server to ensure that conda
@@ -221,40 +230,8 @@ def pyfunc_serve_model(
         scoring_cmd += extra_args
         validate_version = "--enable-mlserver" not in extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return proc, port, validate_version
-
-
-def pyfunc_serve_and_score_model(
-    model_uri,
-    data,
-    content_type,
-    activity_polling_timeout_seconds=500,
-    extra_args=None,
-    stdout=sys.stdout,
-):
-    """
-    :param model_uri: URI to the model to be served.
-    :param data: The data to send to the pyfunc server for testing. This is either a
-                 Pandas dataframe or string of the format specified by `content_type`.
-    :param content_type: The type of the data to send to the pyfunc server for testing. This is
-                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
-    :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
-                       example, passing ``extra_args=["--env-manager", "local"]`` will pass the
-                       ``--env-manager local`` flag to the scoring server to ensure that conda
-                       environment activation is skipped.
-    """
-    scoring_proc, port, should_validate_version = pyfunc_serve_model(
-        model_uri=model_uri, extra_args=extra_args, stdout=stdout
-    )
     return _evaluate_scoring_proc(
-        scoring_proc,
-        port,
-        data,
-        content_type,
-        activity_polling_timeout_seconds,
-        should_validate_version,
+        proc, port, data, content_type, activity_polling_timeout_seconds, validate_version
     )
 
 

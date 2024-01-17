@@ -8,14 +8,15 @@ from tests.transformers.helper import (
     load_fill_mask_pipeline,
     load_ner_pipeline,
     load_ner_pipeline_aggregation,
+    load_small_conversational_model,
     load_small_multi_modal_pipeline,
     load_small_qa_pipeline,
     load_small_seq2seq_pipeline,
     load_small_vision_model,
     load_summarizer_pipeline,
     load_table_question_answering_pipeline,
-    load_text_classification_pipeline,
     load_text2text_generation_pipeline,
+    load_text_classification_pipeline,
     load_text_generation_pipeline,
     load_translation_pipeline,
     load_whisper_pipeline,
@@ -46,6 +47,11 @@ def small_multi_modal_pipeline():
 @pytest.fixture
 def component_multi_modal():
     return load_component_multi_modal()
+
+
+@pytest.fixture
+def small_conversational_model():
+    return load_small_conversational_model()
 
 
 @pytest.fixture

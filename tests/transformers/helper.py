@@ -133,6 +133,18 @@ def load_component_multi_modal():
 
 @prefetch
 @flaky()
+def load_small_conversational_model():
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        "microsoft/DialoGPT-small", low_cpu_mem_usage=True
+    )
+    model = transformers.AutoModelWithLMHead.from_pretrained(
+        "satvikag/chatbot", low_cpu_mem_usage=True
+    )
+    return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
+
+
+@prefetch
+@flaky()
 def load_fill_mask_pipeline():
     architecture = "distilroberta-base"
     model = transformers.AutoModelForMaskedLM.from_pretrained(architecture, low_cpu_mem_usage=True)
