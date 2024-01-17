@@ -8,12 +8,14 @@ C = TypeVar("C", bound=Callable[..., Any])
 
 
 def experimental(api_or_type: Union[C, str]) -> C:
-    """
-    Decorator / decorator creator for marking APIs experimental in the docstring.
+    """Decorator / decorator creator for marking APIs experimental in the docstring.
 
-    :param api_or_type: An API to mark, or an API typestring for which to generate a decorator.
-    :return: Decorated API (if a ``api_or_type`` is an API) or a function that decorates
-             the specified API type (if ``api_or_type`` is a typestring).
+    Args:
+        api_or_type: An API to mark, or an API typestring for which to generate a decorator.
+
+    Returns:
+        Decorated API (if a ``api_or_type`` is an API) or a function that decorates
+        the specified API type (if ``api_or_type`` is a typestring).
     """
     if isinstance(api_or_type, str):
 
@@ -71,16 +73,19 @@ def developer_stable(func):
 
 
 def deprecated(alternative=None, since=None, impact=None):
-    """
-    Annotation decorator for marking APIs as deprecated in docstrings and raising a warning if
+    """Annotation decorator for marking APIs as deprecated in docstrings and raising a warning if
     called.
-    :param alternative: (Optional string) The name of a superseded replacement function, method,
-                        or class to use in place of the deprecated one.
-    :param since: (Optional string) A version designator defining during which release the function,
-                  method, or class was marked as deprecated.
-    :param impact: (Optional boolean) Indication of whether the method, function, or class will be
-                   removed in a future release.
-    :return: Decorated function.
+
+    Args:
+        alternative: (Optional string) The name of a superseded replacement function, method,
+            or class to use in place of the deprecated one.
+        since: (Optional string) A version designator defining during which release the function,
+            method, or class was marked as deprecated.
+        impact: (Optional boolean) Indication of whether the method, function, or class will be
+            removed in a future release.
+
+    Returns:
+        Decorated function.
     """
 
     def deprecated_decorator(func):

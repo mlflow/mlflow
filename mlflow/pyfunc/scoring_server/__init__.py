@@ -32,12 +32,13 @@ from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
-from mlflow.types import Schema
+from mlflow.types import ParamSchema, Schema
 from mlflow.utils import reraise
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import (
+    MlflowInvalidInputException,
     NumpyEncoder,
     _get_jsonable_obj,
     dataframe_from_parsed_json,
@@ -72,6 +73,9 @@ INSTANCES = "instances"
 INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
+
+# TODO: Support other input keys like "prmopt", "input", for other endpoint types like Embedding
+SUPPORTED_LLM_FORMAT = "messages"
 
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
@@ -154,26 +158,36 @@ def _decode_json_input(json_input):
     try:
         decoded_input = json.loads(json_input)
     except json.decoder.JSONDecodeError as ex:
-        raise MlflowException(
-            message=(
-                "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                f" formatted string. Input: \n{json_input}\n"
-            ),
-            error_code=BAD_REQUEST,
+        raise MlflowInvalidInputException(
+            "Ensure that input is a valid JSON formatted string. "
+            f"Error: '{ex!r}'\nInput: \n{json_input}\n"
         ) from ex
 
     if isinstance(decoded_input, dict):
         return decoded_input
     if isinstance(decoded_input, list):
-        raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. Received a list. {SCORING_PROTOCOL_CHANGE_INFO}",
-            error_code=BAD_REQUEST,
-        )
+        raise MlflowInvalidInputException(f"{REQUIRED_INPUT_FORMAT}. Received a list.")
 
-    raise MlflowException(
-        message=f"{REQUIRED_INPUT_FORMAT}. Received unexpected input type '{type(decoded_input)}.",
-        error_code=BAD_REQUEST,
+    raise MlflowInvalidInputException(
+        f"{REQUIRED_INPUT_FORMAT}. Received unexpected input type '{type(decoded_input)}."
     )
+
+
+def _split_data_and_params_for_llm_input(json_input, param_schema: Optional[ParamSchema]):
+    data = {}
+    params = {}
+    schema_params = {param.name for param in param_schema.params} if param_schema else {}
+
+    for key, value in json_input.items():
+        # if the model defines a param schema, then we can add
+        # it to the params dict. otherwise, add it to the data
+        # dict to prevent it from being ignored at inference time
+        if key in schema_params:
+            params[key] = value
+        else:
+            data[key] = value
+
+    return data, params
 
 
 def _split_data_and_params(json_input):
@@ -222,15 +236,20 @@ def parse_csv_input(csv_input, schema: Schema = None):
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
             return pd.read_csv(csv_input, dtype=dtypes)
-    except Exception:
+    except Exception as e:
         _handle_serving_error(
             error_message=(
                 "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
                 " a valid CSV-formatted Pandas DataFrame produced using the"
-                " `pandas.DataFrame.to_csv()` method."
+                f" `pandas.DataFrame.to_csv()` method. Error: '{e}'"
             ),
             error_code=BAD_REQUEST,
         )
+
+
+def unwrapped_predictions_to_json(raw_predictions, output):
+    predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    return json.dump(predictions, output, cls=NumpyEncoder)
 
 
 def predictions_to_json(raw_predictions, output, metadata=None):
@@ -296,14 +315,31 @@ def invocations(data, content_type, model, input_schema):
             status=415,
             mimetype="text/plain",
         )
-    # Convert from CSV to pandas
+
+    # The traditional JSON request/response format, wraps the data with one of the supported keys
+    # like "dataframe_split" and "predictions". For LLM use cases, we also support unwrapped JSON
+    # payload, to provide unified prediction interface.
+    should_parse_as_unified_llm_input = False
+
     if mime_type == CONTENT_TYPE_CSV:
+        # Convert from CSV to pandas
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
-        data, params = _split_data_and_params(data)
-        data = infer_and_parse_data(data, input_schema)
+        json_input = _decode_json_input(data)
+        should_parse_as_unified_llm_input = SUPPORTED_LLM_FORMAT in json_input
+        if should_parse_as_unified_llm_input:
+            # Unified LLM input format
+            if hasattr(model.metadata, "get_params_schema"):
+                params_schema = model.metadata.get_params_schema()
+            else:
+                params_schema = None
+            data, params = _split_data_and_params_for_llm_input(json_input, params_schema)
+        else:
+            # Traditional json input format
+            data, params = _split_data_and_params(data)
+            data = infer_and_parse_data(data, input_schema)
     else:
         return InvocationsResponse(
             response=(
@@ -323,6 +359,15 @@ def invocations(data, content_type, model, input_schema):
             _log_warning_if_params_not_in_predict_signature(_logger, params)
             raw_predictions = model.predict(data)
     except MlflowException as e:
+        if "Failed to enforce schema" in e.message:
+            _logger.warning(
+                "If using `instances` as input key, we internally convert "
+                "the data type from `records` (List[Dict]) type to "
+                "`list` (Dict[str, List]) type if the data is a pandas "
+                "dataframe representation. This might cause schema changes. "
+                "Please use `inputs` to avoid this converesion.\n"
+            )
+        e.message = f"Failed to predict data '{data}'. \nError: {e.message}"
         raise e
     except Exception:
         raise MlflowException(
@@ -335,7 +380,14 @@ def invocations(data, content_type, model, input_schema):
             stack_trace=traceback.format_exc(),
         )
     result = StringIO()
-    predictions_to_json(raw_predictions, result)
+
+    # if the data was formatted using the unified LLM format,
+    # then return the data without the "predictions" key
+    if should_parse_as_unified_llm_input:
+        unwrapped_predictions_to_json(raw_predictions, result)
+    else:
+        predictions_to_json(raw_predictions, result)
+
     return InvocationsResponse(response=result.getvalue(), status=200, mimetype="application/json")
 
 

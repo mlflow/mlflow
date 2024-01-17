@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
+from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.utils.annotations import experimental
 
 
@@ -58,10 +59,10 @@ class EvaluationExample:
             "its purpose, and its developer. It could be more concise for a 5-score."
     """
 
-    input: str
     output: str
     score: float
     justification: str
+    input: Optional[str] = None
     grading_context: Optional[Union[Dict[str, str], str]] = None
 
     def _format_grading_context(self):
@@ -73,21 +74,29 @@ class EvaluationExample:
             return self.grading_context
 
     def __str__(self) -> str:
-        grading_context = (
-            ""
-            if self.grading_context is None
-            else "Additional information used by the model:\n" f"{self._format_grading_context()}"
-        )
-
-        return f"""
+        return PromptTemplate(
+            [
+                """
 Example Input:
-{self.input}
-
+{input}
+""",
+                """
 Example Output:
-{self.output}
-
+{output}
+""",
+                """
+Additional information used by the model:
 {grading_context}
-
-Example score: {self.score}
-Example justification: {self.justification}
-        """
+""",
+                """
+Example score: {score}
+Example justification: {justification}
+        """,
+            ]
+        ).format(
+            input=self.input,
+            output=self.output,
+            grading_context=self._format_grading_context(),
+            score=self.score,
+            justification=self.justification,
+        )

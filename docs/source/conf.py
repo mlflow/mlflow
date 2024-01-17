@@ -42,7 +42,15 @@ extensions = [
     "sphinx_tabs.tabs",
     "testcode_block",
     "nbsphinx",
+    "sphinx_reredirects",
 ]
+
+# Redirects definition in the form of ``("source", "target")``.
+# Note that the target is relative to the path of the source and that the
+# target must define the final url (i.e. no trailing slash).
+redirects = {
+    "registry": "model-registry.html",
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -344,10 +352,12 @@ nitpick_ignore = [
     ("py:class", "PIL.Image.Image"),
     ("py:class", "mlflow.deployments.base.BaseDeploymentClient"),
     ("py:class", "mlflow.deployments.server.config.Endpoint"),
+    ("py:class", "mlflow.types.schema.Array"),
     ("py:class", "mlflow.types.schema.DataType"),
     ("py:class", "mlflow.types.schema.ColSpec"),
     ("py:class", "mlflow.types.schema.TensorSpec"),
     ("py:class", "mlflow.types.schema.Schema"),
+    ("py:class", "mlflow.types.schema.Object"),
     ("py:class", "mlflow.types.schema.ParamSchema"),
     ("py:class", "mlflow.types.schema.ParamSpec"),
     ("py:class", "mlflow.models.model.Model"),
@@ -357,6 +367,7 @@ nitpick_ignore = [
     ("py:class", "MlflowInferableDataset"),
     ("py:class", "csr_matrix"),
     ("py:class", "csc_matrix"),
+    ("py:class", "datetime.datetime"),
     ("py:class", "scipy.sparse.csr.csr_matrix"),
     ("py:class", "scipy.sparse.csc.csc_matrix"),
     ("py:class", "scipy.sparse._csr.csr_matrix"),

@@ -59,7 +59,6 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
-    _find_duplicate_requirements,
     _mlflow_conda_env,
     _process_conda_env,
     _process_pip_requirements,
@@ -121,9 +120,12 @@ def _model_packages(model) -> List[str]:
     """
     Determines which pip libraries should be included based on the base model engine type.
 
-    :param model: The model instance to be saved in order to provide the required underlying
-                  deep learning execution framework dependency requirements.
-    :return: A list of strings representing the underlying engine-specific dependencies
+    Args:
+        model: The model instance to be saved in order to provide the required underlying
+            deep learning execution framework dependency requirements.
+
+    Returns:
+        A list of strings representing the underlying engine-specific dependencies
     """
     engine = _get_engine_type(model)
     if engine == "torch":
@@ -142,12 +144,15 @@ def _model_packages(model) -> List[str]:
 @experimental
 def get_default_pip_requirements(model) -> List[str]:
     """
-    :param model: The model instance to be saved in order to provide the required underlying
-                  deep learning execution framework dependency requirements. Note that this must
-                  be the actual model instance and not a Pipeline.
-    :return: A list of default pip requirements for MLflow Models that have been produced with the
-             ``transformers`` flavor. Calls to :py:func:`save_model()` and :py:func:`log_model()`
-             produce a pip environment that contain these requirements at a minimum.
+    Args:
+        model: The model instance to be saved in order to provide the required underlying
+            deep learning execution framework dependency requirements. Note that this must
+            be the actual model instance and not a Pipeline.
+
+    Returns:
+        A list of default pip requirements for MLflow Models that have been produced with the
+        ``transformers`` flavor. Calls to :py:func:`save_model()` and :py:func:`log_model()`
+        produce a pip environment that contain these requirements at a minimum.
     """
 
     from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
@@ -209,8 +214,9 @@ def _validate_transformers_model_dict(transformers_model):
 @experimental
 def get_default_conda_env(model):
     """
-    :return: The default Conda environment for MLflow Models produced with the ``transformers``
-             flavor, based on the model instance framework type of the model to be logged.
+    Returns:
+        The default Conda environment for MLflow Models produced with the ``transformers``
+        flavor, based on the model instance framework type of the model to be logged.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
 
@@ -234,182 +240,184 @@ def save_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
     Save a trained transformers model to a path on the local file system.
 
-    :param transformers_model:
-        A trained transformers `Pipeline` or a dictionary that maps required components of a
-        pipeline to the named keys of ["model", "image_processor", "tokenizer",
-        "feature_extractor"]. The `model` key in the dictionary must map to a value that inherits
-        from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
-        All other component entries in the dictionary must support the defined task type that is
-        associated with the base model type configuration.
+    Args:
+        transformers_model:
+            A trained transformers `Pipeline` or a dictionary that maps required components of a
+            pipeline to the named keys of ["model", "image_processor", "tokenizer",
+            "feature_extractor"]. The `model` key in the dictionary must map to a value that
+            inherits from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+            All other component entries in the dictionary must support the defined task type that is
+            associated with the base model type configuration.
 
-        An example of supplying component-level parts of a transformers model is shown below:
+            An example of supplying component-level parts of a transformers model is shown below:
 
-        .. code-block:: python
+            .. code-block:: python
 
-          from transformers import MobileBertForQuestionAnswering, AutoTokenizer
+                from transformers import MobileBertForQuestionAnswering, AutoTokenizer
 
-          architecture = "csarron/mobilebert-uncased-squad-v2"
-          tokenizer = AutoTokenizer.from_pretrained(architecture)
-          model = MobileBertForQuestionAnswering.from_pretrained(architecture)
+                architecture = "csarron/mobilebert-uncased-squad-v2"
+                tokenizer = AutoTokenizer.from_pretrained(architecture)
+                model = MobileBertForQuestionAnswering.from_pretrained(architecture)
 
-          with mlflow.start_run():
-              components = {
-                  "model": model,
-                  "tokenizer": tokenizer,
-              }
-              mlflow.transformers.save_model(
-                  transformers_model=components,
-                  path="path/to/save/model",
-              )
+                with mlflow.start_run():
+                    components = {
+                        "model": model,
+                        "tokenizer": tokenizer,
+                    }
+                    mlflow.transformers.save_model(
+                        transformers_model=components,
+                        path="path/to/save/model",
+                    )
 
-        An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of submitting a `Pipeline` from a default pipeline instantiation:
 
-        .. code-block:: python
+            .. code-block:: python
 
-          from transformers import pipeline
+                from transformers import pipeline
 
-          qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
 
-          with mlflow.start_run():
-              mlflow.transformers.save_model(
-                  transformers_model=qa_pipe,
-                  path="path/to/save/model",
-              )
+                with mlflow.start_run():
+                    mlflow.transformers.save_model(
+                        transformers_model=qa_pipe,
+                        path="path/to/save/model",
+                    )
 
-    :param path: Local path destination for the serialized model to be saved.
-    :param processor: An optional ``Processor`` subclass object. Some model architectures,
-                      particularly multi-modal types, utilize Processors to combine text
-                      encoding and image or audio encoding in a single entrypoint.
+        path: Local path destination for the serialized model to be saved.
+        processor: An optional ``Processor`` subclass object. Some model architectures,
+            particularly multi-modal types, utilize Processors to combine text
+            encoding and image or audio encoding in a single entrypoint.
 
-                      .. Note:: If a processor is supplied when saving a model, the
-                                model will be unavailable for loading as a ``Pipeline`` or for
-                                usage with pyfunc inference.
+            .. Note:: If a processor is supplied when saving a model, the
+                        model will be unavailable for loading as a ``Pipeline`` or for
+                        usage with pyfunc inference.
+        task: The transformers-specific task type of the model. These strings are utilized so
+            that a pipeline can be created with the appropriate internal call architecture
+            to meet the needs of a given model. If this argument is not specified, the
+            pipeline utilities within the transformers library will be used to infer the
+            correct task type. If the value specified is not a supported type within the
+            version of transformers that is currently installed, an Exception will be thrown.
+        model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
+            contents of the model card will be saved along with the provided
+            `transformers_model`. If not provided, an attempt will be made to fetch
+            the card from the base pretrained model that is provided (or the one that is
+            included within a provided `Pipeline`).
 
-    :param task: The transformers-specific task type of the model. These strings are utilized so
-                 that a pipeline can be created with the appropriate internal call architecture
-                 to meet the needs of a given model. If this argument is not specified, the
-                 pipeline utilities within the transformers library will be used to infer the
-                 correct task type. If the value specified is not a supported type within the
-                 version of transformers that is currently installed, an Exception will be thrown.
-    :param model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
-                       contents of the model card will be saved along with the provided
-                       `transformers_model`. If not provided, an attempt will be made to fetch
-                       the card from the base pretrained model that is provided (or the one that is
-                       included within a provided `Pipeline`).
+            .. Note:: In order for a ModelCard to be fetched (if not provided),
+                        the huggingface_hub package must be installed and the version
+                        must be >=0.10.0
+        inference_config:
 
-                       .. Note:: In order for a ModelCard to be fetched (if not provided),
-                                 the huggingface_hub package must be installed and the version
-                                 must be >=0.10.0
+            .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
 
-    :param inference_config:
+        model_config:
+            A dict of valid overrides that can be applied to a pipeline instance during inference.
+            These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+            Model or for use in Spark.
+            These values are not applied to a returned Pipeline from a call to
+            ``mlflow.transformers.load_model()``
 
-        .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
+            .. Warning:: If the key provided is not compatible with either the
+                    Pipeline instance for the task provided or is not a valid
+                    override to any arguments available in the Model, an
+                    Exception will be raised at runtime. It is very important
+                    to validate the entries in this dictionary to ensure
+                    that they are valid prior to saving or logging.
 
-    :param model_config:
-        A dict of valid overrides that can be applied to a pipeline instance during inference.
-        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
-        Model or for use in Spark.
-        These values are not applied to a returned Pipeline from a call to
-        ``mlflow.transformers.load_model()``
+            An example of providing overrides for a question generation model:
 
-        .. Warning:: If the key provided is not compatible with either the
-                  Pipeline instance for the task provided or is not a valid
-                  override to any arguments available in the Model, an
-                  Exception will be raised at runtime. It is very important
-                  to validate the entries in this dictionary to ensure
-                  that they are valid prior to saving or logging.
+            .. code-block:: python
 
-        An example of providing overrides for a question generation model:
+                from transformers import pipeline, AutoTokenizer
 
-        .. code-block:: python
+                task = "text-generation"
+                architecture = "gpt2"
 
-            from transformers import pipeline, AutoTokenizer
+                sentence_pipeline = pipeline(
+                    task=task,
+                    tokenizer=AutoTokenizer.from_pretrained(architecture),
+                    model=architecture,  # pylint: disable=line-too-long
+                )
 
-            task = "text-generation"
-            architecture = "gpt2"
+                # Validate that the overrides function
+                prompts = ["Generative models are", "I'd like a coconut so that I can"]
 
-            sentence_pipeline = pipeline(
-                task=task, tokenizer=AutoTokenizer.from_pretrained(architecture), model=architecture
-            )
+                # validation of config prior to save or log
+                model_config = {
+                    "top_k": 2,
+                    "num_beams": 5,
+                    "max_length": 30,
+                    "temperature": 0.62,
+                    "top_p": 0.85,
+                    "repetition_penalty": 1.15,
+                }
 
-            # Validate that the overrides function
-            prompts = ["Generative models are", "I'd like a coconut so that I can"]
+                # Verify that no exceptions are thrown
+                sentence_pipeline(prompts, **model_config)
 
-            # validation of config prior to save or log
-            model_config = {
-                "top_k": 2,
-                "num_beams": 5,
-                "max_length": 30,
-                "temperature": 0.62,
-                "top_p": 0.85,
-                "repetition_penalty": 1.15,
-            }
+                mlflow.transformers.save_model(
+                    transformers_model=sentence_pipeline,
+                    path="/path/for/model",
+                    task=task,
+                    model_config=model_config,
+                )
 
-            # Verify that no exceptions are thrown
-            sentence_pipeline(prompts, **model_config)
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: An MLflow model object that specifies the flavor that this model is being
+            added to.
+        signature: A Model Signature object that describes the input and output Schema of the
+            model. The model signature can be inferred using `infer_signature` function
+            of `mlflow.models.signature`.
+            Example:
 
-            mlflow.transformers.save_model(
-                transformers_model=sentence_pipeline,
-                path="/path/for/model",
-                task=task,
-                model_config=model_config,
-            )
+            .. code-block:: python
 
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: An MLflow model object that specifies the flavor that this model is being
-                         added to.
-    :param signature: A Model Signature object that describes the input and output Schema of the
-                      model. The model signature can be inferred using `infer_signature` function
-                      of `mlflow.models.signature`.
-                      Example:
+                from mlflow.models import infer_signature
+                from mlflow.transformers import generate_signature_output
+                from transformers import pipeline
 
-                      .. code-block:: python
+                en_to_de = pipeline("translation_en_to_de")
 
-                        from mlflow.models import infer_signature
-                        from mlflow.transformers import generate_signature_output
-                        from transformers import pipeline
+                data = "MLflow is great!"
+                output = generate_signature_output(en_to_de, data)
+                signature = infer_signature(data, output)
 
-                        en_to_de = pipeline("translation_en_to_de")
+                mlflow.transformers.save_model(
+                    transformers_model=en_to_de,
+                    path="/path/to/save/model",
+                    signature=signature,
+                    input_example=data,
+                )
 
-                        data = "MLflow is great!"
-                        output = generate_signature_output(en_to_de, data)
-                        signature = infer_signature(data, output)
+                loaded = mlflow.pyfunc.load_model("/path/to/save/model")
+                print(loaded.predict(data))
+                # MLflow ist großartig!
 
-                        mlflow.transformers.save_model(
-                            transformers_model=en_to_de,
-                            path="/path/to/save/model",
-                            signature=signature,
-                            input_example=data,
-                        )
+            If an input_example is provided and the signature is not, a signature will
+            be inferred automatically and applied to the MLmodel file iff the
+            pipeline type is a text-based model (NLP). If the pipeline type is not
+            a supported type, this inference functionality will not function correctly
+            and a warning will be issued. In order to ensure that a precise signature
+            is logged, it is recommended to explicitly provide one.
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        conda_env: {{ conda_env }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                        loaded = mlflow.pyfunc.load_model("/path/to/save/model")
-                        print(loaded.predict(data))
-                        # MLflow ist großartig!
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        example_no_conversion: {{ example_no_conversion }}
+        kwargs: Optional additional configurations for transformers serialization.
 
-                      If an input_example is provided and the signature is not, a signature will
-                      be inferred automatically and applied to the MLmodel file iff the
-                      pipeline type is a text-based model (NLP). If the pipeline type is not
-                      a supported type, this inference functionality will not function correctly
-                      and a warning will be issued. In order to ensure that a precise signature
-                      is logged, it is recommended to explicitly provide one.
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param conda_env: {{ conda_env }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-
-    :param kwargs: Optional additional configurations for transformers serialization.
-    :return: None
     """
     import transformers
 
@@ -453,7 +461,7 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         input_example = _format_input_example_for_special_cases(input_example, built_pipeline)
-        _save_example(mlflow_model, input_example, str(path))
+        _save_example(mlflow_model, input_example, str(path), example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
@@ -553,14 +561,6 @@ def save_model(
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
-    if duplicates := _find_duplicate_requirements(pip_requirements):
-        _logger.warning(
-            "Duplicate packages are present within the pip requirements. Duplicate packages: "
-            f"{duplicates}. Please manually specify the requirements by using the "
-            "`pip_requirements` argument in order to prevent unexpected installation "
-            "issues for this model."
-        )
-
     with path.joinpath(_CONDA_ENV_FILE_NAME).open("w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
@@ -592,189 +592,191 @@ def log_model(
     conda_env=None,
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
+    example_no_conversion: bool = False,
     **kwargs,
 ):
     """
     Log a ``transformers`` object as an MLflow artifact for the current run.
 
-    :param transformers_model:
-        A trained transformers `Pipeline` or a dictionary that maps required components of a
-        pipeline to the named keys of ["model", "image_processor", "tokenizer",
-        "feature_extractor"]. The `model` key in the dictionary must map to a value that inherits
-        from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
-        All other component entries in the dictionary must support the defined task type that is
-        associated with the base model type configuration.
+    Args:
+        transformers_model:
+            A trained transformers `Pipeline` or a dictionary that maps required components of a
+            pipeline to the named keys of ["model", "image_processor", "tokenizer",
+            "feature_extractor"]. The `model` key in the dictionary must map to a value that
+            inherits from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+            All other component entries in the dictionary must support the defined task type that is
+            associated with the base model type configuration.
 
-        An example of supplying component-level parts of a transformers model is shown below:
+            An example of supplying component-level parts of a transformers model is shown below:
 
-        .. code-block:: python
+            .. code-block:: python
 
-          from transformers import MobileBertForQuestionAnswering, AutoTokenizer
+                from transformers import MobileBertForQuestionAnswering, AutoTokenizer
 
-          architecture = "csarron/mobilebert-uncased-squad-v2"
-          tokenizer = AutoTokenizer.from_pretrained(architecture)
-          model = MobileBertForQuestionAnswering.from_pretrained(architecture)
+                architecture = "csarron/mobilebert-uncased-squad-v2"
+                tokenizer = AutoTokenizer.from_pretrained(architecture)
+                model = MobileBertForQuestionAnswering.from_pretrained(architecture)
 
-          with mlflow.start_run():
-              components = {
-                  "model": model,
-                  "tokenizer": tokenizer,
-              }
-              mlflow.transformers.log_model(
-                  transformers_model=components,
-                  artifact_path="my_model",
-              )
+                with mlflow.start_run():
+                    components = {
+                        "model": model,
+                        "tokenizer": tokenizer,
+                    }
+                    mlflow.transformers.log_model(
+                        transformers_model=components,
+                        artifact_path="my_model",
+                    )
 
-        An example of submitting a `Pipeline` from a default pipeline instantiation:
+            An example of submitting a `Pipeline` from a default pipeline instantiation:
 
-        .. code-block:: python
+            .. code-block:: python
 
-          from transformers import pipeline
+                from transformers import pipeline
 
-          qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
 
-          with mlflow.start_run():
-              mlflow.transformers.log_model(
-                  transformers_model=qa_pipe,
-                  artifact_path="my_pipeline",
-              )
+                with mlflow.start_run():
+                    mlflow.transformers.log_model(
+                        transformers_model=qa_pipe,
+                        artifact_path="my_pipeline",
+                    )
 
-    :param artifact_path: Local path destination for the serialized model to be saved.
-    :param processor: An optional ``Processor`` subclass object. Some model architectures,
-                  particularly multi-modal types, utilize Processors to combine text
-                  encoding and image or audio encoding in a single entrypoint.
+        artifact_path: Local path destination for the serialized model to be saved.
+        processor: An optional ``Processor`` subclass object. Some model architectures,
+            particularly multi-modal types, utilize Processors to combine text
+            encoding and image or audio encoding in a single entrypoint.
 
-                  .. Note:: If a processor is supplied when logging a model, the
-                            model will be unavailable for loading as a ``Pipeline`` or for usage
-                            with pyfunc inference.
+                .. Note:: If a processor is supplied when logging a model, the
+                    model will be unavailable for loading as a ``Pipeline`` or for usage
+                    with pyfunc inference.
+        task: The transformers-specific task type of the model. These strings are utilized so
+            that a pipeline can be created with the appropriate internal call architecture
+            to meet the needs of a given model. If this argument is not specified, the
+            pipeline utilities within the transformers library will be used to infer the
+            correct task type. If the value specified is not a supported type within the
+            version of transformers that is currently installed, an Exception will be thrown.
+        model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
+            contents of the model card will be saved along with the provided
+            `transformers_model`. If not provided, an attempt will be made to fetch
+            the card from the base pretrained model that is provided (or the one that is
+            included within a provided `Pipeline`).
 
-    :param task: The transformers-specific task type of the model. These strings are utilized so
-                 that a pipeline can be created with the appropriate internal call architecture
-                 to meet the needs of a given model. If this argument is not specified, the
-                 pipeline utilities within the transformers library will be used to infer the
-                 correct task type. If the value specified is not a supported type within the
-                 version of transformers that is currently installed, an Exception will be thrown.
-    :param model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
-                       contents of the model card will be saved along with the provided
-                       `transformers_model`. If not provided, an attempt will be made to fetch
-                       the card from the base pretrained model that is provided (or the one that is
-                       included within a provided `Pipeline`).
+                .. Note:: In order for a ModelCard to be fetched (if not provided),
+                    the huggingface_hub package must be installed and the version
+                    must be >=0.10.0
+        inference_config:
 
-                       .. Note:: In order for a ModelCard to be fetched (if not provided),
-                                 the huggingface_hub package must be installed and the version
-                                 must be >=0.10.0
+            .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
+        model_config:
+            A dict of valid overrides that can be applied to a pipeline instance during inference.
+            These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+            Model or for use in Spark. These values are not applied to a returned Pipeline from a
+            call to ``mlflow.transformers.load_model()``
 
-    :param inference_config:
+            .. Warning:: If the key provided is not compatible with either the
+                         Pipeline instance for the task provided or is not a valid
+                         override to any arguments available in the Model, an
+                         Exception will be raised at runtime. It is very important
+                         to validate the entries in this dictionary to ensure
+                         that they are valid prior to saving or logging.
 
-        .. Warning:: Deprecated. `inference_config` is deprecated in favor of `model_config`.
+            An example of providing overrides for a question generation model:
 
-    :param model_config:
-        A dict of valid overrides that can be applied to a pipeline instance during inference. These
-        arguments are used exclusively for the case of loading the model as a ``pyfunc`` Model or
-        for use in Spark. These values are not applied to a returned Pipeline from a call to
-        ``mlflow.transformers.load_model()``
+            .. code-block:: python
 
-        .. Warning:: If the key provided is not compatible with either the
-                     Pipeline instance for the task provided or is not a valid
-                     override to any arguments available in the Model, an
-                     Exception will be raised at runtime. It is very important
-                     to validate the entries in this dictionary to ensure
-                     that they are valid prior to saving or logging.
+                from transformers import pipeline, AutoTokenizer
 
-        An example of providing overrides for a question generation model:
+                task = "text-generation"
+                architecture = "gpt2"
 
-        .. code-block:: python
+                sentence_pipeline = pipeline(
+                    task=task,
+                    tokenizer=AutoTokenizer.from_pretrained(architecture),
+                    model=architecture,  # pylint: disable=line-too-long
+                )
 
-          from transformers import pipeline, AutoTokenizer
+                # Validate that the overrides function
+                prompts = ["Generative models are", "I'd like a coconut so that I can"]
 
-          task = "text-generation"
-          architecture = "gpt2"
+                # validation of config prior to save or log
+                model_config = {
+                    "top_k": 2,
+                    "num_beams": 5,
+                    "max_length": 30,
+                    "temperature": 0.62,
+                    "top_p": 0.85,
+                    "repetition_penalty": 1.15,
+                }
 
-          sentence_pipeline = pipeline(
-              task=task, tokenizer=AutoTokenizer.from_pretrained(architecture), model=architecture
-          )
+                # Verify that no exceptions are thrown
+                sentence_pipeline(prompts, **model_config)
 
-          # Validate that the overrides function
-          prompts = ["Generative models are", "I'd like a coconut so that I can"]
+                with mlflow.start_run():
+                    mlflow.transformers.log_model(
+                        transformers_model=sentence_pipeline,
+                        artifact_path="my_sentence_generator",
+                        task=task,
+                        model_config=model_config,
+                    )
 
-          # validation of config prior to save or log
-          model_config = {
-              "top_k": 2,
-              "num_beams": 5,
-              "max_length": 30,
-              "temperature": 0.62,
-              "top_p": 0.85,
-              "repetition_penalty": 1.15,
-          }
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: This argument may change or be removed in a
+            future release without warning. If given, create a model
+            version under ``registered_model_name``, also creating a
+            registered model if one with the given name does not exist.
+        signature: A Model Signature object that describes the input and output Schema of the
+            model. The model signature can be inferred using `infer_signature` function
+            of `mlflow.models.signature`.
+            Example:
 
-          # Verify that no exceptions are thrown
-          sentence_pipeline(prompts, **model_config)
+            .. code-block:: python
 
-          with mlflow.start_run():
-              mlflow.transformers.log_model(
-                  transformers_model=sentence_pipeline,
-                  artifact_path="my_sentence_generator",
-                  task=task,
-                  model_config=model_config,
-              )
+                from mlflow.models import infer_signature
+                from mlflow.transformers import generate_signature_output
+                from transformers import pipeline
 
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: This argument may change or be removed in a
-                                  future release without warning. If given, create a model
-                                  version under ``registered_model_name``, also creating a
-                                  registered model if one with the given name does not exist.
-    :param signature: A Model Signature object that describes the input and output Schema of the
-                      model. The model signature can be inferred using `infer_signature` function
-                      of `mlflow.models.signature`.
-                      Example:
+                en_to_de = pipeline("translation_en_to_de")
 
-                      .. code-block:: python
+                data = "MLflow is great!"
+                output = generate_signature_output(en_to_de, data)
+                signature = infer_signature(data, output)
 
-                        from mlflow.models import infer_signature
-                        from mlflow.transformers import generate_signature_output
-                        from transformers import pipeline
+                with mlflow.start_run() as run:
+                    mlflow.transformers.log_model(
+                        transformers_model=en_to_de,
+                        artifact_path="english_to_german_translator",
+                        signature=signature,
+                        input_example=data,
+                    )
 
-                        en_to_de = pipeline("translation_en_to_de")
+                model_uri = f"runs:/{run.info.run_id}/english_to_german_translator"
+                loaded = mlflow.pyfunc.load_model(model_uri)
 
-                        data = "MLflow is great!"
-                        output = generate_signature_output(en_to_de, data)
-                        signature = infer_signature(data, output)
+                print(loaded.predict(data))
+                # MLflow ist großartig!
 
-                        with mlflow.start_run() as run:
-                            mlflow.transformers.log_model(
-                                transformers_model=en_to_de,
-                                artifact_path="english_to_german_translator",
-                                signature=signature,
-                                input_example=data,
-                            )
+            If an input_example is provided and the signature is not, a signature will
+            be inferred automatically and applied to the MLmodel file iff the
+            pipeline type is a text-based model (NLP). If the pipeline type is not
+            a supported type, this inference functionality will not function correctly
+            and a warning will be issued. In order to ensure that a precise signature
+            is logged, it is recommended to explicitly provide one.
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version
+            to finish being created and is in ``READY`` status.
+            By default, the function waits for five minutes.
+            Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        conda_env: {{ conda_env }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                        model_uri = f"runs:/{run.info.run_id}/english_to_german_translator"
-                        loaded = mlflow.pyfunc.load_model(model_uri)
-
-                        print(loaded.predict(data))
-                        # MLflow ist großartig!
-
-                      If an input_example is provided and the signature is not, a signature will
-                      be inferred automatically and applied to the MLmodel file iff the
-                      pipeline type is a text-based model (NLP). If the pipeline type is not
-                      a supported type, this inference functionality will not function correctly
-                      and a warning will be issued. In order to ensure that a precise signature
-                      is logged, it is recommended to explicitly provide one.
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version
-                                   to finish being created and is in ``READY`` status.
-                                   By default, the function waits for five minutes.
-                                   Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param conda_env: {{ conda_env }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        example_no_conversion: {{ example_no_conversion }}
+        kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -794,6 +796,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
+        example_no_conversion=example_no_conversion,
         **kwargs,
     )
 
@@ -806,47 +809,50 @@ def load_model(
     """
     Load a ``transformers`` object from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``mlflow-artifacts:/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``mlflow-artifacts:/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to utilize for downloading the model artifact.
-                     This directory must already exist if provided. If unspecified, a local output
-                     path will be created.
-    :param return_type: A return type modifier for the stored ``transformers`` object.
-                        If set as "components", the return type will be a dictionary of the saved
-                        individual components of either the ``Pipeline`` or the pre-trained model.
-                        The components for NLP-focused models will typically consist of a
-                        return representation as shown below with a text-classification example:
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+            artifact-locations>`_.
+        dst_path: The local filesystem path to utilize for downloading the model artifact.
+            This directory must already exist if provided. If unspecified, a local output
+            path will be created.
+        return_type: A return type modifier for the stored ``transformers`` object.
+            If set as "components", the return type will be a dictionary of the saved
+            individual components of either the ``Pipeline`` or the pre-trained model.
+            The components for NLP-focused models will typically consist of a
+            return representation as shown below with a text-classification example:
 
-                        .. code-block:: python
+            .. code-block:: python
 
-                          {"model": BertForSequenceClassification, "tokenizer": BertTokenizerFast}
+                {"model": BertForSequenceClassification, "tokenizer": BertTokenizerFast}
 
-                        Vision models will return an ``ImageProcessor`` instance of the appropriate
-                        type, while multi-modal models will return both a ``FeatureExtractor`` and
-                        a ``Tokenizer`` along with the model.
-                        Returning "components" can be useful for certain model types that do not
-                        have the desired pipeline return types for certain use cases.
-                        If set as "pipeline", the model, along with any and all required
-                        ``Tokenizer``, ``FeatureExtractor``, ``Processor``, or ``ImageProcessor``
-                        objects will be returned within a ``Pipeline`` object of the appropriate
-                        type defined by the ``task`` set by the model instance type. To override
-                        this behavior, supply a valid ``task`` argument during model logging or
-                        saving. Default is "pipeline".
-    :param device: The device on which to load the model. Default is None. Use 0 to
-                   load to the default GPU.
-    :param kwargs: Optional configuration options for loading of a ``transformers`` object.
-                   For information on parameters and their usage, see
-                   `transformers documentation <https://huggingface.co/docs/transformers/index>`_.
-    :return: A ``transformers`` model instance or a dictionary of components
+            Vision models will return an ``ImageProcessor`` instance of the appropriate
+            type, while multi-modal models will return both a ``FeatureExtractor`` and
+            a ``Tokenizer`` along with the model.
+            Returning "components" can be useful for certain model types that do not
+            have the desired pipeline return types for certain use cases.
+            If set as "pipeline", the model, along with any and all required
+            ``Tokenizer``, ``FeatureExtractor``, ``Processor``, or ``ImageProcessor``
+            objects will be returned within a ``Pipeline`` object of the appropriate
+            type defined by the ``task`` set by the model instance type. To override
+            this behavior, supply a valid ``task`` argument during model logging or
+            saving. Default is "pipeline".
+        device: The device on which to load the model. Default is None. Use 0 to
+            load to the default GPU.
+        kwargs: Optional configuration options for loading of a ``transformers`` object.
+            For information on parameters and their usage, see
+            `transformers documentation <https://huggingface.co/docs/transformers/index>`_.
+
+    Returns:
+        A ``transformers`` model instance or a dictionary of components
     """
 
     if return_type not in _SUPPORTED_RETURN_TYPES:
@@ -1236,9 +1242,12 @@ def _infer_transformers_task_type(model) -> str:
     underlying model's intended use case. This utility relies on the definitions within the
     transformers pipeline construction utility functions.
 
-    :param model: Either the model or the Pipeline object that the task will be extracted or
-                  inferred from
-    :return: The task type string
+    Args:
+        model: Either the model or the Pipeline object that the task will be extracted or
+            inferred from
+
+    Returns:
+        The task type string
     """
     from transformers import Pipeline
     from transformers.pipelines import get_task
@@ -1344,7 +1353,6 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "DocumentQuestionAnsweringPipeline",
         "ImageToTextPipeline",
         "VisualQuestionAnsweringPipeline",
-        "ImageClassificationPipeline",
         "ImageSegmentationPipeline",
         "DepthEstimationPipeline",
         "ObjectDetectionPipeline",
@@ -1354,11 +1362,6 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "ZeroShotAudioClassificationPipeline",
     ]
 
-    impermissible_attrs = {"image_processor"}
-
-    for attr in impermissible_attrs:
-        if getattr(pipeline, attr, None) is not None:
-            return False
     for model_type in exclusion_model_types:
         if hasattr(transformers, model_type):
             if isinstance(pipeline.model, getattr(transformers, model_type)):
@@ -1403,6 +1406,7 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
             params = None
             if _contains_params(example):
                 example, params = example
+            example = _format_input_example_for_special_cases(example, pipeline)
             prediction = generate_signature_output(pipeline, example, model_config, params)
             return infer_signature(example, prediction, params)
         except Exception as e:
@@ -1426,7 +1430,13 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]), outputs=Schema([ColSpec("string")])
             )
-        elif isinstance(pipeline, transformers.TextClassificationPipeline):
+        elif isinstance(
+            pipeline,
+            (
+                transformers.TextClassificationPipeline,
+                transformers.ImageClassificationPipeline,
+            ),
+        ):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]),
                 outputs=Schema([ColSpec("string", name="label"), ColSpec("double", name="score")]),
@@ -1636,13 +1646,16 @@ def generate_signature_output(pipeline, data, model_config=None, params=None):
     for model saving and logging. This function simulates loading of a saved model or pipeline
     as a ``pyfunc`` model without having to incur a write to disk.
 
-    :param pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
-                     inputs are not permitted for extracting an output example.
-    :param data: An example input that is compatible with the given pipeline
-    :param model_config: Any additional model configuration, provided as kwargs, to inform
-                         the format of the output type from a pipeline inference call.
-    :param params: A dictionary of additional parameters to pass to the pipeline for inference.
-    :return: The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
+    Args:
+        pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
+            inputs are not permitted for extracting an output example.
+        data: An example input that is compatible with the given pipeline
+        model_config: Any additional model configuration, provided as kwargs, to inform
+            the format of the output type from a pipeline inference call.
+        params: A dictionary of additional parameters to pass to the pipeline for inference.
+
+    Returns:
+        The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
     """
     import transformers
 
@@ -1745,19 +1758,21 @@ class _TransformersWrapper:
 
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
-        :param data: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            data: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                                        release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         self._override_model_config(params)
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
-        elif isinstance(data, dict):
+        elif isinstance(data, (dict, str, bytes, np.ndarray)):
             input_data = data
         elif isinstance(data, list):
             if not all(isinstance(entry, (str, dict)) for entry in data):
@@ -1767,8 +1782,6 @@ class _TransformersWrapper:
                     "dictionaries must be strings and values must be either str or List[str].",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            input_data = data
-        elif isinstance(data, (str, bytes, np.ndarray)):
             input_data = data
         else:
             raise MlflowException(
@@ -1815,6 +1828,9 @@ class _TransformersWrapper:
             self._validate_str_or_list_str(data)
             output_key = "token_str"
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
+            output_key = "label"
+        elif isinstance(self.pipeline, transformers.ImageClassificationPipeline):
+            data = self._convert_image_input(data)
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             output_key = "labels"
@@ -1894,7 +1910,11 @@ class _TransformersWrapper:
             output = json.dumps(raw_output)
         elif isinstance(
             self.pipeline,
-            (transformers.AudioClassificationPipeline, transformers.TextClassificationPipeline),
+            (
+                transformers.AudioClassificationPipeline,
+                transformers.TextClassificationPipeline,
+                transformers.ImageClassificationPipeline,
+            ),
         ):
             return pd.DataFrame(raw_output)
         else:
@@ -2581,6 +2601,65 @@ class _TransformersWrapper:
                     parsed_data.append(entry)
             return parsed_data
 
+    @staticmethod
+    def is_base64_image(image):
+        """Check whether input image is a base64 encoded"""
+
+        try:
+            return base64.b64encode(base64.b64decode(image)).decode("utf-8") == image
+        except binascii.Error:
+            return False
+
+    def _convert_image_input(self, input_data):
+        """
+        Conversion utility for decoding the base64 encoded bytes data of a raw image file when
+        parsed through model serving, if applicable. Direct usage of the pyfunc implementation
+        outside of model serving will treat this utility as a noop.
+
+        For reference, the expected encoding for input to Model Serving will be:
+
+        import requests
+        import base64
+
+        response = requests.get("https://www.my.images/a/sound/file.jpg")
+        encoded_image = base64.b64encode(response.content).decode("utf-8")
+
+        inference_data = json.dumps({"inputs": [encoded_image]})
+
+        or
+
+        inference_df = pd.DataFrame(
+        pd.Series([encoded_image], name="image_file")
+        )
+        split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+        split_json = json.dumps(split_dict)
+
+        or
+
+        records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
+        records_json = json.dumps(records_dict)
+
+        This utility will convert this JSON encoded, base64 encoded text back into bytes for
+        input into the Image pipelines for inference.
+        """
+
+        def process_input_element(input_element):
+            input_value = next(iter(input_element.values()))
+            if isinstance(input_value, str) and not self.is_base64_image(input_value):
+                self._validate_str_input_uri_or_file(input_value)
+            return input_value
+
+        if isinstance(input_data, list) and all(
+            isinstance(element, dict) for element in input_data
+        ):
+            # Use a list comprehension for readability
+            # the elimination of empty collection declarations
+            return [process_input_element(element) for element in input_data]
+        elif isinstance(input_data, str) and not self.is_base64_image(input_data):
+            self._validate_str_input_uri_or_file(input_data)
+
+        return input_data
+
     def _convert_audio_input(self, data):
         """
         Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
@@ -2664,12 +2743,17 @@ class _TransformersWrapper:
             return decode_audio(encoded_audio)
         elif isinstance(data, str):
             self._validate_str_input_uri_or_file(data)
+        # For new schema, we extract the data field out when converting
+        # pandas DataFrame to dictionary.
+        elif isinstance(data, bytes):
+            return decode_audio(data)
         return data
 
     @staticmethod
     def _validate_str_input_uri_or_file(input_str):
         """
-        Validation of blob references to audio files, if a string is input to the ``predict``
+        Validation of blob references to either audio or image files,
+        if a string is input to the ``predict``
         method, perform validation of the string contents by checking for a valid uri or
         filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
         for an invalid uri input.
@@ -2685,9 +2769,14 @@ class _TransformersWrapper:
         valid_uri = os.path.isfile(input_str) or is_uri(input_str)
 
         if not valid_uri:
+            if len(input_str) <= 20:
+                data_str = f"Received: {input_str}"
+            else:
+                data_str = f"Received (truncated): {input_str[:20]}..."
             raise MlflowException(
                 "An invalid string input was provided. String inputs to "
-                "audio files must be either a file location or a uri.",
+                "audio or image files must be either a file location or a uri."
+                f"audio files must be either a file location or a uri. {data_str}",
                 error_code=BAD_REQUEST,
             )
 

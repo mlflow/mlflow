@@ -1467,6 +1467,23 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             )
 
+    def _get_error_message_missing_columns(self, metric_name, param_names):
+        error_message_parts = [f"Metric '{metric_name}' requires the following:"]
+
+        special_params = ["targets", "predictions"]
+        for param in special_params:
+            if param in param_names:
+                error_message_parts.append(f"  - the '{param}' parameter needs to be specified")
+
+        remaining_params = [param for param in param_names if param not in special_params]
+
+        if remaining_params:
+            error_message_parts.append(
+                f"  - missing columns {remaining_params} need to be defined or mapped"
+            )
+
+        return "\n".join(error_message_parts)
+
     def _check_args(self, metrics, eval_df):
         failed_metrics = []
         # collect all failures for getting metric arguments
@@ -1494,7 +1511,7 @@ class DefaultEvaluator(ModelEvaluator):
                     input_columns.append("targets")
 
             error_messages = [
-                f"Metric '{metric_name}' requires the columns {param_names}"
+                self._get_error_message_missing_columns(metric_name, param_names)
                 for metric_name, param_names in failed_metrics
             ]
             joined_error_message = "\n".join(error_messages)
@@ -1504,8 +1521,10 @@ class DefaultEvaluator(ModelEvaluator):
             Below are the existing column names for the input/output data:
             Input Columns: {input_columns}
             Output Columns: {output_columns}
-            To resolve this issue, you may want to map the missing column to an existing column
-            using the following configuration:
+
+            To resolve this issue, you may need to specify any required parameters, or if you are
+            missing columns, you may want to map them to an existing column using the following
+            configuration:
             evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
             stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
             raise MlflowException(stripped_message)

@@ -68,7 +68,9 @@ onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
+promptflow = LazyLoader("mlflow.promptflow", globals(), "mlflow.promptflow")
 prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
+promptlab = LazyLoader("mlflow.promptlab", globals(), "mlflow.promptlab")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
@@ -89,7 +91,6 @@ xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
-from mlflow._doctor import doctor
 from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import evaluate
@@ -121,6 +122,7 @@ from mlflow.tracking.fluent import (
     delete_run,
     delete_tag,
     end_run,
+    flush_async_logging,
     get_artifact_uri,
     get_experiment,
     get_experiment_by_name,
@@ -151,6 +153,7 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils.async_logging.run_operations import RunOperations  # noqa: F401
 from mlflow.utils.credentials import login
+from mlflow.utils.doctor import doctor
 
 __all__ = [
     "ActiveRun",
@@ -167,6 +170,7 @@ __all__ = [
     "enable_system_metrics_logging",
     "end_run",
     "evaluate",
+    "flush_async_logging",
     "get_artifact_uri",
     "get_experiment",
     "get_experiment_by_name",

@@ -111,15 +111,17 @@ def _find_latest_installable_python_version(version_prefix):
 
 
 def _install_python(version, pyenv_root=None, capture_output=False):
-    """
-    Installs a specified version of python with pyenv and returns a path to the installed python
+    """Installs a specified version of python with pyenv and returns a path to the installed python
     binary.
 
-    :param version: Python version to install.
-    :param pyenv_root: The value of the "PYENV_ROOT" environment variable used when running
-                       `pyenv install` which installs python in `{PYENV_ROOT}/versions/{version}`.
-    :param capture_output: Set the `capture_output` argument when calling `_exec_cmd`
-    :return: Path to the installed python binary.
+    Args:
+        version: Python version to install.
+        pyenv_root: The value of the "PYENV_ROOT" environment variable used when running
+            `pyenv install` which installs python in `{PYENV_ROOT}/versions/{version}`.
+        capture_output: Set the `capture_output` argument when calling `_exec_cmd`.
+
+    Returns:
+        Path to the installed python binary.
     """
     version = (
         version
@@ -179,15 +181,18 @@ def _get_python_env_file(model_config):
 
 
 def _get_python_env(local_model_path):
-    """
-    Constructs `_PythonEnv` from the model artifacts stored in `local_model_path`. If
+    """Constructs `_PythonEnv` from the model artifacts stored in `local_model_path`. If
     `python_env.yaml` is available, use it, otherwise extract model dependencies from `conda.yaml`.
     If `conda.yaml` contains conda dependencies except `python`, `pip`, `setuptools`, and, `wheel`,
     an `MlflowException` is thrown because conda dependencies cannot be installed in a virtualenv
     environment.
 
-    :param local_model_path: Local directory containing the model artifacts.
-    :return: `_PythonEnv` instance.
+    Args:
+        local_model_path: Local directory containing the model artifacts.
+
+    Returns:
+        `_PythonEnv` instance.
+
     """
     model_config = Model.load(local_model_path / MLMODEL_FILE_NAME)
     python_env_file = local_model_path / _get_python_env_file(model_config)
@@ -320,20 +325,29 @@ _PYENV_ROOT_DIR = "pyenv_root"
 
 
 def _get_or_create_virtualenv(
-    local_model_path, env_id=None, env_root_dir=None, capture_output=False
+    local_model_path,
+    env_id=None,
+    env_root_dir=None,
+    capture_output=False,
+    pip_requirements_override=None,
 ):
-    """
-    Restores an MLflow model's environment with pyenv and virtualenv and returns a command
+    """Restores an MLflow model's environment with pyenv and virtualenv and returns a command
     to activate it.
 
-    :param local_model_path: Local directory containing the model artifacts.
-    :param env_id: Optional string that is added to the contents of the yaml file before
-                   calculating the hash. It can be used to distinguish environments that have the
-                   same conda dependencies but are supposed to be different based on the context.
-                   For example, when serving the model we may install additional dependencies to the
-                   environment after the environment has been activated.
-    :return: Command to activate the created virtualenv environment
-             (e.g. "source /path/to/bin/activate").
+    Args:
+        local_model_path: Local directory containing the model artifacts.
+        env_id: Optional string that is added to the contents of the yaml file before
+            calculating the hash. It can be used to distinguish environments that have the
+            same conda dependencies but are supposed to be different based on the context.
+            For example, when serving the model we may install additional dependencies to the
+            environment after the environment has been activated.
+        pip_requirements_override: If specified, install the specified python dependencies to
+            the environment (upgrade if already installed).
+
+    Returns:
+        Command to activate the created virtualenv environment
+        (e.g. "source /path/to/bin/activate").
+
     """
     _validate_pyenv_is_available()
     _validate_virtualenv_is_available()
@@ -361,7 +375,7 @@ def _get_or_create_virtualenv(
     env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
     env_dir = virtual_envs_root_path / env_name
     try:
-        return _create_virtualenv(
+        activate_cmd = _create_virtualenv(
             local_model_path,
             python_bin_path,
             env_dir,
@@ -369,6 +383,21 @@ def _get_or_create_virtualenv(
             extra_env=extra_env,
             capture_output=capture_output,
         )
+
+        # Install additional dependencies specified by `requirements_override`
+        if pip_requirements_override:
+            _logger.info(
+                "Installing additional dependencies specified by "
+                f"pip_requirements_override: {pip_requirements_override}"
+            )
+            cmd = _join_commands(
+                activate_cmd,
+                f"python -m pip install --quiet -U {' '.join(pip_requirements_override)}",
+            )
+            _exec_cmd(cmd, capture_output=capture_output, extra_env=extra_env)
+
+        return activate_cmd
+
     except:
         _logger.warning("Encountered unexpected error while creating %s", env_dir)
         if env_dir.exists():
@@ -389,18 +418,19 @@ def _execute_in_virtualenv(
     env_root_dir=None,
     **kwargs,
 ):
-    """
-    Runs a command in a specified virtualenv environment.
+    """Runs a command in a specified virtualenv environment.
 
-    :param activate_cmd: Command to activate the virtualenv environment.
-    :param command: Command to run in the virtualenv environment.
-    :param install_mlflow: Flag to determine whether to install mlflow in the virtualenv
-                           environment.
-    :param command_env: Environment variables passed to a process running the command.
-    :param synchronous: Set the `synchronous` argument when calling `_exec_cmd`.
-    :param capture_output: Set the `capture_output` argument when calling `_exec_cmd`.
-    :param env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
-    :param kwargs: Set the `kwargs` argument when calling `_exec_cmd`
+    Args:
+        activate_cmd: Command to activate the virtualenv environment.
+        command: Command to run in the virtualenv environment.
+        install_mlflow: Flag to determine whether to install mlflow in the virtualenv
+            environment.
+        command_env: Environment variables passed to a process running the command.
+        synchronous: Set the `synchronous` argument when calling `_exec_cmd`.
+        capture_output: Set the `capture_output` argument when calling `_exec_cmd`.
+        env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
+        kwargs: Set the `kwargs` argument when calling `_exec_cmd`.
+
     """
     if command_env is None:
         command_env = os.environ.copy()
