@@ -60,7 +60,7 @@ from mlflow import mleap, pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
+from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.spark import (
     _HadoopFileSystem,
@@ -113,6 +113,16 @@ _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
 _JOHNSNOWLABS_ENV_HEALTHCARE_SECRET = "HEALTHCARE_SECRET"
 _JOHNSNOWLABS_ENV_VISUAL_SECRET = "VISUAL_SECRET"
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
+default_predict_params = {
+    "output_level": "",
+    "positions": False,
+    "keep_stranger_features": True,
+    "metadata": False,
+    "multithread": True,
+    "drop_irrelevant_cols": True,
+    "return_spark_df": False,
+    "get_embeddings": True,
+}
 _logger = logging.getLogger(__name__)
 
 
@@ -206,6 +216,7 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    auto_infer_signature=True,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
@@ -343,6 +354,7 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            auto_infer_signature=auto_infer_signature,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -361,6 +373,7 @@ def log_model(
             extra_pip_requirements=extra_pip_requirements,
             remote_model_path=remote_model_path,
             store_license=store_license,
+            auto_infer_signature=auto_infer_signature,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -384,6 +397,7 @@ def _save_model_metadata(
     input_example=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    auto_infer_signature=True,
     remote_model_path=None,  # pylint: disable=unused-argument
     store_license=False,  # pylint: disable=unused-argument
 ):
@@ -402,7 +416,18 @@ def _save_model_metadata(
             spark_model=spark_model,
             sample_input=sample_input,
         )
-    if signature is not None:
+    if signature is None:
+        if auto_infer_signature:
+            try:
+                mlflow_model.signature = infer_signature(
+                    "Hello World",
+                    spark_model.predict("Hello World"),
+                    default_predict_params,
+                )
+            except Exception as err:
+                _logger.warning(f"Could not auto-infer signature for your model. Error :\n", err)
+
+    elif signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, dst_dir)
@@ -496,6 +521,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    auto_infer_signature=True,
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -626,6 +652,7 @@ def save_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         store_license=store_license,
+        auto_infer_signature=auto_infer_signature,
     )
 
 
@@ -755,6 +782,7 @@ def _load_pyfunc(path, spark=None):
     return _PyFuncModelWrapper(
         _load_model(model_uri=path),
         spark or _get_or_create_sparksession(path),
+
     )
 
 
@@ -859,14 +887,15 @@ class _PyFuncModelWrapper:
 
     def predict(self, text, params: Optional[Dict[str, Any]] = None):
         """
-        Generate predictions given input data in a pandas DataFrame.
+             Generate predictions given input data in a pandas DataFrame and params.
+             All params in https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api
+             :param text: pandas DataFrame containing input data.
+             :param params: Additional parameters to pass to the model for inference.
 
-        :param text: pandas DataFrame containing input data.
-        :param params: Additional parameters to pass to the model for inference.
-
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-        :return: List with model predictions.
+        .. Note:: Experimental: This parameter may change or be removed in a future
+                                release without warning.
+             :return: List with model predictions.
         """
-        output_level = params.get("output_level", "") if params else ""
-        return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()
+        if params is None:
+            params = {}
+        return self.spark_model.predict(text, **params).reset_index().to_json()
