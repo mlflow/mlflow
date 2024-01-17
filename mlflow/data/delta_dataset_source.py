@@ -128,10 +128,10 @@ class DeltaDatasetSource(DatasetSource):
                 json_body=req_body,
                 response_proto=GetTableResponse,
             )
-            _logger.info("table name %s", str(resp.full_name))
-            _logger.info("table id %s", str(resp.table_id))
+            #_logger.info("table name %s", str(resp.full_name))
+            #_logger.info("table id %s", str(resp.table_id))
+            _logger.info("table info is %s", str(resp.table_info))
             table_info: TableInfo = resp.table_info
-            _logger.info("table info is %s", str(table_info))
             return table_info.table_id
         except Exception as e:
             _logger.info("Failed with %s", e)
