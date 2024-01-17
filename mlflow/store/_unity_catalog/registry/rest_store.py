@@ -417,7 +417,8 @@ class UcModelRegistryStore(BaseRestStore):
             version: Model version number.
 
         Returns:
-            TemporaryCredentials containing temporary model version credentials.
+            mlflow.protos.databricks_uc_registry_messages_pb2.TemporaryCredentials containing
+            temporary model version credentials.
         """
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
