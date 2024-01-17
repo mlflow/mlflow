@@ -115,7 +115,7 @@ when logging the model. For example,
             python_model=CustomModel(),
             artifact_path="model",
             extra_pip_requirements=["pandas==2.0.3"],
-            input_example=<input_data>,
+            input_example=input_data,
         )
 
 The extra dependencies will be added to ``requirements.txt`` as follows (and similarly to ``conda.yaml``):
@@ -209,7 +209,7 @@ To do so, specify **code_path** when logging the model. For example, if you have
         mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="model",
-            input_example=<input_data>,
+            input_example=input_data,
             code_paths=["utils.py"],
         )
 
@@ -256,7 +256,7 @@ Then the following model code does **not** work:
         mlflow.pyfunc.log_model(
             python_model=MyModel(),
             artifact_path="model",
-            input_example=<input_data>,
+            input_example=input_data,
             code_paths=[
                 "src/utils.py"
             ],  # the file will be saved at code/utils.py not code/src/utils.py
@@ -286,7 +286,7 @@ This way, MLflow will copy the entire ``src/`` directory under ``code/`` and you
         mlflow.pyfunc.log_model(
             python_model=model,
             artifact_path="model",
-            input_example=<input_data>,
+            input_example=input_data,
             code_paths=["src"],  # the whole /src directory will be saved at code/src
         )
 
@@ -470,7 +470,7 @@ To do so, specify the ``extra_pip_requirements`` option when logging the model.
         artifact_path="model",
         python_model=python_model,
         extra_pip_requirements=["opencv-python==4.8.0"],
-        input_example=<input_data>,
+        input_example=input_data,
     )
 
 
