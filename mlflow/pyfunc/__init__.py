@@ -1064,7 +1064,9 @@ def _convert_array_values(values, result_type):
 
     if type(result_type.elementType) in spark_primitive_type_to_np_type:
         np_type = spark_primitive_type_to_np_type[type(result_type.elementType)]
-        return [None if _is_none_or_nan(v) else np.array(v, dtype=np_type) for v in values]
+        # For array type result values, if provided value is None or NaN, regard it as a null array.
+        # see https://github.com/mlflow/mlflow/issues/8986
+        return None if _is_none_or_nan(values) else np.array(values, dtype=np_type)
     if isinstance(result_type.elementType, ArrayType):
         return [_convert_array_values(v, result_type.elementType) for v in values]
     if isinstance(result_type.elementType, StructType):
@@ -1200,11 +1202,12 @@ def _convert_struct_values(
                 else np.array(field_values, dtype=np_type).item()
             )
         elif isinstance(field_type, ArrayType):
-            field_values = [
-                _convert_array_values(field_value, field_type) for field_value in field_values
-            ]
             if is_pandas_df:
-                field_values = pandas.Series(field_values)
+                field_values = pandas.Series(
+                    _convert_array_values(field_value, field_type) for field_value in field_values
+                )
+            else:
+                field_values = _convert_array_values(field_values, field_type)
         elif isinstance(field_type, StructType):
             if is_pandas_df:
                 field_values = pandas.Series(
