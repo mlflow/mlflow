@@ -103,6 +103,7 @@ def get_tracking_uri() -> str:
         The tracking URI.
 
         .. code-block:: python
+
           import mlflow
 
           # Get the current tracking uri
@@ -110,6 +111,7 @@ def get_tracking_uri() -> str:
           print(f"Current tracking uri: {tracking_uri}")
 
         .. code-block:: text
+
           Current tracking uri: file:///.../mlruns
     """
     global _tracking_uri

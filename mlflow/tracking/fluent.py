@@ -86,7 +86,8 @@ _logger = logging.getLogger(__name__)
 def set_experiment(
     experiment_name: Optional[str] = None, experiment_id: Optional[str] = None
 ) -> Experiment:
-    """Set the given experiment as the active experiment. The experiment must either be specified by
+    """
+    Set the given experiment as the active experiment. The experiment must either be specified by
     name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
     both be specified.
 
@@ -183,7 +184,8 @@ def start_run(
     description: Optional[str] = None,
     log_system_metrics: Optional[bool] = None,
 ) -> ActiveRun:
-    """Start a new MLflow run, setting it as the active run under which metrics and parameters
+    """
+    Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
     otherwise, you must call ``end_run()`` to terminate the current run.
 
@@ -343,7 +345,8 @@ def start_run(
 
 
 def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
-    """End an active MLflow run (if there is one).
+    """
+    End an active MLflow run (if there is one).
 
     .. testcode:: python
         :caption: Example
@@ -393,7 +396,8 @@ atexit.register(_safe_end_run)
 
 
 def active_run() -> Optional[ActiveRun]:
-    """Get the currently active ``Run``, or None if no such run exists.
+    """
+    Get the currently active ``Run``, or None if no such run exists.
 
     **Note**: You cannot access currently-active run attributes
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
@@ -527,7 +531,8 @@ def get_parent_run(run_id: str) -> Optional[Run]:
 
 
 def log_param(key: str, value: Any, synchronous: bool = True) -> Any:
-    """Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
+    """
+    Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
     this method will create a new active run.
 
     Args:
@@ -565,7 +570,8 @@ def flush_async_logging() -> None:
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
-    """Set a tag on the current experiment. Value is converted to a string.
+    """
+    Set a tag on the current experiment. Value is converted to a string.
 
     Args:
         key: Tag name. This string may only contain alphanumerics, underscores (_), dashes (-),
@@ -587,7 +593,8 @@ def set_experiment_tag(key: str, value: Any) -> None:
 
 
 def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOperations]:
-    """Set a tag under the current run. If no run is active, this method will create a new active
+    """
+    Set a tag under the current run. If no run is active, this method will create a new active
     run.
 
     Args:
@@ -622,24 +629,25 @@ def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOpera
 
 
 def delete_tag(key: str) -> None:
-    """Delete a tag from a run. This is irreversible. If no run is active, this method
+    """
+    Delete a tag from a run. This is irreversible. If no run is active, this method
     will create a new active run.
 
     Args:
         key: Name of the tag
 
-        .. testcode:: python
-          :caption: Example
+    .. testcode:: python
+        :caption: Example
 
-          import mlflow
+        import mlflow
 
-          tags = {"engineering": "ML Platform", "engineering_remote": "ML Platform"}
+        tags = {"engineering": "ML Platform", "engineering_remote": "ML Platform"}
 
-          with mlflow.start_run() as run:
-              mlflow.set_tags(tags)
+        with mlflow.start_run() as run:
+            mlflow.set_tags(tags)
 
-          with mlflow.start_run(run_id=run.info.run_id):
-              mlflow.delete_tag("engineering_remote")
+        with mlflow.start_run(run_id=run.info.run_id):
+            mlflow.delete_tag("engineering_remote")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().delete_tag(run_id, key)
@@ -652,7 +660,8 @@ def log_metric(
     synchronous: bool = True,
     timestamp: Optional[int] = None,
 ) -> Optional[RunOperations]:
-    """Log a metric under the current run. If no run is active, this method will create
+    """
+    Log a metric under the current run. If no run is active, this method will create
     a new active run.
 
     Args:
@@ -703,7 +712,8 @@ def log_metric(
 def log_metrics(
     metrics: Dict[str, float], step: Optional[int] = None, synchronous: bool = True
 ) -> Optional[RunOperations]:
-    """Log multiple metrics for the current run. If no run is active, this method will create a new
+    """
+    Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
 
     Args:
@@ -746,7 +756,8 @@ def log_metrics(
 
 
 def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[RunOperations]:
-    """Log a batch of params for the current run. If no run is active, this method will create a
+    """
+    Log a batch of params for the current run. If no run is active, this method will create a
     new active run.
 
     Args:
@@ -787,16 +798,14 @@ def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[Run
 def log_input(
     dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
 ) -> None:
-    """Log a dataset used in the current run.
+    """
+    Log a dataset used in the current run.
 
     Args:
         dataset: :py:class:`mlflow.data.dataset.Dataset` object to be logged.
         context: Context in which the dataset is used. For example: "training", "testing".
             This will be set as an input tag with key `mlflow.data.context`.
         tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
-
-    Returns:
-        None
 
     .. testcode:: python
         :caption: Example
@@ -824,32 +833,34 @@ def log_input(
 
 
 def set_experiment_tags(tags: Dict[str, Any]) -> None:
-    """Set tags for the current active experiment.
+    """
+    Set tags for the current active experiment.
 
     Args:
         tags: Dictionary containing tag names and corresponding values.
 
-        .. testcode:: python
-          :caption: Example
+            .. testcode:: python
+                :caption: Example
 
-          import mlflow
+                import mlflow
 
-          tags = {
-              "engineering": "ML Platform",
-              "release.candidate": "RC1",
-              "release.version": "2.2.0",
-          }
+                tags = {
+                    "engineering": "ML Platform",
+                    "release.candidate": "RC1",
+                    "release.version": "2.2.0",
+                }
 
-          # Set a batch of tags
-          with mlflow.start_run():
-              mlflow.set_experiment_tags(tags)
+                # Set a batch of tags
+                with mlflow.start_run():
+                    mlflow.set_experiment_tags(tags)
     """
     for key, value in tags.items():
         set_experiment_tag(key, value)
 
 
 def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOperations]:
-    """Log a batch of tags for the current run. If no run is active, this method will create a
+    """
+    Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
 
     Args:
@@ -890,7 +901,8 @@ def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOper
 
 
 def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
-    """Log a local file or directory as an artifact of the currently active run. If no run is
+    """
+    Log a local file or directory as an artifact of the currently active run. If no run is
     active, this method will create a new active run.
 
     Args:
@@ -902,7 +914,8 @@ def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
 
 
 def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
-    """Log all the contents of a local directory as artifacts of the run. If no run is active,
+    """
+    Log all the contents of a local directory as artifacts of the run. If no run is active,
     this method will create a new active run.
 
     Args:
@@ -914,27 +927,28 @@ def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
 
 
 def log_text(text: str, artifact_file: str) -> None:
-    """Log text as an artifact.
+    """
+    Log text as an artifact.
 
     Args:
         text: String containing text to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the text is saved (e.g. "dir/file.txt").
 
-        .. testcode:: python
-          :caption: Example
+    .. testcode:: python
+        :caption: Example
 
-          import mlflow
+        import mlflow
 
-          with mlflow.start_run():
-              # Log text to a file under the run's root artifact directory
-              mlflow.log_text("text1", "file1.txt")
+        with mlflow.start_run():
+            # Log text to a file under the run's root artifact directory
+            mlflow.log_text("text1", "file1.txt")
 
-              # Log text in a subdirectory of the run's root artifact directory
-              mlflow.log_text("text2", "dir/file2.txt")
+            # Log text in a subdirectory of the run's root artifact directory
+            mlflow.log_text("text2", "dir/file2.txt")
 
-              # Log HTML text
-              mlflow.log_text("<h1>header</h1>", "index.html")
+            # Log HTML text
+            mlflow.log_text("<h1>header</h1>", "index.html")
 
     """
     run_id = _get_or_start_run().info.run_id
@@ -942,7 +956,8 @@ def log_text(text: str, artifact_file: str) -> None:
 
 
 def log_dict(dictionary: Dict[str, Any], artifact_file: str) -> None:
-    """Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
+    """
+    Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
     format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
     If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
     JSON format is used.
@@ -982,7 +997,8 @@ def log_figure(
     *,
     save_kwargs: Optional[Dict[str, Any]] = None,
 ) -> None:
-    """Log a figure as an artifact. The following figure objects are supported:
+    """
+    Log a figure as an artifact. The following figure objects are supported:
 
     - `matplotlib.figure.Figure`_
     - `plotly.graph_objects.Figure`_
@@ -1027,7 +1043,8 @@ def log_figure(
 
 
 def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str) -> None:
-    """Log an image as an artifact. The following image objects are supported:
+    """
+    Log an image as an artifact. The following image objects are supported:
 
     - `numpy.ndarray`_
     - `PIL.Image.Image`_
@@ -1094,16 +1111,14 @@ def log_table(
     data: Union[Dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
 ) -> None:
-    """Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
+    """
+    Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
     in the run, the data would be appended to the existing artifact_file.
 
     Args:
         data: Dictionary or pandas.DataFrame to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the table is saved (e.g. "dir/file.json").
-
-    Returns:
-        None
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_table(run_id, data, artifact_file)
@@ -1115,7 +1130,8 @@ def load_table(
     run_ids: Optional[List[str]] = None,
     extra_columns: Optional[List[str]] = None,
 ) -> "pandas.DataFrame":
-    """Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
+    """
+    Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
     specified artifact_file in the specified run_ids. The extra_columns are columns that
     are not in the table but are augmented with run information and added to the DataFrame.
 
@@ -1221,7 +1237,8 @@ def get_experiment(experiment_id: str) -> Experiment:
 
 
 def get_experiment_by_name(name: str) -> Optional[Experiment]:
-    """Retrieve an experiment by experiment name from the backend store
+    """
+    Retrieve an experiment by experiment name from the backend store
 
     Args:
         name: The case sensitive experiment name.
@@ -1261,7 +1278,8 @@ def search_experiments(
     filter_string: Optional[str] = None,
     order_by: Optional[List[str]] = None,
 ) -> List[Experiment]:
-    """Search for experiments that match the specified search query.
+    """
+    Search for experiments that match the specified search query.
 
     Args:
         view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
@@ -1332,7 +1350,8 @@ def create_experiment(
     artifact_location: Optional[str] = None,
     tags: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """Create an experiment.
+    """
+    Create an experiment.
 
     Args:
         name: The experiment name, which must be unique and is case sensitive.
@@ -1347,69 +1366,72 @@ def create_experiment(
 
 
 def delete_experiment(experiment_id: str) -> None:
-    """Delete an experiment from the backend store.
+    """
+    Delete an experiment from the backend store.
 
     Args:
         experiment_id: The string-ified experiment ID returned from ``create_experiment``.
 
-        .. testcode:: python
-          :caption: Example
+    .. testcode:: python
+        :caption: Example
 
-          import mlflow
+        import mlflow
 
-          experiment_id = mlflow.create_experiment("New Experiment")
-          mlflow.delete_experiment(experiment_id)
+        experiment_id = mlflow.create_experiment("New Experiment")
+        mlflow.delete_experiment(experiment_id)
 
-          # Examine the deleted experiment details.
-          experiment = mlflow.get_experiment(experiment_id)
-          print(f"Name: {experiment.name}")
-          print(f"Artifact Location: {experiment.artifact_location}")
-          print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
-          print(f"Last Updated timestamp: {experiment.last_update_time}")
-        .. code-block:: text
-          :caption: Output
+        # Examine the deleted experiment details.
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
 
-          Name: New Experiment
-          Artifact Location: file:///.../mlruns/2
-          Lifecycle_stage: deleted
-          Last Updated timestamp: 1662004217511
+    .. code-block:: text
+        :caption: Output
+
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: deleted
+        Last Updated timestamp: 1662004217511
 
     """
     MlflowClient().delete_experiment(experiment_id)
 
 
 def delete_run(run_id: str) -> None:
-    """Deletes a run with the given ID.
+    """
+    Deletes a run with the given ID.
 
     Args:
         run_id: Unique identifier for the run to delete.
 
-        .. testcode:: python
-          :caption: Example
+            .. testcode:: python
+                :caption: Example
 
-          import mlflow
+                import mlflow
 
-          with mlflow.start_run() as run:
-              mlflow.log_param("p", 0)
+                with mlflow.start_run() as run:
+                    mlflow.log_param("p", 0)
 
-          run_id = run.info.run_id
-          mlflow.delete_run(run_id)
+                run_id = run.info.run_id
+                mlflow.delete_run(run_id)
 
-          print(
-              f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}"
-          )
+                lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+                print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
 
-        .. code-block:: text
-          :caption: Output
+            .. code-block:: text
+                :caption: Output
 
-          run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
+                run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
 
     """
     MlflowClient().delete_run(run_id)
 
 
 def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
-    """Get the absolute URI of the specified artifact in the currently active run.
+    """
+    Get the absolute URI of the specified artifact in the currently active run.
 
     If `path` is not specified, the artifact root URI of the currently active
     run will be returned; calls to ``log_artifact`` and ``log_artifacts`` write
@@ -1472,7 +1494,8 @@ def search_runs(
     search_all_experiments: bool = False,
     experiment_names: Optional[List[str]] = None,
 ) -> Union[List[Run], "pandas.DataFrame"]:
-    """Search for Runs that fit the specified criteria.
+    """
+    Search for Runs that fit the specified criteria.
 
     Args:
         experiment_ids: List of experiment IDs. Search can work with experiment IDs or
@@ -1686,7 +1709,8 @@ def autolog(
     extra_tags: Optional[Dict[str, str]] = None,
     # pylint: disable=unused-argument
 ) -> None:
-    """Enables (or disables) and configures autologging for all supported integrations.
+    """
+    Enables (or disables) and configures autologging for all supported integrations.
 
     The parameters are passed to any autologging integrations that support them.
 

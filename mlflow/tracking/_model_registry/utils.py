@@ -115,20 +115,22 @@ def get_registry_uri() -> str:
         The registry URI.
 
         .. code-block:: python
-          # Get the current model registry uri
-          mr_uri = mlflow.get_registry_uri()
-          print(f"Current model registry uri: {mr_uri}")
 
-          # Get the current tracking uri
-          tracking_uri = mlflow.get_tracking_uri()
-          print(f"Current tracking uri: {tracking_uri}")
+            # Get the current model registry uri
+            mr_uri = mlflow.get_registry_uri()
+            print(f"Current model registry uri: {mr_uri}")
 
-          # They should be the same
-          assert mr_uri == tracking_uri
+            # Get the current tracking uri
+            tracking_uri = mlflow.get_tracking_uri()
+            print(f"Current tracking uri: {tracking_uri}")
+
+            # They should be the same
+            assert mr_uri == tracking_uri
 
         .. code-block:: text
-          Current model registry uri: file:///.../mlruns
-          Current tracking uri: file:///.../mlruns
+
+            Current model registry uri: file:///.../mlruns
+            Current tracking uri: file:///.../mlruns
 
     """
     return _get_registry_uri_from_context() or get_tracking_uri()

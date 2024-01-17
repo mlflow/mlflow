@@ -298,7 +298,8 @@ class MlflowClient:
         tags: Optional[Dict[str, Any]] = None,
         run_name: Optional[str] = None,
     ) -> Run:
-        """Create a :py:class:`mlflow.entities.Run` object that can be associated with
+        """
+        Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
         Unlike :py:func:`mlflow.projects.run`, creates objects but does not run code.
         Unlike :py:func:`mlflow.start_run`, does not change the "active run" used by
@@ -354,7 +355,8 @@ class MlflowClient:
         order_by: Optional[List[str]] = None,
         page_token=None,
     ) -> PagedList[Experiment]:
-        """Search for experiments that match the specified search query.
+        """
+        Search for experiments that match the specified search query.
 
         Args:
             view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
@@ -572,109 +574,117 @@ class MlflowClient:
         Args:
             experiment_id: The experiment ID returned from ``create_experiment``.
 
-            .. code-block:: python
-              from mlflow import MlflowClient
+        .. code-block:: python
 
-              # Create an experiment with a name that is unique and case sensitive
-              client = MlflowClient()
-              experiment_id = client.create_experiment("New Experiment")
-              client.delete_experiment(experiment_id)
+            from mlflow import MlflowClient
 
-              # Examine the deleted experiment details.
-              experiment = client.get_experiment(experiment_id)
-              print(f"Name: {experiment.name}")
-              print(f"Artifact Location: {experiment.artifact_location}")
-              print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+            # Create an experiment with a name that is unique and case sensitive
+            client = MlflowClient()
+            experiment_id = client.create_experiment("New Experiment")
+            client.delete_experiment(experiment_id)
 
-            .. code-block:: text
-              Name: New Experiment
-              Artifact Location: file:///.../mlruns/1
-              Lifecycle_stage: deleted
+            # Examine the deleted experiment details.
+            experiment = client.get_experiment(experiment_id)
+            print(f"Name: {experiment.name}")
+            print(f"Artifact Location: {experiment.artifact_location}")
+            print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+
+        .. code-block:: text
+
+            Name: New Experiment
+            Artifact Location: file:///.../mlruns/1
+            Lifecycle_stage: deleted
 
         """
         self._tracking_client.delete_experiment(experiment_id)
 
     def restore_experiment(self, experiment_id: str) -> None:
-        """Restore a deleted experiment unless permanently deleted.
+        """
+        Restore a deleted experiment unless permanently deleted.
 
         Args:
             experiment_id: The experiment ID returned from ``create_experiment``.
 
-            .. code-block:: python
-              from mlflow import MlflowClient
+        .. code-block:: python
+
+            from mlflow import MlflowClient
 
 
-              def print_experiment_info(experiment):
-                  print(f"Name: {experiment.name}")
-                  print(f"Experiment Id: {experiment.experiment_id}")
-                  print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+            def print_experiment_info(experiment):
+                print(f"Name: {experiment.name}")
+                print(f"Experiment Id: {experiment.experiment_id}")
+                print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
 
 
-              # Create and delete an experiment
-              client = MlflowClient()
-              experiment_id = client.create_experiment("New Experiment")
-              client.delete_experiment(experiment_id)
+            # Create and delete an experiment
+            client = MlflowClient()
+            experiment_id = client.create_experiment("New Experiment")
+            client.delete_experiment(experiment_id)
 
-              # Examine the deleted experiment details.
-              experiment = client.get_experiment(experiment_id)
-              print_experiment_info(experiment)
-              print("--")
+            # Examine the deleted experiment details.
+            experiment = client.get_experiment(experiment_id)
+            print_experiment_info(experiment)
+            print("--")
 
-              # Restore the experiment and fetch its info
-              client.restore_experiment(experiment_id)
-              experiment = client.get_experiment(experiment_id)
-              print_experiment_info(experiment)
+            # Restore the experiment and fetch its info
+            client.restore_experiment(experiment_id)
+            experiment = client.get_experiment(experiment_id)
+            print_experiment_info(experiment)
 
-            .. code-block:: text
-              Name: New Experiment
-              Experiment Id: 1
-              Lifecycle_stage: deleted
-              --
-              Name: New Experiment
-              Experiment Id: 1
-              Lifecycle_stage: active
+        .. code-block:: text
+
+            Name: New Experiment
+            Experiment Id: 1
+            Lifecycle_stage: deleted
+            --
+            Name: New Experiment
+            Experiment Id: 1
+            Lifecycle_stage: active
 
         """
         self._tracking_client.restore_experiment(experiment_id)
 
     def rename_experiment(self, experiment_id: str, new_name: str) -> None:
-        """Update an experiment's name. The new name must be unique.
+        """
+        Update an experiment's name. The new name must be unique.
 
         Args:
             experiment_id: The experiment ID returned from ``create_experiment``.
 
-            .. code-block:: python
-              from mlflow import MlflowClient
+        .. code-block:: python
+
+            from mlflow import MlflowClient
 
 
-              def print_experiment_info(experiment):
-                  print(f"Name: {experiment.name}")
-                  print(f"Experiment_id: {experiment.experiment_id}")
-                  print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+            def print_experiment_info(experiment):
+                print(f"Name: {experiment.name}")
+                print(f"Experiment_id: {experiment.experiment_id}")
+                print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
 
 
-              # Create an experiment with a name that is unique and case sensitive
-              client = MlflowClient()
-              experiment_id = client.create_experiment("Social NLP Experiments")
+            # Create an experiment with a name that is unique and case sensitive
+            client = MlflowClient()
+            experiment_id = client.create_experiment("Social NLP Experiments")
 
-              # Fetch experiment metadata information
-              experiment = client.get_experiment(experiment_id)
-              print_experiment_info(experiment)
-              print("--")
+            # Fetch experiment metadata information
+            experiment = client.get_experiment(experiment_id)
+            print_experiment_info(experiment)
+            print("--")
 
-              # Rename and fetch experiment metadata information
-              client.rename_experiment(experiment_id, "Social Media NLP Experiments")
-              experiment = client.get_experiment(experiment_id)
-              print_experiment_info(experiment)
+            # Rename and fetch experiment metadata information
+            client.rename_experiment(experiment_id, "Social Media NLP Experiments")
+            experiment = client.get_experiment(experiment_id)
+            print_experiment_info(experiment)
 
-            .. code-block:: text
-              Name: Social NLP Experiments
-              Experiment_id: 1
-              Lifecycle_stage: active
-              --
-              Name: Social Media NLP Experiments
-              Experiment_id: 1
-              Lifecycle_stage: active
+        .. code-block:: text
+
+            Name: Social NLP Experiments
+            Experiment_id: 1
+            Lifecycle_stage: active
+            --
+            Name: Social Media NLP Experiments
+            Experiment_id: 1
+            Lifecycle_stage: active
 
         """
         self._tracking_client.rename_experiment(experiment_id, new_name)
@@ -688,7 +698,8 @@ class MlflowClient:
         step: Optional[int] = None,
         synchronous: bool = True,
     ) -> Optional[RunOperations]:
-        """Log a metric against the run ID.
+        """
+        Log a metric against the run ID.
 
         Args:
             run_id: The run id to which the metric should be logged.
@@ -763,7 +774,8 @@ class MlflowClient:
     def log_param(
         self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = True
     ) -> Any:
-        """Log a parameter (e.g. model hyperparameter) against the run ID.
+        """
+        Log a parameter (e.g. model hyperparameter) against the run ID.
 
         Args:
             run_id: The run id to which the param should be logged.
@@ -790,29 +802,32 @@ class MlflowClient:
             return self._tracking_client.log_param(run_id, key, value, synchronous=False)
 
     def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
-        """Set a tag on the experiment with the specified ID. Value is converted to a string.
+        """
+        Set a tag on the experiment with the specified ID. Value is converted to a string.
 
         Args:
             experiment_id: String ID of the experiment.
             key: Name of the tag.
             value: Tag value (converted to a string).
 
-            .. code-block:: python
-              from mlflow import MlflowClient
+        .. code-block:: python
 
-              # Create an experiment and set its tag
-              client = MlflowClient()
-              experiment_id = client.create_experiment("Social Media NLP Experiments")
-              client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
+            from mlflow import MlflowClient
 
-              # Fetch experiment metadata information
-              experiment = client.get_experiment(experiment_id)
-              print(f"Name: {experiment.name}")
-              print(f"Tags: {experiment.tags}")
+            # Create an experiment and set its tag
+            client = MlflowClient()
+            experiment_id = client.create_experiment("Social Media NLP Experiments")
+            client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
 
-            .. code-block:: text
-              Name: Social Media NLP Experiments
-              Tags: {'nlp.framework': 'Spark NLP'}
+            # Fetch experiment metadata information
+            experiment = client.get_experiment(experiment_id)
+            print(f"Name: {experiment.name}")
+            print(f"Tags: {experiment.tags}")
+
+        .. code-block:: text
+
+            Name: Social Media NLP Experiments
+            Tags: {'nlp.framework': 'Spark NLP'}
 
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
@@ -820,7 +835,8 @@ class MlflowClient:
     def set_tag(
         self, run_id: str, key: str, value: Any, synchronous: bool = True
     ) -> Optional[RunOperations]:
-        """Set a tag on the run with the specified ID. Value is converted to a string.
+        """
+        Set a tag on the run with the specified ID. Value is converted to a string.
 
         Args:
             run_id: String ID of the run.
@@ -847,34 +863,36 @@ class MlflowClient:
             run_id: String ID of the run.
             key: Name of the tag.
 
-            .. code-block:: python
-              from mlflow import MlflowClient
+        .. code-block:: python
+
+            from mlflow import MlflowClient
 
 
-              def print_run_info(run):
-                  print(f"run_id: {run.info.run_id}")
-                  print(f"Tags: {run.data.tags}")
+            def print_run_info(run):
+                print(f"run_id: {run.info.run_id}")
+                print(f"Tags: {run.data.tags}")
 
 
-              # Create a run under the default experiment (whose id is '0').
-              client = MlflowClient()
-              tags = {"t1": 1, "t2": 2}
-              experiment_id = "0"
-              run = client.create_run(experiment_id, tags=tags)
-              print_run_info(run)
-              print("--")
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            tags = {"t1": 1, "t2": 2}
+            experiment_id = "0"
+            run = client.create_run(experiment_id, tags=tags)
+            print_run_info(run)
+            print("--")
 
-              # Delete tag and fetch updated info
-              client.delete_tag(run.info.run_id, "t1")
-              run = client.get_run(run.info.run_id)
-              print_run_info(run)
+            # Delete tag and fetch updated info
+            client.delete_tag(run.info.run_id, "t1")
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
 
-            .. code-block:: text
-              run_id: b7077267a59a45d78cd9be0de4bc41f5
-              Tags: {'t2': '2', 't1': '1'}
-              --
-              run_id: b7077267a59a45d78cd9be0de4bc41f5
-              Tags: {'t2': '2'}
+        .. code-block:: text
+
+            run_id: b7077267a59a45d78cd9be0de4bc41f5
+            Tags: {'t2': '2', 't1': '1'}
+            --
+            run_id: b7077267a59a45d78cd9be0de4bc41f5
+            Tags: {'t2': '2'}
 
         """
         self._tracking_client.delete_tag(run_id, key)
@@ -892,6 +910,7 @@ class MlflowClient:
                 ``status`` should be specified.
 
         .. code-block:: python
+
           from mlflow import MlflowClient
 
 
@@ -914,6 +933,7 @@ class MlflowClient:
           print_run_info(run)
 
         .. code-block:: text
+
           run_id: 1cf6bf8bf6484dd8a598bd43be367b20
           run_name: judicious-hog-915
           status: RUNNING
@@ -933,10 +953,11 @@ class MlflowClient:
         tags: Sequence[RunTag] = (),
         synchronous: bool = True,
     ) -> Optional[RunOperations]:
-        """Log multiple metrics, params, and/or tags.
+        """
+        Log multiple metrics, params, and/or tags.
 
         Args:
-            run_id: String ID of the run.
+            run_id: String ID of the run
             metrics: If provided, List of Metric(key, value, timestamp) instances.
             params: If provided, List of Param(key, value) instances.
             tags: If provided, List of RunTag(key, value) instances.
@@ -945,7 +966,7 @@ class MlflowClient:
                 and returns a future representing the logging operation.
 
         Raises:
-            MlflowException: If any errors occur.
+            mlflow.MlflowException: If any errors occur.
 
         Returns:
             When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -1015,9 +1036,6 @@ class MlflowClient:
 
         Raises:
             MlflowException: If any errors occur.
-
-        Returns:
-            None
         """
         self._tracking_client.log_inputs(run_id, datasets)
 
@@ -1028,29 +1046,31 @@ class MlflowClient:
             local_path: Path to the file or directory to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
-            .. code-block:: python
-              from mlflow import MlflowClient
+        .. code-block:: python
 
-              features = "rooms, zipcode, median_price, school_rating, transport"
-              with open("features.txt", "w") as f:
-                  f.write(features)
+            from mlflow import MlflowClient
 
-              # Create a run under the default experiment (whose id is '0').
-              client = MlflowClient()
-              experiment_id = "0"
-              run = client.create_run(experiment_id)
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            with open("features.txt", "w") as f:
+                f.write(features)
 
-              # log and fetch the artifact
-              client.log_artifact(run.info.run_id, "features.txt")
-              artifacts = client.list_artifacts(run.info.run_id)
-              for artifact in artifacts:
-                  print(f"artifact: {artifact.path}")
-                  print(f"is_dir: {artifact.is_dir}")
-              client.set_terminated(run.info.run_id)
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
 
-            .. code-block:: text
-              artifact: features.txt
-              is_dir: False
+            # log and fetch the artifact
+            client.log_artifact(run.info.run_id, "features.txt")
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print(f"artifact: {artifact.path}")
+                print(f"is_dir: {artifact.is_dir}")
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+
+            artifact: features.txt
+            is_dir: False
 
         """
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
@@ -1064,36 +1084,38 @@ class MlflowClient:
             local_dir: Path to the directory of files to write.
             artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
-            .. code-block:: python
-              import os
-              import json
+        .. code-block:: python
 
-              # Create some artifacts data to preserve
-              features = "rooms, zipcode, median_price, school_rating, transport"
-              data = {"state": "TX", "Available": 25, "Type": "Detached"}
+            import os
+            import json
 
-              # Create couple of artifact files under the local directory "data"
-              os.makedirs("data", exist_ok=True)
-              with open("data/data.json", "w", encoding="utf-8") as f:
-                  json.dump(data, f, indent=2)
-              with open("data/features.txt", "w") as f:
-                  f.write(features)
+            # Create some artifacts data to preserve
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            data = {"state": "TX", "Available": 25, "Type": "Detached"}
 
-              # Create a run under the default experiment (whose id is '0'), and log
-              # all files in "data" to root artifact_uri/states
-              client = MlflowClient()
-              experiment_id = "0"
-              run = client.create_run(experiment_id)
-              client.log_artifacts(run.info.run_id, "data", artifact_path="states")
-              artifacts = client.list_artifacts(run.info.run_id)
-              for artifact in artifacts:
-                  print(f"artifact: {artifact.path}")
-                  print(f"is_dir: {artifact.is_dir}")
-              client.set_terminated(run.info.run_id)
+            # Create couple of artifact files under the local directory "data"
+            os.makedirs("data", exist_ok=True)
+            with open("data/data.json", "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            with open("data/features.txt", "w") as f:
+                f.write(features)
 
-            .. code-block:: text
-              artifact: states
-              is_dir: True
+            # Create a run under the default experiment (whose id is '0'), and log
+            # all files in "data" to root artifact_uri/states
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            client.log_artifacts(run.info.run_id, "data", artifact_path="states")
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print(f"artifact: {artifact.path}")
+                print(f"is_dir: {artifact.is_dir}")
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+
+            artifact: states
+            is_dir: True
 
         """
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
@@ -1129,20 +1151,21 @@ class MlflowClient:
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the text is saved (e.g. "dir/file.txt").
 
-            .. code-block:: python
-              from mlflow import MlflowClient
+        .. code-block:: python
 
-              client = MlflowClient()
-              run = client.create_run(experiment_id="0")
+            from mlflow import MlflowClient
 
-              # Log text to a file under the run's root artifact directory
-              client.log_text(run.info.run_id, "text1", "file1.txt")
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
 
-              # Log text in a subdirectory of the run's root artifact directory
-              client.log_text(run.info.run_id, "text2", "dir/file2.txt")
+            # Log text to a file under the run's root artifact directory
+            client.log_text(run.info.run_id, "text1", "file1.txt")
 
-              # Log HTML text
-              client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
+            # Log text in a subdirectory of the run's root artifact directory
+            client.log_text(run.info.run_id, "text2", "dir/file2.txt")
+
+            # Log HTML text
+            client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
 
         """
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
@@ -1438,7 +1461,8 @@ class MlflowClient:
         data: Union[Dict[str, Any], "pandas.DataFrame"],
         artifact_file: str,
     ) -> None:
-        """Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
+        """
+        Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
         in the run, the data would be appended to the existing artifact_file.
 
         Args:
@@ -1446,9 +1470,6 @@ class MlflowClient:
             data: Dictionary or pandas.DataFrame to log.
             artifact_file: The run-relative artifact file path in posixpath format to which
                 the table is saved (e.g. "dir/file.json").
-
-        Returns:
-            None
         """
         import pandas as pd
 
@@ -1498,7 +1519,8 @@ class MlflowClient:
         run_ids: Optional[List[str]] = None,
         extra_columns: Optional[List[str]] = None,
     ) -> "pandas.DataFrame":
-        """Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
+        """
+        Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
         specified artifact_file in the specified run_ids. The extra_columns are columns that
         are not in the table but are augmented with run information and added to the DataFrame.
 
@@ -1647,7 +1669,8 @@ class MlflowClient:
         return self._tracking_client.list_artifacts(run_id, path)
 
     def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
-        """Download an artifact file or directory from a run to a local directory if applicable,
+        """
+        Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
 
         Args:
@@ -1703,37 +1726,39 @@ class MlflowClient:
             status: A string value of :py:class:`mlflow.entities.RunStatus`. Defaults to "FINISHED".
             end_time: If not provided, defaults to the current time.
 
-            .. code-block:: python
-                from mlflow import MlflowClient
+        .. code-block:: python
+
+            from mlflow import MlflowClient
 
 
-                def print_run_info(r):
-                    print(f"run_id: {r.info.run_id}")
-                    print(f"status: {r.info.status}")
+            def print_run_info(r):
+                print(f"run_id: {r.info.run_id}")
+                print(f"status: {r.info.status}")
 
 
-                # Create a run under the default experiment (whose id is '0').
-                # Since this is low-level CRUD operation, this method will create a run.
-                # To end the run, you'll have to explicitly terminate it.
-                client = MlflowClient()
-                experiment_id = "0"
-                run = client.create_run(experiment_id)
-                print_run_info(run)
-                print("--")
+            # Create a run under the default experiment (whose id is '0').
+            # Since this is low-level CRUD operation, this method will create a run.
+            # To end the run, you'll have to explicitly terminate it.
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print_run_info(run)
+            print("--")
 
-                # Terminate the run and fetch updated status. By default,
-                # the status is set to "FINISHED". Other values you can
-                # set are "KILLED", "FAILED", "RUNNING", or "SCHEDULED".
-                client.set_terminated(run.info.run_id, status="KILLED")
-                run = client.get_run(run.info.run_id)
-                print_run_info(run)
+            # Terminate the run and fetch updated status. By default,
+            # the status is set to "FINISHED". Other values you can
+            # set are "KILLED", "FAILED", "RUNNING", or "SCHEDULED".
+            client.set_terminated(run.info.run_id, status="KILLED")
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
 
-            .. code-block:: text
-                run_id: 575fb62af83f469e84806aee24945973
-                status: RUNNING
-                --
-                run_id: 575fb62af83f469e84806aee24945973
-                status: KILLED
+        .. code-block:: text
+
+            run_id: 575fb62af83f469e84806aee24945973
+            status: RUNNING
+            --
+            run_id: 575fb62af83f469e84806aee24945973
+            status: KILLED
 
         """
         self._tracking_client.set_terminated(run_id, status, end_time)
@@ -1744,23 +1769,25 @@ class MlflowClient:
         Args:
             run_id: The unique run id to delete.
 
-            .. code-block:: python
-                from mlflow import MlflowClient
+        .. code-block:: python
 
-                # Create a run under the default experiment (whose id is '0').
-                client = MlflowClient()
-                experiment_id = "0"
-                run = client.create_run(experiment_id)
-                run_id = run.info.run_id
-                print(f"run_id: {run_id}; lifecycle_stage: {run.info.lifecycle_stage}")
-                print("--")
-                client.delete_run(run_id)
-                del_run = client.get_run(run_id)
-                print(f"run_id: {run_id}; lifecycle_stage: {del_run.info.lifecycle_stage}")
+            from mlflow import MlflowClient
 
-            .. code-block:: text
-                run_id: a61c7a1851324f7094e8d5014c58c8c8; lifecycle_stage: active
-                run_id: a61c7a1851324f7094e8d5014c58c8c8; lifecycle_stage: deleted
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            run_id = run.info.run_id
+            print(f"run_id: {run_id}; lifecycle_stage: {run.info.lifecycle_stage}")
+            print("--")
+            client.delete_run(run_id)
+            del_run = client.get_run(run_id)
+            print(f"run_id: {run_id}; lifecycle_stage: {del_run.info.lifecycle_stage}")
+
+        .. code-block:: text
+
+            run_id: a61c7a1851324f7094e8d5014c58c8c8; lifecycle_stage: active
+            run_id: a61c7a1851324f7094e8d5014c58c8c8; lifecycle_stage: deleted
 
         """
         self._tracking_client.delete_run(run_id)
@@ -1771,26 +1798,28 @@ class MlflowClient:
         Args:
             run_id: The unique run id to restore.
 
-            .. code-block:: python
-              from mlflow import MlflowClient
+        .. code-block:: python
 
-              # Create a run under the default experiment (whose id is '0').
-              client = MlflowClient()
-              experiment_id = "0"
-              run = client.create_run(experiment_id)
-              run_id = run.info.run_id
-              print(f"run_id: {run_id}; lifecycle_stage: {run.info.lifecycle_stage}")
-              client.delete_run(run_id)
-              del_run = client.get_run(run_id)
-              print(f"run_id: {run_id}; lifecycle_stage: {del_run.info.lifecycle_stage}")
-              client.restore_run(run_id)
-              rest_run = client.get_run(run_id)
-              print(f"run_id: {run_id}; lifecycle_stage: {rest_run.info.lifecycle_stage}")
+            from mlflow import MlflowClient
 
-            .. code-block:: text
-              run_id: 7bc59754d7e74534a7917d62f2873ac0; lifecycle_stage: active
-              run_id: 7bc59754d7e74534a7917d62f2873ac0; lifecycle_stage: deleted
-              run_id: 7bc59754d7e74534a7917d62f2873ac0; lifecycle_stage: active
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            run_id = run.info.run_id
+            print(f"run_id: {run_id}; lifecycle_stage: {run.info.lifecycle_stage}")
+            client.delete_run(run_id)
+            del_run = client.get_run(run_id)
+            print(f"run_id: {run_id}; lifecycle_stage: {del_run.info.lifecycle_stage}")
+            client.restore_run(run_id)
+            rest_run = client.get_run(run_id)
+            print(f"run_id: {run_id}; lifecycle_stage: {rest_run.info.lifecycle_stage}")
+
+        .. code-block:: text
+
+            run_id: 7bc59754d7e74534a7917d62f2873ac0; lifecycle_stage: active
+            run_id: 7bc59754d7e74534a7917d62f2873ac0; lifecycle_stage: deleted
+            run_id: 7bc59754d7e74534a7917d62f2873ac0; lifecycle_stage: active
 
         """
         self._tracking_client.restore_run(run_id)
@@ -1804,7 +1833,8 @@ class MlflowClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[Run]:
-        """Search for Runs that fit the specified criteria.
+        """
+        Search for Runs that fit the specified criteria.
 
         Args:
             experiment_ids: List of experiment IDs, or a single int or string id.
@@ -1835,7 +1865,8 @@ class MlflowClient:
     def create_registered_model(
         self, name: str, tags: Optional[Dict[str, Any]] = None, description: Optional[str] = None
     ) -> RegisteredModel:
-        """Create a new registered model in backend store.
+        """
+        Create a new registered model in backend store.
 
         Args:
             name: Name of the new model. This is expected to be unique in the backend store.
@@ -1920,48 +1951,50 @@ class MlflowClient:
         Args:
             name: Name of the registered model to delete.
 
-            .. code-block:: python
-              import mlflow
-              from mlflow import MlflowClient
+        .. code-block:: python
+
+            import mlflow
+            from mlflow import MlflowClient
 
 
-              def print_registered_models_info(r_models):
-                  print("--")
-                  for rm in r_models:
-                      print(f"name: {rm.name}")
-                      print(f"tags: {rm.tags}")
-                      print(f"description: {rm.description}")
+            def print_registered_models_info(r_models):
+                print("--")
+                for rm in r_models:
+                    print(f"name: {rm.name}")
+                    print(f"tags: {rm.tags}")
+                    print(f"description: {rm.description}")
 
 
-              mlflow.set_tracking_uri("sqlite:///mlruns.db")
-              client = MlflowClient()
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
 
-              # Register a couple of models with respective names, tags, and descriptions
-              for name, tags, desc in [
-                  ("name1", {"t1": "t1"}, "description1"),
-                  ("name2", {"t2": "t2"}, "description2"),
-              ]:
-                  client.create_registered_model(name, tags, desc)
+            # Register a couple of models with respective names, tags, and descriptions
+            for name, tags, desc in [
+                ("name1", {"t1": "t1"}, "description1"),
+                ("name2", {"t2": "t2"}, "description2"),
+            ]:
+                client.create_registered_model(name, tags, desc)
 
-              # Fetch all registered models
-              print_registered_models_info(client.search_registered_models())
+            # Fetch all registered models
+            print_registered_models_info(client.search_registered_models())
 
-              # Delete one registered model and fetch again
-              client.delete_registered_model("name1")
-              print_registered_models_info(client.search_registered_models())
+            # Delete one registered model and fetch again
+            client.delete_registered_model("name1")
+            print_registered_models_info(client.search_registered_models())
 
-            .. code-block:: text
-              --
-              name: name1
-              tags: {'t1': 't1'}
-              description: description1
-              name: name2
-              tags: {'t2': 't2'}
-              description: description2
-              --
-              name: name2
-              tags: {'t2': 't2'}
-              description: description2
+        .. code-block:: text
+
+            --
+            name: name1
+            tags: {'t1': 't1'}
+            description: description1
+            name: name2
+            tags: {'t2': 't2'}
+            description: description2
+            --
+            name: name2
+            tags: {'t2': 't2'}
+            description: description2
 
         """
         self._get_registry_client().delete_registered_model(name)
@@ -1973,7 +2006,8 @@ class MlflowClient:
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[RegisteredModel]:
-        """Search for registered models in backend that satisfy the filter criteria.
+        """
+        Search for registered models in backend that satisfy the filter criteria.
 
         Args:
             filter_string: Filter query string (e.g., "name = 'a_model_name' and tag.key =
@@ -2075,7 +2109,8 @@ class MlflowClient:
     def get_latest_versions(
         self, name: str, stages: Optional[List[str]] = None
     ) -> List[ModelVersion]:
-        """Latest version models for each requests stage. If no ``stages`` provided, returns the
+        """
+        Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
 
         Args:
@@ -2095,9 +2130,6 @@ class MlflowClient:
             name: Registered model name.
             key: Tag key to log.
             value: Tag value log.
-
-        Returns:
-            None
         """
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
@@ -2107,9 +2139,6 @@ class MlflowClient:
         Args:
             name: Registered model name.
             key: Registered model tag key.
-
-        Returns:
-            None
         """
         self._get_registry_client().delete_registered_model_tag(name, key)
 
@@ -2179,7 +2208,8 @@ class MlflowClient:
         description: Optional[str] = None,
         await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     ) -> ModelVersion:
-        """Create a new model version from given source.
+        """
+        Create a new model version from given source.
 
         Args:
             name: Name for the containing registered model.
@@ -2257,7 +2287,8 @@ class MlflowClient:
         )
 
     def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
-        """Copy a model version from one registered model to another as a new model version.
+        """
+        Copy a model version from one registered model to another as a new model version.
 
         Args:
             src_model_uri: The model URI of the model version to copy. This must be a model
@@ -2288,7 +2319,8 @@ class MlflowClient:
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
     ) -> ModelVersion:
-        """Update metadata associated with a model version in backend.
+        """
+        Update metadata associated with a model version in backend.
 
         Args:
             name: Name of the containing registered model.
@@ -2309,7 +2341,8 @@ class MlflowClient:
     def transition_model_version_stage(
         self, name: str, version: str, stage: str, archive_existing_versions: bool = False
     ) -> ModelVersion:
-        """Update model version stage.
+        """
+        Update model version stage.
 
         Args:
             name: Registered model name.
@@ -2328,93 +2361,95 @@ class MlflowClient:
         )
 
     def delete_model_version(self, name: str, version: str) -> None:
-        """Delete model version in backend.
+        """
+        Delete model version in backend.
 
         Args:
             name: Name of the containing registered model.
             version: Version number of the model version.
 
-            .. code-block:: python
-              :caption: Example
+        .. code-block:: python
+            :caption: Example
 
-              import mlflow.sklearn
-              from mlflow import MlflowClient
-              from mlflow.models import infer_signature
-              from sklearn.datasets import make_regression
-              from sklearn.ensemble import RandomForestRegressor
-
-
-              def print_models_info(mv):
-                  for m in mv:
-                      print(f"name: {m.name}")
-                      print(f"latest version: {m.version}")
-                      print(f"run_id: {m.run_id}")
-                      print(f"current_stage: {m.current_stage}")
+            import mlflow.sklearn
+            from mlflow import MlflowClient
+            from mlflow.models import infer_signature
+            from sklearn.datasets import make_regression
+            from sklearn.ensemble import RandomForestRegressor
 
 
-              mlflow.set_tracking_uri("sqlite:///mlruns.db")
-              X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            def print_models_info(mv):
+                for m in mv:
+                    print(f"name: {m.name}")
+                    print(f"latest version: {m.version}")
+                    print(f"run_id: {m.run_id}")
+                    print(f"current_stage: {m.current_stage}")
 
-              # Create two runs and log MLflow entities
-              with mlflow.start_run() as run1:
-                  params = {"n_estimators": 3, "random_state": 42}
-                  rfr = RandomForestRegressor(**params).fit(X, y)
-                  signature = infer_signature(X, rfr.predict(X))
-                  mlflow.log_params(params)
-                  mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-              with mlflow.start_run() as run2:
-                  params = {"n_estimators": 6, "random_state": 42}
-                  rfr = RandomForestRegressor(**params).fit(X, y)
-                  signature = infer_signature(X, rfr.predict(X))
-                  mlflow.log_params(params)
-                  mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
 
-              # Register model name in the model registry
-              name = "RandomForestRegression"
-              client = MlflowClient()
-              client.create_registered_model(name)
+            # Create two runs and log MLflow entities
+            with mlflow.start_run() as run1:
+                params = {"n_estimators": 3, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-              # Create a two versions of the rfr model under the registered model name
-              for run_id in [run1.info.run_id, run2.info.run_id]:
-                  model_uri = f"runs:/{run_id}/sklearn-model"
-                  mv = client.create_model_version(name, model_uri, run_id)
-                  print(f"model version {mv.version} created")
+            with mlflow.start_run() as run2:
+                params = {"n_estimators": 6, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-              print("--")
+            # Register model name in the model registry
+            name = "RandomForestRegression"
+            client = MlflowClient()
+            client.create_registered_model(name)
 
-              # Fetch latest version; this will be version 2
-              models = client.get_latest_versions(name, stages=["None"])
-              print_models_info(models)
-              print("--")
+            # Create a two versions of the rfr model under the registered model name
+            for run_id in [run1.info.run_id, run2.info.run_id]:
+                model_uri = f"runs:/{run_id}/sklearn-model"
+                mv = client.create_model_version(name, model_uri, run_id)
+                print(f"model version {mv.version} created")
 
-              # Delete the latest model version 2
-              print(f"Deleting model version {mv.version}")
-              client.delete_model_version(name, mv.version)
-              models = client.get_latest_versions(name, stages=["None"])
-              print_models_info(models)
+            print("--")
 
-            .. code-block:: text
-              :caption: Output
+            # Fetch latest version; this will be version 2
+            models = client.get_latest_versions(name, stages=["None"])
+            print_models_info(models)
+            print("--")
 
-              model version 1 created
-              model version 2 created
-              --
-              name: RandomForestRegression
-              latest version: 2
-              run_id: 9881172ef10f4cb08df3ed452c0c362b
-              current_stage: None
-              --
-              Deleting model version 2
-              name: RandomForestRegression
-              latest version: 1
-              run_id: 9165d4f8aa0a4d069550824bdc55caaf
-              current_stage: None
+            # Delete the latest model version 2
+            print(f"Deleting model version {mv.version}")
+            client.delete_model_version(name, mv.version)
+            models = client.get_latest_versions(name, stages=["None"])
+            print_models_info(models)
+
+        .. code-block:: text
+            :caption: Output
+
+            model version 1 created
+            model version 2 created
+            --
+            name: RandomForestRegression
+            latest version: 2
+            run_id: 9881172ef10f4cb08df3ed452c0c362b
+            current_stage: None
+            --
+            Deleting model version 2
+            name: RandomForestRegression
+            latest version: 1
+            run_id: 9165d4f8aa0a4d069550824bdc55caaf
+            current_stage: None
         """
         self._get_registry_client().delete_model_version(name, version)
 
     def get_model_version(self, name: str, version: str) -> ModelVersion:
-        """Converts the docstring args and returns to google style.
+        """
+        Converts the docstring args and returns to google style.
 
         Args:
             name: Name of the containing registered model.
@@ -2424,6 +2459,7 @@ class MlflowClient:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
 
         .. code-block:: python
+
           import mlflow.sklearn
           from mlflow import MlflowClient
           from mlflow.models import infer_signature
@@ -2465,6 +2501,7 @@ class MlflowClient:
           print(f"Version: {mv.version}")
 
         .. code-block:: text
+
           model version 1 created
           model version 2 created
           --
@@ -2475,7 +2512,8 @@ class MlflowClient:
         return self._get_registry_client().get_model_version(name, version)
 
     def get_model_version_download_uri(self, name: str, version: str) -> str:
-        """Get the download location in Model Registry for this model version.
+        """
+        Get the download location in Model Registry for this model version.
 
         Args:
             name: Name of the containing registered model.
@@ -2608,45 +2646,46 @@ class MlflowClient:
     def get_model_version_stages(
         self, name: str, version: str
     ) -> List[str]:  # pylint: disable=unused-argument
-        """This is a docstring. Here is info.
-
-        Here is more info.
+        """
+        This is a docstring. Here is info.
 
         Returns:
             A list of valid stages.
 
-            .. code-block:: python
-              import mlflow.sklearn
-              from mlflow import MlflowClient
-              from mlflow.models import infer_signature
-              from sklearn.datasets import make_regression
-              from sklearn.ensemble import RandomForestRegressor
+        .. code-block:: python
 
-              mlflow.set_tracking_uri("sqlite:///mlruns.db")
-              params = {"n_estimators": 3, "random_state": 42}
-              name = "RandomForestRegression"
-              X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
-              rfr = RandomForestRegressor(**params).fit(X, y)
-              signature = infer_signature(X, rfr.predict(X))
+            import mlflow.sklearn
+            from mlflow import MlflowClient
+            from mlflow.models import infer_signature
+            from sklearn.datasets import make_regression
+            from sklearn.ensemble import RandomForestRegressor
 
-              # Log MLflow entities
-              with mlflow.start_run() as run:
-                  mlflow.log_params(params)
-                  mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
-              # Register model name in the model registry
-              client = MlflowClient()
-              client.create_registered_model(name)
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
-              # Create a new version of the rfr model under the registered model name
-              # fetch valid stages
-              model_uri = f"runs:/{run.info.run_id}/models/sklearn-model"
-              mv = client.create_model_version(name, model_uri, run.info.run_id)
-              stages = client.get_model_version_stages(name, mv.version)
-              print(f"Model list of valid stages: {stages}")
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
 
-            .. code-block:: text
-              Model list of valid stages: ['None', 'Staging', 'Production', 'Archived']
+            # Create a new version of the rfr model under the registered model name
+            # fetch valid stages
+            model_uri = f"runs:/{run.info.run_id}/models/sklearn-model"
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            stages = client.get_model_version_stages(name, mv.version)
+            print(f"Model list of valid stages: {stages}")
+
+        .. code-block:: text
+
+            Model list of valid stages: ['None', 'Staging', 'Production', 'Archived']
 
         """
         return ALL_STAGES
@@ -2669,9 +2708,6 @@ class MlflowClient:
             key: Tag key to log. key is required.
             value: Tag value to log. value is required.
             stage: Registered model stage.
-
-        Returns:
-            None
         """
         _validate_model_version_or_stage_exists(version, stage)
         if stage:
@@ -2705,9 +2741,6 @@ class MlflowClient:
             version: Registered model version.
             key: Tag key. key is required.
             stage: Registered model stage.
-
-        Returns:
-            None
         """
         _validate_model_version_or_stage_exists(version, stage)
         if stage:
@@ -2724,16 +2757,14 @@ class MlflowClient:
         self._get_registry_client().delete_model_version_tag(name, version, key)
 
     def set_registered_model_alias(self, name: str, alias: str, version: str) -> None:
-        """Set a registered model alias pointing to a model version.
+        """
+        Set a registered model alias pointing to a model version.
 
         Args:
             name: Registered model name.
             alias: Name of the alias. Note that aliases of the format ``v<number>``, such as
                 ``v9`` and ``v42``, are reserved and cannot be set.
             version: Registered model version number.
-
-        Returns:
-            None
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
@@ -2746,9 +2777,6 @@ class MlflowClient:
         Args:
             name: Registered model name.
             alias: Name of the alias.
-
-        Returns:
-            None
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
