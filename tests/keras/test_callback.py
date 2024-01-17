@@ -2,7 +2,6 @@ import math
 
 import keras
 import numpy as np
-import pytest
 
 import mlflow
 from mlflow.keras.callback import MLflowCallback

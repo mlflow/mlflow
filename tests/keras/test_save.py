@@ -1,10 +1,5 @@
-import math
-
 import keras
-import pandas as pd
 import numpy as np
-import pytest
-from mlflow.models.model import MLMODEL_FILE_NAME
 
 import mlflow
 from mlflow.keras.utils import get_model_signature

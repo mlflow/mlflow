@@ -1,19 +1,16 @@
-import math
-
 import json
+import math
+import os
+
 import keras
-import pandas as pd
 import numpy as np
 import pytest
-from mlflow.types import Schema, TensorSpec
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.tracking.fluent import flush_async_logging
+import yaml
 
 import mlflow
-from mlflow.keras.utils import get_model_signature
 from mlflow import MlflowClient
-import yaml
-import os
+from mlflow.tracking.fluent import flush_async_logging
+from mlflow.types import Schema, TensorSpec
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
 

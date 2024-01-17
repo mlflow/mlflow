@@ -1,11 +1,13 @@
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models import Model
-from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 import os
-import pandas as pd
-import numpy as np
+
 import keras
+import numpy as np
+import pandas as pd
+
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 
 _MODEL_SAVE_PATH = "model"
@@ -52,23 +54,22 @@ def load_model(model_uri, dst_path=None, custom_objects=None, load_model_kwargs=
 
     This method loads a saved Keras model from MLflow, and returns a Keras model instance.
 
-    Args:
-        model_uri: The URI of the saved Keras model in MLflow. For example:
+    :param model_uri: The URI of the saved Keras model in MLflow. For example:
 
-            - `/Users/me/path/to/local/model`
-            - `relative/path/to/local/model`
-            - `s3://my_bucket/path/to/model`
-            - `runs:/<mlflow_run_id>/run-relative/path/to/model`
-            - `models:/<model_name>/<model_version>`
-            - `models:/<model_name>/<stage>`
+        - `/Users/me/path/to/local/model`
+        - `relative/path/to/local/model`
+        - `s3://my_bucket/path/to/model`
+        - `runs:/<mlflow_run_id>/run-relative/path/to/model`
+        - `models:/<model_name>/<model_version>`
+        - `models:/<model_name>/<stage>`
 
-            For more information about supported URI schemes, see `Referencing
-            Artifacts <https://www.mlflow.org/docs/latest/concepts.html#artifact-locations>`_.
-        dst_path: string, defaults to None. The local filesystem path to which to download the model
-            artifact. If unspecified, a local output path will be created.
-        custom_objects: dict, defaults to None. The `custom_objects` arg in
-            `keras.saving.load_model`.
-        load_model_kwargs: dict, defaults to None. Extra args for `keras.saving.load_model`.
+        For more information about supported URI schemes, see `Referencing
+        Artifacts <https://www.mlflow.org/docs/latest/concepts.html#artifact-locations>`_.
+    :param dst_path: string, defaults to None. The local filesystem path to which to download the
+        model artifact. If unspecified, a local output path will be created.
+    :param custom_objects: dict, defaults to None. The `custom_objects` arg in
+        `keras.saving.load_model`.
+    :param load_model_kwargs: dict, defaults to None. Extra args for `keras.saving.load_model`.
 
     .. code-block:: python
         :caption: Example
@@ -115,8 +116,7 @@ def _load_pyfunc(path):
 
     This function is called by `mlflow.pyfunc.load_model`.
 
-    Args:
-        path: Local filesystem path to the MLflow Model with the `keras` flavor.
+    :param path: Local filesystem path to the MLflow Model with the `keras` flavor.
     """
     model_meta_path1 = os.path.join(path, MLMODEL_FILE_NAME)
     model_meta_path2 = os.path.join(os.path.dirname(path), MLMODEL_FILE_NAME)

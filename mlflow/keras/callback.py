@@ -1,8 +1,8 @@
 import keras
 
-from mlflow import log_params, log_text, log_metrics
-from mlflow.utils.autologging_utils import ExceptionSafeClass
+from mlflow import log_metrics, log_params, log_text
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import ExceptionSafeClass
 
 
 @experimental
@@ -12,11 +12,10 @@ class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
     This callback logs model metadata at training begins, and logs training metrics every epoch or
     every n steps (defined by the user) to MLflow.
 
-    Args:
-        log_every_epoch: bool, defaults to True. If True, log metrics every epoch. If False,
-            log metrics every n steps.
-        log_every_n_steps: int, defaults to None. If set, log metrics every n steps. If None,
-            log metrics every epoch. Must be `None` if `log_every_epoch=True`.
+    :param log_every_epoch: bool, defaults to True. If True, log metrics every epoch. If False,
+        log metrics every n steps.
+    :param log_every_n_steps: int, defaults to None. If set, log metrics every n steps. If None,
+        log metrics every epoch. Must be `None` if `log_every_epoch=True`.
 
     .. code-block:: python
         :caption: Example
