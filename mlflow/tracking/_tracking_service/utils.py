@@ -37,18 +37,15 @@ def is_tracking_uri_set():
 
 
 def set_tracking_uri(uri: Union[str, Path]) -> None:
+    # pylint: disable=line-too-long
     """Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.
-
     Args:
-        uri: An empty string, or a local file path, prefixed with ``file:/``. Data is stored
-            locally at the provided file (or ``./mlruns`` if empty).
-            An HTTP URI like ``https://my-tracking-server:5000``.
-            A Databricks workspace, provided as the string "databricks" or, to use a
-            Databricks CLI
-            `profile <https://github.com/databricks/databricks-cli#installation>`_,
-            "databricks://<profileName>".
-            A :py:class:`pathlib.Path` instance
+        uri:
+            - An empty string, or a local file path, prefixed with ``file:/``. Data is stored locally at the provided file (or ``./mlruns`` if empty).
+            - An HTTP URI like ``https://my-tracking-server:5000``.
+            - A Databricks workspace, provided as the string "databricks" or, to use a Databricks CLI `profile <https://github.com/databricks/databricks-cli#installation>`_, "databricks://<profileName>".
+            - A :py:class:`pathlib.Path` instance
 
     .. testcode:: python
         :caption: Example
@@ -64,6 +61,7 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
 
         Current tracking uri: file:///tmp/my_tracking
     """
+    # pylint: enable=line-too-long
     if isinstance(uri, Path):
         # On Windows with Python3.8 (https://bugs.python.org/issue38671)
         # .resolve() doesn't return the absolute path if the directory doesn't exist
@@ -102,17 +100,17 @@ def get_tracking_uri() -> str:
     Returns:
         The tracking URI.
 
-        .. code-block:: python
+    .. code-block:: python
 
-          import mlflow
+        import mlflow
 
-          # Get the current tracking uri
-          tracking_uri = mlflow.get_tracking_uri()
-          print(f"Current tracking uri: {tracking_uri}")
+        # Get the current tracking uri
+        tracking_uri = mlflow.get_tracking_uri()
+        print(f"Current tracking uri: {tracking_uri}")
 
-        .. code-block:: text
+    .. code-block:: text
 
-          Current tracking uri: file:///.../mlruns
+        Current tracking uri: file:///.../mlruns
     """
     global _tracking_uri
     if _tracking_uri is not None:

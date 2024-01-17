@@ -105,6 +105,27 @@ def set_experiment(
     Returns:
         An instance of :py:class:`mlflow.entities.Experiment` representing the new active
         experiment.
+
+    .. testcode:: python
+        :caption: Example
+
+        import mlflow
+
+        # Set an experiment name, which must be unique and case-sensitive.
+        experiment = mlflow.set_experiment("Social NLP Experiments")
+        # Get Experiment Details
+        print(f"Experiment_id: {experiment.experiment_id}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Tags: {experiment.tags}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+
+    .. code-block:: text
+        :caption: Output
+
+        Experiment_id: 1
+        Artifact Location: file:///.../mlruns/1
+        Tags: {}
+        Lifecycle_stage: activ
     """
     if (experiment_name is not None and experiment_id is not None) or (
         experiment_name is None and experiment_id is None
@@ -226,6 +247,52 @@ def start_run(
     Returns:
         :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
         run's state.
+
+    .. testcode:: python
+        :caption: Example
+
+        import mlflow
+
+        # Create nested runs
+        experiment_id = mlflow.create_experiment("experiment1")
+        with mlflow.start_run(
+            run_name="PARENT_RUN",
+            experiment_id=experiment_id,
+            tags={"version": "v1", "priority": "P1"},
+            description="parent",
+        ) as parent_run:
+            mlflow.log_param("parent", "yes")
+            with mlflow.start_run(
+                run_name="CHILD_RUN",
+                experiment_id=experiment_id,
+                description="child",
+                nested=True,
+            ) as child_run:
+                mlflow.log_param("child", "yes")
+        print("parent run:")
+        print(f"run_id: {parent_run.info.run_id}")
+        print("description: {}".format(parent_run.data.tags.get("mlflow.note.content")))
+        print("version tag value: {}".format(parent_run.data.tags.get("version")))
+        print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
+        print("--")
+        # Search all child runs with a parent id
+        query = f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'"
+        results = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=query)
+        print("child runs:")
+        print(results[["run_id", "params.child", "tags.mlflow.runName"]])
+
+    .. code-block:: text
+        :caption: Output
+
+        parent run:
+        run_id: 8979459433a24a52ab3be87a229a9cdf
+        description: starting a parent for experiment 7
+        version tag value: v1
+        priority tag value: P1
+        --
+        child runs:
+                                     run_id params.child tags.mlflow.runName
+        0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
     """
     global _active_run_stack
     _validate_experiment_id_type(experiment_id)
@@ -492,6 +559,23 @@ def get_run(run_id: str) -> Run:
 
     Returns:
         A single Run object, if the run exists. Otherwise, raises an exception.
+
+    .. testcode:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
+        run_id = run.info.run_id
+        print(
+            f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}"
+        )
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 7472befefc754e388e8e922824a0cca5; lifecycle_stage: active
     """
     return MlflowClient().get_run(run_id)
 
@@ -839,20 +923,20 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
     Args:
         tags: Dictionary containing tag names and corresponding values.
 
-            .. testcode:: python
-                :caption: Example
+    .. testcode:: python
+        :caption: Example
 
-                import mlflow
+        import mlflow
 
-                tags = {
-                    "engineering": "ML Platform",
-                    "release.candidate": "RC1",
-                    "release.version": "2.2.0",
-                }
+        tags = {
+            "engineering": "ML Platform",
+            "release.candidate": "RC1",
+            "release.version": "2.2.0",
+        }
 
-                # Set a batch of tags
-                with mlflow.start_run():
-                    mlflow.set_experiment_tags(tags)
+        # Set a batch of tags
+        with mlflow.start_run():
+            mlflow.set_experiment_tags(tags)
     """
     for key, value in tags.items():
         set_experiment_tag(key, value)
@@ -908,6 +992,20 @@ def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
     Args:
         local_path: Path to the file to write.
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+    .. testcode:: python
+        :caption: Example
+
+        import mlflow
+
+        # Create a features.txt artifact file
+        features = "rooms, zipcode, median_price, school_rating, transport"
+        with open("features.txt", "w") as f:
+            f.write(features)
+        # With artifact_path=None write features.txt under
+        # root artifact_uri/artifacts directory
+        with mlflow.start_run():
+            mlflow.log_artifact("features.txt")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
@@ -921,6 +1019,26 @@ def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
     Args:
         local_dir: Path to the directory of files to write.
         artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+    .. testcode:: python
+        :caption: Example
+
+        import json
+        import os
+        import mlflow
+
+        # Create some files to preserve as artifacts
+        features = "rooms, zipcode, median_price, school_rating, transport"
+        data = {"state": "TX", "Available": 25, "Type": "Detached"}
+        # Create couple of artifact files under the directory "data"
+        os.makedirs("data", exist_ok=True)
+        with open("data/data.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        with open("data/features.txt", "w") as f:
+            f.write(features)
+        # Write all files in "data" to root artifact_uri/states
+        with mlflow.start_run():
+            mlflow.log_artifacts("data", artifact_path="states")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
@@ -1119,6 +1237,36 @@ def log_table(
         data: Dictionary or pandas.DataFrame to log.
         artifact_file: The run-relative artifact file path in posixpath format to which
             the table is saved (e.g. "dir/file.json").
+
+    .. testcode:: python
+        :caption: Dictionary Example
+
+        import mlflow
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+        with mlflow.start_run():
+            # Log the dictionary as a table
+            mlflow.log_table(data=table_dict, artifact_file="qabot_eval_results.json")
+
+    .. testcode:: python
+        :caption: Pandas DF Example
+
+        import mlflow
+        import pandas as pd
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+        df = pd.DataFrame.from_dict(table_dict)
+        with mlflow.start_run():
+            # Log the df as a table
+            mlflow.log_table(data=df, artifact_file="qabot_eval_results.json")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_table(run_id, data, artifact_file)
@@ -1327,6 +1475,46 @@ def search_experiments(
 
     Returns:
         A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
+
+    .. testcode:: python
+        :caption: Example
+
+        import mlflow
+
+
+        def assert_experiment_names_equal(experiments, expected_names):
+            actual_names = [e.name for e in experiments if e.name != "Default"]
+            assert actual_names == expected_names, (actual_names, expected_names)
+
+
+        mlflow.set_tracking_uri("sqlite:///:memory:")
+        # Create experiments
+        for name, tags in [
+            ("a", None),
+            ("b", None),
+            ("ab", {"k": "v"}),
+            ("bb", {"k": "V"}),
+        ]:
+            mlflow.create_experiment(name, tags=tags)
+
+        # Search for experiments with name "a"
+        experiments = mlflow.search_experiments(filter_string="name = 'a'")
+        assert_experiment_names_equal(experiments, ["a"])
+        # Search for experiments with name starting with "a"
+        experiments = mlflow.search_experiments(filter_string="name LIKE 'a%'")
+        assert_experiment_names_equal(experiments, ["ab", "a"])
+        # Search for experiments with tag key "k" and value ending with "v" or "V"
+        experiments = mlflow.search_experiments(filter_string="tags.k ILIKE '%v'")
+        assert_experiment_names_equal(experiments, ["bb", "ab"])
+        # Search for experiments with name ending with "b" and tag {"k": "v"}
+        experiments = mlflow.search_experiments(filter_string="name LIKE '%b' AND tags.k = 'v'")
+        assert_experiment_names_equal(experiments, ["ab"])
+        # Sort experiments by name in ascending order
+        experiments = mlflow.search_experiments(order_by=["name"])
+        assert_experiment_names_equal(experiments, ["a", "ab", "b", "bb"])
+        # Sort experiments by ID in descending order
+        experiments = mlflow.search_experiments(order_by=["experiment_id DESC"])
+        assert_experiment_names_equal(experiments, ["bb", "ab", "b", "a"])
     """
 
     def pagination_wrapper_func(number_to_get, next_page_token):
@@ -1361,6 +1549,36 @@ def create_experiment(
 
     Returns:
         String ID of the created experiment.
+
+     .. testcode:: python
+        :caption: Example
+
+        import mlflow
+        from pathlib import Path
+
+        # Create an experiment name, which must be unique and case sensitive
+        experiment_id = mlflow.create_experiment(
+            "Social NLP Experiments",
+            artifact_location=Path.cwd().joinpath("mlruns").as_uri(),
+            tags={"version": "v1", "priority": "P1"},
+        )
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Experiment_id: {experiment.experiment_id}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Tags: {experiment.tags}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Creation timestamp: {experiment.creation_time}")
+
+    .. code-block:: text
+        :caption: Output
+
+        Name: Social NLP Experiments
+        Experiment_id: 1
+        Artifact Location: file:///.../mlruns
+        Tags: {'version': 'v1', 'priority': 'P1'}
+        Lifecycle_stage: active
+        Creation timestamp: 1662004217511
     """
     return MlflowClient().create_experiment(name, artifact_location, tags)
 
@@ -1406,24 +1624,24 @@ def delete_run(run_id: str) -> None:
     Args:
         run_id: Unique identifier for the run to delete.
 
-            .. testcode:: python
-                :caption: Example
+    .. testcode:: python
+        :caption: Example
 
-                import mlflow
+        import mlflow
 
-                with mlflow.start_run() as run:
-                    mlflow.log_param("p", 0)
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
 
-                run_id = run.info.run_id
-                mlflow.delete_run(run_id)
+        run_id = run.info.run_id
+        mlflow.delete_run(run_id)
 
-                lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
-                print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
 
-            .. code-block:: text
-                :caption: Output
+    .. code-block:: text
+        :caption: Output
 
-                run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
 
     """
     MlflowClient().delete_run(run_id)
@@ -1529,6 +1747,48 @@ def search_runs(
         tags.* respectively. For runs that don't have a particular metric, parameter, or tag,
         the value for the corresponding column is (NumPy) ``Nan``, ``None``, or ``None``
         respectively.
+
+     .. testcode:: python
+        :caption: Example
+
+        import mlflow
+
+        # Create an experiment and log two runs under it
+        experiment_name = "Social NLP Experiments"
+        experiment_id = mlflow.create_experiment(experiment_name)
+        with mlflow.start_run(experiment_id=experiment_id):
+            mlflow.log_metric("m", 1.55)
+            mlflow.set_tag("s.release", "1.1.0-RC")
+        with mlflow.start_run(experiment_id=experiment_id):
+            mlflow.log_metric("m", 2.50)
+            mlflow.set_tag("s.release", "1.2.0-GA")
+        # Search for all the runs in the experiment with the given experiment ID
+        df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
+        print("--")
+        # Search the experiment_id using a filter_string with tag
+        # that has a case insensitive pattern
+        filter_string = "tags.s.release ILIKE '%rc%'"
+        df = mlflow.search_runs([experiment_id], filter_string=filter_string)
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
+        print("--")
+        # Search for all the runs in the experiment with the given experiment name
+        df = mlflow.search_runs(experiment_names=[experiment_name], order_by=["metrics.m DESC"])
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
+
+    .. code-block:: text
+        :caption: Output
+
+           metrics.m tags.s.release                            run_id
+        0       2.50       1.2.0-GA  147eed886ab44633902cc8e19b2267e2
+        1       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
+        --
+           metrics.m tags.s.release                            run_id
+        0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
+        --
+           metrics.m tags.s.release                            run_id
+        0       2.50       1.2.0-GA  147eed886ab44633902cc8e19b2267e2
+        1       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
     no_ids = experiment_ids is None or len(experiment_ids) == 0
     no_names = experiment_names is None or len(experiment_names) == 0
@@ -1714,33 +1974,117 @@ def autolog(
 
     The parameters are passed to any autologging integrations that support them.
 
+    See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
+    integrations.
+
+    Note that framework-specific configurations set at any point will take precedence over
+    any configurations set by this function. For example:
+
+    .. testcode:: python
+
+        import mlflow
+
+        mlflow.autolog(log_models=False, exclusive=True)
+        import sklearn
+
+    would enable autologging for `sklearn` with `log_models=False` and `exclusive=True`,
+    but
+
+    .. testcode:: python
+
+        import mlflow
+
+        mlflow.autolog(log_models=False, exclusive=True)
+
+        import sklearn
+
+        mlflow.sklearn.autolog(log_models=True)
+
+    would enable autologging for `sklearn` with `log_models=True` and `exclusive=False`,
+    the latter resulting from the default value for `exclusive` in `mlflow.sklearn.autolog`;
+    other framework autolog functions (e.g. `mlflow.tensorflow.autolog`) would use the
+    configurations set by `mlflow.autolog` (in this instance, `log_models=False`, `exclusive=True`),
+    until they are explicitly called by the user.
+
     Args:
         log_input_examples: If ``True``, input examples from training datasets are collected and
-            logged along with model artifacts during training. If ``False``, input examples are not
-            logged. Note: Input examples are MLflow model attributes and are only collected if
-            ``log_models`` is also ``True``.
-        log_model_signatures: If ``True``, :py:class:`ModelSignatures
-            <mlflow.models.ModelSignature>` describing model inputs and outputs are collected and
-            logged along with model artifacts during training. If ``False``, signatures are not
-            logged. Note: Model signatures are MLflow model attributes and are only collected if
-            ``log_models`` is also ``True``.
-        log_models: If ``True``, trained models are logged as MLflow model artifacts. If ``False``,
-            trained models are not logged. Input examples and model signatures, which are attributes
-            of MLflow models, are also omitted when ``log_models`` is ``False``.
-        log_datasets: If ``True``, dataset information is logged to MLflow Tracking. If ``False``,
-            dataset information is not logged.
-        disable: If ``True``, disables all supported autologging integrations. If ``False``, enables
-            all supported autologging integrations.
-        exclusive: If ``True``, autologged content is not logged to user-created fluent runs. If
-            ``False``, autologged content is logged to the active fluent run, which may be
-            user-created.
-        disable_for_unsupported_versions: If ``True``, disable autologging for versions of all
-            integration libraries that have not been tested against this version of the MLflow
-            client or are incompatible.
+            logged along with model artifacts during training. If ``False``,
+            input examples are not logged.
+            Note: Input examples are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_model_signatures: If ``True``,
+            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+            describing model inputs and outputs are collected and logged along
+            with model artifacts during training. If ``False``, signatures are
+            not logged. Note: Model signatures are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_models: If ``True``, trained models are logged as MLflow model artifacts.
+            If ``False``, trained models are not logged.
+            Input examples and model signatures, which are attributes of MLflow models,
+            are also omitted when ``log_models`` is ``False``.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+            If ``False``, dataset information is not logged.
+        disable: If ``True``, disables all supported autologging integrations. If ``False``,
+            enables all supported autologging integrations.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            all integration libraries that have not been tested against this version
+            of the MLflow client or are incompatible.
         silent: If ``True``, suppress all event logs and warnings from MLflow during autologging
             setup and training execution. If ``False``, show all events and warnings during
             autologging setup and training execution.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+
+    .. testcode:: python
+        :caption: Example
+
+        import numpy as np
+        import mlflow.sklearn
+        from mlflow import MlflowClient
+        from sklearn.linear_model import LinearRegression
+
+
+        def print_auto_logged_info(r):
+            tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
+            print(f"run_id: {r.info.run_id}")
+            print(f"artifacts: {artifacts}")
+            print(f"params: {r.data.params}")
+            print(f"metrics: {r.data.metrics}")
+            print(f"tags: {tags}")
+
+
+        # prepare training data
+        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
+        y = np.dot(X, np.array([1, 2])) + 3
+
+        # Auto log all the parameters, metrics, and artifacts
+        mlflow.autolog()
+        model = LinearRegression()
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+
+        # fetch the auto logged parameters and metrics for ended run
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: fd10a17d028c47399a55ab8741721ef7
+        artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
+        params: {'copy_X': 'True',
+                 'normalize': 'False',
+                 'fit_intercept': 'True',
+                 'n_jobs': 'None'}
+        metrics: {'training_score': 1.0,
+                  'training_root_mean_squared_error': 4.440892098500626e-16,
+                  'training_r2_score': 1.0,
+                  'training_mean_absolute_error': 2.220446049250313e-16,
+                  'training_mean_squared_error': 1.9721522630525295e-31}
+        tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
+               'estimator_name': 'LinearRegression'}
     """
     locals_copy = locals().items()
 
