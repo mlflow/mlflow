@@ -555,10 +555,8 @@ def save_model(
         # extra text for end-users
         if prompt_template is not None and built_pipeline.task == "text-generation":
             return_full_text_key = "return_full_text"
-            if model_config is None:
-                model_config = {return_full_text_key: False}
-                _logger.info(_PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO)
-            elif return_full_text_key not in model_config:
+            model_config = model_config or {}
+            if return_full_text_key not in model_config:
                 model_config[return_full_text_key] = False
                 _logger.info(_PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO)
 
