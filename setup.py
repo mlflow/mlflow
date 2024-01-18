@@ -96,7 +96,7 @@ class ListDependencies(Command):
         print("\n".join(dependencies))
 
 
-MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
+MINIMUM_SUPPORTED_PYTHON_VERSION = "3.9"
 
 
 class MinPythonVersion(Command):
