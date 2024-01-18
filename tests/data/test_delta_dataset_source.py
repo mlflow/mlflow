@@ -1,3 +1,5 @@
+from unittest import mock
+
 import json
 
 import pandas as pd
@@ -113,3 +115,47 @@ def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
 
     with pytest.raises(MlflowException, match='Must specify exactly one of "path" or "table_name"'):
         DeltaDatasetSource(path=tmp_path, delta_table_name="temp_delta_too_many_inputs")
+
+def test_uc_table_id_retrieval_works(spark_session, tmp_path):
+    def mock_resolve_table_name(table_name):
+        if table_name == "temp_delta_versioned":
+            return "category.schema.temp_delta_versioned"
+        return table_name
+
+    def mock_lookup_table_id(table_name):
+        if table_name == "category.schema.temp_delta_versioned":
+            return "uc_table_id_1"
+        return None
+
+    with mock.patch(
+        "mlflow.data.delta_dataset_source.DeltaDatasetSource._resolve_table_name",
+        side_effect=mock_resolve_table_name,
+    ):
+        with mock.patch(
+            "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
+            side_effect=mock_lookup_table_id,
+        ):
+            df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+            df_spark = spark_session.createDataFrame(df)
+            df_spark.write.format("delta").mode("overwrite").saveAsTable(
+                "default.temp_delta_versioned", path=tmp_path
+            )
+
+            df2 = pd.DataFrame([[1, 2, 3]], columns=["a", "b", "c"])
+            df2_spark = spark_session.createDataFrame(df2)
+            df2_spark.write.format("delta").mode("overwrite").saveAsTable(
+                "default.temp_delta_versioned", path=tmp_path
+            )
+
+            delta_datasource = DeltaDatasetSource(
+                delta_table_name="temp_delta_versioned", delta_table_version=1
+            )
+            loaded_df_spark = delta_datasource.load()
+            assert loaded_df_spark.count() == df2_spark.count()
+            assert delta_datasource.to_json() == json.dumps(
+                {
+                    "delta_table_name": "category.schema.temp_delta_versioned",
+                    "delta_table_version": 1,
+                    "delta_table_id": "uc_table_id_1",
+                }
+            )
