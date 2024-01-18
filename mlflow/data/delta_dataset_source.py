@@ -111,6 +111,7 @@ class DeltaDatasetSource(DatasetSource):
 
     def _lookup_table_id(self, table_name):
         try:
+            _logger.info("attempting to process table %s", table_name)
             req_body = message_to_json(GetTable(full_name_arg=table_name))
             _METHOD_TO_INFO = extract_api_info_for_service(
                 UnityCatalogService, _REST_API_PATH_PREFIX
