@@ -400,10 +400,11 @@ class RouteConfig(AliasedConfigModel):
         raise MlflowException.invalid_parameter_value(f"The route_type '{value}' is not supported.")
 
     @validator("limit", pre=True)
-    def validate_limit(cls, value: Optional[Limit]):
+    def validate_limit(cls, value):
         if value:
+            limit = Limit(**value)
             try:
-                parse(f"{value.calls}/{value.renewal_period}")
+                parse(f"{limit.calls}/{limit.renewal_period}")
             except ValueError:
                 raise MlflowException.invalid_parameter_value(
                     "Failed to parse the rate limit configuration."

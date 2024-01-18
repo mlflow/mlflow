@@ -83,7 +83,7 @@ async def parse_request_schema(request: Request, cls: Type[BaseModel]) -> BaseMo
     try:
         return cls(**payload)
     except ValidationError as e:
-        raise RequestValidationError(e.raw_errors)
+        raise RequestValidationError(e.errors())
 
 
 def _create_chat_endpoint(config: RouteConfig):
