@@ -89,7 +89,7 @@ def generate_schema(state):
         pascal_class_name = snake_to_pascal(get_descriptor_full_pascal_name(enum))
         schema_builder += f"\nclass {pascal_class_name}(graphene.Enum):"
         for value in enum.values:
-            schema_builder += f"\n{INDENT}{value.name} = '{value.name}'"
+            schema_builder += f'''\n{INDENT}{value.name} = "{value.name}"'''
         schema_builder += "\n\n"
 
     for type in state.types:

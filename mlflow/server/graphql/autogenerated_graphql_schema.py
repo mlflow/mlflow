@@ -6,11 +6,11 @@ from mlflow.utils.proto_json_utils import parse_dict
 
 
 class MlflowRunStatus(graphene.Enum):
-    RUNNING = 'RUNNING'
-    SCHEDULED = 'SCHEDULED'
-    FINISHED = 'FINISHED'
-    FAILED = 'FAILED'
-    KILLED = 'KILLED'
+    RUNNING = "RUNNING"
+    SCHEDULED = "SCHEDULED"
+    FINISHED = "FINISHED"
+    FAILED = "FAILED"
+    KILLED = "KILLED"
 
 
 class MlflowDataset(graphene.ObjectType):
