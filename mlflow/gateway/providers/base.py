@@ -21,7 +21,10 @@ class BaseProvider(ABC):
     async def chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
-        raise NotImplementedError
+        raise HTTPException(
+            status_code=404,
+            detail=f"The chat streaming route is not available for {self.NAME} models.",
+        )
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise HTTPException(
@@ -32,7 +35,10 @@ class BaseProvider(ABC):
     async def completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
-        raise NotImplementedError
+        raise HTTPException(
+            status_code=404,
+            detail=f"The completions streaming route is not available for {self.NAME} models.",
+        )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         raise HTTPException(
