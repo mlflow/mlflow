@@ -78,6 +78,10 @@ Given the GenerateSchemaState, generate the whole schema with Graphene.
 
 def generate_schema(state):
     schema_builder = ""
+    schema_builder += (
+        "# GENERATED FILE. PLEASE DON'T MODIFY. "
+        "Run python3 ./dev/proto_to_graphql/code_generator.py to regenerate.\n"
+    )
     schema_builder += "import graphene\n"
     schema_builder += "import mlflow\n"
     schema_builder += "from mlflow.server.graphql import graphql_schema_extensions\n"
