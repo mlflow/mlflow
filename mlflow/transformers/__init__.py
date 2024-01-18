@@ -10,6 +10,7 @@ import logging
 import os
 import pathlib
 import re
+import string
 import sys
 from functools import lru_cache
 from typing import Any, Dict, List, NamedTuple, Optional, Union
@@ -39,7 +40,11 @@ from mlflow.models import (
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _contains_params, _save_example
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
@@ -95,6 +100,7 @@ _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _PROCESSOR_KEY = "processor"
 _PROCESSOR_TYPE_KEY = "processor_type"
+_PROMPT_TEMPLATE_KEY = "prompt_template"
 _SUPPORTED_RETURN_TYPES = {"pipeline", "components"}
 # The default device id for CPU is -1 and GPU IDs are ordinal starting at 0, as documented here:
 # https://huggingface.co/transformers/v4.7.0/main_classes/pipelines.html
@@ -112,6 +118,20 @@ _SUPPORTED_SAVE_KEYS = {
     _IMAGE_PROCESSOR_KEY,
     _TORCH_DTYPE_KEY,
 }
+
+_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES = {
+    "feature-extraction",
+    "fill-mask",
+    "summarization",
+    "text2text-generation",
+    "text-generation",
+}
+
+_PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
+    "text-generation pipelines saved with prompt templates have the `return_full_text` "
+    "pipeline kwarg set to False by default. To override this behavior, provide a "
+    "`model_config` dict with `return_full_text` set to `True` when saving the model."
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -241,6 +261,7 @@ def save_model(
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     example_no_conversion: bool = False,
+    prompt_template: Optional[str] = None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
@@ -416,6 +437,7 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        prompt_template: {{ prompt_template }}
         kwargs: Optional additional configurations for transformers serialization.
 
     """
@@ -464,6 +486,19 @@ def save_model(
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
+    if prompt_template is not None:
+        # prevent saving prompt templates for unsupported pipeline types
+        if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
+            raise MlflowException(
+                f"Prompt templating is not supported for the `{built_pipeline.task}` task type. "
+                f"Supported task types are: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}."
+            )
+
+        _validate_prompt_template(prompt_template)
+        if mlflow_model.metadata:
+            mlflow_model.metadata[_PROMPT_TEMPLATE_KEY] = prompt_template
+        else:
+            mlflow_model.metadata = {_PROMPT_TEMPLATE_KEY: prompt_template}
 
     flavor_conf = _generate_base_flavor_configuration(built_pipeline, resolved_task)
 
@@ -515,6 +550,16 @@ def save_model(
             mlflow_model.signature = _get_default_pipeline_signature(
                 built_pipeline, input_example, model_config or inference_config
             )
+
+        # if pipeline is text-generation and a prompt template is specified,
+        # provide the return_full_text=False config by default to avoid confusing
+        # extra text for end-users
+        if prompt_template is not None and built_pipeline.task == "text-generation":
+            return_full_text_key = "return_full_text"
+            model_config = model_config or {}
+            if return_full_text_key not in model_config:
+                model_config[return_full_text_key] = False
+                _logger.info(_PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO)
 
         pyfunc.add_to_model(
             mlflow_model,
@@ -593,6 +638,7 @@ def log_model(
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     example_no_conversion: bool = False,
+    prompt_template: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -776,6 +822,7 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        prompt_template: {{ prompt_template }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
@@ -797,6 +844,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        prompt_template=prompt_template,
         **kwargs,
     )
 
@@ -1632,10 +1680,13 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     local_path = pathlib.Path(path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
     model_config = _get_model_config(local_path.joinpath(_COMPONENTS_BINARY_KEY), model_config)
+    prompt_template = _get_prompt_template(local_path)
+
     return _TransformersWrapper(
         _load_model(str(local_path), flavor_configuration, "pipeline"),
         flavor_configuration,
         model_config,
+        prompt_template,
     )
 
 
@@ -1672,10 +1723,11 @@ def generate_signature_output(pipeline, data, model_config=None, params=None):
 
 
 class _TransformersWrapper:
-    def __init__(self, pipeline, flavor_config=None, model_config=None):
+    def __init__(self, pipeline, flavor_config=None, model_config=None, prompt_template=None):
         self.pipeline = pipeline
         self.flavor_config = flavor_config
         self.model_config = model_config or {}
+        self.prompt_template = prompt_template
         self._conversation = None
         # NB: Current special-case custom pipeline types that have not been added to
         # the native-supported transformers package but require custom parsing:
@@ -1814,18 +1866,22 @@ class _TransformersWrapper:
             output_key = "translation_text"
         elif isinstance(self.pipeline, transformers.SummarizationPipeline):
             self._validate_str_or_list_str(data)
+            data = self._format_prompt_template(data)
             output_key = "summary_text"
         elif isinstance(self.pipeline, transformers.Text2TextGenerationPipeline):
             data = self._parse_text2text_input(data)
+            data = self._format_prompt_template(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.TextGenerationPipeline):
             self._validate_str_or_list_str(data)
+            data = self._format_prompt_template(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.QuestionAnsweringPipeline):
             data = self._parse_question_answer_input(data)
             output_key = "answer"
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             self._validate_str_or_list_str(data)
+            data = self._format_prompt_template(data)
             output_key = "token_str"
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
             output_key = "label"
@@ -1843,6 +1899,7 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
             output_key = None
             data = self._parse_feature_extraction_input(data)
+            data = self._format_prompt_template(data)
         elif isinstance(self.pipeline, transformers.ConversationalPipeline):
             output_key = None
             if not self._conversation:
@@ -2227,8 +2284,9 @@ class _TransformersWrapper:
                 data_out = data_out[len(data_in) :].lstrip()
                 if data_out.startswith("A:"):
                     data_out = data_out[2:].lstrip()
-                # If the user has indicated to remove newlines and extra spaces from the generated
-                # text, replace them with a single space.
+
+            # If the user has indicated to remove newlines and extra spaces from the generated
+            # text, replace them with a single space.
             if collapse_whitespace:
                 data_out = re.sub(r"\s+", " ", data_out).strip()
             return data_out
@@ -2780,6 +2838,34 @@ class _TransformersWrapper:
                 error_code=BAD_REQUEST,
             )
 
+    def _format_prompt_template(self, input_data):
+        """
+        Wraps the input data in the specified prompt template. If no template is
+        specified, or if the pipeline is an unsupported type, or if the input type
+        is not a string or list of strings, then the input data is returned unchanged.
+        """
+        if not self.prompt_template:
+            return input_data
+
+        if self.pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
+            raise MlflowException(
+                f"_format_prompt_template called on an unexpected pipeline type. "
+                f"Expected one of: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}. "
+                f"Received: {self.pipeline.task}"
+            )
+
+        if isinstance(input_data, str):
+            return self.prompt_template.format(prompt=input_data)
+        elif isinstance(input_data, list):
+            # if every item is a string, then apply formatting to every item
+            if all(isinstance(data, str) for data in input_data):
+                return [self.prompt_template.format(prompt=data) for data in input_data]
+
+        # throw for unsupported types
+        raise MlflowException.invalid_parameter_value(
+            "Prompt templating is only supported for data of type str or List[str]. "
+        )
+
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
@@ -2831,3 +2917,40 @@ def autolog(
         for clazz in classes:
             for method in methods:
                 safe_patch(FLAVOR_NAME, clazz, method, functools.partial(train), manage_run=False)
+
+
+def _get_prompt_template(model_path):
+    if not os.path.exists(model_path):
+        raise MlflowException(
+            f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{model_path}"',
+            RESOURCE_DOES_NOT_EXIST,
+        )
+
+    model_conf = Model.load(model_path)
+    if model_conf.metadata:
+        return model_conf.metadata.get(_PROMPT_TEMPLATE_KEY)
+
+    return None
+
+
+def _validate_prompt_template(prompt_template):
+    if prompt_template is None:
+        return
+
+    if not isinstance(prompt_template, str):
+        raise MlflowException(
+            f"Argument `prompt_template` must be a string, received {type(prompt_template)}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    format_args = [
+        tup[1] for tup in string.Formatter().parse(prompt_template) if tup[1] is not None
+    ]
+
+    # expect there to only be one format arg, and for that arg to be "prompt"
+    if format_args != ["prompt"]:
+        raise MlflowException.invalid_parameter_value(
+            "Argument `prompt_template` must be a string with a single format arg, 'prompt'. "
+            "For example: 'Answer the following question in a friendly tone. Q: {prompt}. A:'\n"
+            f"Received {prompt_template}. "
+        )
