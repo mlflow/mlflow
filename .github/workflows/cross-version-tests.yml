@@ -199,6 +199,10 @@ jobs:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
+      - name: Prefetch Transformer models
+        if: matrix.package == 'transformers' && matrix.category == 'models'
+        run: |
+          python tests/transformers/helper.py
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
@@ -206,5 +210,6 @@ jobs:
           SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
         run: |
           ${{ matrix.run }}

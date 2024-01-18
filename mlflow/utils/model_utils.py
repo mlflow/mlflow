@@ -18,15 +18,18 @@ FLAVOR_CONFIG_CODE = "code"
 
 
 def _get_flavor_configuration(model_path, flavor_name):
-    """
-    Obtains the configuration for the specified flavor from the specified
+    """Obtains the configuration for the specified flavor from the specified
     MLflow model path. If the model does not contain the specified flavor,
     an exception will be thrown.
 
-    :param model_path: The path to the root directory of the MLflow model for which to load
-                       the specified flavor configuration.
-    :param flavor_name: The name of the flavor configuration to load.
-    :return: The flavor configuration as a dictionary.
+    Args:
+        model_path: The path to the root directory of the MLflow model for which to load
+            the specified flavor configuration.
+        flavor_name: The name of the flavor configuration to load.
+
+    Returns:
+        The flavor configuration as a dictionary.
+
     """
     model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
     if not os.path.exists(model_configuration_path):
@@ -45,16 +48,18 @@ def _get_flavor_configuration(model_path, flavor_name):
 
 
 def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
-    """
-    Obtains the configuration for the specified flavor from the specified
+    """Obtains the configuration for the specified flavor from the specified
     MLflow model uri. If the model does not contain the specified flavor,
     an exception will be thrown.
 
-    :param model_uri: The path to the root directory of the MLflow model for which to load
-                       the specified flavor configuration.
-    :param flavor_name: The name of the flavor configuration to load.
-    :param logger: The local flavor's logger to report the resolved path of the model uri.
-    :return: The flavor configuration as a dictionary.
+    Args:
+        model_uri: The path to the root directory of the MLflow model for which to load
+            the specified flavor configuration.
+        flavor_name: The name of the flavor configuration to load.
+        logger: The local flavor's logger to report the resolved path of the model uri.
+
+    Returns:
+        The flavor configuration as a dictionary.
     """
     try:
         resolved_uri = model_uri
@@ -104,14 +109,14 @@ def _validate_code_paths(code_paths):
 
 
 def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
-    """
-    Validates that a code path is a valid list and copies the code paths to a directory. This
+    """Validates that a code path is a valid list and copies the code paths to a directory. This
     can later be used to log custom code as an artifact.
 
-    :param code_paths: A list of files or directories containing code that should be logged
-    as artifacts
-    :param path: The local model path.
-    :param default_subpath: The default directory name used to store code artifacts.
+    Args:
+        code_paths: A list of files or directories containing code that should be logged
+            as artifacts.
+        path: The local model path.
+        default_subpath: The default directory name used to store code artifacts.
     """
     _validate_code_paths(code_paths)
     if code_paths is not None:
@@ -138,15 +143,15 @@ def _validate_and_prepare_target_save_path(path):
 
 
 def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_CODE):
-    """
-    Checks if any code_paths were logged with the model in the flavor conf and prepends
+    """Checks if any code_paths were logged with the model in the flavor conf and prepends
     the directory to the system path.
 
-    :param local_path: The local path containing model artifacts.
-    :param conf: The flavor-specific conf that should contain the FLAVOR_CONFIG_CODE
-    key, which specifies the directory containing custom code logged as artifacts.
-    :param code_key: The key used by the flavor to indicate custom code artifacts.
-    By default this is FLAVOR_CONFIG_CODE.
+    Args:
+        local_path: The local path containing model artifacts.
+        conf: The flavor-specific conf that should contain the FLAVOR_CONFIG_CODE
+            key, which specifies the directory containing custom code logged as artifacts.
+        code_key: The key used by the flavor to indicate custom code artifacts.
+            By default this is FLAVOR_CONFIG_CODE.
     """
     assert isinstance(conf, dict), "`conf` argument must be a dict."
     if code_key in conf and conf[code_key]:
@@ -155,10 +160,10 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
 
 
 def _validate_onnx_session_options(onnx_session_options):
-    """
-    Validates that the specified onnx_session_options dict is valid.
+    """Validates that the specified onnx_session_options dict is valid.
 
-    :param ort_session_options: The onnx_session_options dict to validate.
+    Args:
+        ort_session_options: The onnx_session_options dict to validate.
     """
     import onnxruntime as ort
 

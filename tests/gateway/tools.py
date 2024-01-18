@@ -8,7 +8,7 @@ import threading
 import time
 from collections import namedtuple
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Optional, Union
 from unittest import mock
 
 import aiohttp
@@ -121,6 +121,33 @@ class MockAsyncResponse:
         pass
 
 
+class MockAsyncStreamingResponse:
+    def __init__(
+        self, data: List[bytes], headers: Optional[Dict[str, str]] = None, status: int = 200
+    ):
+        self.status = status
+        self.headers = headers
+        self._content = data
+
+    def raise_for_status(self) -> None:
+        if 400 <= self.status < 600:
+            raise aiohttp.ClientResponseError(None, None, status=self.status)
+
+    async def _async_content(self):
+        for line in self._content:
+            yield line
+
+    @property
+    def content(self):
+        return self._async_content()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        pass
+
+
 class MockHttpClient(mock.Mock):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -132,7 +159,7 @@ class MockHttpClient(mock.Mock):
         return
 
 
-def mock_http_client(mock_response: MockAsyncResponse):
+def mock_http_client(mock_response: Union[MockAsyncResponse, MockAsyncStreamingResponse]):
     mock_http_client = MockHttpClient()
     mock_http_client.post = mock.Mock(return_value=mock_response)
     return mock_http_client

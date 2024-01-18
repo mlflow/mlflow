@@ -500,6 +500,7 @@ transformers:
       ">= 0.0.0": [
           "datasets",
           "huggingface_hub",
+          "hf_transfer",
           "torch",
           "torchvision",
           "tensorflow",
@@ -526,6 +527,7 @@ transformers:
         [
           "datasets",
           "huggingface_hub",
+          "hf_transfer",
           "torch",
           "torchvision",
           "tensorflow",
@@ -574,6 +576,7 @@ langchain:
           "faiss-cpu",
           "langchain-experimental",
           "numexpr",
+          "hf_transfer",
         ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py

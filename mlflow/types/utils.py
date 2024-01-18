@@ -29,17 +29,19 @@ class TensorsNotSupportedException(MlflowException):
 
 
 def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
-    """
-    Infer the shape of the inputted data.
+    """Infer the shape of the inputted data.
 
     This method creates the shape of the tensor to store in the TensorSpec. The variable dimension
     is assumed to be the first dimension by default. This assumption can be overridden by inputting
     a different variable dimension or `None` to represent that the input tensor does not contain a
     variable dimension.
 
-    :param data: Dataset to infer from.
-    :param variable_dimension: An optional integer representing a variable dimension.
-    :return: tuple : Shape of the inputted data (including a variable dimension)
+    Args:
+        data: Dataset to infer from.
+        variable_dimension: An optional integer representing a variable dimension.
+
+    Returns:
+        tuple: Shape of the inputted data (including a variable dimension)
     """
     from scipy.sparse import csc_matrix, csr_matrix
 
@@ -63,8 +65,11 @@ def clean_tensor_type(dtype: np.dtype):
     This method strips away the size information stored in flexible datatypes such as np.str_ and
     np.bytes_. Other numpy dtypes are returned unchanged.
 
-    :param dtype: Numpy dtype of a tensor
-    :return: dtype: Cleaned numpy dtype
+    Args:
+        dtype: Numpy dtype of a tensor
+
+    Returns:
+        dtype: Cleaned numpy dtype
     """
     if not isinstance(dtype, np.dtype):
         raise TypeError(
@@ -83,8 +88,11 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
     """
     Infer an MLflow Colspec type from the dataset.
 
-    :param data: data to infer from.
-    :return: Object
+    Args:
+        data: data to infer from.
+
+    Returns:
+        Object
     """
     dtype = _infer_datatype(data)
 
@@ -125,8 +133,11 @@ def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
         [["a", "b"], []] => Array(Array(string))
         [] => None
 
-    :param data: data to infer from.
-    :return: Array(dtype) or None if undetermined
+    Args:
+        data: data to infer from.
+
+    Returns:
+        Array(dtype) or None if undetermined
     """
     result = None
     for item in data:
@@ -218,9 +229,11 @@ def _infer_schema(data: Any) -> Schema:
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
 
-    :param data: Dataset to infer from.
+    Args:
+        data: Dataset to infer from.
 
-    :return: Schema
+    Returns:
+        Schema
     """
     from scipy.sparse import csc_matrix, csr_matrix
 

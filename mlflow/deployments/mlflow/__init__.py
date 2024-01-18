@@ -144,8 +144,11 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         """
         Gets a specified endpoint configured for the MLflow Deployments Server.
 
-        :param endpoint: The name of the endpoint to retrieve.
-        :return: An `Endpoint` object representing the endpoint.
+        Args:
+            endpoint: The name of the endpoint to retrieve.
+
+        Returns:
+            An `Endpoint` object representing the endpoint.
 
         Example:
 
@@ -195,7 +198,9 @@ class MlflowDeploymentClient(BaseDeploymentClient):
     def list_endpoints(self) -> "List[Endpoint]":
         """
         List endpoints configured for the MLflow Deployments Server.
-        :return: A list of ``Endpoint`` objects.
+
+        Returns:
+            A list of ``Endpoint`` objects.
 
         Example:
 
@@ -214,6 +219,7 @@ class MlflowDeploymentClient(BaseDeploymentClient):
                     "endpoint_url": "http://localhost:5000/gateway/chat/invocations",
                 },
             ]
+
         """
         endpoints = []
         next_page_token = None
@@ -230,10 +236,13 @@ class MlflowDeploymentClient(BaseDeploymentClient):
         """
         Submit a query to a configured provider endpoint.
 
-        :param deployment_name: Unused.
-        :param inputs: The inputs to the query, as a dictionary.
-        :param endpoint: The name of the endpoint to query.
-        :return: A dictionary containing the response from the endpoint.
+        Args:
+            deployment_name: Unused.
+            inputs: The inputs to the query, as a dictionary.
+            endpoint: The name of the endpoint to query.
+
+        Returns:
+            A dictionary containing the response from the endpoint.
 
         Example:
 
