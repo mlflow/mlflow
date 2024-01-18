@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pydantic
 import yaml
+from limits import parse
 from packaging import version
 from packaging.version import Version
 from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
@@ -397,6 +398,20 @@ class RouteConfig(AliasedConfigModel):
         if value in RouteType._value2member_map_:
             return value
         raise MlflowException.invalid_parameter_value(f"The route_type '{value}' is not supported.")
+
+    @validator("limit", pre=True)
+    def validate_limit(cls, value: Optional[Limit]):
+        if value:
+            try:
+                parse(f"{value.calls}/{value.renewal_period}")
+            except ValueError:
+                raise MlflowException.invalid_parameter_value(
+                    "Failed to parse the rate limit configuration."
+                    "Please make sure limit.calls is a positive number and"
+                    "limit.renewal_period is a right granularity"
+                )
+
+        return value
 
     def to_route(self) -> "Route":
         return Route(
