@@ -54,7 +54,7 @@ class DeltaDatasetSource(DatasetSource):
                 INVALID_PARAMETER_VALUE,
             )
         self._path = path
-        self._delta_table_name = delta_table_name
+        self._delta_table_name = self._resolve_table_name(delta_table_name)
         self._delta_table_version = delta_table_version
         self._delta_table_id = delta_table_id
 
@@ -106,9 +106,8 @@ class DeltaDatasetSource(DatasetSource):
 
     # check if table is in the Databricks Unity Catalog
     def _is_databricks_uc_table(self):
-        resolved_table_name = self._resolve_table_name(self._delta_table_name)
         if is_in_databricks_runtime() and self._delta_table_name is not None:
-            catalog_name = resolved_table_name.split(".", 1)[0]
+            catalog_name = self._delta_table_name.split(".", 1)[0]
             return (
                 catalog_name not in DATABRICKS_LOCAL_METASTORE_NAMES
                 and catalog_name != DATABRICKS_SAMPLES_CATALOG_NAME
@@ -121,14 +120,11 @@ class DeltaDatasetSource(DatasetSource):
             _METHOD_TO_INFO = extract_api_info_for_service(
                 UnityCatalogService, _REST_API_PATH_PREFIX
             )
-            full_table_name = self._resolve_table_name(table_name)
-            # rewrite the relative table name with the full table name in the source
-            self._delta_table_name = full_table_name
             db_creds = get_databricks_host_creds()
             endpoint, method = _METHOD_TO_INFO[GetTable]
             # we need to replace the full_name_arg in the endpoint definition with the actual table name for
             # the REST API to work.
-            final_endpoint = endpoint.replace("{full_name_arg}", full_table_name)
+            final_endpoint = endpoint.replace("{full_name_arg}", table_name)
             resp = call_endpoint(
                 host_creds=db_creds,
                 endpoint=final_endpoint,
