@@ -432,6 +432,7 @@ class Model:
     def model_size_bytes(self) -> Optional[int]:
         """
         An optional integer that represents the model size in bytes
+
         :getter: Retrieves the model size if it's calculated when the model is saved
         :setter: Sets the model size to a model instance
         :type: Optional[int]
