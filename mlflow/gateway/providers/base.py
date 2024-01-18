@@ -16,6 +16,9 @@ class BaseProvider(ABC):
     SUPPORTED_ROUTE_TYPES: Tuple[str, ...]
 
     def __init__(self, config: RouteConfig):
+        if not hasattr(self, "NAME"):
+            raise TypeError(f"'NAME' is not defined for {self.__class__.__name__}")
+
         self.config = config
 
     async def chat_stream(
