@@ -1,6 +1,5 @@
-from unittest import mock
-
 import json
+from unittest import mock
 
 import pandas as pd
 import pytest
@@ -178,7 +177,7 @@ def test_uc_table_id_retrieval_throws(spark_session, tmp_path):
 
     def mock_lookup_table_id(table_name):
         if table_name == "default.temp_delta_versioned_with_id_throws":
-            return "uc_table_id_1"
+            raise Exception("Table id fails.")
         return None
 
     def mock_is_databricks_uc_table():
