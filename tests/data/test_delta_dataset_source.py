@@ -116,6 +116,7 @@ def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
     with pytest.raises(MlflowException, match='Must specify exactly one of "path" or "table_name"'):
         DeltaDatasetSource(path=tmp_path, delta_table_name="temp_delta_too_many_inputs")
 
+
 def test_uc_table_id_retrieval_works(spark_session, tmp_path):
     def mock_resolve_table_name(table_name):
         if table_name == "temp_delta_versioned_with_id":
@@ -167,6 +168,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
                         "delta_table_id": "uc_table_id_1",
                     }
                 )
+
 
 def test_uc_table_id_retrieval_throws(spark_session, tmp_path):
     def mock_resolve_table_name(table_name):
