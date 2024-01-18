@@ -64,13 +64,13 @@ class GatewayAPI(FastAPI):
                 path=(
                     MLFLOW_DEPLOYMENTS_ENDPOINTS_BASE + route.name + MLFLOW_DEPLOYMENTS_QUERY_SUFFIX
                 ),
-                endpoint=_route_type_to_endpoint(route, limiter),
+                endpoint=_route_type_to_endpoint(route, limiter, "deployments"),
                 methods=["POST"],
             )
             # TODO: Remove Gateway server URLs after deprecation window elapses
             self.add_api_route(
                 path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{route.name}{MLFLOW_QUERY_SUFFIX}",
-                endpoint=_route_type_to_endpoint(route, limiter),
+                endpoint=_route_type_to_endpoint(route, limiter, "gateway"),
                 methods=["POST"],
                 include_in_schema=False,
             )
@@ -125,7 +125,7 @@ async def _custom(request: Request):
     return request.json()
 
 
-def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter):
+def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter, key: str):
     provider_to_factory = {
         RouteType.LLM_V1_CHAT: _create_chat_endpoint,
         RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
@@ -135,6 +135,7 @@ def _route_type_to_endpoint(config: RouteConfig, limiter: Limiter):
         handler = factory(config)
         if limit := config.limit:
             limit_value = f"{limit.calls}/{limit.renewal_period}"
+            handler.__name__ = f"{handler.__name__}_{config.name}_{key}"
             return limiter.limit(limit_value)(handler)
         else:
             return handler

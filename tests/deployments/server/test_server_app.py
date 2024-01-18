@@ -212,7 +212,7 @@ def test_rate_limit():
                             "openai_api_base": "https://api.openai.com/v1",
                         },
                     },
-                    "limit": {"calls": 2, "key": None, "renewal_period": "minute"},
+                    "limit": {"calls": 1, "key": None, "renewal_period": "minute"},
                 }
             ]
         }
