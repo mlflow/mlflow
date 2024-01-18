@@ -37,7 +37,7 @@ def _validate_text_data(data, metric_name, col_specifier):
 
 
 def _validate_list_str_data(data, metric_name, col_specifier):
-    """Validates that the data is a list of lists of strings and is non-empty"""
+    """Validates that the data is a Pandas series of lists of strings and is non-empty"""
     if data is None or len(data) == 0:
         return False
 
