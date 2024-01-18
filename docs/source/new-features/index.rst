@@ -14,7 +14,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header">
                         MLflow Site Overhaul 
                     </div>
-                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <img class="card-image" src="../_static/images/logos/homepage.png" alt="MLflow"></img>
                     <div class="body">
                         MLflow has a new <a href=https://mlflow.org>homepage</a> that has been completely modernized. Check it out today!
                     </div>
@@ -28,7 +28,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header">
                         LangChain Autologging Support
                     </div>
-                    <img class="card-image" src="../_static/images/logos/langchain-logo.png" alt="LangChain"></img>
+                    <img class="card-image" src="../_static/images/logos/langchain-logo.png" alt="LangChain" style="max-height: 5rem"></img>
                     <div class="body">
                         Autologging support for <a href="../llms/langchain/index.html">LangChain</a> is now available. Try it out the next time 
                         that you're building a Generative AI application with Langchain!
@@ -58,7 +58,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="header">
                         Direct Access to OpenAI through the MLflow Deployments API 
                     </div>
-                    <img class="card-image" src="../_static/images/logos/openai-logo.png" alt="MLflow Deployments"></img>
+                    <img class="card-image" src="../_static/images/logos/openai-logo.png" alt="MLflow Deployments" style="max-height: 5rem"></img>
                     <div class="body">
                         MLflow Deployments now supports direct access to OpenAI services.
                     </div>
