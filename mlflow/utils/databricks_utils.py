@@ -17,12 +17,14 @@ _logger = logging.getLogger(__name__)
 
 
 def _use_repl_context_if_available(name):
-    """
-    Creates a decorator to insert a short circuit that returns the specified REPL context attribute
-    if it's available.
+    """Creates a decorator to insert a short circuit that returns the specified REPL context
+    attribute if it's available.
 
-    :param name: Attribute name (e.g. "apiUrl").
-    :return: Decorator to insert the short circuit.
+    Args:
+        name: Attribute name (e.g. "apiUrl").
+
+    Returns:
+        Decorator to insert the short circuit.
     """
 
     def decorator(f):
@@ -255,7 +257,8 @@ def get_job_group_id():
 @_use_repl_context_if_available("replId")
 def get_repl_id():
     """
-    :return: The ID of the current Databricks Python REPL
+    Returns:
+        The ID of the current Databricks Python REPL.
     """
     # Attempt to fetch the REPL ID from the Python REPL's entrypoint object. This REPL ID
     # is guaranteed to be set upon REPL startup in DBR / MLR 9.0
@@ -421,10 +424,13 @@ def get_databricks_host_creds(server_uri=None):
     if trying to authenticate with this method. If found, those host credentials will be used. This
     method will throw an exception if sufficient auth cannot be found.
 
-    :param server_uri: A URI that specifies the Databricks profile you want to use for making
-    requests.
-    :return: :py:class:`mlflow.rest_utils.MlflowHostCreds` which includes the hostname and
-        authentication information necessary to talk to the Databricks server.
+    Args:
+        server_uri: A URI that specifies the Databricks profile you want to use for making
+            requests.
+
+    Returns:
+        MlflowHostCreds which includes the hostname and authentication information necessary to
+        talk to the Databricks server.
     """
     profile, path = get_db_info_from_uri(server_uri)
     if not hasattr(provider, "get_config"):
@@ -537,13 +543,16 @@ def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -
     Obtains a Databricks URL corresponding to the specified MLflow Run, optionally referring
     to an artifact within the run.
 
-    :param tracking_uri: The URI of the MLflow Tracking server containing the Run.
-    :param run_id: The ID of the MLflow Run for which to obtain a Databricks URL.
-    :param artifact_path: An optional relative artifact path within the Run to which the URL
-                          should refer.
-    :return: A Databricks URL corresponding to the specified MLflow Run
-             (and artifact path, if specified), or None if the MLflow Run does not belong to a
-             Databricks Workspace.
+    Args:
+        tracking_uri: The URI of the MLflow Tracking server containing the Run.
+        run_id: The ID of the MLflow Run for which to obtain a Databricks URL.
+        artifact_path: An optional relative artifact path within the Run to which the URL
+            should refer.
+
+    Returns:
+        A Databricks URL corresponding to the specified MLflow Run
+        (and artifact path, if specified), or None if the MLflow Run does not belong to a
+        Databricks Workspace.
     """
     from mlflow.tracking.client import MlflowClient
 
@@ -566,14 +575,17 @@ def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -
 
 
 def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:
-    """
-    Obtains a Databricks URL corresponding to the specified Model Version.
+    """Obtains a Databricks URL corresponding to the specified Model Version.
 
-    :param tracking_uri: The URI of the Model Registry server containing the Model Version.
-    :param name: The name of the registered model containing the Model Version.
-    :param version: Version number of the Model Version.
-    :return: A Databricks URL corresponding to the specified Model Version, or None if the
-             Model Version does not belong to a Databricks Workspace.
+    Args:
+        tracking_uri: The URI of the Model Registry server containing the Model Version.
+        name: The name of the registered model containing the Model Version.
+        version: Version number of the Model Version.
+
+    Returns:
+        A Databricks URL corresponding to the specified Model Version, or None if the
+        Model Version does not belong to a Databricks Workspace.
+
     """
     try:
         workspace_info = (

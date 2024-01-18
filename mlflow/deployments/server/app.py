@@ -37,7 +37,7 @@ from mlflow.gateway.constants import (
 )
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.gateway.utils import SearchRoutesToken
+from mlflow.gateway.utils import SearchRoutesToken, make_streaming_response
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -75,8 +75,13 @@ class GatewayAPI(FastAPI):
 def _create_chat_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-    async def _chat(payload: chat.RequestPayload) -> chat.ResponsePayload:
-        return await prov.chat(payload)
+    async def _chat(
+        payload: chat.RequestPayload,
+    ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
+        if payload.stream:
+            return await make_streaming_response(prov.chat_stream(payload))
+        else:
+            return await prov.chat(payload)
 
     return _chat
 
@@ -86,8 +91,11 @@ def _create_completions_endpoint(config: RouteConfig):
 
     async def _completions(
         payload: completions.RequestPayload,
-    ) -> completions.ResponsePayload:
-        return await prov.completions(payload)
+    ) -> Union[completions.ResponsePayload, completions.StreamResponsePayload]:
+        if payload.stream:
+            return await make_streaming_response(prov.completions_stream(payload))
+        else:
+            return await prov.completions(payload)
 
     return _completions
 

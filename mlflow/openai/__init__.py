@@ -846,10 +846,12 @@ def _load_pyfunc(path):
 
 @experimental
 def load_model(model_uri, dst_path=None):
-    """Load an OpenAI model from a local file or a run.
+    """
+    Load an OpenAI model from a local file or a run.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
+
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``

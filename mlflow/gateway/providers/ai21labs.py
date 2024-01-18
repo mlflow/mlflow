@@ -33,7 +33,7 @@ class AI21LabsProvider(BaseProvider):
                 raise HTTPException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
-        if payload.get("stream", None) == "true":
+        if payload.get("stream", False):
             raise HTTPException(
                 status_code=422,
                 detail="Setting the 'stream' parameter to 'true' is not supported with the MLflow "
