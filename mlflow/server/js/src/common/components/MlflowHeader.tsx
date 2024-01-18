@@ -53,7 +53,7 @@ export const MlflowHeader = ({
               marginTop: 10,
               marginBottom: 10,
             }}
-            alt='MLflow'
+            alt="MLflow"
             src={logo}
           />
         </Link>

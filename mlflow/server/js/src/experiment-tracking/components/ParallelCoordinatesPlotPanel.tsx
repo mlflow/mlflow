@@ -82,15 +82,15 @@ export class ParallelCoordinatesPlotPanel extends React.Component<
           <div css={styles.noValuesSelected} data-testid='no-values-selected'>
             <Typography.Title level={2}>
               <FormattedMessage
-                defaultMessage='Nothing to compare!'
+                defaultMessage="Nothing to compare!"
                 // eslint-disable-next-line max-len
-                description='Header displayed in the metrics and params compare plot when no values are selected'
+                description="Header displayed in the metrics and params compare plot when no values are selected"
               />
             </Typography.Title>
             <FormattedMessage
-              defaultMessage='Please select parameters and/or metrics to display the comparison.'
+              defaultMessage="Please select parameters and/or metrics to display the comparison."
               // eslint-disable-next-line max-len
-              description='Explanation displayed in the metrics and params compare plot when no values are selected'
+              description="Explanation displayed in the metrics and params compare plot when no values are selected"
             />
           </div>
         )}

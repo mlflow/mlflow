@@ -28,28 +28,31 @@ export const RunViewModeSwitch = () => {
     <Tabs activeKey={currentTab} onChange={onTabChanged}>
       <Tabs.TabPane
         tab={
-          <FormattedMessage
-            defaultMessage='Overview'
-            description='Run details page > tab selector > overview tab'
-          />
+          <FormattedMessage defaultMessage="Overview" description="Run details page > tab selector > overview tab" />
         }
         key={RunPageTabName.OVERVIEW}
       />
       <Tabs.TabPane
         tab={
           <FormattedMessage
-            defaultMessage='Metric charts'
-            description='Run details page > tab selector > metric charts tab'
+            defaultMessage="Model metrics"
+            description="Run details page > tab selector > Model metrics tab"
           />
         }
-        key={RunPageTabName.CHARTS}
+        key={RunPageTabName.MODEL_METRIC_CHARTS}
       />
       <Tabs.TabPane
         tab={
           <FormattedMessage
-            defaultMessage='Artifacts'
-            description='Run details page > tab selector > artifacts tab'
+            defaultMessage="System metrics"
+            description="Run details page > tab selector > Model metrics tab"
           />
+        }
+        key={RunPageTabName.SYSTEM_METRIC_CHARTS}
+      />
+      <Tabs.TabPane
+        tab={
+          <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
         }
         key={RunPageTabName.ARTIFACTS}
       />

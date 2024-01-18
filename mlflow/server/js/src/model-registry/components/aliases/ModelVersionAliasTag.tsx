@@ -21,7 +21,7 @@ export const ModelVersionAliasTag = ({
   const { theme } = useDesignSystemTheme();
   return (
     <Tag
-      color='charcoal'
+      color="charcoal"
       css={{
         fontWeight: theme.typography.typographyBoldFontWeight,
         marginRight: theme.spacing.xs,

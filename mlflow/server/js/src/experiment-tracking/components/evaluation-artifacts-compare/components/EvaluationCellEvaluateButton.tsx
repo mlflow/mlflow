@@ -28,7 +28,7 @@ export const EvaluationCellEvaluateButton = ({
       <Tooltip
         title={
           <FormattedMessage
-            description='Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip'
+            description="Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip"
             defaultMessage='Evaluation is not possible because values for the following inputs cannot be determined: {missingParamList}. Add input columns to the "group by" settings or use "Add row" button to define new parameter set.'
             values={{
               missingParamList: <code>{missingParamsToEvaluate.join(', ')}</code>,
@@ -59,7 +59,7 @@ export const EvaluationCellEvaluateButton = ({
     <Button
       loading={isLoading}
       disabled={disabled}
-      size='small'
+      size="small"
       onMouseDownCapture={(e) => e.stopPropagation()}
       onClickCapture={(e) => {
         e.stopPropagation();
@@ -67,7 +67,7 @@ export const EvaluationCellEvaluateButton = ({
       }}
       icon={<PlayIcon />}
     >
-      {<>Evaluate</>}
+      <>Evaluate</>
     </Button>
   );
 };

@@ -49,9 +49,7 @@ describe('useEvaluationArtifactTableData', () => {
       run_a: {
         [TABLE_NAME]: {
           columns: COLUMNS,
-          entries: [
-            { input: 'question', additionalInput: 'alpha', answer: 'answer_a', prompt: 'prompt_a' },
-          ],
+          entries: [{ input: 'question', additionalInput: 'alpha', answer: 'answer_a', prompt: 'prompt_a' }],
           path: TABLE_NAME,
           rawArtifact: {},
         },
@@ -59,9 +57,7 @@ describe('useEvaluationArtifactTableData', () => {
       run_b: {
         [TABLE_NAME]: {
           columns: COLUMNS,
-          entries: [
-            { input: 'question', additionalInput: 'alpha', answer: 'answer_b', prompt: 'prompt_b' },
-          ],
+          entries: [{ input: 'question', additionalInput: 'alpha', answer: 'answer_b', prompt: 'prompt_b' }],
           path: TABLE_NAME,
           rawArtifact: {},
         },
@@ -69,9 +65,7 @@ describe('useEvaluationArtifactTableData', () => {
       run_c: {
         [TABLE_NAME]: {
           columns: COLUMNS,
-          entries: [
-            { input: 'question', additionalInput: 'beta', answer: 'answer_c', prompt: 'prompt_c' },
-          ],
+          entries: [{ input: 'question', additionalInput: 'beta', answer: 'answer_c', prompt: 'prompt_c' }],
           path: TABLE_NAME,
           rawArtifact: {},
         },
@@ -79,20 +73,14 @@ describe('useEvaluationArtifactTableData', () => {
       run_d: {
         [TABLE_NAME]: {
           columns: COLUMNS,
-          entries: [
-            { input: 'question', additionalInput: 'beta', answer: 'answer_d', prompt: 'prompt_d' },
-          ],
+          entries: [{ input: 'question', additionalInput: 'beta', answer: 'answer_d', prompt: 'prompt_d' }],
           path: TABLE_NAME,
           rawArtifact: {},
         },
       },
     };
 
-    const getResultsForRuns = (
-      comparedRunUuids: string[],
-      groupByColumns: string[],
-      outputColumn: string,
-    ) =>
+    const getResultsForRuns = (comparedRunUuids: string[], groupByColumns: string[], outputColumn: string) =>
       mountTestComponent({
         artifactsByRun: MOCK_STORE,
         comparedRunUuids,
@@ -129,11 +117,7 @@ describe('useEvaluationArtifactTableData', () => {
     });
 
     test('properly groups by multiple columns having distinct values and proper cell values', () => {
-      const results = getResultsForRuns(
-        ['run_a', 'run_b', 'run_c', 'run_d'],
-        ['input', 'additionalInput'],
-        'answer',
-      );
+      const results = getResultsForRuns(['run_a', 'run_b', 'run_c', 'run_d'], ['input', 'additionalInput'], 'answer');
       expect(results).toHaveLength(2);
 
       expect(results[0].groupByCellValues['input']).toEqual('question');

@@ -140,9 +140,7 @@ test('should render when both experiments and activeExperimentIds are empty', ()
 
 test('virtual list should not render everything when there are many experiments', () => {
   const keys = Array.from(Array(1000).keys()).map((k) => k.toString());
-  const localExperiments = keys.map((k) =>
-    Fixtures.createExperiment({ experiment_id: k, name: k }),
-  );
+  const localExperiments = keys.map((k) => Fixtures.createExperiment({ experiment_id: k, name: k }));
 
   mountComponent({
     experiments: localExperiments,

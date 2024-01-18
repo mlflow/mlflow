@@ -10,9 +10,7 @@ const generateRuns = (n: number, asChildRuns = false): RunEntity[] =>
     (_, index) =>
       ({
         info: { run_uuid: asChildRuns ? `run_child${index}` : `run${index}` },
-        data: asChildRuns
-          ? { tags: [{ key: EXPERIMENT_PARENT_ID_TAG, value: `parent-id-${index}` }] }
-          : undefined,
+        data: asChildRuns ? { tags: [{ key: EXPERIMENT_PARENT_ID_TAG, value: `parent-id-${index}` }] } : undefined,
       } as any),
   );
 
@@ -56,9 +54,7 @@ describe('useFetchedRunsNotification', () => {
   it('displays proper notification for child-only runs', () => {
     createWrapper(generateRuns(10, true));
 
-    expect(notificationInstance.info).toBeCalledWith(
-      expect.objectContaining({ message: 'Loaded 10 child runs' }),
-    );
+    expect(notificationInstance.info).toBeCalledWith(expect.objectContaining({ message: 'Loaded 10 child runs' }));
   });
 
   it('displays notification with runs properly counted while excluding existing runs', () => {

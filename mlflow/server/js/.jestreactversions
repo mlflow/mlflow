@@ -1,0 +1,5 @@
+src/endpoints/components/endpoint-table/ServedEntitiesCell.test.tsx
+src/endpoints/hooks/useDashboardLink.test.tsx
+src/model-registry/components/aliases/ModelsTableAliasedVersionsCell.test.tsx
+src/model-registry/components/aliases/ModelVersionViewAliasEditor.intg.test.tsx
+src/model-registry/hooks/useEditRegisteredModelAliasesModal.test.tsx
