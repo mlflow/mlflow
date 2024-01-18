@@ -13,8 +13,8 @@ from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_PARAMS_TAGS_PER_BATCH,
-    MAX_TAG_VAL_LENGTH,
 )
+from mlflow.utils.validation_common import MAX_TAG_VAL_LENGTH
 
 
 def get_run_data(run_id):

@@ -14,6 +14,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.os import is_windows
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.validation_common import MAX_TAG_VAL_LENGTH
 
 _logger = logging.getLogger(__name__)
 
@@ -43,7 +44,6 @@ MAX_DATASETS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 6000
-MAX_TAG_VAL_LENGTH = 5000
 MAX_EXPERIMENT_NAME_LENGTH = 500
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
