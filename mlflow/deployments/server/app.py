@@ -1,11 +1,11 @@
-import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -46,8 +46,6 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.utils import SearchRoutesToken, make_streaming_response
 from mlflow.version import VERSION
 
-_logger = logging.getLogger(__name__)
-
 
 class GatewayAPI(FastAPI):
     def __init__(self, config: GatewayConfig, limiter: Limiter, *args: Any, **kwargs: Any):
@@ -80,6 +78,14 @@ class GatewayAPI(FastAPI):
         return self.dynamic_routes.get(route_name)
 
 
+async def parse_request_schema(request: Request, cls: Type[BaseModel]) -> BaseModel:
+    payload = await request.json()
+    try:
+        return cls(**payload)
+    except ValidationError as e:
+        raise RequestValidationError(e.raw_errors)
+
+
 def _create_chat_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
@@ -87,11 +93,11 @@ def _create_chat_endpoint(config: RouteConfig):
     async def _chat(
         request: Request,
     ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
-        payload = await request.json()
+        payload = await parse_request_schema(request, chat.RequestPayload)
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
         else:
-            return await prov.chat(chat.RequestPayload(**payload))
+            return await prov.chat(payload)
 
     return _chat
 
@@ -102,11 +108,11 @@ def _create_completions_endpoint(config: RouteConfig):
     async def _completions(
         request: Request,
     ) -> Union[completions.ResponsePayload, completions.StreamResponsePayload]:
-        payload = await request.json()
+        payload = await parse_request_schema(request, completions.RequestPayload)
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
         else:
-            return await prov.completions(completions.RequestPayload(**payload))
+            return await prov.completions(payload)
 
     return _completions
 
@@ -115,8 +121,8 @@ def _create_embeddings_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
     async def _embeddings(request: Request) -> embeddings.ResponsePayload:
-        payload = await request.json()
-        return await prov.embeddings(embeddings.RequestPayload(**payload))
+        payload = await parse_request_schema(request, embeddings.RequestPayload)
+        return await prov.embeddings(payload)
 
     return _embeddings
 
