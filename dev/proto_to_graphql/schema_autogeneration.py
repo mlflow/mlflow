@@ -117,6 +117,9 @@ def generate_schema(state):
 
     schema_builder += "\nclass QueryType(graphene.ObjectType):"
 
+    if len(state.queries) == 0:
+        schema_builder += f"\n{INDENT}pass"
+
     for query in state.queries:
         schema_builder += proto_method_to_graphql_operation(query)
 
@@ -127,6 +130,9 @@ def generate_schema(state):
 
     schema_builder += "\n"
     schema_builder += "\nclass MutationType(graphene.ObjectType):"
+
+    if len(state.mutations) == 0:
+        schema_builder += f"\n{INDENT}pass"
 
     for mutation in state.mutations:
         schema_builder += proto_method_to_graphql_operation(mutation)

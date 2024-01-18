@@ -888,12 +888,17 @@ def _get_run():
     request_message = _get_request_message(
         GetRun(), schema={"run_id": [_assert_required, _assert_string]}
     )
-    response_message = GetRun.Response()
-    run_id = request_message.run_id or request_message.run_uuid
-    response_message.run.MergeFrom(_get_tracking_store().get_run(run_id).to_proto())
+    response_message = get_run_impl(request_message)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
+
+def get_run_impl(request_message):
+    response_message = GetRun.Response()
+    run_id = request_message.run_id or request_message.run_uuid
+    response_message.run.MergeFrom(_get_tracking_store().get_run(run_id).to_proto())
+    return response_message
 
 
 @catch_mlflow_exception
