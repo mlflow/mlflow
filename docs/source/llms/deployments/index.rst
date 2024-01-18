@@ -804,10 +804,7 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
 - ``presence_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
-
-The following parameters are not allowed:
-
-- ``stream`` is not supported. Setting this parameter on any provider will not work currently.
+- ``stream`` (supported by OpenAI)
 
 Below is an example of submitting a query request to an MLflow Deployments Server endpoint using additional parameters:
 
@@ -853,6 +850,57 @@ The results of the query are:
             "total_tokens": 635,
         },
     }
+
+Streaming
+~~~~~~~~~
+
+Some providers support streaming responses. Streaming responses are useful when you want to
+receive responses as they are generated, rather than waiting for the entire response to be
+generated before receiving it. Streaming responses are supported by the following providers:
+
+- OpenAI
+
+To enable streaming responses, set the ``stream`` parameter to ``true`` in your request. For example:
+
+.. code-block:: bash
+
+     curl -X POST http://my.deployments:8888/endpoints/chat/invocations \
+        -H "Content-Type: application/json" \
+        -d '{"messages": [{"role": "user", "content": "hello"}], "stream": true}'
+
+
+The results of the query follow the `OpenAI schema <https://platform.openai.com/docs/api-reference/chat/streaming>`_.
+
+
+Chat
+^^^^
+
+.. code-block:: text
+
+    data: {"choices": [{"delta": {"content": null, "role": "assistant"}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+    data: {"choices": [{"delta": {"content": "Hello", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+    data: {"choices": [{"delta": {"content": " there", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+    data: {"choices": [{"delta": {"content": null, "role": null}, "finish_reason": "stop", "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+
+Completions
+^^^^^^^^^^^
+
+.. code-block:: text
+
+    data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": "If"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": " an"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": " asteroid"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": "length", "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
 
 FastAPI Documentation ("/docs")
 -------------------------------
