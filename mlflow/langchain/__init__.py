@@ -744,14 +744,14 @@ def autolog(
         from langchain.schema import BaseRetriever
 
         classes = lc_runnables_types() + (AgentExecutor, Chain)
-        for clazz in classes:
+        for cls in classes:
             # IF runnable also contains loader_fn and persist_dir, warn
             # BaseRetrievalQA, BaseREtriever, ...
-            safe_patch(FLAVOR_NAME, clazz, "invoke", functools.partial(patched_inference, "invoke"))
+            safe_patch(FLAVOR_NAME, cls, "invoke", functools.partial(patched_inference, "invoke"))
 
-        for clazz in [AgentExecutor, Chain]:
+        for cls in [AgentExecutor, Chain]:
             safe_patch(
-                FLAVOR_NAME, clazz, "__call__", functools.partial(patched_inference, "__call__")
+                FLAVOR_NAME, cls, "__call__", functools.partial(patched_inference, "__call__")
             )
 
         safe_patch(

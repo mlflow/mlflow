@@ -781,8 +781,7 @@ def log_metric(
         with mlflow.start_run():
             mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
-    if run_id is None:
-        run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     return MlflowClient().log_metric(
         run_id,
         key,
@@ -833,8 +832,7 @@ def log_metrics(
         with mlflow.start_run():
             mlflow.log_metrics(metrics, synchronous=False)
     """
-    if run_id is None:
-        run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     return MlflowClient().log_batch(
@@ -1008,8 +1006,7 @@ def log_artifact(
         with mlflow.start_run():
             mlflow.log_artifact("features.txt")
     """
-    if run_id is None:
-        run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
@@ -1045,8 +1042,7 @@ def log_artifacts(
         with mlflow.start_run():
             mlflow.log_artifacts("data", artifact_path="states")
     """
-    if run_id is None:
-        run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
@@ -1073,8 +1069,7 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
             # Log HTML text
             mlflow.log_text("<h1>header</h1>", "index.html")
     """
-    if run_id is None:
-        run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
@@ -1108,8 +1103,7 @@ def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[st
             mlflow.log_dict(dictionary, "data")
             mlflow.log_dict(dictionary, "data.txt")
     """
-    if run_id is None:
-        run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
@@ -1273,8 +1267,7 @@ def log_table(
             # Log the df as a table
             mlflow.log_table(data=df, artifact_file="qabot_eval_results.json")
     """
-    if run_id is None:
-        run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_table(run_id, data, artifact_file)
 
 
@@ -1351,8 +1344,7 @@ def load_table(
 
 
 def _record_logged_model(mlflow_model, run_id=None):
-    if run_id is None:
-        run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)
 
 

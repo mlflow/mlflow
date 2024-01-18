@@ -36,24 +36,23 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
         "get_relevant_documents": "query",
     }
     input_example_exc = None
-    if func_name in func_param_name_mapping:
-        param_name = func_param_name_mapping[func_name]
+    if param_name := func_param_name_mapping.get(func_name):
         inference_func = getattr(model, func_name)
-        try:
-            # A guard to make sure `param_name` is the first argument of inference function
-            assert next(iter(inspect.signature(inference_func).parameters.keys())) == param_name
-            return kwargs[param_name] if param_name in kwargs else args[0]
-        except Exception as e:
-            input_example_exc = e
+        # A guard to make sure `param_name` is the first argument of inference function
+        if next(iter(inspect.signature(inference_func).parameters.keys())) != param_name:
+            input_example_exc = MlflowException(
+                "Inference function signature changes, please contact MLflow team to "
+                "fix langchain autologging.",
+            )
+        else:
+            return args[0] if len(args) > 0 else kwargs.get(param_name)
     else:
         input_example_exc = MlflowException(
             f"Unsupported inference function. Only support {list(func_param_name_mapping.keys())}."
         )
     _logger.warning(
-        f"Failed to gather input example of model {model.__class__.__name__}"
-        + f" due to {input_example_exc}."
-        if input_example_exc
-        else ""
+        f"Failed to gather input example of model {model.__class__.__name__} "
+        f"due to {input_example_exc}."
     )
 
 
@@ -93,6 +92,9 @@ def _update_langchain_model_config(model):
         )
         return False
     else:
+        # Langchain models are Pydantic models, and the value for extra is
+        # ignored, we need to set it to allow so as to set attributes on
+        # the model to keep track of logging status
         if hasattr(model, "__config__"):
             model.__config__.extra = Extra.allow
         return True
@@ -104,6 +106,7 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
 
         in_args = False
         # `config` is the second positional argument of runnable.invoke function
+        # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/runnables/base.py#L468
         if len(args) >= 2:
             config = args[1]
             in_args = True
@@ -124,6 +127,7 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
 
     if func_name == "__call__":
         # `callbacks` is the third positional argument of chain.__call__ function
+        # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/langchain/langchain/chains/base.py#L320
         if len(args) >= 3:
             callbacks = args[2] or []
             callbacks.append(mlflow_callback)
@@ -134,6 +138,7 @@ def _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs):
             kwargs["callbacks"] = callbacks
         return args, kwargs
 
+    # https://github.com/langchain-ai/langchain/blob/7d444724d7582386de347fb928619c2243bd0e55/libs/core/langchain_core/retrievers.py#L173
     if func_name == "get_relevant_documents":
         callbacks = kwargs.get("callbacks") or []
         callbacks.append(mlflow_callback)
@@ -207,7 +212,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             "outside this range."
         )
 
-    run_id = self.run_id if hasattr(self, "run_id") else None
+    run_id = getattr(self, "run_id", None)
     if (active_run := mlflow.active_run()) and run_id is None:
         run_id = active_run.info.run_id
     # TODO: test adding callbacks works
