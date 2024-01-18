@@ -121,6 +121,8 @@ class DeltaDatasetSource(DatasetSource):
                 UnityCatalogService, _REST_API_PATH_PREFIX
             )
             full_table_name = self._resolve_table_name(table_name)
+            # rewrite the relative table name with the full table name in the source
+            self._delta_table_name = full_table_name
             db_creds = get_databricks_host_creds()
             endpoint, method = _METHOD_TO_INFO[GetTable]
             # we need to replace the full_name_arg in the endpoint definition with the actual table name for
