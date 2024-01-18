@@ -16,7 +16,7 @@ Find out about the details of major features, changes, and deprecations below.
                     </div>
                     <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
                     <div class="body">
-                        Mlflow has a new <a href=https://mlflow.org>homepage</a> that has been completely modernized. Check it out today!
+                        MLflow has a new <a href=https://mlflow.org>homepage</a> that has been completely modernized. Check it out today!
                     </div>
                     <div class="tag">
                         <a href="https://github.com/mlflow/mlflow/releases/tag/v2.10.0">released in 2.10.0</a>
@@ -31,7 +31,7 @@ Find out about the details of major features, changes, and deprecations below.
                     <img class="card-image" src="../_static/images/logos/langchain-logo.png" alt="LangChain"></img>
                     <div class="body">
                         Autologging support for <a href="../llms/langchain/index.html">LangChain</a> is now available. Try it out the next time 
-                        that you're building a GenAI application with Langchain!
+                        that you're building a Generative AI application with Langchain!
                     </div>
                     <div class="tag">
                         <a href="https://github.com/mlflow/mlflow/releases/tag/v2.10.0">released in 2.10.0</a>
