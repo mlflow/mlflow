@@ -439,6 +439,7 @@ def save_model(
         example_no_conversion: {{ example_no_conversion }}
         prompt_template: {{ prompt_template }}
         kwargs: Optional additional configurations for transformers serialization.
+
     """
     import transformers
 
