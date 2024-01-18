@@ -166,13 +166,13 @@ def _infer_scalar_datatype(data) -> DataType:
     if DataType.is_boolean(data):
         return DataType.boolean
     # Order of is_long & is_integer matters
-    # as both of theirs python_type is int
+    # as both of their python_types are int
     if DataType.is_long(data):
         return DataType.long
     if DataType.is_integer(data):
         return DataType.integer
     # Order of is_double & is_float matters
-    # as both of theirs python_type is float
+    # as both of their python_types are float
     if DataType.is_double(data):
         return DataType.double
     if DataType.is_float(data):
@@ -183,7 +183,9 @@ def _infer_scalar_datatype(data) -> DataType:
         return DataType.binary
     if DataType.is_datetime(data):
         return DataType.datetime
-    raise MlflowException.invalid_parameter_value("Data is not one of the supported DataType")
+    raise MlflowException.invalid_parameter_value(
+        f"Data {data} is not one of the supported DataType"
+    )
 
 
 def _infer_schema(data: Any) -> Schema:

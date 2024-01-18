@@ -968,7 +968,9 @@ def _convert_spec_type_to_spark_type(spec_type):
                 StructField(
                     property.name,
                     _convert_spec_type_to_spark_type(property.dtype),
-                    nullable=not property.required,
+                    # we set nullable to True for all properties
+                    # to avoid some errors like java.lang.NullPointerException
+                    # when the signature is not inferred based on correct data.
                 )
                 for property in spec_type.properties
             ]
@@ -1196,11 +1198,14 @@ def _convert_struct_values(
 
         if type(field_type) in spark_primitive_type_to_np_type:
             np_type = spark_primitive_type_to_np_type[type(field_type)]
-            field_values = (
-                field_values.astype(np_type)
-                if is_pandas_df
-                else np.array(field_values, dtype=np_type).item()
-            )
+            if is_pandas_df:
+                field_values = field_values.astype(np_type)
+            else:
+                field_values = (
+                    None
+                    if _is_none_or_nan(field_values)
+                    else np.array(field_values, dtype=np_type).item()
+                )
         elif isinstance(field_type, ArrayType):
             if is_pandas_df:
                 field_values = pandas.Series(
@@ -1490,10 +1495,9 @@ Primitive types:
  - string
  - boolean
 Compound types:
- - array<primitive>: An array of primitives, e.g., array<int>.
- - array<array<primitive>>: A 2D array of primitives, e.g., array<array<int>>.
+ - ND array of primitives / structs.
  - struct<field: primitive | array<primitive> | array<array<primitive>>, ...>:
-   A struct with primitive, array<primitive>, or array<array<primitive>>,
+   A struct with primitive, ND array<primitive/structs>,
    e.g., struct<a:int, b:array<int>>.
 """
         )
