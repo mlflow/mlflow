@@ -115,7 +115,6 @@ class DeltaDatasetSource(DatasetSource):
 
     def _lookup_table_id(self, table_name):
         try:
-            _logger.info("attempting to process table %s", table_name)
             req_body = message_to_json(GetTable(full_name_arg=table_name))
             _METHOD_TO_INFO = extract_api_info_for_service(
                 UnityCatalogService, _REST_API_PATH_PREFIX
@@ -133,23 +132,25 @@ class DeltaDatasetSource(DatasetSource):
                 response_proto=GetTableResponse,
             )
             return resp.table_id
-        except Exception as e:
-            _logger.info("Failed with %s", e)
+        except Exception:
             return None
 
-    def _resolve_table_name(self, table_name: str) -> str:
-        num_levels = len(table_name.split("."))
-        spark = _get_active_spark_session()
-        if num_levels >= 3 or spark is None:
+    def _resolve_table_name(self, table_name) -> Optional[str]:
+        try:
+            num_levels = len(table_name.split("."))
+            spark = _get_active_spark_session()
+            if num_levels >= 3 or spark is None:
+                return table_name
+            catalog = spark.sql(_ACTIVE_CATALOG_QUERY).collect()[0]["catalog"]
+            # return the user provided name if the catalog is the hive metastore default
+            if catalog in {"spark_catalog", "hive_metastore"}:
+                return table_name
+            if num_levels == 2:
+                return f"{catalog}.{table_name}"
+            schema = spark.sql(_ACTIVE_SCHEMA_QUERY).collect()[0]["schema"]
+            return f"{catalog}.{schema}.{table_name}"
+        except Exception:
             return table_name
-        catalog = spark.sql(_ACTIVE_CATALOG_QUERY).collect()[0]["catalog"]
-        # return the user provided name if the catalog is the hive metastore default
-        if catalog in {"spark_catalog", "hive_metastore"}:
-            return table_name
-        if num_levels == 2:
-            return f"{catalog}.{table_name}"
-        schema = spark.sql(_ACTIVE_SCHEMA_QUERY).collect()[0]["schema"]
-        return f"{catalog}.{schema}.{table_name}"
 
     def _to_dict(self) -> Dict[Any, Any]:
         info = {}
