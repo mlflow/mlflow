@@ -163,6 +163,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
                     {
                         "delta_table_name": "default.temp_delta_versioned_with_id",
                         "delta_table_version": 1,
+                        "is_databricks_uc_table": true,
                         "delta_table_id": "uc_table_id_1",
                     }
                 )
