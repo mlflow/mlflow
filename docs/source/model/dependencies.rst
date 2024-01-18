@@ -14,9 +14,9 @@ dependencies and guidance for how to customize dependencies for your use case.
 
 .. tip::
 
-    One tip for improving MLflow's dependency inference coverage is to add ``input_example`` when saving your model. This enables MLflow to actually
-    performs a model prediction before saving the model, and capture the dependencies used during the prediction.
-    Please refer to :ref:`Model Input Example <input-example>` for the more detailed usage of this parameter.
+    One tip for improving MLflow's dependency inference accuracy is to add an ``input_example`` when saving your model. This enables MLflow to 
+    perform a model prediction before saving the model, thereby capturing the dependencies used during the prediction.
+    Please refer to :ref:`Model Input Example <input-example>` for additional, detailed usage of this parameter.
 
 .. contents:: Table of Contents
   :local:
@@ -409,9 +409,9 @@ and fix missing dependency errors.
 
 .. hint::
 
-    To reduce the possibility of dependency errors, you can add ``input_example`` when saving your model. This enables MLflow to actually
-    performs a model prediction before saving the model, and capture the dependencies used during the prediction.
-    Please refer to :ref:`Model Input Example <input-example>` for the more detailed usage of this parameter.
+    To reduce the possibility of dependency errors, you can add ``input_example`` when saving your model. This enables MLflow to 
+    perform a model prediction before saving the model, thereby capturing the dependencies used during the prediction.
+    Please refer to :ref:`Model Input Example <input-example>` for additional, detailed usage of this parameter.
 
 
 1. Check the missing dependencies
