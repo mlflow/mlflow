@@ -127,6 +127,9 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
             return "uc_table_id_1"
         return None
 
+    def mock_is_databricks_uc_table():
+        return True
+
     with mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._resolve_table_name",
         side_effect=mock_resolve_table_name,
@@ -135,27 +138,31 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
             "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
             side_effect=mock_lookup_table_id,
         ):
-            df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-            df_spark = spark_session.createDataFrame(df)
-            df_spark.write.format("delta").mode("overwrite").saveAsTable(
-                "default.temp_delta_versioned_with_id", path=tmp_path
-            )
+            with mock.patch(
+                "mlflow.data.delta_dataset_source.DeltaDatasetSource._is_databricks_uc_table",
+                side_effect=mock_is_databricks_uc_table,
+            ):
+                df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+                df_spark = spark_session.createDataFrame(df)
+                df_spark.write.format("delta").mode("overwrite").saveAsTable(
+                    "default.temp_delta_versioned_with_id", path=tmp_path
+                )
 
-            df2 = pd.DataFrame([[1, 2, 3]], columns=["a", "b", "c"])
-            df2_spark = spark_session.createDataFrame(df2)
-            df2_spark.write.format("delta").mode("overwrite").saveAsTable(
-                "default.temp_delta_versioned_with_id", path=tmp_path
-            )
+                df2 = pd.DataFrame([[1, 2, 3]], columns=["a", "b", "c"])
+                df2_spark = spark_session.createDataFrame(df2)
+                df2_spark.write.format("delta").mode("overwrite").saveAsTable(
+                    "default.temp_delta_versioned_with_id", path=tmp_path
+                )
 
-            delta_datasource = DeltaDatasetSource(
-                delta_table_name="temp_delta_versioned_with_id", delta_table_version=1
-            )
-            loaded_df_spark = delta_datasource.load()
-            assert loaded_df_spark.count() == df2_spark.count()
-            assert delta_datasource.to_json() == json.dumps(
-                {
-                    "delta_table_name": "default.temp_delta_versioned_with_id",
-                    "delta_table_version": 1,
-                    "delta_table_id": "uc_table_id_1",
-                }
-            )
+                delta_datasource = DeltaDatasetSource(
+                    delta_table_name="temp_delta_versioned_with_id", delta_table_version=1
+                )
+                loaded_df_spark = delta_datasource.load()
+                assert loaded_df_spark.count() == df2_spark.count()
+                assert delta_datasource.to_json() == json.dumps(
+                    {
+                        "delta_table_name": "default.temp_delta_versioned_with_id",
+                        "delta_table_version": 1,
+                        "delta_table_id": "uc_table_id_1",
+                    }
+                )
