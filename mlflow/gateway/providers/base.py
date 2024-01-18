@@ -25,34 +25,34 @@ class BaseProvider(ABC):
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         raise HTTPException(
-            status_code=404,
-            detail=f"The chat streaming route is not available for {self.NAME} models.",
+            status_code=501,
+            detail=f"The chat streaming route is not implemented for {self.NAME} models.",
         )
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise HTTPException(
-            status_code=404,
-            detail=f"The chat route is not available for {self.NAME} models.",
+            status_code=501,
+            detail=f"The chat route is not implemented for {self.NAME} models.",
         )
 
     async def completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         raise HTTPException(
-            status_code=404,
-            detail=f"The completions streaming route is not available for {self.NAME} models.",
+            status_code=501,
+            detail=f"The completions streaming route is not implemented for {self.NAME} models.",
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         raise HTTPException(
-            status_code=404,
-            detail=f"The completions route is not available for {self.NAME} models.",
+            status_code=501,
+            detail=f"The completions route is not implemented for {self.NAME} models.",
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         raise HTTPException(
-            status_code=404,
-            detail=f"The embeddings route is not available for {self.NAME} models.",
+            status_code=501,
+            detail=f"The embeddings route is not implemented for {self.NAME} models.",
         )
 
     @staticmethod
