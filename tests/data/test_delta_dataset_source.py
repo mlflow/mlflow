@@ -119,11 +119,11 @@ def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
 def test_uc_table_id_retrieval_works(spark_session, tmp_path):
     def mock_resolve_table_name(table_name):
         if table_name == "temp_delta_versioned_with_id":
-            return "category.schema.temp_delta_versioned_with_id"
+            return "default.temp_delta_versioned_with_id"
         return table_name
 
     def mock_lookup_table_id(table_name):
-        if table_name == "category.schema.temp_delta_versioned_with_id":
+        if table_name == "default.temp_delta_versioned_with_id":
             return "uc_table_id_1"
         return None
 
@@ -154,7 +154,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
             assert loaded_df_spark.count() == df2_spark.count()
             assert delta_datasource.to_json() == json.dumps(
                 {
-                    "delta_table_name": "category.schema.temp_delta_versioned_with_id",
+                    "delta_table_name": "default.temp_delta_versioned_with_id",
                     "delta_table_version": 1,
                     "delta_table_id": "uc_table_id_1",
                 }
