@@ -313,7 +313,6 @@ CODE = "code"
 DATA = "data"
 ENV = "env"
 MODEL_CONFIG = "config"
-DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
 
 
 class EnvType:
@@ -589,11 +588,15 @@ class PyFuncModel:
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def _warn_dependency_requirement_mismatches(model_path, module_name=""):
+def _warn_dependency_requirement_mismatches(model_path, module_name=None):
     """
     Inspects the model's dependencies and prints a warning if the current Python environment
     doesn't satisfy them.
+
+    :param model_path: The local path to the model
+    :param module_name: The name of the module that loads the model. Used to suppress warnings
     """
+    _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
     if not os.path.exists(req_file_path):
         return
@@ -606,7 +609,7 @@ def _warn_dependency_requirement_mismatches(model_path, module_name=""):
             if mismatch_info is not None:
                 # Suppress databricks-feature-lookup warning for feature store cases
                 if (
-                    mismatch_info.package_name == DATABRICKS_FEATURE_LOOKUP
+                    mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP
                     and module_name == _DATABRICKS_FS_LOADER_MODULE
                 ):
                     continue
