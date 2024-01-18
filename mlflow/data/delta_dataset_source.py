@@ -12,6 +12,7 @@ from mlflow.protos.databricks_managed_catalog_messages_pb2 import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_managed_catalog_service_pb2 import UnityCatalogService
 from mlflow.utils.annotations import experimental
+from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.databricks_utils import get_databricks_host_creds, is_in_databricks_runtime
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
@@ -27,6 +28,9 @@ DATABRICKS_LOCAL_METASTORE_NAMES = [DATABRICKS_HIVE_METASTORE_NAME, "spark_catal
 # samples catalog is managed by databricks for hosting public dataset like NYC taxi dataset.
 # it is neither a UC nor local metastore catalog
 DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
+
+_ACTIVE_CATALOG_QUERY = "SELECT current_catalog() AS catalog"
+_ACTIVE_SCHEMA_QUERY = "SELECT current_database() AS schema"
 
 _logger = logging.getLogger(__name__)
 
@@ -116,11 +120,12 @@ class DeltaDatasetSource(DatasetSource):
             _METHOD_TO_INFO = extract_api_info_for_service(
                 UnityCatalogService, _REST_API_PATH_PREFIX
             )
+            full_table_name = self._resolve_table_name(table_name)
             db_creds = get_databricks_host_creds()
             endpoint, method = _METHOD_TO_INFO[GetTable]
             # we need to replace the full_name_arg in the endpoint definition with the actual table name for
             # the REST API to work.
-            final_endpoint = endpoint.replace("{full_name_arg}", table_name)
+            final_endpoint = endpoint.replace("{full_name_arg}", full_table_name)
             resp = call_endpoint(
                 host_creds=db_creds,
                 endpoint=final_endpoint,
@@ -132,6 +137,20 @@ class DeltaDatasetSource(DatasetSource):
         except Exception as e:
             _logger.info("Failed with %s", e)
             return None
+
+    def _resolve_table_name(self, table_name: str) -> str:
+        num_levels = len(table_name.split("."))
+        spark = _get_active_spark_session()
+        if num_levels >= 3 or spark is None:
+            return table_name
+        catalog = spark.sql(_ACTIVE_CATALOG_QUERY).collect()[0]["catalog"]
+        # return the user provided name if the catalog is the hive metastore default
+        if catalog in {"spark_catalog", "hive_metastore"}:
+            return table_name
+        if num_levels == 2:
+            return f"{catalog}.{table_name}"
+        schema = spark.sql(_ACTIVE_SCHEMA_QUERY).collect()[0]["schema"]
+        return f"{catalog}.{schema}.{table_name}"
 
     def _to_dict(self) -> Dict[Any, Any]:
         info = {}
