@@ -6,7 +6,6 @@ from unittest import mock
 import cloudpickle
 import importlib_metadata
 import pytest
-import sklearn
 
 import mlflow
 import mlflow.utils.requirements_utils
@@ -440,6 +439,8 @@ def test_capture_imported_modules_includes_gateway_extra():
 
 
 def test_warn_dependency_requirement_mismatches():
+    import sklearn
+
     with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
         # Test case: all packages satisfy requirements.
         warn_dependency_requirement_mismatches(
