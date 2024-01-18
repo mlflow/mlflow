@@ -8,7 +8,6 @@ from sklearn.linear_model import LinearRegression
 
 import mlflow.utils.requirements_utils
 from mlflow.exceptions import MlflowException
-from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
 from mlflow.utils import PYTHON_VERSION
 
@@ -148,9 +147,7 @@ def test_suppress_warn_dependency_requirement_mismatches_feature_store(tmp_path)
                 }
             ),
         ):
-            _warn_dependency_requirement_mismatches(
-                model_path=tmp_path, module_name=_DATABRICKS_FS_LOADER_MODULE
-            )
+            _warn_dependency_requirement_mismatches(model_path=tmp_path)
             mock_warning.assert_called_once_with(
                 """
 Detected one or more mismatches between the model's dependencies and the current Python environment:

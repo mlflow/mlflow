@@ -588,13 +588,12 @@ class PyFuncModel:
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def _warn_dependency_requirement_mismatches(model_path, module_name=None):
+def _warn_dependency_requirement_mismatches(model_path):
     """
     Inspects the model's dependencies and prints a warning if the current Python environment
     doesn't satisfy them.
 
     :param model_path: The local path to the model
-    :param module_name: The name of the module that loads the model. Used to suppress warnings
     """
     _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
@@ -608,10 +607,7 @@ def _warn_dependency_requirement_mismatches(model_path, module_name=None):
             mismatch_info = _check_requirement_satisfied(req_line)
             if mismatch_info is not None:
                 # Suppress databricks-feature-lookup warning for feature store cases
-                if (
-                    mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP
-                    and module_name == _DATABRICKS_FS_LOADER_MODULE
-                ):
+                if mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP:
                     continue
                 mismatch_infos.append(str(mismatch_info))
 
@@ -670,6 +666,9 @@ def load_model(
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
+    if not suppress_warnings:
+        _warn_dependency_requirement_mismatches(local_path)
+
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
@@ -679,9 +678,6 @@ def load_model(
             f'Model does not have the "{FLAVOR_NAME}" flavor',
             RESOURCE_DOES_NOT_EXIST,
         )
-
-    if not suppress_warnings:
-        _warn_dependency_requirement_mismatches(local_path, conf[MAIN])
 
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
