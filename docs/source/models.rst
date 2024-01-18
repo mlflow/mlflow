@@ -101,8 +101,8 @@ Please refer to `Managing Dependencies in MLflow Models <model/dependencies.html
 
 .. _model-metadata:
 
-Model Signature And Input Example
----------------------------------
+Model Signatures And Input Examples
+-----------------------------------
 
 .. toctree::
     :maxdepth: 1
@@ -111,17 +111,15 @@ Model Signature And Input Example
     model/signatures
 
 In MLflow, understanding the intricacies of model signatures and input examples is crucial for effective model management and deployment. 
-A model signature in MLflow describes the expected input and output formats for a model, ensuring consistency and correctness in model usage. 
-These signatures encompass various aspects, such as:
 
 - **Model Signature**: Defines the schema for model inputs, outputs, and additional inference parameters, promoting a standardized interface for model interaction.
-- **Model Input Example**: Provides a concrete instance of valid model input, aiding in understanding and testing model requirements.
+- **Model Input Example**: Provides a concrete instance of valid model input, aiding in understanding and testing model requirements. Additionally, if an input example is provided when logging a model, a model signature will be automatically inferred and stored if not explicitly provided.
 
 Our documentation delves into several key areas:
 
-**Supported Signature Types**: We cover the different data types that are supported, such as tabular data for traditional machine learning models and tensors for deep learning models.
-**Signature Enforcement**: Discusses how MLflow enforces schema compliance, ensuring that the provided inputs match the model's expectations.
-**Logging Models with Signatures**: Guides on how to incorporate signatures when logging models, enhancing clarity and reliability in model operations.
+- **Supported Signature Types**: We cover the different data types that are supported, such as tabular data for traditional machine learning models and tensors for deep learning models.
+- **Signature Enforcement**: Discusses how MLflow enforces schema compliance, ensuring that the provided inputs match the model's expectations.
+- **Logging Models with Signatures**: Guides on how to incorporate signatures when logging models, enhancing clarity and reliability in model operations.
 
 For a detailed exploration of these concepts, including examples and best practices, visit the `Model Signatures and Examples Guide <model/signatures.html>`_.
 If you would like to see signature enforcement in action, see the `notebook tutorial on Model Signatures <model/notebooks/signature_examples.html>`_ to learn more.

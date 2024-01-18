@@ -1,5 +1,5 @@
-MLflow Model Signatures and Input Examples
-==========================================
+MLflow Model Signatures and Input Examples Guide
+================================================
 
 .. _intro-model-signature-input-example:
 
@@ -46,7 +46,7 @@ the data used at inference aligns with the model's established specifications, t
 more insights into how these signatures enforce data accuracy, see the :ref:`Signature enforcement <signature-enforcement>` section.
 
 Embedding a signature in your model is a straightforward process in MLflow. When using functions like :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>` 
-to log or save a model, simply include a :ref:`model input example <input-example>`. This action enables MLflow to automatically infer the model's signature. 
+to log or save a model, simply include a :ref:`model input example <input-example>`. This action enables MLflow to **automatically infer the model's signature**. 
 Detailed instructions on this process can be found in the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section. 
 The inferred signatures, along with other essential model metadata, are stored in a JSON format within the :ref:`MLmodel file <pyfunc-model-config>` of 
 your model artifacts. If there's a need to add a signature to a model that has already been logged or saved, the 
@@ -54,7 +54,7 @@ your model artifacts. If there's a need to add a signature to a model that has a
 :ref:`How to set signatures on models <how-to-set-signatures-on-models>` section for a detailed guide on implementing this functionality.
 
 Model Signature Components
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The structure of a model signature in MLflow is composed of three distinct schema types: **(1) inputs**, **(2) outputs**, and **(3) parameters (params)**. 
 The **inputs** and **outputs** schemas specify the data structure that the model expects to receive and produce, respectively. These can be tailored to handle 
@@ -102,6 +102,10 @@ the signature enforcement validation will raise an exception stating that the re
 In order to configure a field as optional, you must pass in a value of `None` or `np.nan` for that field when using the :py:func:`mlflow.models.infer_signature` 
 function. Alternatively, you can manually define the signature and set the `required` field to `false` for that field.
 
+Model Signature Types
+---------------------
+
+MLflow supports two primary types of signatures: a column-based signature for tabular-based data, and a tensor-based signature for tensor data. 
 
 Column-based Signatures
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -120,7 +124,7 @@ Supported Data Types
 Column-based signatures support data primitives defined within the :py:class:`MLflow DataType <mlflow.types.DataType>` specification:
 
 * string
-* integer
+* integer<sup>1</sup>
 * long
 * float
 * double
@@ -142,6 +146,12 @@ Column-based signatures support data primitives defined within the :py:class:`ML
  |                                               |       params: null                                                        |
  |                                               |                                                                           |
  +-----------------------------------------------+---------------------------------------------------------------------------+
+
+.. note::
+    <sup>1</sup> Python often represents missing values in integer data as floats, causing type variability in integer columns and potential schema 
+    enforcement errors in MLflow. To avoid such issues, particularly when using Python in MLflow for model serving and Spark deployments, 
+    define integer columns with missing values as doubles (float64).
+
 
 Column-based signature also support composite data types of these primitives.
 
@@ -368,7 +378,7 @@ list of these data types. Currently, MLflow supports only 1D lists for parameter
 .. _signature-enforcement:
 
 Signature Enforcement
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 MLflow's schema enforcement rigorously validates the provided inputs and parameters against the model's signature. It raises an exception 
 if the inputs are incompatible and either issues a warning or raises an exception for incompatible parameters. This enforcement is applied 
 prior to invoking the underlying model implementation and throughout the model inference process. Note, however, that this enforcement is 
@@ -377,17 +387,17 @@ It does not apply to models loaded in their native format, such as through :py:f
 
 .. figure:: ../_static/images/models/signature-enforcement.png
     :align: center
-    :figwidth: 80%
+    :figwidth: 90%
 
 Name Ordering Enforcement
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 In MLflow, input names are verified against the model signature. Missing required inputs trigger an exception, whereas missing optional inputs do 
 not. Inputs not declared in the signature are disregarded. When the input schema in the signature specifies input names, matching is conducted by 
 name, and inputs are reordered accordingly. If the schema lacks input names, matching is based on the order of inputs, with MLflow checking only 
 the number of inputs provided.
 
 Input Type Enforcement
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 MLflow enforces input types as defined in the model's signature. For column-based signature models (such as those using DataFrame inputs), MLflow 
 performs safe type conversions where necessary, allowing only lossless conversions. For example, converting int to long or int to double is 
 permissible, but converting long to double is not. In cases where types cannot be made compatible, MLflow will raise an error.
@@ -395,16 +405,18 @@ permissible, but converting long to double is not. In cases where types cannot b
 For tensor-based signature models, type checking is more stringent. An exception is thrown if the input type does not align with the schema-specified type.
 
 Params Type and Shape Enforcement
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 In MLflow, the types and shapes of parameters (params) are meticulously checked against the model's signature. During inference, each parameter's type 
 and shape are validated to ensure they align with the specifications in the signature. Scalar values are expected to have a shape of ``None``, while list 
 values should have a shape of ``(-1,)``. If a parameter's type or shape is found to be incompatible, MLflow raises an exception. Additionally, the parameter's 
 value undergoes a validation check against its designated type in the signature. If the conversion to the specified type fails, an `MlflowException` is 
-triggered. For a comprehensive list of valid params, refer to the :ref:`Model Inference Params <inference-params>` section. Models with signatures that 
-receive undeclared params during inference will trigger a warning for each request, and any invalid params will be disregarded.
+triggered. For a comprehensive list of valid params, refer to the :ref:`Model Inference Params <inference-params>` section. 
+
+.. important::
+    Models with signatures that receive undeclared params during inference will trigger a warning for each request, and any invalid params will be disregarded.
 
 Handling Integers With Missing Values
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 In Python, integer data with missing values is often represented as floats. This leads to variability in the data types of integer columns, potentially 
 causing schema enforcement errors during runtime, as integers and floats are not inherently compatible. For instance, if a column 'c' in your training data 
 is entirely integers, it will be recognized as such. However, if a missing value is introduced in 'c', it will be represented as a float. If the model's 
@@ -412,12 +424,12 @@ signature expects 'c' to be an integer, MLflow will raise an error due to the in
 MLflow uses Python for model serving and Spark deployments, it's advisable to define integer columns with missing values as doubles (float64).
 
 Handling Date and Timestamp
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Python's datetime types come with built-in precision, such as ``datetime64[D]`` for day precision and ``datetime64[ns]`` for nanosecond precision. 
 While this precision detail is disregarded in column-based model signatures, it is enforced in tensor-based signatures.
 
 Handling Ragged Arrays
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 Ragged arrays in numpy, characterized by a shape of (-1,) and a dtype of object, are automatically managed when using ``infer_signature``. This results 
 in a signature like ``Tensor('object', (-1,))``. For a more detailed representation, a signature can be manually created to reflect the specific nature 
 of a ragged array, such as ``Tensor('float64', (-1, -1, -1, 3))``. Enforcement is then applied as detailed in the signature, accommodating ragged input arrays.
@@ -425,7 +437,7 @@ of a ragged array, such as ``Tensor('float64', (-1, -1, -1, 3))``. Enforcement i
 .. _how-to-log-models-with-signatures:
 
 How To Log Models With Signatures
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------
 Including a signature with your model in MLflow is straightforward. Simply provide a :ref:`model input example <input-example>` when making a 
 call to either the log_model or save_model functions, such as with :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. MLflow will then 
 automatically infer the model's signature based on this input example and the model's predicted output for the given example.
@@ -444,7 +456,7 @@ predictions made on the training dataset), and valid model parameters (like a di
     :ref:`pmdarima model flavor <pmdarima-flavor>`).
 
 Column-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The following example demonstrates how to store a model signature for a simple classifier trained
 on the ``Iris dataset``:
 
@@ -454,7 +466,6 @@ on the ``Iris dataset``:
     from sklearn import datasets
     from sklearn.ensemble import RandomForestClassifier
     import mlflow
-    from mlflow.models import infer_signature
 
     iris = datasets.load_iris()
     iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
@@ -493,7 +504,7 @@ The same signature can be explicitly created and logged as follows:
         mlflow.sklearn.log_model(clf, "iris_rf", signature=signature)
 
 Tensor-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The following example demonstrates how to store a model signature for a simple classifier trained
 on the ``MNIST dataset``:
 
@@ -548,7 +559,7 @@ The same signature can be explicitly created and logged as follows:
 
 
 Signature with params Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The following example demonstrates how to store a model signature with params
 for a simple transformers model:
 
@@ -621,13 +632,13 @@ The same signature can be created explicitly as follows:
 .. _how-to-set-signatures-on-models:
 
 How To Set Signatures on Models
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------
 Models can be saved without model signatures or with incorrect ones. To add or update a signature for an existing logged model, 
 use the :py:func:`mlflow.models.set_signature() <mlflow.models.set_signature>` API. Below are some examples demonstrating its usage.
 
 
-Set Signature on Logged Model
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Setting a Signature on a Logged Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The following example demonstrates how to set a model signature on an already-logged sklearn model.
 Suppose that you've logged a sklearn model without a signature like below:
 
@@ -675,7 +686,7 @@ variable in the previous code snippet to point to the model's local directory.
 .. _set-signature-on-mv:
 
 Setting a Signature on a Registered Model
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------
 
 As MLflow Model Registry artifacts are meant to be read-only, you cannot directly set a signature on
 a model version or model artifacts represented by ``models:/`` URI schemes. Instead, you should first set
@@ -732,6 +743,13 @@ To include an input example with your model, add it to the appropriate log_model
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Input examples are also used to infer
 model signatures in log_model calls when signatures aren't specified.
 
+.. tip::
+    Including an input example while logging a model offers dual benefits. Firstly, it aids in inferring the model's signature. 
+    Secondly, and just as importantly, it **validates the model's requirements**. This input example is utilized to execute a prediction 
+    using the model that is about to be logged, thereby enhancing the accuracy in identifying model requirement dependencies.
+    It is **highly recommended** to always include an input example along with your models when you log them.
+
+
 By default, if input example is a dictionary, we convert it to pandas DataFrame format when saving.
 Note that for langchain, openai, pyfunc and transformers flavors, input example could be saved without
 conversion by setting ``example_no_conversion`` to ``False``.
@@ -765,8 +783,8 @@ input example with your model:
     }
     mlflow.sklearn.log_model(..., input_example=input_example)
 
-How To Log Model With Tensor-based Example
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+How To Log Models With a Tensor-based Example
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 For models accepting tensor-based inputs, an example must be a batch of inputs. By default, the axis 0
 is the batch axis unless specified otherwise in the model signature. The sample input can be passed in
 as any of the following formats:
