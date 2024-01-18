@@ -45,10 +45,12 @@ class JitteredRetry(Retry):
             backoff_value += random.random() * self.backoff_jitter
         # The attribute `BACKOFF_MAX` was renamed to `DEFAULT_BACKOFF_MAX` in this commit:
         # https://github.com/urllib3/urllib3/commit/f69b1c89f885a74429cabdee2673e030b35979f0
-        # which was part of the major release of 2.0 for urllib3
+        # which was part of the major release of 2.0 for urllib3 and the support for both
+        # constants was added in 1.26.9:
+        # https://github.com/urllib3/urllib3/blob/1.26.9/src/urllib3/util/retry.py
         default_backoff = (
             Retry.BACKOFF_MAX
-            if Version(urllib3.__version__) < Version("2.0")
+            if Version(urllib3.__version__) < Version("1.26.9")
             else Retry.DEFAULT_BACKOFF_MAX
         )
 
