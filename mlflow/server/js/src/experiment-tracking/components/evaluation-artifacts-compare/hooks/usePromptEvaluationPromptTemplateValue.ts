@@ -17,11 +17,7 @@ const getNewVariableName = (alreadyExistingVariableNames: string[] = []) => {
   }
 
   const maximumVariableNameIndex =
-    max(
-      alreadyExistingVariableNames.map((name) =>
-        parseInt(name.match(/new_variable_(\d+)/)?.[1] || '1', 10),
-      ),
-    ) || 1;
+    max(alreadyExistingVariableNames.map((name) => parseInt(name.match(/new_variable_(\d+)/)?.[1] || '1', 10))) || 1;
 
   return `${newDefaultVariableName}_${maximumVariableNameIndex + 1}`;
 };

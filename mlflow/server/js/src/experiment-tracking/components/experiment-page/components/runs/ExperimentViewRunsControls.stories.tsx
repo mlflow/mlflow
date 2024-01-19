@@ -11,6 +11,7 @@ import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRu
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRunsContext';
 import { UpdateExperimentSearchFacetsFn } from '../../../../types';
+import { createExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
 
 const MOCK_EXPERIMENT = EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789'];
 
@@ -38,10 +39,7 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
     if (typeof updatedFacetsState === 'function') {
       setSearchFacetsState(updatedFacetsState);
 
-      setMessages((currentMessages) => [
-        'updateSearchFacets() called with setter function',
-        ...currentMessages,
-      ]);
+      setMessages((currentMessages) => ['updateSearchFacets() called with setter function', ...currentMessages]);
     } else {
       setSearchFacetsState((s) => ({ ...s, ...updatedFacetsState }));
 
@@ -54,13 +52,9 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
 
   return (
     <Provider
-      store={createStore(
-        (s) => s as any,
-        EXPERIMENT_RUNS_MOCK_STORE,
-        compose(applyMiddleware(promiseMiddleware())),
-      )}
+      store={createStore((s) => s as any, EXPERIMENT_RUNS_MOCK_STORE, compose(applyMiddleware(promiseMiddleware())))}
     >
-      <IntlProvider locale='en'>
+      <IntlProvider locale="en">
         <MemoryRouter>
           <GetExperimentRunsContextProvider actions={MOCK_ACTIONS as any}>
             <div
@@ -75,13 +69,16 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
             <ExperimentViewRunsControls
               runsData={MOCK_RUNS_DATA}
               searchFacetsState={searchFacetsState}
-              experimentId={'123'}
+              experimentId="123"
               viewState={viewState}
               updateSearchFacets={updateSearchFacets}
               updateViewState={() => {}}
               requestError={null}
               expandRows={false}
               updateExpandRows={() => {}}
+              refreshRuns={() => {}}
+              uiState={createExperimentPageUIStateV2()}
+              isLoading={false}
             />
             <div
               css={{
@@ -92,9 +89,7 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
             >
               <h2>Debug info:</h2>
               <h3>Current search facets state:</h3>
-              <div css={{ fontFamily: 'monospace', marginBottom: 10 }}>
-                {JSON.stringify(searchFacetsState)}
-              </div>
+              <div css={{ fontFamily: 'monospace', marginBottom: 10 }}>{JSON.stringify(searchFacetsState)}</div>
               <h3>Log:</h3>
               {messages.map((m, i) => (
                 <div key={i} css={{ fontFamily: 'monospace' }}>

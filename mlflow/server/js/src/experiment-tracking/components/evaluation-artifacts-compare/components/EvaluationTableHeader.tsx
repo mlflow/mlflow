@@ -7,11 +7,7 @@ interface Props {
   isGroupByHeader?: false;
 }
 
-export const EvaluationTableHeader = ({
-  children,
-  className,
-  groupHeaderContent = null,
-}: PropsWithChildren<Props>) => {
+export const EvaluationTableHeader = ({ children, className, groupHeaderContent = null }: PropsWithChildren<Props>) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -34,7 +30,7 @@ export const EvaluationTableHeader = ({
           padding: theme.spacing.sm,
           borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         }}
-        className='header-group-cell'
+        className="header-group-cell"
       >
         {groupHeaderContent}
       </div>

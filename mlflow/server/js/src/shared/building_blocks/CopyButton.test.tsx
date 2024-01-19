@@ -26,7 +26,7 @@ describe('CopyButton', () => {
   });
 
   it('should render with minimal props without exploding', () => {
-    const wrapper = mountWithIntl(<CopyButton copyText='copyText' />);
+    const wrapper = mountWithIntl(<CopyButton copyText="copyText" />);
     expect(wrapper.text().includes('Copy')).toBe(true);
     wrapper.simulate('click');
     expect(wrapper.text().includes('Copied')).toBe(true);

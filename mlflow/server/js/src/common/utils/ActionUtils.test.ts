@@ -1,12 +1,4 @@
-import {
-  fulfilled,
-  getUUID,
-  isFulfilledApi,
-  isPendingApi,
-  isRejectedApi,
-  pending,
-  rejected,
-} from './ActionUtils';
+import { fulfilled, getUUID, isFulfilledApi, isPendingApi, isRejectedApi, pending, rejected } from './ActionUtils';
 
 describe('ActionUtils', () => {
   it('getUUID', () => {

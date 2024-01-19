@@ -9,12 +9,16 @@ import React from 'react';
 import { Typography } from '@databricks/design-system';
 import { Table } from 'antd';
 import { LogModelWithSignatureUrl } from '../../common/constants';
-import { gray800 } from '../../common/styles/color';
 import { spacingMedium } from '../../common/styles/spacing';
 import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Interpolation, Theme } from '@emotion/react';
-import { DesignSystemHocProps, WithDesignSystemThemeHoc } from '@databricks/design-system';
+import { Theme } from '@emotion/react';
+import {
+  DesignSystemHocProps,
+  MinusBoxIcon,
+  PlusSquareIcon,
+  WithDesignSystemThemeHoc,
+} from '@databricks/design-system';
 
 const { Column } = Table;
 const { Text } = Typography;
@@ -106,8 +110,8 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
 
     return (
       <Table
-        className='inner-table'
-        size='middle'
+        className="inner-table"
+        size="middle"
         showHeader={false}
         pagination={false}
         locale={{ emptyText: `No schema ${schemaType}.` }}
@@ -131,7 +135,7 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
   };
 
   renderSectionHeader = (text: any) => {
-    return <strong className='primary-text'>{text}</strong>;
+    return <strong className="primary-text">{text}</strong>;
   };
 
   render() {
@@ -176,10 +180,10 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
       // @ts-expect-error TS(2322): Type '{ [x: string]: { padding: string; width: str... Remove this comment to see the full error message
       <div css={getSchemaTableStyles(theme)}>
         <Table
-          key='schema-table'
-          className='outer-table'
-          rowClassName='section-header-row'
-          size='middle'
+          key="schema-table"
+          className="outer-table"
+          rowClassName="section-header-row"
+          size="middle"
           pagination={false}
           defaultExpandAllRows={this.props.defaultExpandAllRows}
           expandRowByClick
@@ -187,11 +191,11 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
           expandIcon={({ expanded, onExpand, record }) =>
             expanded ? (
               <span onClick={(e) => onExpand(record, e)}>
-                <i className='far fa-minus-square' />
+                <MinusBoxIcon />
               </span>
             ) : (
               <span onClick={(e) => onExpand(record, e)}>
-                <i className='far fa-plus-square' />
+                <PlusSquareIcon />
               </span>
             )
           }
@@ -200,13 +204,13 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
               <div>
                 {/* eslint-disable-next-line max-len */}
                 <FormattedMessage
-                  defaultMessage='No schema. See <link>MLflow docs</link> for how to include
-                     input and output schema with your model.'
-                  description='Text for schema table when no schema exists in the model version
-                     page'
+                  defaultMessage="No schema. See <link>MLflow docs</link> for how to include
+                     input and output schema with your model."
+                  description="Text for schema table when no schema exists in the model version
+                     page"
                   values={{
                     link: (chunks: any) => (
-                      <a href={LogModelWithSignatureUrl} target='_blank' rel='noreferrer'>
+                      <a href={LogModelWithSignatureUrl} target="_blank" rel="noreferrer">
                         {chunks}
                       </a>
                     ),
@@ -224,8 +228,8 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
               defaultMessage: 'Name',
               description: 'Text for name column in schema table in model version page',
             })}
-            width='40%'
-            dataIndex='name'
+            width="40%"
+            dataIndex="name"
             render={this.renderSectionHeader}
           />
           <Column
@@ -234,8 +238,8 @@ export class SchemaTableImpl extends React.PureComponent<Props> {
               defaultMessage: 'Type',
               description: 'Text for type column in schema table in model version page',
             })}
-            width='60%'
-            dataIndex='type'
+            width="60%"
+            dataIndex="type"
             render={this.renderSectionHeader}
           />
         </Table>
