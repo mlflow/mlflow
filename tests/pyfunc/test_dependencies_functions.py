@@ -120,6 +120,46 @@ model's environment and install dependencies using the resulting environment fil
             )
 
 
+def test_suppress_warn_dependency_requirement_mismatches_feature_store(tmp_path):
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text(
+        f"cloudpickle=={cloudpickle.__version__}\ndatabricks-feature-lookup==999.1.1\n"
+    )
+    with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+        original_get_installed_version_fn = mlflow.utils.requirements_utils._get_installed_version
+
+        def gen_mock_get_installed_version_fn(mock_versions):
+            def mock_get_installed_version_fn(package, module=None):
+                if package in mock_versions:
+                    return mock_versions[package]
+                else:
+                    return original_get_installed_version_fn(package, module)
+
+            return mock_get_installed_version_fn
+
+        # Test case: multiple mismatched packages
+        with mock.patch(
+            "mlflow.utils.requirements_utils._get_installed_version",
+            gen_mock_get_installed_version_fn(
+                {
+                    "databricks-feature-lookup": "9.99.11",
+                    "cloudpickle": "999.99.22",
+                }
+            ),
+        ):
+            _warn_dependency_requirement_mismatches(model_path=tmp_path)
+            mock_warning.assert_called_once_with(
+                """
+Detected one or more mismatches between the model's dependencies and the current Python environment:
+ - cloudpickle (current: 999.99.22, required: cloudpickle=={cloudpickle_version})
+To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` to fetch the \
+model's environment and install dependencies using the resulting environment file.
+""".strip().format(
+                    cloudpickle_version=cloudpickle.__version__
+                )
+            )
+
+
 def test_get_model_dependencies_read_req_file(tmp_path):
     req_file = tmp_path / "requirements.txt"
     req_file_content = """

@@ -592,7 +592,10 @@ def _warn_dependency_requirement_mismatches(model_path):
     """
     Inspects the model's dependencies and prints a warning if the current Python environment
     doesn't satisfy them.
+
+    :param model_path: The local path to the model
     """
+    _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
     if not os.path.exists(req_file_path):
         return
@@ -603,6 +606,9 @@ def _warn_dependency_requirement_mismatches(model_path):
             req_line = req.req_str
             mismatch_info = _check_requirement_satisfied(req_line)
             if mismatch_info is not None:
+                # Suppress databricks-feature-lookup warning for feature store cases
+                if mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP:
+                    continue
                 mismatch_infos.append(str(mismatch_info))
 
         if len(mismatch_infos) > 0:
