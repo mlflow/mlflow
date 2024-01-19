@@ -4,7 +4,10 @@ import pytest
 from requests.exceptions import HTTPError
 
 import mlflow.gateway.utils
-from mlflow.environment_variables import MLFLOW_GATEWAY_URI
+from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENT_SERVER_START_TIMEOUT,
+    MLFLOW_GATEWAY_URI,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import (
     create_route,
@@ -136,7 +139,10 @@ def test_fluent_search_routes(gateway):
     }
 
 
-def test_fluent_search_routes_handles_pagination(tmp_path):
+def test_fluent_search_routes_handles_pagination(tmp_path, monkeypatch):
+    # Set longer timeout for starting the server as this test creates huge number of routes
+    monkeypatch.setenv(MLFLOW_DEPLOYMENT_SERVER_START_TIMEOUT.name, "120")
+
     conf = tmp_path / "config.yaml"
     base_route_config = {
         "route_type": "llm/v1/completions",
