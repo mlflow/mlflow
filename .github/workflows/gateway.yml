@@ -44,6 +44,7 @@ jobs:
           pip freeze | tail -n +1 | grep -q '^pydantic==2\.'
       - name: Run tests with pydantic v2
         run: |
+          # TODO: Remove once https://github.com/mlflow/mlflow/issues/10855 is fixed
           pip install uvicorn!=0.26.0
           pytest tests/gateway
       - name: Downgrade pydantic to v1
