@@ -304,8 +304,8 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.requirements_utils import (
-    _check_requirement_satisfied,
     _parse_requirements,
+    warn_dependency_requirement_mismatches,
 )
 
 FLAVOR_NAME = "python_function"
@@ -589,46 +589,12 @@ class PyFuncModel:
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def _warn_dependency_requirement_mismatches(model_path):
-    """
-    Inspects the model's dependencies and prints a warning if the current Python environment
-    doesn't satisfy them.
-
-    :param model_path: The local path to the model
-    """
-    _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
+def _get_pip_requirements_from_model_path(model_path: str):
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
     if not os.path.exists(req_file_path):
-        return
+        return []
 
-    try:
-        mismatch_infos = []
-        for req in _parse_requirements(req_file_path, is_constraint=False):
-            req_line = req.req_str
-            mismatch_info = _check_requirement_satisfied(req_line)
-            if mismatch_info is not None:
-                # Suppress databricks-feature-lookup warning for feature store cases
-                if mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP:
-                    continue
-                mismatch_infos.append(str(mismatch_info))
-
-        if len(mismatch_infos) > 0:
-            mismatch_str = " - " + "\n - ".join(mismatch_infos)
-            warning_msg = (
-                "Detected one or more mismatches between the model's dependencies and the current "
-                f"Python environment:\n{mismatch_str}\n"
-                "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
-                "to fetch the model's environment and install dependencies using the resulting "
-                "environment file."
-            )
-            _logger.warning(warning_msg)
-
-    except Exception as e:
-        _logger.warning(
-            f"Encountered an unexpected error ({e!r}) while detecting model dependency "
-            "mismatches. Set logging level to DEBUG to see the full traceback."
-        )
-        _logger.debug("", exc_info=True)
+    return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
 
 def load_model(
@@ -668,7 +634,8 @@ def load_model(
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
     if not suppress_warnings:
-        _warn_dependency_requirement_mismatches(local_path)
+        model_requirements = _get_pip_requirements_from_model_path(local_path)
+        warn_dependency_requirement_mismatches(model_requirements)
 
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
@@ -1427,7 +1394,8 @@ def spark_udf(
 
     if env_manager == _EnvManager.LOCAL:
         # Assume spark executor python environment is the same with spark driver side.
-        _warn_dependency_requirement_mismatches(local_model_path)
+        model_requirements = _get_pip_requirements_from_model_path(local_model_path)
+        warn_dependency_requirement_mismatches(model_requirements)
         _logger.warning(
             'Calling `spark_udf()` with `env_manager="local"` does not recreate the same '
             "environment that was used during training, which may lead to errors or inaccurate "
