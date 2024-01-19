@@ -12,12 +12,15 @@ class BaseProvider(ABC):
     Base class for MLflow Gateway providers.
     """
 
-    NAME: str
+    NAME: str = ""
     SUPPORTED_ROUTE_TYPES: Tuple[str, ...]
 
     def __init__(self, config: RouteConfig):
-        if not hasattr(self, "NAME"):
-            raise TypeError(f"'NAME' is not defined for {self.__class__.__name__}")
+        if self.NAME == "":
+            raise ValueError(
+                f"{self.__class__.__name__} is a subclass of BaseProvider and must "
+                f"override 'NAME' attribute as a non-empty string."
+            )
 
         self.config = config
 
