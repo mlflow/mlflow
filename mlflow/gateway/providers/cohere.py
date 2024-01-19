@@ -9,7 +9,6 @@ from mlflow.gateway.config import CohereConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
-from mlflow.gateway.utils import handle_incomplete_chunks
 
 
 class CohereAdapter(ProviderAdapter):
@@ -223,7 +222,7 @@ class CohereProvider(BaseProvider):
                 **CohereAdapter.completions_streaming_to_model(payload, self.config),
             },
         )
-        async for chunk in handle_incomplete_chunks(stream):
+        async for chunk in stream:
             if not chunk:
                 continue
 
