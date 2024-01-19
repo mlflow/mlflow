@@ -3,22 +3,22 @@
 Search Runs
 ===========
 
-The MLflow UI and API support searching runs within a single experiment or a group of experiments
-using a search filter API. This API is a simplified version of the SQL ``WHERE`` clause.
-
-.. contents:: Table of Contents
-  :local:
-  :depth: 3
+This guide will walk you through how to search your MLflow runs through MLflow UI and Python API.
 
 
-.. _search-runs-syntax:
+Search Runs on MLflow UI
+------------------------
 
-Syntax
-------
+MLflow UI provides a search bar to search your MLflow runs, which can be found in the experiment view, as shown
+by the screenshot:
 
-A search filter is one or more expressions joined by the ``AND`` keyword.
-The syntax does not support ``OR``. Each expression has three parts: an identifier on
-the left-hand side (LHS), a comparator, and constant on the right-hand side (RHS).
+
+
+Search Query Syntax
+^^^^^^^^^^^^^^^^^^^
+
+You need to write search queries to fetch your MLflow runs. The syntax is similar to SQL query, and the following 
+
 
 Example Expressions
 ^^^^^^^^^^^^^^^^^^^
