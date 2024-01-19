@@ -106,7 +106,7 @@ def completions_stream_response():
         # final chunk
         b'{"is_finished":true,"event_type":"stream-end","finish_reason":"COMPLETE",'
         b'"response":{"id":"test-id1","generations":'
-        b'[{"id":"test-id2","index":0,"text":" Hi there","finish_reason":"COMPLETE"}],'
+        b'[{"id":"test-id2","text":" Hi there","finish_reason":"COMPLETE"}],'
         b'"prompt":"This is a test"}}',
     ]
 
