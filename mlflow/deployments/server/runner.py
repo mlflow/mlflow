@@ -7,10 +7,7 @@ from typing import Generator
 from watchfiles import watch
 
 from mlflow.deployments.server import app
-from mlflow.environment_variables import (
-    MLFLOW_DEPLOYMENT_SERVER_START_TIMEOUT,
-    MLFLOW_DEPLOYMENTS_CONFIG,
-)
+from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_CONFIG
 from mlflow.gateway.config import _load_route_config
 from mlflow.gateway.utils import kill_child_processes
 
@@ -72,8 +69,6 @@ class Runner:
                 "--worker-class",
                 "uvicorn.workers.UvicornWorker",
                 f"{app.__name__}:create_app_from_env()",
-                "--timeout",
-                str(MLFLOW_DEPLOYMENT_SERVER_START_TIMEOUT.get()),
             ],
             env={
                 **os.environ,

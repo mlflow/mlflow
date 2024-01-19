@@ -491,12 +491,6 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
 
-# Specifies the timeout for starting Gunicorn workers for the MLflow Deployment server.
-# Default 30 seconds comes from the default value of Gunicorn.
-MLFLOW_DEPLOYMENT_SERVER_START_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_DEPLOYMENT_SERVER_START_TIMEOUT", int, 30
-)
-
 # Specifies the timeout for deployment client APIs to declare a request has timed out
 MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", int, 120
