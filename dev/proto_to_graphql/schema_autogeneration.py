@@ -78,6 +78,8 @@ Given the GenerateSchemaState, generate the whole schema with Graphene.
 
 def generate_schema(state):
     schema_builder = ""
+    schema_builder += "# GENERATED FILE. PLEASE DON'T MODIFY.\n"
+    schema_builder += "# Run python3 ./dev/proto_to_graphql/code_generator.py to regenerate.\n"
     schema_builder += "import graphene\n"
     schema_builder += "import mlflow\n"
     schema_builder += "from mlflow.server.graphql import graphql_schema_extensions\n"
@@ -89,7 +91,7 @@ def generate_schema(state):
         pascal_class_name = snake_to_pascal(get_descriptor_full_pascal_name(enum))
         schema_builder += f"\nclass {pascal_class_name}(graphene.Enum):"
         for value in enum.values:
-            schema_builder += f"\n{INDENT}{value.name} = '{value.name}'"
+            schema_builder += f'''\n{INDENT}{value.name} = "{value.name}"'''
         schema_builder += "\n\n"
 
     for type in state.types:
@@ -117,6 +119,9 @@ def generate_schema(state):
 
     schema_builder += "\nclass QueryType(graphene.ObjectType):"
 
+    if len(state.queries) == 0:
+        schema_builder += f"\n{INDENT}pass"
+
     for query in state.queries:
         schema_builder += proto_method_to_graphql_operation(query)
 
@@ -127,6 +132,9 @@ def generate_schema(state):
 
     schema_builder += "\n"
     schema_builder += "\nclass MutationType(graphene.ObjectType):"
+
+    if len(state.mutations) == 0:
+        schema_builder += f"\n{INDENT}pass"
 
     for mutation in state.mutations:
         schema_builder += proto_method_to_graphql_operation(mutation)
