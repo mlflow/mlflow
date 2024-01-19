@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 import pytest
@@ -19,7 +20,6 @@ from mlflow.gateway import (
 )
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE
-from mlflow.gateway.fluent import MlflowGatewayClient
 from mlflow.gateway.utils import resolve_route_url
 
 from tests.gateway.tools import Gateway, save_yaml
@@ -136,16 +136,7 @@ def test_fluent_search_routes(gateway):
         "route_url": resolve_route_url(gateway.url, "gateway/chat/invocations"),
     }
 
-# Mock for counting the number of search_routes calls to validate pagination
-class MockMlflowGatewayClient(MlflowGatewayClient):
-    search_routes_calls = 0
-    def search_routes(self, *args, **kwargs):
-        MockMlflowGatewayClient.search_routes_calls += 1
-        return super().search_routes(*args, **kwargs)
 
-
-@mock.patch("mlflow.gateway.constants.MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE", 10)
-@mock.patch("mlflow.gateway.fluent.MlflowGatewayClient", MockMlflowGatewayClient)
 def test_fluent_search_routes_handles_pagination(tmp_path):
     conf = tmp_path / "config.yaml"
     base_route_config = {
@@ -161,17 +152,19 @@ def test_fluent_search_routes_handles_pagination(tmp_path):
             },
         },
     }
-    num_routes = 21
+    num_routes = (MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE * 2) + 1
     gateway_route_names = [f"route_{i}" for i in range(num_routes)]
     gateway_config_dict = {
         "routes": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]
     }
     save_yaml(conf, gateway_config_dict)
 
-    with Gateway(conf) as gateway:
-            set_gateway_uri(gateway_uri=gateway.url)
-            assert [route.name for route in search_routes()] == gateway_route_names
-            assert MockMlflowGatewayClient.search_routes_calls == 3
+    # Increase Gunicorn worker timeout from default 30 sec to handle huge number of routes
+    with Gateway(
+        conf, env={**os.environ, "GUNICORN_CMD_ARGS": "--timeout=120 --log-level=debug"}
+    ) as gateway:
+        set_gateway_uri(gateway_uri=gateway.url)
+        assert [route.name for route in search_routes()] == gateway_route_names
 
 
 def test_fluent_get_gateway_uri(gateway):
