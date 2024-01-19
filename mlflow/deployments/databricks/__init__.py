@@ -4,9 +4,11 @@ from typing import Any, Dict, Optional
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
     MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
-    MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
 )
-from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+)
 from mlflow.utils import AttrDict
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
