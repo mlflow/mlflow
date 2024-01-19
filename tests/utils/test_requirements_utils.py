@@ -545,11 +545,7 @@ model's environment and install dependencies using the resulting environment fil
 
 
 def test_suppress_warn_dependency_requirement_mismatches_feature_store(tmp_path):
-    req_file = tmp_path.joinpath("requirements.txt")
-    req_file.write_text(
-        f"cloudpickle=={cloudpickle.__version__}\ndatabricks-feature-lookup==999.1.1\n"
-    )
-    with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
         original_get_installed_version_fn = mlflow.utils.requirements_utils._get_installed_version
 
         def gen_mock_get_installed_version_fn(mock_versions):
@@ -571,7 +567,12 @@ def test_suppress_warn_dependency_requirement_mismatches_feature_store(tmp_path)
                 }
             ),
         ):
-            warn_dependency_requirement_mismatches(model_path=tmp_path)
+            warn_dependency_requirement_mismatches(
+                model_requirements=[
+                    f"cloudpickle=={cloudpickle.__version__}",
+                    "databricks-feature-lookup==999.1.1",
+                ]
+            )
             mock_warning.assert_called_once_with(
                 """
 Detected one or more mismatches between the model's dependencies and the current Python environment:
