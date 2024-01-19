@@ -13,7 +13,6 @@ from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _validate_and_copy_code_paths
 
 
 @pytest.fixture(scope="module")
@@ -110,7 +109,6 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
 
 @mock.patch("builtins.open", side_effect=OSError("[Errno 95] Operation not supported"))
 def test_add_code_to_system_path_not_copyable_file(sklearn_knn_model, model_path):
-
     with pytest.raises(MlflowException, match=r"Failed to copy the specified code path"):
         mlflow.sklearn.save_model(
             sk_model=sklearn_knn_model,
