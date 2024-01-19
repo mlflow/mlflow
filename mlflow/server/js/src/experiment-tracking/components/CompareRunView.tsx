@@ -212,8 +212,8 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     if (dataRows.length === 0) {
       return (
         <FormattedMessage
-          defaultMessage='No parameters to display.'
-          description='Text shown when there are no parameters to display'
+          defaultMessage="No parameters to display."
+          description="Text shown when there are no parameters to display"
         />
       );
     }
@@ -255,8 +255,8 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     if (dataRows.length === 0) {
       return (
         <FormattedMessage
-          defaultMessage='No metrics to display.'
-          description='Text shown when there are no metrics to display'
+          defaultMessage="No metrics to display."
+          description="Text shown when there are no metrics to display"
         />
       );
     }
@@ -282,8 +282,8 @@ export class CompareRunView extends Component<CompareRunViewProps, CompareRunVie
     if (dataRows.length === 0) {
       return (
         <FormattedMessage
-          defaultMessage='No tags to display.'
-          description='Text shown when there are no tags to display'
+          defaultMessage="No tags to display."
+          description="Text shown when there are no tags to display"
         />
       );
     }

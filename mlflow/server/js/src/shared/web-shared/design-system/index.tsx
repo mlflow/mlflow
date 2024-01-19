@@ -10,10 +10,7 @@ export interface SupportsDuBoisThemesProps {
   isDarkMode?: boolean;
 }
 
-export const SupportsDuBoisThemes: React.FC<SupportsDuBoisThemesProps> = ({
-  isDarkMode = false,
-  children,
-}) => {
+export const SupportsDuBoisThemes: React.FC<SupportsDuBoisThemesProps> = ({ isDarkMode = false, children }) => {
   // eslint-disable-next-line react/forbid-elements
   return <DesignSystemThemeProvider isDarkMode={isDarkMode}>{children}</DesignSystemThemeProvider>;
 };

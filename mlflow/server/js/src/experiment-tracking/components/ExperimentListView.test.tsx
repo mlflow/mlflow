@@ -63,8 +63,7 @@ const mountComponent = (props: any) => {
         })}
       >
         <BrowserRouter>
-          <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />
-          ,
+          <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />,
         </BrowserRouter>
         ,
       </Provider>
@@ -100,9 +99,7 @@ test('If button to create experiment is pressed then open CreateExperimentModal'
 test('If button to delete experiment is pressed then open DeleteExperimentModal', () => {
   mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   userEvent.click(screen.getAllByTestId('delete-experiment-button')[0]);
-  expect(
-    screen.getByText(`Delete Experiment "${Fixtures.experiments[0].name}"`),
-  ).toBeInTheDocument();
+  expect(screen.getByText(`Delete Experiment "${Fixtures.experiments[0].name}"`)).toBeInTheDocument();
 });
 
 test('If button to edit experiment is pressed then open RenameExperimentModal', () => {

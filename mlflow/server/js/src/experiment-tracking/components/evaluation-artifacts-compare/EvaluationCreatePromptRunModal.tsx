@@ -534,7 +534,7 @@ export const EvaluationCreatePromptRunModal = ({
                   description={'Information about MLflow deployment endpoints'}
                 />
               }
-              placement='right'
+              placement="right"
             >
               <InfoIcon
                 css={{

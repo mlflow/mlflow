@@ -46,9 +46,7 @@ function getColumnTypeRepr(columnType: ColumnType, indentationLevel: number): st
       const propertyRepr = getColumnTypeRepr(property, indentationLevel + 1);
       const indentOffset = (indentationLevel + 1) * INDENTATION_SPACES;
 
-      return `${' '.repeat(indentOffset)}${propertyName}: ${
-        propertyRepr.slice(indentOffset) + requiredRepr
-      }`;
+      return `${' '.repeat(indentOffset)}${propertyName}: ${propertyRepr.slice(indentOffset) + requiredRepr}`;
     });
 
     return `${indentation}{\n${propertyReprs.join(',\n')}\n${indentation}}`;
@@ -70,11 +68,7 @@ function formatColumnName(spec: ColumnSpec | TensorSpec): React.ReactElement {
   } else if (spec.optional !== undefined && spec.optional) {
     required = false;
   }
-  const requiredTag = required ? (
-    <Text bold>{'(required)'}</Text>
-  ) : (
-    <Text color='secondary'>{'(optional)'}</Text>
-  );
+  const requiredTag = required ? <Text bold>{'(required)'}</Text> : <Text color="secondary">{'(optional)'}</Text>;
 
   const name = 'name' in spec ? spec.name : '-';
 
