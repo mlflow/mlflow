@@ -160,9 +160,7 @@ def test_fluent_search_routes_handles_pagination(tmp_path):
     save_yaml(conf, gateway_config_dict)
 
     # Increase Gunicorn worker timeout from default 30 sec to handle huge number of routes
-    with Gateway(
-        conf, env={**os.environ, "GUNICORN_CMD_ARGS": "--timeout=120 --log-level=debug"}
-    ) as gateway:
+    with Gateway(conf, env={**os.environ, "GUNICORN_CMD_ARGS": "--timeout=120"}) as gateway:
         set_gateway_uri(gateway_uri=gateway.url)
         assert [route.name for route in search_routes()] == gateway_route_names
 
