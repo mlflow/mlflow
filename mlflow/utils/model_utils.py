@@ -6,7 +6,11 @@ from typing import Any, Dict
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -122,7 +126,18 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     if code_paths is not None:
         code_dir_subpath = default_subpath
         for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+            try:
+                _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+            except OSError as e:
+                raise MlflowException(
+                    message=(
+                        f"Failed to copy the specified code path '{code_path}' into the model "
+                        "artifacts. It appears that your code path includes file(s) that cannot "
+                        "be copied, such as Databricks Notebooks. Please specify a code path "
+                        "that does not include such files and try again.",
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
     else:
         code_dir_subpath = None
     return code_dir_subpath
