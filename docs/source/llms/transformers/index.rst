@@ -157,6 +157,16 @@ These more advanced tutorials are designed to showcase different applications of
                 </a>
             </div>
             <div class="simple-card">
+                <a href="tutorials/prompt-templating/prompt-templating.html">
+                    <div class="header">
+                        Prompt templating with Transformers Pipelines
+                    </div>
+                    <p>
+                        Learn how to set prompt templates on Transformers Pipelines to optimize your LLM's outputs, and simplify the end-user experience.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="../custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm.html">
                     <div class="header">
                         Custom PyFunc for Transformers
