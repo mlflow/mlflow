@@ -302,7 +302,7 @@ def _save_model_with_class_artifacts_params(
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
-    saved_code_subpath = _validate_and_copy_code_paths(src=code_paths, dst=path)
+    saved_code_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     mlflow.pyfunc.add_to_model(
         model=mlflow_model,
