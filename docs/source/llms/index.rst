@@ -318,7 +318,7 @@ Interested in learning how to leverage MLflow for your LLM projects?
 
 Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging LLMs a bit easier!
 
-Note that there are additional tutorials within the `Native Integration Guides and Tutorials section above <#native-integration-guides-and-tutorials>`_, so be sure to check those out as well!
+Note that there are additional tutorials within the `"Explore the Native LLM Flavors" section above <#explore-the-native-llm-flavors>`_, so be sure to check those out as well!
 
 .. toctree::
     :maxdepth: 1
