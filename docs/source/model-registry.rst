@@ -292,13 +292,22 @@ After you have registered an MLflow model, you can serve the model as a service 
 Promoting an MLflow Model across environments
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Over the course of a model’s lifecycle, it might progress through various separate environments like
-development, testing, staging, production, and so on. This segregation facilitates continuous integration
-and deployment for the model. In MLflow, you can use registered models to set up environments for your 
-MLflow Models, where each registered model corresponds to a specific environment. Furthermore, you can
-configure access controls for the registered models using :ref:`MLflow Authentication <auth>`. Then,
-to promote MLflow Models across environments, you can use the :meth:`~mlflow.client.MlflowClient.copy_model_version` method
-to copy model versions across registered models.
+In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev,
+staging, and prod) with access controls to enable quick development without compromising stability
+in production. In MLflow, you can use registered models and :ref:`MLflow Authentication <auth>` to
+express access-controlled environments for your MLflow models. For example, you can create registered
+models corresponding to each combination of environment and business problem (e.g.
+`prod.ml_team.revenue_forecasting`, `dev.ml_team.revenue_forecasting`) and configure permissions
+accordingly. As you iterate on MLflow models for your business problem, you can promote them
+through the various environments for continuous integration and deployment.
+
+For mature production-grade setups, we recommend setting up automated workflows that train and register
+models in each environment. To productionize the latest iteration on a business problem, promote your
+machine learning code across environments via source control and CI/CD systems.
+
+For simple model deployment use cases, you can register your trained MLflow Model to a dev environment
+registered model as the latest model version and then use :meth:`~mlflow.client.MlflowClient.copy_model_version`
+to promote it across registered models.
 
 .. code-block:: python
 
@@ -312,6 +321,11 @@ to copy model versions across registered models.
 
 This code snippet copies the model version with the ``candidate`` alias in the ``regression-model-staging``
 model to the ``regression-model-production`` model as the latest version.
+
+You can also promote model versions in the UI. Click the ``Promote model`` button in the model version
+details page to access a modal that allows you to select a registered model to copy the model versoin to.
+
+.. figure:: _static/images/oss_registry_5_version.png
 
 Adding or Updating an MLflow Model Descriptions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
