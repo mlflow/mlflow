@@ -12,7 +12,7 @@ import { LogModelWithSignatureUrl } from '../../common/constants';
 import { spacingMedium } from '../../common/styles/spacing';
 import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Theme } from '@emotion/react';
+import { Interpolation, Theme } from '@emotion/react';
 import {
   DesignSystemHocProps,
   MinusBoxIcon,

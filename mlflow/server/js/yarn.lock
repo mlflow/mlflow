@@ -3252,7 +3252,7 @@ __metadata:
 
 "@databricks/design-system@file:./vendor/design-system::locator=%40mlflow%2Fmlflow%40workspace%3A.":
   version: 1.0.0-4a266e7c
-  resolution: "@databricks/design-system@file:./vendor/design-system#./vendor/design-system::hash=233b2e&locator=%40mlflow%2Fmlflow%40workspace%3A."
+  resolution: "@databricks/design-system@file:./vendor/design-system#./vendor/design-system::hash=0a9243&locator=%40mlflow%2Fmlflow%40workspace%3A."
   dependencies:
     "@ant-design/icons": ^4.7.0
     "@babel/runtime": ^7.23.1
@@ -3283,7 +3283,7 @@ __metadata:
     moment: ^2.25.3
     react: "*"
     react-dom: "*"
-  checksum: f66e8f856c2c106d0d0d55435d7ed51b7f42c913551f18917c6c262f2ace289d3f57f5978c8fd48ebc0a3c4b6f832d7c4680598d7c40599ae5d2582c1159bf1b
+  checksum: 54ff2dce37dc8a18ffa11bc5144ad17e264e3981fc77c96209d1eeafa8d062f8f62dcc6482bf0a316a2e010fc727583d3bde8299feff62cb7b9f2b0c6cb4d52e
   languageName: node
   linkType: hard
 

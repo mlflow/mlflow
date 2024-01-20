@@ -180,7 +180,7 @@ export class ExperimentListView extends Component<Props, State> {
               id={item.experiment_id}
               key={item.experiment_id}
               onChange={(isChecked) => this.handleCheck(isChecked, item.experiment_id)}
-              checked={isActive}
+              isChecked={isActive}
               data-testid={`${dataTestId}-check-box`}
             ></Checkbox>,
             <Link

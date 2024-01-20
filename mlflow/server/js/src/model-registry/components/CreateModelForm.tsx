@@ -29,6 +29,7 @@ class CreateModelFormImpl extends Component<Props> {
   render() {
     const learnMoreLinkUrl = CreateModelFormImpl.getLearnMoreLinkUrl();
     return (
+      // @ts-expect-error TS(2322)
       <Form ref={this.props.innerRef} layout="vertical" data-testid="create-model-form-modal">
         <Form.Item
           name={MODEL_NAME_FIELD}
