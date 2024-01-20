@@ -88,6 +88,45 @@ avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
+
+Supported pipeline types for prompt templates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In MLflow 2.10.0 and above, support has been added for specifying prompt templates on certain pipeline types:
+
+- `feature-extraction <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline>`_
+- `fill-mask <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FillMaskPipeline>`_
+- `summarization <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline>`_
+- `text2text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline>`_
+- `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
+
+Prompt templates are strings that are used to format user inputs prior to inference. To specify a prompt template,
+use the ``prompt_template`` argument when calling ``save_model()`` or ``log_model()``. The prompt template must
+be a string with a single format placeholder, ``{prompt}``. 
+
+For example:
+
+.. code-block:: python
+
+    import mlflow
+    from transformers import pipeline
+
+    # Initialize a pipeline. `distilgpt2` uses a "text-generation" pipeline
+    generator = pipeline(model="distilgpt2")
+
+    # Define a prompt template
+    prompt_template = "Answer the following question: {prompt}"
+
+    # Save the model
+    mlflow.transformers.save_model(
+        transformers_model=generator,
+        path="path/to/model",
+        prompt_template=prompt_template,
+    )
+
+For a more in-depth guide, check out the `Prompt Templating notebook <../tutorials/prompt-templating/prompt-templating.ipynb>`_!
+
+
 Using model_config and model signature params for `transformers` inference
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

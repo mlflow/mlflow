@@ -246,6 +246,7 @@ When working with the transformers flavor in MLflow, there are several important
 - **Input and Output Types**: The input and output types for the python_function implementation may differ from those expected from the native pipeline. Users need to ensure compatibility with their data processing workflows.
 - **Model Configuration**: When saving or logging models, the `model_config` can be used to set certain parameters. However, if both model_config and a `ModelSignature` with parameters are saved, the default parameters in ModelSignature will override those in `model_config`.
 - **Audio and Vision Models**: Audio and text-based large language models are supported for use with pyfunc, while other types like computer vision and multi-modal models are only supported for native type loading.
+- **Prompt Templates**: Prompt templating is currently supported for a few pipeline types. For a full list of supported pipelines, and more information about the feature, see `this link <guide/index.html#supported-pipeline-types-for-prompt-templates>`_.
 
 The currently supported pipeline types for Pyfunc can be seen `here <guide/index.html#supported-transformers-pipeline-types-for-pyfunc>`_.
 
