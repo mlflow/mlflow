@@ -7,7 +7,7 @@
 
 import React from 'react';
 import userEvent from '@testing-library/user-event';
-import { screen, fireEvent } from '../../common/utils/TestUtils';
+import { screen, fireEvent, renderWithIntl } from '../../common/utils/TestUtils.react18';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
@@ -18,7 +18,6 @@ import Fixtures from '../utils/test-utils/Fixtures';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
-import { mountWithIntl, renderWithIntl } from '../../common/utils/TestUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 // Make the autosizer render items.
