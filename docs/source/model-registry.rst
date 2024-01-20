@@ -297,7 +297,7 @@ staging, and prod) with access controls to enable quick development without comp
 in production. In MLflow, you can use registered models and :ref:`MLflow Authentication <auth>` to
 express access-controlled environments for your MLflow models. For example, you can create registered
 models corresponding to each combination of environment and business problem (e.g.
-`prod.ml_team.revenue_forecasting`, `dev.ml_team.revenue_forecasting`) and configure permissions
+``prod.ml_team.revenue_forecasting``, ``dev.ml_team.revenue_forecasting``) and configure permissions
 accordingly. As you iterate on MLflow models for your business problem, you can promote them
 through the various environments for continuous integration and deployment.
 
@@ -322,10 +322,11 @@ to promote it across registered models.
 This code snippet copies the model version with the ``candidate`` alias in the ``regression-model-staging``
 model to the ``regression-model-production`` model as the latest version.
 
-You can also promote model versions in the UI. Click the ``Promote model`` button in the model version
-details page to access a modal that allows you to select a registered model to copy the model versoin to.
+You can also promote model versions in the UI. To do this, navigate to the model version details page
+and select the ``Promote model`` button. This opens a modal where you can choose a registered model
+to which the current model version will be copied.
 
-.. figure:: _static/images/oss_registry_5_version.png
+.. figure:: _static/images/oss_registry_6_version.png
 
 Adding or Updating an MLflow Model Descriptions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -774,7 +775,7 @@ Model version aliases provide a flexible way to create named references for part
 
 **Set up separate environments for models**
 
-In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev, staging, and prod) with access controls to enable quick development without compromising stability in production. With :ref:`MLflow Authentication <auth>`, you can use registered models to express access-controlled environments for your MLflow models. For example, you can create registered models corresponding to each combination of environment and business problem (e.g. `prod.ml_team.revenue_forecasting`, `dev.ml_team.revenue_forecasting`) and configure permissions accordingly. Automate model retraining against your production registered models, or for simple model deployment use cases, use :meth:`~mlflow.client.MlflowClient.copy_model_version` to promote model versions across registered models.
+In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev, staging, and prod) with access controls to enable quick development without compromising stability in production. With :ref:`MLflow Authentication <auth>`, you can use registered models to express access-controlled environments for your MLflow models. For example, you can create registered models corresponding to each combination of environment and business problem (e.g. ``prod.ml_team.revenue_forecasting``, ``dev.ml_team.revenue_forecasting``) and configure permissions accordingly. Automate model retraining against your production registered models, or for simple model deployment use cases, use :meth:`~mlflow.client.MlflowClient.copy_model_version` to promote model versions across registered models.
 
 Migrating models away from stages
 ---------------------------------
