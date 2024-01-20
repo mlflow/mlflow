@@ -50,8 +50,7 @@ def get_default_pip_requirements():
         `save_model()` and `log_model()` produce a pip environment that, at minimum, contains these
         requirements.
     """
-    pip_deps = [_get_pinned_requirement("keras")]
-    return pip_deps
+    return [_get_pinned_requirement("keras")]
 
 
 def get_default_conda_env():
