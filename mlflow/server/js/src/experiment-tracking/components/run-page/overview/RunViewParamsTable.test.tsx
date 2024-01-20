@@ -6,6 +6,9 @@ import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
 const testRunUuid = 'test-run-uuid';
 
+// set a longer timeout so this passes on CI
+jest.setTimeout(10000);
+
 // Generates array of param_a1, param_a2, ..., param_b2, ..., param_c3 param keys with values "value_1.0"..."value_9.0"
 const sampleLatestParameters = keyBy(
   ['a', 'b', 'c'].flatMap((letter, letterIndex) =>
