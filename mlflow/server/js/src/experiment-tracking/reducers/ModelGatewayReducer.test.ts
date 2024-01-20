@@ -5,7 +5,7 @@ import { SearchMlflowDeploymentsModelRoutesAction } from '../actions/ModelGatewa
 import { ModelGatewayRouteTask } from '../sdk/MlflowEnums';
 import { modelGatewayReducer } from './ModelGatewayReducer';
 
-describe('modelGatewayReducer - MLFlow deployments endpoints', () => {
+describe('modelGatewayReducer - MLflow deployments endpoints', () => {
   const emptyState: ReturnType<typeof modelGatewayReducer> = {
     modelGatewayRoutes: {},
     modelGatewayRoutesLoading: {
