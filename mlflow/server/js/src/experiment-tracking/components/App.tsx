@@ -101,12 +101,12 @@ class App extends Component<AppProps> {
                     </div>
                   </NavLinkV5>
                 </div>
-                <div className='header-links'>
+                <div className="header-links">
                   <span css={{ marginRight }}>
                     <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
                   </span>
                   <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
-                    <div className='github'>
+                    <div className="github">
                       <span>GitHub</span>
                     </div>
                   </a>

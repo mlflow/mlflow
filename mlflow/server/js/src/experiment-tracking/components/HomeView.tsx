@@ -8,12 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Navigate } from '../../common/utils/RoutingUtils';
-import {
-  PageWrapper,
-  LegacySkeleton,
-  WithDesignSystemThemeHoc,
-  DesignSystemHocProps,
-} from '@databricks/design-system';
+import { PageWrapper, LegacySkeleton, WithDesignSystemThemeHoc, DesignSystemHocProps } from '@databricks/design-system';
 import ExperimentListView from './ExperimentListView';
 import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';

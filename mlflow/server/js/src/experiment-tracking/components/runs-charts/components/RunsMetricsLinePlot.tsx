@@ -48,8 +48,8 @@ const getDataTraceForRun = ({
     return {};
   }
 
-  const sortedMetricsHistory = runEntry.metricsHistory[metricKey]?.sort(
-    (a, b) => (xAxisKey === 'step') ? a.step - b.step : a.timestamp - b.timestamp
+  const sortedMetricsHistory = runEntry.metricsHistory[metricKey]?.sort((a, b) =>
+    xAxisKey === 'step' ? a.step - b.step : a.timestamp - b.timestamp,
   );
 
   const xValues = prepareMetricHistoryByAxisType(sortedMetricsHistory, xAxisKey);
