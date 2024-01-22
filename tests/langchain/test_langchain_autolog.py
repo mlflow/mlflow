@@ -295,8 +295,8 @@ def test_loaded_llmchain_autolog():
             assert signature == infer_signature(question, [TEST_CONTENT])
 
 
-def test_llmchain_autolog_log_inference_history():
-    mlflow.langchain.autolog(log_models=True, log_inference_history=True)
+def test_llmchain_autolog_log_inputs_outputs():
+    mlflow.langchain.autolog(log_models=True, log_inputs_outputs=True)
     question = {"product": "MLflow"}
     answer = {"product": "MLflow", "text": TEST_CONTENT}
     with _mock_request(return_value=_mock_chat_completion_response()):
@@ -398,8 +398,8 @@ def test_loaded_agent_autolog():
             assert signature == infer_signature(input, [TEST_CONTENT])
 
 
-def test_agent_autolog_log_inference_history():
-    mlflow.langchain.autolog(log_inference_history=True)
+def test_agent_autolog_log_inputs_outputs():
+    mlflow.langchain.autolog(log_inputs_outputs=True)
     model, input, mock_response = create_openai_llmagent()
     output = {"output": TEST_CONTENT}
     with _mock_request(return_value=_MockResponse(200, mock_response)):
@@ -471,8 +471,8 @@ def test_loaded_runnable_sequence_autolog():
         assert signature == infer_signature(input_example, [TEST_CONTENT])
 
 
-def test_runnable_sequence_autolog_log_inference_history():
-    mlflow.langchain.autolog(log_inference_history=True)
+def test_runnable_sequence_autolog_log_inputs_outputs():
+    mlflow.langchain.autolog(log_inputs_outputs=True)
     chain, input_example = create_runnable_sequence()
     output = TEST_CONTENT
     with mlflow.start_run() as run:
@@ -526,8 +526,8 @@ def test_retriever_metrics_and_artifacts(tmp_path):
     assert mlflow.active_run() is None
 
 
-def test_retriever_autlog_inference_history(tmp_path):
-    mlflow.langchain.autolog(log_inference_history=True)
+def test_retriever_autlog_inputs_outputs(tmp_path):
+    mlflow.langchain.autolog(log_inputs_outputs=True)
     model, query = create_retriever(tmp_path)
     with mlflow.start_run() as run:
         documents = model.get_relevant_documents(query)

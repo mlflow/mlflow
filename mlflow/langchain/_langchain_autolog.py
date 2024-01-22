@@ -285,10 +285,10 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         if not hasattr(self, "session_id"):
             self.session_id = uuid.uuid4().hex
 
-    log_inference_history = get_autologging_config(
-        mlflow.langchain.FLAVOR_NAME, "log_inference_history", False
+    log_inputs_outputs = get_autologging_config(
+        mlflow.langchain.FLAVOR_NAME, "log_inputs_outputs", False
     )
-    if log_inference_history:
+    if log_inputs_outputs:
         if input_example is None:
             input_data = deepcopy(_get_input_data_from_function(func_name, self, args, kwargs))
             if input_data is None:

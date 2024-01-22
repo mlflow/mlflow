@@ -688,7 +688,7 @@ def autolog(
     log_model_signatures=False,
     log_models=False,
     log_datasets=False,
-    log_inference_history=True,
+    log_inputs_outputs=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=True,
@@ -717,7 +717,7 @@ def autolog(
                        are also omitted when ``log_models`` is ``False``.
     :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking
                          if applicable. If ``False``, dataset information is not logged.
-    :param log_inference_history: If ``True``, inference data and results are combined into a single
+    :param log_inputs_outputs: If ``True``, inference data and results are combined into a single
                                   pandas DataFrame and logged to MLflow Tracking as an artifact.
                                   If ``False``, inference data and results are not logged.
                                   Default to ``True``.
