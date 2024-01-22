@@ -5,6 +5,7 @@ import sys
 import time
 
 import cloudpickle
+import numpy as np
 from packaging.version import Version
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
@@ -141,7 +142,13 @@ class TransformStep(BaseStep):
                 num_features = transformed_features.shape[1]
                 columns = _get_output_feature_names(transformer, num_features, features.columns)
                 transformed_features = pd.DataFrame(transformed_features, columns=columns)
-            transformed_features[self.target_col] = dataset[self.target_col].values
+
+            if isinstance(dataset[self.target_col].iloc[0], np.ndarray):
+                target_data = np.vstack(dataset[self.target_col].values)
+            else:
+                target_data = dataset[self.target_col].values
+
+            transformed_features[self.target_col] = target_data
             return transformed_features
 
         train_transformed = transform_dataset(train_df)

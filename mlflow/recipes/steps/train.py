@@ -325,8 +325,12 @@ class TrainStep(BaseStep):
                             f"skipping rebalancing."
                         )
 
-            X_train, y_train = train_df.drop(columns=[self.target_col]), train_df[self.target_col]
-
+            X_train = train_df.drop(columns=[self.target_col])
+            y_train = (
+                train_df[self.target_col].values
+                if isinstance(train_df[self.target_col], pd.Series)
+                else np.array(self.target_col)
+            )
             transformed_validation_data_path = get_step_output_path(
                 recipe_root_path=self.recipe_root,
                 step_name="transform",
