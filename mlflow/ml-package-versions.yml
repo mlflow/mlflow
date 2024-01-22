@@ -74,6 +74,24 @@ pytorch-lightning:
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py
 
+keras:
+  package_info:
+    pip_release: "keras"
+    install_dev: |
+      pip install --upgrade keras-nightly
+
+  models:
+    minimum: "3.0.2"
+    maximum: "3.0.4"
+    run: |
+      pytest tests/keras/test_callback.py
+
+  autologging:
+    minimum: "3.0.2"
+    maximum: "3.0.4"
+    run: |
+      pytest tests/keras/test_autolog.py
+
 tensorflow:
   package_info:
     pip_release: "tensorflow"

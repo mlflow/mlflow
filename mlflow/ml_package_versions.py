@@ -277,11 +277,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.2",
-            "maximum": "3.10.0", # Dummy version number to remove cap.
+            "maximum": "3.0.4",
         },
         "autologging": {
             "minimum": "3.0.2",
-            "maximum": "3.10.0", # Dummy version number to remove cap.
+            "maximum": "3.0.4",
         }
     }
 }

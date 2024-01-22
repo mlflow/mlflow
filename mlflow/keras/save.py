@@ -1,3 +1,5 @@
+"""Functions for saving Keras models to Mlflow."""
+
 import importlib
 import logging
 import os
@@ -213,6 +215,7 @@ def save_model(
     flavor_options = {
         "data": data_subpath,
         "keras_version": keras.__version__,
+        "keras_backend": keras.backend.backend(),
         "save_exported_model": save_exported_model,
     }
 

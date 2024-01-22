@@ -1,3 +1,5 @@
+"""Keras 3 callback to log information to MLflow."""
+
 import keras
 
 from mlflow import log_metrics, log_params, log_text
@@ -45,7 +47,7 @@ class MLflowCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
                 label,
                 batch_size=4,
                 epochs=2,
-                callbacks=[mlflow.keras_core.MLflowCallback()],
+                callbacks=[mlflow.keras.MLflowCallback()],
             )
     """
 

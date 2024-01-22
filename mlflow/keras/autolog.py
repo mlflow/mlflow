@@ -1,4 +1,4 @@
-# MLflow autologging support for Keras 3.
+"""MLflow autologging support for Keras 3."""
 
 import logging
 
@@ -39,7 +39,7 @@ def _infer_batch_size(*keras_fit_args, **keras_fit_kwargs):
     return None
 
 
-def _add_mlflow_to_keras_callbacks(callbacks, mlflow_callback):
+def _check_existing_mlflow_callback(callbacks):
     for callback in callbacks:
         if isinstance(callback, MLflowCallback):
             raise MlflowException(
@@ -48,8 +48,6 @@ def _add_mlflow_to_keras_callbacks(callbacks, mlflow_callback):
                 "autologging enabled. Please either call `mlflow.keras.autolog(disable=True)` "
                 "to disable autologging or remove `MLflowCallback` from the callback list. "
             )
-    callbacks.append(mlflow_callback)
-    return callbacks
 
 
 def _log_dataset(dataset, source, context, name=None, targets=None):
@@ -250,7 +248,8 @@ def autolog(
                 log_every_epoch=log_every_epoch,
                 log_every_n_steps=log_every_n_steps,
             )
-            callbacks = _add_mlflow_to_keras_callbacks(callbacks, mlflow_callback)
+            _check_existing_mlflow_callback(callbacks)
+            callbacks.append(mlflow_callback)
             kwargs["callbacks"] = callbacks
             history = original(inst, *args, **kwargs)
 
