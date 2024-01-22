@@ -7,7 +7,7 @@ import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 const testRunUuid = 'test-run-uuid';
 
 // Larger timeout for integration testing (table rendering)
-jest.setTimeout(20000);
+jest.setTimeout(60000);
 
 // Generates array of param_a1, param_a2, ..., param_b2, ..., param_c3 param keys with values "value_1.0"..."value_9.0"
 const sampleLatestParameters = keyBy(

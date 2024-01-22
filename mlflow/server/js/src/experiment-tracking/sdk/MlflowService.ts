@@ -149,7 +149,7 @@ export class MlflowService {
   /**
    * Proxy post request to gateway server
    */
-  static gatewayProxyPost = (data: { gateway_path: string; json_data: any }, error: any = null) =>
+  static gatewayProxyPost = (data: { gateway_path: string; json_data: any }, error?: any) =>
     postJson({ relativeUrl: 'ajax-api/2.0/mlflow/gateway-proxy', data, error });
 
   /**

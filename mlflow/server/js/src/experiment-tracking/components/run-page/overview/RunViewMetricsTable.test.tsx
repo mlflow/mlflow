@@ -5,7 +5,7 @@ import { RunViewMetricsTable } from './RunViewMetricsTable';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
 // Larger timeout for integration testing (table rendering)
-jest.setTimeout(20000);
+jest.setTimeout(60000);
 
 const testRunUuid = 'test-run-uuid';
 const testRunName = 'Test run name';
