@@ -12,7 +12,7 @@ Search Runs on MLflow UI
 MLflow UI provides a search bar to search your MLflow runs, which can be found in the experiment view, as shown
 by the screenshot:
 
-.. figure:: ../../../_static/images/search-runs/run-search-bar.png
+.. figure:: _static/images/search-runs/run_search_bar.png
    :alt: Run search bar
    :width: 90%
    :align: center
@@ -96,7 +96,7 @@ Then paste the following code to a local pythnon file, e.g., ``~/create_testing_
 The code above creates 10 MLflow runs with different metrics, params, tags and dataset information. After execution,
 you should find all these runs under the experiment "/search-run-guide", as shown by the screenshot:
 
-.. figure:: ../../../_static/images/search-runs/created-mlflow-runs.png
+.. figure:: _static/images/search-runs/created_mlflow_runs.png
    :alt: testing runs
    :width: 90%
    :align: center
@@ -122,7 +122,7 @@ Briefly a search condition consists of 3 parts:
   ``metric.loss`` or ``param.batch_size``.
 - A comparator in the middle, we support 3 types of comparators:
   - Numeric comparators: ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-  - String comparators: ``=``, ``!=``, ``LIKE`` and ``ILIKE``.
+  - String comparators: ``=``, ``!=``, ``LIKE`` and ``ILIKE``. String comparators are case sensitive.
   - Set comparators: ``IN``.
 - A reference value on the right side.
 
@@ -178,6 +178,8 @@ a string, because MLflow params are logged in string format. See below for sampl
     params."learning rate" IN ('0.001', '0.01')
     params.model LIKE "GPT%"
     params.model LIKE "GPT%" AND params.batch_size = "2"
+
+.. _mlflow_tags:
 
 Searching By Tags
 ~~~~~~~~~~~~~~~~~
