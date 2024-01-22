@@ -92,7 +92,11 @@ avoid failed inference requests.
 Supported pipeline types for prompt templates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In MLflow 2.10.0 and above, support has been added for specifying prompt templates on certain pipeline types:
+.. note::
+
+    This feature is only available in MLflow 2.10.0 and above.
+
+MLflow supports specifying prompt templates for certain pipeline types:
 
 - `feature-extraction <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline>`_
 - `fill-mask <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FillMaskPipeline>`_
