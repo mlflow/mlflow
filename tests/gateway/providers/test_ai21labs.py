@@ -165,8 +165,8 @@ async def test_chat_is_not_supported_for_ai21labs():
 
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
-    assert "The chat route is not available for AI21Labs models" in e.value.detail
-    assert e.value.status_code == 404
+    assert "The chat route is not implemented for AI21Labs models" in e.value.detail
+    assert e.value.status_code == 501
 
 
 @pytest.mark.asyncio
@@ -177,5 +177,5 @@ async def test_embeddings_are_not_supported_for_ai21labs():
 
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.embeddings(embeddings.RequestPayload(**payload))
-    assert "The embeddings route is not available for AI21Labs models" in e.value.detail
-    assert e.value.status_code == 404
+    assert "The embeddings route is not implemented for AI21Labs models" in e.value.detail
+    assert e.value.status_code == 501

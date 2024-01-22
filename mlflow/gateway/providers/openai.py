@@ -11,6 +11,8 @@ from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 
 class OpenAIProvider(BaseProvider):
+    NAME = "OpenAI"
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
