@@ -15,6 +15,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
@@ -129,12 +130,15 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
             try:
                 _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
             except OSError as e:
+                # A common error is code-paths includes Databricks Notebook. We include it in error
+                # message when running in Databricks, but not in other envs tp avoid confusion.
+                example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
                 raise MlflowException(
                     message=(
                         f"Failed to copy the specified code path '{code_path}' into the model "
                         "artifacts. It appears that your code path includes file(s) that cannot "
-                        "be copied, such as Databricks Notebooks. Please specify a code path "
-                        "that does not include such files and try again.",
+                        f"be copied{example}. Please specify a code path that does not include "
+                        "such files and try again.",
                     ),
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from e
