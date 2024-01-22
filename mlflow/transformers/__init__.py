@@ -1144,9 +1144,11 @@ def _fetch_license(model_name, card_data):
     exist.
     """
 
-    fallback = f"A license file could not be found for the '{model_name}' repository. \n"
-    "To ensure that you are in compliance with the license requirements for this "
-    f"model, please visit the model repository here:\n https://huggingface.co/{model_name}"
+    fallback = (
+        f"A license file could not be found for the '{model_name}' repository. \n"
+        "To ensure that you are in compliance with the license requirements for this "
+        f"model, please visit the model repository here:\n https://huggingface.co/{model_name}"
+    )
 
     def _get_license_file_as_text(repo_id):
         for license_name in _LICENSE_FILE_NAMES:
@@ -1156,7 +1158,7 @@ def _fetch_license(model_name, card_data):
                 )
                 return pathlib.Path(license_file_local_location).read_text()
             except Exception as e:
-                _logger.info(f"A license file could not be obtained due to {e}")
+                _logger.debug(f"A license file could not be obtained due to {e}")
 
     try:
         import huggingface_hub as hub

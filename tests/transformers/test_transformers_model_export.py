@@ -311,7 +311,7 @@ def test_saving_with_invalid_dict_as_model(model_path):
 
 
 def test_model_card_acquisition_vision_model(small_vision_model):
-    model_provided_card = _fetch_model_card(small_vision_model)
+    model_provided_card = _fetch_model_card(small_vision_model.model.name_or_path)
     assert model_provided_card.data.to_dict()["tags"] == ["vision", "image-classification"]
     assert len(model_provided_card.text) > 0
 
@@ -327,8 +327,8 @@ def test_model_card_acquisition_vision_model(small_vision_model):
 )
 def test_license_acquisition(repo_id, file_end):
     card_data = _fetch_model_card(repo_id)
-
-    assert _fetch_license(repo_id, card_data).rstrip().endswith(file_end)
+    license_text = _fetch_license(repo_id, card_data).rstrip()
+    assert license_text.endswith(file_end)
 
 
 def test_license_fallback():
@@ -3856,7 +3856,7 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     expected_size = 0
     for folder in [model_dir, tokenizer_dir]:
         expected_size += _calculate_expected_size(folder)
-    other_files = ["model_card.md", "model_card_data.yaml"]
+    other_files = ["model_card.md", "model_card_data.yaml", "LICENSE.txt"]
     for file in other_files:
         path = tmp_path.joinpath(file)
         expected_size += _calculate_expected_size(path)
