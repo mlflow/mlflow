@@ -49,6 +49,7 @@ MLflow supports the use of the Transformers package by providing:
 - **Fine-tuning of Foundational Models**: Users can `fine-tune transformers models <tutorials/fine-tuning/transformers-fine-tuning.html>`_ on custom datasets while tracking metrics and parameters.
 - **Experiment Tracking**: Log experiments, including all relevant details and artifacts, for easy comparison and reproducibility.
 - **Simplified Model Deployment**: Deploy models with `minimal configuration requirements <guide/index.html#scalability-for-inference>`_.
+- **Prompt Management**: `Save prompt templates <guide/index.html#saving-prompt-templates-with-transformer-pipelines>`_ with transformers pipelines to optimize inference with less boilerplate.
 
 **Example Use Case:**
 
@@ -246,7 +247,7 @@ When working with the transformers flavor in MLflow, there are several important
 - **Input and Output Types**: The input and output types for the python_function implementation may differ from those expected from the native pipeline. Users need to ensure compatibility with their data processing workflows.
 - **Model Configuration**: When saving or logging models, the `model_config` can be used to set certain parameters. However, if both model_config and a `ModelSignature` with parameters are saved, the default parameters in ModelSignature will override those in `model_config`.
 - **Audio and Vision Models**: Audio and text-based large language models are supported for use with pyfunc, while other types like computer vision and multi-modal models are only supported for native type loading.
-- **Prompt Templates**: Prompt templating is currently supported for a few pipeline types. For a full list of supported pipelines, and more information about the feature, see `this link <guide/index.html#supported-pipeline-types-for-prompt-templates>`_.
+- **Prompt Templates**: Prompt templating is currently supported for a few pipeline types. For a full list of supported pipelines, and more information about the feature, see `this link <guide/index.html#saving-prompt-templates-with-transformer-pipelines>`_.
 
 The currently supported pipeline types for Pyfunc can be seen `here <guide/index.html#supported-transformers-pipeline-types-for-pyfunc>`_.
 

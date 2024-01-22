@@ -89,8 +89,8 @@ avoid failed inference requests.
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
 
-Supported pipeline types for prompt templates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Saving Prompt Templates with Transformer Pipelines
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. note::
 
@@ -142,6 +142,15 @@ template will be used to format user inputs before passing them into the pipelin
     # string that is passed to the text-generation pipeline will be:
     # "Answer the following question: What is MLflow?"
     model.predict("What is MLflow?")
+
+.. note::
+
+    ``text-generation`` pipelines with a prompt template will have the `return_full_text pipeline argument <https://huggingface.co/docs/huggingface_hub/main/en/package_reference/inference_client#huggingface_hub.inference._text_generation.TextGenerationParameters.return_full_text>`_
+    set to ``False`` by default. This is to prevent the template from being shown to the users,
+    which could potentially cause confusion as it was not part of their original input. To
+    override this behaviour, either set ``return_full_text`` to ``True`` via ``params``, or by 
+    including it in a ``model_config`` dict in ``log_model()``. See `this section <#using-model-config-and-model-signature-params-for-transformers-inference>`_ 
+    for more details on how to do this.
 
 For a more in-depth guide, check out the `Prompt Templating notebook <../tutorials/prompt-templating/prompt-templating.ipynb>`_!
 
