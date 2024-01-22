@@ -7,7 +7,7 @@ endpoints:
       config:
         openai_api_key: $OPENAI_API_KEY
     limit:
-      renewal_period: "minute"
+      renewal_period: minute
       calls: 10
 
   - name: completions

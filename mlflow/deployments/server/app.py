@@ -1,11 +1,10 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, RedirectResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -76,14 +75,6 @@ class GatewayAPI(FastAPI):
 
     def get_dynamic_route(self, route_name: str) -> Optional[Route]:
         return self.dynamic_routes.get(route_name)
-
-
-async def parse_request_schema(request: Request, cls: Type[BaseModel]) -> BaseModel:
-    payload = await request.json()
-    try:
-        return cls(**payload)
-    except ValidationError as e:
-        raise RequestValidationError(e.errors())
 
 
 def _create_chat_endpoint(config: RouteConfig):
