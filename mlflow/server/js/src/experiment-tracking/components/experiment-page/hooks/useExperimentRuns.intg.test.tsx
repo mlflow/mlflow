@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react-for-react-18';
+import { renderHook, act, type RenderHookResult } from '@testing-library/react-for-react-18';
 import {
   ExperimentPageSearchFacetsStateV2,
   createExperimentPageSearchFacetsStateV2,
@@ -22,6 +22,7 @@ import { Provider } from 'react-redux';
 import { latestMetricsByRunUuid, metricsByRunUuid } from '../../../reducers/MetricReducer';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import Utils from '../../../../common/utils/Utils';
+import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 
 jest.mock('../../../actions', () => ({
   ...jest.requireActual('../../../actions'),
@@ -147,9 +148,10 @@ describe('useExperimentRuns - integration test', () => {
     initialUiState = testUiState,
     initialSearchFacets = testSearchFacets,
     initialExperimentIds = testExperimentIds,
-  ) =>
-    act(async () =>
-      renderHook(
+  ): Promise<RenderHookResult<ReturnType<typeof useExperimentRuns>, any>> => {
+    let result: any;
+    await act(async () => {
+      result = renderHook(
         ({
           experimentIds,
           searchFacets,
@@ -167,8 +169,10 @@ describe('useExperimentRuns - integration test', () => {
             experimentIds: initialExperimentIds,
           },
         },
-      ),
-    );
+      );
+    });
+    return result;
+  };
   test('should call for new runs and return processed runs data', async () => {
     // Mock two responses - one for initial runs, one for load more runs
     jest.mocked(searchRunsApi).mockReturnValue({
