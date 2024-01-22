@@ -49,6 +49,7 @@ MLflow supports the use of the Transformers package by providing:
 - **Fine-tuning of Foundational Models**: Users can `fine-tune transformers models <tutorials/fine-tuning/transformers-fine-tuning.html>`_ on custom datasets while tracking metrics and parameters.
 - **Experiment Tracking**: Log experiments, including all relevant details and artifacts, for easy comparison and reproducibility.
 - **Simplified Model Deployment**: Deploy models with `minimal configuration requirements <guide/index.html#scalability-for-inference>`_.
+- **Prompt Management**: `Save prompt templates <guide/index.html#saving-prompt-templates-with-transformer-pipelines>`_ with transformers pipelines to optimize inference with less boilerplate.
 
 **Example Use Case:**
 
@@ -157,6 +158,16 @@ These more advanced tutorials are designed to showcase different applications of
                 </a>
             </div>
             <div class="simple-card">
+                <a href="tutorials/prompt-templating/prompt-templating.html">
+                    <div class="header">
+                        Prompt templating with Transformers Pipelines
+                    </div>
+                    <p>
+                        Learn how to set prompt templates on Transformers Pipelines to optimize your LLM's outputs, and simplify the end-user experience.
+                    </p>
+                </a>
+            </div>
+            <div class="simple-card">
                 <a href="../custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm.html">
                     <div class="header">
                         Custom PyFunc for Transformers
@@ -180,6 +191,7 @@ To download the transformers tutorial notebooks to run in your environment, clic
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/translation/component-translation.ipynb" class="notebook-download-btn">Download the Translation Notebook</a><br>        
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/conversational/conversational-model.ipynb" class="notebook-download-btn">Download the Chat Conversational Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/fine-tuning/transformers-fine-tuning.ipynb" class="notebook-download-btn">Download the Fine Tuning Notebook</a><br>
+    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/transformers/tutorials/prompt-templating/prompt-templating.ipynb" class="notebook-download-btn">Download the Prompt Templating Notebook</a><br>
     <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm.ipynb" class="notebook-download-btn">Download the Custom PyFunc transformers Notebook</a><br>
 
 .. toctree::
@@ -191,6 +203,7 @@ To download the transformers tutorial notebooks to run in your environment, clic
     tutorials/translation/component-translation.ipynb
     tutorials/conversational/conversational-model.ipynb
     tutorials/fine-tuning/transformers-fine-tuning.ipynb
+    tutorials/prompt-templating/prompt-templating.ipynb
 
 
 Options for Logging Transformers Models - Pipelines vs. Component logging
@@ -234,6 +247,7 @@ When working with the transformers flavor in MLflow, there are several important
 - **Input and Output Types**: The input and output types for the python_function implementation may differ from those expected from the native pipeline. Users need to ensure compatibility with their data processing workflows.
 - **Model Configuration**: When saving or logging models, the `model_config` can be used to set certain parameters. However, if both model_config and a `ModelSignature` with parameters are saved, the default parameters in ModelSignature will override those in `model_config`.
 - **Audio and Vision Models**: Audio and text-based large language models are supported for use with pyfunc, while other types like computer vision and multi-modal models are only supported for native type loading.
+- **Prompt Templates**: Prompt templating is currently supported for a few pipeline types. For a full list of supported pipelines, and more information about the feature, see `this link <guide/index.html#saving-prompt-templates-with-transformer-pipelines>`_.
 
 The currently supported pipeline types for Pyfunc can be seen `here <guide/index.html#supported-transformers-pipeline-types-for-pyfunc>`_.
 
