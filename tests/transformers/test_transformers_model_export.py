@@ -38,6 +38,7 @@ from mlflow.transformers import (
     _PIPELINE_MODEL_TYPE_KEY,
     _TASK_KEY,
     _build_pipeline_from_model_input,
+    _fetch_license,
     _fetch_model_card,
     _generate_base_flavor_configuration,
     _get_base_model_architecture,
@@ -315,6 +316,26 @@ def test_model_card_acquisition_vision_model(small_vision_model):
     assert len(model_provided_card.text) > 0
 
 
+@pytest.mark.parametrize(
+    ("repo_id", "file_end"),
+    [
+        ("google/mobilenet_v2_1.0_224", "_224"),  # no license declared
+        ("csarron/mobilebert-uncased-squad-v2", "'mit'"),  # mit license
+        ("codellama/CodeLlama-34b-hf", "this Agreement."),  # custom license
+        ("openai/whisper-tiny", "'apache-2.0'"),  # apache license
+    ],
+)
+def test_license_acquisition(repo_id, file_end):
+    card_data = _fetch_model_card(repo_id)
+
+    assert _fetch_license(repo_id, card_data).rstrip().endswith(file_end)
+
+
+def test_license_fallback():
+    fallback = _fetch_license("not a real repo", None)
+    assert fallback.startswith("A license file could not be found for the")
+
+
 def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path):
     mlflow.transformers.save_model(transformers_model=small_vision_model, path=model_path)
     # validate inferred pip requirements
@@ -325,6 +346,9 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
     # validate inferred model card data
     card_data = yaml.safe_load(model_path.joinpath("model_card_data.yaml").read_bytes())
     assert card_data["tags"] == ["vision", "image-classification"]
+    # verify the license file has been written
+    license_file = model_path.joinpath("LICENSE.txt").read_text()
+    assert len(license_file) > 0
     # Validate inferred model card text
     with model_path.joinpath("model_card.md").open() as file:
         card_text = file.read()
@@ -356,7 +380,9 @@ def test_vision_model_save_model_for_task_and_card_inference(small_vision_model,
     # Validate inferred model card text
     card_text = model_path.joinpath("model_card.md").read_text(encoding="utf-8")
     assert len(card_text) > 0
-
+    # verify the license file has been written
+    license_file = model_path.joinpath("LICENSE.txt").read_text()
+    assert len(license_file) > 0
     # Validate the MLModel file
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
     flavor_config = mlmodel["flavors"]["transformers"]
@@ -385,6 +411,9 @@ def test_qa_model_save_model_for_task_and_card_inference(small_seq2seq_pipeline,
     assert card_data["datasets"] == ["emo"]
     # The creator of this model did not include tag data in the card. Ensure it is missing.
     assert "tags" not in card_data
+    # verify the license file has been written
+    license_file = model_path.joinpath("LICENSE.txt").read_text()
+    assert len(license_file) > 0
     # Validate inferred model card text
     with model_path.joinpath("model_card.md").open() as file:
         card_text = file.read()
@@ -422,6 +451,9 @@ def test_qa_model_save_and_override_card(small_qa_pipeline, model_path):
     # Validate inferred model card text
     with model_path.joinpath("model_card.md").open() as file:
         card_text = file.read()
+    # verify the license file has been written
+    license_file = model_path.joinpath("LICENSE.txt").read_text()
+    assert len(license_file) > 0
     assert card_text.startswith("\n# I made a new model!")
     # validate MLmodel files
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
@@ -919,14 +951,20 @@ def test_non_existent_model_card_entry(small_seq2seq_pipeline, model_path):
 
 def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
     with mock.patch.dict("sys.modules", {"huggingface_hub": None}):
-        result = mlflow.transformers._fetch_model_card(small_seq2seq_pipeline)
+        result = mlflow.transformers._fetch_model_card(small_seq2seq_pipeline.model.name_or_path)
 
         assert result is None
+
+        license = mlflow.transformers._fetch_license(
+            small_seq2seq_pipeline.model.name_or_path, result
+        )
+        assert license.startswith("A license file could not be found for")
 
         mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
 
         contents = {item.name for item in model_path.iterdir()}
         assert not contents.intersection({"model_card.txt", "model_card_data.yaml"})
+        assert "LICENSE.txt" in contents
 
 
 def test_save_pipeline_without_defined_components(small_conversational_model, model_path):

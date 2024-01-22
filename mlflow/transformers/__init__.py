@@ -93,6 +93,8 @@ _IMAGE_PROCESSOR_KEY = "image_processor"
 _IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
 _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
+_LICENSE_FILE_NAME = "LICENSE.txt"
+_LICENSE_FILE_NAMES = ["LICENSE.txt", "LICENSE", "LICENSE.md", "LICENSE.yml"]
 _MODEL_KEY = "model"
 _MODEL_BINARY_KEY = "model_binary"
 _MODEL_BINARY_FILE_NAME = "model"
@@ -532,11 +534,19 @@ def save_model(
             inference_config=inference_config,
         )
 
+    model_name = transformers_model.model.name_or_path
+
     # Get the model card from either the argument or the HuggingFace marketplace
-    card_data = model_card if model_card is not None else _fetch_model_card(transformers_model)
+    card_data = model_card if model_card is not None else _fetch_model_card(model_name)
 
     # If the card data can be acquired, save the text and the data separately
     _write_card_data(card_data, path)
+
+    # Retrieve license information from the huggingface_hub repository if it exists
+    license_text = _fetch_license(model_name, card_data)
+
+    # Write the license information (or guidance) along with the model
+    _write_license_information(license_text, path)
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
 
@@ -1096,7 +1106,7 @@ def _deserialize_torch_dtype_if_exists(flavor_config):
     return _torch_dype_mapping()[flavor_config["torch_dtype"]]
 
 
-def _fetch_model_card(model_or_pipeline):
+def _fetch_model_card(model_name):
     """
     Attempts to retrieve the model card for the specified model architecture iff the
     `huggingface_hub` library is installed. If a card cannot be found in the registry or
@@ -1112,19 +1122,58 @@ def _fetch_model_card(model_or_pipeline):
         )
         return
 
-    model = model_or_pipeline.model
-
     if hasattr(hub, "ModelCard"):
         try:
-            return hub.ModelCard.load(model.name_or_path)
+            return hub.ModelCard.load(model_name)
         except Exception as e:
             _logger.warning(f"The model card could not be retrieved from the hub due to {e}")
     else:
         _logger.warning(
-            f"The version of huggingface_hub that is installed does not provide "
+            "The version of huggingface_hub that is installed does not provide "
             f"ModelCard functionality. You have version {hub.__version__} installed. "
-            f"Update huggingface_hub to >= '0.10.0' to retrieve the ModelCard data."
+            "Update huggingface_hub to >= '0.10.0' to retrieve the ModelCard data."
         )
+
+
+def _fetch_license(model_name, card_data):
+    """
+    Attempts to retrieve a license document from the underlying model repository iff the
+    `huggingface_hub` library is installed. If the library is available and a license file
+    is present, return the contents as text. If the license file does not exist, return
+    instructions for a user to investigate what the underlying usage restrictions that
+    exist.
+    """
+
+    fallback = f"A license file could not be found for the '{model_name}' repository. \n"
+    "To ensure that you are in compliance with the license requirements for this "
+    f"model, please visit the model repository here:\n https://huggingface.co/{model_name}"
+
+    def _get_license_file_as_text(repo_id):
+        for license_name in _LICENSE_FILE_NAMES:
+            try:
+                license_file_local_location = hub.hf_hub_download(
+                    repo_id=repo_id, filename=license_name
+                )
+                return pathlib.Path(license_file_local_location).read_text()
+            except Exception as e:
+                _logger.info(f"A license file could not be obtained due to {e}")
+
+    try:
+        import huggingface_hub as hub
+    except ImportError:
+        _logger.warning(
+            f"Unable to retrieve license information for the model repo {model_name}. In order "
+            "to enable retrieval of license information, please install the huggingface_hub "
+            "package by running `pip install huggingface_hub>0.10.0"
+        )
+
+    if lic := _get_license_file_as_text(model_name):
+        return lic
+
+    if (cd := card_data) and cd.data.license != "other":
+        return f"{fallback}\nThe declared license type is: '{cd.data.license}'"
+
+    return fallback
 
 
 def _write_card_data(card_data, path):
@@ -1141,6 +1190,20 @@ def _write_card_data(card_data, path):
             yaml.safe_dump(
                 card_data.data.to_dict(), stream=file, default_flow_style=False, encoding="utf-8"
             )
+
+
+def _write_license_information(license_text, path):
+    """Writes the license file or instructions to retrieve license information"""
+    if license_text:
+        try:
+            path.joinpath(_LICENSE_FILE_NAME).write_text(license_text, encoding="utf-8")
+        except UnicodeError as e:
+            _logger.warning(f"Unable to save the license data due to: {e}")
+    else:
+        _logger.warning(
+            "Unable to find license information for this model. Please verify "
+            "permissible usage for the model you are storing prior to use."
+        )
 
 
 def _build_pipeline_from_model_input(model, task: str):
