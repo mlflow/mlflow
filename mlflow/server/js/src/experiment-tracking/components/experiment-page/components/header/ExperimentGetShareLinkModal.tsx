@@ -62,7 +62,7 @@ export const ExperimentGetShareLinkModal = ({
           setLinkInProgress(false);
           setGeneratedState(state);
           const pageRoute = Routes.getExperimentPageRoute(experimentId, false, hash);
-          const shareURL = `${window.location.origin}${pageRoute}`;
+          const shareURL = `${window.location.origin}${window.location.pathname}#${pageRoute}`;
           setSharedStateUrl(shareURL);
         })
         .catch((e) => {
