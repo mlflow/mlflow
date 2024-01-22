@@ -192,3 +192,10 @@ def mock_is_in_databricks(request):
         "mlflow.models.model.is_in_databricks_runtime", return_value=request.param
     ) as mock_databricks:
         yield mock_databricks
+
+
+@pytest.fixture
+def set_tag_auto_truncate():
+    os.environ["MLFLOW_AUTO_TRUNCATE_LONG_TAG_VALUE"] = "1"
+    yield
+    os.environ.pop("MLFLOW_AUTO_TRUNCATE_LONG_TAG_VALUE")

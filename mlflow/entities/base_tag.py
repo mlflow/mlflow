@@ -13,11 +13,11 @@ class BaseTag(_MLflowObject):
 
     def __init__(self, key: str, value: str) -> None:
         self._key = key
+        self._value = value
         auto_truncate = os.environ.get("MLFLOW_AUTO_TRUNCATE_LONG_TAG_VALUE", False)
         if auto_truncate and len(value) > MAX_TAG_VAL_LENGTH:
             logger.warning("Long Tag value for key %s is auto truncated.", key)
-            self._value = value[: int(auto_truncate)]
-        self._value = value
+            self._value = value[:MAX_TAG_VAL_LENGTH]
 
     def __eq__(self, other):
         if type(other) is type(self):
