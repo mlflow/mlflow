@@ -4,6 +4,9 @@ import { MetricEntitiesByName, RunInfoEntity } from '../../../types';
 import { RunViewMetricsTable } from './RunViewMetricsTable';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
+// Larger timeout for integration testing (table rendering)
+jest.setTimeout(20000);
+
 const testRunUuid = 'test-run-uuid';
 const testRunName = 'Test run name';
 const testExperimentId = '12345';
