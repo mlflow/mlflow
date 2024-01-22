@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import pydantic
 import yaml
-from limits import parse
 from packaging import version
 from packaging.version import Version
 from pydantic import ConfigDict, Field, ValidationError, root_validator, validator
@@ -401,6 +400,8 @@ class RouteConfig(AliasedConfigModel):
 
     @validator("limit", pre=True)
     def validate_limit(cls, value):
+        from limits import parse
+
         if value:
             limit = Limit(**value)
             try:
@@ -452,7 +453,7 @@ class Route(ConfigModel):
     route_type: str
     model: RouteModelInfo
     route_url: str
-    limit: Optional[Limit]
+    limit: Optional[Limit] = None
 
     class Config:
         if IS_PYDANTIC_V2:

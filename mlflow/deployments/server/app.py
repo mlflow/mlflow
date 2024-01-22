@@ -91,9 +91,8 @@ def _create_chat_endpoint(config: RouteConfig):
 
     # https://slowapi.readthedocs.io/en/latest/#limitations-and-known-issues
     async def _chat(
-        request: Request,
+        request: Request, payload: chat.RequestPayload
     ) -> Union[chat.ResponsePayload, chat.StreamResponsePayload]:
-        payload = await parse_request_schema(request, chat.RequestPayload)
         if payload.stream:
             return await make_streaming_response(prov.chat_stream(payload))
         else:
@@ -106,9 +105,8 @@ def _create_completions_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
     async def _completions(
-        request: Request,
+        request: Request, payload: completions.RequestPayload
     ) -> Union[completions.ResponsePayload, completions.StreamResponsePayload]:
-        payload = await parse_request_schema(request, completions.RequestPayload)
         if payload.stream:
             return await make_streaming_response(prov.completions_stream(payload))
         else:
@@ -120,8 +118,9 @@ def _create_completions_endpoint(config: RouteConfig):
 def _create_embeddings_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-    async def _embeddings(request: Request) -> embeddings.ResponsePayload:
-        payload = await parse_request_schema(request, embeddings.RequestPayload)
+    async def _embeddings(
+        request: Request, payload: embeddings.RequestPayload
+    ) -> embeddings.ResponsePayload:
         return await prov.embeddings(payload)
 
     return _embeddings

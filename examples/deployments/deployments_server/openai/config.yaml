@@ -8,7 +8,7 @@ endpoints:
         openai_api_key: $OPENAI_API_KEY
     limit:
       renewal_period: "minute"
-      calls: 1
+      calls: 10
 
   - name: completions
     endpoint_type: llm/v1/completions
