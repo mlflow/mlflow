@@ -14,7 +14,7 @@ from collections import namedtuple
 from itertools import chain, filterfalse
 from pathlib import Path
 from threading import Timer
-from typing import NamedTuple, Optional
+from typing import List, NamedTuple, Optional
 
 import importlib_metadata
 import pkg_resources  # noqa: TID251
@@ -576,3 +576,38 @@ def _check_requirement_satisfied(requirement_str):
         )
 
     return None
+
+
+def warn_dependency_requirement_mismatches(model_requirements: List[str]):
+    """
+    Inspects the model's dependencies and prints a warning if the current Python environment
+    doesn't satisfy them.
+    """
+    _DATABRICKS_FEATURE_LOOKUP = "databricks-feature-lookup"
+    try:
+        mismatch_infos = []
+        for req in model_requirements:
+            mismatch_info = _check_requirement_satisfied(req)
+            if mismatch_info is not None:
+                # Suppress databricks-feature-lookup warning for feature store cases
+                if mismatch_info.package_name == _DATABRICKS_FEATURE_LOOKUP:
+                    continue
+                mismatch_infos.append(str(mismatch_info))
+
+        if len(mismatch_infos) > 0:
+            mismatch_str = " - " + "\n - ".join(mismatch_infos)
+            warning_msg = (
+                "Detected one or more mismatches between the model's dependencies and the current "
+                f"Python environment:\n{mismatch_str}\n"
+                "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
+                "to fetch the model's environment and install dependencies using the resulting "
+                "environment file."
+            )
+            _logger.warning(warning_msg)
+
+    except Exception as e:
+        _logger.warning(
+            f"Encountered an unexpected error ({e!r}) while detecting model dependency "
+            "mismatches. Set logging level to DEBUG to see the full traceback."
+        )
+        _logger.debug("", exc_info=True)

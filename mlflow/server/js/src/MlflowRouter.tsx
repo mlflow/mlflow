@@ -20,7 +20,13 @@ const landingRoute = {
   pageId: 'mlflow.experiments.list',
 };
 
-export const MlflowRouter = () => {
+export const MlflowRouter = ({
+  isDarkTheme,
+  setIsDarkTheme,
+}: {
+  isDarkTheme?: boolean;
+  setIsDarkTheme?: (isDarkTheme: boolean) => void;
+}) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const routes = useMemo(
     () => [
@@ -35,7 +41,7 @@ export const MlflowRouter = () => {
     <>
       <ErrorModal />
       <HashRouter>
-        <MlflowHeader />
+        <MlflowHeader isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
         <React.Suspense fallback={<LegacySkeleton />}>
           <Routes>
             {routes.map(({ element, pageId, path }) => (

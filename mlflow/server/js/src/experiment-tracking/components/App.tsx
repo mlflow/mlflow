@@ -35,6 +35,7 @@ import { PageNotFoundView } from '../../common/components/PageNotFoundView';
 import { RunPage } from './RunPage';
 import { DirectRunPage } from './DirectRunPage';
 import { shouldEnableDeepLearningUI } from '../../common/utils/FeatureUtils';
+import { DarkThemeSwitch } from '../../common/components/DarkThemeSwitch';
 
 const isExperimentsActive = (match: any, location: any) => {
   // eslint-disable-next-line prefer-const
@@ -54,8 +55,14 @@ const classNames = {
 // eslint-disable-next-line no-unused-vars
 const InteractionTracker = ({ children }: any) => children;
 
-class App extends Component {
+interface AppProps {
+  isDarkTheme?: boolean;
+  setIsDarkTheme?: (isDarkTheme: boolean) => void;
+}
+
+class App extends Component<AppProps> {
   render() {
+    const { isDarkTheme = false, setIsDarkTheme = (val) => {} } = this.props;
     const marginRight = 24;
     return (
       <HashRouterV5
@@ -102,6 +109,9 @@ class App extends Component {
                   </NavLinkV5>
                 </div>
                 <div className='header-links'>
+                  <span css={{ marginRight }}>
+                    <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+                  </span>
                   <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
                     <div className='github'>
                       <span>GitHub</span>

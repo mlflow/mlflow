@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 import pytest
@@ -157,7 +158,9 @@ def test_fluent_search_routes_handles_pagination(tmp_path):
         "routes": [{"name": route_name, **base_route_config} for route_name in gateway_route_names]
     }
     save_yaml(conf, gateway_config_dict)
-    with Gateway(conf) as gateway:
+
+    # Increase Gunicorn worker timeout from default 30 sec to handle huge number of routes
+    with Gateway(conf, env={**os.environ, "GUNICORN_CMD_ARGS": "--timeout=120"}) as gateway:
         set_gateway_uri(gateway_uri=gateway.url)
         assert [route.name for route in search_routes()] == gateway_route_names
 

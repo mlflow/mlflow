@@ -17,6 +17,7 @@ from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _infer_requirements,
     _parse_requirements,
+    warn_dependency_requirement_mismatches,
 )
 from mlflow.version import VERSION
 
@@ -530,6 +531,9 @@ def _process_pip_requirements(
 
     sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
 
+    # Check if pip requirements contain incompatible version with the current environment
+    warn_dependency_requirement_mismatches(sanitized_pip_reqs)
+
     if constraints:
         sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
@@ -687,6 +691,9 @@ def _process_conda_env(conda_env):
     pip_reqs, constraints = _parse_pip_requirements(pip_reqs)
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
+
+    # Check if pip requirements contain incompatible version with the current environment
+    warn_dependency_requirement_mismatches(pip_reqs)
 
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
