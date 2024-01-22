@@ -4,14 +4,9 @@ components to describe interface independent of other frameworks or languages.
 """
 
 from mlflow.types.llm import (
+    CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
-    ChatChoice,
-    ChatMessage,
-    ChatParams,
-    ChatRequest,
-    ChatResponse,
-    TokenUsageStats,
 )
 from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 
@@ -28,6 +23,7 @@ __all__ = [
     "ChatResponse",
     "TokenUsageStats",
     "ChatChoice",
+    "CHAT_MODEL_INPUT_EXAMPLE",
     "CHAT_MODEL_INPUT_SCHEMA",
     "CHAT_MODEL_OUTPUT_SCHEMA",
 ]

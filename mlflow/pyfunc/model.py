@@ -21,7 +21,6 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -207,11 +206,50 @@ class ChatModel(PythonModel):
 
     @abstractmethod
     def predict(
-        self, context: PythonModelContext, messages: List[ChatMessage], params: ChatParams
-    ) -> ChatResponse:
+        self, context: PythonModelContext, messages: List[Dict[str, str]], params: Dict[str, str]
+    ) -> Dict[str, str]:
         """
-        Evaluates a chat input and produces a chat output. ChatMessage and ChatParams are
-        passed in as pydantic objects.
+        Evaluates a chat input and produces a chat output.
+
+        :param messages: A list of chat messages. Each message is a dictionary with the following
+                         keys:
+
+                         - ``role (str)``: The role of the message sender.
+                         - ``content (str)``: The content of the message.
+                         - ``name (str)``: The name of the message sender. Optional.
+
+                         Example: [{ "role": "user", "content": "Hello!" }]
+
+        :param params: A dict containing various inference parameters:
+
+            - ``temperature (float)``: The temperature to use during sampling.
+                                       Optional, default=``1.0``.
+            - ``max_tokens (int)``: The maximum number of tokens to generate.
+                                    Optional, default=``None``.
+            - ``stop (List[str])``: A list of tokens at which to stop generation.
+                                    Optional, default=``None``.
+            - ``n (int)``: The number of samples to generate.
+                           Optional, default=``1``.
+            - ``stream (bool)``: Whether to stream generation.
+                           Optional, default=``False``.
+
+        Example: { "temperature": 1.5, "max_tokens": 20, "stop": ["\n"], "n": 3, "stream": False }
+
+        :return: A dict with the following keys:
+
+            - ``id (str)``: The ID of the response.
+            - ``object (str)``: The object type, which should be "chat.completion"
+            - ``created (int)``: The UNIX timestamp of when the response was created.
+            - ``model (str)``: The name of the model that generated the response.
+            - ``choices (List[Dict[str, Any]])``: A list of choices:
+                - ``index (int)``: The index of the choice.
+                - ``message (Dict[str, Any])``: The message of the choice.
+                - ``finish_reason (str)``: The reason the choice was finished.
+            - ``usage (Dict[str, int])``: A dict containing usage statistics:
+                - ``prompt_tokens (int)``: The number of tokens in the prompt.
+                - ``completion_tokens (int)``: The number of tokens in the completion.
+                - ``total_tokens (int)``: The total number of tokens.
+
         """
 
 

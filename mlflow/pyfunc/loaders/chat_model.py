@@ -12,7 +12,6 @@ from mlflow.pyfunc.model import (
     CONFIG_KEY_PYTHON_MODEL,
     PythonModelContext,
 )
-from mlflow.types.llm import ChatParams, ChatRequest, ChatResponse
 from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -73,21 +72,16 @@ class _ChatModelPyfuncWrapper:
                         ``python_model`` may use when performing inference.
         :param signature: :class:`~ModelSignature` instance describing model input and output.
         """
-        # pydantic import here is necessary so that it gets picked up by
-        # _capture_imported_modules. it seems that using ChatRequest in
-        # _convert_input doesn't trigger the import, but it will throw at
-        # inference time if the package is not installed.
-        import pydantic  # noqa: F401
-
         self.chat_model = chat_model
         self.context = context
         self.signature = signature
 
     def _convert_input(self, model_input):
+        # model_input should be correct from signature validation, so just convert it to dict here
         dict_input = {key: value[0] for key, value in model_input.to_dict(orient="list").items()}
-        chat_request = ChatRequest(**dict_input)
-        messages = chat_request.messages
-        params = ChatParams(**chat_request.model_dump())
+
+        messages = dict_input.pop("messages", None)
+        params = dict_input
 
         return messages, params
 
@@ -98,10 +92,4 @@ class _ChatModelPyfuncWrapper:
         :return: Model predictions.
         """
         messages, params = self._convert_input(model_input)
-
-        response = self.chat_model.predict(self.context, messages, params)
-        if isinstance(response, ChatResponse):
-            # dump to dict as pydantic objects are not directly serializable
-            return response.model_dump(exclude_none=True)
-
-        return response
+        return self.chat_model.predict(self.context, messages, params)
