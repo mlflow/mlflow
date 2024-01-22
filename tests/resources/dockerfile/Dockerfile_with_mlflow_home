@@ -6,7 +6,6 @@ RUN apt-get -y update
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends          wget          curl          nginx          ca-certificates          bzip2          build-essential          cmake          openjdk-8-jdk          git-core          maven     && rm -rf /var/lib/apt/lists/*
 
 
-
 # Setup pyenv
 RUN apt -y update
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
@@ -36,16 +35,16 @@ RUN pip install /opt/mlflow
 RUN cd /opt/mlflow/mlflow/java/scoring && mvn --batch-mode package -DskipTests  && mkdir -p /opt/java/jars && mv /opt/mlflow/mlflow/java/scoring/target/mlflow-scoring-*-with-dependencies.jar /opt/java/jars
 
 
+COPY model_dir/model /opt/ml/model
+RUN python -c "from mlflow.models.container import _install_pyfunc_deps; _install_pyfunc_deps('/opt/ml/model', install_mlflow=False, enable_mlserver=False, env_manager='virtualenv');"
 
-                    COPY model_dir/model /opt/ml/model
-                    RUN python -c                     'from mlflow.models.container import _install_pyfunc_deps;                    _install_pyfunc_deps(                        "/opt/ml/model",                         install_mlflow=False,                         enable_mlserver=False,                         env_manager="virtualenv")'
-                    ENV MLFLOW_DISABLE_ENV_CREATION="true"
-                    ENV ENABLE_MLSERVER=False
-                    
+ENV MLFLOW_DISABLE_ENV_CREATION=True
+ENV ENABLE_MLSERVER=False
+
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints
 # (see https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html)
 RUN chmod o+rwX /opt/mlflow/
 
-ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;C._serve('virtualenv')"]
+ENTRYPOINT ["python", "-c", "from mlflow.models import container as C; C._serve('virtualenv')"]
