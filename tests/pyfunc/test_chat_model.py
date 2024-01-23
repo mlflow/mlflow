@@ -3,7 +3,7 @@ from typing import List
 
 import mlflow
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
-from mlflow.types import (
+from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
     ChatMessage,
@@ -33,7 +33,7 @@ class TestChatModel(mlflow.pyfunc.ChatModel):
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": json.dumps([m.model_dump(exclude_none=True) for m in messages]),
+                        "content": json.dumps([m.to_dict() for m in messages]),
                     },
                     "finish_reason": "stop",
                 },
@@ -41,7 +41,7 @@ class TestChatModel(mlflow.pyfunc.ChatModel):
                     "index": 1,
                     "message": {
                         "role": "user",
-                        "content": params.model_dump_json(exclude_none=True),
+                        "content": json.dumps(params.to_dict()),
                     },
                     "finish_reason": "stop",
                 },

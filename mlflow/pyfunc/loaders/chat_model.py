@@ -12,6 +12,7 @@ from mlflow.pyfunc.model import (
     CONFIG_KEY_PYTHON_MODEL,
     PythonModelContext,
 )
+from mlflow.types import ChatMessage, ChatParams, ChatRequest, ChatResponse
 from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -80,16 +81,23 @@ class _ChatModelPyfuncWrapper:
         # model_input should be correct from signature validation, so just convert it to dict here
         dict_input = {key: value[0] for key, value in model_input.to_dict(orient="list").items()}
 
-        messages = dict_input.pop("messages", None)
-        params = dict_input
+        messages = [ChatMessage(**message) for message in dict_input.pop("messages", None)]
+        params = ChatParams(**dict_input)
 
         return messages, params
 
-    def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
+    def predict(self, model_input: ChatRequest, params: Optional[Dict[str, Any]] = None):
         """
         :param model_input: Model input data.
         :param params: Additional parameters to pass to the model for inference.
+                       Unused in this implementation, as the params are handled
+                       via ``self._convert_input()``.
         :return: Model predictions.
         """
         messages, params = self._convert_input(model_input)
-        return self.chat_model.predict(self.context, messages, params)
+        response = self.chat_model.predict(self.context, messages, params)
+
+        if isinstance(response, ChatResponse):
+            return response.to_dict()
+
+        return response
