@@ -3873,6 +3873,10 @@ def test_text_generation_save_model_with_inference_task(task, text_generation_pi
     )
 
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
+
+    flavor_config = mlmodel["flavors"]["transformers"]
+    assert flavor_config["inference_task"] == task
+
     assert mlmodel["metadata"]["task"] == task
 
 

@@ -326,12 +326,14 @@ def save_model(
             .. Note:: If a processor is supplied when saving a model, the
                         model will be unavailable for loading as a ``Pipeline`` or for
                         usage with pyfunc inference.
-        task: The transformers-specific task type of the model. These strings are utilized so
+        task: The transformers-specific task type of the model, or the inference task type.
+            If provided a transformers-specific task type, these strings are utilized so
             that a pipeline can be created with the appropriate internal call architecture
-            to meet the needs of a given model. If this argument is not specified, the
+            to meet the needs of a given model.
+            If this argument is provided as a inference task type or not specified, the
             pipeline utilities within the transformers library will be used to infer the
-            correct task type. If the value specified is not a supported type within the
-            version of transformers that is currently installed, an Exception will be thrown.
+            correct task type. If the value specified is not a supported type,
+            an Exception will be thrown.
         model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
             contents of the model card will be saved along with the provided
             `transformers_model`. If not provided, an attempt will be made to fetch
@@ -510,11 +512,22 @@ def save_model(
         else:
             mlflow_model.metadata = {_PROMPT_TEMPLATE_KEY: prompt_template}
 
-    if task in _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE.get(resolved_transformers_task, []):
+    supported_inference_tasks = _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE.get(
+        resolved_transformers_task, []
+    )
+
+    if task in supported_inference_tasks:
         if mlflow_model.metadata:
-            mlflow_model.metadata[_METADATA_TASK_KEY] = task
+            mlflow_model.metadata[_METADATA_INFERENCE_TASK_KEY] = task
         else:
-            mlflow_model.metadata = {_METADATA_TASK_KEY: task}
+            mlflow_model.metadata = {_METADATA_INFERENCE_TASK_KEY: task}
+
+    inference_task = None
+    if task in supported_inference_tasks:
+        inference_task = task
+    elif supported_inference_tasks:
+        # Infer the inference task if not given as the task argument
+        inference_task = supported_inference_tasks[0]
 
     flavor_conf = _generate_base_flavor_configuration(built_pipeline, resolved_transformers_task)
 
@@ -525,6 +538,9 @@ def save_model(
 
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
+
+    if inference_task:
+        flavor_conf.update({_INFERENCE_TASK_KEY: inference_task})
 
     # Save the model object
     built_pipeline.model.save_pretrained(
