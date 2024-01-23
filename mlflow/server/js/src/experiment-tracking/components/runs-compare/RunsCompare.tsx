@@ -1,4 +1,4 @@
-import { LegacySkeleton } from '@databricks/design-system';
+import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { connect } from 'react-redux';
@@ -7,24 +7,24 @@ import type {
   KeyValueEntity,
   MetricEntitiesByName,
   MetricHistoryByName,
+  RunInfoEntity,
   UpdateExperimentSearchFacetsFn,
 } from '../../types';
 import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { RunsCompareCardConfig } from './runs-compare.types';
-import type { RunsCompareChartType } from './runs-compare.types';
+import type { RunsCompareChartType, SerializedRunsCompareCardConfigCard } from './runs-compare.types';
 import { RunsCompareAddChartMenu } from './RunsCompareAddChartMenu';
 import { RunsCompareCharts } from './RunsCompareCharts';
-import { SearchExperimentRunsFacetsState } from '../experiment-page/models/SearchExperimentRunsFacetsState';
 import { RunsCompareConfigureModal } from './RunsCompareConfigureModal';
 import { getUUID } from '../../../common/utils/ActionUtils';
 import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
-import {
-  AUTOML_EVALUATION_METRIC_TAG,
-  MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
-} from '../../constants';
+import { AUTOML_EVALUATION_METRIC_TAG, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME } from '../../constants';
 import { RunsCompareTooltipBody } from './RunsCompareTooltipBody';
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { useMultipleChartsMetricHistory } from './hooks/useMultipleChartsMetricHistory';
+import { shouldEnableDeepLearningUI, shouldEnableShareExperimentViewByTags } from '../../../common/utils/FeatureUtils';
+import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/ExperimentPageUIStateContext';
+import { ExperimentPageUIStateV2 } from '../experiment-page/models/ExperimentPageUIStateV2';
 
 export interface RunsCompareProps {
   comparedRuns: RunRowType[];
@@ -32,9 +32,8 @@ export interface RunsCompareProps {
   metricKeyList: string[];
   paramKeyList: string[];
   experimentTags: Record<string, KeyValueEntity>;
-  searchFacetsState: SearchExperimentRunsFacetsState;
+  compareRunCharts?: SerializedRunsCompareCardConfigCard[];
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
-
   // Provided by redux connect().
   paramsByRunUuid: Record<string, Record<string, KeyValueEntity>>;
   latestMetricsByRunUuid: Record<string, MetricEntitiesByName>;
@@ -51,7 +50,7 @@ export interface RunsCompareProps {
 export const RunsCompareImpl = ({
   comparedRuns,
   isLoading,
-  searchFacetsState,
+  compareRunCharts,
   updateSearchFacets,
   latestMetricsByRunUuid,
   metricsByRunUuid,
@@ -60,14 +59,18 @@ export const RunsCompareImpl = ({
   paramKeyList,
   experimentTags,
 }: RunsCompareProps) => {
+  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
+  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
+  const updateUIState = useUpdateExperimentViewUIState();
+  const stateSetterFn = usingNewViewStateModel ? updateUIState : updateSearchFacets;
+
+  const { theme } = useDesignSystemTheme();
   const [initiallyLoaded, setInitiallyLoaded] = useState(false);
-  const [configuredCardConfig, setConfiguredCardConfig] = useState<RunsCompareCardConfig | null>(
-    null,
-  );
+  const [configuredCardConfig, setConfiguredCardConfig] = useState<RunsCompareCardConfig | null>(null);
 
   const addNewChartCard = useCallback((type: RunsCompareChartType) => {
     // TODO: pass existing runs data and get pre-configured initial setup for every chart type
-    setConfiguredCardConfig(RunsCompareCardConfig.getEmptyChartCardByType(type));
+    setConfiguredCardConfig(RunsCompareCardConfig.getEmptyChartCardByType(type, true));
   }, []);
 
   const startEditChart = useCallback((chartCard: RunsCompareCardConfig) => {
@@ -94,61 +97,67 @@ export const RunsCompareImpl = ({
       comparedRuns
         .filter((run) => !run.hidden)
         .map((run) => ({
+          // At this point, we're certain that runInfo is present in the run row
+          displayName: (run.runInfo as RunInfoEntity).run_name || '',
           runInfo: run.runInfo,
-          metrics: latestMetricsByRunUuid[run.runUuid] || {},
-          params: paramsByRunUuid[run.runUuid] || {},
+          metrics: (run.runUuid && latestMetricsByRunUuid[run.runUuid]) || {},
+          params: (run.runUuid && paramsByRunUuid[run.runUuid]) || {},
           color: run.color,
           pinned: run.pinned,
           pinnable: run.pinnable,
           metricsHistory: {},
+          uuid: run.rowUuid,
         })),
     [comparedRuns, latestMetricsByRunUuid, paramsByRunUuid],
   );
 
-  const { isLoading: isMetricHistoryLoading, chartRunDataWithHistory } =
-    useMultipleChartsMetricHistory(searchFacetsState.compareRunCharts || [], chartRunData);
+  const { isLoading: isMetricHistoryLoading, chartRunDataWithHistory: chartRunDataWithUnsampledHistory } =
+    useMultipleChartsMetricHistory(compareRunCharts || [], chartRunData, !usingV2ChartImprovements);
+
+  // If we're using v2 chart improvements, we're using sampled metrics so we don't need to
+  // enrich results with "useMultipleChartsMetricHistory" result
+  const chartData = usingV2ChartImprovements ? chartRunData : chartRunDataWithUnsampledHistory;
 
   // Set chart cards to the user-facing base config if there is no other information.
   useEffect(() => {
-    if (!searchFacetsState.compareRunCharts && chartRunDataWithHistory.length > 0) {
-      updateSearchFacets(
-        (current) => ({
+    if (!compareRunCharts && chartData.length > 0) {
+      if (usingNewViewStateModel) {
+        updateUIState((current) => ({
           ...current,
-          compareRunCharts: RunsCompareCardConfig.getBaseChartConfigs(
-            primaryMetricKey,
-            chartRunDataWithHistory[0].metrics,
-          ),
-        }),
-        { replaceHistory: true },
-      );
+          compareRunCharts: RunsCompareCardConfig.getBaseChartConfigs(primaryMetricKey, chartData),
+        }));
+      } else {
+        updateSearchFacets(
+          (current) => ({
+            ...current,
+            compareRunCharts: RunsCompareCardConfig.getBaseChartConfigs(primaryMetricKey, chartData),
+          }),
+          { replaceHistory: true },
+        );
+      }
     }
-  }, [
-    searchFacetsState.compareRunCharts,
-    primaryMetricKey,
-    updateSearchFacets,
-    chartRunDataWithHistory,
-  ]);
+  }, [compareRunCharts, primaryMetricKey, updateSearchFacets, chartData, usingNewViewStateModel, updateUIState]);
 
   const onTogglePin = useCallback(
     (runUuid: string) => {
-      updateSearchFacets((existingFacets) => ({
+      stateSetterFn((existingFacets: ExperimentPageUIStateV2) => ({
         ...existingFacets,
         runsPinned: !existingFacets.runsPinned.includes(runUuid)
           ? [...existingFacets.runsPinned, runUuid]
           : existingFacets.runsPinned.filter((r) => r !== runUuid),
       }));
     },
-    [updateSearchFacets],
+    [stateSetterFn],
   );
 
   const onHideRun = useCallback(
     (runUuid: string) => {
-      updateSearchFacets((existingFacets) => ({
+      stateSetterFn((existingFacets: ExperimentPageUIStateV2) => ({
         ...existingFacets,
         runsHidden: [...existingFacets.runsHidden, runUuid],
       }));
     },
-    [updateSearchFacets],
+    [stateSetterFn],
   );
 
   const submitForm = (configuredCard: Partial<RunsCompareCardConfig>) => {
@@ -160,13 +169,13 @@ export const RunsCompareImpl = ({
 
     // Creating new chart
     if (!configuredCard.uuid) {
-      updateSearchFacets((current) => ({
+      stateSetterFn((current: ExperimentPageUIStateV2) => ({
         ...current,
         // This condition ensures that chart collection will remain undefined if not set previously
         compareRunCharts: current.compareRunCharts && [...current.compareRunCharts, serializedCard],
       }));
     } /* Editing existing chart */ else {
-      updateSearchFacets((current) => ({
+      stateSetterFn((current: ExperimentPageUIStateV2) => ({
         ...current,
         compareRunCharts: current.compareRunCharts?.map((existingChartCard) => {
           if (existingChartCard.uuid === configuredCard.uuid) {
@@ -182,12 +191,41 @@ export const RunsCompareImpl = ({
   };
 
   const removeChart = (configToDelete: RunsCompareCardConfig) => {
-    updateSearchFacets((current) => ({
+    stateSetterFn((current: ExperimentPageUIStateV2) => ({
       ...current,
-      compareRunCharts: current.compareRunCharts?.filter(
-        (setup) => setup.uuid !== configToDelete.uuid,
-      ),
+      compareRunCharts: current.compareRunCharts?.filter((setup) => setup.uuid !== configToDelete.uuid),
     }));
+  };
+
+  /**
+   * Reorders the charts in the compare run view by swapping the positions of two charts.
+   */
+  const reorderCharts = (sourceChartUuid: string, targetChartUuid: string) => {
+    stateSetterFn((current: ExperimentPageUIStateV2) => {
+      const newChartsOrder = current.compareRunCharts?.slice();
+      if (!newChartsOrder) {
+        return current;
+      }
+
+      const indexSource = newChartsOrder.findIndex((c) => c.uuid === sourceChartUuid);
+      const indexTarget = newChartsOrder.findIndex((c) => c.uuid === targetChartUuid);
+
+      // If one of the charts is not found, do nothing
+      if (indexSource < 0 || indexTarget < 0) {
+        return current;
+      }
+
+      // Swap the charts
+      [newChartsOrder[indexSource], newChartsOrder[indexTarget]] = [
+        newChartsOrder[indexTarget],
+        newChartsOrder[indexSource],
+      ];
+
+      return {
+        ...current,
+        compareRunCharts: newChartsOrder,
+      };
+    });
   };
 
   /**
@@ -195,43 +233,43 @@ export const RunsCompareImpl = ({
    * runs data and toggle pin callback
    */
   const tooltipContextValue = useMemo(
-    () => ({ runs: chartRunDataWithHistory, onTogglePin, onHideRun }),
-    [chartRunDataWithHistory, onHideRun, onTogglePin],
+    () => ({ runs: chartData, onTogglePin, onHideRun }),
+    [chartData, onHideRun, onTogglePin],
   );
 
   if (!initiallyLoaded) {
     return (
-      <div css={styles.wrapper}>
+      <div css={styles.wrapper(theme)}>
         <LegacySkeleton />
       </div>
     );
   }
 
   return (
-    <div css={styles.wrapper} data-testid='experiment-view-compare-runs-chart-area'>
-      <div css={styles.controlsWrapper}>
+    <div css={styles.wrapper(theme)} data-testid="experiment-view-compare-runs-chart-area">
+      <div css={styles.controlsWrapper(theme)}>
         <RunsCompareAddChartMenu onAddChart={addNewChartCard} />
       </div>
-      <RunsChartsTooltipWrapper
-        contextData={tooltipContextValue}
-        component={RunsCompareTooltipBody}
-      >
+      <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={RunsCompareTooltipBody}>
         <RunsCompareCharts
-          chartRunData={chartRunDataWithHistory}
-          cardsConfig={searchFacetsState.compareRunCharts || []}
+          chartRunData={chartData}
+          cardsConfig={compareRunCharts || []}
           onStartEditChart={startEditChart}
           onRemoveChart={removeChart}
           isMetricHistoryLoading={isMetricHistoryLoading}
+          onReorderCharts={reorderCharts}
+          groupBy=""
         />
       </RunsChartsTooltipWrapper>
       {configuredCardConfig && (
         <RunsCompareConfigureModal
-          chartRunData={chartRunDataWithHistory}
+          chartRunData={chartData}
           metricKeyList={metricKeyList}
           paramKeyList={paramKeyList}
           config={configuredCardConfig}
           onSubmit={submitForm}
           onCancel={() => setConfiguredCardConfig(null)}
+          groupBy=""
         />
       )}
     </div>

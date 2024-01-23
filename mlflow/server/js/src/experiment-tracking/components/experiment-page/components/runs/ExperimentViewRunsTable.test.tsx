@@ -4,6 +4,8 @@ import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRu
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import { useRunsColumnDefinitions } from '../../utils/experimentPage.column-utils';
 import { ExperimentViewRunsTable, ExperimentViewRunsTableProps } from './ExperimentViewRunsTable';
+import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
+import { createExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
 
 /**
  * Mock all expensive utility functions
@@ -61,9 +63,7 @@ jest.mock('react-intl', () => ({
   FormattedMessage: () => <div />,
 }));
 
-const mockTagKeys = Object.keys(
-  EXPERIMENT_RUNS_MOCK_STORE.entities.tagsByRunUuid['experiment123456789_run1'],
-);
+const mockTagKeys = Object.keys(EXPERIMENT_RUNS_MOCK_STORE.entities.tagsByRunUuid['experiment123456789_run1']);
 
 describe('ExperimentViewRunsTable', () => {
   beforeAll(() => {
@@ -94,13 +94,17 @@ describe('ExperimentViewRunsTable', () => {
       runsPinned: ['experiment123456789_run1'],
     }),
     viewState: new SearchExperimentRunsViewState(),
+    uiState: createExperimentPageUIStateV2(),
     updateSearchFacets() {},
     updateViewState() {},
     loadMoreRunsFunc: jest.fn(),
     expandRows: false,
   };
+
   const createWrapper = (additionalProps: Partial<ExperimentViewRunsTableProps> = {}) =>
-    mount(<ExperimentViewRunsTable {...defaultProps} {...additionalProps} />);
+    mount(<ExperimentViewRunsTable {...defaultProps} {...additionalProps} />, {
+      wrappingComponent: MemoryRouter,
+    });
 
   test('should properly call creating column definitions function', () => {
     createWrapper();
@@ -147,9 +151,7 @@ describe('ExperimentViewRunsTable', () => {
 
     // Assert empty overlay being displayed and indicating that runs are *not* filtered
     expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').length).toBe(1);
-    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').prop('isFiltered')).toBe(
-      false,
-    );
+    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').prop('isFiltered')).toBe(false);
 
     // Set up some filter
     emptyExperimentsWrapper.setProps({
@@ -159,9 +161,7 @@ describe('ExperimentViewRunsTable', () => {
     });
 
     // Assert empty overlay being displayed and indicating that runs *are* filtered
-    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').prop('isFiltered')).toBe(
-      true,
-    );
+    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').prop('isFiltered')).toBe(true);
   });
 
   test('should hide no data overlay when necessary', () => {
@@ -226,6 +226,18 @@ describe('ExperimentViewRunsTable', () => {
     // Assert "add params/metrics" CTA button being displayed
     expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(1);
 
+    const newSelectedColumns = [
+      'params.`p1`',
+      'metrics.`m1`',
+      'tags.`testtag1`',
+      'tags.`testtag2`',
+      'attributes.`User`',
+      'attributes.`Source`',
+      'attributes.`Version`',
+      'attributes.`Models`',
+      'attributes.`Dataset`',
+    ];
+
     simpleExperimentsWrapper.setProps({
       runsData: {
         ...defaultProps.runsData,
@@ -235,17 +247,11 @@ describe('ExperimentViewRunsTable', () => {
       },
       searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
         // Exhaust all possible columns
-        selectedColumns: [
-          'params.`p1`',
-          'metrics.`m1`',
-          'tags.`testtag1`',
-          'tags.`testtag2`',
-          'attributes.`User`',
-          'attributes.`Source`',
-          'attributes.`Version`',
-          'attributes.`Models`',
-          'attributes.`Dataset`',
-        ],
+        selectedColumns: newSelectedColumns,
+      }),
+      uiState: Object.assign(createExperimentPageUIStateV2(), {
+        // Exhaust all possible columns
+        selectedColumns: newSelectedColumns,
       }),
     });
 

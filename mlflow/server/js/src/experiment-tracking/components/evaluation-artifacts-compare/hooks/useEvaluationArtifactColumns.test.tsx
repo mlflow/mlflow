@@ -46,32 +46,25 @@ describe('useEvaluationArtifactColumns', () => {
   it('properly extracts all column names for a set of runs', () => {
     expect(getResultsForRuns(['run_a'], ['/table1']).columns).toEqual(['col_a']);
     expect(getResultsForRuns(['run_a', 'run_b'], ['/table1']).columns).toEqual(['col_a', 'col_b']);
-    expect(getResultsForRuns(['run_a', 'run_b', 'run_ab'], ['/table1']).columns).toEqual([
-      'col_a',
-      'col_b',
-    ]);
-    expect(getResultsForRuns(['run_a', 'run_b', 'run_abc'], ['/table1']).columns).toEqual([
+    expect(getResultsForRuns(['run_a', 'run_b', 'run_ab'], ['/table1']).columns).toEqual(['col_a', 'col_b']);
+    expect(getResultsForRuns(['run_a', 'run_b', 'run_abc'], ['/table1']).columns).toEqual(['col_a', 'col_b', 'col_c']);
+    expect(getResultsForRuns(['run_a', 'run_abc_othertable'], ['/table1', '/table2']).columns).toEqual([
       'col_a',
       'col_b',
       'col_c',
     ]);
-    expect(
-      getResultsForRuns(['run_a', 'run_abc_othertable'], ['/table1', '/table2']).columns,
-    ).toEqual(['col_a', 'col_b', 'col_c']);
   });
 
   it('properly extracts columns intersection for a set of runs', () => {
     expect(getResultsForRuns(['run_a'], ['/table1']).columnsIntersection).toEqual(['col_a']);
     expect(getResultsForRuns(['run_a', 'run_b'], ['/table1']).columnsIntersection).toEqual([]);
-    expect(getResultsForRuns(['run_a', 'run_ab'], ['/table1']).columnsIntersection).toEqual([
-      'col_a',
+    expect(getResultsForRuns(['run_a', 'run_ab'], ['/table1']).columnsIntersection).toEqual(['col_a']);
+    expect(getResultsForRuns(['run_abc_othertable'], ['/table1', '/table2']).columnsIntersection).toEqual([
+      'col_b',
+      'col_c',
     ]);
-    expect(
-      getResultsForRuns(['run_abc_othertable'], ['/table1', '/table2']).columnsIntersection,
-    ).toEqual(['col_b', 'col_c']);
-    expect(
-      getResultsForRuns(['run_b', 'run_abc_othertable'], ['/table1', '/table2'])
-        .columnsIntersection,
-    ).toEqual(['col_b']);
+    expect(getResultsForRuns(['run_b', 'run_abc_othertable'], ['/table1', '/table2']).columnsIntersection).toEqual([
+      'col_b',
+    ]);
   });
 });

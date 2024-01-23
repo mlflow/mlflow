@@ -59,9 +59,7 @@ describe('ArtifactView', () => {
   beforeEach(() => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
     // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() =>
-      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
-    );
+    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     const node = getTestArtifactNode();
     minimalProps = {
       runUuid: 'fakeUuid',
@@ -241,9 +239,7 @@ describe('ArtifactView', () => {
   test('should render model version link for directory when version is present', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
     const modelVersionsBySource = {
-      'test_root/dir2': [
-        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-      ],
+      'test_root/dir2': [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)],
     };
     const props = { ...minimalProps, modelVersionsBySource };
     const entities = {
@@ -282,9 +278,7 @@ describe('ArtifactView', () => {
     // should still render the version source for this artifact
     const modelVersionSource = 'test_root////dir2///';
     const modelVersionsBySource = {
-      modelVersionSource: [
-        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-      ],
+      modelVersionSource: [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)],
     };
     const props = { ...minimalProps, modelVersionsBySource };
     const entities = {
@@ -313,9 +307,7 @@ describe('ArtifactView', () => {
   test('should not render model version link for file under valid model version directory', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
     const modelVersionsBySource = {
-      'test_root/dir2': [
-        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-      ],
+      'test_root/dir2': [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)],
     };
     const props = { ...minimalProps, modelVersionsBySource };
     const entities = {

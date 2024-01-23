@@ -38,7 +38,7 @@ export function MLFlowRoot() {
         <DesignSystemContainer isDarkTheme={isDarkTheme}>
           <ApplyGlobalStyles />
           <MlflowThemeGlobalStyles />
-          <ConfigProvider prefixCls='ant'>
+          <ConfigProvider prefixCls="ant">
             {shouldUsePathRouting() ? (
               <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
             ) : (

@@ -33,9 +33,7 @@ describe('ModelPage', () => {
       getRegisteredModelDetailsApi: jest.fn(() => Promise.resolve({})),
       navigate,
     };
-    const versions = [
-      mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-    ];
+    const versions = [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)];
     minimalStore = mockStore({
       entities: {
         modelByName: {
@@ -72,10 +70,7 @@ describe('ModelPage', () => {
       </Provider>,
     );
     instance = wrapper.find(ModelPageImpl).instance();
-    const mockError = new ErrorWrapper(
-      '{ "error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Foo!" }',
-      404,
-    );
+    const mockError = new ErrorWrapper('{ "error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Foo!" }', 404);
 
     Utils.isBrowserTabVisible = jest.fn(() => true);
     instance.loadData = jest.fn().mockReturnValue(Promise.reject(mockError));

@@ -1,9 +1,4 @@
-import {
-  Button,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, ChevronLeftIcon, ChevronRightIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { UpdateExperimentViewStateFn } from '../../../../types';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 
@@ -11,11 +6,11 @@ import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRuns
  * Component used to expand/collapse runs list (table) when in compare runs mode.
  */
 export const ExperimentViewRunsTableCollapse = ({
-  updateViewState,
+  updateRunListHidden,
   runListHidden,
 }: {
-  updateViewState: UpdateExperimentViewStateFn;
-  runListHidden: SearchExperimentRunsViewState['runListHidden'];
+  updateRunListHidden: (newValue: boolean) => void;
+  runListHidden: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -43,7 +38,7 @@ export const ExperimentViewRunsTableCollapse = ({
       }}
     >
       <div
-        className='bar'
+        className="bar"
         css={{
           transition: 'opacity 0.2s',
           opacity: 0,
@@ -57,7 +52,7 @@ export const ExperimentViewRunsTableCollapse = ({
         }}
       />
       <div
-        className='button'
+        className="button"
         css={{
           transition: 'border-color 0.2s',
           position: 'relative',
@@ -73,9 +68,9 @@ export const ExperimentViewRunsTableCollapse = ({
         }}
       >
         <Button
-          onClick={() => updateViewState({ runListHidden: !runListHidden })}
+          onClick={() => updateRunListHidden(!runListHidden)}
           icon={runListHidden ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-          size='small'
+          size="small"
         />
       </div>
     </div>
