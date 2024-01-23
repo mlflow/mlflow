@@ -121,9 +121,12 @@ Briefly a search condition consists of 3 parts:
 - An MLflow field on the left side, which can be some metric, param, tag, dataset or MLflow run metadata, e.g.,
   ``metric.loss`` or ``param.batch_size``.
 - A comparator in the middle, we support 3 types of comparators:
+
   - Numeric comparators: ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-  - String comparators: ``=``, ``!=``, ``LIKE`` and ``ILIKE``. String comparators are case sensitive.
-  - Set comparators: ``IN``.
+  - String comparators: ``=``, ``!=``, ``LIKE`` and ``ILIKE``. String comparators are case sensitive except ``ILIKE``
+    which is case insensitive.
+  - Set comparators: ``IN``, which only supports searching by dataset and run metadata, and is case sensitive.
+
 - A reference value on the right side.
 
 .. note::
@@ -175,7 +178,6 @@ a string, because MLflow params are logged in string format. See below for sampl
 .. code-block:: sql
 
     params.batch_size = "2"
-    params."learning rate" IN ('0.001', '0.01')
     params.model LIKE "GPT%"
     params.model LIKE "GPT%" AND params.batch_size = "2"
 
@@ -212,7 +214,7 @@ Please note that the value to compare must be string.
 .. code-block:: sql
 
     datasets.name like "custom"
-    datasets.digest IN ("s8ds293b", "jks834s2")
+    datasets.digest IN ('s8ds293b', 'jks834s2')
     datasets.context == "train"
 
 Searching By Run's Metadata
