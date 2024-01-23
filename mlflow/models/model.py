@@ -551,6 +551,7 @@ class Model:
         registered_model_name=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         metadata=None,
+        run_id=None,
         **kwargs,
     ):
         """
@@ -608,7 +609,8 @@ class Model:
         """
         with TempDir() as tmp:
             local_path = tmp.path("model")
-            run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+            if run_id is None:
+                run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
             tracking_uri = _resolve_tracking_uri()
             if (
@@ -618,16 +620,15 @@ class Model:
             ):
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
+            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
             try:
-                mlflow.tracking.fluent._record_logged_model(mlflow_model)
+                mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
             except MlflowException:
                 # We need to swallow all mlflow exceptions to maintain backwards compatibility with
                 # older tracking servers. Only print out a warning for now.
                 _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
                 _logger.debug("", exc_info=True)
             if registered_model_name is not None:
-                run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.tracking._model_registry.fluent._register_model(
                     f"runs:/{run_id}/{mlflow_model.artifact_path}",
                     registered_model_name,

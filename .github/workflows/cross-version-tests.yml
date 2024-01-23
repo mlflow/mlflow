@@ -188,6 +188,15 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
+          # temp workaround to install from feature branch
+          if [ "${{ matrix.package }}/${{ matrix.category }}" = "langchain/autologging" ]
+          then
+            pip install poetry
+            git clone --recursive https://github.com/serena-ruan/langchain --depth=2 --branch mlflow_callback /tmp/langchain
+            cd /tmp/langchain/libs/community
+            poetry build
+            pip install $(ls dist/*.whl) --force-reinstall --no-deps
+          fi
       - name: Install pydantic no-binary for langchain
         if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
         run: |
