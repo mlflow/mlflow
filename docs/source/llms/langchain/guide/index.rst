@@ -33,7 +33,7 @@ Integration with MLflow
 - **Simplified Logging and Loading**: MLflow's `langchain` flavor provides functions like `log_model()` and `load_model()`, enabling easy logging and retrieval of LangChain models within the MLflow ecosystem.
 - **Simplified Deployment**: LangChain models logged in MLflow can be interpreted as generic Python functions, simplifying their deployment and use in diverse applications. With dependency management incorporated directly into your logged model, you can deploy your application knowing that the environment that you used to train the model is what will be used to serve it.
 - **Versatile Model Interaction**: The integration allows developers to leverage LangChain's unique features in conjunction with MLflow's robust model tracking and management capabilities.
-
+- **Autologging**: MLflow's `langchain` flavor provides autologging of LangChain models, which automatically logs artifacts, metrics and models for inference.
 
 The ``langchain`` model flavor enables logging of `LangChain models <https://github.com/hwchase17/langchain>`_ in MLflow format via
 the :py:func:`mlflow.langchain.save_model()` and :py:func:`mlflow.langchain.log_model()` functions. Use of these
@@ -243,3 +243,19 @@ The output of the example above is shown below:
             },
         ]
     ]
+
+MLflow Langchain Autologging
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+MLflow `langchain` flavor supports autologging of LangChain models, which provides the following benefits:
+- **Simplified Logging**: Autologging eliminates the need to manually log LangChain models in MLflow.
+- **Automatic logging of artifacts**: Autologging automatically logs artifacts that contain information about the Langchain model details, such as 
+  different tools, chains, retrievers, agents, llms used during inference, as well as configs and other metadata.
+- **Automatic logging of metrics**: Autologging automatically logs metrics for measuring generated texts, as well as objects like retrievers and agents used during inference.
+- **Automatic logging of inputs & outputs**: Autologging automatically logs inputs and outputs of the Langchain model during inference. It logs the results into `inference_inputs_outputs.json` file.
+
+An example of MLflow langchain autologging
+""""""""""""""""""""""""""""""""""""""""""
+
+.. literalinclude:: ../../../../../examples/langchain/chain_autolog.py
+    :language: python
