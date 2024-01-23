@@ -93,6 +93,16 @@ def get_mlflow_model(artifact_uri, model_subpath=MODEL_DIR):
     return Model.load(model_conf_path)
 
 
+def get_artifacts(run_id):
+    client = MlflowClient()
+    artifacts = client.list_artifacts(run_id)
+    artifacts_folder = [x for x in artifacts if x.path.split(os.sep)[-1].startswith("artifacts-")][
+        0
+    ]
+    artifacts = client.list_artifacts(run_id, artifacts_folder.path)
+    return [x.path.split(os.sep)[-1] for x in artifacts]
+
+
 def create_openai_llmchain():
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
@@ -258,9 +268,7 @@ def test_llmchain_autolog_artifacts():
         model = create_openai_llmchain()
         with mlflow.start_run() as run:
             model.invoke("MLflow")
-        client = MlflowClient()
-        artifacts = client.list_artifacts(run.info.run_id)
-        artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+        artifacts = get_artifacts(run.info.run_id)
         for artifact_name in get_mlflow_callback_artifacts():
             if isinstance(artifact_name, str):
                 assert artifact_name in artifacts
@@ -362,8 +370,7 @@ def test_agent_autolog_metrics_and_artifacts():
         for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
             assert metric_key in metrics
 
-        artifacts = client.list_artifacts(run.info.run_id)
-        artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+        artifacts = get_artifacts(run.info.run_id)
         for artifact_name in get_mlflow_callback_artifacts(
             contains_agent=True, contains_chain=True
         ):
@@ -438,8 +445,7 @@ def test_runnable_sequence_autolog_metrics_and_artifacts():
     for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
         assert metric_key in metrics
 
-    artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+    artifacts = get_artifacts(run.info.run_id)
     for artifact_name in get_mlflow_callback_artifacts(contains_on_text_action=False):
         if isinstance(artifact_name, str):
             assert artifact_name in artifacts
@@ -512,8 +518,7 @@ def test_retriever_metrics_and_artifacts(tmp_path):
     for metric_key in MLFLOW_CALLBACK_METRICS:
         assert metric_key in metrics
 
-    artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+    artifacts = get_artifacts(run.info.run_id)
     for artifact_name in get_mlflow_callback_artifacts(
         contains_llm=False,
         contains_on_text_action=False,
