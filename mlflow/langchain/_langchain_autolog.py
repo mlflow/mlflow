@@ -306,4 +306,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             data_dict, "inference_inputs_outputs.json", run_id=mlflow_callback.mlflg.run_id
         )
 
+    # Terminate the run if it is not managed by the user
+    if active_run is None or active_run.info.run_id != mlflow_callback.mlflg.run_id:
+        mlflow.MlflowClient().set_terminated(mlflow_callback.mlflg.run_id)
+
     return result
