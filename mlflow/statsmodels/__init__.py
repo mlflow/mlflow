@@ -65,17 +65,19 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements():
     """
-    A list of default pip requirements for MLflow Models produced by this flavor.
-    Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-    that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     return [_get_pinned_requirement("statsmodels")]
 
 
 def get_default_conda_env():
     """
-    The default Conda environment for MLflow Models produced by calls to
-    :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -238,7 +240,7 @@ def log_model(
         statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Results`_) to
             be saved.
         artifact_path: Run-relative artifact path.
-        conda_env: Inserted after the argument name.
+        conda_env: {{ conda_env }}
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system path when the
             model is loaded.
@@ -247,13 +249,13 @@ def log_model(
         remove_data: bool. If False (default), then the instance is pickled without changes. If
             True, then all arrays with length nobs are set to None before pickling. See the
             remove_data method. In some cases not all arrays will be set to None.
-        signature: Inserted after the argument name.
-        input_example: Inserted after the argument name.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
         await_registration_for: Number of seconds to wait for the model version to finish being
             created and is in ``READY`` status. By default, the function waits for five minutes.
             Specify 0 or None to skip waiting.
-        pip_requirements: Inserted after the argument name.
-        extra_pip_requirements: Inserted after the argument name.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
             .. Note:: Experimental: This parameter may change or be removed in a future release
