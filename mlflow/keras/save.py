@@ -1,4 +1,4 @@
-"""Functions for saving Keras models to Mlflow."""
+"""Functions for saving Keras models to MLflow."""
 
 import importlib
 import logging

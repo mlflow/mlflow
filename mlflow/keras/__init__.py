@@ -10,6 +10,8 @@ from mlflow.keras.save import (
     save_model,
 )
 
+FLAVOR_NAME = "keras"
+
 __all__ = [
     "_load_pyfunc",
     "MLflowCallback",
