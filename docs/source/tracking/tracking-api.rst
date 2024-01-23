@@ -304,7 +304,7 @@ Adding Tags to Runs
 -------------------
 
 You can annotate runs with arbitrary tags to organize them into groups. This allows you to easily filter and search
-Runs in Tracking UI by using :ref:`filter experssion <mlflow_tags>`.
+Runs in Tracking UI by using :ref:`filter expression <mlflow_tags>`.
 
 .. _system_tags:
 
