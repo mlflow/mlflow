@@ -91,9 +91,10 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements(is_spark_connect_model=False):
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     import pyspark
 
@@ -122,13 +123,14 @@ def get_default_pip_requirements(is_spark_connect_model=False):
 
 def get_default_conda_env(is_spark_connect_model=False):
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`. This Conda environment
-             contains the current version of PySpark that is installed on the caller's
-             system. ``dev`` versions of PySpark are replaced with stable versions in
-             the resulting Conda environment (e.g., if you are running PySpark version
-             ``2.4.5.dev0``, invoking this method produces a Conda environment with a
-             dependency on PySpark version ``2.4.5``).
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`. This Conda environment
+        contains the current version of PySpark that is installed on the caller's
+        system. ``dev`` versions of PySpark are replaced with stable versions in
+        the resulting Conda environment (e.g., if you are running PySpark version
+        ``2.4.5.dev0``, invoking this method produces a Conda environment with a
+        dependency on PySpark version ``2.4.5``).
     """
     return _mlflow_conda_env(
         additional_pip_deps=get_default_pip_requirements(
@@ -159,52 +161,40 @@ def log_model(
 
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
-    :param spark_model: Spark model to be saved - MLflow can only save descendants of
-                        pyspark.ml.Model or pyspark.ml.Transformer which implement
-                        MLReadable and MLWritable.
-    :param artifact_path: Run relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
+    Args:
+        spark_model: Spark model to be saved - MLflow can only save descendants of
+            pyspark.ml.Model or pyspark.ml.Transformer which implement
+            MLReadable and MLWritable.
+        artifact_path: Run relative artifact path.
+        conda_env: {{ conda_env }}
+        dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+                        filesystem if running in local mode. The model is written in this
+                        destination and then copied into the model's artifact directory. This is
+                        necessary as Spark ML models read from and write to DFS if running on a
+                        cluster. If this operation completes successfully, all temporary files
+                        created on the DFS are removed. Defaults to ``/tmp/mlflow``.
+                        For models defined in `pyspark.ml.connect` module, this param is ignored.
+        sample_input: A sample input used to add the MLeap flavor to the model.
+            This must be a PySpark DataFrame that the model can evaluate. If
+            ``sample_input`` is ``None``, the MLeap flavor is not added.
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.8.15',
-                                'pyspark=2.3.0'
-                            ]
-                        }
-    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-                       filesystem if running in local mode. The model is written in this
-                       destination and then copied into the model's artifact directory. This is
-                       necessary as Spark ML models read from and write to DFS if running on a
-                       cluster. If this operation completes successfully, all temporary files
-                       created on the DFS are removed. Defaults to ``/tmp/mlflow``.
-                       For models defined in `pyspark.ml.connect` module, this param is ignored.
-    :param sample_input: A sample input used to add the MLeap flavor to the model.
-                         This must be a PySpark DataFrame that the model can evaluate. If
-                         ``sample_input`` is ``None``, the MLeap flavor is not added.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -406,7 +396,8 @@ class _HadoopFileSystem:
         Conditionally copy the file to the Hadoop DFS.
         The file is copied iff the configuration has distributed filesystem.
 
-        :return: If copied, return new target location, otherwise return (absolute) source path.
+        Returns:
+            If copied, return new target location, otherwise return (absolute) source path.
         """
         local_path = cls._local_path(src)
         qualified_local_path = cls._fs().makeQualified(local_path).toString()
@@ -434,7 +425,8 @@ class _HadoopFileSystem:
         Conditionally copy the file to the Hadoop DFS from the source uri.
         In case the file is already on the Hadoop DFS do nothing.
 
-        :return: If copied, return new target location, otherwise return source uri.
+        Returns:
+            If copied, return new target location, otherwise return source uri.
         """
         try:
             # makeQualified throws if wrong schema / uri
@@ -655,45 +647,30 @@ def save_model(
     Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
     is also serialized in MLeap format and the MLeap flavor is added.
 
-    :param spark_model: Spark model to be saved - MLflow can only save descendants of
-                        pyspark.ml.Model or pyspark.ml.Transformer which implement
-                        MLReadable and MLWritable.
-    :param path: Local path where the model is to be saved.
-    :param mlflow_model: MLflow model config this flavor is being added to.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
+    Args:
+        spark_model: Spark model to be saved - MLflow can only save descendants of
+            pyspark.ml.Model or pyspark.ml.Transformer which implement
+            MLReadable and MLWritable.
+        path: Local path where the model is to be saved.
+        mlflow_model: MLflow model config this flavor is being added to.
+        conda_env: {{ conda_env }}
+        dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+            filesystem if running in local mode. The model is be written in this
+            destination and then copied to the requested local path. This is necessary
+            as Spark ML models read from and write to DFS if running on a cluster. All
+            temporary files created on the DFS are removed if this operation
+            completes successfully. Defaults to ``/tmp/mlflow``.
+        sample_input: A sample input that is used to add the MLeap flavor to the model.
+            This must be a PySpark DataFrame that the model can evaluate. If
+            ``sample_input`` is ``None``, the MLeap flavor is not added.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.8.15',
-                                'pyspark=2.3.0'
-                            ]
-                        }
-    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-                       filesystem if running in local mode. The model is be written in this
-                       destination and then copied to the requested local path. This is necessary
-                       as Spark ML models read from and write to DFS if running on a cluster. All
-                       temporary files created on the DFS are removed if this operation
-                       completes successfully. Defaults to ``/tmp/mlflow``.
-    :param sample_input: A sample input that is used to add the MLeap flavor to the model.
-                         This must be a PySpark DataFrame that the model can evaluate. If
-                         ``sample_input`` is ``None``, the MLeap flavor is not added.
-
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
 
     .. code-block:: python
         :caption: Example
@@ -815,25 +792,28 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     """
     Load the Spark MLlib model from the path.
 
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model, for example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
-    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-                       filesystem if running in local mode. The model is loaded from this
-                       destination. Defaults to ``/tmp/mlflow``.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
-    :return: pyspark.ml.pipeline.PipelineModel
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
+        dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+            filesystem if running in local mode. The model is loaded from this
+            destination. Defaults to ``/tmp/mlflow``.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
+
+    Returns:
+        pyspark.ml.pipeline.PipelineModel
 
     .. code-block:: python
         :caption: Example
@@ -888,7 +868,8 @@ def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
     """
     from mlflow.utils._spark_utils import (
         _create_local_spark_session_for_loading_spark_model,
@@ -939,9 +920,12 @@ def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
     A valid scenario is if the auto-logged input example is directly used
     for prediction, which would otherwise fail without this transformation.
 
-    :param spark_df: Input dataframe that contains `featuresCol`
-    :param spark_model: A pipeline model or a single transformer that contains `featuresCol` param
-    :return: A spark dataframe that contains features column of `vector` type.
+    Args:
+        spark_df: Input dataframe that contains `featuresCol`
+        spark_model: A pipeline model or a single transformer that contains `featuresCol` param
+
+    Returns:
+        A spark dataframe that contains features column of `vector` type.
     """
     from pyspark.ml.linalg import Vectors, VectorUDT
     from pyspark.sql import types as t
@@ -989,13 +973,15 @@ class _PyFuncModelWrapper:
         """
         Generate predictions given input data in a pandas DataFrame.
 
-        :param pandas_df: pandas DataFrame containing input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            pandas_df: pandas DataFrame containing input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                                        release without warning.
 
-        :return: List with model predictions.
+        Returns:
+            List with model predictions.
         """
         from pyspark.ml import PipelineModel
 
@@ -1092,11 +1078,12 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
 
-    :param disable: If ``True``, disables the Spark datasource autologging integration.
-                    If ``False``, enables the Spark datasource autologging integration.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during Spark
-                   datasource autologging. If ``False``, show all events and warnings during Spark
-                   datasource autologging.
+    Args:
+        disable: If ``True``, disables the Spark datasource autologging integration.
+            If ``False``, enables the Spark datasource autologging integration.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during Spark
+            datasource autologging. If ``False``, show all events and warnings during Spark
+            datasource autologging.
     """
     from pyspark import __version__ as pyspark_version
     from pyspark.sql import SparkSession
