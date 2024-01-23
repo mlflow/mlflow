@@ -42,7 +42,7 @@ from mlflow.transformers import (
     _generate_base_flavor_configuration,
     _get_base_model_architecture,
     _get_instance_type,
-    _get_or_infer_task_type,
+    _get_or_infer_transformers_task_type,
     _infer_transformers_task_type,
     _is_model_distributed_in_memory,
     _record_pipeline_components,
@@ -239,7 +239,7 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         _FRAMEWORK_KEY: "pt",
     }
     seq_conf_infer_task = _generate_base_flavor_configuration(
-        small_seq2seq_pipeline, _get_or_infer_task_type(small_seq2seq_pipeline)
+        small_seq2seq_pipeline, _get_or_infer_transformers_task_type(small_seq2seq_pipeline)
     )
     assert seq_conf_infer_task == expected_seq_pipeline_conf
     seq_conf_specify_task = _generate_base_flavor_configuration(
@@ -247,7 +247,7 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
     )
     assert seq_conf_specify_task == expected_seq_pipeline_conf
     qa_conf_infer_task = _generate_base_flavor_configuration(
-        small_qa_pipeline, _get_or_infer_task_type(small_qa_pipeline)
+        small_qa_pipeline, _get_or_infer_transformers_task_type(small_qa_pipeline)
     )
     assert qa_conf_infer_task == expected_qa_pipeline_conf
     qa_conf_specify_task = _generate_base_flavor_configuration(
@@ -3862,3 +3862,28 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
 
     mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
     assert mlmodel["model_size_bytes"] == expected_size
+
+
+@pytest.mark.parametrize("task", ["llm/v1/completions", "llm/v1/chat"])
+def test_text_generation_save_model_with_inference_task(task, text_generation_pipeline, model_path):
+    mlflow.transformers.save_model(
+        transformers_model=text_generation_pipeline,
+        path=model_path,
+        task=task,
+    )
+
+    mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
+    assert mlmodel["metadata"]["task"] == task
+
+
+def test_text_generation_save_model_with_invalid_inference_task(
+    text_generation_pipeline, model_path
+):
+    with pytest.raises(
+        MlflowException, match=r"The task provided is invalid.*Must be.*llm/v1/completions"
+    ):
+        mlflow.transformers.save_model(
+            transformers_model=text_generation_pipeline,
+            path=model_path,
+            task="llm/v1/invalid",
+        )

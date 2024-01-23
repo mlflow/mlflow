@@ -136,6 +136,11 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
     "`model_config` dict with `return_full_text` set to `True` when saving the model."
 )
 
+_SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE = {
+    "text-generation": ["llm/v1/completions", "llm/v1/chat"],
+    "text2text-generation": ["llm/v1/completions"],
+}
+
 _logger = logging.getLogger(__name__)
 
 
@@ -459,10 +464,12 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
-    resolved_task = _get_or_infer_task_type(transformers_model, task)
+    resolved_transformers_task = _get_or_infer_transformers_task_type(transformers_model, task)
 
     if not isinstance(transformers_model, transformers.Pipeline):
-        built_pipeline = _build_pipeline_from_model_input(transformers_model, resolved_task)
+        built_pipeline = _build_pipeline_from_model_input(
+            transformers_model, resolved_transformers_task
+        )
     else:
         built_pipeline = transformers_model
 
@@ -503,7 +510,13 @@ def save_model(
         else:
             mlflow_model.metadata = {_PROMPT_TEMPLATE_KEY: prompt_template}
 
-    flavor_conf = _generate_base_flavor_configuration(built_pipeline, resolved_task)
+    if task in _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE.get(resolved_transformers_task, []):
+        if mlflow_model.metadata:
+            mlflow_model.metadata[_METADATA_TASK_KEY] = task
+        else:
+            mlflow_model.metadata = {_METADATA_TASK_KEY: task}
+
+    flavor_conf = _generate_base_flavor_configuration(built_pipeline, resolved_transformers_task)
 
     components = _record_pipeline_components(built_pipeline)
 
@@ -1334,16 +1347,23 @@ def _extract_torch_dtype_if_set(pipeline):
         return str(torch_dtype)
 
 
-def _get_or_infer_task_type(model, task: Optional[str] = None) -> str:
+def _get_or_infer_transformers_task_type(model, task: Optional[str] = None) -> str:
     """
-    Validates that a supplied task type is supported by the ``transformers`` library if supplied,
-    else, if not supplied, infers the appropriate task type based on the model type.
+    Validates that a supplied task type is either supported by ``transformers`` library if supplied,
+    or a task in the inference interface format;
+    if not supplied, infers the appropriate ``transformers`` task type based on the model type.
     """
-    if task:
-        _validate_transformers_task_type(task)
-    else:
-        task = _infer_transformers_task_type(model)
-    return task
+    transformers_task = _infer_transformers_task_type(model)
+
+    supported_inference_tasks = _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE.get(
+        transformers_task, []
+    )
+
+    if task and task not in supported_inference_tasks:
+        _validate_transformers_task_type(task, additional_tasks=supported_inference_tasks)
+        transformers_task = task
+
+    return transformers_task
 
 
 def _infer_transformers_task_type(model) -> str:
@@ -1383,14 +1403,18 @@ def _infer_transformers_task_type(model) -> str:
         )
 
 
-def _validate_transformers_task_type(task: str) -> None:
+def _validate_transformers_task_type(
+    task: str, additional_tasks: Optional[List[str]] = None
+) -> None:
     """
     Validates that a given ``task`` type is supported by the ``transformers`` library and has been
-    registered in the hub.
+    registered in the hub, or belongs to the additional MLflow ``task`` interfaces.
     """
     from transformers.pipelines import get_supported_tasks
 
     valid_tasks = get_supported_tasks()
+    if additional_tasks:
+        valid_tasks += additional_tasks
 
     if task not in valid_tasks and not task.startswith("translation"):
         raise MlflowException(
