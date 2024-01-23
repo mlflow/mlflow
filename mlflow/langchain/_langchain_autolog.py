@@ -223,7 +223,7 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     mlflow_callback = _MLflowLangchainCallback(
         tracking_uri=mlflow.get_tracking_uri(),
         run_id=run_id,
-        artifacts_dir=f"{session_id}-{inference_id}",
+        artifacts_dir=f"artifacts-{session_id}-{inference_id}",
     )
     args, kwargs = _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs)
     with disable_autologging():
