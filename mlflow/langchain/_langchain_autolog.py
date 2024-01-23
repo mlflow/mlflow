@@ -302,6 +302,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         else:
             input_data = input_example
         data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
-        mlflow.log_table(data_dict, "inference_history.json", run_id=mlflow_callback.mlflg.run_id)
+        mlflow.log_table(
+            data_dict, "inference_inputs_outputs.json", run_id=mlflow_callback.mlflg.run_id
+        )
 
     return result
