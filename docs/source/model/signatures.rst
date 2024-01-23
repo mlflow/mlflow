@@ -124,7 +124,7 @@ Supported Data Types
 Column-based signatures support data primitives defined within the :py:class:`MLflow DataType <mlflow.types.DataType>` specification:
 
 * string
-* integer<sup>1</sup>
+* integer :sup:`1`
 * long
 * float
 * double
@@ -148,7 +148,7 @@ Column-based signatures support data primitives defined within the :py:class:`ML
  +-----------------------------------------------+---------------------------------------------------------------------------+
 
 .. note::
-    <sup>1</sup> Python often represents missing values in integer data as floats, causing type variability in integer columns and potential schema 
+    :sup:`1` Python often represents missing values in integer data as floats, causing type variability in integer columns and potential schema 
     enforcement errors in MLflow. To avoid such issues, particularly when using Python in MLflow for model serving and Spark deployments, 
     define integer columns with missing values as doubles (float64).
 
