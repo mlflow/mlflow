@@ -248,11 +248,11 @@ MLflow Langchain Autologging
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 MLflow `langchain` flavor supports autologging of LangChain models, which provides the following benefits:
-- **Simplified Logging**: Autologging eliminates the need to manually log LangChain models in MLflow.
-- **Automatic logging of artifacts**: Autologging automatically logs artifacts that contain information about the Langchain model details, such as 
-  different tools, chains, retrievers, agents, llms used during inference, as well as configs and other metadata.
-- **Automatic logging of metrics**: Autologging automatically logs metrics for measuring generated texts, as well as objects like retrievers and agents used during inference.
-- **Automatic logging of inputs & outputs**: Autologging automatically logs inputs and outputs of the Langchain model during inference. It logs the results into `inference_inputs_outputs.json` file.
+
+- **Streamlined Logging Process**: Simplified Logging with Autologging eliminates the manual effort required to log LangChain models and metrics in MLflow. It achieves this by seamlessly integrating the MlflowCallbackHandler, which automatically records metrics and artifacts.
+- **Effortless Artifact Logging**: Autologging simplifies the process by automatically logging artifacts that encapsulate crucial details about the LangChain model. This includes information about various tools, chains, retrievers, agents, and llms used during inference, along with configurations and other relevant metadata.
+- **Seamless Metrics Recording**: Autologging effortlessly captures metrics for evaluating generated texts, as well as key objects such as llms and agents employed during inference.
+- **Automated Input and Output Logging**: Autologging takes care of logging inputs and outputs of the LangChain model during inference. The recorded results are neatly organized into an inference_inputs_outputs.json file, providing a comprehensive overview of the model's inference history.
 
 An example of MLflow langchain autologging
 """"""""""""""""""""""""""""""""""""""""""
