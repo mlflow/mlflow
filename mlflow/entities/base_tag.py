@@ -4,7 +4,6 @@ import os
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.utils.validation_common import MAX_TAG_VAL_LENGTH
 
-
 logger = logging.getLogger(__name__)
 
 
