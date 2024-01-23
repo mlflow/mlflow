@@ -1,4 +1,5 @@
-import { isNumber } from 'lodash';
+import { useMemo } from 'react';
+import { isNumber, isString, keyBy, last, sortBy } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import type {
   ExperimentEntity,
@@ -6,8 +7,12 @@ import type {
   ModelVersionInfoEntity,
   RunInfoEntity,
   RunDatasetWithTags,
+  MetricEntity,
 } from '../../../types';
 import {
+  RowGroupRenderMetadata,
+  RowRenderMetadata,
+  RunGroupParentInfo,
   RunRowDateAndNestInfo,
   RunRowModelsInfo,
   RunRowType,
@@ -22,6 +27,13 @@ import {
   EXPERIMENT_PARENT_ID_TAG,
 } from './experimentPage.common-utils';
 import { getStableColorForRun } from '../../../utils/RunNameUtils';
+import {
+  shouldEnableDeepLearningUIPhase2,
+  shouldEnableShareExperimentViewByTags,
+} from '../../../../common/utils/FeatureUtils';
+import { type GroupByConfig, parseRunsGroupByKey, getGroupedRowRenderMetadata } from './experimentPage.group-row-utils';
+import invariant from 'invariant';
+import { ExperimentPageUIStateV2 } from '../models/ExperimentPageUIStateV2';
 
 /**
  * A simple tree-like interface used in nested rows calculations.
@@ -32,43 +44,21 @@ interface SimpleTreeNode {
 }
 
 /**
- * An intermediate interface representing single row in agGrid (but not necessarily
- * a single run - these might be nested and not expanded). Is created from the data
- * originating from the store, then after enriching with metrics, params, attributed etc.
- * is being transformed to RunRowType which serves as a final agGrid compatible type.
- */
-interface RowRenderMetadata {
-  index: number;
-  isParent?: boolean;
-  hasExpander?: boolean;
-  expanderOpen?: boolean;
-  isPinnable?: boolean;
-  runInfo: RunInfoEntity;
-  level: number;
-  childrenIds?: string[];
-  params: KeyValueEntity[];
-  metrics: KeyValueEntity[];
-  tags: Record<string, KeyValueEntity>;
-  datasets: RunDatasetWithTags[];
-}
-
-/**
  * For a given run dataset from the store, this function prepares
  * a list of rows metadata discarding any information about the parent/child run hierarchy.
  */
 const getFlatRowRenderMetadata = (runData: SingleRunData[]) =>
-  runData.map<RowRenderMetadata>(
-    ({ runInfo, metrics = [], params = [], tags = {}, datasets = [] }, index) => ({
-      index,
-      runInfo,
-      level: 0, // All runs will be on "0" level here,
-      isPinnable: !tags[EXPERIMENT_PARENT_ID_TAG]?.value,
-      metrics: metrics,
-      params: params,
-      tags: tags,
-      datasets: datasets,
-    }),
-  );
+  runData.map<RowRenderMetadata>(({ runInfo, metrics = [], params = [], tags = {}, datasets = [] }, index) => ({
+    index,
+    runInfo,
+    level: 0, // All runs will be on "0" level here,
+    isPinnable: !tags[EXPERIMENT_PARENT_ID_TAG]?.value,
+    metrics: metrics,
+    params: params,
+    tags: tags,
+    datasets: datasets,
+    rowUuid: runInfo.run_uuid,
+  }));
 
 /**
  * For a given run dataset from the store, this function prepares
@@ -152,14 +142,13 @@ const getNestedRowRenderMetadata = ({
         tags: runData[dfsIndex].tags || {},
         datasets: runData[dfsIndex].datasets || [],
         isPinnable,
+        rowUuid: currentNodeRunId,
       };
       if (parentIdToChildren[currentNodeRunId]) {
         rowMetadata.isParent = true;
         rowMetadata.hasExpander = true;
         rowMetadata.expanderOpen = Boolean(runsExpanded[currentNodeRunId]);
-        rowMetadata.childrenIds = parentIdToChildren[currentNodeRunId].map(
-          (cIdx) => runData[cIdx].runInfo.run_uuid,
-        );
+        rowMetadata.childrenIds = parentIdToChildren[currentNodeRunId].map((cIdx) => runData[cIdx].runInfo.run_uuid);
       }
 
       resultRowsMetadata.push(rowMetadata);
@@ -190,15 +179,15 @@ const getNestedRowRenderMetadata = ({
  * Fills '-' placeholder in all empty places.
  */
 const createKeyValueDataForRunRow = (
-  list: { key: string; value: string }[],
-  keys: string[],
+  list: { key: string; value: string | number }[],
+  keys: (string | number)[],
   prefix: string,
 ) => {
   if (!list) {
-    return [];
+    return {};
   }
 
-  const map: Record<string, string> = {};
+  const map: Record<string, string | number> = {};
 
   // First, populate all values (cells) with default placeholder: '-'
   for (const key of keys) {
@@ -233,23 +222,58 @@ export const prepareRunsGridData = ({
   runsHidden,
   runData,
   runUuidsMatchingFilter,
+  groupBy = '',
+  groupsExpanded = {},
 }: PrepareRunsGridDataParams) => {
-  const experimentNameMap = Utils.getExperimentNameMap(
-    Utils.sortExperimentsById(experiments),
-  ) as Record<string, { name: string; basename: string }>;
+  const experimentNameMap = Utils.getExperimentNameMap(Utils.sortExperimentsById(experiments)) as Record<
+    string,
+    { name: string; basename: string }
+  >;
 
-  // Let's start with generating intermediate row metadata - either as a nested or a flat list.
-  // We need to assemble separate hierarchies for pinned rows and unpinned rows:
-  const rowRenderMetadata: RowRenderMetadata[] = nestChildren
-    ? getNestedRowRenderMetadata({ runData, runsExpanded })
-    : getFlatRowRenderMetadata(runData);
+  const rowGroupingSupported = shouldEnableShareExperimentViewByTags() && shouldEnableDeepLearningUIPhase2();
+  const groupByConfig = parseRunsGroupByKey(groupBy);
+
+  // Gate grouping by the feature flag
+  const shouldGroupRows = rowGroupingSupported && groupByConfig;
+
+  // Early returning function that will return relevant row render metadata depending on a determined mode.
+  // It can be either grouped rows, nested rows (parent/child) or flat rows.
+  const getRowRenderMetadata = (): (RowRenderMetadata | RowGroupRenderMetadata)[] => {
+    // If grouping is enabled and configured, we will return grouped rows
+    if (shouldGroupRows) {
+      const groupedRows = getGroupedRowRenderMetadata({
+        runData,
+        groupByConfig,
+        groupsExpanded,
+      });
+      if (groupedRows) {
+        return groupedRows;
+      }
+    }
+
+    // If nesting is enabled, we will return nested rows
+    if (nestChildren) {
+      return getNestedRowRenderMetadata({
+        runData,
+        runsExpanded,
+      });
+    }
+
+    // Otherwise, we will return flat list of rows
+    return getFlatRowRenderMetadata(runData);
+  };
 
   // We will aggregate children of pinned parent rows here so we will easily pin them as well
   const childrenToPin: string[] = [];
 
   // Now, enrich the intermediate row metadata with attributes, metrics and params and
   // return it as a grid-consumable "RunRowType" type.
-  const runs = rowRenderMetadata.map<RunRowType>((runInfoMetadata) => {
+  const rows = getRowRenderMetadata().map<RunRowType>((runInfoMetadata) => {
+    // If the row is a group parent, we will create a special row for it
+    if (runInfoMetadata.isGroup) {
+      return createGroupParentRow(groupByConfig, runInfoMetadata, runsHidden, runsPinned, metricKeyList, paramKeyList);
+    }
+
     const {
       runInfo,
       isParent = false,
@@ -262,6 +286,8 @@ export const prepareRunsGridData = ({
       params,
       metrics,
       datasets,
+      belongsToGroup,
+      rowUuid,
     } = runInfoMetadata;
 
     // Extract necessary basic info
@@ -290,12 +316,12 @@ export const prepareRunsGridData = ({
       expanderOpen,
       childrenIds,
       level,
+      belongsToGroup: Boolean(belongsToGroup),
     };
 
     // Prepare a data package to be used by "Models" cell
     const models: RunRowModelsInfo = {
       registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [], // ModelInfoEntity
-      // @ts-expect-error TS(2322): Type 'unknown[]' is not assignable to type '{ arti... Remove this comment to see the full error message
       loggedModels: Utils.getLoggedModelsFromTags(tags),
       experimentId: runInfo.experiment_id,
       runUuid: runInfo.run_uuid,
@@ -320,6 +346,7 @@ export const prepareRunsGridData = ({
     // Compile everything into a data object to be consumed by the grid component
     return {
       runUuid,
+      rowUuid,
       runDateAndNestInfo,
       runInfo,
       experimentName,
@@ -342,16 +369,100 @@ export const prepareRunsGridData = ({
     };
   });
 
-  // If the flat structure is displayed, we can hoist pinned rows to the top
-  return [
-    // Add pinned rows to the top
-    ...runs.filter(({ pinned }) => pinned),
+  // If grouping is enabled, we need to group rows into chunks and hoist pinned rows within them
+  if (shouldGroupRows && rows.some((row) => row.groupParentInfo)) {
+    const chunks = rows.reduce<RunRowType[][]>((chunkContainer, run) => {
+      if (run.groupParentInfo) {
+        chunkContainer.push([]);
+      }
+      last(chunkContainer)?.push(run);
+      return chunkContainer;
+    }, []);
 
-    // Next, add all remaining rows - however, sweep out all runs that don't match the current filter. This
-    // will hide all filtered out runs that were pinned before, but were eventually un-pinned.
-    ...runs.filter(({ pinned, runUuid }) => !pinned && runUuidsMatchingFilter.includes(runUuid)),
-  ];
+    const sortedChunks = sortBy(
+      chunks,
+      (chunk) => chunk[0]?.groupParentInfo && !runsPinned.includes(chunk[0]?.groupParentInfo?.groupId),
+    );
+
+    const chunksWithSortedRuns = sortedChunks.map((chunkRuns) => {
+      const [groupHeader, ...runs] = chunkRuns;
+      return [groupHeader, ...hoistPinnedRuns(runs, runUuidsMatchingFilter)];
+    });
+
+    return chunksWithSortedRuns.flat();
+  }
+
+  // If the flat structure is displayed, we can hoist pinned rows to the top
+  return hoistPinnedRuns(rows, runUuidsMatchingFilter);
 };
+
+// Hook version of prepareRunsGridData()
+export const useExperimentRunRows = ({
+  experiments,
+  modelVersionsByRunUuid,
+  runsExpanded,
+  nestChildren,
+  referenceTime,
+  paramKeyList,
+  metricKeyList,
+  tagKeyList,
+  runsPinned,
+  runsHidden,
+  runData,
+  runUuidsMatchingFilter,
+  groupBy = '',
+  groupsExpanded = {},
+}: PrepareRunsGridDataParams) => {
+  if (!shouldEnableShareExperimentViewByTags()) {
+    return [];
+  }
+  // The eslint rule can be disabled safely, the condition based on feature flag evaluation is stable
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useMemo(
+    () =>
+      prepareRunsGridData({
+        experiments,
+        modelVersionsByRunUuid,
+        runsExpanded,
+        nestChildren,
+        referenceTime,
+        paramKeyList,
+        metricKeyList,
+        tagKeyList,
+        runsPinned,
+        runsHidden,
+        runData,
+        runUuidsMatchingFilter,
+        groupBy,
+        groupsExpanded,
+      }),
+    [
+      // Explicitly include each dependency here to avoid unnecessary recalculations
+      experiments,
+      modelVersionsByRunUuid,
+      runsExpanded,
+      nestChildren,
+      referenceTime,
+      paramKeyList,
+      metricKeyList,
+      tagKeyList,
+      runsPinned,
+      runsHidden,
+      runData,
+      runUuidsMatchingFilter,
+      groupBy,
+      groupsExpanded,
+    ],
+  );
+};
+const hoistPinnedRuns = (rowCollection: RunRowType[], uuidWhitelist: string[]) => [
+  // Add pinned rows to the top
+  ...rowCollection.filter(({ pinned }) => pinned),
+
+  // Next, add all remaining rows - however, sweep out all runs that don't match the current filter. This
+  // will hide all filtered out runs that were pinned before, but were eventually un-pinned.
+  ...rowCollection.filter(({ pinned, runUuid }) => runUuid && !pinned && uuidWhitelist.includes(runUuid)),
+];
 
 export type SingleRunData = {
   runInfo: RunInfoEntity;
@@ -368,7 +479,8 @@ type PrepareRunsGridDataParams = Pick<
   ExperimentRunsSelectorResult,
   'metricKeyList' | 'paramKeyList' | 'modelVersionsByRunUuid'
 > &
-  Pick<SearchExperimentRunsFacetsState, 'runsExpanded' | 'runsPinned' | 'runsHidden'> & {
+  Pick<SearchExperimentRunsFacetsState, 'runsExpanded' | 'runsPinned' | 'runsHidden'> &
+  Partial<Pick<ExperimentPageUIStateV2, 'groupBy' | 'groupsExpanded'>> & {
     /**
      * List of experiments containing the runs
      */
@@ -406,11 +518,7 @@ type PrepareRunsGridDataParams = Pick<
     runUuidsMatchingFilter: string[];
   };
 
-export const extractRunRowParamFloat = (
-  run: RunRowType,
-  paramName: string,
-  fallback = undefined,
-) => {
+export const extractRunRowParamFloat = (run: RunRowType, paramName: string, fallback = undefined) => {
   const paramEntity = extractRunRowParam(run, paramName);
   if (!paramEntity) {
     return fallback;
@@ -418,11 +526,7 @@ export const extractRunRowParamFloat = (
   return parseFloat(paramEntity) || fallback;
 };
 
-export const extractRunRowParamInteger = (
-  run: RunRowType,
-  paramName: string,
-  fallback = undefined,
-) => {
+export const extractRunRowParamInteger = (run: RunRowType, paramName: string, fallback = undefined) => {
   const paramEntity = extractRunRowParam(run, paramName);
   if (!paramEntity) {
     return fallback;
@@ -431,6 +535,59 @@ export const extractRunRowParamInteger = (
 };
 
 export const extractRunRowParam = (run: RunRowType, paramName: string, fallback = undefined) => {
-  const paramEntity = run.params.find(({ key }) => paramName === key);
+  const paramEntity = run.params?.find(({ key }) => paramName === key);
   return paramEntity?.value || fallback;
+};
+
+/**
+ * Creates a group parent row based on a run group render metadata object.
+ */
+const createGroupParentRow = (
+  groupByConfig: GroupByConfig | null,
+  groupRunMetadata: RowGroupRenderMetadata,
+  runsHidden: string[],
+  runsPinned: string[],
+  metricKeyList: string[],
+  paramKeyList: string[],
+): RunRowType => {
+  invariant(groupByConfig, 'Grouping row config should be defined');
+
+  const { aggregateFunction, mode } = groupByConfig;
+
+  const groupParentInfo: RunGroupParentInfo = {
+    groupingMode: mode,
+    expanderOpen: groupRunMetadata.expanderOpen,
+    groupId: groupRunMetadata.groupId,
+    value: groupRunMetadata.value,
+    aggregatedMetricData: keyBy(groupRunMetadata.aggregatedMetricEntities, 'key'),
+    aggregatedParamData: keyBy(groupRunMetadata.aggregatedParamEntities, 'key'),
+    runUuids: groupRunMetadata.runUuids,
+    aggregateFunction,
+  };
+
+  const areAllRunsInGroupHidden = groupRunMetadata.runUuids.every((runUuid) => runsHidden.includes(runUuid));
+
+  return {
+    // Group parent rows have no run UUIDs set
+    runUuid: '',
+    datasets: [],
+    pinnable: true,
+    duration: null,
+    models: null,
+    rowUuid: groupParentInfo.groupId,
+    groupParentInfo: groupParentInfo,
+    pinned: runsPinned.includes(groupParentInfo.groupId),
+    color: getStableColorForRun(groupParentInfo.groupId),
+    hidden: areAllRunsInGroupHidden,
+    ...createKeyValueDataForRunRow(
+      groupRunMetadata.aggregatedMetricEntities,
+      metricKeyList,
+      EXPERIMENT_FIELD_PREFIX_METRIC,
+    ),
+    ...createKeyValueDataForRunRow(
+      groupRunMetadata.aggregatedParamEntities,
+      paramKeyList,
+      EXPERIMENT_FIELD_PREFIX_PARAM,
+    ),
+  };
 };

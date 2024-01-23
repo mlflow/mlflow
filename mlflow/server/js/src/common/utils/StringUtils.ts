@@ -25,9 +25,7 @@ export const middleTruncateStr = (str: any, maxLen: any) => {
   if (str.length > maxLen) {
     const firstPartLen = Math.floor((maxLen - 3) / 2);
     const lastPartLen = maxLen - 3 - firstPartLen;
-    return (
-      str.substring(0, firstPartLen) + '...' + str.substring(str.length - lastPartLen, str.length)
-    );
+    return str.substring(0, firstPartLen) + '...' + str.substring(str.length - lastPartLen, str.length);
   } else {
     return str;
   }
@@ -68,12 +66,7 @@ export const btoaUtf8 = (input: any) => {
       enc4 = 64;
     }
 
-    output =
-      output +
-      _keyStr.charAt(enc1) +
-      _keyStr.charAt(enc2) +
-      _keyStr.charAt(enc3) +
-      _keyStr.charAt(enc4);
+    output = output + _keyStr.charAt(enc1) + _keyStr.charAt(enc2) + _keyStr.charAt(enc3) + _keyStr.charAt(enc4);
   }
 
   return output;
@@ -173,3 +166,12 @@ const _utf8_decode = (utftext = '') => {
   return string;
 };
 /* eslint-enable no-bitwise */
+
+/**
+ * Returns a SHA256 hash of the input string
+ */
+export const getStringSHA256 = (input: string) => {
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(input)).then((arrayBuffer) => {
+    return Array.prototype.map.call(new Uint8Array(arrayBuffer), (x) => ('00' + x.toString(16)).slice(-2)).join('');
+  });
+};

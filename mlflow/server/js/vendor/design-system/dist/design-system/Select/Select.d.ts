@@ -8,6 +8,7 @@ export type SelectValue = AntdSelectValue;
 type SelectRef = React.Ref<AntdRefSelectProps>;
 type OmittedProps = 'bordered' | 'autoClearSearchValue' | 'dropdownRender' | 'dropdownStyle' | 'size' | 'suffixIcon' | 'tagRender' | 'clearIcon' | 'removeIcon' | 'showArrow' | 'dropdownMatchSelectWidth' | 'menuItemSelectedIcon' | 'showSearch';
 export interface SelectProps<T = string> extends Omit<AntDSelectProps<T>, OmittedProps>, FormElementValidationState, HTMLDataAttributes, DangerouslySetAntdProps<Pick<AntDSelectProps<T>, OmittedProps>>, Omit<WithLoadingState, 'loading'> {
+    maxHeight?: number;
 }
 export interface SelectOptionProps extends DangerouslySetAntdProps<typeof AntDSelect.Option> {
     value: string | number;

@@ -14,11 +14,7 @@ const DarkModeStylesComponent = () => <Global styles={darkModeCSSStyles} />;
  * Used in open source MLflow.
  * Returns a boolean value with the current state, setter function, and a component to be rendered in the root of the app.
  */
-export const useMLflowDarkTheme = (): [
-  boolean,
-  React.Dispatch<React.SetStateAction<boolean>>,
-  React.ComponentType,
-] => {
+export const useMLflowDarkTheme = (): [boolean, React.Dispatch<React.SetStateAction<boolean>>, React.ComponentType] => {
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
     // If the user has explicitly set a preference, use that.
     if (localStorage.getItem(darkModePrefLocalStorageKey) === 'true') {

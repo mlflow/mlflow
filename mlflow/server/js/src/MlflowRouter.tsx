@@ -29,12 +29,7 @@ export const MlflowRouter = ({
 }) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const routes = useMemo(
-    () => [
-      ...getExperimentTrackingRouteDefs(),
-      ...getModelRegistryRouteDefs(),
-      landingRoute,
-      ...getCommonRouteDefs(),
-    ],
+    () => [...getExperimentTrackingRouteDefs(), ...getModelRegistryRouteDefs(), landingRoute, ...getCommonRouteDefs()],
     [],
   );
   return (

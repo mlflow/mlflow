@@ -2,6 +2,7 @@
 import type { SerializedStyles } from '@emotion/react';
 import type { ButtonProps as AntDButtonProps } from 'antd';
 import type { ComponentTheme } from '../../theme';
+import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { WithLoadingState } from '../LoadingState/LoadingState';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export declare const getButtonEmotionStyles: ({ theme, classNamePrefix, loading, withIcon, onlyIcon, isAnchor, enableAnimation, size, type, isFlex, useFocusPseudoClass, forceIconStyles, }: {
@@ -27,6 +28,8 @@ export interface ButtonProps extends Omit<AntDButtonProps, 'type' | 'ghost' | 's
     dangerouslySetForceIconStyles?: boolean;
     dangerouslyUseFocusPseudoClass?: boolean;
     dangerouslyAppendWrapperCss?: React.CSSProperties;
+    componentId?: string;
+    analyticsEvents?: ReadonlyArray<DesignSystemEventProviderAnalyticsEventTypes.OnClick>;
 }
 export declare const Button: import("react").ForwardRefExoticComponent<ButtonProps & import("react").RefAttributes<HTMLButtonElement>>;
 //# sourceMappingURL=Button.d.ts.map

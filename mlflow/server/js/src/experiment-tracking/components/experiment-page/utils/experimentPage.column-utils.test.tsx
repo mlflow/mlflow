@@ -1,10 +1,7 @@
 import { mount } from 'enzyme';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
 import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
-import {
-  useRunsColumnDefinitions,
-  UseRunsColumnDefinitionsParams,
-} from './experimentPage.column-utils';
+import { useRunsColumnDefinitions, UseRunsColumnDefinitionsParams } from './experimentPage.column-utils';
 import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
   EXPERIMENT_FIELD_PREFIX_PARAM,
@@ -152,25 +149,13 @@ describe('ExperimentViewRuns column utils', () => {
     const setColumnVisibleMock = MOCK_HOOK_PARAMS.columnApi?.setColumnVisible;
 
     // Assert that setColumnVisible() has been called with "true" for metric_1 and param_2...
-    expect(setColumnVisibleMock).toBeCalledWith(
-      makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'),
-      true,
-    );
-    expect(setColumnVisibleMock).toBeCalledWith(
-      makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'),
-      true,
-    );
+    expect(setColumnVisibleMock).toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'), true);
+    expect(setColumnVisibleMock).toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'), true);
 
     // ...but has not for the remaining columns
-    expect(setColumnVisibleMock).not.toBeCalledWith(
-      makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_2'),
-      true,
-    );
+    expect(setColumnVisibleMock).not.toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_2'), true);
 
-    expect(setColumnVisibleMock).not.toBeCalledWith(
-      makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_1'),
-      true,
-    );
+    expect(setColumnVisibleMock).not.toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_1'), true);
   });
 
   test('remembers metric/param/tag keys even if they are not in the newly fetched set', () => {
@@ -187,11 +172,9 @@ describe('ExperimentViewRuns column utils', () => {
     const wrapper = mount(<Component hookParams={hookParams} />);
 
     // Assert single metric column in the result set
-    expect(
-      result
-        .find((r) => r.groupId === COLUMN_TYPES.METRICS)
-        ?.children?.map(({ colId }: ColDef) => colId),
-    ).toEqual(['metrics.`metric_1`']);
+    expect(result.find((r) => r.groupId === COLUMN_TYPES.METRICS)?.children?.map(({ colId }: ColDef) => colId)).toEqual(
+      ['metrics.`metric_1`'],
+    );
 
     // Next, add a new set of two metrics
     wrapper.setProps({
@@ -199,11 +182,9 @@ describe('ExperimentViewRuns column utils', () => {
     });
 
     // Assert two metric columns in the result set
-    expect(
-      result
-        .find((r) => r.groupId === COLUMN_TYPES.METRICS)
-        ?.children?.map(({ colId }: ColDef) => colId),
-    ).toEqual(['metrics.`metric_1`', 'metrics.`metric_2`']);
+    expect(result.find((r) => r.groupId === COLUMN_TYPES.METRICS)?.children?.map(({ colId }: ColDef) => colId)).toEqual(
+      ['metrics.`metric_1`', 'metrics.`metric_2`'],
+    );
 
     // Finally, retract the first metric and leavy "metric_2" only
     wrapper.setProps({
@@ -212,10 +193,8 @@ describe('ExperimentViewRuns column utils', () => {
 
     // We expect previous metric column to still exist - this ensures that columns won't
     // disappear on the new dataset without certain metric/param/tag keys
-    expect(
-      result
-        .find((r) => r.groupId === COLUMN_TYPES.METRICS)
-        ?.children?.map(({ colId }: ColDef) => colId),
-    ).toEqual(['metrics.`metric_1`', 'metrics.`metric_2`']);
+    expect(result.find((r) => r.groupId === COLUMN_TYPES.METRICS)?.children?.map(({ colId }: ColDef) => colId)).toEqual(
+      ['metrics.`metric_1`', 'metrics.`metric_2`'],
+    );
   });
 });

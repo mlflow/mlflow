@@ -6,12 +6,18 @@ import { ExperimentEntity } from '../../../../types';
  * Experiment page header part responsible for copying
  * the title after clicking on the icon
  */
-export const ExperimentViewCopyTitle = ({ experiment }: { experiment: ExperimentEntity }) => {
+export const ExperimentViewCopyTitle = ({
+  experiment,
+  size,
+}: {
+  experiment: ExperimentEntity;
+  size: 'sm' | 'md' | 'lg' | 'xl';
+}) => {
   const intl = useIntl();
 
   return (
     <Typography.Text
-      size='xl'
+      size={size}
       dangerouslySetAntdProps={{
         copyable: {
           text: experiment.name,
@@ -23,8 +29,7 @@ export const ExperimentViewCopyTitle = ({ experiment }: { experiment: Experiment
             }),
             intl.formatMessage({
               defaultMessage: 'Path copied',
-              description:
-                'Tooltip displayed after experiment path was successfully copied to clipboard',
+              description: 'Tooltip displayed after experiment path was successfully copied to clipboard',
             }),
           ],
         },
