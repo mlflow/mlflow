@@ -136,11 +136,7 @@ jobs:
       - name: Get python version
         id: get-python-version
         run: |
-          if { [ "${{ matrix.package }}" = "tensorflow" ] || [ "${{ matrix.package }}" = "scikit-learn" ]; } && [ "${{ matrix.version }}" = "dev" ]; then
-            python_version=3.9
-          else
-            python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
-          fi
+          python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.8,3.9")
           echo "version=$python_version" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/setup-python
         with:
@@ -192,6 +188,15 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
+          # temp workaround to install from feature branch
+          if [ "${{ matrix.package }}/${{ matrix.category }}" = "langchain/autologging" ]
+          then
+            pip install poetry
+            git clone --recursive https://github.com/serena-ruan/langchain --depth=2 --branch mlflow_callback /tmp/langchain
+            cd /tmp/langchain/libs/community
+            poetry build
+            pip install $(ls dist/*.whl) --force-reinstall --no-deps
+          fi
       - name: Install pydantic no-binary for langchain
         if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
         run: |
@@ -203,6 +208,10 @@ jobs:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
+      - name: Prefetch Transformer models
+        if: matrix.package == 'transformers' && matrix.category == 'models'
+        run: |
+          python tests/transformers/helper.py
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
@@ -210,5 +219,6 @@ jobs:
           SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
         run: |
           ${{ matrix.run }}

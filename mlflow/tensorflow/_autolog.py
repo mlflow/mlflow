@@ -69,9 +69,12 @@ def _extract_input_example_from_tensor_or_ndarray(
     Extracts first `INPUT_EXAMPLE_SAMPLE_ROWS` from the next_input, which can either be of
     numpy array or tensor type.
 
-    :param input_features: an input of type `np.ndarray` or `tensorflow.Tensor`
-    :return: A slice (of limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of type `np.ndarray`.
-             Returns `None` if the type of `input_features` is unsupported.
+    Args:
+        input_features: an input of type `np.ndarray` or `tensorflow.Tensor`
+
+    Returns:
+        A slice (of limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of type `np.ndarray`.
+        Returns `None` if the type of `input_features` is unsupported.
 
     Examples
     --------
@@ -102,9 +105,12 @@ def _extract_sample_numpy_dict(
     Extracts `INPUT_EXAMPLE_SAMPLE_ROWS` sample from next_input
     as numpy array of dict(str -> ndarray) type.
 
-    :param input_numpy_features_dict: A tensor or numpy array
-    :return:a slice (limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of same type as next_input.
-            Returns `None` if the type of `input_numpy_features_dict` is unsupported.
+    Args:
+        input_numpy_features_dict: A tensor or numpy array
+
+    Returns:
+        A slice (limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of same type as next_input.
+        Returns `None` if the type of `input_numpy_features_dict` is unsupported.
 
     Examples
     --------
@@ -132,9 +138,12 @@ def _extract_input_example_from_batched_tf_dataset(
     used for tensorflow/keras train or fit methods
 
 
-    :param dataset: a tensorflow batched/unbatched dataset representing tuple of (features, labels)
-    :return: a numpy array of length `INPUT_EXAMPLE_SAMPLE_ROWS`
-             Returns `None` if the type of `dataset` slices are unsupported.
+    Args:
+        dataset: a tensorflow batched/unbatched dataset representing tuple of (features, labels)
+
+    Returns:
+        a numpy array of length `INPUT_EXAMPLE_SAMPLE_ROWS`
+        Returns `None` if the type of `dataset` slices are unsupported.
 
     Examples
     --------
@@ -168,10 +177,13 @@ def extract_input_example_from_tf_input_fn(input_fn):
     Extracts sample data from dict (str -> ndarray),
     ``tensorflow.Tensor`` or ``tensorflow.data.Dataset`` type.
 
-    :param input_fn: Tensorflow's input function used for train method
-    :return: a slice (of limit ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``)
-             of the input of type `np.ndarray`.
-             Returns `None` if the return type of ``input_fn`` is unsupported.
+    Args:
+        input_fn: Tensorflow's input function used for train method
+
+    Returns:
+        A slice (of limit ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``)
+        of the input of type `np.ndarray`.
+        Returns `None` if the return type of ``input_fn`` is unsupported.
     """
 
     input_training_data = input_fn()
@@ -192,13 +204,15 @@ def extract_tf_keras_input_example(input_training_data):
     Generates a sample ndarray or dict (str -> ndarray)
     from the input type 'x' for keras ``fit`` or ``fit_generator``
 
-    :param input_training_data: Keras input function used for ``fit`` or
-                                ``fit_generator`` methods
-    :return: a slice of type ndarray or
-             dict (str -> ndarray) limited to
-             ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``.
-             Throws ``MlflowException`` exception, if input_training_data is unsupported.
-             Returns `None` if the type of input_training_data is unsupported.
+    Args:
+        input_training_data: Keras input function used for ``fit`` or ``fit_generator`` methods.
+
+    Returns:
+        a slice of type ndarray or
+        dict (str -> ndarray) limited to
+        ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``.
+        Throws ``MlflowException`` exception, if input_training_data is unsupported.
+        Returns `None` if the type of input_training_data is unsupported.
     """
     input_data_slice = None
     if isinstance(input_training_data, tensorflow.keras.utils.Sequence):

@@ -16,18 +16,14 @@ export const RunsCompareAddChartMenu = ({ onAddChart }: RunsCompareAddChartMenuP
   return (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>
-        <Button
-          css={styles.addChartButton}
-          icon={<PlusIcon />}
-          data-testid='experiment-view-compare-runs-add-chart'
-        >
+        <Button css={styles.addChartButton} icon={<PlusIcon />} data-testid="experiment-view-compare-runs-add-chart">
           Add chart
         </Button>
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content align='end'>
+      <DropdownMenu.Content align="end">
         <DropdownMenu.Item
           onClick={() => onAddChart(RunsCompareChartType.BAR)}
-          data-testid='experiment-view-compare-runs-chart-type-bar'
+          data-testid="experiment-view-compare-runs-chart-type-bar"
         >
           <DropdownMenu.IconWrapper css={styles.iconWrapper}>
             <ChartBarIcon />
@@ -36,7 +32,7 @@ export const RunsCompareAddChartMenu = ({ onAddChart }: RunsCompareAddChartMenuP
         </DropdownMenu.Item>
         <DropdownMenu.Item
           onClick={() => onAddChart(RunsCompareChartType.LINE)}
-          data-testid='experiment-view-compare-runs-chart-type-line'
+          data-testid="experiment-view-compare-runs-chart-type-line"
         >
           <DropdownMenu.IconWrapper css={styles.iconWrapper}>
             <ChartLineIcon />
@@ -45,7 +41,7 @@ export const RunsCompareAddChartMenu = ({ onAddChart }: RunsCompareAddChartMenuP
         </DropdownMenu.Item>
         <DropdownMenu.Item
           onClick={() => onAddChart(RunsCompareChartType.PARALLEL)}
-          data-testid='experiment-view-compare-runs-chart-type-parallel'
+          data-testid="experiment-view-compare-runs-chart-type-parallel"
         >
           <DropdownMenu.IconWrapper css={styles.iconWrapper}>
             <ChartParallelIcon />
@@ -54,7 +50,7 @@ export const RunsCompareAddChartMenu = ({ onAddChart }: RunsCompareAddChartMenuP
         </DropdownMenu.Item>
         <DropdownMenu.Item
           onClick={() => onAddChart(RunsCompareChartType.SCATTER)}
-          data-testid='experiment-view-compare-runs-chart-type-scatter'
+          data-testid="experiment-view-compare-runs-chart-type-scatter"
         >
           <DropdownMenu.IconWrapper css={styles.iconWrapper}>
             <ChartScatterIcon />
@@ -63,7 +59,7 @@ export const RunsCompareAddChartMenu = ({ onAddChart }: RunsCompareAddChartMenuP
         </DropdownMenu.Item>
         <DropdownMenu.Item
           onClick={() => onAddChart(RunsCompareChartType.CONTOUR)}
-          data-testid='experiment-view-compare-runs-chart-type-contour'
+          data-testid="experiment-view-compare-runs-chart-type-contour"
         >
           <DropdownMenu.IconWrapper css={styles.iconWrapper}>
             <ChartContourIcon />

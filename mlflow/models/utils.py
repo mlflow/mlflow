@@ -37,6 +37,7 @@ except ImportError:
 INPUT_EXAMPLE_PATH = "artifact_path"
 EXAMPLE_DATA_KEY = "inputs"
 EXAMPLE_PARAMS_KEY = "params"
+EXAMPLE_FILENAME = "input_example.json"
 
 ModelInputExample = Union[
     pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes, tuple
@@ -199,9 +200,8 @@ class _Example:
                 del result["columns"]
             return result
 
-        example_filename = "input_example.json"
         self.info = {
-            INPUT_EXAMPLE_PATH: example_filename,
+            INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
         }
         # Avoid changing the variable passed in
         input_example = deepcopy(input_example)
@@ -320,7 +320,9 @@ def _contains_params(input_example):
     )
 
 
-def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: str):
+def _save_example(
+    mlflow_model: Model, input_example: ModelInputExample, path: str, no_conversion=False
+):
     """
     Save example to a file on the given path and updates passed Model with example metadata.
 
@@ -336,9 +338,25 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
     :param mlflow_model: Model metadata that will get updated with the example metadata.
     :param path: Where to store the example file. Should be model the model directory.
     """
-    example = _Example(input_example)
-    example.save(path)
-    mlflow_model.saved_input_example_info = example.info
+    if no_conversion:
+        example_info = {
+            INPUT_EXAMPLE_PATH: EXAMPLE_FILENAME,
+            "type": "json_object",
+        }
+        try:
+            with open(os.path.join(path, example_info[INPUT_EXAMPLE_PATH]), "w") as f:
+                json.dump(input_example, f, cls=NumpyEncoder)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                "Failed to save input example. Please make sure the input example is jsonable "
+                f"when no_conversion is True. Got error: {e}"
+            ) from e
+        else:
+            mlflow_model.saved_input_example_info = example_info
+    else:
+        example = _Example(input_example)
+        example.save(path)
+        mlflow_model.saved_input_example_info = example.info
 
 
 def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
@@ -352,7 +370,13 @@ def _get_mlflow_model_input_example_dict(mlflow_model: Model, path: str):
     if mlflow_model.saved_input_example_info is None:
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
-    if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
+    if example_type not in [
+        "dataframe",
+        "ndarray",
+        "sparse_matrix_csc",
+        "sparse_matrix_csr",
+        "json_object",
+    ]:
         raise MlflowException(f"This version of mlflow can not load example of type {example_type}")
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     with open(path) as handle:
@@ -377,6 +401,8 @@ def _read_example(mlflow_model: Model, path: str):
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     if mlflow_model.saved_input_example_info.get(EXAMPLE_PARAMS_KEY, None):
         input_example = input_example[EXAMPLE_DATA_KEY]
+    if example_type == "json_object":
+        return input_example
     if example_type == "ndarray":
         return _read_tensor_input_from_json(input_example, schema=input_schema)
     if example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
@@ -544,7 +570,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
             raise MlflowException(
-                "Failed to convert column {name} from type {values.dtype} to {t}."
+                f"Failed to convert column {name} from type {values.dtype} to {t}."
             ) from e
 
     if t == DataType.boolean and values.dtype == object:

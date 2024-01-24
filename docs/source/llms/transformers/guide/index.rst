@@ -88,6 +88,73 @@ avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
+
+Saving Prompt Templates with Transformer Pipelines
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+    This feature is only available in MLflow 2.10.0 and above.
+
+MLflow supports specifying prompt templates for certain pipeline types:
+
+- `feature-extraction <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline>`_
+- `fill-mask <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FillMaskPipeline>`_
+- `summarization <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.SummarizationPipeline>`_
+- `text2text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.Text2TextGenerationPipeline>`_
+- `text-generation <https://huggingface.co/transformers/main_classes/pipelines.html#transformers.TextGenerationPipeline>`_
+
+Prompt templates are strings that are used to format user inputs prior to ``pyfunc`` inference. To specify a prompt template,
+use the ``prompt_template`` argument when calling :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()`.
+The prompt template must be a string with a single format placeholder, ``{prompt}``. 
+
+For example:
+
+.. code-block:: python
+
+    import mlflow
+    from transformers import pipeline
+
+    # Initialize a pipeline. `distilgpt2` uses a "text-generation" pipeline
+    generator = pipeline(model="distilgpt2")
+
+    # Define a prompt template
+    prompt_template = "Answer the following question: {prompt}"
+
+    # Save the model
+    mlflow.transformers.save_model(
+        transformers_model=generator,
+        path="path/to/model",
+        prompt_template=prompt_template,
+    )
+
+When the model is then loaded with :py:func:`mlflow.pyfunc.load_model()`, the prompt
+template will be used to format user inputs before passing them into the pipeline:
+
+.. code-block:: python
+
+    import mlflow
+
+    # Load the model with pyfunc
+    model = mlflow.pyfunc.load_model("path/to/model")
+
+    # The prompt template will be used to format this input, so the
+    # string that is passed to the text-generation pipeline will be:
+    # "Answer the following question: What is MLflow?"
+    model.predict("What is MLflow?")
+
+.. note::
+
+    ``text-generation`` pipelines with a prompt template will have the `return_full_text pipeline argument <https://huggingface.co/docs/huggingface_hub/main/en/package_reference/inference_client#huggingface_hub.inference._text_generation.TextGenerationParameters.return_full_text>`_
+    set to ``False`` by default. This is to prevent the template from being shown to the users,
+    which could potentially cause confusion as it was not part of their original input. To
+    override this behaviour, either set ``return_full_text`` to ``True`` via ``params``, or by 
+    including it in a ``model_config`` dict in ``log_model()``. See `this section <#using-model-config-and-model-signature-params-for-transformers-inference>`_ 
+    for more details on how to do this.
+
+For a more in-depth guide, check out the `Prompt Templating notebook <../tutorials/prompt-templating/prompt-templating.ipynb>`_!
+
+
 Using model_config and model signature params for `transformers` inference
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

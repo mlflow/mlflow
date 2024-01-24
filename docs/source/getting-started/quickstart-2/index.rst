@@ -26,8 +26,8 @@ you will create a Docker container image suitable for deployment to a cloud plat
 Set up
 ------
 
-- Install MLflow. See the :ref:`introductory quickstart <quickstart-1>` for instructions
-- Run the tracking server: ``mlflow ui --port 5000``
+For a comprehensive guide on getting an MLflow environment setup that will give you options on how to configure MLflow tracking 
+capabilities, you can `read the guide here <../running-notebooks/index.html>`_.
 
 Run a hyperparameter sweep
 --------------------------

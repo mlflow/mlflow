@@ -266,15 +266,6 @@ MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE = _EnvironmentVariable(
     "MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE", str, "500MB"
 )
 
-#: Specifies whether or not to allow using a file URI as a model version source.
-#: Please be aware that setting this environment variable to True is potentially risky
-#: because it can allow access to arbitrary files on the specified filesystem
-#: (default: ``False``).
-MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE = _BooleanEnvironmentVariable(
-    "MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE", False
-)
-
-
 #: Specifies the name of the Databricks secret scope to use for storing OpenAI API keys.
 MLFLOW_OPENAI_SECRET_SCOPE = _EnvironmentVariable("MLFLOW_OPENAI_SECRET_SCOPE", str, None)
 
@@ -499,3 +490,8 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: encounters a redirect response.
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
+
+# Specifies the timeout for deployment client APIs to declare a request has timed out
+MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", int, 120
+)

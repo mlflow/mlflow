@@ -87,6 +87,7 @@ def make_genai_metric(
     version: Optional[str] = _get_latest_metric_version(),
     model: Optional[str] = _get_default_model(),
     grading_context_columns: Optional[Union[str, List[str]]] = [],  # noqa: B006
+    include_input: bool = True,
     parameters: Optional[Dict[str, Any]] = None,
     aggregations: Optional[List[str]] = ["mean", "variance", "p90"],  # noqa: B006
     greater_is_better: bool = True,
@@ -112,6 +113,7 @@ def make_genai_metric(
         ``grading_context_columns`` are used by the LLM as a judge as additional information to
         compute the metric. The columns are extracted from the input dataset or output predictions
         based on ``col_mapping`` in the ``evaluator_config`` passed to :py:func:`mlflow.evaluate()`.
+    :param include_input: (Optional) Whether to include the input when computing the metric.
     :param parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
         set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
         setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
@@ -205,6 +207,14 @@ def make_genai_metric(
                 f" Required grading context columns: {grading_context_columns}\n"
             )
 
+        if not include_input:
+            return EvaluationExample(
+                output=example.output,
+                score=example.score,
+                justification=example.justification,
+                grading_context=example.grading_context,
+            )
+
         return example
 
     if examples is not None:
@@ -280,7 +290,9 @@ def make_genai_metric(
                 )
             grading_payloads.append(
                 evaluation_context["eval_prompt"].format(
-                    input=input, output=output, grading_context_columns=arg_string
+                    input=(input if include_input else None),
+                    output=output,
+                    grading_context_columns=arg_string,
                 )
             )
 

@@ -1,55 +1,73 @@
 import { combineReducers } from 'redux';
-import { ModelGatewayRoute, SearchModelGatewayRouteResponse } from '../sdk/ModelGatewayService';
+import { ModelGatewayRouteLegacy, ModelGatewayRoute } from '../sdk/ModelGatewayService';
+import { ModelGatewayRouteTask } from '../sdk/MlflowEnums';
 import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
 
-import { AsyncAction, AsyncFulfilledAction, Fulfilled } from '../../redux-types';
-import {
-  GET_MODEL_GATEWAY_ROUTE_API,
-  GetModelGatewayRouteAction,
-  SEARCH_MODEL_GATEWAY_ROUTES_API,
-  SearchModelGatewayRoutesAction,
-} from '../actions/ModelGatewayActions';
+import type { AsyncAction, AsyncFulfilledAction } from '../../redux-types';
+import type { SearchMlflowDeploymentsModelRoutesAction } from '../actions/ModelGatewayActions';
 
 export interface ModelGatewayReduxState {
+  modelGatewayRoutesLegacy: Record<string, ModelGatewayRouteLegacy>;
+  modelGatewayRoutesLoadingLegacy: boolean;
   modelGatewayRoutes: Record<string, ModelGatewayRoute>;
-  modelGatewayRoutesLoading: boolean;
+  modelGatewayRoutesLoading: {
+    gatewayRoutesLoading?: boolean;
+    endpointRoutesLoading?: boolean;
+    deploymentRoutesLoading?: boolean;
+    loading: boolean;
+  };
 }
 
 export const modelGatewayRoutesLoading = (
-  state = false,
-  action: AsyncAction<SearchModelGatewayRouteResponse>,
+  state = {
+    gatewayRoutesLoading: false,
+    endpointRoutesLoading: false,
+    deploymentRoutesLoading: false,
+    loading: false,
+  },
+  action: AsyncAction,
 ) => {
   switch (action.type) {
-    case pending(SEARCH_MODEL_GATEWAY_ROUTES_API):
-      return true;
-    case fulfilled(SEARCH_MODEL_GATEWAY_ROUTES_API):
-    case rejected(SEARCH_MODEL_GATEWAY_ROUTES_API):
-      return false;
+    case pending('SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES'):
+      return { ...state, deploymentRoutesLoading: true, loading: true };
+    case fulfilled('SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES'):
+    case rejected('SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES'):
+      return {
+        ...state,
+        deploymentRoutesLoading: false,
+        loading: state.endpointRoutesLoading || state.gatewayRoutesLoading,
+      };
   }
   return state;
 };
 
+type ModelGatewayReducerActions = AsyncFulfilledAction<SearchMlflowDeploymentsModelRoutesAction>;
 export const modelGatewayRoutes = (
   state: Record<string, ModelGatewayRoute> = {},
-  {
-    payload,
-    type,
-  }:
-    | AsyncFulfilledAction<SearchModelGatewayRoutesAction>
-    | AsyncFulfilledAction<GetModelGatewayRouteAction>,
+  { payload, type }: ModelGatewayReducerActions,
 ): Record<string, ModelGatewayRoute> => {
+  const compatibleEndpointTypes = [ModelGatewayRouteTask.LLM_V1_COMPLETIONS, ModelGatewayRouteTask.LLM_V1_CHAT];
   switch (type) {
-    case fulfilled(SEARCH_MODEL_GATEWAY_ROUTES_API):
+    case fulfilled('SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES'):
       if (!payload.endpoints) {
         return state;
       }
-      return payload.endpoints.reduce(
-        (newState, endpoint) => ({ ...newState, [endpoint.name]: endpoint }),
-        state,
+      const compatibleGatewayEndpoints = payload.endpoints.filter(
+        ({ endpoint_type }) =>
+          endpoint_type && compatibleEndpointTypes.includes(endpoint_type as ModelGatewayRouteTask),
       );
-    case fulfilled(GET_MODEL_GATEWAY_ROUTE_API):
-      return { ...state, [payload.name]: payload };
-    default:
+      return compatibleGatewayEndpoints.reduce((newState, deploymentEndpoint) => {
+        return {
+          ...newState,
+          [`mlflow_deployment_endpoint:${deploymentEndpoint.name}`]: {
+            type: 'mlflow_deployment_endpoint',
+            key: `mlflow_deployment_endpoint:${deploymentEndpoint.name}`,
+            name: deploymentEndpoint.name,
+            mlflowDeployment: deploymentEndpoint,
+            task: deploymentEndpoint.endpoint_type as ModelGatewayRouteTask,
+          },
+        };
+      }, state);
   }
   return state;
 };

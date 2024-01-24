@@ -25,10 +25,11 @@ class TensorDatasetSchema:
         self.targets = targets
 
     def to_dict(self) -> Dict[str, Any]:
-        """
-        Serialize into a 'jsonable' dictionary.
+        """Serialize into a 'jsonable' dictionary.
 
-        :return: dictionary representation of the schema's features and targets (if defined).
+        Returns:
+            dictionary representation of the schema's features and targets (if defined).
+
         """
 
         return {
@@ -40,14 +41,15 @@ class TensorDatasetSchema:
 
     @classmethod
     def from_dict(cls, schema_dict: Dict[str, Any]):
-        """
-        Deserialize from dictionary representation.
+        """Deserialize from dictionary representation.
 
-        :param schema_dict: Dictionary representation of model signature.
-                            Expected dictionary format:
-                            `{'features': <json string>, 'targets': <json string>" }`
+        Args:
+            schema_dict: Dictionary representation of model signature. Expected dictionary format:
+                `{'features': <json string>, 'targets': <json string>" }`
 
-        :return: TensorDatasetSchema populated with the data from the dictionary.
+        Returns:
+            TensorDatasetSchema populated with the data from the dictionary.
+
         """
         if "mlflow_tensorspec" not in schema_dict:
             raise MlflowException(

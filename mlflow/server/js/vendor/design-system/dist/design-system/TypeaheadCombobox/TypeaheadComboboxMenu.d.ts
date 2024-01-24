@@ -13,6 +13,7 @@ export interface TypeaheadComboboxMenuProps<T> extends HTMLAttributes<HTMLUListE
     listWrapperHeight?: number;
     virtualizerRef?: React.RefObject<T>;
     children?: ReactNode;
+    matchTriggerWidth?: boolean;
 }
 export declare const TypeaheadComboboxMenu: React.ForwardRefExoticComponent<TypeaheadComboboxMenuProps<any> & React.RefAttributes<HTMLElement | null>>;
 //# sourceMappingURL=TypeaheadComboboxMenu.d.ts.map

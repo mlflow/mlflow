@@ -10,7 +10,7 @@ import {
 import { SerializedRunsCompareCardConfigCard } from '../../runs-compare/runs-compare.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
 import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
-import type { DatasetSummary, ExperimentViewRunsCompareMode } from '../../../types';
+import type { DatasetSummary, ExperimentViewRunsCompareMode, ChartSectionConfig } from '../../../types';
 
 const getDefaultSelectedColumns = () => {
   const result = [
@@ -31,18 +31,9 @@ const getDefaultSelectedColumns = () => {
  * with cleared filter-related fields while leaving
  * selected columns, chart state etc.
  */
-export const clearSearchExperimentsFacetsFilters = (
-  currentSearchFacetsState: SearchExperimentRunsFacetsState,
-) => {
-  const {
-    lifecycleFilter,
-    datasetsFilter,
-    modelVersionFilter,
-    searchFilter,
-    startTime,
-    orderByAsc,
-    orderByKey,
-  } = new SearchExperimentRunsFacetsState();
+export const clearSearchExperimentsFacetsFilters = (currentSearchFacetsState: SearchExperimentRunsFacetsState) => {
+  const { lifecycleFilter, datasetsFilter, modelVersionFilter, searchFilter, startTime, orderByAsc, orderByKey } =
+    new SearchExperimentRunsFacetsState();
   return {
     ...currentSearchFacetsState,
     lifecycleFilter,
@@ -60,11 +51,8 @@ export const clearSearchExperimentsFacetsFilters = (
  * if at least one filter-related facet is not-default meaning that runs
  * are currently filtered.
  */
-export const isSearchFacetsFilterUsed = (
-  currentSearchFacetsState: SearchExperimentRunsFacetsState,
-) => {
-  const { lifecycleFilter, modelVersionFilter, datasetsFilter, searchFilter, startTime } =
-    currentSearchFacetsState;
+export const isSearchFacetsFilterUsed = (currentSearchFacetsState: SearchExperimentRunsFacetsState) => {
+  const { lifecycleFilter, modelVersionFilter, datasetsFilter, searchFilter, startTime } = currentSearchFacetsState;
   return Boolean(
     lifecycleFilter !== DEFAULT_LIFECYCLE_FILTER ||
       modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
@@ -146,4 +134,9 @@ export class SearchExperimentRunsFacetsState {
    * Currently configured charts for comparing runs, if any.
    */
   compareRunCharts?: SerializedRunsCompareCardConfigCard[];
+
+  /**
+   * Sections for grouping compare runs charts
+   */
+  compareRunSections?: ChartSectionConfig[];
 }

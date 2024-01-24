@@ -6,8 +6,6 @@ import logging
 import os
 import pathlib
 import textwrap
-import time
-from functools import wraps
 from unittest import mock
 
 import huggingface_hub
@@ -19,7 +17,7 @@ import torch
 import transformers
 import yaml
 from datasets import load_dataset
-from huggingface_hub import ModelCard, scan_cache_dir
+from huggingface_hub import ModelCard
 from packaging.version import Version
 
 import mlflow
@@ -68,11 +66,9 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
-
-pytestmark = pytest.mark.large
+from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, flaky
 
 transformers_version = Version(transformers.__version__)
-_FEATURE_EXTRACTION_API_CHANGE_VERSION = "4.27.0"
 _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
@@ -93,31 +89,6 @@ image_file_path = pathlib.Path(pathlib.Path(__file__).parent.parent, "datasets",
 _logger = logging.getLogger(__name__)
 
 
-def flaky(max_tries=3):
-    """
-    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
-    if it fails after max_tries attempts.
-    :param max_tries: Maximum number of times to retry the function.
-    :return: Decorated function.
-    """
-
-    def flaky_test_func(test_func):
-        @wraps(test_func)
-        def decorated_func(*args, **kwargs):
-            for i in range(max_tries):
-                try:
-                    return test_func(*args, **kwargs)
-                except Exception as e:
-                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
-                    if i == max_tries - 1:
-                        raise
-                    time.sleep(3)
-
-        return decorated_func
-
-    return flaky_test_func
-
-
 @pytest.fixture(autouse=True)
 def force_gc():
     # This reduces the memory pressure for the usage of the larger pipeline fixtures ~500MB - 1GB
@@ -126,28 +97,6 @@ def force_gc():
     gc.set_threshold(0)
     gc.collect()
     gc.enable()
-
-
-@pytest.fixture(autouse=True)
-def clean_cache(request):
-    # This function will clean the cache that HuggingFace uses to limit the number of fetches from
-    # the hub repository when instantiating components (tokenizers, models, etc.). Due to the
-    # runner limitations for CI (As of April 2023, the runner image ubuntu-22.04 has a maximum of
-    # 14GB of storage space on the provided SSDs and 7GB of RAM which are both insufficient to run
-    # all validations of this test suite due to the model sizes.
-    # This fixture will clear the cache iff the cache storage is > 2GB when called.
-    if "skipcacheclean" in request.keywords:
-        return
-    else:
-        full_cache = scan_cache_dir()
-        cache_size_in_gb = full_cache.size_on_disk / 1000**3
-
-        if cache_size_in_gb > 2:
-            commits_to_purge = [
-                rev.commit_hash for repo in full_cache.repos for rev in repo.revisions
-            ]
-            delete_strategy = full_cache.delete_revisions(*commits_to_purge)
-            delete_strategy.execute()
 
 
 @pytest.fixture
@@ -169,208 +118,6 @@ def mock_pyfunc_wrapper():
 
 @pytest.fixture
 @flaky()
-def small_seq2seq_pipeline():
-    # The return type of this model's language head is a List[Dict[str, Any]]
-    architecture = "lordtt13/emo-mobilebert"
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    model = transformers.TFAutoModelForSequenceClassification.from_pretrained(architecture)
-    return transformers.pipeline(task="text-classification", model=model, tokenizer=tokenizer)
-
-
-@pytest.fixture
-@flaky()
-def small_qa_pipeline():
-    # The return type of this model's language head is a Dict[str, Any]
-    architecture = "csarron/mobilebert-uncased-squad-v2"
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture, low_cpu_mem_usage=True)
-    model = transformers.MobileBertForQuestionAnswering.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
-    return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
-
-
-@pytest.fixture
-@flaky()
-def small_vision_model():
-    architecture = "google/mobilenet_v2_1.0_224"
-    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
-    model = transformers.MobileNetV2ForImageClassification.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
-    return transformers.pipeline(
-        task="image-classification", model=model, feature_extractor=feature_extractor
-    )
-
-
-@pytest.fixture
-@flaky()
-def small_multi_modal_pipeline():
-    architecture = "dandelin/vilt-b32-finetuned-vqa"
-    return transformers.pipeline(model=architecture)
-
-
-@pytest.fixture
-@flaky()
-def component_multi_modal():
-    architecture = "dandelin/vilt-b32-finetuned-vqa"
-    tokenizer = transformers.BertTokenizerFast.from_pretrained(architecture, low_cpu_mem_usage=True)
-    processor = transformers.ViltProcessor.from_pretrained(architecture, low_cpu_mem_usage=True)
-    image_processor = transformers.ViltImageProcessor.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
-    model = transformers.ViltForQuestionAnswering.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
-    transformers_model = {"model": model, "tokenizer": tokenizer}
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
-        transformers_model["image_processor"] = image_processor
-    else:
-        transformers_model["feature_extractor"] = processor
-    return transformers_model
-
-
-@pytest.fixture
-@flaky()
-def small_conversational_model():
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        "microsoft/DialoGPT-small", low_cpu_mem_usage=True
-    )
-    model = transformers.AutoModelWithLMHead.from_pretrained(
-        "satvikag/chatbot", low_cpu_mem_usage=True
-    )
-    return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
-
-
-@pytest.fixture
-@flaky()
-def fill_mask_pipeline():
-    architecture = "distilroberta-base"
-    model = transformers.AutoModelForMaskedLM.from_pretrained(architecture, low_cpu_mem_usage=True)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    return transformers.pipeline(task="fill-mask", model=model, tokenizer=tokenizer)
-
-
-@pytest.fixture
-@flaky()
-def text2text_generation_pipeline():
-    task = "text2text-generation"
-    architecture = "mrm8488/t5-small-finetuned-common_gen"
-    model = transformers.T5ForConditionalGeneration.from_pretrained(architecture)
-    tokenizer = transformers.T5TokenizerFast.from_pretrained(architecture)
-
-    return transformers.pipeline(
-        task=task,
-        tokenizer=tokenizer,
-        model=model,
-    )
-
-
-@pytest.fixture
-@flaky()
-def text_generation_pipeline():
-    task = "text-generation"
-    architecture = "distilgpt2"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-
-    return transformers.pipeline(
-        task=task,
-        model=model,
-        tokenizer=tokenizer,
-    )
-
-
-@pytest.fixture
-@flaky()
-def translation_pipeline():
-    return transformers.pipeline(
-        task="translation_en_to_de",
-        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
-        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
-    )
-
-
-@pytest.fixture
-@flaky()
-def summarizer_pipeline():
-    task = "summarization"
-    architecture = "sshleifer/distilbart-cnn-6-6"
-    model = transformers.BartForConditionalGeneration.from_pretrained(architecture)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    return transformers.pipeline(
-        task=task,
-        tokenizer=tokenizer,
-        model=model,
-    )
-
-
-@pytest.fixture
-@flaky()
-def text_classification_pipeline():
-    task = "text-classification"
-    architecture = "distilbert-base-uncased-finetuned-sst-2-english"
-    model = transformers.AutoModelForSequenceClassification.from_pretrained(architecture)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    return transformers.pipeline(
-        task=task,
-        tokenizer=tokenizer,
-        model=model,
-    )
-
-
-@pytest.fixture
-@flaky()
-def zero_shot_pipeline():
-    task = "zero-shot-classification"
-    architecture = "typeform/distilbert-base-uncased-mnli"
-    model = transformers.AutoModelForSequenceClassification.from_pretrained(architecture)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    return transformers.pipeline(
-        task=task,
-        tokenizer=tokenizer,
-        model=model,
-    )
-
-
-@pytest.fixture
-@flaky()
-def table_question_answering_pipeline():
-    return transformers.pipeline(
-        task="table-question-answering", model="google/tapas-tiny-finetuned-wtq"
-    )
-
-
-@pytest.fixture
-@flaky()
-def ner_pipeline():
-    return transformers.pipeline(
-        task="token-classification", model="vblagoje/bert-english-uncased-finetuned-pos"
-    )
-
-
-@pytest.fixture
-@flaky()
-def ner_pipeline_aggregation():
-    # Modification to the default aggregation_strategy of `None` changes the output keys in each
-    # of the dictionaries. This fixture allows for testing that the correct data is extracted
-    # as a return value
-    return transformers.pipeline(
-        task="token-classification",
-        model="vblagoje/bert-english-uncased-finetuned-pos",
-        aggregation_strategy="average",
-    )
-
-
-@pytest.fixture
-@flaky()
-def conversational_pipeline():
-    return transformers.pipeline(model="AVeryRealHuman/DialoGPT-small-TonyStark")
-
-
-@pytest.fixture
-@flaky()
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
@@ -388,37 +135,6 @@ def raw_audio_file():
     datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
 
     return datasets_path.joinpath("apollo11_launch.wav").read_bytes()
-
-
-@pytest.fixture
-@flaky()
-def whisper_pipeline():
-    task = "automatic-speech-recognition"
-    architecture = "openai/whisper-tiny"
-    model = transformers.WhisperForConditionalGeneration.from_pretrained(architecture)
-    tokenizer = transformers.WhisperTokenizer.from_pretrained(architecture)
-    feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(architecture)
-    if Version(transformers.__version__) > Version("4.30.2"):
-        model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
-    return transformers.pipeline(
-        task=task, model=model, tokenizer=tokenizer, feature_extractor=feature_extractor
-    )
-
-
-@pytest.fixture
-@flaky()
-def audio_classification_pipeline():
-    return transformers.pipeline("audio-classification", model="superb/wav2vec2-base-superb-ks")
-
-
-@pytest.fixture
-@flaky()
-def feature_extraction_pipeline():
-    st_arch = "sentence-transformers/all-MiniLM-L6-v2"
-    model = transformers.AutoModel.from_pretrained(st_arch)
-    tokenizer = transformers.AutoTokenizer.from_pretrained(st_arch)
-
-    return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
 
 
 def test_dependencies_pytorch(small_qa_pipeline):
@@ -554,7 +270,7 @@ def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
 
 def test_pipeline_construction_from_base_vision_model(small_vision_model):
     model = {"model": small_vision_model.model, "tokenizer": small_vision_model.tokenizer}
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         model.update({"image_processor": small_vision_model.feature_extractor})
     else:
         model.update({"feature_extractor": small_vision_model.feature_extractor})
@@ -564,7 +280,7 @@ def test_pipeline_construction_from_base_vision_model(small_vision_model):
     )
     assert isinstance(generated, type(small_vision_model))
     assert isinstance(generated.tokenizer, type(small_vision_model.tokenizer))
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         compare_type = generated.image_processor
     else:
         compare_type = generated.feature_extractor
@@ -731,7 +447,7 @@ def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_p
 
 
 def test_component_saving_multi_modal(component_multi_modal, model_path):
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         processor = component_multi_modal["image_processor"]
         expected = {"tokenizer", "processor", "image_processor"}
     else:
@@ -754,7 +470,7 @@ def test_component_saving_multi_modal(component_multi_modal, model_path):
 
 def test_extract_pipeline_components(small_vision_model, small_qa_pipeline):
     components_vision = _record_pipeline_components(small_vision_model)
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         component_list = ["feature_extractor", "image_processor"]
     else:
         component_list = ["feature_extractor"]
@@ -767,7 +483,7 @@ def test_extract_pipeline_components(small_vision_model, small_qa_pipeline):
 
 def test_extract_multi_modal_components(small_multi_modal_pipeline):
     components_multi = _record_pipeline_components(small_multi_modal_pipeline)
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         assert components_multi["image_processor_type"] == "ViltImageProcessor"
         assert components_multi["components"] == ["tokenizer", "image_processor"]
     elif transformers_version >= Version(_IMAGE_PROCESSOR_API_CHANGE_VERSION):
@@ -779,7 +495,7 @@ def test_extract_multi_modal_components(small_multi_modal_pipeline):
 
 
 def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_path, image_for_test):
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         model = {
             "model": small_vision_model.model,
             "image_processor": small_vision_model.image_processor,
@@ -807,7 +523,7 @@ def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_pa
     question = "How many cats are in the picture?"
     # Load components
     components = mlflow.transformers.load_model(model_path, return_type="components")
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         expected_components = {"model", "task", "tokenizer", "image_processor"}
     else:
         expected_components = {"model", "task", "tokenizer", "feature_extractor"}
@@ -825,7 +541,7 @@ def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_pa
 
 
 def test_multi_modal_component_save_and_load(component_multi_modal, model_path, image_for_test):
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         processor = component_multi_modal["image_processor"]
     else:
         processor = component_multi_modal["feature_extractor"]
@@ -844,14 +560,14 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
     # This isn't being tested on an actual use case of such a model type due to the size of
     # these types of models that have this interface being ill-suited for CI testing.
 
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         processor_key = "image_processor"
         assert isinstance(loaded_components[processor_key], transformers.ViltImageProcessor)
     else:
         processor_key = "feature_extractor"
         assert isinstance(loaded_components[processor_key], transformers.ViltProcessor)
         assert isinstance(loaded_components["processor"], transformers.ViltProcessor)
-    if transformers_version < Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if not IS_NEW_FEATURE_EXTRACTION_API:
         # NB: This simulated behavior is no longer valid in versions 4.27.4 and above.
         # With the port of functionality away from feature extractor types, the new architecture
         # for multi-modal models is entirely pipeline based.
@@ -874,7 +590,7 @@ def test_pipeline_saved_model_with_processor_cannot_be_loaded_as_pipeline(
     invalid_pipeline = transformers.pipeline(
         task="visual-question-answering", **component_multi_modal
     )
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         processor = component_multi_modal["image_processor"]
     else:
         processor = component_multi_modal["feature_extractor"]
@@ -892,7 +608,7 @@ def test_pipeline_saved_model_with_processor_cannot_be_loaded_as_pipeline(
 def test_component_saved_model_with_processor_cannot_be_loaded_as_pipeline(
     component_multi_modal, model_path
 ):
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         processor = component_multi_modal["image_processor"]
     else:
         processor = component_multi_modal["feature_extractor"]
@@ -973,7 +689,7 @@ def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path
 
 
 def test_transformers_log_model_with_no_registered_model_name(small_vision_model, tmp_path):
-    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+    if IS_NEW_FEATURE_EXTRACTION_API:
         model = {
             "model": small_vision_model.model,
             "image_processor": small_vision_model.image_processor,
@@ -985,6 +701,7 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             "feature_extractor": small_vision_model.feature_extractor,
             "tokenizer": small_vision_model.tokenizer,
         }
+
     artifact_path = "transformers"
     registered_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), registered_model_patch:
@@ -1093,32 +810,16 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
         )
 
 
-def test_transformers_log_with_duplicate_pip_requirements(small_multi_modal_pipeline, capsys):
-    with mlflow.start_run():
-        mlflow.transformers.log_model(
-            small_multi_modal_pipeline,
-            "model",
-            pip_requirements=["transformers==99.99.99", "transformers", "mlflow"],
-        )
-    captured = capsys.readouterr()
-    assert (
-        "Duplicate packages are present within the pip requirements. "
-        "Duplicate packages: ['transformers']" in captured.err
-    )
-
-
-def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_modal_pipeline, capsys):
-    with mlflow.start_run():
-        mlflow.transformers.log_model(
-            small_multi_modal_pipeline,
-            "model",
-            extra_pip_requirements=["transformers==99.99.99"],
-        )
-    captured = capsys.readouterr()
-    assert (
-        "Duplicate packages are present within the pip requirements. "
-        "Duplicate packages: ['transformers']" in captured.err
-    )
+def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_modal_pipeline):
+    with pytest.raises(
+        MlflowException, match="The specified requirements versions are incompatible"
+    ):
+        with mlflow.start_run():
+            mlflow.transformers.log_model(
+                small_multi_modal_pipeline,
+                "model",
+                extra_pip_requirements=["transformers==1.1.0"],
+            )
 
 
 @pytest.mark.skipif(
@@ -2266,6 +1967,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
             artifact_path=artifact_path,
             signature=signature,
         )
+
     inference_payload = json.dumps({"inputs": inference_data})
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,

@@ -20,8 +20,7 @@ class Dataset:
         self, source: DatasetSource, name: Optional[str] = None, digest: Optional[str] = None
     ):
         """
-        Base constructor for a dataset. All subclasses must call this
-        constructor.
+        Base constructor for a dataset. All subclasses must call this constructor.
         """
         self._name = name
         self._source = source
@@ -31,32 +30,36 @@ class Dataset:
 
     @abstractmethod
     def _compute_digest(self) -> str:
-        """
-        Computes a digest for the dataset. Called if the user doesn't supply
+        """Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
 
-        :return: A string digest for the dataset. We recommend a maximum digest length
-                 of 10 characters with an ideal length of 8 characters.
+        Returns:
+            A string digest for the dataset. We recommend a maximum digest length
+            of 10 characters with an ideal length of 8 characters.
+
         """
 
     @abstractmethod
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
-        :param base_dict: A string dictionary of base information about the
-                          dataset, including: name, digest, source, and source
-                          type.
-        :return: A string dictionary containing the following fields: name,
-                 digest, source, source type, schema (optional), profile
-                 (optional).
+        Args:
+            base_dict: A string dictionary of base information about the
+                dataset, including: name, digest, source, and source
+                type.
+
+        Returns:
+            A string dictionary containing the following fields: name,
+            digest, source, source type, schema (optional), profile
+            (optional).
         """
 
     def to_json(self) -> str:
         """
-        Obtains a JSON string representation of the
-        :py:class:`Dataset <mlflow.data.dataset.Dataset>`.
+        Obtains a JSON string representation of the :py:class:`Dataset
+        <mlflow.data.dataset.Dataset>`.
 
-        :return: A JSON string representation of the
-                 :py:class:`Dataset <mlflow.data.dataset.Dataset>`.
+        Returns:
+            A JSON string representation of the :py:class:`Dataset <mlflow.data.dataset.Dataset>`.
         """
         base_dict = {
             "name": self.name,
@@ -111,7 +114,8 @@ class Dataset:
 
     def _to_mlflow_entity(self) -> DatasetEntity:
         """
-        :return: A DatasetEntity instance representing the dataset.
+        Returns:
+            A DatasetEntity instance representing the dataset.
         """
         dataset_json = json.loads(self.to_json())
         return DatasetEntity(
