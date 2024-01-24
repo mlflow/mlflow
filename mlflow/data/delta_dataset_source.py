@@ -49,9 +49,12 @@ class DeltaDatasetSource(DatasetSource):
                 INVALID_PARAMETER_VALUE,
             )
         self._path = path
-        self._delta_table_name = get_full_name_from_sc(
-            delta_table_name, _get_active_spark_session()
-        )
+        if delta_table_name is not None:
+            self._delta_table_name = get_full_name_from_sc(
+                delta_table_name, _get_active_spark_session()
+            )
+        else:
+            self._delta_table_name = delta_table_name
         self._delta_table_version = delta_table_version
         self._delta_table_id = delta_table_id
 
