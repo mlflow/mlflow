@@ -1,14 +1,57 @@
-import {
-  PinIcon,
-  PinFillIcon,
-  Tooltip,
-  VisibleIcon,
-  VisibleOffIcon,
-} from '@databricks/design-system';
+import { PinIcon, PinFillIcon, Tooltip, VisibleIcon, VisibleOffIcon } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, defineMessages } from 'react-intl';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
+import { shouldEnableShareExperimentViewByTags } from '../../../../../../common/utils/FeatureUtils';
+import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
+
+const labels = {
+  visibility: {
+    groups: defineMessages({
+      unhide: {
+        defaultMessage: 'Unhide runs',
+        description: 'A tooltip for the visibility icon button in the runs table next to the hidden run group',
+      },
+      hide: {
+        defaultMessage: 'Hide runs',
+        description: 'A tooltip for the visibility icon button in the runs table next to the visible run group',
+      },
+    }),
+    runs: defineMessages({
+      unhide: {
+        defaultMessage: 'Unhide run',
+        description: 'A tooltip for the visibility icon button in the runs table next to the hidden run',
+      },
+      hide: {
+        defaultMessage: 'Hide run',
+        description: 'A tooltip for the visibility icon button in the runs table next to the visible run',
+      },
+    }),
+  },
+  pinning: {
+    groups: defineMessages({
+      unpin: {
+        defaultMessage: 'Unpin group',
+        description: 'A tooltip for the pin icon button in the runs table next to the pinned run group',
+      },
+      pin: {
+        defaultMessage: 'Pin group',
+        description: 'A tooltip for the pin icon button in the runs table next to the not pinned run group',
+      },
+    }),
+    runs: defineMessages({
+      unpin: {
+        defaultMessage: 'Unpin run',
+        description: 'A tooltip for the pin icon button in the runs table next to the pinned run',
+      },
+      pin: {
+        defaultMessage: 'Pin run',
+        description: 'A tooltip for the pin icon button in the runs table next to the not pinned run',
+      },
+    }),
+  },
+};
 
 // Mouse enter/leave delays passed to tooltips are set to 0 so swift toggling/pinning runs is not hampered
 const MOUSE_DELAYS = { mouseEnterDelay: 0, mouseLeaveDelay: 0 };
@@ -20,66 +63,100 @@ export const RowActionsCellRenderer = React.memo(
     onTogglePin: (runUuid: string) => void;
     onToggleVisibility: (runUuid: string) => void;
   }) => {
+    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
+    const updateUIState = useUpdateExperimentViewUIState();
+
+    const { groupParentInfo } = props.data;
+    const isGroupRow = Boolean(groupParentInfo);
     const { pinned, hidden } = props.value;
+    const { runUuid } = props.data;
+
+    const visibilityMessageDescriptor = isGroupRow
+      ? hidden
+        ? labels.visibility.groups.unhide
+        : labels.visibility.groups.hide
+      : hidden
+      ? labels.visibility.runs.unhide
+      : labels.visibility.runs.hide;
+
+    const pinningMessageDescriptor = isGroupRow
+      ? pinned
+        ? labels.pinning.groups.unpin
+        : labels.pinning.groups.pin
+      : pinned
+      ? labels.pinning.runs.unpin
+      : labels.pinning.runs.pin;
+
     return (
       <div css={styles.actionsContainer}>
         {/* Hide/show icon is part of compare runs UI */}
-        <Tooltip
-          dangerouslySetAntdProps={MOUSE_DELAYS}
-          placement='right'
-          title={
-            hidden ? (
-              <FormattedMessage
-                defaultMessage='Unhide run'
-                description='A tooltip for the visibility icon button in the runs table next to the hidden run'
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage='Hide run'
-                description='A tooltip for the visibility icon button in the runs table next to the visible run'
-              />
-            )
-          }
-        >
-          <label css={styles.actionCheckbox} className='is-visibility-toggle'>
-            <input
-              type='checkbox'
-              checked={!hidden}
-              onChange={() => {
-                props.onToggleVisibility(props.data.runUuid);
-              }}
-            />
-            {!hidden ? <VisibleIcon /> : <VisibleOffIcon />}
-          </label>
-        </Tooltip>
-        {props.data.pinnable && (
+        {(groupParentInfo || runUuid) && (
           <Tooltip
             dangerouslySetAntdProps={MOUSE_DELAYS}
-            placement='right'
-            title={
-              pinned ? (
-                <FormattedMessage
-                  defaultMessage='Unpin run'
-                  description='A tooltip for the pin icon button in the runs table next to the pinned run'
-                />
-              ) : (
-                <FormattedMessage
-                  defaultMessage='Pin run'
-                  description='A tooltip for the pin icon button in the runs table next to the not pinned run'
-                />
-              )
-            }
+            placement="right"
+            title={<FormattedMessage {...visibilityMessageDescriptor} />}
           >
-            <label
-              css={styles.actionCheckbox}
-              className='is-pin-toggle'
-              data-testid='column-pin-toggle'
-            >
+            <label css={styles.actionCheckbox} className="is-visibility-toggle">
               <input
-                type='checkbox'
+                type="checkbox"
+                checked={!hidden}
+                onChange={() => {
+                  if (runUuid) {
+                    props.onToggleVisibility(runUuid);
+                  } else if (groupParentInfo) {
+                    updateUIState((existingState) => {
+                      if (groupParentInfo.runUuids.every((runUuid) => existingState.runsHidden.includes(runUuid))) {
+                        return {
+                          ...existingState,
+                          runsHidden: existingState.runsHidden.filter(
+                            (runUuid) => !groupParentInfo.runUuids.includes(runUuid),
+                          ),
+                        };
+                      }
+                      return {
+                        ...existingState,
+                        runsHidden: [...existingState.runsHidden, ...groupParentInfo.runUuids],
+                      };
+                    });
+                  }
+                }}
+              />
+              {!hidden ? <VisibleIcon /> : <VisibleOffIcon />}
+            </label>
+          </Tooltip>
+        )}
+        {((props.data.pinnable && runUuid) || groupParentInfo) && (
+          <Tooltip
+            dangerouslySetAntdProps={MOUSE_DELAYS}
+            placement="right"
+            // We have to force remount of the tooltip with every rerender, otherwise it will jump
+            // around when the row order changes.
+            key={Math.random()}
+            title={<FormattedMessage {...pinningMessageDescriptor} />}
+          >
+            <label css={styles.actionCheckbox} className="is-pin-toggle" data-testid="column-pin-toggle">
+              <input
+                type="checkbox"
                 checked={pinned}
                 onChange={() => {
-                  props.onTogglePin(props.data.runUuid);
+                  // If using new view state model, update the pinned runs in the UI state.
+                  // TODO: Remove this once we migrate to the new view state model
+                  if (usingNewViewStateModel) {
+                    const uuidToPin = groupParentInfo ? props.data.rowUuid : runUuid;
+                    updateUIState((existingState) => {
+                      if (uuidToPin) {
+                        return {
+                          ...existingState,
+                          runsPinned: !existingState.runsPinned.includes(uuidToPin)
+                            ? [...existingState.runsPinned, uuidToPin]
+                            : existingState.runsPinned.filter((r) => r !== uuidToPin),
+                        };
+                      }
+                      return existingState;
+                    });
+                  } else if (runUuid) {
+                    props.onTogglePin(runUuid);
+                  }
                 }}
               />
               {pinned ? <PinFillIcon /> : <PinIcon />}
@@ -90,8 +167,7 @@ export const RowActionsCellRenderer = React.memo(
     );
   },
   (prevProps, nextProps) =>
-    prevProps.value.hidden === nextProps.value.hidden &&
-    prevProps.value.pinned === nextProps.value.pinned,
+    prevProps.value.hidden === nextProps.value.hidden && prevProps.value.pinned === nextProps.value.pinned,
 );
 
 const styles = {

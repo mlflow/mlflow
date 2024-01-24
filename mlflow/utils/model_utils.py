@@ -6,11 +6,16 @@ from typing import Any, Dict
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.uri import append_to_uri_path
 
@@ -122,7 +127,21 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     if code_paths is not None:
         code_dir_subpath = default_subpath
         for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+            try:
+                _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+            except OSError as e:
+                # A common error is code-paths includes Databricks Notebook. We include it in error
+                # message when running in Databricks, but not in other envs tp avoid confusion.
+                example = ", such as Databricks Notebooks" if is_in_databricks_runtime() else ""
+                raise MlflowException(
+                    message=(
+                        f"Failed to copy the specified code path '{code_path}' into the model "
+                        "artifacts. It appears that your code path includes file(s) that cannot "
+                        f"be copied{example}. Please specify a code path that does not include "
+                        "such files and try again.",
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
     else:
         code_dir_subpath = None
     return code_dir_subpath

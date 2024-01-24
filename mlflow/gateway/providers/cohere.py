@@ -7,7 +7,7 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.gateway.config import CohereConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas import completions, embeddings
 
 
 class CohereAdapter(ProviderAdapter):
@@ -115,6 +115,8 @@ class CohereAdapter(ProviderAdapter):
 
 
 class CohereProvider(BaseProvider):
+    NAME = "Cohere"
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, CohereConfig):
@@ -129,9 +131,6 @@ class CohereProvider(BaseProvider):
             path=path,
             payload=payload,
         )
-
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        raise HTTPException(status_code=422, detail="The chat route is not available for Cohere.")
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)

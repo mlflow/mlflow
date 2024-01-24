@@ -6,7 +6,6 @@ from mlflow import MlflowException
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
     MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
-    MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
 )
 from mlflow.deployments.server.config import Endpoint
 from mlflow.deployments.server.constants import (
@@ -15,7 +14,10 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
 from mlflow.deployments.utils import resolve_endpoint_url
-from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+)
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds

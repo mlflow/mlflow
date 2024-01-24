@@ -7,8 +7,10 @@ import posixpath
 import re
 import textwrap
 import warnings
-from typing import List, Optional
+from typing import Any, AsyncGenerator, List, Optional
 from urllib.parse import urlparse
+
+from starlette.responses import StreamingResponse
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
@@ -265,3 +267,46 @@ def is_valid_mosiacml_chat_model(model_name: str) -> bool:
 
 def is_valid_ai21labs_model(model_name: str) -> bool:
     return model_name in {"j2-ultra", "j2-mid", "j2-light"}
+
+
+def strip_sse_prefix(s: str) -> str:
+    # https://html.spec.whatwg.org/multipage/server-sent-events.html
+    return re.sub(r"^data:\s+", "", s)
+
+
+def to_sse_chunk(data: str) -> str:
+    # https://html.spec.whatwg.org/multipage/server-sent-events.html
+    return f"data: {data}\n\n"
+
+
+def _find_boundary(buffer: bytes) -> int:
+    try:
+        return buffer.index(b"\n")
+    except ValueError:
+        return -1
+
+
+async def handle_incomplete_chunks(
+    stream: AsyncGenerator[bytes, Any]
+) -> AsyncGenerator[bytes, Any]:
+    """
+    Wraps a streaming response and handles incomplete chunks from the server.
+    See https://community.openai.com/t/incomplete-stream-chunks-for-completions-api/383520
+    for more information.
+    """
+    buffer = b""
+    async for chunk in stream:
+        buffer += chunk
+        while (boundary := _find_boundary(buffer)) != -1:
+            yield buffer[:boundary]
+            buffer = buffer[boundary + 1 :]
+
+
+async def make_streaming_response(resp):
+    if isinstance(resp, AsyncGenerator):
+        return StreamingResponse(
+            (to_sse_chunk(d.json()) async for d in resp),
+            media_type="text/event-stream",
+        )
+    else:
+        return await resp

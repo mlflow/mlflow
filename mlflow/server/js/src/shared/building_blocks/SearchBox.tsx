@@ -64,22 +64,22 @@ export class SearchBox extends React.Component<Props, State> {
   render() {
     const { placeholder } = this.props;
     return (
-      <Spacer direction='horizontal' size='small'>
+      <Spacer direction="horizontal" size="small">
         <Input
           // @ts-expect-error TS(4111): Property 'searchInput' comes from an index signatu... Remove this comment to see the full error message
           value={this.state.searchInput}
           onChange={this.triggerChange}
-          prefix={<i className='fas fa-search' style={{ fontStyle: 'normal' }} />}
+          prefix={<i className="fas fa-search" style={{ fontStyle: 'normal' }} />}
           onPressEnter={this.triggerSearch}
           onBlur={this.props.onChange}
           placeholder={placeholder}
-          data-test-id='search-box'
+          data-test-id="search-box"
         />
-        <span data-test-id='search-button'>
-          <Button onClick={this.triggerSearch} data-test-id='search-button'>
+        <span data-test-id="search-button">
+          <Button onClick={this.triggerSearch} data-test-id="search-button">
             <FormattedMessage
-              defaultMessage='Search'
-              description='String for the search button to search objects in MLflow'
+              defaultMessage="Search"
+              description="String for the search button to search objects in MLflow"
             />
           </Button>
         </span>

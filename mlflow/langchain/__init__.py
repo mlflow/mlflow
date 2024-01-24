@@ -11,6 +11,8 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
+import contextlib
+import functools
 import logging
 import os
 from typing import Any, Dict, List, Optional, Union
@@ -21,6 +23,10 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_TESTING
+from mlflow.langchain._langchain_autolog import (
+    _update_langchain_model_config,
+    patched_inference,
+)
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
@@ -31,7 +37,7 @@ from mlflow.langchain.utils import (
     _validate_and_wrap_lc_model,
     lc_runnables_types,
 )
-from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.models import Model, ModelInputExample, ModelSignature, get_model_info
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
@@ -39,6 +45,11 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    autologging_is_disabled,
+    safe_patch,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -312,6 +323,7 @@ def log_model(
     loader_fn=None,
     persist_dir=None,
     example_no_conversion=False,
+    run_id=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -408,6 +420,9 @@ def log_model(
 
             See a complete example in examples/langchain/retrieval_qa_chain.py.
         example_no_conversion: {{ example_no_conversion }}
+        run_id: run_id to associate with this model version. If specified, we resume the
+                run and log the model to that run. Otherwise, a new run is created.
+                Default to None.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -431,6 +446,7 @@ def log_model(
         loader_fn=loader_fn,
         persist_dir=persist_dir,
         example_no_conversion=example_no_conversion,
+        run_id=run_id,
     )
 
 
@@ -447,12 +463,21 @@ def _load_model(local_model_path, flavor_conf):
     # which load function to use
     model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
     if model_load_fn == _RUNNABLE_LOAD_KEY:
-        return _load_runnables(local_model_path, flavor_conf)
-    if model_load_fn == _BASE_LOAD_KEY:
-        return _load_base_lcs(local_model_path, flavor_conf)
-    raise mlflow.MlflowException(
-        f"Failed to load LangChain model. Unknown model type: {flavor_conf.get(_MODEL_TYPE_KEY)}"
-    )
+        model = _load_runnables(local_model_path, flavor_conf)
+    elif model_load_fn == _BASE_LOAD_KEY:
+        model = _load_base_lcs(local_model_path, flavor_conf)
+    else:
+        raise mlflow.MlflowException(
+            "Failed to load LangChain model. Unknown model type: "
+            f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
+        )
+    # To avoid double logging, we set model_logged to True
+    # when the model is loaded
+    if not autologging_is_disabled(FLAVOR_NAME):
+        if _update_langchain_model_config(model):
+            model.model_logged = True
+            model.run_id = get_model_info(local_model_path).run_id
+    return model
 
 
 class _LangChainModelWrapper:
@@ -654,3 +679,84 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     return _load_model_from_local_fs(local_model_path)
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    log_datasets=False,
+    log_inputs_outputs=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=True,
+    silent=False,
+    registered_model_name=None,
+    extra_tags=None,
+):  # pylint: disable=unused-argument
+    """
+    Enables (or disables) and configures autologging from Langchain to MLflow.
+
+    :param log_input_examples: If ``True``, input examples from inference data are collected and
+                               logged along with Langchain model artifacts during inference. If
+                               ``False``, input examples are not logged.
+                               Note: Input examples are MLflow model attributes
+                               and are only collected if ``log_models`` is also ``True``.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with Langchain model artifacts during inference. If ``False``,
+                                 signatures are not logged.
+                                 Note: Model signatures are MLflow model attributes
+                                 and are only collected if ``log_models`` is also ``True``.
+    :param log_models: If ``True``, langchain models are logged as MLflow model artifacts.
+                       If ``False``, langchain models are not logged.
+                       Input examples and model signatures, which are attributes of MLflow models,
+                       are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking
+                         if applicable. If ``False``, dataset information is not logged.
+    :param log_inputs_outputs: If ``True``, inference data and results are combined into a single
+                                  pandas DataFrame and logged to MLflow Tracking as an artifact.
+                                  If ``False``, inference data and results are not logged.
+                                  Default to ``True``.
+    :param disable: If ``True``, disables the Langchain autologging integration. If ``False``,
+                    enables the Langchain autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      langchain that have not been tested against this version of the MLflow
+                      client or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during Langchain
+                   autologging. If ``False``, show all events and warnings during Langchain
+                   autologging.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
+    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    """
+
+    with contextlib.suppress(ImportError):
+        from langchain.agents.agent import AgentExecutor
+        from langchain.chains.base import Chain
+        from langchain.schema import BaseRetriever
+
+        classes = lc_runnables_types() + (AgentExecutor, Chain)
+        for cls in classes:
+            # IF runnable also contains loader_fn and persist_dir, warn
+            # BaseRetrievalQA, BaseREtriever, ...
+            safe_patch(FLAVOR_NAME, cls, "invoke", functools.partial(patched_inference, "invoke"))
+
+        for cls in [AgentExecutor, Chain]:
+            safe_patch(
+                FLAVOR_NAME, cls, "__call__", functools.partial(patched_inference, "__call__")
+            )
+
+        safe_patch(
+            FLAVOR_NAME,
+            BaseRetriever,
+            "get_relevant_documents",
+            functools.partial(patched_inference, "get_relevant_documents"),
+        )

@@ -1,11 +1,4 @@
-import {
-  Button,
-  CloseIcon,
-  PinIcon,
-  PinFillIcon,
-  Tooltip,
-  VisibleIcon,
-} from '@databricks/design-system';
+import { Button, CloseIcon, PinIcon, PinFillIcon, Tooltip, VisibleIcon, Typography } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
@@ -33,10 +26,7 @@ interface CompareChartContextMenuContentDataType {
 
 type CompareChartContextMenuHoverDataType = RunsCompareCardConfig;
 
-const createBarChartValuesBox = (
-  cardConfig: RunsCompareBarCardConfig,
-  activeRun: RunsChartsRunData,
-) => {
+const createBarChartValuesBox = (cardConfig: RunsCompareBarCardConfig, activeRun: RunsChartsRunData) => {
   const { metricKey } = cardConfig;
   const metric = activeRun?.metrics[metricKey];
 
@@ -51,19 +41,14 @@ const createBarChartValuesBox = (
   );
 };
 
-const createScatterChartValuesBox = (
-  cardConfig: RunsCompareScatterCardConfig,
-  activeRun: RunsChartsRunData,
-) => {
+const createScatterChartValuesBox = (cardConfig: RunsCompareScatterCardConfig, activeRun: RunsChartsRunData) => {
   const { xaxis, yaxis } = cardConfig;
   const xKey = xaxis.key;
   const yKey = yaxis.key;
 
-  const xValue =
-    xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
+  const xValue = xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
 
-  const yValue =
-    yaxis.type === 'METRIC' ? activeRun.metrics[yKey]?.value : activeRun.params[yKey]?.value;
+  const yValue = yaxis.type === 'METRIC' ? activeRun.metrics[yKey]?.value : activeRun.params[yKey]?.value;
 
   return (
     <>
@@ -81,23 +66,17 @@ const createScatterChartValuesBox = (
   );
 };
 
-const createContourChartValuesBox = (
-  cardConfig: RunsCompareContourCardConfig,
-  activeRun: RunsChartsRunData,
-) => {
+const createContourChartValuesBox = (cardConfig: RunsCompareContourCardConfig, activeRun: RunsChartsRunData) => {
   const { xaxis, yaxis, zaxis } = cardConfig;
   const xKey = xaxis.key;
   const yKey = yaxis.key;
   const zKey = zaxis.key;
 
-  const xValue =
-    xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
+  const xValue = xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
 
-  const yValue =
-    yaxis.type === 'METRIC' ? activeRun.metrics[yKey]?.value : activeRun.params[yKey]?.value;
+  const yValue = yaxis.type === 'METRIC' ? activeRun.metrics[yKey]?.value : activeRun.params[yKey]?.value;
 
-  const zValue =
-    zaxis.type === 'METRIC' ? activeRun.metrics[zKey]?.value : activeRun.params[zKey]?.value;
+  const zValue = zaxis.type === 'METRIC' ? activeRun.metrics[zKey]?.value : activeRun.params[zKey]?.value;
 
   return (
     <>
@@ -125,7 +104,9 @@ const createLineChartValuesBox = (
   activeRun: RunsChartsRunData,
   hoverData?: RunsMetricsLinePlotHoverData,
 ) => {
-  const { metricKey } = cardConfig;
+  const { metricKey: metricKeyFromConfig } = cardConfig;
+  const metricKey = hoverData?.metricEntity?.key || metricKeyFromConfig;
+
   // If there's available value from x axis (step or time), extract entry from
   // metric history instead of latest metric.
   const metricValue = hoverData?.yValue || activeRun?.metrics[metricKey].value;
@@ -228,11 +209,7 @@ const ValuesBox = ({
   }
 
   if (cardConfig.type === RunsCompareChartType.PARALLEL) {
-    return createParallelChartValuesBox(
-      cardConfig as RunsCompareParallelCardConfig,
-      activeRun,
-      isHovering,
-    );
+    return createParallelChartValuesBox(cardConfig as RunsCompareParallelCardConfig, activeRun, isHovering);
   }
 
   return null;
@@ -252,35 +229,37 @@ export const RunsCompareTooltipBody = ({
 >) => {
   const { runs, onTogglePin, onHideRun } = contextData;
   const [experimentId] = useExperimentIds();
-  const activeRun = runs?.find((run) => run.runInfo.run_uuid === runUuid);
+  const activeRun = runs?.find((run) => run.uuid === runUuid);
 
   if (!activeRun) {
     return null;
   }
+
+  const runName = activeRun.displayName || activeRun.uuid;
+  const metricSuffix = hoverData?.metricEntity ? ` (${hoverData.metricEntity.key})` : '';
 
   return (
     <div>
       <div css={styles.contentWrapper}>
         <div css={styles.header}>
           <div css={styles.colorPill} style={{ backgroundColor: activeRun.color }} />
-          <Link
-            to={Routes.getRunPageRoute(experimentId, runUuid)}
-            target='_blank'
-            css={styles.runLink}
-            onClick={closeContextMenu}
-          >
-            {activeRun.runInfo.run_name || activeRun.runInfo.run_uuid}
-          </Link>
+          {activeRun.groupParentInfo ? (
+            <Typography.Text>{runName + metricSuffix}</Typography.Text>
+          ) : (
+            <Link
+              to={Routes.getRunPageRoute(experimentId, runUuid)}
+              target="_blank"
+              css={styles.runLink}
+              onClick={closeContextMenu}
+            >
+              {runName + metricSuffix}
+            </Link>
+          )}
         </div>
-        {!isHovering && <Button size='small' onClick={closeContextMenu} icon={<CloseIcon />} />}
+        {!isHovering && <Button size="small" onClick={closeContextMenu} icon={<CloseIcon />} />}
       </div>
 
-      <ValuesBox
-        isHovering={isHovering}
-        activeRun={activeRun}
-        cardConfig={chartData}
-        hoverData={hoverData}
-      />
+      <ValuesBox isHovering={isHovering} activeRun={activeRun} cardConfig={chartData} hoverData={hoverData} />
 
       <div css={styles.actionsWrapper}>
         {activeRun.pinnable && onTogglePin && (
@@ -288,20 +267,20 @@ export const RunsCompareTooltipBody = ({
             title={
               activeRun.pinned ? (
                 <FormattedMessage
-                  defaultMessage='Unpin run'
-                  description='A tooltip for the pin icon button in the runs table next to the pinned run'
+                  defaultMessage="Unpin run"
+                  description="A tooltip for the pin icon button in the runs table next to the pinned run"
                 />
               ) : (
                 <FormattedMessage
-                  defaultMessage='Click to pin the run'
-                  description='A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run'
+                  defaultMessage="Click to pin the run"
+                  description="A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
                 />
               )
             }
-            placement='bottom'
+            placement="bottom"
           >
             <Button
-              size='small'
+              size="small"
               onClick={() => {
                 onTogglePin(runUuid);
                 closeContextMenu();
@@ -314,15 +293,15 @@ export const RunsCompareTooltipBody = ({
           <Tooltip
             title={
               <FormattedMessage
-                defaultMessage='Click to hide the run'
+                defaultMessage="Click to hide the run"
                 description='A tooltip for the "hide" icon button in the runs chart tooltip'
               />
             }
-            placement='bottom'
+            placement="bottom"
           >
             <Button
-              data-testid='experiment-view-compare-runs-tooltip-visibility-button'
-              size='small'
+              data-testid="experiment-view-compare-runs-tooltip-visibility-button"
+              size="small"
               onClick={() => {
                 onHideRun(runUuid);
                 closeContextMenu();
