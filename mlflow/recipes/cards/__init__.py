@@ -290,7 +290,7 @@ class FailureCard(BaseCard):
             '<p><strong>Step status: <span style="color:red">Failed</span></strong></p>',
         )
         self.add_tab(
-            "Stacktrace", "<div class='stacktrace-container'>{{ STACKTRACE }}</div>"
+            "Stacktrace", "<div class='stacktrace-container'>{{ STACKTRACE|e }}</div>"
         ).add_html("STACKTRACE", f'<p style="margin-top:0px"><code>{failure_traceback}</code></p>')
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
