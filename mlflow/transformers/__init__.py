@@ -95,7 +95,7 @@ _IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
 _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
 _LICENSE_FILE_NAME = "LICENSE.txt"
-_LICENSE_FILE_NAMES = ["LICENSE.txt", "LICENSE", "LICENSE.md", "LICENSE.yml"]
+_LICENSE_FILE_PATTERN = re.compile(r"license(\.[a-z]+|$)", re.IGNORECASE)
 _MODEL_KEY = "model"
 _MODEL_BINARY_KEY = "model_binary"
 _MODEL_BINARY_FILE_NAME = "model"
@@ -538,7 +538,7 @@ def save_model(
     model_name = transformers_model.model.name_or_path
 
     # Get the model card from either the argument or the HuggingFace marketplace
-    card_data = model_card if model_card is not None else _fetch_model_card(model_name)
+    card_data = model_card or _fetch_model_card(model_name)
 
     # If the card data can be acquired, save the text and the data separately
     _write_card_data(card_data, path)
@@ -1149,7 +1149,7 @@ def _write_card_data(card_data, path):
             )
 
 
-def _list_repository_contents(model_name):
+def _extract_license_file_from_repository(model_name):
     """Returns the top-level file inventory of `RepoFile` objects from the huggingface hub"""
     try:
         import huggingface_hub as hub
@@ -1163,7 +1163,7 @@ def _list_repository_contents(model_name):
 
     try:
         files = hub.list_repo_tree(model_name)
-        return list(files)
+        return next(file.path for file in files if _LICENSE_FILE_PATTERN.search(file.path))
     except Exception as e:
         _logger.debug(
             f"Failed to retrieve repository file listing data for {model_name} due to {e}"
@@ -1171,38 +1171,41 @@ def _list_repository_contents(model_name):
 
 
 def _write_license_information(model_name, card_data, path):
-    """Writes the license file or instructions to retrieve license information"""
+    """Writes the license file or instructions to retrieve license information."""
 
     fallback = (
         f"A license file could not be found for the '{model_name}' repository. \n"
         "To ensure that you are in compliance with the license requirements for this "
-        f"model, please visit the model repository here:\n https://huggingface.co/{model_name}"
+        f"model, please visit the model repository here: https://huggingface.co/{model_name}"
     )
 
-    if repository_contents := _list_repository_contents(model_name):
-        import huggingface_hub as hub
+    if license_file := _extract_license_file_from_repository(model_name):
+        try:
+            import huggingface_hub as hub
 
-        if license_files := [
-            file.path for file in repository_contents if file.path in _LICENSE_FILE_NAMES
-        ]:
+            license_location = hub.hf_hub_download(repo_id=model_name, filename=license_file)
+        except Exception as e:
+            _logger.debug(f"Failed to download the license file due to: {e}")
+        else:
+            local_license_path = pathlib.Path(license_location)
+            target_path = path.joinpath(local_license_path.name)
             try:
-                local_license_path = pathlib.Path(
-                    hub.hf_hub_download(repo_id=model_name, filename=license_files[0])
-                )
-                target_path = path.joinpath(local_license_path.name)
                 shutil.copy(local_license_path, target_path)
                 return
             except Exception as e:
-                _logger.debug(f"The license file could not be retrieved due to {e}")
+                _logger.debug(f"The license file could not be copied due to: {e}")
 
-        if card_data and card_data.data.license != "other":
-            fallback = f"{fallback}\nThe declared license type is: '{card_data.data.license}'"
-        else:
-            _logger.warning(
-                "Unable to find license information for this model. Please verify "
-                "permissible usage for the model you are storing prior to use."
-            )
-    path.joinpath(_LICENSE_FILE_NAME).write_text(fallback, encoding="utf-8")
+    # Fallback or card data license info
+    if card_data and card_data.data.license != "other":
+        license_info = f"{fallback}\nThe declared license type is: '{card_data.data.license}'"
+    else:
+        _logger.warning(
+            "Unable to find license information for this model. Please verify "
+            "permissible usage for the model you are storing prior to use."
+        )
+        license_info = fallback
+
+    path.joinpath(_LICENSE_FILE_NAME).write_text(license_info, encoding="utf-8")
 
 
 def _build_pipeline_from_model_input(model, task: str):

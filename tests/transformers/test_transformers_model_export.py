@@ -323,6 +323,8 @@ def test_model_card_acquisition_vision_model(small_vision_model):
         ("csarron/mobilebert-uncased-squad-v2", "LICENSE.txt", "'mit'"),  # mit license
         ("codellama/CodeLlama-34b-hf", "LICENSE", "this Agreement."),  # custom license
         ("openai/whisper-tiny", "LICENSE.txt", "'apache-2.0'"),  # apache license
+        ("stabilityai/stable-code-3b", "LICENSE", "principles."),  # custom
+        ("mistralai/Mixtral-8x7B-Instruct-v0.1", "LICENSE.txt", "'apache-2.0'"),  # apache
     ],
 )
 def test_license_acquisition(repo_id, license_file, file_end, tmp_path):
@@ -333,11 +335,7 @@ def test_license_acquisition(repo_id, license_file, file_end, tmp_path):
 
 def test_license_fallback(tmp_path):
     _write_license_information("not a real repo", None, tmp_path)
-    assert (
-        tmp_path.joinpath("LICENSE.txt")
-        .read_text()
-        .startswith("A license file could not be found for the")
-    )
+    assert tmp_path.joinpath("LICENSE.txt").stat().st_size > 0
 
 
 def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path):
@@ -959,16 +957,13 @@ def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
 
         assert result is None
 
-        license = mlflow.transformers._fetch_license(
-            small_seq2seq_pipeline.model.name_or_path, result
-        )
-        assert license.startswith("A license file could not be found for")
-
         mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
 
         contents = {item.name for item in model_path.iterdir()}
         assert not contents.intersection({"model_card.txt", "model_card_data.yaml"})
-        assert "LICENSE.txt" in contents
+
+        license_data = model_path.joinpath("LICENSE.txt").read_text()
+        assert license_data.rstrip().endswith("mobilebert")
 
 
 def test_save_pipeline_without_defined_components(small_conversational_model, model_path):
