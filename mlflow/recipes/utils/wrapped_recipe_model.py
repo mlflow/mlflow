@@ -26,15 +26,17 @@ class WrappedRecipeModel(PythonModel):
         params: Optional[Dict[str, Any]] = None,  # pylint: disable=unused-argument
     ):
         """
-        :param context: A :class:`~PythonModelContext` instance containing artifacts that the model
-                        can use to perform inference.
-        :param model_input: A pyfunc-compatible input for the model to evaluate.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            context: A :class:`~PythonModelContext` instance containing artifacts that the model
+                can use to perform inference.
+            model_input: A pyfunc-compatible input for the model to evaluate.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         predicted_label = self._classifier.predict(model_input)
         # Only classification recipe would be have multiple classes in the target column
