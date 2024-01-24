@@ -18,6 +18,7 @@ from mlflow.utils.rest_utils import (
     call_endpoint,
     extract_api_info_for_service,
 )
+from mlflow.utils._unity_catalog_utils import get_full_name_from_sc
 
 DATABRICKS_HIVE_METASTORE_NAME = "hive_metastore"
 # these two catalog names both points to the workspace local default HMS (hive metastore).
@@ -25,9 +26,6 @@ DATABRICKS_LOCAL_METASTORE_NAMES = [DATABRICKS_HIVE_METASTORE_NAME, "spark_catal
 # samples catalog is managed by databricks for hosting public dataset like NYC taxi dataset.
 # it is neither a UC nor local metastore catalog
 DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
-
-_ACTIVE_CATALOG_QUERY = "SELECT current_catalog() AS catalog"
-_ACTIVE_SCHEMA_QUERY = "SELECT current_database() AS schema"
 
 _logger = logging.getLogger(__name__)
 
@@ -51,7 +49,9 @@ class DeltaDatasetSource(DatasetSource):
                 INVALID_PARAMETER_VALUE,
             )
         self._path = path
-        self._delta_table_name = self._resolve_table_name(delta_table_name)
+        self._delta_table_name = get_full_name_from_sc(
+            delta_table_name, _get_active_spark_session()
+        )
         self._delta_table_version = delta_table_version
         self._delta_table_id = delta_table_id
 
@@ -131,23 +131,6 @@ class DeltaDatasetSource(DatasetSource):
             return resp.table_id
         except Exception:
             return None
-
-    def _resolve_table_name(self, table_name) -> Optional[str]:
-        try:
-            num_levels = len(table_name.split("."))
-            spark = _get_active_spark_session()
-            if num_levels >= 3 or spark is None:
-                return table_name
-            catalog = spark.sql(_ACTIVE_CATALOG_QUERY).collect()[0]["catalog"]
-            # return the user provided name if the catalog is the hive metastore default
-            if catalog in DATABRICKS_LOCAL_METASTORE_NAMES:
-                return table_name
-            if num_levels == 2:
-                return f"{catalog}.{table_name}"
-            schema = spark.sql(_ACTIVE_SCHEMA_QUERY).collect()[0]["schema"]
-            return f"{catalog}.{schema}.{table_name}"
-        except Exception:
-            return table_name
 
     def _to_dict(self) -> Dict[Any, Any]:
         info = {}
