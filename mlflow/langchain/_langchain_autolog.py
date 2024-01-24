@@ -216,9 +216,14 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     if (active_run := mlflow.active_run()) and run_id is None:
         run_id = active_run.info.run_id
     # TODO: test adding callbacks works
+    # Use session_id-inference_id as artifact directory where mlflow
+    # callback logs artifacts into, to avoid overriding artifacts
+    session_id = getattr(self, "session_id", uuid.uuid4().hex)
+    inference_id = getattr(self, "inference_id", 0)
     mlflow_callback = _MLflowLangchainCallback(
         tracking_uri=mlflow.get_tracking_uri(),
         run_id=run_id,
+        artifacts_dir=f"artifacts-{session_id}-{inference_id}",
     )
     args, kwargs = _inject_mlflow_callback(func_name, mlflow_callback, args, kwargs)
     with disable_autologging():
@@ -283,7 +288,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         if not hasattr(self, "run_id"):
             self.run_id = mlflow_callback.mlflg.run_id
         if not hasattr(self, "session_id"):
-            self.session_id = uuid.uuid4().hex
+            self.session_id = session_id
+        self.inference_id = inference_id + 1
 
     log_inputs_outputs = get_autologging_config(
         mlflow.langchain.FLAVOR_NAME, "log_inputs_outputs", False
@@ -296,6 +302,12 @@ def patched_inference(func_name, original, self, *args, **kwargs):
         else:
             input_data = input_example
         data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
-        mlflow.log_table(data_dict, "inference_history.json", run_id=mlflow_callback.mlflg.run_id)
+        mlflow.log_table(
+            data_dict, "inference_inputs_outputs.json", run_id=mlflow_callback.mlflg.run_id
+        )
+
+    # Terminate the run if it is not managed by the user
+    if active_run is None or active_run.info.run_id != mlflow_callback.mlflg.run_id:
+        mlflow.MlflowClient().set_terminated(mlflow_callback.mlflg.run_id)
 
     return result

@@ -93,6 +93,14 @@ def get_mlflow_model(artifact_uri, model_subpath=MODEL_DIR):
     return Model.load(model_conf_path)
 
 
+def get_artifacts(run_id):
+    client = MlflowClient()
+    artifacts = client.list_artifacts(run_id)
+    artifacts_folder = [x for x in artifacts if x.path.split("/")[-1].startswith("artifacts-")][0]
+    artifacts = client.list_artifacts(run_id, artifacts_folder.path)
+    return [x.path.split("/")[-1] for x in artifacts]
+
+
 def create_openai_llmchain():
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
@@ -258,9 +266,7 @@ def test_llmchain_autolog_artifacts():
         model = create_openai_llmchain()
         with mlflow.start_run() as run:
             model.invoke("MLflow")
-        client = MlflowClient()
-        artifacts = client.list_artifacts(run.info.run_id)
-        artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+        artifacts = get_artifacts(run.info.run_id)
         for artifact_name in get_mlflow_callback_artifacts():
             if isinstance(artifact_name, str):
                 assert artifact_name in artifacts
@@ -303,7 +309,7 @@ def test_llmchain_autolog_log_inputs_outputs():
         model = create_openai_llmchain()
         with mlflow.start_run() as run:
             model.invoke(question)
-        loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+        loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
         assert len(loaded_dict) == 1
         assert loaded_dict[0]["input"] == question
@@ -316,14 +322,14 @@ def test_llmchain_autolog_log_inputs_outputs():
         with mlflow.start_run():
             model.invoke(question)
         model.invoke(question)
-        loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+        loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
         assert loaded_dict == [{"input": question, "output": answer, "session_id": session_id}] * 4
 
         # A different inference session adds a different session_id
         loaded_model = mlflow.langchain.load_model(f"runs:/{run.info.run_id}/model")
         loaded_model.invoke(question)
-        loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+        loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
         assert len(loaded_dict) == 5
         new_session_id = loaded_dict[-1]["session_id"]
@@ -362,8 +368,7 @@ def test_agent_autolog_metrics_and_artifacts():
         for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
             assert metric_key in metrics
 
-        artifacts = client.list_artifacts(run.info.run_id)
-        artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+        artifacts = get_artifacts(run.info.run_id)
         for artifact_name in get_mlflow_callback_artifacts(
             contains_agent=True, contains_chain=True
         ):
@@ -405,7 +410,7 @@ def test_agent_autolog_log_inputs_outputs():
     with _mock_request(return_value=_MockResponse(200, mock_response)):
         with mlflow.start_run() as run:
             assert model(input, return_only_outputs=True) == output
-        loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+        loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
         assert len(loaded_dict) == 1
         assert loaded_dict[0]["input"] == input
@@ -414,7 +419,7 @@ def test_agent_autolog_log_inputs_outputs():
 
         with mlflow.start_run(run.info.run_id):
             model.invoke(input, return_only_outputs=True)
-        loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+        loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
         loaded_dict = loaded_table.to_dict("records")
         assert loaded_dict == [{"input": input, "output": output, "session_id": session_id}] * 2
 
@@ -438,8 +443,7 @@ def test_runnable_sequence_autolog_metrics_and_artifacts():
     for metric_key in MLFLOW_CALLBACK_METRICS + TEXT_COMPLEXITY_METRICS:
         assert metric_key in metrics
 
-    artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+    artifacts = get_artifacts(run.info.run_id)
     for artifact_name in get_mlflow_callback_artifacts(contains_on_text_action=False):
         if isinstance(artifact_name, str):
             assert artifact_name in artifacts
@@ -477,7 +481,7 @@ def test_runnable_sequence_autolog_log_inputs_outputs():
     output = TEST_CONTENT
     with mlflow.start_run() as run:
         assert chain.invoke(input_example) == output
-    loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+    loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
     loaded_dict = loaded_table.to_dict("records")
     assert len(loaded_dict) == 1
     assert loaded_dict[0]["input"] == input_example
@@ -486,7 +490,7 @@ def test_runnable_sequence_autolog_log_inputs_outputs():
 
     with mlflow.start_run(run.info.run_id):
         chain.invoke(input_example)
-    loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+    loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
     loaded_dict = loaded_table.to_dict("records")
     assert loaded_dict == [{"input": input_example, "output": output, "session_id": session_id}] * 2
 
@@ -512,8 +516,7 @@ def test_retriever_metrics_and_artifacts(tmp_path):
     for metric_key in MLFLOW_CALLBACK_METRICS:
         assert metric_key in metrics
 
-    artifacts = client.list_artifacts(run.info.run_id)
-    artifacts = [x.path.split(os.sep)[-1] for x in artifacts]
+    artifacts = get_artifacts(run.info.run_id)
     for artifact_name in get_mlflow_callback_artifacts(
         contains_llm=False,
         contains_on_text_action=False,
@@ -534,7 +537,7 @@ def test_retriever_autlog_inputs_outputs(tmp_path):
         documents = [
             {"page_content": doc.page_content, "metadata": doc.metadata} for doc in documents
         ]
-    loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+    loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
     loaded_dict = loaded_table.to_dict("records")
     assert len(loaded_dict) == 1
     assert loaded_dict[0]["input"] == query
@@ -543,7 +546,7 @@ def test_retriever_autlog_inputs_outputs(tmp_path):
 
     with mlflow.start_run(run.info.run_id):
         model.get_relevant_documents(query)
-    loaded_table = mlflow.load_table("inference_history.json", run_ids=[run.info.run_id])
+    loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
     loaded_dict = loaded_table.to_dict("records")
     assert loaded_dict == [{"input": query, "output": documents, "session_id": session_id}] * 2
 
