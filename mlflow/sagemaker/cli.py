@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 
 import click
 
@@ -9,7 +10,6 @@ import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as em
-from mlflow.utils.file_utils import TempDir
 
 
 @click.group("sagemaker")
@@ -367,16 +367,15 @@ def build_and_push_container(build, push, container, env_manager, mlflow_home):
             '_install_pyfunc_deps(None, False)"'
         )
 
-        with TempDir() as tmp:
-            cwd = tmp.path()
+        with tempfile.TemporaryDirectory() as tmp:
             docker_utils.generate_dockerfile(
-                output_dir=cwd,
+                output_dir=tmp,
                 entrypoint=sagemaker_image_entrypoint,
                 env_manager=env_manager,
                 mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
                 custom_setup_steps=setup_container,
             )
 
-            docker_utils.build_image_from_context(cwd, image_name=container)
+            docker_utils.build_image_from_context(tmp, image_name=container)
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)

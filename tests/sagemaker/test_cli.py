@@ -1,16 +1,18 @@
-import difflib
 import os
 import shutil
+from pathlib import Path
 from unittest import mock
 
 import pytest
 from click.testing import CliRunner
 
+import mlflow
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.sagemaker.cli import build_and_push_container
-from mlflow.version import VERSION
 
-_MLFLOW_ROOT = pathlib.Path(mlflow.__file__).parent.parent
+from tests.pyfunc.test_docker import compare_dockerfiles
+
+_MLFLOW_ROOT = Path(mlflow.__file__).parent.parent
 _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
 
 
@@ -39,14 +41,6 @@ def test_build_and_push_container(tmp_path, env_manager):
         )
         assert res.exit_code == 0
 
-        with open(os.path.join(dst_dir, "Dockerfile")) as f:
-            actual_dockerfile = f.read()
-
-        with open(os.path.join(_RESOURCE_DIR, f"Dockerfile_sagemaker_{env_manager}")) as f:
-            expected_dockerfile = f.read().replace("$VERSION", VERSION)
-
-        assert (
-            actual_dockerfile == expected_dockerfile
-        ), "Generated Dockerfile does not match expected one. Diff:\n" + "\n".join(
-            difflib.unified_diff(expected_dockerfile.splitlines(), actual_dockerfile.splitlines())
-        )
+    actual = dst_dir / "Dockerfile"
+    expected = Path(_RESOURCE_DIR) / f"Dockerfile_sagemaker_{env_manager}"
+    compare_dockerfiles(actual, expected)

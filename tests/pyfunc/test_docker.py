@@ -1,6 +1,9 @@
 import difflib
 import os
 import shutil
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -16,8 +19,19 @@ _MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
 
 
+def compare_dockerfiles(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
+    actual_dockerfile = actual_dockerfile_path.read_text()
+    expected_dockerfile = expected_dockerfile_path.read_text().replace("$VERSION", VERSION)
+
+    assert (
+        actual_dockerfile == expected_dockerfile
+    ), "Generated Dockerfile does not match expected one. Diff:\n" + "\n".join(
+        difflib.unified_diff(expected_dockerfile.splitlines(), actual_dockerfile.splitlines())
+    )
+
+
 def log_model():
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         knn_model = sklearn.neighbors.KNeighborsClassifier()
         model_info = mlflow.sklearn.log_model(
             knn_model,
@@ -30,50 +44,43 @@ def log_model():
         return model_info.model_uri
 
 
-class TestParam:
-    def __init__(
-        self,
-        expected_dockerfile,
-        env_manager=VIRTUALENV,
-        mlflow_home=None,
-        install_mlflow=False,
-        enable_mlserver=False,
-        specify_model_uri=True,
-    ):
-        self.env_manager = env_manager
-        self.mlflow_home = mlflow_home
-        self.install_mlflow = install_mlflow
-        self.enable_mlserver = enable_mlserver
-        self.specify_model_uri = specify_model_uri
-        self.expected_dockerfile = expected_dockerfile
+@dataclass
+class Param:
+    expected_dockerfile: str
+    env_manager: str = VIRTUALENV
+    mlflow_home: Optional[str] = None
+    install_mlflow: bool = False
+    enable_mlserver: bool = False
+    # If True, image is built with --model-uri param
+    specify_model_uri: bool = True
 
 
 _TEST_PARAMS = [
-    TestParam(
+    Param(
         expected_dockerfile="Dockerfile_default",
     ),
-    TestParam(
+    Param(
         env_manager=CONDA,
         expected_dockerfile="Dockerfile_conda",
     ),
-    TestParam(
+    Param(
         mlflow_home=".",
         expected_dockerfile="Dockerfile_with_mlflow_home",
     ),
-    TestParam(
+    Param(
         install_mlflow=True,
         expected_dockerfile="Dockerfile_install_mlflow",
     ),
-    TestParam(
+    Param(
         mlflow_home=_MLFLOW_ROOT,
         install_mlflow=True,
         expected_dockerfile="Dockerfile_install_mlflow_from_mlflow_home",
     ),
-    TestParam(
+    Param(
         enable_mlserver=True,
         expected_dockerfile="Dockerfile_enable_mlserver",
     ),
-    TestParam(specify_model_uri=False, expected_dockerfile="Dockerfile_no_model_uri"),
+    Param(specify_model_uri=False, expected_dockerfile="Dockerfile_no_model_uri"),
 ]
 
 
@@ -91,17 +98,9 @@ def test_generate_dockerfile(tmp_path, params):
         enable_mlserver=params.enable_mlserver,
     )
 
-    with open(os.path.join(tmp_path, "Dockerfile")) as f:
-        actual_dockerfile = f.read()
-
-    with open(os.path.join(_RESOURCE_DIR, params.expected_dockerfile)) as f:
-        expected_dockerfile = f.read().replace("$VERSION", VERSION)
-
-    assert (
-        actual_dockerfile == expected_dockerfile
-    ), "Generated Dockerfile does not match expected one. Diff:\n" + "\n".join(
-        difflib.unified_diff(expected_dockerfile.splitlines(), actual_dockerfile.splitlines())
-    )
+    actual = tmp_path / "Dockerfile"
+    expected = Path(_RESOURCE_DIR) / params.expected_dockerfile
+    compare_dockerfiles(actual, expected)
 
 
 @pytest.mark.parametrize("params", _TEST_PARAMS)
@@ -124,13 +123,6 @@ def test_build_image(tmp_path, params):
             enable_mlserver=params.enable_mlserver,
         )
 
-    actual_dockerfile = (dst_dir / "Dockerfile").read_text()
-
-    with open(os.path.join(_RESOURCE_DIR, params.expected_dockerfile)) as f:
-        expected_dockerfile = f.read().replace("$VERSION", VERSION)
-
-    assert (
-        actual_dockerfile == expected_dockerfile
-    ), "Generated Dockerfile does not match expected one. Diff:\n" + "\n".join(
-        difflib.unified_diff(expected_dockerfile.splitlines(), actual_dockerfile.splitlines())
-    )
+    actual = dst_dir / "Dockerfile"
+    expected = Path(_RESOURCE_DIR) / params.expected_dockerfile
+    compare_dockerfiles(actual, expected)
