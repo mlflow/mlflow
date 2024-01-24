@@ -108,6 +108,7 @@ def test_fluent_get_valid_route(gateway):
         "name": "completions",
         "route_type": "llm/v1/completions",
         "route_url": resolve_route_url(gateway.url, "gateway/completions/invocations"),
+        "limit": None,
     }
 
 
@@ -128,12 +129,14 @@ def test_fluent_search_routes(gateway):
         "name": "completions",
         "route_type": "llm/v1/completions",
         "route_url": resolve_route_url(gateway.url, "gateway/completions/invocations"),
+        "limit": None,
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
         "route_type": "llm/v1/chat",
         "route_url": resolve_route_url(gateway.url, "gateway/chat/invocations"),
+        "limit": None,
     }
 
 
@@ -281,6 +284,7 @@ def test_get_route_accepts_unknown_provider():
         "route_type": "llm/v1/chat",
         "model": {"name": "unknown-5", "provider": "unknown-ai"},
         "route_url": "http://localhost:5000/gateway/chat/invocations",
+        "limit": None,
     }
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         route = get_route("chat")
@@ -296,6 +300,7 @@ def test_get_route_accepts_unknown_route_type():
         "route_type": "llm/v1/unknown",
         "model": {"name": "gpt4", "provider": "openai"},
         "route_url": "http://localhost:5000/gateway/chat/invocations",
+        "limit": None,
     }
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         route = get_route("chat")
@@ -313,6 +318,7 @@ def test_search_routes_accepts_unknown_provider():
                 "route_type": "llm/v1/chat",
                 "model": {"name": "unknown-5", "provider": "unknown-ai"},
                 "route_url": "http://localhost:5000/gateway/chat/invocations",
+                "limit": None,
             },
         ],
         "next_page_token": None,
@@ -333,6 +339,7 @@ def test_search_routes_accepts_unknown_route_type():
                 "route_type": "llm/v1/unknown",
                 "model": {"name": "gpt4", "provider": "openai"},
                 "route_url": "http://localhost:5000/gateway/chat/invocations",
+                "limit": None,
             },
         ],
         "next_page_token": None,
