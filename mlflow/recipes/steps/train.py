@@ -25,6 +25,7 @@ from mlflow.recipes.cards import BaseCard
 from mlflow.recipes.step import BaseStep, StepClass
 from mlflow.recipes.utils.execution import get_step_output_path
 from mlflow.recipes.utils.metrics import (
+    _format_numbers,
     _get_builtin_metrics,
     _get_custom_metrics,
     _get_error_fn,
@@ -329,6 +330,9 @@ class TrainStep(BaseStep):
 
             is_array = train_df[self.target_col].apply(lambda x: isinstance(x, np.ndarray))
             if is_array.all():
+                array_lengths = train_df[self.target_col].apply(lambda x: x.shape)
+                if len(set(array_lengths)) != 1:
+                    raise ValueError("All arrays must have the same dimension")
                 y_train = np.vstack(train_df[self.target_col].values)
             else:
                 y_train = train_df[self.target_col]
@@ -535,8 +539,8 @@ class TrainStep(BaseStep):
             )
             pred_and_error_df = pd.DataFrame(
                 {
-                    "target": target_data,
-                    "prediction": prediction_result,
+                    "target": target_data.tolist(),
+                    "prediction": prediction_result.tolist(),
                     "error": error_fn(prediction_result_for_error, target_data.to_numpy()),
                 }
             )
@@ -862,9 +866,9 @@ class TrainStep(BaseStep):
                 return pd.Series("", row.index)
 
         metric_table_html = BaseCard.render_table(
-            metric_df.style.format({"training": "{:.6g}", "validation": "{:.6g}"}).apply(
-                row_style, axis=1
-            )
+            metric_df.style.format(
+                {"training": _format_numbers, "validation": _format_numbers}
+            ).apply(row_style, axis=1)
         )
 
         # Tab 1: Model performance.

@@ -141,20 +141,21 @@ def _get_regressor_metrics(y, y_pred, sample_weights):
     return {
         "example_count": len(y),
         "mean_absolute_error": sk_metrics.mean_absolute_error(
-            y, y_pred, sample_weight=sample_weights
+            y.tolist(), y_pred.tolist(), sample_weight=sample_weights
         ),
         "mean_squared_error": sk_metrics.mean_squared_error(
-            y, y_pred, sample_weight=sample_weights
+            y.tolist(), y_pred.tolist(), sample_weight=sample_weights
         ),
         "root_mean_squared_error": sk_metrics.mean_squared_error(
-            y, y_pred, sample_weight=sample_weights, squared=False
+            y.tolist(), y_pred.tolist(), sample_weight=sample_weights, squared=False
         ),
         "sum_on_target": sum_on_target,
         "mean_on_target": sum_on_target / len(y),
-        "r2_score": sk_metrics.r2_score(y, y_pred, sample_weight=sample_weights),
-        "max_error": sk_metrics.max_error(y, y_pred),
+        "r2_score": sk_metrics.r2_score(y.tolist(), y_pred.tolist(), sample_weight=sample_weights),
+        # TODO: fix max_error func (make flatten arrays)
+        # "max_error": sk_metrics.max_error(y.tolist(), y_pred.tolist()),
         "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
-            y, y_pred, sample_weight=sample_weights
+            y.tolist(), y_pred.tolist(), sample_weight=sample_weights
         ),
     }
 

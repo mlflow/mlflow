@@ -371,11 +371,18 @@ class BaseStep(metaclass=abc.ABCMeta):
 
         predictions = np.array(predictions)
         abs_error = np.absolute(error)
-        worst_k_indexes = np.argsort(abs_error)[::-1][:worst_k]
-        result_df = dataframe.iloc[worst_k_indexes].assign(
-            prediction=predictions[worst_k_indexes],
-            absolute_error=abs_error[worst_k_indexes],
+
+        flat_abs_error = abs_error.flatten()
+        flat_predictions = predictions.flatten()
+        worst_k_indices = np.argsort(flat_abs_error)[-worst_k:][::-1]
+
+        worst_k_row_indices = worst_k_indices // predictions.shape[1]
+
+        result_df = dataframe.iloc[worst_k_row_indices].assign(
+            prediction=flat_predictions[worst_k_indices],
+            absolute_error=flat_abs_error[worst_k_indices],
         )
+
         front_columns = ["absolute_error", "prediction", target_col]
         reordered_columns = front_columns + result_df.columns.drop(front_columns).tolist()
         return result_df[reordered_columns].reset_index(drop=True)

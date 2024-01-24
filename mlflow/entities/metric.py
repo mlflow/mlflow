@@ -36,6 +36,7 @@ class Metric(_MLflowObject):
     def to_proto(self):
         metric = ProtoMetric()
         metric.key = self.key
+        # TODO: FIXME: Value can be ndarray
         metric.value = self.value
         metric.timestamp = self.timestamp
         metric.step = self.step
