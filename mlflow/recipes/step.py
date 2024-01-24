@@ -369,14 +369,14 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         import numpy as np
 
-        predictions = np.array(predictions)
-        abs_error = np.absolute(error)
+        predictions_2d = np.atleast_2d(predictions)
+        abs_error_2d = np.atleast_2d(error)
 
-        flat_abs_error = abs_error.flatten()
-        flat_predictions = predictions.flatten()
+        flat_abs_error = abs_error_2d.flatten()
+        flat_predictions = predictions_2d.flatten()
         worst_k_indices = np.argsort(flat_abs_error)[-worst_k:][::-1]
 
-        worst_k_row_indices = worst_k_indices // predictions.shape[1]
+        worst_k_row_indices = worst_k_indices // predictions_2d.shape[1]
 
         result_df = dataframe.iloc[worst_k_row_indices].assign(
             prediction=flat_predictions[worst_k_indices],
