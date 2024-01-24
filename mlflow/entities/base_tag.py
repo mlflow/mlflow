@@ -23,16 +23,6 @@ class BaseTag(_MLflowObject):
             return self.__dict__ == other.__dict__
         return False
 
-    @property
-    def key(self):
-        """String name of the tag."""
-        return self._key
-
-    @property
-    def value(self):
-        """String value of the tag."""
-        return self._value
-
     @classmethod
     def from_proto(cls, proto):
         return cls(proto.key, proto.value)
