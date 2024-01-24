@@ -276,7 +276,7 @@ def append_to_uri_path(uri, *paths):
 
     parsed_uri = urllib.parse.urlparse(uri)
 
-    # Validate query string, fragment and params 
+    # Validate query string, fragment and params
     # not to contain any traversal path (../) before appending
     # to the end of the path, otherwise they will be resolved as part of the path.
     validate_url_parts(parsed_uri)
