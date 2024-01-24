@@ -47,43 +47,43 @@ def log_model(
     Log a Spark MLLib model in MLeap format as an MLflow artifact
     for the current run. The logged model will have the MLeap flavor.
 
-    NOTE:
-
-        You cannot load the MLeap model flavor in Python; you must download it using the
+    .. Note:: You cannot load the MLeap model flavor in Python; you must download it using the
         Java API method ``downloadArtifacts(String runId)`` and load the model
         using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.
 
-    :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
-                        cannot contain any custom transformers.
-    :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
-                         required by MLeap for data schema inference.
-    :param artifact_path: Run-relative artifact path.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
+    Args:
+        spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and cannot
+            contain any custom transformers.
+        sample_input: Sample PySpark DataFrame input that the model can evaluate. This is required
+            by MLeap for data schema inference.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+        artifact_path: Run-relative artifact path.
 
-                      .. code-block:: python
+        registered_model_name: If given, create a model version under ``registered_model_name``,
+            also creating a registered model if one with the given name does not exist.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>` describes model input
+            and output :py:class:`Schema <mlflow.types.Schema>`. The model signature can be
+            :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model input
+            (e.g. the training dataset with target column omitted) and valid model output (e.g.
+            model predictions generated on the training dataset), for example:
 
-                        from mlflow.models import infer_signature
+            .. code-block:: python
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+              from mlflow.models import infer_signature
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+              train = df.drop_column("target_label")
+              predictions = ...  # compute model predictions
+              signature = infer_signature(train, predictions)
 
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+        input_example: {{ input_example }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
 
     .. code-block:: python
@@ -152,53 +152,56 @@ def save_model(
     Save a Spark MLlib PipelineModel in MLeap format at a local path.
     The saved model will have the MLeap flavor.
 
-    NOTE:
-
-        You cannot load the MLeap model flavor in Python; you must download it using the
+    .. note:: You cannot load the MLeap model flavor in Python; you must download it using the
         Java API method ``downloadArtifacts(String runId)`` and load the model
         using the method ``MLeapLoader.loadPipeline(String modelRootPath)``.
 
-    :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
-                  cannot contain any custom transformers.
-    :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
-                         required by MLeap for data schema inference.
-    :param path: Local path where the model is to be saved.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.
+    Args:
+        spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
+            cannot contain any custom transformers.
+        sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
+            required by MLeap for data schema inference.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset) and valid
-                      model output (e.g. model predictions generated on the training dataset),
-                      for example:
+        path: Local path where the model is to be saved.
+        mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.
 
-                      .. code-block:: python
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset) and valid
+            model output (e.g. model predictions generated on the training dataset),
+            for example:
 
-                        from mlflow.models import infer_signature
+            .. code-block:: python
 
-                        train = df.drop_column("target_label")
-                        signature = infer_signature(train, model.predict(train))
-    :param input_example: {{ input_example }}
+                from mlflow.models import infer_signature
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+                train = df.drop_column("target_label")
+                signature = infer_signature(train, model.predict(train))
 
-                      .. code-block:: python
+        input_example: {{ input_example }}
 
-                        from mlflow.models import infer_signature
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+            .. code-block:: python
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+                from mlflow.models import infer_signature
+
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
+
+        input_example: {{ input_example }}
+
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+            .. note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
     """
     if mlflow_model is None:
         mlflow_model = Model()
@@ -218,16 +221,18 @@ def save_model(
 @deprecated(alternative="mlflow.onnx", since="2.6.0")
 @keyword_only
 def add_to_model(mlflow_model, path, spark_model, sample_input):
+    # pylint: disable=line-too-long
     """
     Add the MLeap flavor to an existing MLflow model.
 
-    :param mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.
-    :param path: Path of the model to which this flavor is being added.
-    :param spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and
-                        cannot contain any custom transformers.
-    :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
-                         required by MLeap for data schema inference.
+    Args:
+        mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.
+        path: Path of the model to which this flavor is being added.
+        spark_model: Spark PipelineModel to be saved. This model must be MLeap-compatible and cannot contain any custom transformers.
+        sample_input: Sample PySpark DataFrame input that the model can evaluate. This is required by MLeap for data schema inference.
+
     """
+    # pylint: enable=line-too-long
     import mleap.version
 
     # This import statement adds `serializeToBundle` and `deserializeFromBundle` to `Transformer`:
