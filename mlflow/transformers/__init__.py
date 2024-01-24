@@ -10,6 +10,7 @@ import logging
 import os
 import pathlib
 import re
+import shutil
 import string
 import sys
 from functools import lru_cache
@@ -542,11 +543,8 @@ def save_model(
     # If the card data can be acquired, save the text and the data separately
     _write_card_data(card_data, path)
 
-    # Retrieve license information from the huggingface_hub repository if it exists
-    license_text = _fetch_license(model_name, card_data)
-
     # Write the license information (or guidance) along with the model
-    _write_license_information(license_text, path)
+    _write_license_information(model_name, card_data, path)
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
 
@@ -1135,49 +1133,6 @@ def _fetch_model_card(model_name):
         )
 
 
-def _fetch_license(model_name, card_data):
-    """
-    Attempts to retrieve a license document from the underlying model repository iff the
-    `huggingface_hub` library is installed. If the library is available and a license file
-    is present, return the contents as text. If the license file does not exist, return
-    instructions for a user to investigate what the underlying usage restrictions that
-    exist.
-    """
-
-    fallback = (
-        f"A license file could not be found for the '{model_name}' repository. \n"
-        "To ensure that you are in compliance with the license requirements for this "
-        f"model, please visit the model repository here:\n https://huggingface.co/{model_name}"
-    )
-
-    def _get_license_file_as_text(repo_id):
-        for license_name in _LICENSE_FILE_NAMES:
-            try:
-                license_file_local_location = hub.hf_hub_download(
-                    repo_id=repo_id, filename=license_name
-                )
-                return pathlib.Path(license_file_local_location).read_text()
-            except Exception as e:
-                _logger.debug(f"A license file could not be obtained due to {e}")
-
-    try:
-        import huggingface_hub as hub
-    except ImportError:
-        _logger.warning(
-            f"Unable to retrieve license information for the model repo {model_name}. In order "
-            "to enable retrieval of license information, please install the huggingface_hub "
-            "package by running `pip install huggingface_hub>0.10.0"
-        )
-
-    if lic := _get_license_file_as_text(model_name):
-        return lic
-
-    if (cd := card_data) and cd.data.license != "other":
-        return f"{fallback}\nThe declared license type is: '{cd.data.license}'"
-
-    return fallback
-
-
 def _write_card_data(card_data, path):
     """
     Writes the card data, if specified or available, to the provided path in two separate files
@@ -1194,18 +1149,60 @@ def _write_card_data(card_data, path):
             )
 
 
-def _write_license_information(license_text, path):
-    """Writes the license file or instructions to retrieve license information"""
-    if license_text:
-        try:
-            path.joinpath(_LICENSE_FILE_NAME).write_text(license_text, encoding="utf-8")
-        except UnicodeError as e:
-            _logger.warning(f"Unable to save the license data due to: {e}")
-    else:
-        _logger.warning(
-            "Unable to find license information for this model. Please verify "
-            "permissible usage for the model you are storing prior to use."
+def _list_repository_contents(model_name):
+    """Returns the top-level file inventory of `RepoFile` objects from the huggingface hub"""
+    try:
+        import huggingface_hub as hub
+    except ImportError:
+        _logger.debug(
+            f"Unable to list repository contents for the model repo {model_name}. In order "
+            "to enable repository listing functionality, please install the huggingface_hub "
+            "package by running `pip install huggingface_hub>0.10.0"
         )
+        return
+
+    try:
+        files = hub.list_repo_tree(model_name)
+        return list(files)
+    except Exception as e:
+        _logger.debug(
+            f"Failed to retrieve repository file listing data for {model_name} due to {e}"
+        )
+
+
+def _write_license_information(model_name, card_data, path):
+    """Writes the license file or instructions to retrieve license information"""
+
+    fallback = (
+        f"A license file could not be found for the '{model_name}' repository. \n"
+        "To ensure that you are in compliance with the license requirements for this "
+        f"model, please visit the model repository here:\n https://huggingface.co/{model_name}"
+    )
+
+    if repository_contents := _list_repository_contents(model_name):
+        import huggingface_hub as hub
+
+        if license_files := [
+            file.path for file in repository_contents if file.path in _LICENSE_FILE_NAMES
+        ]:
+            try:
+                local_license_path = pathlib.Path(
+                    hub.hf_hub_download(repo_id=model_name, filename=license_files[0])
+                )
+                target_path = path.joinpath(local_license_path.name)
+                shutil.copy(local_license_path, target_path)
+                return
+            except Exception as e:
+                _logger.debug(f"The license file could not be retrieved due to {e}")
+
+        if card_data and card_data.data.license != "other":
+            fallback = f"{fallback}\nThe declared license type is: '{card_data.data.license}'"
+        else:
+            _logger.warning(
+                "Unable to find license information for this model. Please verify "
+                "permissible usage for the model you are storing prior to use."
+            )
+    path.joinpath(_LICENSE_FILE_NAME).write_text(fallback, encoding="utf-8")
 
 
 def _build_pipeline_from_model_input(model, task: str):

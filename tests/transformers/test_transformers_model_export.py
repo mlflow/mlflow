@@ -38,7 +38,6 @@ from mlflow.transformers import (
     _PIPELINE_MODEL_TYPE_KEY,
     _TASK_KEY,
     _build_pipeline_from_model_input,
-    _fetch_license,
     _fetch_model_card,
     _generate_base_flavor_configuration,
     _get_base_model_architecture,
@@ -52,6 +51,7 @@ from mlflow.transformers import (
     _TransformersWrapper,
     _validate_transformers_task_type,
     _write_card_data,
+    _write_license_information,
     get_default_conda_env,
     get_default_pip_requirements,
 )
@@ -317,23 +317,27 @@ def test_model_card_acquisition_vision_model(small_vision_model):
 
 
 @pytest.mark.parametrize(
-    ("repo_id", "file_end"),
+    ("repo_id", "license_file", "file_end"),
     [
-        ("google/mobilenet_v2_1.0_224", "_224"),  # no license declared
-        ("csarron/mobilebert-uncased-squad-v2", "'mit'"),  # mit license
-        ("codellama/CodeLlama-34b-hf", "this Agreement."),  # custom license
-        ("openai/whisper-tiny", "'apache-2.0'"),  # apache license
+        ("google/mobilenet_v2_1.0_224", "LICENSE.txt", "_224"),  # no license declared
+        ("csarron/mobilebert-uncased-squad-v2", "LICENSE.txt", "'mit'"),  # mit license
+        ("codellama/CodeLlama-34b-hf", "LICENSE", "this Agreement."),  # custom license
+        ("openai/whisper-tiny", "LICENSE.txt", "'apache-2.0'"),  # apache license
     ],
 )
-def test_license_acquisition(repo_id, file_end):
+def test_license_acquisition(repo_id, license_file, file_end, tmp_path):
     card_data = _fetch_model_card(repo_id)
-    license_text = _fetch_license(repo_id, card_data).rstrip()
-    assert license_text.endswith(file_end)
+    _write_license_information(repo_id, card_data, tmp_path)
+    assert tmp_path.joinpath(license_file).read_text().rstrip().endswith(file_end)
 
 
-def test_license_fallback():
-    fallback = _fetch_license("not a real repo", None)
-    assert fallback.startswith("A license file could not be found for the")
+def test_license_fallback(tmp_path):
+    _write_license_information("not a real repo", None, tmp_path)
+    assert (
+        tmp_path.joinpath("LICENSE.txt")
+        .read_text()
+        .startswith("A license file could not be found for the")
+    )
 
 
 def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path):
