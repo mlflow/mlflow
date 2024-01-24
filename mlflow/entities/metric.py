@@ -38,14 +38,14 @@ class Metric(_MLflowObject):
     def to_proto(self):
         metric = ProtoMetric()
         metric.key = self.key
-        metric.value = np.atleast_1d(self.value)
+        metric.values = np.atleast_1d(self.value)
         metric.timestamp = self.timestamp
         metric.step = self.step
         return metric
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.key, proto.value, proto.timestamp, proto.step)
+        return cls(proto.key, proto.values, proto.timestamp, proto.step)
 
     def __eq__(self, __o):
         if isinstance(__o, self.__class__):
