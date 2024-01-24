@@ -19,7 +19,7 @@ _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
 def log_model():
     with mlflow.start_run() as run:
         knn_model = sklearn.neighbors.KNeighborsClassifier()
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             knn_model,
             "model",
             pip_requirements=[
@@ -27,8 +27,7 @@ def log_model():
                 f"scikit-learn=={sklearn.__version__}",
             ],  # Skip requirements inference for speed up
         )
-        model_uri = f"runs:/{run.info.run_id}/model"
-    return model_uri
+        return model_info.model_uri
 
 
 class TestParam:
@@ -125,8 +124,7 @@ def test_build_image(tmp_path, params):
             enable_mlserver=params.enable_mlserver,
         )
 
-    with open(os.path.join(dst_dir, "Dockerfile")) as f:
-        actual_dockerfile = f.read()
+    actual_dockerfile = (dst_dir / "Dockerfile").read_text()
 
     with open(os.path.join(_RESOURCE_DIR, params.expected_dockerfile)) as f:
         expected_dockerfile = f.read().replace("$VERSION", VERSION)

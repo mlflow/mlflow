@@ -10,7 +10,7 @@ from mlflow.models.docker_utils import build_image_from_context
 from mlflow.sagemaker.cli import build_and_push_container
 from mlflow.version import VERSION
 
-_MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_MLFLOW_ROOT = pathlib.Path(mlflow.__file__).parent.parent
 _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
 
 

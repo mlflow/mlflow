@@ -164,7 +164,7 @@ def generate_dockerfile(
     disable_env_creation=False,
 ):
     """
-     Generates a Dockerfile that can be used to build a docker image, that serves ML model
+    Generates a Dockerfile that can be used to build a docker image, that serves ML model
     stored and tracked in MLflow.
     """
     install_mlflow_steps = _get_mlflow_install_step(output_dir, mlflow_home)
