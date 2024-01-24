@@ -131,7 +131,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
         return True
 
     with mock.patch(
-        "mlflow.utils._unity_catalog_utils.get_full_name_from_sc",
+        "mlflow.data.delta_dataset_source.DeltaDatasetSource.get_full_name_from_sc",
         side_effect=mock_resolve_table_name,
     ), mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
@@ -165,7 +165,6 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
                 "delta_table_id": "uc_table_id_1",
             }
         )
-
 
 def test_uc_table_id_retrieval_throws(spark_session, tmp_path):
     def mock_resolve_table_name(table_name, spark):
