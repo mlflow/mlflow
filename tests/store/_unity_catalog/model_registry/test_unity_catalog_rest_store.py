@@ -60,12 +60,6 @@ from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_ORG_ID_HEADER,
     UcModelRegistryStore,
 )
-from mlflow.store._unity_catalog.registry.utils import (
-    _ACTIVE_CATALOG_QUERY,
-    _ACTIVE_SCHEMA_QUERY,
-    uc_model_version_tag_from_mlflow_tags,
-    uc_registered_model_tag_from_mlflow_tags,
-)
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
@@ -74,6 +68,12 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
     MLFLOW_DATABRICKS_NOTEBOOK_ID,
+)
+from mlflow.utils._unity_catalog_utils import (
+    _ACTIVE_CATALOG_QUERY,
+    _ACTIVE_SCHEMA_QUERY,
+    uc_model_version_tag_from_mlflow_tags,
+    uc_registered_model_tag_from_mlflow_tags,
 )
 from mlflow.utils.proto_json_utils import message_to_json
 
