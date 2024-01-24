@@ -117,7 +117,7 @@ def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
 
 
 def test_uc_table_id_retrieval_works(spark_session, tmp_path):
-    def mock_resolve_table_name(table_name):
+    def mock_resolve_table_name(table_name, spark):
         if table_name == "temp_delta_versioned_with_id":
             return "default.temp_delta_versioned_with_id"
         return table_name
@@ -131,7 +131,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
         return True
 
     with mock.patch(
-        "mlflow.data.delta_dataset_source.DeltaDatasetSource._resolve_table_name",
+        "mlflow.utils._unity_catalog_utils.get_full_name_from_sc",
         side_effect=mock_resolve_table_name,
     ), mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
@@ -168,7 +168,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
 
 
 def test_uc_table_id_retrieval_throws(spark_session, tmp_path):
-    def mock_resolve_table_name(table_name):
+    def mock_resolve_table_name(table_name, spark):
         if table_name == "temp_delta_versioned_with_id_throws":
             return "default.temp_delta_versioned_with_id_throws"
         return table_name
@@ -182,7 +182,7 @@ def test_uc_table_id_retrieval_throws(spark_session, tmp_path):
         return True
 
     with mock.patch(
-        "mlflow.data.delta_dataset_source.DeltaDatasetSource._resolve_table_name",
+        "mlflow.utils._unity_catalog_utils.get_full_name_from_sc",
         side_effect=mock_resolve_table_name,
     ), mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
