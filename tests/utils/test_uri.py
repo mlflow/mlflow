@@ -255,7 +255,9 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
     ],
 )
 def test_append_to_uri_throws_for_malicious_uri(uri):
-    with pytest.raises(MlflowException, match=r"Invalid query string, fragment or params in URL"):
+    with pytest.raises(
+        MlflowException, match=r"Invalid query string, fragment or params in URL"
+    ):
         append_to_uri_path(uri)
 
 
