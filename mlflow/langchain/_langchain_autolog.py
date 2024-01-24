@@ -218,8 +218,8 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     # TODO: test adding callbacks works
     # Use session_id-inference_id as artifact directory where mlflow
     # callback logs artifacts into, to avoid overriding artifacts
-    session_id = uuid.uuid4().hex if not hasattr(self, "session_id") else self.session_id
-    inference_id = 0 if not hasattr(self, "inference_id") else self.inference_id
+    session_id = getattr(self, "session_id", uuid.uuid4().hex)
+    inference_id = getattr(self, "inference_id", 0)
     mlflow_callback = _MLflowLangchainCallback(
         tracking_uri=mlflow.get_tracking_uri(),
         run_id=run_id,

@@ -53,7 +53,7 @@ chain_with_history = (
 
 inputs = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
 
-chain_with_history.invoke(inputs)
+print(chain_with_history.invoke(inputs))
 # sample output:
 # "1. Databricks\n2. Microsoft\n3. Google\n4. Amazon\n\nEnter your answer: 1\n\n
 # Correct! MLflow is an open source project developed by Databricks. ...
@@ -63,4 +63,4 @@ chain_with_history.invoke(inputs)
 model_name = "lc_model"
 model_version = 1
 loaded_model = mlflow.pyfunc.load_model(f"models:/{model_name}/{model_version}")
-loaded_model.predict(inputs)
+print(loaded_model.predict(inputs))
