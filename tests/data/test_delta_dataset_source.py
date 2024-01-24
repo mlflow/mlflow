@@ -169,6 +169,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
 
 def test_uc_table_id_retrieval_throws(spark_session, tmp_path):
     def mock_resolve_table_name(table_name, spark):
+        print("IN THE MOCK AND TABLENAME IS " + table_name)
         if table_name == "temp_delta_versioned_with_id_throws":
             return "default.temp_delta_versioned_with_id_throws"
         return table_name
