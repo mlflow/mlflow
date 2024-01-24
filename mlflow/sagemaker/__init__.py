@@ -2223,10 +2223,11 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                   https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                   Defaults to ``None``.
 
-                - ``variant_name``: A string specifying the desired name when creating a
-                  production variant.  Defaults to ``None``.
+                - ``variant_name``: A string specifying the desired name when creating a production 
+                  variant.  Defaults to ``None``.
 
-                - ``async_inference_config``: A dictionary specifying the async_inference_configuration # pylint: disable=line-too-long
+                - ``async_inference_config``: A dictionary specifying the 
+                  async_inference_configuration 
 
                 - ``serverless_config``: A dictionary specifying the serverless_configuration
 
@@ -2462,9 +2463,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                   For more information, see
                   https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                   Defaults to ``None``.
-
-                - ``variant_name``: A string specifying the desired name when creating a
-                  production variant.  Defaults to ``None``.
 
                 - ``async_inference_config``: A dictionary specifying the async config
                   configuration. Defaults to ``None``.
