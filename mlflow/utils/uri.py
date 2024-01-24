@@ -481,12 +481,12 @@ def validate_url_parts(url):
 
     # Block query, fragment or params that contain any traveral path (../)
     # because they could be resolved as part of the path and allow path traversal.
-    if (
-        ".." in query
-        or ".." in fragment
-        or ".." in params
-    ):
-        raise MlflowException("Invalid query string, fragment or params in URL", error_code=INVALID_PARAMETER_VALUE)
+    if ".." in query or ".." in fragment or ".." in params:
+        raise MlflowException(
+            "Invalid query string, fragment or params in URL",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
 
 def _decode(url):
     # Keep decoding until the url stops changing (with a max of 10 iterations)
