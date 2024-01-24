@@ -96,11 +96,9 @@ def get_mlflow_model(artifact_uri, model_subpath=MODEL_DIR):
 def get_artifacts(run_id):
     client = MlflowClient()
     artifacts = client.list_artifacts(run_id)
-    artifacts_folder = [x for x in artifacts if x.path.split(os.sep)[-1].startswith("artifacts-")][
-        0
-    ]
+    artifacts_folder = [x for x in artifacts if x.path.split("/")[-1].startswith("artifacts-")][0]
     artifacts = client.list_artifacts(run_id, artifacts_folder.path)
-    return [x.path.split(os.sep)[-1] for x in artifacts]
+    return [x.path.split("/")[-1] for x in artifacts]
 
 
 def create_openai_llmchain():

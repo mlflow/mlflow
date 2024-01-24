@@ -58,8 +58,8 @@ print(chain_with_history.invoke(inputs))
 # "1. Databricks\n2. Microsoft\n3. Google\n4. Amazon\n\nEnter your answer: 1\n\n
 # Correct! MLflow is an open source project developed by Databricks. ...
 
-# We automatically log the model and tracing related artifacts
-# A model with name `lc_model` is registered, we could load it back as a PyFunc model
+# We automatically log the model and trace related artifacts
+# A model with name `lc_model` is registered, we can load it back as a PyFunc model
 model_name = "lc_model"
 model_version = 1
 loaded_model = mlflow.pyfunc.load_model(f"models:/{model_name}/{model_version}")
