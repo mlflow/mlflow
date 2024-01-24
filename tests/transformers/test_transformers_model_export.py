@@ -51,6 +51,7 @@ from mlflow.transformers import (
     _TransformersWrapper,
     _validate_transformers_task_type,
     _write_card_data,
+    _write_license_information,
     get_default_conda_env,
     get_default_pip_requirements,
 )
@@ -310,9 +311,31 @@ def test_saving_with_invalid_dict_as_model(model_path):
 
 
 def test_model_card_acquisition_vision_model(small_vision_model):
-    model_provided_card = _fetch_model_card(small_vision_model)
+    model_provided_card = _fetch_model_card(small_vision_model.model.name_or_path)
     assert model_provided_card.data.to_dict()["tags"] == ["vision", "image-classification"]
     assert len(model_provided_card.text) > 0
+
+
+@pytest.mark.parametrize(
+    ("repo_id", "license_file"),
+    [
+        ("google/mobilenet_v2_1.0_224", "LICENSE.txt"),  # no license declared
+        ("csarron/mobilebert-uncased-squad-v2", "LICENSE.txt"),  # mit license
+        ("codellama/CodeLlama-34b-hf", "LICENSE"),  # custom license
+        ("openai/whisper-tiny", "LICENSE.txt"),  # apache license
+        ("stabilityai/stable-code-3b", "LICENSE"),  # custom
+        ("mistralai/Mixtral-8x7B-Instruct-v0.1", "LICENSE.txt"),  # apache
+    ],
+)
+def test_license_acquisition(repo_id, license_file, tmp_path):
+    card_data = _fetch_model_card(repo_id)
+    _write_license_information(repo_id, card_data, tmp_path)
+    assert tmp_path.joinpath(license_file).stat().st_size > 0
+
+
+def test_license_fallback(tmp_path):
+    _write_license_information("not a real repo", None, tmp_path)
+    assert tmp_path.joinpath("LICENSE.txt").stat().st_size > 0
 
 
 def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path):
@@ -325,6 +348,9 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
     # validate inferred model card data
     card_data = yaml.safe_load(model_path.joinpath("model_card_data.yaml").read_bytes())
     assert card_data["tags"] == ["vision", "image-classification"]
+    # verify the license file has been written
+    license_file = model_path.joinpath("LICENSE.txt").read_text()
+    assert len(license_file) > 0
     # Validate inferred model card text
     with model_path.joinpath("model_card.md").open() as file:
         card_text = file.read()
@@ -356,7 +382,9 @@ def test_vision_model_save_model_for_task_and_card_inference(small_vision_model,
     # Validate inferred model card text
     card_text = model_path.joinpath("model_card.md").read_text(encoding="utf-8")
     assert len(card_text) > 0
-
+    # verify the license file has been written
+    license_file = model_path.joinpath("LICENSE.txt").read_text()
+    assert len(license_file) > 0
     # Validate the MLModel file
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
     flavor_config = mlmodel["flavors"]["transformers"]
@@ -385,6 +413,9 @@ def test_qa_model_save_model_for_task_and_card_inference(small_seq2seq_pipeline,
     assert card_data["datasets"] == ["emo"]
     # The creator of this model did not include tag data in the card. Ensure it is missing.
     assert "tags" not in card_data
+    # verify the license file has been written
+    license_file = model_path.joinpath("LICENSE.txt").read_text()
+    assert len(license_file) > 0
     # Validate inferred model card text
     with model_path.joinpath("model_card.md").open() as file:
         card_text = file.read()
@@ -422,6 +453,9 @@ def test_qa_model_save_and_override_card(small_qa_pipeline, model_path):
     # Validate inferred model card text
     with model_path.joinpath("model_card.md").open() as file:
         card_text = file.read()
+    # verify the license file has been written
+    license_file = model_path.joinpath("LICENSE.txt").read_text()
+    assert len(license_file) > 0
     assert card_text.startswith("\n# I made a new model!")
     # validate MLmodel files
     mlmodel = yaml.safe_load(model_path.joinpath("MLmodel").read_bytes())
@@ -919,7 +953,7 @@ def test_non_existent_model_card_entry(small_seq2seq_pipeline, model_path):
 
 def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
     with mock.patch.dict("sys.modules", {"huggingface_hub": None}):
-        result = mlflow.transformers._fetch_model_card(small_seq2seq_pipeline)
+        result = mlflow.transformers._fetch_model_card(small_seq2seq_pipeline.model.name_or_path)
 
         assert result is None
 
@@ -927,6 +961,9 @@ def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
 
         contents = {item.name for item in model_path.iterdir()}
         assert not contents.intersection({"model_card.txt", "model_card_data.yaml"})
+
+        license_data = model_path.joinpath("LICENSE.txt").read_text()
+        assert license_data.rstrip().endswith("mobilebert")
 
 
 def test_save_pipeline_without_defined_components(small_conversational_model, model_path):
@@ -3818,7 +3855,7 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     expected_size = 0
     for folder in [model_dir, tokenizer_dir]:
         expected_size += _calculate_expected_size(folder)
-    other_files = ["model_card.md", "model_card_data.yaml"]
+    other_files = ["model_card.md", "model_card_data.yaml", "LICENSE.txt"]
     for file in other_files:
         path = tmp_path.joinpath(file)
         expected_size += _calculate_expected_size(path)
