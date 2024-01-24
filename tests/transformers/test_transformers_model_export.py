@@ -3891,3 +3891,37 @@ def test_text_generation_save_model_with_invalid_inference_task(
             path=model_path,
             task="llm/v1/invalid",
         )
+
+
+def test_text_generation_task_completions_predict_with_hf_params(
+    text_generation_pipeline, model_path
+):
+    data = "How to learn Python in 3 weeks?"
+
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(text_generation_pipeline, data),
+        params={"max_new_tokens": 50},
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=text_generation_pipeline,
+        path=model_path,
+        task="llm/v1/completions",
+        signature=signature_with_params,
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        data,
+        params={"max_new_tokens": 10},
+    )
+
+    assert isinstance(inference[0], dict)
+    assert (
+        inference[0]["finish_reason"] == "length"
+        and inference[0]["usage"]["completion_tokens"] == 10
+    ) or (
+        inference[0]["finish_reason"] == "stop" and inference[0]["usage"]["completion_tokens"] < 10
+    )

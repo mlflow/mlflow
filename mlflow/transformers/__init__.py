@@ -136,9 +136,10 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
     "`model_config` dict with `return_full_text` set to `True` when saving the model."
 )
 
+_INFERENCE_TASK_COMPLETIONS = "llm/v1/completions"
+_INFERENCE_TASK_CHAT = "llm/v1/chat"
 _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE = {
-    "text-generation": ["llm/v1/completions", "llm/v1/chat"],
-    "text2text-generation": ["llm/v1/completions"],
+    "text-generation": [_INFERENCE_TASK_COMPLETIONS, _INFERENCE_TASK_CHAT],
 }
 
 _logger = logging.getLogger(__name__)
@@ -516,19 +517,6 @@ def save_model(
         resolved_transformers_task, []
     )
 
-    if task in supported_inference_tasks:
-        if mlflow_model.metadata:
-            mlflow_model.metadata[_METADATA_INFERENCE_TASK_KEY] = task
-        else:
-            mlflow_model.metadata = {_METADATA_INFERENCE_TASK_KEY: task}
-
-    inference_task = None
-    if task in supported_inference_tasks:
-        inference_task = task
-    elif supported_inference_tasks:
-        # Infer the inference task if not given as the task argument
-        inference_task = supported_inference_tasks[0]
-
     flavor_conf = _generate_base_flavor_configuration(built_pipeline, resolved_transformers_task)
 
     components = _record_pipeline_components(built_pipeline)
@@ -539,8 +527,12 @@ def save_model(
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
-    if inference_task:
-        flavor_conf.update({_INFERENCE_TASK_KEY: inference_task})
+    if task in supported_inference_tasks:
+        flavor_conf.update({_INFERENCE_TASK_KEY: task})
+        if mlflow_model.metadata:
+            mlflow_model.metadata[_METADATA_INFERENCE_TASK_KEY] = task
+        else:
+            mlflow_model.metadata = {_METADATA_INFERENCE_TASK_KEY: task}
 
     # Save the model object
     built_pipeline.model.save_pretrained(
@@ -1836,6 +1828,9 @@ class _TransformersWrapper:
         # InstructionTextGenerationPipeline [Dolly] https://huggingface.co/databricks/dolly-v2-12b
         #   (and all variants)
         self._supported_custom_generator_types = {"InstructionTextGenerationPipeline"}
+        self.inference_task = (
+            self.flavor_config.get(_INFERENCE_TASK_KEY) if self.flavor_config else None
+        )
 
     def _convert_pandas_to_dict(self, data):
         import transformers
@@ -1877,13 +1872,13 @@ class _TransformersWrapper:
             # Override the inference configuration with any additional kwargs provided by the user.
             self.model_config.update(params)
 
-    def _validate_model_config_and_return_output(self, data):
+    def _validate_model_config_and_return_output(self, data, model_config):
         import transformers
 
         try:
             if isinstance(data, dict):
-                return self.pipeline(**data, **self.model_config)
-            return self.pipeline(data, **self.model_config)
+                return self.pipeline(**data, **model_config)
+            return self.pipeline(data, **model_config)
         except ValueError as e:
             if "The following `model_kwargs` are not used by the model" in str(e):
                 raise MlflowException.invalid_parameter_value(
@@ -2041,7 +2036,13 @@ class _TransformersWrapper:
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
-            raw_output = self._validate_model_config_and_return_output(data)
+            # If inference task is defined, return tensors instead of generated text
+            model_config = self.model_config.copy()
+            if self.inference_task:
+                model_config.update({"return_tensors": True})
+                output_key = "generated_token_ids"
+
+            raw_output = self._validate_model_config_and_return_output(data, model_config)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
@@ -2055,6 +2056,10 @@ class _TransformersWrapper:
                 include_prompt,
                 collapse_whitespace,
             )
+
+            if self.inference_task:
+                output = self._postprocess_output_for_inference_task(data, output)
+
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
             return self._parse_feature_extraction_output(raw_output)
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
@@ -2967,6 +2972,59 @@ class _TransformersWrapper:
         raise MlflowException.invalid_parameter_value(
             "Prompt templating is only supported for data of type str or List[str]. "
         )
+
+    def _postprocess_output_for_inference_task(self, data, output):
+        """
+        Compute the token usage and finish reason for the output of a text generation pipeline,
+        and wrap the text and additional information as dict according to the inference task type.
+        """
+        output_dicts = []
+        for input_data, output_tensor in zip(data, output):
+            # Get token usage
+            inputs = self.pipeline.tokenizer(
+                input_data,
+                return_tensors=self.pipeline.framework,
+                max_length=self.model_config.get("max_length", None),
+            )
+            prompt_tokens = inputs["input_ids"].shape[-1]
+            total_tokens = len(output_tensor)
+            completions_tokens = total_tokens - prompt_tokens
+
+            # Decode output from tensor
+            generated_text = self.pipeline.tokenizer.decode(
+                output_tensor,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
+            )
+
+            # Strip prompt from output
+            completions_text = generated_text[len(input_data) :].lstrip()
+
+            # Determine finish reason
+            finish_reason = "stop"
+            if total_tokens > self.model_config.get(
+                "max_length", float("inf")
+            ) or completions_tokens == self.model_config.get("max_new_tokens", float("inf")):
+                finish_reason = "length"
+
+            # Construct output dict
+            output_dict = {
+                "finish_reason": finish_reason,
+                "usage": {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": len(output_tensor) - prompt_tokens,
+                    "total_tokens": len(output_tensor),
+                },
+            }
+
+            if self.inference_task == _INFERENCE_TASK_COMPLETIONS:
+                output_dict["text"] = completions_text
+            elif self.inference_task == _INFERENCE_TASK_CHAT:
+                output_dict["messages"] = {"role": "assistant", "content": completions_text}
+
+            output_dicts.append(output_dict)
+
+        return output_dicts
 
 
 @experimental
