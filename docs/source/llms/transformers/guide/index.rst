@@ -464,6 +464,15 @@ the stored model object.
 In addition to the ``ModelCard``, the components that comprise any Pipeline (or the individual components if saving a dictionary of named components) will have their source types
 stored. The model type, pipeline type, task, and classes of any supplementary component (such as a ``Tokenizer`` or ``ImageProcessor``) will be stored in the ``MLmodel`` file as well.
 
+In order to preserve any attached legal requirements to the usage of any  model that is hosted on the huggingface hub, a "best effort" attempt
+is made when logging a transformers model to retrieve and persist any license information. A file will be generated (``LICENSE.txt``) within the root of
+the model directory. Within this file you will either find a copy of a declared license, the name of a common license type that applies to the model's use (i.e., 'apache-2.0', 'mit'),
+or, in the event that license information was never submitted to the huggingface hub when uploading a model repository, a link to the repository for you to use
+in order to determine what restrictions exist regarding the use of the model.
+
+.. note::
+  Model license information was introduced in **MLflow 2.10.0**. Previous versions do not include license information for models.
+
 Automatic Signature inference
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
