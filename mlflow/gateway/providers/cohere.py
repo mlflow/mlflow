@@ -84,7 +84,6 @@ class CohereAdapter(ProviderAdapter):
         return completions.StreamResponsePayload(
             id=response["id"] if response else None,
             created=int(time.time()),
-            object="text_completion_chunk",
             model=config.model.name,
             choices=[
                 completions.StreamChoice(
