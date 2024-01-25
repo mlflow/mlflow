@@ -10,7 +10,7 @@ import mlflow
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.sagemaker.cli import build_and_push_container
 
-from tests.pyfunc.test_docker import compare_dockerfiles
+from tests.pyfunc.test_docker import assert_dockerfiles_equal
 
 _MLFLOW_ROOT = Path(mlflow.__file__).parent.parent
 _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
@@ -43,4 +43,4 @@ def test_build_and_push_container(tmp_path, env_manager):
 
     actual = dst_dir / "Dockerfile"
     expected = Path(_RESOURCE_DIR) / f"Dockerfile_sagemaker_{env_manager}"
-    compare_dockerfiles(actual, expected)
+    assert_dockerfiles_equal(actual, expected)

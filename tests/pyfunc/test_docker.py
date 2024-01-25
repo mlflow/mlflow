@@ -19,7 +19,7 @@ _MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
 
 
-def compare_dockerfiles(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
+def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
     actual_dockerfile = actual_dockerfile_path.read_text()
     expected_dockerfile = expected_dockerfile_path.read_text().replace("$VERSION", VERSION)
 
@@ -100,7 +100,7 @@ def test_generate_dockerfile(tmp_path, params):
 
     actual = tmp_path / "Dockerfile"
     expected = Path(_RESOURCE_DIR) / params.expected_dockerfile
-    compare_dockerfiles(actual, expected)
+    assert_dockerfiles_equal(actual, expected)
 
 
 @pytest.mark.parametrize("params", _TEST_PARAMS)
@@ -125,4 +125,4 @@ def test_build_image(tmp_path, params):
 
     actual = dst_dir / "Dockerfile"
     expected = Path(_RESOURCE_DIR) / params.expected_dockerfile
-    compare_dockerfiles(actual, expected)
+    assert_dockerfiles_equal(actual, expected)
