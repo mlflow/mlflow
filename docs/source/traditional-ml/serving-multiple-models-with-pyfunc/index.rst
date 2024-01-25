@@ -44,7 +44,6 @@ Ready to see this in action? Check out the accompanying notebooks for a hands-on
 .. raw:: html
 
     <a href="notebooks/MME_Tutorial.html" class="download-btn">View the Notebook</a>
-    <a href="https://raw.githubusercontent.com/mlflow/mlflow/master/docs/source/traditional-ml/serving-multiple-models-with-pyfunc/notebooks/MME_Tutorial.ipynb" class="notebook-download-btn">Download the full notebook</a><br/>
 
 .. toctree::
     :maxdepth: 1
