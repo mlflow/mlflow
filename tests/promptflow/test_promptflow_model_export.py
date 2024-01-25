@@ -36,8 +36,8 @@ def test_promptflow_log_and_load_model():
 
     assert "promptflow" in logged_model.flavors
     assert logged_model.signature is not None
-    assert str(logged_model.signature.inputs) == "['text': string]"
-    assert str(logged_model.signature.outputs) == "['output': string]"
+    assert str(logged_model.signature.inputs) == "['text': string (required)]"
+    assert str(logged_model.signature.outputs) == "['output': string (required)]"
     assert isinstance(loaded_model, Flow)
 
 
