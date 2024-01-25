@@ -308,7 +308,7 @@ class FailureCard(BaseCard):
                 "<div class='stacktrace-container'><p style='margin-top:0px'><code>"
                 "{{ STACKTRACE|e }}</code></p></div>"
             ),
-        ).add_html("STACKTRACE", f"{failure_traceback}")
+        ).add_html("STACKTRACE", str(failure_traceback))
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             with open(warning_output_path) as f:
