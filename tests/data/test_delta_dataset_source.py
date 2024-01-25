@@ -188,6 +188,9 @@ def test_lookup_table_id(call_endpoint_response, expected_lookup_response, tmp_p
         "mlflow.data.delta_dataset_source._get_active_spark_session",
         return_value=None,
     ), mock.patch(
+        "mlflow.data.delta_dataset_source.get_databricks_host_creds",
+        return_value=None,
+    ), mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._is_databricks_uc_table",
         return_value=True,
     ), mock.patch(
@@ -199,7 +202,7 @@ def test_lookup_table_id(call_endpoint_response, expected_lookup_response, tmp_p
         )
         assert (
             delta_datasource._lookup_table_id("temp_delta_versioned_with_id")
-            is expected_lookup_response
+            == expected_lookup_response
         )
 
 
