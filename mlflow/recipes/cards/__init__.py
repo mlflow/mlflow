@@ -239,7 +239,6 @@ class BaseCard:
         """
         import pandas as pd
         from pandas.io.formats.style import Styler
-        import html
 
         if not isinstance(table, Styler):
             table = pd.DataFrame(table, columns=columns)
@@ -247,7 +246,14 @@ class BaseCard:
             # javascript code injection
             # Note that `pandas_df.style.to_html(escape=True) does not work
             # So that we have to manually escape values in dataframe cells.
-            table = table.map(lambda x: html.escape(str(x)))
+
+            def escape_value(x):
+                return html.escape(str(x))
+
+            if hasattr(table, "map"):
+                table = table.map(escape_value)
+            else:
+                table = table.applymap(escape_value)
             table = table.style
 
         pandas_version = Version(pd.__version__)
