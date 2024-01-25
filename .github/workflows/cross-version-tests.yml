@@ -192,7 +192,7 @@ jobs:
           # https://github.com/langchain-ai/langchain/pull/15691
           if [ "${{ matrix.package }}/${{ matrix.category }}" = "langchain/autologging" ]
           then
-            pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/community
+            pip install -U git+https://github.com/hwchase17/langchain#subdirectory=libs/community
           fi
       - name: Install pydantic no-binary for langchain
         if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
