@@ -3864,6 +3864,10 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     assert mlmodel["model_size_bytes"] == expected_size
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.36.2"),
+    reason="'LSGDistilBertConfig' object has no attribute '_attn_implementation'",
+)
 def test_save_load_custom_model_with_code_paths(tmp_path):
     model = transformers.AutoModelForMaskedLM.from_pretrained(
         "ccdv/lsg-distilbert-base-uncased-4096", trust_remote_code=True, cache_dir=tmp_path
