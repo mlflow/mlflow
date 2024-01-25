@@ -112,6 +112,8 @@ class DeltaDatasetSource(DatasetSource):
                 catalog_name not in DATABRICKS_LOCAL_METASTORE_NAMES
                 and catalog_name != DATABRICKS_SAMPLES_CATALOG_NAME
             )
+        else:
+            return False
 
     def _lookup_table_id(self, table_name):
         try:

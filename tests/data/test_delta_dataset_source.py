@@ -7,6 +7,7 @@ import pytest
 from mlflow.data.dataset_source_registry import get_dataset_source_from_json
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_managed_catalog_messages_pb2 import GetTableResponse
 
 
 @pytest.fixture(scope="module")
@@ -127,21 +128,18 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
             return "uc_table_id_1"
         return None
 
-    def mock_is_databricks_uc_table():
-        return True
-
     with mock.patch(
         "mlflow.data.delta_dataset_source.get_full_name_from_sc",
         side_effect=mock_resolve_table_name,
-    ),  mock.patch(
-        "mlflow.data.delta_dataset_source._get_active_spark_session",
-        return_value=None,
-    ),  mock.patch(
+    ), mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
         side_effect=mock_lookup_table_id,
     ), mock.patch(
+        "mlflow.data.delta_dataset_source._get_active_spark_session",
+        return_value=None,
+    ), mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._is_databricks_uc_table",
-        side_effect=mock_is_databricks_uc_table,
+        return_value=True,
     ):
         df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
         df_spark = spark_session.createDataFrame(df)
@@ -169,51 +167,68 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
             }
         )
 
-def test_uc_table_id_retrieval_throws(spark_session, tmp_path):
+
+@pytest.mark.parametrize(
+    ("call_endpoint_response", "expected_lookup_response"),
+    [
+        (None, None),  # This will test throwing
+        (GetTableResponse(table_id="uc_table_id_1"), "uc_table_id_1"),
+    ],
+)
+def test_lookup_table_id(call_endpoint_response, expected_lookup_response, tmp_path):
     def mock_resolve_table_name(table_name, spark):
-        if table_name == "temp_delta_versioned_with_id_throws":
-            return "default.temp_delta_versioned_with_id_throws"
+        if table_name == "temp_delta_versioned_with_id":
+            return "default.temp_delta_versioned_with_id"
         return table_name
-
-    def mock_lookup_table_id(table_name):
-        if table_name == "default.temp_delta_versioned_with_id_throws":
-            raise Exception("Table id fails.")
-        return None
-
-    def mock_is_databricks_uc_table():
-        return True
 
     with mock.patch(
         "mlflow.data.delta_dataset_source.get_full_name_from_sc",
         side_effect=mock_resolve_table_name,
     ), mock.patch(
-        "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
-        side_effect=mock_lookup_table_id,
+        "mlflow.data.delta_dataset_source._get_active_spark_session",
+        return_value=None,
     ), mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._is_databricks_uc_table",
-        side_effect=mock_is_databricks_uc_table,
+        return_value=True,
+    ), mock.patch(
+        "mlflow.data.delta_dataset_source.call_endpoint",
+        return_value=call_endpoint_response,
     ):
-        df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-        df_spark = spark_session.createDataFrame(df)
-        df_spark.write.format("delta").mode("overwrite").saveAsTable(
-            "default.temp_delta_versioned_with_id_throws", path=tmp_path
-        )
-
-        df2 = pd.DataFrame([[1, 2, 3]], columns=["a", "b", "c"])
-        df2_spark = spark_session.createDataFrame(df2)
-        df2_spark.write.format("delta").mode("overwrite").saveAsTable(
-            "default.temp_delta_versioned_with_id_throws", path=tmp_path
-        )
-
         delta_datasource = DeltaDatasetSource(
-            delta_table_name="temp_delta_versioned_with_id_throws", delta_table_version=1
+            delta_table_name="temp_delta_versioned_with_id", delta_table_version=1
         )
-        loaded_df_spark = delta_datasource.load()
-        assert loaded_df_spark.count() == df2_spark.count()
-        assert delta_datasource.to_json() == json.dumps(
-            {
-                "delta_table_name": "default.temp_delta_versioned_with_id_throws",
-                "delta_table_version": 1,
-                "is_databricks_uc_table": True,
-            }
+        assert (
+            delta_datasource._lookup_table_id("temp_delta_versioned_with_id")
+            is expected_lookup_response
         )
+
+
+@pytest.mark.parametrize(
+    ("is_in_databricks_runtime_response", "table_name", "expected_result"),
+    [
+        (True, "default.test", True),
+        (True, "hive_metastore.test", False),
+        (True, "spark_catalog.test", False),
+        (True, "samples.test", False),
+        (False, "default.test", False),
+        (False, "hive_metastore.test", False),
+        (False, "spark_catalog.test", False),
+        (False, "samples.test", False),
+    ],
+)
+def test_is_databricks_uc_table(
+    is_in_databricks_runtime_response, table_name, expected_result, tmp_path
+):
+
+    with mock.patch(
+        "mlflow.data.delta_dataset_source.get_full_name_from_sc",
+        return_value=table_name,
+    ), mock.patch(
+        "mlflow.data.delta_dataset_source._get_active_spark_session",
+        return_value=None,
+    ), mock.patch(
+        "mlflow.data.delta_dataset_source.is_in_databricks_runtime",
+        return_value=is_in_databricks_runtime_response,
+    ):
+        delta_datasource = DeltaDatasetSource(delta_table_name=table_name, delta_table_version=1)
+        assert delta_datasource._is_databricks_uc_table() == expected_result
