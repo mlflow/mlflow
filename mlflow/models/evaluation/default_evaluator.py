@@ -158,7 +158,7 @@ def _get_regressor_metrics(y, y_pred, sample_weights):
         "sum_on_target": sum_on_target,
         "mean_on_target": sum_on_target / len(y_flat),
         "r2_score": sk_metrics.r2_score(y_flat, y_pred_flat, sample_weight=sample_weights_flat),
-        "max_error": sk_metrics.max_error(y_flat, y_pred_flat),  # Теперь эта строка активирована
+        "max_error": sk_metrics.max_error(y_flat, y_pred_flat),
         "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
             y_flat, y_pred_flat, sample_weight=sample_weights_flat
         ),
