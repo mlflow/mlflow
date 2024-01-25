@@ -134,7 +134,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
         "mlflow.data.delta_dataset_source.get_full_name_from_sc",
         side_effect=mock_resolve_table_name,
     ),  mock.patch(
-        "mlflow.data.delta_dataset_source.DeltaDatasetSource._get_active_spark_session",
+        "mlflow.data.delta_dataset_source._get_active_spark_session",
         return_value=None,
     ),  mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._lookup_table_id",
