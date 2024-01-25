@@ -383,10 +383,7 @@ def _hash_uint64_ndarray_as_bytes(array):
 
 
 def _hash_ndarray_as_bytes(nd_array):
-    if isinstance(nd_array[0], np.ndarray):
-        flat_array = np.concatenate(nd_array)
-    else:
-        flat_array = nd_array.flatten(order="C")
+    flat_array = np.concatenate(nd_array) if nd_array.ndim == 2 else nd_array.flatten(order="C")
 
     return _hash_uint64_ndarray_as_bytes(
         pd.util.hash_array(flat_array)

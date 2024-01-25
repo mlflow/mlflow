@@ -32,7 +32,7 @@ def get_facet_type_from_numpy_type(dtype):
         or np.issubdtype(dtype, np.timedelta64)
     ):
         return fs_proto.INT
-    elif dtype == object or (hasattr(dtype, "fields") and dtype.fields is not None):
+    elif dtype == object:
         return fs_proto.STRUCT
     else:
         return fs_proto.STRING

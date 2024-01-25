@@ -583,7 +583,9 @@ class TrainStep(BaseStep):
                     worst_examples_df = pd.DataFrame()
 
             else:
-                predicted_training_data = raw_train_df.assign(predicted_data=train_predictions)
+                predicted_training_data = raw_train_df.assign(
+                    predicted_data=train_predictions.tolist()
+                )
                 worst_examples_df = BaseStep._generate_worst_examples_dataframe(
                     raw_train_df,
                     train_predictions,

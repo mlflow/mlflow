@@ -141,7 +141,6 @@ class TransformStep(BaseStep):
                 num_features = transformed_features.shape[1]
                 columns = _get_output_feature_names(transformer, num_features, features.columns)
                 transformed_features = pd.DataFrame(transformed_features, columns=columns)
-
             transformed_features[self.target_col] = dataset[self.target_col].values
             return transformed_features
 
