@@ -1,2 +1,3 @@
 promptflow[azure]
 python-dotenv
+promptflow-tools

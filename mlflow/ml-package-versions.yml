@@ -639,6 +639,7 @@ promptflow:
     requirements:
       ">= 0.0.0": [
         "pyspark",
+        "promptflow-tools",
       ]
     run: |
       pytest tests/promptflow/test_promptflow_model_export.py
