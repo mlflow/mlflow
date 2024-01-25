@@ -550,7 +550,7 @@ openai:
     #   pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "1.9.0"
+    maximum: "0.28.1"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
@@ -629,3 +629,12 @@ johnsnowlabs:
       else
         echo "Skipping tests due to missing license key"
       fi
+
+promptflow:
+  package_info:
+    pip_release: "promptflow"
+  models:
+    minimum: "1.0.0"
+    maximum: "1.4.1"
+    run: |
+      pytest tests/promptflow/test_promptflow_model_export.py
