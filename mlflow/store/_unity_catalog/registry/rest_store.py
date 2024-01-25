@@ -6,6 +6,7 @@ import shutil
 from contextlib import contextmanager
 
 import mlflow
+from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.entities import Run
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -453,16 +454,15 @@ class UcModelRegistryStore(BaseRestStore):
             for dataset in run.inputs.dataset_inputs:
                 dataset_source = mlflow.data.get_source(dataset)
                 if dataset_source._get_source_type() == _DELTA_TABLE:
-                    source_dict = dataset_source._to_dict()
                     # check if dataset is a uc table and then append
                     if (
-                        source_dict.get("is_databricks_uc_table")
-                        and source_dict.get("delta_table_name")
-                        and source_dict.get("delta_table_id")
+                        isinstance(dataset_source, DeltaDatasetSource)
+                        and dataset_source.delta_table_name
+                        and dataset_source.delta_table_id
                     ):
                         table_entity = Table(
-                            name=source_dict.get("delta_table_name"),
-                            table_id=source_dict.get("delta_table_id"),
+                            name=dataset_source.delta_table_name,
+                            table_id=dataset_source.delta_table_id,
                         )
                         securable_list.append(Securable(table=table_entity))
             return securable_list[0:_MAX_LINEAGE_DATA_SOURCES]
@@ -572,6 +572,7 @@ class UcModelRegistryStore(BaseRestStore):
             # Base64-encode the header value to ensure it's valid ASCII,
             # similar to JWT (see https://stackoverflow.com/a/40347926)
             header_json = message_to_json(lineage_header_info)
+            _logger.info(f"header = {header_json}")
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)

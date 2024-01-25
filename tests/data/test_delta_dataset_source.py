@@ -7,7 +7,9 @@ import pytest
 from mlflow.data.dataset_source_registry import get_dataset_source_from_json
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_managed_catalog_messages_pb2 import GetTableResponse
+from mlflow.protos.databricks_managed_catalog_messages_pb2 import GetTable, GetTableResponse
+from mlflow.utils.proto_json_utils import message_to_json
+from tests.store._unity_catalog.conftest import _REGISTRY_HOST_CREDS
 
 
 @pytest.fixture(scope="module")
@@ -168,18 +170,37 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
         )
 
 
+def _args(endpoint, json_body):
+    res = {
+        "host_creds": None,
+        "endpoint": f"/api/2.0/unity-catalog/tables/{endpoint}",
+        "method": "GET",
+        "json_body": json_body,
+        "response_proto": GetTableResponse,
+    }
+    return res
+
+
 @pytest.mark.parametrize(
-    ("call_endpoint_response", "expected_lookup_response"),
+    ("call_endpoint_response", "expected_lookup_response", "test_table_name"),
     [
-        (None, None),  # This will test throwing
-        (GetTableResponse(table_id="uc_table_id_1"), "uc_table_id_1"),
+        (None, None, "delta_table_1"),
+        (Exception("Exception from call_endpoint"), None, "delta_table_2"),
+        (GetTableResponse(table_id="uc_table_id_1"), "uc_table_id_1", "delta_table_3"),
     ],
 )
-def test_lookup_table_id(call_endpoint_response, expected_lookup_response, tmp_path):
+def test_lookup_table_id(
+    call_endpoint_response, expected_lookup_response, test_table_name, tmp_path
+):
     def mock_resolve_table_name(table_name, spark):
-        if table_name == "temp_delta_versioned_with_id":
-            return "default.temp_delta_versioned_with_id"
+        if table_name == test_table_name:
+            return f"default.{test_table_name}"
         return table_name
+
+    def mock_call_endpoint(host_creds, endpoint, method, json_body, response_proto):
+        if isinstance(call_endpoint_response, Exception):
+            raise call_endpoint_response
+        return call_endpoint_response
 
     with mock.patch(
         "mlflow.data.delta_dataset_source.get_full_name_from_sc",
@@ -195,15 +216,16 @@ def test_lookup_table_id(call_endpoint_response, expected_lookup_response, tmp_p
         return_value=True,
     ), mock.patch(
         "mlflow.data.delta_dataset_source.call_endpoint",
-        return_value=call_endpoint_response,
-    ):
+        side_effect=mock_call_endpoint,
+    ) as mock_endpoint:
+
         delta_datasource = DeltaDatasetSource(
-            delta_table_name="temp_delta_versioned_with_id", delta_table_version=1
+            delta_table_name=test_table_name, delta_table_version=1
         )
-        assert (
-            delta_datasource._lookup_table_id("temp_delta_versioned_with_id")
-            == expected_lookup_response
-        )
+        assert delta_datasource._lookup_table_id(test_table_name) == expected_lookup_response
+        req_body = message_to_json(GetTable(full_name_arg=test_table_name))
+        call_args = _args(test_table_name, req_body)
+        mock_endpoint.assert_any_call(**call_args)
 
 
 @pytest.mark.parametrize(
