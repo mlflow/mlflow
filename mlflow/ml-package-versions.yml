@@ -636,5 +636,7 @@ promptflow:
   models:
     minimum: "1.0.0"
     maximum: "1.4.1"
+    requirements:
+      ">= 0.0.0": ["pyspark"]
     run: |
       pytest tests/promptflow/test_promptflow_model_export.py
