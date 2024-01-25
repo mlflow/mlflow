@@ -121,6 +121,7 @@ Tutorials and Guides
 
     hyperparameter-tuning-with-child-runs/index
     creating-custom-pyfunc/index
+    serving-multiple-models-with-pyfunc/index
 
 MLflow Tracking
 ---------------
