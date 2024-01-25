@@ -77,8 +77,6 @@ Now load the dataset and split it into training, validation, and test sets.
     train, test = train_test_split(data, test_size=0.25, random_state=42)
     train_x = train.drop(["quality"], axis=1).values
     train_y = train[["quality"]].values.ravel()
-    test_x = test.drop(["quality"], axis=1).values
-    test_y = test[["quality"]].values.ravel()
     train_x, valid_x, train_y, valid_y = train_test_split(
         train_x, train_y, test_size=0.2, random_state=42
     )
@@ -89,7 +87,7 @@ parameters, results, and model itself of each trial as a child run.
 
 .. code-block:: python
 
-    def train_model(params, epochs, train_x, train_y, valid_x, valid_y, test_x, test_y):
+    def train_model(params, epochs, train_x, train_y, valid_x, valid_y):
         # Define model architecture
         model = keras.Sequential(
             [
@@ -129,7 +127,7 @@ parameters, results, and model itself of each trial as a child run.
             # Log model
             mlflow.tensorflow.log_model(model, "model", signature=signature)
 
-            return {"eval_rmse": eval_rmse, "status": STATUS_OK, "model": model}
+            return {"loss": eval_rmse, "status": STATUS_OK, "model": model}
 
 
 The ``objective`` function takes in the hyperparameters and returns the results of the ``train_model`` 
@@ -146,8 +144,6 @@ function for that set of hyperparameters.
             train_y=train_y,
             valid_x=valid_x,
             valid_y=valid_y,
-            test_x=test_x,
-            test_y=test_y,
         )
         return result
 
@@ -193,7 +189,7 @@ store the best parameters, model, and evaluation metrics in MLflow.
 
         # Print out the best parameters and corresponding loss
         print(f"Best parameters: {best}")
-        print(f"Best eval rmse: {best_run['eval_rmse']}")
+        print(f"Best eval rmse: {best_run['loss']}")
 
 
 Compare the results
