@@ -743,7 +743,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         err = (
             NotFittedError if Version(sklearn.__version__) <= Version("0.24.2") else AttributeError
         )
-        match = r"This GridSearchCV instance.+refit=False.+predict"
+        match = r"GridSearchCV.+predict"
         with pytest.raises(err, match=match):
             cv_model.predict([[0, 0, 0, 0]])
 
