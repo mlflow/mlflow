@@ -98,7 +98,7 @@ def test_promptflow_model_serve_predict():
     }
 
 
-def test_promptflow_model_sparkudf_predict():
+def test_promptflow_model_sparkudf_predict(spark):
     # Assert predict with promptflow model
     logged_model = log_promptflow_example_model()
     # Assert predict with spark udf
@@ -116,7 +116,7 @@ def test_promptflow_model_sparkudf_predict():
 def test_unsupported_class():
     mock_model = object()
     with pytest.raises(
-        MlflowException, match="only supports instances loaded by ~promptflow.load_flow"
+        MlflowException, match="MLflow promptflow flavor only supports instance defined with"
     ):
         with mlflow.start_run():
             mlflow.promptflow.log_model(mock_model, "mock_model_path")

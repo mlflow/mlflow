@@ -629,3 +629,17 @@ johnsnowlabs:
       else
         echo "Skipping tests due to missing license key"
       fi
+
+promptflow:
+  package_info:
+    pip_release: "promptflow"
+  models:
+    minimum: "1.1.0"
+    maximum: "1.4.1"
+    requirements:
+      ">= 0.0.0": [
+        "pyspark",
+        "promptflow-tools",
+      ]
+    run: |
+      pytest tests/promptflow/test_promptflow_model_export.py
