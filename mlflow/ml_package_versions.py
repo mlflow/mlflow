@@ -237,7 +237,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.27.2",
-            "maximum": "1.9.0"
+            "maximum": "0.28.1"
         }
     },
     "langchain": {
