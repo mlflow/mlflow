@@ -3862,3 +3862,25 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
 
     mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
     assert mlmodel["model_size_bytes"] == expected_size
+
+
+def test_save_load_custom_model_with_code_paths(tmp_path):
+    model = transformers.AutoModelForMaskedLM.from_pretrained(
+        "ccdv/lsg-distilbert-base-uncased-4096", trust_remote_code=True, cache_dir=tmp_path
+    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained("ccdv/lsg-distilbert-base-uncased-4096")
+    SENTENCES = ["Paris is the [MASK] of France.", "The goal of life is [MASK]."]
+    pipeline = transformers.FillMaskPipeline(model, tokenizer)
+    result = pipeline(SENTENCES, top_k=1)
+
+    filename = "modeling_lsg_distilbert.py"
+    for root, _, files in os.walk(tmp_path):
+        if filename in files:
+            file_path = os.path.join(root, filename)
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            pipeline, "custom_model", task="fill-mask", code_paths=[file_path]
+        )
+    loaded_model = mlflow.transformers.load_model(model_info.model_uri)
+    assert loaded_model(SENTENCES, top_k=1) == result
