@@ -130,7 +130,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
     def mock_is_databricks_uc_table():
         return True
 
-    with (mock.patch(
+    with mock.patch(
         "mlflow.data.delta_dataset_source.get_full_name_from_sc",
         side_effect=mock_resolve_table_name,
     ),  mock.patch(
@@ -142,7 +142,7 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
     ), mock.patch(
         "mlflow.data.delta_dataset_source.DeltaDatasetSource._is_databricks_uc_table",
         side_effect=mock_is_databricks_uc_table,
-    )):
+    ):
         df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
         df_spark = spark_session.createDataFrame(df)
         df_spark.write.format("delta").mode("overwrite").saveAsTable(
