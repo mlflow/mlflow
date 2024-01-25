@@ -196,7 +196,7 @@ def convert_to_dataset_feature_statistics(
             feat_stats.common_stats.CopyFrom(compute_common_stats(current_column_value))
         elif feat.type == fs_proto.STRUCT:
             struct_stats = facet_feature_statistics_pb2.StructStatistics()
-            # TODO: add more stats
+            # TODO: Add more statistics
             common_stats = compute_common_stats(current_column_value)
             struct_stats.common_stats.CopyFrom(common_stats)
 

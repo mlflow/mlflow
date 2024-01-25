@@ -135,27 +135,32 @@ def _extract_predict_fn(model, raw_model):
 
 
 def _get_regressor_metrics(y, y_pred, sample_weights):
+    y_flat = np.array(y.tolist()).flatten()
+    y_pred_flat = np.array(y_pred.tolist()).flatten()
+    sample_weights_flat = (
+        np.array(sample_weights.tolist()).flatten() if sample_weights is not None else None
+    )
+
     sum_on_target = (
-        (np.array(y) * np.array(sample_weights)).sum() if sample_weights is not None else sum(y)
+        (y_flat * sample_weights_flat).sum() if sample_weights is not None else sum(y_flat)
     )
     return {
-        "example_count": len(y),
+        "example_count": len(y_flat),
         "mean_absolute_error": sk_metrics.mean_absolute_error(
-            y.tolist(), y_pred.tolist(), sample_weight=sample_weights
+            y_flat, y_pred_flat, sample_weight=sample_weights_flat
         ),
         "mean_squared_error": sk_metrics.mean_squared_error(
-            y.tolist(), y_pred.tolist(), sample_weight=sample_weights
+            y_flat, y_pred_flat, sample_weight=sample_weights_flat
         ),
         "root_mean_squared_error": sk_metrics.mean_squared_error(
-            y.tolist(), y_pred.tolist(), sample_weight=sample_weights, squared=False
+            y_flat, y_pred_flat, sample_weight=sample_weights_flat, squared=False
         ),
         "sum_on_target": sum_on_target,
-        "mean_on_target": sum_on_target / len(y),
-        "r2_score": sk_metrics.r2_score(y.tolist(), y_pred.tolist(), sample_weight=sample_weights),
-        # TODO: fix max_error func (make flatten arrays)
-        # "max_error": sk_metrics.max_error(y.tolist(), y_pred.tolist()),
+        "mean_on_target": sum_on_target / len(y_flat),
+        "r2_score": sk_metrics.r2_score(y_flat, y_pred_flat, sample_weight=sample_weights_flat),
+        "max_error": sk_metrics.max_error(y_flat, y_pred_flat),  # Теперь эта строка активирована
         "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
-            y.tolist(), y_pred.tolist(), sample_weight=sample_weights
+            y_flat, y_pred_flat, sample_weight=sample_weights_flat
         ),
     }
 
@@ -1756,7 +1761,7 @@ class DefaultEvaluator(ModelEvaluator):
                         ndcg_at_k(retriever_k),
                     ]
 
-                eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
+                eval_df = pd.DataFrame({"prediction": list(copy.deepcopy(self.y_pred))})
                 if self.dataset.has_targets:
                     eval_df["target"] = self.y
 

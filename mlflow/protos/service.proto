@@ -472,8 +472,8 @@ message Metric {
   // Key identifying this metric.
   optional string key = 1;
 
-  // Values associated with this metric.
-  repeated double values = 2;
+  // Value associated with this metric.
+  optional double value = 2;
 
   // The timestamp at which this metric was recorded.
   optional int64 timestamp = 3;
