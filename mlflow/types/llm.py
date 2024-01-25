@@ -219,7 +219,7 @@ CHAT_MODEL_INPUT_EXAMPLE = {
         {"role": "user", "content": "Hello!"},
     ],
     "temperature": 1.0,
-    "max_tokens": 20,
+    "max_tokens": 10,
     "stop": ["\n"],
     "n": 1,
     "stream": False,

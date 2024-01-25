@@ -269,6 +269,9 @@ from mlflow.types.llm import (
     CHAT_MODEL_INPUT_EXAMPLE,
     CHAT_MODEL_INPUT_SCHEMA,
     CHAT_MODEL_OUTPUT_SCHEMA,
+    ChatMessage,
+    ChatParams,
+    ChatResponse,
 )
 from mlflow.utils import (
     PYTHON_VERSION,
@@ -2012,6 +2015,19 @@ def save_model(
                 CHAT_MODEL_OUTPUT_SCHEMA,
             )
             input_example = CHAT_MODEL_INPUT_EXAMPLE
+
+            # perform output validation and throw if
+            # output is not coercable to ChatResponse
+            messages = [ChatMessage(**m) for m in input_example["messages"]]
+            params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
+            output = python_model.predict(None, messages, params)
+            if not isinstance(output, ChatResponse):
+                raise MlflowException(
+                    "Failed to save ChatModel. Please ensure that the model's predict() method "
+                    "returns a ChatResponse object. If your predict() method currently returns "
+                    "a dict, you can instantiate a ChatResponse by unpacking the output like "
+                    "this: `ChatResponse(**output)`",
+                )
         elif isinstance(python_model, PythonModel):
             input_arg_index = 1  # second argument
             if signature := _infer_signature_from_type_hints(

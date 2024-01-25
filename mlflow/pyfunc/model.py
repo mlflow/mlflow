@@ -21,7 +21,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.types import ChatMessage, ChatParams, ChatResponse
+from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -194,7 +194,7 @@ class PythonModelContext:
 
 
 @experimental
-class ChatModel(PythonModel):
+class ChatModel(PythonModel, metaclass=ABCMeta):
     """
     A subclass of :class:`~PythonModel` that makes it more convenient to implement models
     that are compatible with popular LLM chat APIs. Test.
@@ -202,8 +202,6 @@ class ChatModel(PythonModel):
     By subclassing :class:`~ChatModel`, users can create MLflow models with a ``predict()``
     method that is more convenient for chat tasks than the generic :class:`~PythonModel` API.
     """
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:

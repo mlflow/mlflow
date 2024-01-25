@@ -12,7 +12,7 @@ from mlflow.pyfunc.model import (
     CONFIG_KEY_PYTHON_MODEL,
     PythonModelContext,
 )
-from mlflow.types import ChatMessage, ChatParams, ChatRequest, ChatResponse
+from mlflow.types.llm import ChatMessage, ChatParams, ChatRequest, ChatResponse
 from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import _get_flavor_configuration
 

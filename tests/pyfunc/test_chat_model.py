@@ -1,7 +1,10 @@
 import json
 from typing import List
 
+import pytest
+
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
@@ -24,9 +27,6 @@ DEFAULT_PARAMS = {
 class TestChatModel(mlflow.pyfunc.ChatModel):
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = {
-            "id": "123",
-            "object": "chat.completion",
-            "created": 1677652288,
             "model": "MyChatModel",
             "choices": [
                 {
@@ -65,6 +65,40 @@ def test_chat_model_save_load(tmp_path):
     output_schema = loaded_model.metadata.get_output_schema()
     assert input_schema == CHAT_MODEL_INPUT_SCHEMA
     assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+
+
+@pytest.mark.parametrize(
+    "ret",
+    [
+        "not a ChatResponse",
+        {"dict": "with", "bad": "keys"},
+        {
+            "id": "1",
+            "created": 1,
+            "model": "m",
+            "choices": [{"bad": "choice"}],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 10,
+                "total_tokens": 20,
+            },
+        },
+    ],
+)
+def test_save_throws_on_invalid_output(tmp_path, ret):
+    class BadChatModel(mlflow.pyfunc.ChatModel):
+        def predict(self, context, messages, params) -> ChatResponse:
+            return ret
+
+    model = BadChatModel()
+    with pytest.raises(
+        MlflowException,
+        match=(
+            "Failed to save ChatModel. Please ensure that the model's "
+            r"predict\(\) method returns a ChatResponse object"
+        ),
+    ):
+        mlflow.pyfunc.save_model(python_model=model, path=tmp_path)
 
 
 # test that we can predict with the model
