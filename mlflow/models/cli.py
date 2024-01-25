@@ -170,10 +170,17 @@ def prepare_env(
 )
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
+@cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
 def generate_dockerfile(
-    model_uri, output_directory, env_manager, mlflow_home, install_mlflow, enable_mlserver
+    model_uri,
+    output_directory,
+    env_manager,
+    mlflow_home,
+    install_java,
+    install_mlflow,
+    enable_mlserver,
 ):
     """
     Generates a directory with Dockerfile whose default entrypoint serves an MLflow model at port
@@ -191,6 +198,7 @@ def generate_dockerfile(
             model_uri,
             output_directory,
             mlflow_home=mlflow_home,
+            install_java=install_java,
             install_mlflow=install_mlflow,
             enable_mlserver=enable_mlserver,
         )
@@ -208,6 +216,7 @@ def generate_dockerfile(
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
+@cli_args.INSTALL_JAVA
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
 def build_docker(**kwargs):

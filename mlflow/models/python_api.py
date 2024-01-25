@@ -19,6 +19,7 @@ def build_docker(
     name="mlflow-pyfunc",
     env_manager=_EnvManager.VIRTUALENV,
     mlflow_home=None,
+    install_java=False,
     install_mlflow=False,
     enable_mlserver=False,
 ):
@@ -48,6 +49,7 @@ def build_docker(
         model_uri,
         name,
         mlflow_home=mlflow_home,
+        install_java=install_java,
         install_mlflow=install_mlflow,
         enable_mlserver=enable_mlserver,
     )

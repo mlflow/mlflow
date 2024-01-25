@@ -5,7 +5,8 @@ FROM ubuntu:20.04
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends \
     wget curl nginx ca-certificates bzip2 build-essential cmake git-core
 
-
+RUN apt-get install -y --no-install-recommends openjdk-8-jdk maven
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 # Setup pyenv
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata \
@@ -26,13 +27,19 @@ RUN pip install virtualenv
 
 WORKDIR /opt/mlflow
 
-# Install MLflow from local source
-COPY mlflow-project /opt/mlflow
-RUN pip install /opt/mlflow
+# Install MLflow
+RUN pip install mlflow==$VERSION
+
+# Install Java mlflow-scoring from Maven Central
+RUN mvn --batch-mode dependency:copy -Dartifact=org.mlflow:mlflow-scoring:$VERSION:pom -DoutputDirectory=/opt/java 
+RUN mvn --batch-mode dependency:copy -Dartifact=org.mlflow:mlflow-scoring:$VERSION:jar -DoutputDirectory=/opt/java/jars 
+RUN cp /opt/java/mlflow-scoring-$VERSION.pom /opt/java/pom.xml
+RUN cd /opt/java && mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars 
+
 
 # Copy model to image and install dependencies
 COPY model_dir/model /opt/ml/model
-RUN python -c "from mlflow.models.container import _install_pyfunc_deps; _install_pyfunc_deps('/opt/ml/model', install_mlflow=True, enable_mlserver=False, env_manager='virtualenv');"
+RUN python -c "from mlflow.models.container import _install_pyfunc_deps; _install_pyfunc_deps('/opt/ml/model', install_mlflow=False, enable_mlserver=False, env_manager='virtualenv');"
 
 ENV MLFLOW_DISABLE_ENV_CREATION=True
 ENV ENABLE_MLSERVER=False

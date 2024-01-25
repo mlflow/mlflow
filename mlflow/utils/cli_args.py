@@ -212,3 +212,9 @@ NO_CONDA = click.option(
     is_flag=True,
     help="If specified, use local environment.",
 )
+
+INSTALL_JAVA = click.option(
+    "--install-java",
+    is_flag=True,
+    help="Install Java in the image. Default is False.",
+)

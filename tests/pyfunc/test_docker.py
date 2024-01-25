@@ -1,22 +1,24 @@
 import difflib
 import os
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-from unittest import mock
 
 import pytest
 import sklearn
 import sklearn.neighbors
 
+import docker
 import mlflow
+from mlflow.models import Model
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils.env_manager import CONDA, VIRTUALENV
 from mlflow.version import VERSION
 
 _MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
+
+_docker_client = docker.from_env()
 
 
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
@@ -30,18 +32,25 @@ def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_p
     )
 
 
-def log_model():
-    with mlflow.start_run():
-        knn_model = sklearn.neighbors.KNeighborsClassifier()
-        model_info = mlflow.sklearn.log_model(
-            knn_model,
-            "model",
-            pip_requirements=[
-                f"mlflow=={mlflow.__version__}",
-                f"scikit-learn=={sklearn.__version__}",
-            ],  # Skip requirements inference for speed up
-        )
-        return model_info.model_uri
+def save_model(tmp_path):
+    knn_model = sklearn.neighbors.KNeighborsClassifier()
+    model_path = os.path.join(tmp_path, "model")
+    mlflow.sklearn.save_model(
+        knn_model,
+        path=model_path,
+        pip_requirements=[
+            f"mlflow=={mlflow.__version__}",
+            f"scikit-learn=={sklearn.__version__}",
+        ],  # Skip requirements inference for speed up
+    )
+    return model_path
+
+
+def add_spark_flavor_to_model(model_path):
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model = Model.load(model_config_path)
+    model.add_flavor("spark", spark_version="3.5.0")
+    model.save(model_config_path)
 
 
 @dataclass
@@ -86,7 +95,7 @@ _TEST_PARAMS = [
 
 @pytest.mark.parametrize("params", _TEST_PARAMS)
 def test_generate_dockerfile(tmp_path, params):
-    model_uri = log_model() if params.specify_model_uri else None
+    model_uri = save_model(tmp_path) if params.specify_model_uri else None
 
     backend = get_flavor_backend(model_uri, docker_build=True, env_manager=params.env_manager)
 
@@ -103,26 +112,45 @@ def test_generate_dockerfile(tmp_path, params):
     assert_dockerfiles_equal(actual, expected)
 
 
+def test_generate_dockerfile_for_java_flavor(tmp_path):
+    model_path = save_model(tmp_path)
+    add_spark_flavor_to_model(model_path)
+
+    backend = get_flavor_backend(model_path, docker_build=True)
+
+    backend.generate_dockerfile(
+        model_uri=model_path,
+        output_dir=tmp_path,
+    )
+
+    actual = tmp_path / "Dockerfile"
+    expected = Path(_RESOURCE_DIR) / "Dockerfile_java_flavor"
+    assert_dockerfiles_equal(actual, expected)
+
+
 @pytest.mark.parametrize("params", _TEST_PARAMS)
 def test_build_image(tmp_path, params):
-    model_uri = log_model() if params.specify_model_uri else None
+    model_uri = save_model(tmp_path) if params.specify_model_uri else None
 
     backend = get_flavor_backend(model_uri, docker_build=True, env_manager=params.env_manager)
+    backend.build_image(
+        model_uri=model_uri,
+        image_name="test_image",
+        mlflow_home=params.mlflow_home,
+        install_mlflow=params.install_mlflow,
+        enable_mlserver=params.enable_mlserver,
+    )
 
-    # Copy the context dir to a temp dir so we can verify the generated Dockerfile
-    dst_dir = tmp_path / "context"
-    with mock.patch(
-        "mlflow.models.docker_utils.build_image_from_context",
-        side_effect=lambda context_dir, image_name: shutil.copytree(context_dir, dst_dir),
-    ):
-        backend.build_image(
-            model_uri=model_uri,
-            image_name="test_image",
-            mlflow_home=params.mlflow_home,
-            install_mlflow=params.install_mlflow,
-            enable_mlserver=params.enable_mlserver,
-        )
+    # Clean up generated image
+    _docker_client.images.remove("test_image", force=True)
 
-    actual = dst_dir / "Dockerfile"
-    expected = Path(_RESOURCE_DIR) / params.expected_dockerfile
-    assert_dockerfiles_equal(actual, expected)
+
+def test_generate_dockerfile_for_java_flavor(tmp_path):
+    model_path = save_model(tmp_path)
+    add_spark_flavor_to_model(model_path)
+
+    backend = get_flavor_backend(model_path, docker_build=True)
+    backend.build_image(model_uri=model_path, image_name="test_image")
+
+    # Clean up generated image
+    _docker_client.images.remove("test_image", force=True)
