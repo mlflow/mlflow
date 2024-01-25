@@ -180,7 +180,7 @@ store the best parameters, model, and evaluation metrics in MLflow.
         )
 
         # Fetch the details of the best run
-        best_run = sorted(trials.results, key=lambda x: x["eval_rmse"])[0]
+        best_run = sorted(trials.results, key=lambda x: x["loss"])[0]
 
         # Log the best parameters, loss, and model
         mlflow.log_params(best)
