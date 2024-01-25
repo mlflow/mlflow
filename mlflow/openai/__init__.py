@@ -656,7 +656,7 @@ class _OpenAIWrapper:
         self.request_configs = {}
         for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]:
             if x in self.model:
-                self.request_configs[x] = self.model[x]
+                self.request_configs[x] = self.model.pop(x)
             elif value := getattr(self.api_config, x):
                 self.request_configs[x] = value
 
