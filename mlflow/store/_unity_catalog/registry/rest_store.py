@@ -454,7 +454,8 @@ class UcModelRegistryStore(BaseRestStore):
             num_input_sources = len(run.inputs.dataset_inputs)
             if num_input_sources > _MAX_LINEAGE_DATA_SOURCES:
                 _logger.warning(
-                    f"Truncating the number of lineage input sources to 10 from {str(num_input_sources)}."
+                    f"Truncating the number of lineage input sources from "
+                    f"{str(num_input_sources)} to 10."
                 )
             inputs_to_traverse = run.inputs.dataset_inputs[0:_MAX_LINEAGE_DATA_SOURCES]
             for dataset in inputs_to_traverse:

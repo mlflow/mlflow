@@ -171,14 +171,13 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
 
 
 def _args(endpoint, json_body):
-    res = {
+    return {
         "host_creds": None,
         "endpoint": f"/api/2.0/unity-catalog/tables/{endpoint}",
         "method": "GET",
         "json_body": json_body,
         "response_proto": GetTableResponse,
     }
-    return res
 
 
 @pytest.mark.parametrize(
