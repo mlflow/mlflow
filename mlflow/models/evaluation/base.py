@@ -98,8 +98,9 @@ class EvaluationMetric:
                     Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :param kwargs: Includes a list of args that are used to compute the metric. These
-                    args could information coming from input data, model outputs or parameters
-                    specified in the `evaluator_config` argument of the `mlflow.evaluate` API.
+                    args could be information coming from input data, model outputs, other metrics,
+                    or parameters specified in the `evaluator_config` argument of the
+                    `mlflow.evaluate` API.
                 :return:
                     MetricValue with per-row scores, per-row justifications, and aggregate results.
                 """
@@ -171,8 +172,9 @@ def make_metric(
                     Refer to the DefaultEvaluator behavior section for what metrics
                     will be returned based on the type of model (i.e. classifier or regressor).
                 :param kwargs: Includes a list of args that are used to compute the metric. These
-                    args could information coming from input data, model outputs or parameters
-                    specified in the `evaluator_config` argument of the `mlflow.evaluate` API.
+                    args could be information coming from input data, model outputs, other metrics,
+                    or parameters specified in the `evaluator_config` argument of the
+                    `mlflow.evaluate` API.
                 :return:
                     MetricValue with per-row scores, per-row justifications, and aggregate results.
                 """
