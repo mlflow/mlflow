@@ -8,7 +8,7 @@ functionality using any MLflow-compatible service combined with a custom PyFunc 
 
 Here are some reasons to consider this design:
 
-- **Simplified Inference**: We will maintain a single model endpoint instead of one per model, which drammatically reduces maintanence and providioning complexity. 
+- **Simplified Inference**: We will maintain a single model endpoint instead of one per model, which dramatically reduces maintenance and provisioning complexity. 
 - **Reduced Serving Cost**: Endpoints cost money! If your hosting service charges for compute and not memeory, this will save you money.
 
 0 - What's in this tutorial?
