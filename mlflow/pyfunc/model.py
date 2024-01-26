@@ -197,10 +197,14 @@ class PythonModelContext:
 class ChatModel(PythonModel, metaclass=ABCMeta):
     """
     A subclass of :class:`~PythonModel` that makes it more convenient to implement models
-    that are compatible with popular LLM chat APIs. Test.
+    that are compatible with popular LLM chat APIs. By subclassing :class:`~ChatModel`,
+    users can create MLflow models with a ``predict()`` method that is more convenient
+    for chat tasks than the generic :class:`~PythonModel` API. ChatModels automatically
+    define input/output signatures and an input example, so manually specifying these values
+    when calling :func:`mlflow.pyfunc.save_model() <mlflow.pyfunc.save_model>` is not necessary.
 
-    By subclassing :class:`~ChatModel`, users can create MLflow models with a ``predict()``
-    method that is more convenient for chat tasks than the generic :class:`~PythonModel` API.
+    See the documentation of the ``predict()`` method below for details on that parameters and
+    outputs that are expected by the ``ChatModel`` API.
     """
 
     @abstractmethod
@@ -208,81 +212,13 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         """
         Evaluates a chat input and produces a chat output.
 
-        :param messages: A list of chat messages.
-            Each message is a dictionary with the following keys:
-
-            - ``role (str)``: The role of the message sender.
-            - ``content (str)``: The content of the message.
-            - ``name (str)``: The name of the message sender. **Optional**.
-
-            Example:
-
-            .. code-block:: python
-
-                [
-                    {"role": "system", "content": "You are a helpful assistant"},
-                    {"role": "user", "content": "What is MLflow?"},
-                ]
-
-        :param params: A dict containing various inference parameters:
-
-            - ``temperature (float)``: The temperature to use during sampling.
-                                       **Optional**, default: ``1.0``
-            - ``max_tokens (int)``: The maximum number of tokens to generate.
-                                    **Optional**, default: ``None``
-            - ``stop (List[str])``: A list of tokens at which to stop generation.
-                                    **Optional**, default: ``None``
-            - ``n (int)``: The number of samples to generate.
-                           **Optional**, default: ``1``
-            - ``stream (bool)``: Whether to stream generation.
-                                 **Optional**, default: ``False``
-
-            Example:
-
-            .. code-block:: python
-
-                {"temperature": 1.5, "max_tokens": 20, "stop": ["\\n"], "n": 3, "stream": False}
-
-        :return: A dict containing the following keys:
-
-            - ``id (str)``: The ID of the response.
-            - ``object (str)``: The object type, which should be "chat.completion"
-            - ``created (int)``: The UNIX timestamp of when the response was created.
-            - ``model (str)``: The name of the model that generated the response.
-            - ``choices (List[Dict[str, Any]])``: A list of choices:
-
-                - ``index (int)``: The index of the choice.
-                - ``message (Dict[str, Any])``: The message of the choice.
-                - ``finish_reason (str)``: The reason the choice was finished.
-
-            - ``usage (Dict[str, int])``: A dict containing usage statistics:
-
-                - ``prompt_tokens (int)``: The number of tokens in the prompt.
-                - ``completion_tokens (int)``: The number of tokens in the completion.
-                - ``total_tokens (int)``: The total number of tokens.
-
-            Example:
-
-            .. code-block:: python
-
-                {
-                    "id": "407e64a3-3e9f-4ca1-8dea-62b56a3065ad",
-                    "object": "chat.completion",
-                    "created": 1705914661,
-                    "model": "llama-2-70b-chat",
-                    "choices": [
-                        {
-                            "index": 0,
-                            "message": {
-                                "role": "assistant",
-                                "content": "MLflow is an open source platform.",
-                            },
-                            "finish_reason": "length",
-                        }
-                    ],
-                    "usage": {"prompt_tokens": 36, "completion_tokens": 128, "total_tokens": 164},
-                }
-
+        :param messages: A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                         objects representing chat history.
+        :param params: A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                       containing various parameters used to modify model behavior during
+                       inference.
+        :return: A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
+                 the model's response(s), as well as other metadata.
         """
 
 

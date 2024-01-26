@@ -70,7 +70,7 @@ class _ChatModelPyfuncWrapper:
         """
         :param chat_model: An instance of a subclass of :class:`~ChatModel`.
         :param context: A :class:`~PythonModelContext` instance containing artifacts that
-                        ``python_model`` may use when performing inference.
+                        ``chat_model`` may use when performing inference.
         :param signature: :class:`~ModelSignature` instance describing model input and output.
         """
         self.chat_model = chat_model
@@ -88,7 +88,7 @@ class _ChatModelPyfuncWrapper:
 
     def predict(self, model_input: ChatRequest, params: Optional[Dict[str, Any]] = None):
         """
-        :param model_input: Model input data.
+        :param model_input: Model input data in the form of a chat request.
         :param params: Additional parameters to pass to the model for inference.
                        Unused in this implementation, as the params are handled
                        via ``self._convert_input()``.
@@ -100,4 +100,7 @@ class _ChatModelPyfuncWrapper:
         if isinstance(response, ChatResponse):
             return response.to_dict()
 
+        # shouldn't happen since there is validation at save time ensuring that
+        # the model returns a ChatResponse. however, just in case, return the
+        # response as-is
         return response

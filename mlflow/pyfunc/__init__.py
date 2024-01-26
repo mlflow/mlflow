@@ -2025,8 +2025,8 @@ def save_model(
                 raise MlflowException(
                     "Failed to save ChatModel. Please ensure that the model's predict() method "
                     "returns a ChatResponse object. If your predict() method currently returns "
-                    "a dict, you can instantiate a ChatResponse by unpacking the output like "
-                    "this: `ChatResponse(**output)`",
+                    "a dict, you can instantiate a ChatResponse by unpacking the output, e.g. "
+                    "`ChatResponse(**output)`",
                 )
         elif isinstance(python_model, PythonModel):
             input_arg_index = 1  # second argument
