@@ -197,7 +197,8 @@ def save_model(
         f.write(keras_module.__name__)
 
     if save_exported_model:
-        _export_keras_model(model, path, signature)
+        model_path = os.path.join(path, model_subpath)
+        _export_keras_model(model, model_path, signature)
     else:
         # Save path requires ".keras" suffix.
         file_extension = ".keras"

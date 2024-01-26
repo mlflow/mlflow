@@ -44,6 +44,9 @@ class KerasModelWrapper:
 
 def _load_keras_model(path, model_conf, custom_objects=None, **load_model_kwargs):
     save_exported_model = model_conf.flavors["keras"].get("save_exported_model")
+    model_path = os.path.join(path, model_conf.flavors["keras"].get("data", _MODEL_SAVE_PATH))
+    if os.path.isdir(model_path):
+        model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
     if save_exported_model:
         try:
             import tensorflow as tf
@@ -52,11 +55,8 @@ def _load_keras_model(path, model_conf, custom_objects=None, **load_model_kwargs
                 "`tensorflow` must be installed if you want to load an exported Keras 3 model, "
                 "please install `tensorflow` by `pip install tensorflow`."
             )
-        return tf.saved_model.load(path)
+        return tf.saved_model.load(model_path)
     else:
-        model_path = os.path.join(path, model_conf.flavors["keras"].get("data", _MODEL_SAVE_PATH))
-        if os.path.isdir(model_path):
-            model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
         model_path += ".keras"
         return keras.saving.load_model(
             model_path,
