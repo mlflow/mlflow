@@ -451,7 +451,13 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         securable_list = []
         if run.inputs is not None:
-            for dataset in run.inputs.dataset_inputs:
+            num_input_sources = len(run.inputs.dataset_inputs)
+            if num_input_sources > _MAX_LINEAGE_DATA_SOURCES:
+                _logger.warning(
+                    f"Truncating the number of lineage input sources to 10 from {str(num_input_sources)}."
+                )
+            inputs_to_traverse = run.inputs.dataset_inputs[0:_MAX_LINEAGE_DATA_SOURCES]
+            for dataset in inputs_to_traverse:
                 dataset_source = mlflow.data.get_source(dataset)
                 if dataset_source._get_source_type() == _DELTA_TABLE:
                     # check if dataset is a uc table and then append
@@ -465,7 +471,7 @@ class UcModelRegistryStore(BaseRestStore):
                             table_id=dataset_source.delta_table_id,
                         )
                         securable_list.append(Securable(table=table_entity))
-            return securable_list[0:_MAX_LINEAGE_DATA_SOURCES]
+            return securable_list
         else:
             return None
 
