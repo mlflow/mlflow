@@ -28,7 +28,7 @@ Bug fixes:
 - [Recipe] Fix recipe card display format (#10893, @WeichenXu123)
 - [Tracking] Fix an issue with an incorrect retry default timeout for urllib3 1.x (#10839, @BenWilson2)
 - [Windows] Replace Window shell-escaping of databricks run command with bash escaping (#10811, @wolpl)
-- [Java] [WIP] Fix ReplAwareDatasourceAttributeExtractor (#10729, @daniellok-db)
+- [Java] Fix ReplAwareDatasourceAttributeExtractor (#10729, @daniellok-db)
 - [Models] Add deduplication logic for pip requirements and extras handling for MLflow models (#10778, @BenWilson2)
 - [Scoring] Adds tagging for sagemaker endpoints and sagemaker config. Issue #9159 (#9310, @clarkh-ncino)
 - [Models] Fix paddle flavor for paddle 2.6.0 (#10757, @WeichenXu123)
