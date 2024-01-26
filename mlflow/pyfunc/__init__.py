@@ -307,6 +307,7 @@ from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
+from pyspark.sql import DataFrame as SparkDataFrame
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -486,6 +487,10 @@ class PyFuncModel:
             if inspect.signature(self._predict_fn).parameters.get("params"):
                 return self._predict_fn(data, params=params)
             _log_warning_if_params_not_in_predict_signature(_logger, params)
+            if isinstance(data, SparkDataFrame):
+                _logger.warning(
+                    "Input data is a Spark DataFrame. Note that behaviour for Spark DataFrames is model dependent."
+                )
             return self._predict_fn(data)
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():

@@ -26,6 +26,7 @@ from mlflow.utils.proto_json_utils import (
     parse_tf_serving_input,
 )
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
+from pyspark.sql import DataFrame as SparkDataFrame
 
 try:
     from scipy.sparse import csc_matrix, csr_matrix
@@ -57,8 +58,9 @@ PyFuncInput = Union[
     float,
     int,
     str,
+    SparkDataFrame,
 ]
-PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
+PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str, SparkDataFrame,]
 
 _logger = logging.getLogger(__name__)
 
@@ -841,6 +843,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     def _is_scalar(x):
         return np.isscalar(x) or x is None
 
+    old_pf_input = pf_input
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
@@ -906,7 +909,8 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     )
         elif isinstance(pf_input, (list, np.ndarray, pd.Series)):
             pf_input = pd.DataFrame(pf_input)
-
+        elif isinstance(pf_input, SparkDataFrame):
+            pf_input = pf_input.limit(10).toPandas()
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
                 f"Expected input to be DataFrame. Found: {type(pf_input).__name__}"
@@ -950,6 +954,12 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
             )
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)
+    elif isinstance(old_pf_input, SparkDataFrame):
+        if input_schema.has_input_names():
+            _enforce_named_col_schema(pf_input, input_schema)
+        else:
+            _enforce_unnamed_col_schema(pf_input, input_schema)
+        return old_pf_input
     elif input_schema.has_input_names():
         return _enforce_named_col_schema(pf_input, input_schema)
     else:

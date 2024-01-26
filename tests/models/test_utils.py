@@ -4,6 +4,9 @@ from unittest import mock
 
 import numpy as np
 import pytest
+from pyspark.sql import SparkSession
+from pyspark.sql.types import *
+from datetime import datetime
 import sklearn.neighbors as knn
 from sklearn import datasets
 
@@ -17,6 +20,7 @@ from mlflow.models.utils import (
     _enforce_datatype,
     _enforce_object,
     _enforce_property,
+    _enforce_schema,
     get_model_version_from_model_uri,
 )
 from mlflow.types import DataType
@@ -165,7 +169,7 @@ def test_adding_libraries_to_model_when_version_source_None(sklearn_knn_model):
     model_version_without_source = ModelVersion(name=model_name, version=1, creation_timestamp=124)
     assert model_version_without_source.run_id is None
     with mock.patch.object(
-        MlflowClient, "get_model_version", return_value=model_version_without_source
+            MlflowClient, "get_model_version", return_value=model_version_without_source
     ) as mlflow_client_mock:
         wheeled_model_info = add_libraries_to_model(model_uri)
         assert wheeled_model_info.run_id is not None
@@ -197,7 +201,7 @@ def test_enforce_datatype_with_errors():
         _enforce_datatype("string", "string")
 
     with pytest.raises(
-        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
+            MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
     ):
         _enforce_datatype(123, DataType.string)
 
@@ -243,13 +247,13 @@ def test_enforce_object_with_errors():
         _enforce_object({}, obj)
 
     with pytest.raises(
-        MlflowException, match=r"Invalid properties not defined in the schema found: {'c'}"
+            MlflowException, match=r"Invalid properties not defined in the schema found: {'c'}"
     ):
         _enforce_object({"a": "some_sentence", "c": "some_sentence"}, obj)
 
     with pytest.raises(
-        MlflowException,
-        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type int",
+            MlflowException,
+            match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type int",
     ):
         _enforce_object({"a": 1}, obj)
 
@@ -302,7 +306,7 @@ def test_enforce_property():
 
 def test_enforce_property_with_errors():
     with pytest.raises(
-        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
+            MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
     ):
         _enforce_property(123, Property("a", DataType.string))
 
@@ -316,8 +320,8 @@ def test_enforce_property_with_errors():
         )
 
     with pytest.raises(
-        MlflowException,
-        match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type list",
+            MlflowException,
+            match=r"Failed to enforce schema for key `a`. " r"Expected type string, received type list",
     ):
         _enforce_property(
             {"a": ["some_sentence1", "some_sentence2"]},
@@ -332,28 +336,28 @@ def test_enforce_property_with_errors():
         (["some_sentence1", "some_sentence2"], Array(DataType.string)),
         # 2. Nested list
         (
-            [
-                [["a", "b"], ["c", "d"]],
-                [["e", "f", "g"], ["h"]],
-                [[]],
-            ],
-            Array(Array(Array(DataType.string))),
+                [
+                    [["a", "b"], ["c", "d"]],
+                    [["e", "f", "g"], ["h"]],
+                    [[]],
+                ],
+                Array(Array(Array(DataType.string))),
         ),
         # 3. Array of Object
         (
-            [
-                {"a": "some_sentence1", "b": "some_sentence2"},
-                {"a": "some_sentence3", "c": ["some_sentence4", "some_sentence5"]},
-            ],
-            Array(
-                Object(
-                    [
-                        Property("a", DataType.string),
-                        Property("b", DataType.string, required=False),
-                        Property("c", Array(DataType.string), required=False),
-                    ]
-                )
-            ),
+                [
+                    {"a": "some_sentence1", "b": "some_sentence2"},
+                    {"a": "some_sentence3", "c": ["some_sentence4", "some_sentence5"]},
+                ],
+                Array(
+                    Object(
+                        [
+                            Property("a", DataType.string),
+                            Property("b", DataType.string, required=False),
+                            Property("c", Array(DataType.string), required=False),
+                        ]
+                    )
+                ),
         ),
         # 4. Empty list
         ([], Array(DataType.string)),
@@ -370,13 +374,13 @@ def test_enforce_array_on_list(data, schema):
         (np.array(["some_sentence1", "some_sentence2"]), Array(DataType.string)),
         # 2. 2D array
         (
-            np.array(
-                [
-                    ["a", "b"],
-                    ["c", "d"],
-                ]
-            ),
-            Array(Array(DataType.string)),
+                np.array(
+                    [
+                        ["a", "b"],
+                        ["c", "d"],
+                    ]
+                ),
+                Array(Array(DataType.string)),
         ),
         # 3. Empty array
         (np.array([[], []]), Array(Array(DataType.string))),
@@ -391,13 +395,13 @@ def test_enforce_array_with_errors():
         _enforce_array("abc", Array(DataType.string))
 
     with pytest.raises(
-        MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
+            MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
     ):
         _enforce_array([123, 456, 789], Array(DataType.string))
 
     # Nested array with mixed type elements
     with pytest.raises(
-        MlflowException, match=r"Failed to enforce schema of data `1` with dtype `string`"
+            MlflowException, match=r"Failed to enforce schema of data `1` with dtype `string`"
     ):
         _enforce_array([["a", "b"], [1, 2]], Array(Array(DataType.string)))
 
@@ -417,7 +421,7 @@ def test_enforce_array_with_errors():
 
     # Extra properties
     with pytest.raises(
-        MlflowException, match=r"Invalid properties not defined in the schema found: {'c'}"
+            MlflowException, match=r"Invalid properties not defined in the schema found: {'c'}"
     ):
         _enforce_array(
             [
@@ -430,3 +434,48 @@ def test_enforce_array_with_errors():
                 )
             ),
         )
+
+
+def test_enforce_schema_spark_dataframe():
+    spark = SparkSession.builder.appName("test").getOrCreate()
+
+    spark_df_schema = StructType([
+        StructField("smallint", ShortType(), True),
+        StructField("int", IntegerType(), True),
+        StructField("bigint", LongType(), True),
+        StructField("float", FloatType(), True),
+        StructField("double", DoubleType(), True),
+        StructField("boolean", BooleanType(), True),
+        StructField("date", DateType(), True),
+        StructField("timestamp", TimestampType(), True),
+        StructField("string", StringType(), True),
+        StructField("binary", BinaryType(), True)
+    ])
+
+    data = [(
+        1,  # smallint
+        2,  # int
+        1234567890123456789,  # bigint
+        1.23,  # float
+        3.456789,  # double
+        True,  # boolean
+        datetime(2020, 1, 1),  # date
+        datetime.now(),  # timestamp
+        "example string",  # string
+        bytearray("example binary", "utf-8")  # binary
+    )]
+
+    df = spark.createDataFrame(data, spark_df_schema)
+
+    input_schema = Array(Object([Property("smallint", DataType.integer),
+                                 Property("int", DataType.integer),
+                                 Property("bigint", DataType.long),
+                                 Property("float", DataType.float),
+                                 Property("double", DataType.double),
+                                 Property("boolean", DataType.boolean),
+                                 Property("date", DataType.datetime),
+                                 Property("timestamp", DataType.datetime),
+                                 Property("string", DataType.string),
+                                 Property("binary", DataType.binary),
+                                 ]));
+    _enforce_schema(data, input_schema)
