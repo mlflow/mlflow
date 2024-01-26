@@ -81,7 +81,7 @@ class _ChatModelPyfuncWrapper:
         # model_input should be correct from signature validation, so just convert it to dict here
         dict_input = {key: value[0] for key, value in model_input.to_dict(orient="list").items()}
 
-        messages = [ChatMessage(**message) for message in dict_input.pop("messages", None)]
+        messages = [ChatMessage(**message) for message in dict_input.pop("messages", [])]
         params = ChatParams(**dict_input)
 
         return messages, params

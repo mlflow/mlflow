@@ -27,6 +27,7 @@ DEFAULT_PARAMS = {
 class TestChatModel(mlflow.pyfunc.ChatModel):
     def predict(self, context, messages: List[ChatMessage], params: ChatParams) -> ChatResponse:
         mock_response = {
+            "id": "123",
             "model": "MyChatModel",
             "choices": [
                 {

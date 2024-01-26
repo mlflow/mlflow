@@ -1,6 +1,6 @@
 import time
 from dataclasses import asdict, dataclass, field
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Schema
 
@@ -15,8 +15,8 @@ from mlflow.types.schema import Array, ColSpec, DataType, Object, Property, Sche
 
 class _BaseDataclass:
     def _validate_field(self, key, val_type, required):
-        value = getattr(self, key)
-        if value is None and required:
+        value = getattr(self, key, None)
+        if required and value is None:
             raise ValueError(f"`{key}` is required")
         if value is not None and not isinstance(value, val_type):
             raise ValueError(
@@ -24,8 +24,8 @@ class _BaseDataclass:
             )
 
     def _validate_list(self, key, val_type, required):
-        values = getattr(self, key)
-        if values is None and required:
+        values = getattr(self, key, None)
+        if required and values is None:
             raise ValueError(f"`{key}` is required")
 
         if values is not None:
@@ -218,7 +218,7 @@ class ChatResponse(_BaseDataclass):
     model: str
     choices: List[ChatChoice]
     usage: TokenUsageStats
-    object: str = "chat.completion"
+    object: Literal["chat.completion"] = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
 
     def __post_init__(self):
