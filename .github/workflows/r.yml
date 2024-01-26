@@ -36,7 +36,7 @@ jobs:
         shell: bash --noprofile --norc -exo pipefail {0}
         working-directory: mlflow/R/mlflow
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
           submodules: recursive
