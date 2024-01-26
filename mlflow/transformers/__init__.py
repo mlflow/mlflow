@@ -4,6 +4,7 @@ import ast
 import base64
 import binascii
 import contextlib
+import copy
 import functools
 import json
 import logging
@@ -14,7 +15,7 @@ import shutil
 import string
 import sys
 from functools import lru_cache
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -47,6 +48,11 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.transformers.inference_utils import (
+    _INFERENCE_TASK_CHAT,
+    _INFERENCE_TASK_COMPLETIONS,
+    _get_output_and_usage_from_tensor,
+)
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
@@ -94,6 +100,10 @@ _IMAGE_PROCESSOR_KEY = "image_processor"
 _IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
 _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
+_INFERENCE_TASK_KEY = "inference_task"
+# The inference task is saved as "task" in the metadata for forward compatibility with
+# future Databricks Provisioned Throughput support of more model architectures for inference.
+_METADATA_INFERENCE_TASK_KEY = "task"
 _LICENSE_FILE_NAME = "LICENSE.txt"
 _LICENSE_FILE_PATTERN = re.compile(r"license(\.[a-z]+|$)", re.IGNORECASE)
 _MODEL_KEY = "model"
@@ -136,8 +146,6 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
     "`model_config` dict with `return_full_text` set to `True` when saving the model."
 )
 
-_INFERENCE_TASK_COMPLETIONS = "llm/v1/completions"
-_INFERENCE_TASK_CHAT = "llm/v1/chat"
 _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE = {
     "text-generation": [_INFERENCE_TASK_COMPLETIONS, _INFERENCE_TASK_CHAT],
 }
@@ -327,7 +335,7 @@ def save_model(
             .. Note:: If a processor is supplied when saving a model, the
                         model will be unavailable for loading as a ``Pipeline`` or for
                         usage with pyfunc inference.
-        task: The transformers-specific task type of the model, or the inference task type.
+        task: The transformers-specific task type of the model, or MLflow inference task type.
             If provided a transformers-specific task type, these strings are utilized so
             that a pipeline can be created with the appropriate internal call architecture
             to meet the needs of a given model.
@@ -467,12 +475,10 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
-    resolved_transformers_task = _get_or_infer_transformers_task_type(transformers_model, task)
+    transformers_task, inference_task = _get_or_infer_task_type(transformers_model, task)
 
     if not isinstance(transformers_model, transformers.Pipeline):
-        built_pipeline = _build_pipeline_from_model_input(
-            transformers_model, resolved_transformers_task
-        )
+        built_pipeline = _build_pipeline_from_model_input(transformers_model, transformers_task)
     else:
         built_pipeline = transformers_model
 
@@ -513,11 +519,7 @@ def save_model(
         else:
             mlflow_model.metadata = {_PROMPT_TEMPLATE_KEY: prompt_template}
 
-    supported_inference_tasks = _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE.get(
-        resolved_transformers_task, []
-    )
-
-    flavor_conf = _generate_base_flavor_configuration(built_pipeline, resolved_transformers_task)
+    flavor_conf = _generate_base_flavor_configuration(built_pipeline, transformers_task)
 
     components = _record_pipeline_components(built_pipeline)
 
@@ -527,7 +529,8 @@ def save_model(
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
-    if task in supported_inference_tasks:
+    if inference_task:
+        _validate_inference_task_type(inference_task, transformers_task)
         flavor_conf.update({_INFERENCE_TASK_KEY: task})
         if mlflow_model.metadata:
             mlflow_model.metadata[_METADATA_INFERENCE_TASK_KEY] = task
@@ -1355,23 +1358,23 @@ def _extract_torch_dtype_if_set(pipeline):
         return str(torch_dtype)
 
 
-def _get_or_infer_transformers_task_type(model, task: Optional[str] = None) -> str:
+def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str]:
     """
-    Validates that a supplied task type is either supported by ``transformers`` library if supplied,
-    or a task in the inference interface format;
-    if not supplied, infers the appropriate ``transformers`` task type based on the model type.
+    Determines whether a ``transformers`` task type or a MLflow inference task type is provided.
+    If ``transformers`` task type is not provided, the appropriate ``transformers`` task type
+    based on the model type.
     """
-    transformers_task = _infer_transformers_task_type(model)
+    transformers_task, inference_task = None, None
 
-    supported_inference_tasks = _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE.get(
-        transformers_task, []
-    )
-
-    if task and task not in supported_inference_tasks:
-        _validate_transformers_task_type(task, additional_tasks=supported_inference_tasks)
+    if not task:
+        transformers_task = _infer_transformers_task_type(model)
+    elif _is_transformers_task_type(task):
         transformers_task = task
+    else:
+        transformers_task = _infer_transformers_task_type(model)
+        inference_task = task
 
-    return transformers_task
+    return transformers_task, inference_task
 
 
 def _infer_transformers_task_type(model) -> str:
@@ -1411,23 +1414,46 @@ def _infer_transformers_task_type(model) -> str:
         )
 
 
-def _validate_transformers_task_type(
-    task: str, additional_tasks: Optional[List[str]] = None
-) -> None:
+def _is_transformers_task_type(task: str) -> bool:
+    from transformers.pipelines import get_supported_tasks
+
+    valid_tasks = get_supported_tasks()
+
+    return task in valid_tasks or task.startswith("translation")
+
+
+def _validate_transformers_task_type(transformers_task: str) -> None:
     """
-    Validates that a given ``task`` type is supported by the ``transformers`` library and has been
-    registered in the hub, or belongs to the additional MLflow ``task`` interfaces.
+    Validates that a ``transformers_task`` type is supported by the ``transformers`` library and has been
+    registered in the hub.
     """
     from transformers.pipelines import get_supported_tasks
 
     valid_tasks = get_supported_tasks()
-    if additional_tasks:
-        valid_tasks += additional_tasks
 
-    if task not in valid_tasks and not task.startswith("translation"):
+    if not _is_transformers_task_type(transformers_task):
         raise MlflowException(
-            f"The task provided is invalid. '{task}' is not a supported task. "
-            f"Must be one of the registered tasks: {valid_tasks}",
+            f"The task provided is invalid. '{transformers_task}' is not a supported task. "
+            f"Must be one of the registered transformers tasks: {valid_tasks}, or one of the "
+            f"supported MLflow inference tasks",
+            error_code=BAD_REQUEST,
+        )
+
+
+def _validate_inference_task_type(inference_task: str, transformers_task: str) -> None:
+    """
+    Validates that an ``inference_task`` type is supported by ``transformers`` pipeline type.
+    """
+    supported_inference_tasks = _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE.get(
+        transformers_task, []
+    )
+
+    if inference_task not in supported_inference_tasks:
+        raise MlflowException(
+            f"The task provided is invalid. '{inference_task}' is not a supported task. "
+            f"Must be one of the registered MLflow inference tasks supported for "
+            f"the {transformers_task} pipeline: {supported_inference_tasks}, or one of the "
+            f"registered transformers tasks",
             error_code=BAD_REQUEST,
         )
 
@@ -1872,8 +1898,12 @@ class _TransformersWrapper:
             # Override the inference configuration with any additional kwargs provided by the user.
             self.model_config.update(params)
 
-    def _validate_model_config_and_return_output(self, data, model_config):
+    def _validate_model_config_and_return_output(self, data, force_return_tensors=False):
         import transformers
+
+        model_config = copy.deepcopy(self.model_config)
+        if force_return_tensors:
+            model_config["return_tensors"] = True
 
         try:
             if isinstance(data, dict):
@@ -2036,13 +2066,15 @@ class _TransformersWrapper:
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
-            # If inference task is defined, return tensors instead of generated text
-            model_config = self.model_config.copy()
+            # If inference task is defined, return tensors internally to get usage information
+            force_return_tensors = False
             if self.inference_task:
-                model_config.update({"return_tensors": True})
+                force_return_tensors = True
                 output_key = "generated_token_ids"
 
-            raw_output = self._validate_model_config_and_return_output(data, model_config)
+            raw_output = self._validate_model_config_and_return_output(
+                data, force_return_tensors=force_return_tensors
+            )
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
@@ -2975,53 +3007,13 @@ class _TransformersWrapper:
 
     def _postprocess_output_for_inference_task(self, data, output):
         """
-        Compute the token usage and finish reason for the output of a text generation pipeline,
-        and wrap the text and additional information as dict according to the inference task type.
+        Wrap output data with usage information according to the MLflow inference task.
         """
         output_dicts = []
         for input_data, output_tensor in zip(data, output):
-            # Get token usage
-            inputs = self.pipeline.tokenizer(
-                input_data,
-                return_tensors=self.pipeline.framework,
-                max_length=self.model_config.get("max_length", None),
+            output_dict = _get_output_and_usage_from_tensor(
+                input_data, output_tensor, self.pipeline, self.model_config, self.inference_task
             )
-            prompt_tokens = inputs["input_ids"].shape[-1]
-            total_tokens = len(output_tensor)
-            completions_tokens = total_tokens - prompt_tokens
-
-            # Decode output from tensor
-            generated_text = self.pipeline.tokenizer.decode(
-                output_tensor,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=True,
-            )
-
-            # Strip prompt from output
-            completions_text = generated_text[len(input_data) :].lstrip()
-
-            # Determine finish reason
-            finish_reason = "stop"
-            if total_tokens > self.model_config.get(
-                "max_length", float("inf")
-            ) or completions_tokens == self.model_config.get("max_new_tokens", float("inf")):
-                finish_reason = "length"
-
-            # Construct output dict
-            output_dict = {
-                "finish_reason": finish_reason,
-                "usage": {
-                    "prompt_tokens": prompt_tokens,
-                    "completion_tokens": len(output_tensor) - prompt_tokens,
-                    "total_tokens": len(output_tensor),
-                },
-            }
-
-            if self.inference_task == _INFERENCE_TASK_COMPLETIONS:
-                output_dict["text"] = completions_text
-            elif self.inference_task == _INFERENCE_TASK_CHAT:
-                output_dict["messages"] = {"role": "assistant", "content": completions_text}
-
             output_dicts.append(output_dict)
 
         return output_dicts

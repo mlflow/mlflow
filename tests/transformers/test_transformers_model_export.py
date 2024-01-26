@@ -42,13 +42,14 @@ from mlflow.transformers import (
     _generate_base_flavor_configuration,
     _get_base_model_architecture,
     _get_instance_type,
-    _get_or_infer_transformers_task_type,
+    _get_or_infer_task_type,
     _infer_transformers_task_type,
     _is_model_distributed_in_memory,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
     _TransformersWrapper,
+    _validate_inference_task_type,
     _validate_transformers_task_type,
     _write_card_data,
     _write_license_information,
@@ -182,10 +183,22 @@ def test_task_inference(small_seq2seq_pipeline):
         _infer_transformers_task_type(small_seq2seq_pipeline.tokenizer)
 
 
-def test_task_validation():
+def test_transformers_task_validation():
     with pytest.raises(MlflowException, match="The task provided is invalid. 'fake-task' is not"):
         _validate_transformers_task_type("fake-task")
     _validate_transformers_task_type("image-classification")
+
+
+def test_inference_task_validation():
+    with pytest.raises(
+        MlflowException, match="The task provided is invalid. 'llm/v1/invalid' is not"
+    ):
+        _validate_inference_task_type("llm/v1/invalid", "text-generation")
+    with pytest.raises(
+        MlflowException, match="The task provided is invalid. 'llm/v1/completions' is not"
+    ):
+        _validate_inference_task_type("llm/v1/completions", "text-classification")
+    _validate_inference_task_type("llm/v1/completions", "text-generation")
 
 
 def test_instance_extraction(small_qa_pipeline):
@@ -239,7 +252,7 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         _FRAMEWORK_KEY: "pt",
     }
     seq_conf_infer_task = _generate_base_flavor_configuration(
-        small_seq2seq_pipeline, _get_or_infer_transformers_task_type(small_seq2seq_pipeline)
+        small_seq2seq_pipeline, _get_or_infer_task_type(small_seq2seq_pipeline)[0]
     )
     assert seq_conf_infer_task == expected_seq_pipeline_conf
     seq_conf_specify_task = _generate_base_flavor_configuration(
@@ -247,7 +260,7 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
     )
     assert seq_conf_specify_task == expected_seq_pipeline_conf
     qa_conf_infer_task = _generate_base_flavor_configuration(
-        small_qa_pipeline, _get_or_infer_transformers_task_type(small_qa_pipeline)
+        small_qa_pipeline, _get_or_infer_task_type(small_qa_pipeline)[0]
     )
     assert qa_conf_infer_task == expected_qa_pipeline_conf
     qa_conf_specify_task = _generate_base_flavor_configuration(
@@ -3914,7 +3927,7 @@ def test_text_generation_task_completions_predict_with_hf_params(
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     inference = pyfunc_loaded.predict(
-        data,
+        {"prompt": "How to learn Python in 3 weeks?"},
         params={"max_new_tokens": 10},
     )
 
