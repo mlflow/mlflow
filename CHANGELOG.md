@@ -4,55 +4,70 @@
 
 MLflow 2.10.0 includes several major features and improvements
 
+In MLflow 2.10, we're introducing a number of significant new features that are preparing the way for current and future enhanced support for Deep Learning use cases, new features to support a broadened support for GenAI applications, and some quality of life improvements for the MLFlow Deployments Server (formerly the AI Gateway). 
+
+Our biggest features this release are:
+
+- We have a new [home](https://mlflow.org). The new site landing page is fresh, modern, and contains more content than ever. We're adding new content and blogs all of the time.
+
+- Objects and Arrays are now available as configurable input and output schema elements. These new types are particularly useful for GenAI-focused flavors that can have complex input and output types. See the new Signature and Input Example documentation to learn more about how to use these new signature types.
+
+- LangChain has autologging support now! When you invoke a chain, with autologging enabled, we will automatically log most chain implementations, recording and storing your configured LLM application for you. 
+
+- The MLflow `transformers` flavor now supports prompt templates. You can now specify an application-specific set of instructions to submit to your GenAI pipeline in order to simplify, streamline, and integrate sets of system prompts to be supplied with each input request. Check out the updated [guide to transformers](https://www.mlflow.org/docs/latest/llms/transformers/index.html) to learn more and see examples!
+
+ - The MLflow Deployments server now supports two new requested features: (1) OpenAI endpoints that support streaming responses. You can now configure an endpoint to return realtime responses for Chat and Completions instead of waiting for the entire text contents to be completed. (2) Rate limits can now be set per endpoint in order to help control cost overrun when using SaaS models. 
+ 
+- Continued the push for enhanced documentation, guides, tutorials, and examples by expanding on core MLflow functionality (Deployments, Signatures, and Model Dependency management), as well as entirely new pages for GenAI flavors. Check them out today!
+
 Features:
 
-- [Tracking] Langchain autologging support (#10801, @serena-ruan)
-- [Models] Objects and Array support in model signature (#9936, @serena-ruan)
+- [Models] Introduce `Objects` and `Arrays` support for model signatures (#9936, @serena-ruan)
 - [Models] Support saving prompt templates for transformers (#10791, @daniellok-db)
-- [Scoring] Allow mlflow model serving to support direct dict inputs with "messages" key (#10742, @daniellok-db, @B-Step62)
-- [Models] Enhance `predict` API to serve for env validation purpose. (#10759, @B-Step62)
-- [Deployments] Gateway Streaming for OpenAI (#10765, @gabrielfu)
-- [UI] MLflow UI Update (#10864, @daniellok-db)
-- [Models] Add support for retrieving license files for transformers models (#10871, @BenWilson2)
-- [Deployments] Add rate limit to deployment api (#10779, @TomeHirata)
-- [Models] Automatically convert OpenAI input messages to LangChain chat messages for pyfunc predict (#10758, @dbczumar)
-- [Tracking] Add flush functionality to async logging (#10715, @chenmoneygithub)
-- [Deployments] Create `mlflow.deployments.openai` (#10473, @prithvikannan)
-- [Models] Support for OCR jars and minor refactor for defining wheel URLS (#10603, @C-K-Loan)
-- [Tracking] Feature/non interactive databricks login (#10623, @henxing)
-- [Server-infra] Add env variable to disable redirects (#10655, @daniellok-db)
-- [Artifacts] Proxy Multipart Upload for Azure Blob Storage (#10531, @gabrielfu)
+- [Models] Enhance the MLflow Models `predict` API to serve as a pre-logging validator of environment compatibility. (#10759, @B-Step62)
+- [Models] Add support for Image Classification pipelines within the transformers flavor (#10538, @KonakanchiSwathi)
+- [Models] Add support for retrieving and storing license files for transformers models (#10871, @BenWilson2)
+- [Models] Add support for model serialization in the Visual NLP format for JohnSnowLabs flavor (#10603, @C-K-Loan)
+- [Models] Automatically convert OpenAI input messages to LangChain chat messages for `pyfunc` predict (#10758, @dbczumar)
+- [Tracking] Add support for Langchain autologging (#10801, @serena-ruan)
+- [Tracking] Enhance async logging functionality by ensuring flush is called on `Futures` objects (#10715, @chenmoneygithub)
+- [Tracking] Add support for a non-interactive mode for the `login()` API (#10623, @henxing)
+- [Scoring] Allow MLflow model serving to support direct `dict` inputs with the `messages` key (#10742, @daniellok-db, @B-Step62)
+- [Deployments] Add streaming support to the MLflow Deployments Server for OpenAI streaming return compatible routes (#10765, @gabrielfu)
+- [Deployments] Add the ability to set rate limits on configured endpoints within the MLflow deployments server API (#10779, @TomeHirata)
+- [Deployments] Add support for directly interfacing with OpenAI via the MLflow Deployments server (#10473, @prithvikannan)
+- [UI] Introduce a number of new features for the MLflow UI (#10864, @daniellok-db)
+- [Server-infra] Add an environment variable that can disallow HTTP redirects (#10655, @daniellok-db)
+- [Artifacts] Add support for Multipart Upload for Azure Blob Storage (#10531, @gabrielfu)
 
 Bug fixes:
 
-- [Recipe] Fix recipe card display format (#10893, @WeichenXu123)
-- [Tracking] Fix an issue with an incorrect retry default timeout for urllib3 1.x (#10839, @BenWilson2)
-- [Windows] Replace Window shell-escaping of databricks run command with bash escaping (#10811, @wolpl)
-- [Java] Fix ReplAwareDatasourceAttributeExtractor (#10729, @daniellok-db)
 - [Models] Add deduplication logic for pip requirements and extras handling for MLflow models (#10778, @BenWilson2)
-- [Scoring] Adds tagging for sagemaker endpoints and sagemaker config. Issue #9159 (#9310, @clarkh-ncino)
-- [Models] Fix paddle flavor for paddle 2.6.0 (#10757, @WeichenXu123)
-- [Windows] initpy and test_transformers_model_export (#10538, @KonakanchiSwathi)
-- [Models] Johnsnowlabs-Flavor: disable mlflowdbfs (#9872, @C-K-Loan)
+- [Models] Add support for paddle 2.6.0 release (#10757, @WeichenXu123)
+- [Tracking] Fix an issue with an incorrect retry default timeout for urllib3 1.x (#10839, @BenWilson2)
+- [Recipes] Fix an issue with MLflow Recipes card display format (#10893, @WeichenXu123)
+- [Java] Fix an issue with metadata collection when using Streaming Sources on certain versions of Spark where Delta is the source (#10729, @daniellok-db)
+- [Scoring] Fix an issue where SageMaker tags were not propagating correctly (#9310, @clarkh-ncino)
+- [Windows / Databricks] Fix an issue with executing Databricks run commands from within a Window environment (#10811, @wolpl)
+- [Models / Databricks] Disable `mlflowdbfs` mounts for JohnSnowLabs flavor due to flakiness (#9872, @C-K-Loan)
 
 Documentation updates:
 
 - [Docs] Fixed the `KeyError: 'loss'` bug for the Quickstart guideline (#10886, @yanmxa)
 - [Docs] Relocate and supplement Model Signature and Input Example docs (#10838, @BenWilson2)
 - [Docs] Add the HuggingFace Model Evaluation Notebook to the website (#10789, @BenWilson2)
-- [Docs] Rewrite the search run doc (#10863, @chenmoneygithub)
-- [Docs] Prompt template docs (#10836, @daniellok-db)
+- [Docs] Rewrite the search run documentation (#10863, @chenmoneygithub)
+- [Docs] Create documentation for transformers prompt templates (#10836, @daniellok-db)
 - [Docs] Refactoring of the Getting Started page (#10798, @BenWilson2)
-- [Docs] Add document for model dependency management (#10807, @B-Step62)
+- [Docs] Add a guide for model dependency management (#10807, @B-Step62)
 - [Docs] Add tutorials and guides for LangChain (#10770, @BenWilson2)
-- [Docs] Add quickstart for pytorch flavor (#10737, @chenmoneygithub)
-- [Docs] Some improvements to deep learning landing page (#10736, @chenmoneygithub)
-- [Docs] Refactor deployment docs and tutorials (#10726, @B-Step62)
-- [Docs] Add PyTorch landing page and guide (#10687, @chenmoneygithub)
+- [Docs] Refactor portions of the Deep Learning documentation landing page (#10736, @chenmoneygithub)
+- [Docs] Refactor and overhaul the Deployment documentation and add new tutorials (#10726, @B-Step62)
+- [Docs] Add a PyTorch landing page, quick start, and guide (#10687, #10737 @chenmoneygithub)
 - [Docs] Add additional tutorials to OpenAI flavor docs (#10700, @BenWilson2)
-- [Docs] Add Mentions to CE (#10663, @BenWilson2)
-- [Docs] OpenAI Flavor landing page and intro notebooks (#10622, @BenWilson2)
-- [Docs] Fix Tensorflow flavor docstring and style (#10662, @chenmoneygithub)
+- [Docs] Enhance the guides on quickly getting started with MLflow by demonstrating how to use Databricks Community Edition (#10663, @BenWilson2)
+- [Docs] Create the OpenAI Flavor landing page and intro notebooks (#10622, @BenWilson2)
+- [Docs] Refactor the Tensorflow flavor API docs (#10662, @chenmoneygithub)
 
 Small bug fixes and documentation updates:
 
