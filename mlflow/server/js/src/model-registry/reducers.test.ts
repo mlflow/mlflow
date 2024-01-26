@@ -29,13 +29,8 @@ import {
 import { fulfilled } from '../common/utils/ActionUtils';
 import { ModelVersionTag, RegisteredModelTag } from './sdk/ModelRegistryMessages';
 
-const {
-  modelByName,
-  modelVersionsByModel,
-  tagsByRegisteredModel,
-  tagsByModelVersion,
-  mlModelArtifactByModelVersion,
-} = ModelRegistryReducers;
+const { modelByName, modelVersionsByModel, tagsByRegisteredModel, tagsByModelVersion, mlModelArtifactByModelVersion } =
+  ModelRegistryReducers;
 
 describe('test modelByName', () => {
   test('initial state', () => {
@@ -560,9 +555,7 @@ describe('test getModelVersionSchemas', () => {
               artifact_path: 'xxx',
               run_id: 'xxx',
               signature: {
-                inputs:
-                  '[{"name": "column1", "type": "long"}, ' +
-                  '{"name": "column2", "type": "string"}]',
+                inputs: '[{"name": "column1", "type": "long"}, {"name": "column2", "type": "string"}]',
               },
             },
           },
@@ -587,9 +580,7 @@ describe('test getModelVersionSchemas', () => {
               artifact_path: 'xxx',
               run_id: 'xxx',
               signature: {
-                outputs:
-                  '[{"name": "column1", "type": "long"}, ' +
-                  '{"name": "column2", "type": "string"}]',
+                outputs: '[{"name": "column1", "type": "long"}, {"name": "column2", "type": "string"}]',
               },
             },
           },

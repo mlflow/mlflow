@@ -28,3 +28,8 @@ export const ViewType = {
   DELETED_ONLY: 'DELETED_ONLY',
   ALL: 'ALL',
 };
+export enum ModelGatewayRouteTask {
+  LLM_V1_COMPLETIONS = 'llm/v1/completions',
+  LLM_V1_CHAT = 'llm/v1/chat',
+  LLM_V1_EMBEDDINGS = 'llm/v1/embeddings',
+}

@@ -241,7 +241,20 @@ class BaseCard:
         from pandas.io.formats.style import Styler
 
         if not isinstance(table, Styler):
-            table = pd.DataFrame(table, columns=columns).style
+            table = pd.DataFrame(table, columns=columns)
+            # Escape specific characters in HTML to prevent
+            # javascript code injection
+            # Note that `pandas_df.style.to_html(escape=True) does not work
+            # So that we have to manually escape values in dataframe cells.
+
+            def escape_value(x):
+                return html.escape(str(x))
+
+            if hasattr(table, "map"):
+                table = table.map(escape_value)
+            else:
+                table = table.applymap(escape_value)
+            table = table.style
 
         pandas_version = Version(pd.__version__)
 
@@ -290,8 +303,12 @@ class FailureCard(BaseCard):
             '<p><strong>Step status: <span style="color:red">Failed</span></strong></p>',
         )
         self.add_tab(
-            "Stacktrace", "<div class='stacktrace-container'>{{ STACKTRACE }}</div>"
-        ).add_html("STACKTRACE", f'<p style="margin-top:0px"><code>{failure_traceback}</code></p>')
+            "Stacktrace",
+            (
+                "<div class='stacktrace-container'><p style='margin-top:0px'><code>"
+                "{{ STACKTRACE|e }}</code></p></div>"
+            ),
+        ).add_html("STACKTRACE", str(failure_traceback))
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
         if os.path.exists(warning_output_path):
             with open(warning_output_path) as f:

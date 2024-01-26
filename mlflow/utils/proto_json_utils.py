@@ -1,5 +1,6 @@
 import base64
 import datetime
+import importlib
 import json
 import os
 from collections import defaultdict
@@ -257,14 +258,16 @@ def cast_df_types_according_to_schema(pdf, schema):
 
 
 def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
-    """
-    Convert parsed json into pandas.DataFrame. If schema is provided this methods will attempt to
+    """Convert parsed json into pandas.DataFrame. If schema is provided this methods will attempt to
     cast data types according to the schema. This include base64 decoding for binary columns.
 
-    :param decoded_input: Parsed json - either a list or a dictionary.
-    :param schema: MLflow schema used when parsing the data.
-    :param pandas_orient: pandas data frame convention used to store the data.
-    :return: pandas.DataFrame.
+    Args:
+        decoded_input: Parsed json - either a list or a dictionary.
+        schema: MLflow schema used when parsing the data.
+        pandas_orient: pandas data frame convention used to store the data.
+
+    Returns:
+        pandas.DataFrame.
     """
     import pandas as pd
 
@@ -318,16 +321,18 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
 
 
 def dataframe_from_raw_json(path_or_str, schema=None, pandas_orient: str = "split"):
-    """
-    Parse raw json into a pandas.Dataframe.
+    """Parse raw json into a pandas.Dataframe.
 
     If schema is provided this methods will attempt to cast data types according to the schema. This
     include base64 decoding for binary columns.
 
-    :param path_or_str: Path to a json file or a json string.
-    :param schema: MLflow schema used when parsing the data.
-    :param pandas_orient: pandas data frame convention used to store the data.
-    :return: pandas.DataFrame.
+    Args:
+        path_or_str: Path to a json file or a json string.
+        schema: MLflow schema used when parsing the data.
+        pandas_orient: pandas data frame convention used to store the data.
+
+    Returns:
+        pandas.DataFrame.
     """
     if os.path.exists(path_or_str):
         with open(path_or_str) as f:
@@ -340,12 +345,14 @@ def dataframe_from_raw_json(path_or_str, schema=None, pandas_orient: str = "spli
 
 def _get_jsonable_obj(data, pandas_orient="records"):
     """Attempt to make the data json-able via standard library.
+
     Look for some commonly used types that are not jsonable and convert them into json-able ones.
     Unknown data types are returned as is.
 
-    :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
-    :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
-                          dictionary using this Pandas serialization orientation.
+    Args:
+        data: Data to be converted, works with pandas and numpy, rest will be returned as is.
+        pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
+            dictionary using this Pandas serialization orientation.
     """
     import numpy as np
     import pandas as pd
@@ -363,10 +370,12 @@ def _get_jsonable_obj(data, pandas_orient="records"):
 def convert_data_type(data, spec):
     """
     Convert input data to the type specified in the spec.
+
     This method converts data into numpy array for backwards compatibility.
 
-    :param data: Input data.
-    :param spec: ColSpec or TensorSpec.
+    Args:
+        data: Input data.
+        spec: ColSpec or TensorSpec.
     """
     import numpy as np
 
@@ -501,10 +510,11 @@ def parse_instances_data(data, schema=None):
 
 def parse_tf_serving_input(inp_dict, schema=None):
     """
-    :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
-                     serving API doc
-                     (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
-    :param schema: MLflow schema used when parsing the data.
+    Args:
+        inp_dict: A dict deserialized from a JSON string formatted as described in TF's
+            serving API doc
+            (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
+        schema: MLflow schema used when parsing the data.
     """
 
     # pylint: disable=broad-except
@@ -566,15 +576,23 @@ def get_jsonable_input(name, data):
 
 def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] = None):
     """
-    :param data: Input data.
-    :param inputs_key: Key to represent data in the request payload.
-    :param params: Additional parameters to pass to the model for inference.
+    Args:
+        data: Input data.
+        inputs_key: Key to represent data in the request payload.
+        params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
     """
     import numpy as np
     import pandas as pd
+
+    # Convert scipy data to numpy array
+    if importlib.util.find_spec("scipy.sparse"):
+        from scipy.sparse import csc_matrix, csr_matrix
+
+        if isinstance(data, (csc_matrix, csr_matrix)):
+            data = data.toarray()
 
     if isinstance(data, pd.DataFrame):
         post_data = {"dataframe_split": data.to_dict(orient="split")}

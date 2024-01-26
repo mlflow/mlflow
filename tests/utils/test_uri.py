@@ -103,12 +103,14 @@ def test_is_local_uri():
     assert is_local_uri("//proc/self/root")
     assert is_local_uri("/proc/self/root")
 
-    assert not is_local_uri("file://myhostname/path/to/file")
     assert not is_local_uri("https://whatever")
     assert not is_local_uri("http://whatever")
     assert not is_local_uri("databricks")
     assert not is_local_uri("databricks:whatever")
     assert not is_local_uri("databricks://whatever")
+
+    with pytest.raises(MlflowException, match="is not a valid remote uri."):
+        is_local_uri("file://myhostname/path/to/file")
 
 
 @pytest.mark.skipif(not is_windows(), reason="Windows-only test")
@@ -682,7 +684,7 @@ def _assert_resolve_uri_if_local(input_uri, expected_uri):
     [
         ("my/path", "{cwd}/my/path"),
         ("#my/path?a=b", "{cwd}/#my/path?a=b"),
-        ("file://myhostname/my/path", "file://myhostname/my/path"),
+        ("file://localhost/my/path", "file://localhost/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
         ("/home/my/path", "/home/my/path"),
@@ -700,7 +702,7 @@ def test_resolve_uri_if_local(input_uri, expected_uri):
     [
         ("my/path", "file://{cwd}/my/path"),
         ("#my/path?a=b", "file://{cwd}/#my/path?a=b"),
-        ("file://myhostname/my/path", "file://myhostname/my/path"),
+        ("\\myhostname/my/path", "file:///{drive}myhostname/my/path"),
         ("file:///my/path", "file:///{drive}my/path"),
         ("file:my/path", "file://{cwd}/my/path"),
         ("/home/my/path", "file:///{drive}home/my/path"),

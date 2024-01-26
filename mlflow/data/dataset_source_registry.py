@@ -15,10 +15,10 @@ class DatasetSourceRegistry:
         self.sources = []
 
     def register(self, source: DatasetSource):
-        """
-        Registers a DatasetSource for use with MLflow Tracking.
+        """Registers a DatasetSource for use with MLflow Tracking.
 
-        :param source: The DatasetSource to register.
+        Args:
+            source: The DatasetSource to register.
         """
         self.sources.append(source)
 
@@ -40,18 +40,21 @@ class DatasetSourceRegistry:
     def resolve(
         self, raw_source: Any, candidate_sources: Optional[List[DatasetSource]] = None
     ) -> DatasetSource:
-        """
-        Resolves a raw source object, such as a string URI, to a DatasetSource for use with
+        """Resolves a raw source object, such as a string URI, to a DatasetSource for use with
         MLflow Tracking.
 
-        :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
-                           HuggingFace :py:class:`datasets.Dataset` object.
-        :param candidate_sources: A list of DatasetSource classes to consider as potential sources
-                                  when resolving the raw source. Subclasses of the specified
-                                  candidate sources are also considered. If unspecified, all
-                                  registered sources are considered.
-        :throws: MlflowException if no DatasetSource class can resolve the raw source.
-        :return: The resolved DatasetSource.
+        Args:
+            raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
+                HuggingFace :py:class:`datasets.Dataset` object.
+            candidate_sources: A list of DatasetSource classes to consider as potential sources
+                when resolving the raw source. Subclasses of the specified candidate sources are
+                also considered. If unspecified, all registered sources are considered.
+
+        Raises:
+            MlflowException: If no DatasetSource class can resolve the raw source.
+
+        Returns:
+            The resolved DatasetSource.
         """
         matching_sources = []
         for source in self.sources:
@@ -97,12 +100,12 @@ class DatasetSourceRegistry:
         )
 
     def get_source_from_json(self, source_json: str, source_type: str) -> DatasetSource:
-        """
-        Parses and returns a DatasetSource object from its JSON representation.
+        """Parses and returns a DatasetSource object from its JSON representation.
 
-        :param source_json: The JSON representation of the DatasetSource.
-        :param source_type: The string type of the DatasetSource, which indicates how to parse the
-                            source JSON.
+        Args:
+            source_json: The JSON representation of the DatasetSource.
+            source_type: The string type of the DatasetSource, which indicates how to parse the
+                source JSON.
         """
         for source in reversed(self.sources):
             if source._get_source_type() == source_type:
@@ -116,10 +119,10 @@ class DatasetSourceRegistry:
 
 
 def register_dataset_source(source: DatasetSource):
-    """
-    Registers a DatasetSource for use with MLflow Tracking.
+    """Registers a DatasetSource for use with MLflow Tracking.
 
-    :param source: The DatasetSource to register.
+    Args:
+        source: The DatasetSource to register.
     """
     _dataset_source_registry.register(source)
 
@@ -127,18 +130,22 @@ def register_dataset_source(source: DatasetSource):
 def resolve_dataset_source(
     raw_source: Any, candidate_sources: Optional[List[DatasetSource]] = None
 ) -> DatasetSource:
-    """
-    Resolves a raw source object, such as a string URI, to a DatasetSource for use with
+    """Resolves a raw source object, such as a string URI, to a DatasetSource for use with
     MLflow Tracking.
 
-    :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
-                       HuggingFace :py:class:`datasets.Dataset` object.
-    :param candidate_sources: A list of DatasetSource classes to consider as potential sources
-                              when resolving the raw source. Subclasses of the specified candidate
-                              sources are also considered. If unspecified, all registered sources
-                              are considered.
-    :throws: MlflowException if no DatasetSource class can resolve the raw source.
-    :return: The resolved DatasetSource.
+    Args:
+        raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
+            HuggingFace :py:class:`datasets.Dataset` object.
+        candidate_sources: A list of DatasetSource classes to consider as potential sources
+            when resolving the raw source. Subclasses of the specified candidate
+            sources are also considered. If unspecified, all registered sources
+            are considered.
+
+    Raises:
+        MlflowException: If no DatasetSource class can resolve the raw source.
+
+    Returns:
+        The resolved DatasetSource.
     """
     return _dataset_source_registry.resolve(
         raw_source=raw_source, candidate_sources=candidate_sources
@@ -146,12 +153,12 @@ def resolve_dataset_source(
 
 
 def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetSource:
-    """
-    Parses and returns a DatasetSource object from its JSON representation.
+    """Parses and returns a DatasetSource object from its JSON representation.
 
-    :param source_json: The JSON representation of the DatasetSource.
-    :param source_type: The string type of the DatasetSource, which indicates how to parse the
-                        source JSON.
+    Args:
+        source_json: The JSON representation of the DatasetSource.
+        source_type: The string type of the DatasetSource, which indicates how to parse the
+            source JSON.
     """
     return _dataset_source_registry.get_source_from_json(
         source_json=source_json, source_type=source_type
@@ -159,10 +166,11 @@ def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetS
 
 
 def get_registered_sources() -> List[DatasetSource]:
-    """
-    Obtains the registered dataset sources.
+    """Obtains the registered dataset sources.
 
-    :return: A list of registered dataset sources.
+    Returns:
+        A list of registered dataset sources.
+
     """
     return _dataset_source_registry.sources
 

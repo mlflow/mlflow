@@ -18,7 +18,7 @@ const highlightChartTracesFn =
    * @param hoverIndex index of a trace that should be hover-higlighted, set -1 to remove highlight
    * @param selectIndex index of a trace that should be select-higlighted, set -1 to remove highlight
    */
-  (parent: HTMLElement, hoverIndex: number, selectIndex: number) => {
+  (parent: HTMLElement, hoverIndex: number, selectIndex: number, numberOfBands = 0) => {
     const deselected = hoverIndex === -1 && selectIndex === -1;
 
     parent.querySelector('.is-hover-highlight')?.classList.remove('is-hover-highlight');
@@ -29,6 +29,17 @@ const highlightChartTracesFn =
     parent.querySelector('.is-selection-highlight')?.classList.remove('is-selection-highlight');
     if (selectIndex > -1) {
       parent.querySelectorAll(traceSelector)[selectIndex]?.classList.add('is-selection-highlight');
+    }
+
+    if (numberOfBands > 0) {
+      const bandTraceIndex =
+        selectIndex > -1 ? selectIndex - numberOfBands : hoverIndex > -1 ? hoverIndex - numberOfBands : -1;
+      parent.querySelectorAll(traceSelector).forEach((e, index) => {
+        e.classList.toggle('is-band', index >= 0 && index < numberOfBands);
+        e.classList.toggle('is-band-highlighted', index === bandTraceIndex);
+      });
+    } else {
+      parent.querySelectorAll(traceSelector).forEach((e) => e.classList.remove('is-band'));
     }
 
     if (deselected) {
@@ -46,18 +57,12 @@ export const highlightBarTraces = highlightChartTracesFn('svg .trace.bars g.poin
 /**
  * Type-specific implementation of highlightChartTracesFn for line charts
  */
-export const highlightLineTraces = highlightChartTracesFn(
-  'svg .scatterlayer g.trace',
-  '.scatterlayer',
-);
+export const highlightLineTraces = highlightChartTracesFn('svg .scatterlayer g.trace', '.scatterlayer');
 
 /**
  * Type-specific implementation of highlightChartTracesFn for scatter and contour charts
  */
-export const highlightScatterTraces = highlightChartTracesFn(
-  'svg .scatterlayer path.point',
-  '.trace.scatter',
-);
+export const highlightScatterTraces = highlightChartTracesFn('svg .scatterlayer path.point', '.trace.scatter');
 
 /**
  * This hook houses and exports various mechanisms necessary for highlighting traces
@@ -71,14 +76,15 @@ export const highlightScatterTraces = highlightChartTracesFn(
 export const useRunsChartTraceHighlight = (
   containerDiv: HTMLElement | null,
   selectedRunUuid: string | null | undefined,
-  runsData: Pick<RunsChartsRunData, 'runInfo'>[],
+  runsData: { uuid?: string }[],
   highlightFn: ReturnType<typeof highlightChartTracesFn>,
+  numberOfBands = 0,
 ) => {
   const selectedTraceIndex = useMemo(() => {
     if (!containerDiv) {
       return -1;
     }
-    return runsData.findIndex((x) => x.runInfo.run_uuid === selectedRunUuid);
+    return runsData.findIndex(({ uuid }) => uuid === selectedRunUuid);
   }, [runsData, containerDiv, selectedRunUuid]);
 
   const [hoveredPointIndex, setHoveredPointIndex] = useState(-1);
@@ -87,8 +93,8 @@ export const useRunsChartTraceHighlight = (
     if (!containerDiv) {
       return;
     }
-    highlightFn(containerDiv, hoveredPointIndex, selectedTraceIndex);
-  }, [highlightFn, containerDiv, selectedTraceIndex, hoveredPointIndex]);
+    highlightFn(containerDiv, hoveredPointIndex, selectedTraceIndex, numberOfBands);
+  }, [highlightFn, containerDiv, selectedTraceIndex, hoveredPointIndex, numberOfBands]);
 
   return { selectedTraceIndex, hoveredPointIndex, setHoveredPointIndex };
 };

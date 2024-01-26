@@ -62,9 +62,7 @@ describe('RenameExperimentModal', () => {
 
     const failUpdateProps = { ...minimalProps, updateExperimentApi: mockFailUpdateExperimentApi };
     const failUpdateWrapper = shallow(<RenameExperimentModalImpl {...failUpdateProps} />);
-    const failUpdatePromise = failUpdateWrapper.find(GenericInputModal).prop('handleSubmit')(
-      values,
-    );
+    const failUpdatePromise = failUpdateWrapper.find(GenericInputModal).prop('handleSubmit')(values);
     failUpdatePromise.catch(() => {
       expect(mockFailUpdateExperimentApi).toHaveBeenCalledTimes(1);
       expect(mockFailUpdateExperimentApi).toHaveBeenCalledWith('123', 'renamed');

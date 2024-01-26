@@ -3,207 +3,242 @@
 Search Runs
 ===========
 
-The MLflow UI and API support searching runs within a single experiment or a group of experiments
-using a search filter API. This API is a simplified version of the SQL ``WHERE`` clause.
+This guide will walk you through how to search your MLflow runs through MLflow UI and Python API.
 
-.. contents:: Table of Contents
-  :local:
-  :depth: 3
+
+Search Runs on MLflow UI
+------------------------
+
+MLflow UI provides a search bar to search your MLflow runs, which can be found in the experiment view, as shown
+by the screenshot:
+
+.. figure:: _static/images/search-runs/run_search_bar.png
+   :alt: Run search bar
+   :width: 90%
+   :align: center
+
+
+Creating a Few MLflow Runs before Start
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To better understand how to write queries to fetch MLflow runs, we provide a script to create a series of MLflow
+runs so that you can run the example queries to see the actual effect. This step is optional, but we encourage
+doing it if this is the first time you read this guide.
+
+First let's start a local MLflow UI service by running:
+
+.. code-block:: bash
+
+  mlflow ui
+
+Then paste the following code to a local pythnon file, e.g., ``~/create_testing_runs.py``, and execute it.
+
+.. code-block:: python
+
+  import mlflow
+  import numpy as np
+
+  mlflow.set_tracking_uri("http://127.0.0.1:5000")
+  mlflow.set_experiment("/search-run-guide")
+
+  accuracy = np.arange(0, 1, 0.1)
+  loss = np.arange(1, 0, -0.1)
+  log_scale_loss = np.log(loss)
+  f1_score = np.arange(0, 1, 0.1)
+
+  batch_size = [2] * 5 + [4] * 5
+  learning_rate = [0.001, 0.01] * 5
+  model = ["GPT-2", "GPT-3", "GPT-3.5", "GPT-4"] + [None] * 6
+
+  mlflow_user = ["Monkey D Luffy"] * 3 + [None] * 7
+  task = ["classification", "regression", "causal lm"] + [None] * 7
+  environment = ["notebook"] * 5 + [None] * 5
+
+  dataset_name = ["custom"] * 5 + ["also custom"] * 5
+  dataset_digest = ["s8ds293b", "jks834s2"] + [None] * 8
+  dataset_context = ["train"] * 5 + ["test"] * 5
+
+  for i in range(10):
+      with mlflow.start_run():
+          mlflow.log_metrics(
+              {
+                  "loss": loss[i],
+                  "accuracy": accuracy[i],
+                  "log-scale-loss": log_scale_loss[i],
+                  "f1 score": f1_score[i],
+              }
+          )
+
+          mlflow.log_params(
+              {
+                  "batch_size": batch_size[i],
+                  "learning rate": learning_rate[i],
+                  "model": model[i],
+              }
+          )
+
+          mlflow.set_tags(
+              {
+                  "task": task[i],
+                  "environment": environment[i],
+              }
+          )
+
+          dataset = mlflow.data.from_numpy(
+              features=np.random.uniform(size=[20, 28, 28, 3]),
+              targets=np.random.randint(0, 10, size=[20]),
+              name=dataset_name[i],
+              digest=dataset_digest[i],
+          )
+          mlflow.log_input(dataset, context=dataset_context[i])
+
+
+The code above creates 10 MLflow runs with different metrics, params, tags and dataset information. After execution,
+you should find all these runs under the experiment "/search-run-guide", as shown by the screenshot:
+
+.. figure:: _static/images/search-runs/created_mlflow_runs.png
+   :alt: testing runs
+   :width: 90%
+   :align: center
 
 
 .. _search-runs-syntax:
 
-Syntax
-------
-
-A search filter is one or more expressions joined by the ``AND`` keyword.
-The syntax does not support ``OR``. Each expression has three parts: an identifier on
-the left-hand side (LHS), a comparator, and constant on the right-hand side (RHS).
-
-Example Expressions
+Search Query Syntax
 ^^^^^^^^^^^^^^^^^^^
 
-- Search for the subset of runs with logged accuracy metric greater than 0.92.
-
-  .. code-block:: sql
-
-    metrics.accuracy > 0.92
-
-- Search for all completed runs.
-
-  .. code-block:: sql
-
-    attributes.status = "FINISHED"
-
-- Search for all failed runs.
-
-  .. code-block:: sql
-
-    attributes.status = "FAILED"
-
-- Search for runs created after UNIX timestamp ``1670628787527``.
-
-  .. code-block:: sql
-
-    attributes.created > 1670628787527
-    attributes.Created > 1670628787527
-    attributes.start_time > 1670628787527
-
-- Search for the subset of runs with F1 score greater than 0.5.
-
-  .. code-block:: sql
-
-    metrics.`f1 score` > 0.5
-
-- Search for runs created by user 'john@mlflow.com'.
-
-  .. code-block:: sql
-
-    tags.`mlflow.user` = 'john@mlflow.com'
-
-- Search for runs with models trained using scikit-learn (assumes runs have a tag called ``model`` whose value starts with ``sklearn``).
-
-  .. code-block:: sql
-
-    tags.`model` LIKE 'sklearn%'
-
-- Search for runs with logistic regression models, ignoring case (assumes runs have a tag called ``type`` whose value contains ``logistic``).
-
-  .. code-block:: sql
-
-    tags.`type` ILIKE '%Logistic%'
-
-- Search for runs whose names contain ``alpha``.
-
-  .. code-block:: sql
-
-    attributes.`run_name` ILIKE "%alpha%"
-    attributes.`run name` ILIKE "%alpha%"
-    attributes.`Run name` ILIKE "%alpha%"
-    attributes.`Run Name` ILIKE "%alpha%"
-
-- Search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and recorded error metric under 0.05.
-
-  .. code-block:: sql
-
-    params.alpha = "0.3" and params.lambda = "0.001" and metrics.error <= 0.05
-
-
-Identifier
-^^^^^^^^^^
-
-Required in the LHS of a search expression. Signifies an entity to compare against.
-
-An identifier has two parts separated by a period: the type of the entity and the name of the entity. The type of the entity is ``metrics``, ``params``, ``attributes``, ``datasets``, or ``tags``. The entity name can contain alphanumeric characters and special characters.
-
-This section describes supported entity names and how to specify such names in search expressions.
-
-.. contents:: In this section:
-  :local:
-  :depth: 1
-
-Entity Names Containing Special Characters
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When a metric, parameter, or tag name contains a special character like hyphen, space, period, and so on,
-enclose the entity name in double quotes or backticks.
-
-.. rubric:: Examples
+You need to write search queries to fetch your MLflow runs. The query must be a condition or a few conditions
+concatenated by ``and``. At a high level, the syntax is similar to SQL WHERE clause without supporting ``or`` keyword.
+For example, below is a query to search for all runs that have logged a ``loss`` metric smaller than ``1`` to
+MLflow.
 
 .. code-block:: sql
 
-  params."model-type"
+  metric.loss < 1
 
-.. code-block:: sql
+Briefly a search condition consists of 3 parts:
 
-  metrics.`error rate`
+- An MLflow field on the left side, which can be some metric, param, tag, dataset or MLflow run metadata, e.g.,
+  ``metric.loss`` or ``param.batch_size``.
+- A comparator in the middle, we support 3 types of comparators:
 
+  - Numeric comparators: ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
+  - String comparators: ``=``, ``!=``, ``LIKE`` and ``ILIKE``. String comparators are case sensitive except ``ILIKE``
+    which is case insensitive.
+  - Set comparators: ``IN``, which only supports searching by dataset and run metadata, and is case sensitive.
 
-Entity Names Starting with a Number
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Unlike SQL syntax for column names, MLflow allows logging metrics, parameters, and tags names
-that have a leading number. If an entity name contains a leading number, enclose the entity name in double quotes. For example:
-
-.. code-block:: sql
-
-  metrics."2019-04-02 error rate"
-
-
-Run Attributes
-~~~~~~~~~~~~~~
-
-You can search using the following run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``run_id``, ``run_name``, ``status``, ``artifact_uri``, ``user_id``, ``start_time`` and ``end_time``. The ``run_id``, ``run_name``, ``status``, ``user_id`` and ``artifact_uri`` attributes have string values, while ``start_time`` and ``end_time`` are numeric. Other fields in ``mlflow.entities.RunInfo`` are not searchable.
-
-``Run name``, ``Run Name`` and ``run name`` are aliases for ``run_name``. ``created`` and ``Created`` are aliases for ``start_time``.
+- A reference value on the right side.
 
 .. note::
+  There is a caveat that using ``IN`` requires wrapping string with single quotes, e.g.,
+  ``params."learning rate" IN ('0.001', '0.01')``. ``params."learning_rate" IN ("0.001", "0.01")`` will throw an error.
 
-  - The experiment ID is implicitly selected by the search API.
-  - A run's ``lifecycle_stage`` attribute is not allowed because it is already encoded as a part of the API's ``run_view_type`` field. To search for runs using ``run_id``, it is more efficient to use ``get_run`` APIs.
+Handling Special Characters in MLflow Field
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. rubric:: Example
-
-.. code-block:: sql
-
-  attributes.artifact_uri = 'models:/mymodel/1'
-  attributes.status = 'ACTIVE'
-  # RHS value for start_time and end_time are unix timestamp
-  attributes.start_time >= 1664067852747
-  attributes.end_time < 1664067852747
-  attributes.user_id = 'user1'
-  attributes.run_name = 'my-run'
-  attributes.run_id = 'a1b2c3d4'
-  attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
-
-Datasets
-~~~~~~~~~~~~~~
-
-You can search using the following dataset attributes contained in :py:class:`mlflow.entities.Dataset`: ``name``, ``digest``. Additionally, you may search for a specific :py:class:`mlflow.entities.InputTag`: with ``key`` ``mlflow.data.context`` under the alias ``context``. All dataset attributes are string values. Other fields in :py:class:`mlflow.entities.Dataset` are not searchable.
-
-.. rubric:: Example
+It's common that your MLflow field contains special characters such as hyphen, space, period, and so on. In those
+cases, you will need to wrap it by double quotes. The same rule applies when your field starts with numbers.
+For example if you ever logged something by ``mlflow.log_metric("cross-entropy-loss", 0.15)``, then your query will be
+similar to:
 
 .. code-block:: sql
 
-  datasets.name = 'mydataset'
-  datasets.digest = 's8ds293b'
-  datasets.digest IN ('s8ds293b', 'jks834s2')
-  datasets.context = 'train'
+  metric."cross-entropy-loss" < 0.5
+
+Now we have learned the syntax, let's dive into how to search runs by different categories of MLflow fields.
+
+Search Query by Different MLflow Fields
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In this section we will go over how to search by different categories of MLflow fields. For each category we provide
+a few sample queries, if you have executed the run creation script we provided, these queries should fetch certain runs.
+
+Searching By Metrics
+~~~~~~~~~~~~~~~~~~~~
+
+Searching by metrics requires you to write queries with key ``metrics.{metric_name}``, where ``metric_name`` are the metrics
+you logged to MLflow through ``mlflow.log_metric`` or ``mlflow.log_metrics``. If you use autologging, you may need to look
+up what metrics are logged by looking into a sample run. See below for sample queries.
+
+.. code-block:: sql
+
+    metrics.accuracy > 0.72
+    metrics.loss <= 0.15
+    metrics."log-scale-loss" <= 0
+    metrics."f1 score" >= 0.5
+    metrics.accuracy > 0.72 AND metrics.loss <= 0.15
+
+Searching By Params
+~~~~~~~~~~~~~~~~~~~~
+
+Searching by params requires you to write queries with key ``params.{param_name}``, where ``param_name`` are the params
+you logged to MLflow through ``mlflow.log_param`` or ``mlflow.log_params``. In additions, the value to be compared must be
+a string, because MLflow params are logged in string format. See below for sample queries.
+
+.. code-block:: sql
+
+    params.batch_size = "2"
+    params.model LIKE "GPT%"
+    params.model LIKE "GPT%" AND params.batch_size = "2"
 
 .. _mlflow_tags:
 
-MLflow Tags
-~~~~~~~~~~~
+Searching By Tags
+~~~~~~~~~~~~~~~~~
 
-You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search by owner of an MLflow run, specify ``tags."mlflow.user"`` or ``tags.`mlflow.user```.
-
-.. rubric:: Examples
-
-.. code-block:: sql
-
-  tags."mlflow.user"
+Searching by params requires you to write queries with key ``tags.{tag_name}``, where ``tag_name`` are the tags you logged
+to MLflow through ``mlflow.set_tag``, ``mlflow.set_tags`` or the UI. In additions, system tags such as ``mlflow.user`` are
+automatically logged, you can find the full list `here <https://mlflow.org/docs/latest/tracking/tracking-api.html#system-tags>`_.
+and these tags' value cannot be customized. The value to be compared must be a string, because MLflow tags are logged in
+string format. See below for sample queries.
 
 .. code-block:: sql
 
-  tags.`mlflow.parentRunId`
+    tags.task IN ('classification', 'regression')
+    tags."environment" == "notebook"
+    # Change this to match your user name.
+    tags."mlflow.user" == "Monkey D Luffy"
 
+Searching By Dataset Information
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Comparator
-^^^^^^^^^^
+Searching by params requires you to write queries with key ``datasets.{param_name}``, and there are 3 fields you can filter
+by:
 
-There are two classes of comparators: numeric and string.
+1. Dataset name ``datasets.name``, which is the dataset's name.
+2. Dataset digest ``datasets.digest``, which is a unique identifier for the dataset.
+3. Dataset context ``datasets.context``, which represents if the dataset is used for train, evaluation or test.
 
-- Numeric comparators (``metrics``): ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-- String comparators (``params``, ``tags``, and ``attributes``): ``=``, ``!=``, ``LIKE`` and ``ILIKE``.
+Please note that the value to compare must be string.
 
-Constant
-^^^^^^^^
+.. code-block:: sql
 
-The search syntax requires the RHS of the expression to be a constant. The type of the constant
-depends on LHS.
+    datasets.name like "custom"
+    datasets.digest IN ('s8ds293b', 'jks834s2')
+    datasets.context == "train"
 
-- If LHS is a metric, the RHS must be an integer or float number.
-- If LHS is a parameter or tag, the RHS must be a string constant enclosed in single or double quotes.
+Searching By Run's Metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Searching by MLflow run's metadata requires you to write queries with key ``attributes.{attribute_name}``, where
+``attribute_name`` must be one attribute contained in :py:class:`mlflow.entities.RunInfo`: ``run_id``, ``run_name``,
+``status``, ``artifact_uri``, ``user_id``, ``start_time`` and ``end_time``. The ``run_id``, ``run_name``, ``status``,
+``user_id`` and ``artifact_uri`` attributes have string values, while ``start_time`` and ``end_time`` are numeric.
+Other fields in ``mlflow.entities.RunInfo`` are not searchable. See below for sample queries, and please note that
+you need to customize the compared value to match your MLflow runs, as some metadata are automatically created.
+
+.. code-block:: sql
+
+    attributes.status = 'ACTIVE'
+    attributes.user_id = 'user1'
+    attributes.run_name = 'my-run'
+    attributes.run_id = 'a1b2c3d4'
+    attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
+
+    # Compared value for `start_time` and `end_time` are unix timestamp.
+    attributes.start_time >= 1664067852747
+    attributes.end_time < 1664067852747
+
 
 Programmatically Searching Runs
 --------------------------------

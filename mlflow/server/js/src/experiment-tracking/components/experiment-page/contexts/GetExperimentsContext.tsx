@@ -3,13 +3,9 @@ import React, { createContext, useCallback, useMemo, useState } from 'react';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
 import Utils from '../../../../common/utils/Utils';
-
-import type {
-  getExperimentApi,
-  setCompareExperiments,
-  setExperimentTagApi,
-} from '../../../actions';
-import { useAsyncDispatch } from '../hooks/useAsyncDispatch';
+import type { getExperimentApi, setCompareExperiments, setExperimentTagApi } from '../../../actions';
+import { useDispatch } from 'react-redux';
+import { ThunkDispatch } from '../../../../redux-types';
 
 export interface GetExperimentsContextActions {
   setExperimentTagApi: typeof setExperimentTagApi;
@@ -59,7 +55,7 @@ export const GetExperimentsContextProvider = ({
 
   const [requestError, setRequestError] = useState<any>(null);
 
-  const dispatch = useAsyncDispatch();
+  const dispatch = useDispatch<ThunkDispatch>();
 
   const fetchExperiments = useCallback(
     (experimentIds: string[]) => {
@@ -99,9 +95,7 @@ export const GetExperimentsContextProvider = ({
      * RequestStateWrapper's render function which causes React to act up.
      * Either rebuild RequestStateWrapper or introduce some workaround.
      */
-    setIsLoadingExperiment(
-      requests.some((r) => fetchExperimentsRequestIds.includes(r.id) && r.active),
-    );
+    setIsLoadingExperiment(requests.some((r) => fetchExperimentsRequestIds.includes(r.id) && r.active));
 
     if (!requestError) {
       requests.forEach((request) => {

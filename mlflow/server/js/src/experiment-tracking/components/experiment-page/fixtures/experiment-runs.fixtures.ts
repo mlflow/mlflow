@@ -1,11 +1,4 @@
-import {
-  Experiment,
-  ExperimentTag,
-  Metric,
-  Param,
-  RunInfo,
-  RunTag,
-} from '../../../sdk/MlflowMessages';
+import { Experiment, ExperimentTag, Metric, Param, RunInfo, RunTag } from '../../../sdk/MlflowMessages';
 import { ExperimentStoreEntities } from '../../../types';
 import { hydrateImmutableRecord } from './fixture.utils';
 
@@ -26,6 +19,8 @@ import { hydrateImmutableRecord } from './fixture.utils';
  */
 export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } = {
   entities: {
+    artifactRootUriByRunUuid: {},
+    sampledMetricsByRunUuid: {},
     modelByName: {},
     runUuidsMatchingFilter: [],
     runDatasetsByUuid: {
@@ -103,8 +98,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         status: 'FINISHED',
         start_time: 1660116336860,
         end_time: 1660116337489,
-        artifact_uri:
-          'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run1/artifacts',
+        artifact_uri: 'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run1/artifacts',
         lifecycle_stage: 'active',
       }),
       experiment123456789_run2: hydrateImmutableRecord(RunInfo)({
@@ -114,8 +108,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         status: 'FINISHED',
         start_time: 1660116265829,
         end_time: 1660116266518,
-        artifact_uri:
-          'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run2/artifacts',
+        artifact_uri: 'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run2/artifacts',
         lifecycle_stage: 'active',
       }),
       experiment123456789_run3: hydrateImmutableRecord(RunInfo)({
@@ -125,8 +118,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         status: 'FINISHED',
         start_time: 1660116197855,
         end_time: 1660116198498,
-        artifact_uri:
-          'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run3/artifacts',
+        artifact_uri: 'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run3/artifacts',
         lifecycle_stage: 'active',
       }),
       experiment123456789_run4: hydrateImmutableRecord(RunInfo)({
@@ -136,8 +128,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         status: 'FINISHED',
         start_time: 1660116194167,
         end_time: 1660116194802,
-        artifact_uri:
-          'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run4/artifacts',
+        artifact_uri: 'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run4/artifacts',
         lifecycle_stage: 'active',
       }),
       experiment123456789_run5: hydrateImmutableRecord(RunInfo)({
@@ -147,8 +138,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
         status: 'FINISHED',
         start_time: 1660116194167,
         end_time: 1660116194802,
-        artifact_uri:
-          'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run5/artifacts',
+        artifact_uri: 'dbfs:/databricks/mlflow-tracking/123456789/experiment123456789_run5/artifacts',
         lifecycle_stage: 'deleted',
       }),
       experiment654321_run1: hydrateImmutableRecord(RunInfo)({
@@ -414,9 +404,7 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
           name: 'test_model',
           creation_timestamp: 1234,
           current_stage: '',
-          email_subscription_status: 'active',
           last_updated_timestamp: 1234,
-          permission_level: '',
           run_id: 'experiment123456789_run4',
           source: 'notebook',
           status: 'active',
