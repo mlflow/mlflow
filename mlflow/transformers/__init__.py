@@ -1424,8 +1424,8 @@ def _is_transformers_task_type(task: str) -> bool:
 
 def _validate_transformers_task_type(transformers_task: str) -> None:
     """
-    Validates that a ``transformers_task`` type is supported by the ``transformers`` library and has been
-    registered in the hub.
+    Validates that a ``transformers_task`` type is supported by the ``transformers`` library
+    and has been registered in the hub.
     """
     from transformers.pipelines import get_supported_tasks
 
