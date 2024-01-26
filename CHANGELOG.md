@@ -6,48 +6,46 @@ MLflow 2.10.0 includes several major features and improvements
 
 Features:
 
-- [Models] Add support for retrieving license files for transformers models (#10871, @BenWilson2)
-- [Deployments / Docs] Add rate limit to deployment api (#10779, @TomeHirata)
-- [UI] MLflow UI Sync (#10864, @daniellok-db)
-- [] Langchain autologging support (#10801, @serena-ruan)
+- [Tracking] Langchain autologging support (#10801, @serena-ruan)
+- [Models] Objects and Array support in model signature (#9936, @serena-ruan)
 - [Models] Support saving prompt templates for transformers (#10791, @daniellok-db)
-- [Deployments] Gateway Streaming for OpenAI (#10765, @gabrielfu)
-- [Models] Implement promptflow model flavor (#10104, @brynn-code)
+- [Scoring] Allow mlflow model serving to support direct dict inputs with "messages" key (#10742, @daniellok-db, @B-Step62)
 - [Models] Enhance `predict` API to serve for env validation purpose. (#10759, @B-Step62)
+- [Deployments] Gateway Streaming for OpenAI (#10765, @gabrielfu)
+- [UI] MLflow UI Update (#10864, @daniellok-db)
+- [Models] Add support for retrieving license files for transformers models (#10871, @BenWilson2)
+- [Deployments] Add rate limit to deployment api (#10779, @TomeHirata)
 - [Models] Automatically convert OpenAI input messages to LangChain chat messages for pyfunc predict (#10758, @dbczumar)
-- [Scoring] Allow mlflow model serving to support arbitrary dict inputs (#10742, @B-Step62)
-- [Windows] initpy and test_transformers_model_export (#10538, @KonakanchiSwathi)
 - [Tracking] Add flush functionality to async logging (#10715, @chenmoneygithub)
-- [] Objects and Array support in model signature (#9936, @serena-ruan)
-- [] Create `mlflow.deployments.openai` (#10473, @prithvikannan)
+- [Deployments] Create `mlflow.deployments.openai` (#10473, @prithvikannan)
 - [Models] Support for OCR jars and minor refactor for defining wheel URLS (#10603, @C-K-Loan)
-- [] Feature/non interactive databricks login (#10623, @henxing)
+- [Tracking] Feature/non interactive databricks login (#10623, @henxing)
 - [Server-infra] Add env variable to disable redirects (#10655, @daniellok-db)
 - [Artifacts] Proxy Multipart Upload for Azure Blob Storage (#10531, @gabrielfu)
 
 Bug fixes:
 
-- [] Fix recipe card display format (#10893, @WeichenXu123)
+- [Recipe] Fix recipe card display format (#10893, @WeichenXu123)
 - [Tracking] Fix an issue with an incorrect retry default timeout for urllib3 1.x (#10839, @BenWilson2)
-- [Projects / Windows] Replace Window shell-escaping of databricks run command with bash escaping (#10811, @wolpl)
+- [Windows] Replace Window shell-escaping of databricks run command with bash escaping (#10811, @wolpl)
 - [Java] [WIP] Fix ReplAwareDatasourceAttributeExtractor (#10729, @daniellok-db)
 - [Models] Add deduplication logic for pip requirements and extras handling for MLflow models (#10778, @BenWilson2)
 - [Scoring] Adds tagging for sagemaker endpoints and sagemaker config. Issue #9159 (#9310, @clarkh-ncino)
-- [Build / Models] Fix paddle flavor for paddle 2.6.0 (#10757, @WeichenXu123)
+- [Models] Fix paddle flavor for paddle 2.6.0 (#10757, @WeichenXu123)
 - [Windows] initpy and test_transformers_model_export (#10538, @KonakanchiSwathi)
-- [Model Registry / Models] Johnsnowlabs-Flavor: disable mlflowdbfs (#9872, @C-K-Loan)
+- [Models] Johnsnowlabs-Flavor: disable mlflowdbfs (#9872, @C-K-Loan)
 
 Documentation updates:
 
-- [Docs / Examples] Fixed the `KeyError: 'loss'` bug for the Quickstart guidline (#10886, @yanmxa)
+- [Docs] Fixed the `KeyError: 'loss'` bug for the Quickstart guideline (#10886, @yanmxa)
 - [Docs] Relocate and supplement Model Signature and Input Example docs (#10838, @BenWilson2)
 - [Docs] Add the HuggingFace Model Evaluation Notebook to the website (#10789, @BenWilson2)
-- [] Rewrite the search run doc (#10863, @chenmoneygithub)
+- [Docs] Rewrite the search run doc (#10863, @chenmoneygithub)
 - [Docs] Prompt template docs (#10836, @daniellok-db)
 - [Docs] Refactoring of the Getting Started page (#10798, @BenWilson2)
 - [Docs] Add document for model dependency management (#10807, @B-Step62)
 - [Docs] Add tutorials and guides for LangChain (#10770, @BenWilson2)
-- [] Add quickstart for pytorch flavor (#10737, @chenmoneygithub)
+- [Docs] Add quickstart for pytorch flavor (#10737, @chenmoneygithub)
 - [Docs] Some improvements to deep learning landing page (#10736, @chenmoneygithub)
 - [Docs] Refactor deployment docs and tutorials (#10726, @B-Step62)
 - [Docs] Add PyTorch landing page and guide (#10687, @chenmoneygithub)
@@ -58,7 +56,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#10901, #10903, #10876, #10833, #10859, #10867, #10843, #10857, #10834, #10814, #10805, #10764, #10771, #10733, #10724, #10703, #10710, #10696, #10691, #10692, @B-Step62; #10882, #10854, #10395, #10725, #10695, #10712, #10707, #10667, #10665, #10654, #10638, #10628, @harupy; #10881, #10875, #10835, #10845, #10844, #10651, #10806, #10786, #10785, #10781, #10741, #10772, #10727, @serena-ruan; #10873, #10755, #10750, #10749, #10619, @WeichenXu123; #10877, @amueller; #10852, @QuentinAmbard; #10822, #10858, @gabrielfu; #10862, @jerrylian-db; #10840, @ernestwong-db; #10841, #10795, #10792, #10774, #10776, #10672, @BenWilson2; #10827, #10826, #10825, #10732, #10481, @michael-berk; #10828, #10680, #10629, @daniellok-db; #10799, #10800, #10578, #10782, #10783, #10723, #10464, @annzhang-db; #10803, #10731, #10708, @kriscon-db; #10797, @dbczumar; #10756, #10751, @Ankit8848; #10784, @AveshCSingh; #10769, #10763, #10717, @chenmoneygithub; #10698, @rmalani-db; #10767, @liangz1; #10682, @cdreetz; #10659, @prithvikannan; #10639, #10609, @TomeHirata
+#10538, #10901, #10903, #10876, #10833, #10859, #10867, #10843, #10857, #10834, #10814, #10805, #10764, #10771, #10733, #10724, #10703, #10710, #10696, #10691, #10692, @B-Step62; #10882, #10854, #10395, #10725, #10695, #10712, #10707, #10667, #10665, #10654, #10638, #10628, @harupy; #10881, #10875, #10835, #10845, #10844, #10651, #10806, #10786, #10785, #10781, #10741, #10772, #10727, @serena-ruan; #10873, #10755, #10750, #10749, #10619, @WeichenXu123; #10877, @amueller; #10852, @QuentinAmbard; #10822, #10858, @gabrielfu; #10862, @jerrylian-db; #10840, @ernestwong-db; #10841, #10795, #10792, #10774, #10776, #10672, @BenWilson2; #10827, #10826, #10825, #10732, #10481, @michael-berk; #10828, #10680, #10629, @daniellok-db; #10799, #10800, #10578, #10782, #10783, #10723, #10464, @annzhang-db; #10803, #10731, #10708, @kriscon-db; #10797, @dbczumar; #10756, #10751, @Ankit8848; #10784, @AveshCSingh; #10769, #10763, #10717, @chenmoneygithub; #10698, @rmalani-db; #10767, @liangz1; #10682, @cdreetz; #10659, @prithvikannan; #10639, #10609, @TomeHirata
 
 ## 2.9.2 (2023-12-14)
 
