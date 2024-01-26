@@ -4,7 +4,7 @@
 
 MLflow 2.10.0 includes several major features and improvements
 
-In MLflow 2.10, we're introducing a number of significant new features that are preparing the way for current and future enhanced support for Deep Learning use cases, new features to support a broadened support for GenAI applications, and some quality of life improvements for the MLFlow Deployments Server (formerly the AI Gateway). 
+In MLflow 2.10, we're introducing a number of significant new features that are preparing the way for current and future enhanced support for Deep Learning use cases, new features to support a broadened support for GenAI applications, and some quality of life improvements for the MLflow Deployments Server (formerly the AI Gateway). 
 
 Our biggest features this release are:
 
