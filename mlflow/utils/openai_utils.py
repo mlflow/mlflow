@@ -211,11 +211,6 @@ def _validate_model_params(task, model, params):
         )
 
 
-def _exclude_params_from_envs(params, envs):
-    """Params passed at inference time should override envs."""
-    return {k: v for k, v in envs.items() if k not in params} if params else envs
-
-
 class _OAITokenHolder:
     def __init__(self, api_type):
         self._api_token = None

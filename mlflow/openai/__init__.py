@@ -653,15 +653,16 @@ class _OpenAIWrapper:
         self.api_token = _OAITokenHolder(self.api_config.api_type)
         # If the same parameter exists in self.model & self.api_config,
         # we use the parameter from self.model
-        self.envs = {
-            x: getattr(self.api_config, x)
-            for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
-            if getattr(self.api_config, x) is not None and x not in self.model
-        }
-        api_type = self.model.get("api_type") or self.envs.get("api_type")
-        if api_type in ("azure", "azure_ad", "azuread"):
-            deployment_id = self.model.get("deployment_id") or self.envs.get("deployment_id")
-            if self.model.get("engine") or self.envs.get("engine"):
+        self.request_configs = {}
+        for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]:
+            if x in self.model:
+                self.request_configs[x] = self.model.pop(x)
+            elif value := getattr(self.api_config, x):
+                self.request_configs[x] = value
+
+        if self.request_configs.get("api_type") in ("azure", "azure_ad", "azuread"):
+            deployment_id = self.request_configs.get("deployment_id")
+            if self.request_configs.get("engine"):
                 # Avoid using both parameters as they serve the same purpose
                 # Invalid inputs:
                 #   - Wrong engine + correct/wrong deployment_id
@@ -704,11 +705,11 @@ class _OpenAIWrapper:
             return data[self.formater.variables].to_dict(orient="records")
 
     def _construct_request_url(self, task_url, default_url):
-        api_type = self.model.get("api_type") or self.envs.get("api_type")
+        api_type = self.request_configs.get("api_type")
         if api_type in ("azure", "azure_ad", "azuread"):
-            api_base = self.envs.get("api_base")
-            api_version = self.envs.get("api_version")
-            deployment_id = self.envs.get("deployment_id")
+            api_base = self.request_configs.get("api_base")
+            api_version = self.request_configs.get("api_version")
+            deployment_id = self.request_configs.get("deployment_id")
 
             return (
                 f"{api_base}/openai/deployments/{deployment_id}/"
