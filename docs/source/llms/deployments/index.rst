@@ -878,7 +878,15 @@ Some providers support streaming responses. Streaming responses are useful when 
 receive responses as they are generated, rather than waiting for the entire response to be
 generated before receiving it. Streaming responses are supported by the following providers:
 
-- OpenAI
++------------+---------------------+--------------+
+|  Provider  | Endpoints                          |
++------------+---------------------+--------------+
+|            | llm/v1/completions  | llm/v1/chat  |
++============+=====================+==============+
+| OpenAI     | ✓                   | ✓            |
++------------+---------------------+--------------+
+| Cohere     | ✓                   | ✘            |
++------------+---------------------+--------------+
 
 To enable streaming responses, set the ``stream`` parameter to ``true`` in your request. For example:
 

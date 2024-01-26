@@ -1,12 +1,13 @@
+import json
 import time
-from typing import Any, Dict
+from typing import Any, AsyncGenerator, AsyncIterable, Dict
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.gateway.config import CohereConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import completions, embeddings
 
 
@@ -37,6 +38,62 @@ class CohereAdapter(ProviderAdapter):
                     finish_reason=None,
                 )
                 for idx, c in enumerate(resp["generations"])
+            ],
+            usage=completions.CompletionsUsage(
+                prompt_tokens=None,
+                completion_tokens=None,
+                total_tokens=None,
+            ),
+        )
+
+    @classmethod
+    def model_to_completions_streaming(cls, resp, config):
+        # Response example (https://docs.cohere.com/reference/generate)
+        #
+        # Streaming chunks:
+        # ```
+        # {"index":0,"text":" Hi","is_finished":false,"event_type":"text-generation"}
+        # ```
+        # ```
+        # {"index":1,"text":" Hi","is_finished":false,"event_type":"text-generation"}
+        # ```
+        # notes: "index" is only present if "num_generations" > 1
+        #
+        # Final chunk:
+        # ```
+        # {"is_finished":true,"event_type":"stream-end","finish_reason":"COMPLETE",
+        #   "response":{"id":"b32a70c5-8c91-4f96-958f-d942801ed22f",
+        #       "generations":[
+        #           {
+        #               "id":"5d5d0851-35ac-4c25-a9a9-2fbb391bd415",
+        #               "index":0,
+        #               "text":" Hi there! How can I assist you today? ",
+        #               "finish_reason":"COMPLETE"
+        #           },
+        #           {
+        #               "id":"0a24787f-504e-470e-a088-0bf801a2c72d",
+        #               "index":1,
+        #               "text":" Hi there, how can I assist you today? ",
+        #               "finish_reason":"COMPLETE"
+        #           }
+        #       ],
+        #       "prompt":"Hello"
+        #   }}
+        # ```
+        response = resp.get("response")
+        return completions.StreamResponsePayload(
+            id=response["id"] if response else None,
+            created=int(time.time()),
+            model=config.model.name,
+            choices=[
+                completions.StreamChoice(
+                    index=resp.get("index", 0),
+                    finish_reason=resp.get("finish_reason"),
+                    delta=completions.StreamDelta(
+                        role=None,
+                        content=resp.get("text"),
+                    ),
+                )
             ],
             usage=completions.CompletionsUsage(
                 prompt_tokens=None,
@@ -104,6 +161,10 @@ class CohereAdapter(ProviderAdapter):
         return rename_payload_keys(payload, key_mapping)
 
     @classmethod
+    def completions_streaming_to_model(cls, payload, config):
+        return cls.completions_to_model(payload, config)
+
+    @classmethod
     def embeddings_to_model(cls, payload, config):
         key_mapping = {"input": "texts"}
         for k1, k2 in key_mapping.items():
@@ -123,14 +184,48 @@ class CohereProvider(BaseProvider):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.cohere_config: CohereConfig = config.model.config
 
+    @property
+    def auth_headers(self) -> Dict[str, str]:
+        return {"Authorization": f"Bearer {self.cohere_config.cohere_api_key}"}
+
+    @property
+    def base_url(self) -> str:
+        return "https://api.cohere.ai/v1"
+
     async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        headers = {"Authorization": f"Bearer {self.cohere_config.cohere_api_key}"}
         return await send_request(
-            headers=headers,
-            base_url="https://api.cohere.ai/v1",
+            headers=self.auth_headers,
+            base_url=self.base_url,
             path=path,
             payload=payload,
         )
+
+    def _stream_request(self, path: str, payload: Dict[str, Any]) -> AsyncGenerator[bytes, None]:
+        return send_stream_request(
+            headers=self.auth_headers,
+            base_url=self.base_url,
+            path=path,
+            payload=payload,
+        )
+
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        stream = self._stream_request(
+            "generate",
+            {
+                "model": self.config.model.name,
+                **CohereAdapter.completions_streaming_to_model(payload, self.config),
+            },
+        )
+        async for chunk in stream:
+            if not chunk:
+                continue
+
+            resp = json.loads(chunk)
+            yield CohereAdapter.model_to_completions_streaming(resp, self.config)
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
