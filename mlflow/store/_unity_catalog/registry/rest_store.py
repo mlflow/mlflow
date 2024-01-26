@@ -65,13 +65,6 @@ from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
-from mlflow.utils.mlflow_tags import (
-    MLFLOW_DATABRICKS_JOB_ID,
-    MLFLOW_DATABRICKS_JOB_RUN_ID,
-    MLFLOW_DATABRICKS_NOTEBOOK_ID,
-)
 from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
@@ -79,6 +72,13 @@ from mlflow.utils._unity_catalog_utils import (
     registered_model_from_uc_proto,
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
+)
+from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_JOB_ID,
+    MLFLOW_DATABRICKS_JOB_RUN_ID,
+    MLFLOW_DATABRICKS_NOTEBOOK_ID,
 )
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
@@ -455,7 +455,7 @@ class UcModelRegistryStore(BaseRestStore):
             if num_input_sources > _MAX_LINEAGE_DATA_SOURCES:
                 _logger.warning(
                     f"Truncating the number of lineage input sources from "
-                    f"{str(num_input_sources)} to 10."
+                    f"{num_input_sources!s} to 10."
                 )
             inputs_to_traverse = run.inputs.dataset_inputs[0:_MAX_LINEAGE_DATA_SOURCES]
             for dataset in inputs_to_traverse:
