@@ -37,7 +37,7 @@ Our child implementation generally involves thinking about the three MLflow comp
 
 - :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`: This method defines artifacts from the specified PythonModelContext that can be used by ``predict()`` when evaluating inputs. When loading an MLflow model with load_model(), this method is called as soon as the PythonModel is constructed. In our example, this method will load our models from MLflow model registry.
 - :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`: This method evaluates a pyfunc-compatible input and produces a pyfunc-compatible output. In our example, it analyzes the input payload and, based on its parameters, selects and applies the appropriate model to return predictions.
-- :py:class:`ModelSignatures <mlflow.models.ModelSignature>`: This class defines the expected input payload format. In our example, the signature object will be passed when registering our custom PyFunc and will define how we select our desired model for inference.
+- :py:class:`ModelSignatures <mlflow.models.ModelSignature>`: This class defines the expected input, output and params format. In our example, the signature object will be passed when registering our custom PyFunc model and inputs to the model will be validated against the signature.
 
 Ready to see this in action? Check out the accompanying notebooks for a hands-on experience. Let's dive in!
 
