@@ -26,7 +26,7 @@ single endpoint.
 
 1 - What is PyFunc?
 -------------------
-Custom PyFunc is a powerful MLflow feature that lets users cusomize model behavior. Going forward we
+Custom PyFunc is a powerful MLflow feature that lets users customize model behavior. Going forward we
 assume basic working knowledge of PyFunc, so if you're unfamiliar, check out the 
 ``Creating Custom PyFunc`` tutorial.
 
