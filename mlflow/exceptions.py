@@ -1,4 +1,5 @@
 import json
+import logging
 
 from mlflow.protos.databricks_pb2 import (
     ABORTED,
@@ -53,6 +54,8 @@ HTTP_STATUS_TO_ERROR_CODE = {v: k for k, v in ERROR_CODE_TO_HTTP_STATUS.items()}
 HTTP_STATUS_TO_ERROR_CODE[400] = ErrorCode.Name(BAD_REQUEST)
 HTTP_STATUS_TO_ERROR_CODE[404] = ErrorCode.Name(ENDPOINT_NOT_FOUND)
 HTTP_STATUS_TO_ERROR_CODE[500] = ErrorCode.Name(INTERNAL_ERROR)
+
+_logger = logging.getLogger(__name__)
 
 
 def get_error_code(http_status):
@@ -119,7 +122,16 @@ class RestException(MlflowException):
             error_code,
             json["message"] if "message" in json else "Response: " + str(json),
         )
-        super().__init__(message, error_code=ErrorCode.Value(error_code))
+        try:
+            super().__init__(message, error_code=ErrorCode.Value(error_code))
+        except ValueError:
+            _logger.warning(
+                f"Received error code not recognized by MLflow: {error_code}, this may indicate "
+                "your request hits error outside the MLflow server, e.g., proxy server, IP blocker "
+                "or so."
+            )
+            super().__init__(message)
+
         self.json = json
 
 
