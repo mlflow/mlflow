@@ -2,7 +2,6 @@ import collections
 import json
 import os
 
-import iris_data_utils
 import numpy as np
 import pandas as pd
 import pandas.testing
@@ -21,6 +20,7 @@ from tests.helper_functions import (
     assert_array_almost_equal,
     pyfunc_serve_and_score_model,
 )
+from tests.tensorflow import iris_data_utils
 
 
 @pytest.fixture

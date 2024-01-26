@@ -22,7 +22,7 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import get_spark_session
 from tests.spark.test_spark_model_export import (
     assert_register_model_called_with_local_model_path,
-    iris_df,  # noqa: F401
+    iris_spark_and_pandas_df,  # noqa: F401
     model_path,  # noqa: F401
     spark_custom_env,  # noqa: F401
     spark_model_iris,  # noqa: F401
