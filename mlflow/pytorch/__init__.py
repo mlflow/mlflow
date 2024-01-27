@@ -376,8 +376,7 @@ def save_model(
             are resolved to absolute filesystem paths.
             For example, consider the following ``extra_files`` list -
 
-            extra_files = ["s3://my-bucket/path/to/my_file1",
-                        "s3://my-bucket/path/to/my_file2"]
+            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
 
             In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
 

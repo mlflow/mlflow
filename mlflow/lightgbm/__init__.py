@@ -531,14 +531,14 @@ def autolog(
     """
     Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:
 
-    - parameters specified in `lightgbm.train`_.
-    - metrics on each iteration (if ``valid_sets`` specified).
-    - metrics at the best iteration (if ``early_stopping_rounds`` specified or ``early_stopping``
-        callback is set).
-    - feature importance (both "split" and "gain") as JSON files and plots.
-    - trained model, including:
-        - an example of valid input.
-        - inferred signature of the inputs and outputs of the model.
+        - parameters specified in `lightgbm.train`_.
+        - metrics on each iteration (if ``valid_sets`` specified).
+        - metrics at the best iteration (if ``early_stopping_rounds`` specified or
+          ``early_stopping`` callback is set).
+        - feature importance (both "split" and "gain") as JSON files and plots.
+        - trained model, including:
+            - an example of valid input.
+            - inferred signature of the inputs and outputs of the model.
 
     Note that the `scikit-learn API`_ is now supported.
 

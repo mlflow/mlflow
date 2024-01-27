@@ -122,9 +122,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         Args:
             output_directory: String file path to the directory where step
                 outputs should be stored.
-
-        Returns:
-            None
         """
         _logger.info(f"Running step {self.name}...")
         start_timestamp = time.time()
@@ -157,9 +154,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         Args:
             output_directory: String file path where to the directory where step
                 outputs are located.
-
-        Returns:
-            None
         """
         card_path = os.path.join(output_directory, CARD_PICKLE_NAME)
         if not os.path.exists(card_path):
