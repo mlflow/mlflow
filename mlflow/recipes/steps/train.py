@@ -8,6 +8,8 @@ import sys
 import warnings
 
 import cloudpickle
+import numpy as np
+import pandas as pd
 import yaml
 
 import mlflow
@@ -1143,8 +1145,22 @@ class TrainStep(BaseStep):
                     y_train = y_train.value
                     validation_df = validation_df.value
 
-                X_train_sampled = X_train.sample(frac=sample_fraction, random_state=42)
-                y_train_sampled = y_train.sample(frac=sample_fraction, random_state=42)
+                def sample_data(data, sample_fraction, random_state=42):
+                    if isinstance(data, (pd.DataFrame, pd.Series)):
+                        return data.sample(frac=sample_fraction, random_state=random_state)
+
+                    elif isinstance(data, np.ndarray):
+                        sample_size = int(len(data) * sample_fraction)
+                        np.random.seed(random_state)
+                        random_indices = np.random.choice(
+                            len(data), size=sample_size, replace=False
+                        )
+                        return data[random_indices]
+                    else:
+                        raise TypeError("data must be pandas DataFrame/Series or numpy ndarray")
+
+                X_train_sampled = sample_data(X_train, sample_fraction=sample_fraction)
+                y_train_sampled = sample_data(y_train, sample_fraction=sample_fraction)
 
                 fitted_estimator, _ = self._fitted_estimator(
                     estimator, X_train_sampled, y_train_sampled
