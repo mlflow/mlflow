@@ -88,9 +88,10 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements(include_cloudpickle=False):
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     pip_deps = [_get_pinned_requirement("lightgbm")]
     if include_cloudpickle:
@@ -100,8 +101,9 @@ def get_default_pip_requirements(include_cloudpickle=False):
 
 def get_default_conda_env(include_cloudpickle=False):
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
 
@@ -122,22 +124,23 @@ def save_model(
     """
     Save a LightGBM model to a path on the local file system.
 
-    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
-                      models that implement the `scikit-learn API`_  to be saved.
-    :param path: Local path where the model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
+            models that implement the `scikit-learn API`_  to be saved.
+        path: Local path where the model is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
 
     .. code-block:: python
         :caption: Example
@@ -287,31 +290,35 @@ def log_model(
     """
     Log a LightGBM model as an MLflow artifact for the current run.
 
-    :param lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
-                      models that implement the `scikit-learn API`_  to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
+    Args:
+        lgb_model: LightGBM model (an instance of `lightgbm.Booster`_) or
+            models that implement the `scikit-learn API`_  to be saved.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
 
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+
+        kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
+
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -374,9 +381,11 @@ def log_model(
 def _load_model(path):
     """
     Load Model Implementation.
-    :param path: Local filesystem path to
-                    the MLflow Model with the ``lightgbm`` flavor (MLflow < 1.23.0) or
-                    the top-level MLflow Model directory (MLflow >= 1.23.0).
+
+    Args:
+        path: Local filesystem path to
+            the MLflow Model with the ``lightgbm`` flavor (MLflow < 1.23.0) or
+            the top-level MLflow Model directory (MLflow >= 1.23.0).
     """
 
     model_dir = os.path.dirname(path) if os.path.isfile(path) else path
@@ -431,7 +440,7 @@ def load_model(model_uri, dst_path=None):
 
     Returns:
             A LightGBM model (an instance of `lightgbm.Booster`_) or a LightGBM scikit-learn
-                    model, depending on the saved model class specification.
+            model, depending on the saved model class specification.
 
     .. code-block:: python
         :caption: Example
