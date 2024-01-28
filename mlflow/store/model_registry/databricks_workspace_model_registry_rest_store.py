@@ -15,6 +15,9 @@ def _raise_unsupported_method(method, message=None):
 
 
 class DatabricksWorkspaceModelRegistryRestStore(RestStore):
+    def __init__(self):
+        logger.warning("Workspace registry is deprecated...")
+
     def set_registered_model_alias(self, name, alias, version):
         _raise_unsupported_method(method="set_registered_model_alias")
 
