@@ -55,12 +55,21 @@ def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises():
         UnityCatalogModelsArtifactRepository(model_uri, non_databricks_uri)
 
 
-def test_uc_models_artifact_repo_with_stage_uri_raises():
-    model_uri = "models:/MyModel/Staging"
+@pytest.mark.parametrize(
+    ("model_uri", "expected_error_msg"),
+    [
+        (
+            "models:/MyModel/Staging",
+            "Setting stages and loading model versions by stage is unsupported in Unity Catalog. "
+            "Instead, use aliases for flexible model deployment",
+        ),
+        ("models:/MyModel/latest", "To load the latest version of a model in Unity Catalog"),
+    ],
+)
+def test_uc_models_artifact_repo_with_stage_uri_raises(model_uri, expected_error_msg):
     with mock.patch("databricks_cli.configure.provider.get_config"), pytest.raises(
         MlflowException,
-        match="If seeing this error while attempting to load a model version by stage, note that "
-        "setting stages and loading model versions by stage is unsupported in Unity Catalog",
+        match=expected_error_msg,
     ):
         UnityCatalogModelsArtifactRepository(
             artifact_uri=model_uri, registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
