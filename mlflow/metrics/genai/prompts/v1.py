@@ -12,8 +12,10 @@ default_parameters = {
     "max_tokens": 200,
     "top_p": 1.0,
 }
+
 grading_system_prompt_template = PromptTemplate(
-    """
+    [
+        """
 Task:
 You must return the following fields in your response in two lines, one below the other:
 score: Your numerical score for the model's {name} based on the rubric
@@ -28,10 +30,12 @@ A definition of {name} and a grading rubric are provided below.
 You must use the grading rubric to determine your score. You must also justify your score.
 
 Examples could be included below for reference. Make sure to use them as references and to
-understand them before completing the task.
+understand them before completing the task.""",
+        """
 
 Input:
-{input}
+{input}""",
+        """
 
 Output:
 {output}
@@ -51,7 +55,8 @@ score: Your numerical score for the model's {name} based on the rubric
 justification: Your reasoning about the model's {name} score
 
 Do not add additional new lines. Do not add any other fields.
-    """
+    """,
+    ]
 )
 
 

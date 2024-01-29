@@ -43,11 +43,7 @@ describe('unit tests', () => {
           { key: 'p2', value: 6 },
         ],
       ],
-      metricLists: [
-        [{ key: 'm1', value: 7 }],
-        [{ key: 'm1', value: 8 }],
-        [{ key: 'm1', value: 9 }],
-      ],
+      metricLists: [[{ key: 'm1', value: 7 }], [{ key: 'm1', value: 8 }], [{ key: 'm1', value: 9 }]],
     };
     wrapper = shallow(<CompareRunContour {...props} />);
     expect(wrapper.length).toBe(1);
@@ -66,11 +62,7 @@ describe('unit tests', () => {
     const props = {
       ...commonProps,
       paramLists: [[{ key: 'p1', value: 1 }], [{ key: 'p1', value: 2 }], [{ key: 'p1', value: 3 }]],
-      metricLists: [
-        [{ key: 'm1', value: 4 }],
-        [{ key: 'm1', value: 5 }],
-        [{ key: 'm1', value: 6 }],
-      ],
+      metricLists: [[{ key: 'm1', value: 4 }], [{ key: 'm1', value: 5 }], [{ key: 'm1', value: 6 }]],
     };
     wrapper = shallow(<CompareRunContour {...props} />);
     expect(wrapper.length).toBe(1);
@@ -98,11 +90,7 @@ describe('unit tests', () => {
           { key: 'p3', value: 6 },
         ],
       ],
-      metricLists: [
-        [{ key: 'm1', value: 7 }],
-        [{ key: 'm1', value: 8 }],
-        [{ key: 'm1', value: 9 }],
-      ],
+      metricLists: [[{ key: 'm1', value: 7 }], [{ key: 'm1', value: 8 }], [{ key: 'm1', value: 9 }]],
     };
     wrapper = shallow(<CompareRunContour {...props} />);
     expect(wrapper.length).toBe(1);
@@ -203,11 +191,7 @@ describe('unit tests', () => {
         // this run does not contain 'b'.
         [{ key: 'p1', value: 5 }],
       ],
-      metricLists: [
-        [{ key: 'm1', value: 6 }],
-        [{ key: 'm1', value: 7 }],
-        [{ key: 'm1', value: 8 }],
-      ],
+      metricLists: [[{ key: 'm1', value: 6 }], [{ key: 'm1', value: 7 }], [{ key: 'm1', value: 8 }]],
     };
     wrapper = shallow(<CompareRunContour {...props} />);
     expect(wrapper.length).toBe(1);
@@ -239,33 +223,21 @@ describe('unit tests', () => {
           { key: 'p2', value: 3 },
         ],
       ],
-      metricLists: [
-        [{ key: 'm1', value: 4 }],
-        [{ key: 'm1', value: 5 }],
-        [{ key: 'm1', value: 6 }],
-      ],
+      metricLists: [[{ key: 'm1', value: 4 }], [{ key: 'm1', value: 5 }], [{ key: 'm1', value: 6 }]],
     };
     wrapper = shallowWithIntl(<CompareRunContour {...props} />).dive();
     const renderControlsElement = () => wrapper.dive();
     // X axis: p1 | Y axis: p2
-    expect(
-      renderControlsElement().text().includes("The X axis doesn't have enough unique data points"),
-    ).toBe(true);
+    expect(renderControlsElement().text().includes("The X axis doesn't have enough unique data points")).toBe(true);
     // X axis: p2 | Y axis: p1
     wrapper.setState({
       xaxis: { key: 'p2', isMetric: false },
       yaxis: { key: 'p1', isMetric: false },
     });
-    expect(
-      renderControlsElement().text().includes("The Y axis doesn't have enough unique data points"),
-    ).toBe(true);
+    expect(renderControlsElement().text().includes("The Y axis doesn't have enough unique data points")).toBe(true);
     // X axis: p1 | Y axis: p1
     wrapper.setState({ xaxis: { key: 'p1', isMetric: false } });
-    expect(
-      renderControlsElement()
-        .text()
-        .includes("The X and Y axes don't have enough unique data points"),
-    ).toBe(true);
+    expect(renderControlsElement().text().includes("The X and Y axes don't have enough unique data points")).toBe(true);
     // X axis: p2 | Y axis: p2
     wrapper.setState({
       xaxis: { key: 'p2', isMetric: false },

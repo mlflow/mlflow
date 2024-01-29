@@ -1,11 +1,8 @@
-import { Theme } from '@emotion/react';
 import React, { useCallback, useMemo } from 'react';
-import Utils from '../../../../../common/utils/Utils';
 import { UpdateExperimentSearchFacetsFn, UpdateExperimentViewStateFn } from '../../../../types';
 import { useRunSortOptions } from '../../hooks/useRunSortOptions';
 import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
-import { downloadRunsCsv } from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsActions';
 import { ExperimentViewRunsControlsFilters } from './ExperimentViewRunsControlsFilters';
@@ -16,8 +13,18 @@ import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector
 import { TAGS_TO_COLUMNS_MAP } from '../../utils/experimentPage.column-utils';
 import { COLUMN_SORT_BY_ASC, SORT_DELIMITER_SYMBOL } from '../../../../constants';
 import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
-import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableDeepLearningUIPhase2,
+  shouldEnableExperimentDatasetTracking,
+  shouldEnableShareExperimentViewByTags,
+} from '../../../../../common/utils/FeatureUtils';
 import { ExperimentViewRunsModeSwitch } from './ExperimentViewRunsModeSwitch';
+import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
+import Utils from '../../../../../common/utils/Utils';
+import { downloadRunsCsv } from '../../utils/experimentPage.common-utils';
+import { ExperimentPageUIStateV2 } from '../../models/ExperimentPageUIStateV2';
+import { ExperimentViewRunsGroupBySelector } from './ExperimentViewRunsGroupBySelector';
+import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 
 type ExperimentViewRunsControlsProps = {
   viewState: SearchExperimentRunsViewState;
@@ -34,6 +41,10 @@ type ExperimentViewRunsControlsProps = {
   updateExpandRows: (expandRows: boolean) => void;
 
   requestError: ErrorWrapper | null;
+
+  refreshRuns: () => void;
+  uiState: ExperimentPageUIStateV2;
+  isLoading: boolean;
 };
 
 /**
@@ -51,9 +62,23 @@ export const ExperimentViewRunsControls = React.memo(
     requestError,
     expandRows,
     updateExpandRows,
+    refreshRuns,
+    uiState,
+    isLoading,
   }: ExperimentViewRunsControlsProps) => {
+    const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
+    const rowGroupingEnabled = shouldEnableShareExperimentViewByTags() && shouldEnableDeepLearningUIPhase2();
+
+    const [pageViewMode, setPageViewMode] = useExperimentPageViewMode();
+
     const { paramKeyList, metricKeyList, tagsList } = runsData;
-    const { compareRunsMode, orderByAsc, orderByKey } = searchFacetsState;
+    const { orderByAsc, orderByKey } = searchFacetsState;
+
+    // Use modernized view mode value getter if flag is set
+    const compareRunsMode = usingNewViewStateModel ? pageViewMode : searchFacetsState.compareRunsMode;
+
+    const updateUIState = useUpdateExperimentViewUIState();
+
     const isComparingRuns = compareRunsMode !== undefined;
 
     const { theme } = useDesignSystemTheme();
@@ -105,10 +130,7 @@ export const ExperimentViewRunsControls = React.memo(
       [updateViewState],
     );
 
-    const toggleExpandedRows = useCallback(
-      () => updateExpandRows(!expandRows),
-      [expandRows, updateExpandRows],
-    );
+    const toggleExpandedRows = useCallback(() => updateExpandRows(!expandRows), [expandRows, updateExpandRows]);
 
     const multipleDatasetsArePresent = useMemo(
       () => runsData.datasetsList.some((datasetsInRun) => datasetsInRun?.length > 1),
@@ -129,6 +151,7 @@ export const ExperimentViewRunsControls = React.memo(
             runsData={runsData}
             searchFacetsState={searchFacetsState}
             viewState={viewState}
+            refreshRuns={refreshRuns}
           />
         )}
 
@@ -142,6 +165,8 @@ export const ExperimentViewRunsControls = React.memo(
             updateViewState={updateViewState}
             runsData={runsData}
             requestError={requestError}
+            refreshRuns={refreshRuns}
+            viewMaximized={usingNewViewStateModel ? uiState.viewMaximized : viewState.viewMaximized}
             additionalControls={
               <>
                 <ExperimentViewRunsSortSelector
@@ -155,31 +180,45 @@ export const ExperimentViewRunsControls = React.memo(
                     columnSelectorVisible={viewState.columnSelectorVisible}
                     onChangeColumnSelectorVisible={changeColumnSelectorVisible}
                     runsData={runsData}
+                    selectedColumns={uiState.selectedColumns}
                   />
                 )}
 
-                {!isComparingRuns &&
-                  shouldEnableExperimentDatasetTracking() &&
-                  multipleDatasetsArePresent && (
-                    <ToggleButton onClick={toggleExpandedRows}>
-                      <FormattedMessage
-                        defaultMessage='Expand rows'
-                        description='Label for the expand rows button above the experiment runs table'
-                      />
-                    </ToggleButton>
-                  )}
+                {!isComparingRuns && shouldEnableExperimentDatasetTracking() && multipleDatasetsArePresent && (
+                  <ToggleButton onClick={toggleExpandedRows}>
+                    <FormattedMessage
+                      defaultMessage="Expand rows"
+                      description="Label for the expand rows button above the experiment runs table"
+                    />
+                  </ToggleButton>
+                )}
+                {rowGroupingEnabled && (
+                  <ExperimentViewRunsGroupBySelector
+                    groupBy={uiState.groupBy}
+                    onChange={(groupBy) => {
+                      updateUIState((state) => ({ ...state, groupBy }));
+                    }}
+                    runsData={runsData}
+                    isLoading={isLoading}
+                  />
+                )}
               </>
             }
           />
         )}
-
         <div>
           <ExperimentViewRunsModeSwitch
-            compareRunsMode={compareRunsMode}
-            setCompareRunsMode={(newCompareRunsMode) =>
-              updateSearchFacets({ compareRunsMode: newCompareRunsMode })
-            }
+            // Use modernized view mode value and updater if flag is set
+            compareRunsMode={usingNewViewStateModel ? pageViewMode : compareRunsMode}
+            setCompareRunsMode={(newCompareRunsMode) => {
+              if (usingNewViewStateModel) {
+                setPageViewMode(newCompareRunsMode);
+              } else {
+                updateSearchFacets({ compareRunsMode: newCompareRunsMode });
+              }
+            }}
             viewState={viewState}
+            runsAreGrouped={Boolean(uiState.groupBy)}
           />
         </div>
       </div>

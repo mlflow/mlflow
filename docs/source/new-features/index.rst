@@ -12,6 +12,78 @@ Find out about the details of major features, changes, and deprecations below.
             <div class="grid-card">
                 <div class="content-container">
                     <div class="header">
+                        MLflow Site Overhaul 
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/homepage.png" alt="MLflow"></img>
+                    <div class="body">
+                        MLflow has a new <a href=https://mlflow.org>homepage</a> that has been completely modernized. Check it out today!
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.10.0">released in 2.10.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        LangChain Autologging Support
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/langchain-logo.png" alt="LangChain" style="max-height: 5rem"></img>
+                    <div class="body">
+                        Autologging support for <a href="../llms/langchain/index.html">LangChain</a> is now available. Try it out the next time 
+                        that you're building a Generative AI application with Langchain!
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.10.0">released in 2.10.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Object and Array Support for complex Model Signatures 
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
+                    <div class="body">
+                        Complex input types for <a href="../models.html#model-signature-and-input-example">model signatures</a> are now supported with native 
+                        support of Array and Object types.
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.10.0">released in 2.10.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        Direct Access to OpenAI through the MLflow Deployments API 
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/openai-logo.png" alt="MLflow Deployments" style="max-height: 5rem"></img>
+                    <div class="body">
+                        MLflow Deployments now supports direct access to OpenAI services.
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.9.0">released in 2.9.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
+                        MLflow Gateway renamed to MLflow Deployments Server
+                    </div>
+                    <img class="card-image" src="../_static/images/logos/gateway-header-image.png" alt="MLflow Deployments"></img>
+                    <div class="body">
+                        The previously known feature, MLflow Gateway has been refactored to the <a href="../llms/deployments/index.html">MLflow Deployments Server</a>.
+                    </div>
+                    <div class="tag">
+                        <a href="https://github.com/mlflow/mlflow/releases/tag/v2.9.0">released in 2.9.0</a>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-card">
+                <div class="content-container">
+                    <div class="header">
                         MLflow Docs Overhaul 
                     </div>
                     <img class="card-image" src="../_static/images/logos/mlflow-logo.svg" alt="MLflow"></img>
@@ -223,13 +295,13 @@ Find out about the details of major features, changes, and deprecations below.
                     <div class="body">
                         The MLflow AI Gateway now supports defining an MLflow serving endpoint as provider. With this 
                         new feature, you can serve any OSS transformers model that conforms to the 
-                        <a href="../llms/gateway/index.html#completions">completions</a> or <a href="../llms/gateway/index.html#embeddings">embeddings</a> route type 
+                        <a href="../llms/deployments/index.html#completions">completions</a> or <a href="../llms/deployments/index.html#embeddings">embeddings</a> route type 
                         definitions. 
                     </div>
                     <div class="body">
-                        Try it out today with our end-to-end <a href="https://github.com/mlflow/mlflow/tree/master/examples/gateway/mlflow_serving">example</a>.
+                        Try it out today with our end-to-end <a href="https://github.com/mlflow/mlflow/tree/master/examples/deployments/mlflow_serving">example</a>.
                     </div>
-                    <div class="doc"><a href="../llms/gateway/index.html#mlflow-models">Learn more</a></div>
+                    <div class="doc"><a href="../llms/deployments/index.html#mlflow-models">Learn more</a></div>
                     <div class="tag">
                         <a href="https://github.com/mlflow/mlflow/releases/tag/v2.6.0">released in 2.6.0</a>
                     </div>
@@ -249,7 +321,7 @@ Find out about the details of major features, changes, and deprecations below.
                         simplifying interfaces, managing credentials, and providing a unified standard set of APIs to reduce the complexity of 
                         building products and services around LLMs. 
                     </div>
-                    <div class="doc"><a href="../llms/gateway/index.html">Learn more</a></div>
+                    <div class="doc"><a href="../llms/deployments/index.html">Learn more</a></div>
                     <div class="tag">
                         <a href="https://github.com/mlflow/mlflow/releases/tag/v2.5.0">released in 2.5.0</a>
                     </div>

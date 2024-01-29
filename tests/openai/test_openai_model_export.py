@@ -1,6 +1,5 @@
 import importlib
 import json
-from copy import deepcopy
 from unittest import mock
 
 import numpy as np
@@ -17,7 +16,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 from mlflow.utils.openai_utils import (
-    _exclude_params_from_envs,
     _mock_chat_completion_response,
     _mock_models_retrieve_response,
     _mock_request,
@@ -146,11 +144,11 @@ def test_chat_multiple_variables(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "x", "type": "string"},
-        {"name": "y", "type": "string"},
+        {"name": "x", "type": "string", "required": True},
+        {"name": "y", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -188,11 +186,11 @@ def test_chat_role_content(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "content", "type": "string"},
-        {"name": "role", "type": "string"},
+        {"name": "content", "type": "string", "required": True},
+        {"name": "role", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -224,11 +222,11 @@ def test_completion_multiple_variables(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "x", "type": "string"},
-        {"name": "y", "type": "string"},
+        {"name": "x", "type": "string", "required": True},
+        {"name": "y", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -266,11 +264,11 @@ def test_chat_multiple_messages(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"name": "x", "type": "string"},
-        {"name": "y", "type": "string"},
+        {"name": "x", "type": "string", "required": True},
+        {"name": "y", "type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -308,10 +306,10 @@ def test_chat_no_variables(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -379,10 +377,10 @@ def test_chat_no_messages(tmp_path):
     )
     model = mlflow.models.Model.load(tmp_path)
     assert model.signature.inputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
     assert model.signature.outputs.to_dict() == [
-        {"type": "string"},
+        {"type": "string", "required": True},
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
@@ -554,7 +552,7 @@ def test_embeddings(tmp_path):
     )
 
     model = mlflow.models.Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.inputs.to_dict() == [{"type": "string", "required": True}]
     assert model.signature.outputs.to_dict() == [
         {"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": (-1,)}}
     ]
@@ -668,20 +666,3 @@ def test_engine_and_deployment_id_for_azure_openai(tmp_path, monkeypatch):
         MlflowException, match=r"Either engine or deployment_id must be set for Azure OpenAI API"
     ):
         mlflow.pyfunc.load_model(tmp_path)
-
-
-@pytest.mark.parametrize(
-    ("params", "envs"),
-    [
-        ({"a": None, "b": "b"}, {"a": "a", "c": "c"}),
-        ({"a": "a", "b": "b"}, {"a": "a", "d": "d"}),
-        ({}, {"a": "a", "b": "b"}),
-        ({"a": "a"}, {"b": "b"}),
-    ],
-)
-def test_exclude_params_from_envs(params, envs):
-    original_envs = deepcopy(envs)
-    result = _exclude_params_from_envs(params, envs)
-    assert envs == original_envs
-    assert not any(key in params for key in result)
-    assert all(key in envs for key in result)

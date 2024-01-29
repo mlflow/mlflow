@@ -1237,9 +1237,9 @@ def test_log_input(tmp_path):
     assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
     assert json.loads(dataset_inputs[0].dataset.schema) == {
         "mlflow_colspec": [
-            {"name": "a", "type": "long"},
-            {"name": "b", "type": "long"},
-            {"name": "c", "type": "long"},
+            {"name": "a", "type": "long", "required": True},
+            {"name": "b", "type": "long", "required": True},
+            {"name": "c", "type": "long", "required": True},
         ]
     }
     assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
@@ -1262,9 +1262,9 @@ def test_log_input(tmp_path):
     assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
     assert json.loads(dataset_inputs[0].dataset.schema) == {
         "mlflow_colspec": [
-            {"name": "a", "type": "long"},
-            {"name": "b", "type": "long"},
-            {"name": "c", "type": "long"},
+            {"name": "a", "type": "long", "required": True},
+            {"name": "b", "type": "long", "required": True},
+            {"name": "c", "type": "long", "required": True},
         ]
     }
     assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
@@ -1353,6 +1353,17 @@ def test_log_param_async_throws():
         mlflow.log_params({"async batch param": "2"}, synchronous=False)
         with pytest.raises(MlflowException, match="Changing param values is not allowed"):
             mlflow.log_params({"async batch param": "3"}, synchronous=False).wait()
+
+
+def test_flush_async_logging():
+    with mlflow.start_run() as run:
+        for i in range(100):
+            mlflow.log_metric("dummy", i, step=i, synchronous=False)
+
+        mlflow.flush_async_logging()
+
+        metric_history = mlflow.MlflowClient().get_metric_history(run.info.run_id, "dummy")
+        assert len(metric_history) == 100
 
 
 def test_set_tag_async():

@@ -13,7 +13,7 @@ alembic:
 docker:
   pip_release: docker
   minimum: "4.0.0"
-  max_major_version: 6
+  max_major_version: 7
 
 flask:
   pip_release: Flask
@@ -57,7 +57,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 14
+  max_major_version: 15
 
 markdown:
   pip_release: markdown

@@ -1,4 +1,4 @@
-import { mount } from 'enzyme';
+import { mountWithIntl } from '../../../common/utils/TestUtils';
 import { RunsCompareBarChartCard } from './cards/RunsCompareBarChartCard';
 import { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import {
@@ -9,10 +9,7 @@ import {
   RunsCompareParallelCardConfig,
 } from './runs-compare.types';
 import { RunsCompareCharts } from './RunsCompareCharts';
-import {
-  RunsChartsTooltipBodyComponent,
-  RunsChartsTooltipWrapper,
-} from '../runs-charts/hooks/useRunsChartsTooltip';
+import { RunsChartsTooltipBodyComponent, RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { RunsCompareLineChartCard } from './cards/RunsCompareLineChartCard';
 import { RunsCompareScatterChartCard } from './cards/RunsCompareScatterChartCard';
 import { RunsCompareContourChartCard } from './cards/RunsCompareContourChartCard';
@@ -46,9 +43,9 @@ describe('RunsCompareCharts', () => {
   });
 
   const defaultBodyComponent: RunsChartsTooltipBodyComponent = ({ runUuid }) => (
-    <div data-testid='tooltip-body'>
+    <div data-testid="tooltip-body">
       tooltip body
-      <div data-testid='tooltip-body-run-uuid'>{runUuid}</div>
+      <div data-testid="tooltip-body-run-uuid">{runUuid}</div>
     </div>
   );
 
@@ -57,13 +54,15 @@ describe('RunsCompareCharts', () => {
     runs: RunsChartsRunData[] = [],
     contextData: string | undefined = undefined,
   ) =>
-    mount(
+    mountWithIntl(
       <RunsChartsTooltipWrapper contextData={contextData} component={defaultBodyComponent}>
         <RunsCompareCharts
           chartRunData={runs}
           onRemoveChart={onRemoveChart}
           onStartEditChart={onEditChart}
           cardsConfig={cards}
+          onReorderCharts={() => {}}
+          groupBy=""
         />
       </RunsChartsTooltipWrapper>,
     );
@@ -77,14 +76,14 @@ describe('RunsCompareCharts', () => {
     const runs = [{ metrics: {}, params: {}, runInfo: { run_uuid: 'abc' } }];
     const wrapper = createComponentMock(
       [
-        { type: RunsCompareChartType.BAR },
+        { type: RunsCompareChartType.BAR, deleted: false, isGenerated: true },
         {
           type: RunsCompareChartType.CONTOUR,
           xaxis: { key: '', type: 'METRIC' },
           yaxis: { key: '', type: 'METRIC' },
           zaxis: { key: '', type: 'METRIC' },
         } as RunsCompareContourCardConfig,
-        { type: RunsCompareChartType.LINE },
+        { type: RunsCompareChartType.LINE, deleted: false, isGenerated: true },
         {
           type: RunsCompareChartType.SCATTER,
           xaxis: { key: '', type: 'METRIC' },
@@ -94,8 +93,10 @@ describe('RunsCompareCharts', () => {
           type: RunsCompareChartType.PARALLEL,
           selectedParams: [],
           selectedMetrics: [],
+          deleted: false,
+          isGenerated: true,
         } as RunsCompareParallelCardConfig,
-        { type: RunsCompareChartType.BAR },
+        { type: RunsCompareChartType.BAR, deleted: false, isGenerated: true },
       ],
       runs as RunsChartsRunData[],
     );

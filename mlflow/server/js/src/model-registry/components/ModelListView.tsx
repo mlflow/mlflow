@@ -13,23 +13,14 @@ import {
   REGISTERED_MODELS_SEARCH_NAME_FIELD,
   REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD,
 } from '../constants';
-import {
-  ModelRegistryDocUrl,
-  ModelRegistryOnboardingString,
-  onboarding,
-} from '../../common/constants';
+import { ModelRegistryDocUrl, ModelRegistryOnboardingString, onboarding } from '../../common/constants';
 import { CreateModelButton } from './CreateModelButton';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import {
-  Alert,
-  CursorPagination,
-  Spacer as DuBoisSpacer,
-  Typography,
-} from '@databricks/design-system';
-import { shouldUseToggleModelsNextUI } from '../../common/utils/FeatureUtils';
+import { Alert, CursorPagination, Spacer as DuBoisSpacer, Typography } from '@databricks/design-system';
+import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
 import { PageContainer } from '../../common/components/PageContainer';
@@ -65,10 +56,7 @@ type ModelListViewImplProps = {
 
 type ModelListViewImplState = any;
 
-export class ModelListViewImpl extends React.Component<
-  ModelListViewImplProps,
-  ModelListViewImplState
-> {
+export class ModelListViewImpl extends React.Component<ModelListViewImplProps, ModelListViewImplState> {
   constructor(props: ModelListViewImplProps) {
     super(props);
 
@@ -184,20 +172,20 @@ export class ModelListViewImpl extends React.Component<
 
     const title = (
       <FormattedMessage
-        defaultMessage='Registered Models'
-        description='Header for displaying models in the model registry'
+        defaultMessage="Registered Models"
+        description="Header for displaying models in the model registry"
       />
     );
     return (
-      <PageContainer data-test-id='ModelListView-container' usesFullHeight>
+      <PageContainer data-test-id="ModelListView-container" usesFullHeight>
         <div>
           <PageHeader
             infoPopover={
               <div>
                 {ModelListViewImpl.getLearnMoreDisplayString()}{' '}
                 <FormattedMessage
-                  defaultMessage='<link>Learn more</link>'
-                  description='Learn more link on the model list page with cloud-specific link'
+                  defaultMessage="<link>Learn more</link>"
+                  description="Learn more link on the model list page with cloud-specific link"
                   values={{
                     link: (chunks) => (
                       <Typography.Link href={ModelListViewImpl.getLearnMoreLinkUrl()} openInNewTab>
@@ -226,12 +214,10 @@ export class ModelListViewImpl extends React.Component<
           isLoading={loading}
           pagination={
             <div
-              data-testid='model-list-view-pagination'
+              data-testid="model-list-view-pagination"
               css={{ width: '100%', alignItems: 'center', display: 'flex' }}
             >
-              <div css={{ flex: 1 }}>
-                {shouldUseToggleModelsNextUI() && <ModelsNextUIToggleSwitch />}
-              </div>
+              <div css={{ flex: 1 }}>{shouldShowModelsNextUI() && <ModelsNextUIToggleSwitch />}</div>
               <div>
                 <CursorPagination
                   hasNextPage={Boolean(nextPageToken)}
@@ -254,9 +240,7 @@ export class ModelListViewImpl extends React.Component<
   }
 }
 
-export const ModelListView = withNextModelsUIContext(
-  injectIntl<'intl', ModelListViewImplProps>(ModelListViewImpl),
-);
+export const ModelListView = withNextModelsUIContext(injectIntl<'intl', ModelListViewImplProps>(ModelListViewImpl));
 
 const styles = {
   nameSearchBox: {

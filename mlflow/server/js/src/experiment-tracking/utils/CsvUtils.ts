@@ -1,17 +1,13 @@
 import Utils from '../../common/utils/Utils';
 import { KeyValueEntity, RunInfoEntity } from '../types';
 
-const { formatTimestamp, getDuration, getRunNameFromTags, getSourceType, getSourceName, getUser } =
-  Utils;
+const { formatTimestamp, getDuration, getRunNameFromTags, getSourceType, getSourceName, getUser } = Utils;
 
 /**
  * Turn a list of params/metrics to a map of metric key to metric.
  */
 const toMap = (params: KeyValueEntity[]) =>
-  params.reduce(
-    (result, entity) => ({ ...result, [entity.key]: entity }),
-    {} as Record<string, KeyValueEntity>,
-  );
+  params.reduce((result, entity) => ({ ...result, [entity.key]: entity }), {} as Record<string, KeyValueEntity>);
 
 /**
  * Format a string for insertion into a CSV file.
@@ -70,8 +66,7 @@ export const runInfosToCsv = (params: {
   metricsList: KeyValueEntity[][];
   tagsList: Record<string, KeyValueEntity>[];
 }) => {
-  const { runInfos, paramKeyList, metricKeyList, tagKeyList, paramsList, metricsList, tagsList } =
-    params;
+  const { runInfos, paramKeyList, metricKeyList, tagKeyList, paramsList, metricsList, tagsList } = params;
 
   const columns = [
     'Start Time',

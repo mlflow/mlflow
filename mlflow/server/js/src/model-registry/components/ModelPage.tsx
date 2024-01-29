@@ -58,10 +58,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
   updateRegisteredModelApiId = getUUID();
   deleteRegisteredModelApiId = getUUID();
 
-  criticalInitialRequestIds = [
-    this.initSearchModelVersionsApiRequestId,
-    this.initgetRegisteredModelApiRequestId,
-  ];
+  criticalInitialRequestIds = [this.initSearchModelVersionsApiRequestId, this.initgetRegisteredModelApiRequestId];
 
   handleEditDescription = (description: any) => {
     const { model } = this.props;
@@ -197,7 +194,4 @@ const ModelPageWithRouter = withRouterNext(
   connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelPageImpl)),
 );
 
-export const ModelPage = withErrorBoundary(
-  ErrorUtils.mlflowServices.MODEL_REGISTRY,
-  ModelPageWithRouter,
-);
+export const ModelPage = withErrorBoundary(ErrorUtils.mlflowServices.MODEL_REGISTRY, ModelPageWithRouter);

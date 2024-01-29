@@ -27,7 +27,6 @@ from pyspark.ml.feature import HashingTF, IndexToString, StringIndexer, Tokenize
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
-from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow import MlflowClient
@@ -52,15 +51,10 @@ from mlflow.utils.validation import (
 )
 
 from tests.helper_functions import AnyStringWith
+from tests.utils.test_file_utils import spark_session  # noqa: F401
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    with SparkSession.builder.master("local[*]").getOrCreate() as session:
-        yield session
 
 
 @pytest.fixture(scope="module")
@@ -1068,7 +1062,9 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
         _assert_autolog_infers_model_signature_correctly(
-            run, input_sig_spec=[{"name": "text", "type": "string"}], output_sig_spec=None
+            run,
+            input_sig_spec=[{"name": "text", "type": "string", "required": True}],
+            output_sig_spec=None,
         )
 
 
@@ -1095,7 +1091,9 @@ def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
         with open(ml_model_path) as f:
             data = yaml.safe_load(f)
             signature = data["signature"]
-            assert json.loads(signature["inputs"]) == [{"name": "number", "type": "double"}]
+            assert json.loads(signature["inputs"]) == [
+                {"name": "number", "type": "double", "required": True}
+            ]
             assert signature["outputs"] is None
 
 
@@ -1143,7 +1141,9 @@ def test_signature_with_index_to_string_stage(
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
         _assert_autolog_infers_model_signature_correctly(
-            run, input_sig_spec=[{"name": "id", "type": "long"}], output_sig_spec=None
+            run,
+            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
+            output_sig_spec=None,
         )
 
 
@@ -1186,7 +1186,7 @@ def test_signature_with_non_feature_input_columns(
         pipeline_for_feature_cols.fit(input_df_with_non_features)
         _assert_autolog_infers_model_signature_correctly(
             run,
-            input_sig_spec=[{"name": "id", "type": "long"}],
+            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
             output_sig_spec=None,
         )
 

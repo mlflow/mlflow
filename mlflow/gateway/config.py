@@ -332,11 +332,22 @@ class AliasedConfigModel(ConfigModel):
             allow_population_by_field_name = True
 
 
+class Limit(LimitModel):
+    calls: int
+    key: Optional[str] = None
+    renewal_period: str
+
+
+class LimitsConfig(ConfigModel):
+    limits: Optional[List[Limit]] = []
+
+
 # pylint: disable=no-self-argument
 class RouteConfig(AliasedConfigModel):
     name: str
     route_type: RouteType = Field(alias="endpoint_type")
     model: Model
+    limit: Optional[Limit] = None
 
     @validator("name")
     def validate_endpoint_name(cls, route_name):
@@ -387,6 +398,23 @@ class RouteConfig(AliasedConfigModel):
             return value
         raise MlflowException.invalid_parameter_value(f"The route_type '{value}' is not supported.")
 
+    @validator("limit", pre=True)
+    def validate_limit(cls, value):
+        from limits import parse
+
+        if value:
+            limit = Limit(**value)
+            try:
+                parse(f"{limit.calls}/{limit.renewal_period}")
+            except ValueError:
+                raise MlflowException.invalid_parameter_value(
+                    "Failed to parse the rate limit configuration."
+                    "Please make sure limit.calls is a positive number and"
+                    "limit.renewal_period is a right granularity"
+                )
+
+        return value
+
     def to_route(self) -> "Route":
         return Route(
             name=self.name,
@@ -396,6 +424,7 @@ class RouteConfig(AliasedConfigModel):
                 provider=self.model.provider,
             ),
             route_url=f"{MLFLOW_GATEWAY_ROUTE_BASE}{self.name}{MLFLOW_QUERY_SUFFIX}",
+            limit=self.limit,
         )
 
 
@@ -424,6 +453,7 @@ class Route(ConfigModel):
     route_type: str
     model: RouteModelInfo
     route_url: str
+    limit: Optional[Limit] = None
 
     class Config:
         if IS_PYDANTIC_V2:
@@ -439,21 +469,12 @@ class Route(ConfigModel):
             endpoint_type=self.route_type,
             model=self.model,
             endpoint_url=self.route_url,
+            limit=self.limit,
         )
-
-
-class Limit(LimitModel):
-    calls: int
-    key: Optional[str] = None
-    renewal_period: str
 
 
 class GatewayConfig(AliasedConfigModel):
     routes: List[RouteConfig] = Field(alias="endpoints")
-
-
-class LimitsConfig(ConfigModel):
-    limits: Optional[List[Limit]] = []
 
 
 def _load_route_config(path: Union[str, Path]) -> GatewayConfig:

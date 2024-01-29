@@ -91,10 +91,13 @@ def set_experiment(
     name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
     both be specified.
 
-    :param experiment_name: Case sensitive name of the experiment to be activated. If an experiment
-                            with this name does not exist, a new experiment wth this name is
-                            created. On certain platforms such as Databricks, the experiment name
-                            must an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
+    .. note::
+        If the experiment being set by name does not exist, a new experiment will be
+        created with the given name. After the experiment has been created, it will be set
+        as the active experiment. On certain platforms, such as Databricks, the experiment name
+        must be an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
+
+    :param experiment_name: Case sensitive name of the experiment to be activated.
     :param experiment_id: ID of the experiment to be activated. If an experiment with this ID
                           does not exist, an exception is thrown.
     :return: An instance of :py:class:`mlflow.entities.Experiment` representing the new active
@@ -644,6 +647,11 @@ def log_param(key: str, value: Any, synchronous: bool = True) -> Any:
     return MlflowClient().log_param(run_id, key, value, synchronous=synchronous)
 
 
+def flush_async_logging() -> None:
+    """Flush all pending async logging."""
+    _get_store().flush_async_logging()
+
+
 def set_experiment_tag(key: str, value: Any) -> None:
     """
     Set a tag on the current experiment. Value is converted to a string.
@@ -735,6 +743,7 @@ def log_metric(
     step: Optional[int] = None,
     synchronous: bool = True,
     timestamp: Optional[int] = None,
+    run_id: Optional[str] = None,
 ) -> Optional[RunOperations]:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -772,7 +781,7 @@ def log_metric(
         with mlflow.start_run():
             mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     return MlflowClient().log_metric(
         run_id,
         key,
@@ -784,7 +793,10 @@ def log_metric(
 
 
 def log_metrics(
-    metrics: Dict[str, float], step: Optional[int] = None, synchronous: bool = True
+    metrics: Dict[str, float],
+    step: Optional[int] = None,
+    synchronous: bool = True,
+    run_id: Optional[str] = None,
 ) -> Optional[RunOperations]:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
@@ -820,7 +832,7 @@ def log_metrics(
         with mlflow.start_run():
             mlflow.log_metrics(metrics, synchronous=False)
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     timestamp = get_current_time_millis()
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     return MlflowClient().log_batch(
@@ -969,7 +981,9 @@ def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOper
     )
 
 
-def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
+def log_artifact(
+    local_path: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
+) -> None:
     """
     Log a local file or directory as an artifact of the currently active run. If no run is
     active, this method will create a new active run.
@@ -992,11 +1006,13 @@ def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
         with mlflow.start_run():
             mlflow.log_artifact("features.txt")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
-def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
+def log_artifacts(
+    local_dir: str, artifact_path: Optional[str] = None, run_id: Optional[str] = None
+) -> None:
     """
     Log all the contents of a local directory as artifacts of the run. If no run is active,
     this method will create a new active run.
@@ -1026,11 +1042,11 @@ def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
         with mlflow.start_run():
             mlflow.log_artifacts("data", artifact_path="states")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
-def log_text(text: str, artifact_file: str) -> None:
+def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> None:
     """
     Log text as an artifact.
 
@@ -1053,11 +1069,11 @@ def log_text(text: str, artifact_file: str) -> None:
             # Log HTML text
             mlflow.log_text("<h1>header</h1>", "index.html")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-def log_dict(dictionary: Dict[str, Any], artifact_file: str) -> None:
+def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[str] = None) -> None:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
     format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1087,7 +1103,7 @@ def log_dict(dictionary: Dict[str, Any], artifact_file: str) -> None:
             mlflow.log_dict(dictionary, "data")
             mlflow.log_dict(dictionary, "data.txt")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
@@ -1208,6 +1224,7 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
 def log_table(
     data: Union[Dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
+    run_id: Optional[str] = None,
 ) -> None:
     """
     Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
@@ -1250,7 +1267,7 @@ def log_table(
             # Log the df as a table
             mlflow.log_table(data=df, artifact_file="qabot_eval_results.json")
     """
-    run_id = _get_or_start_run().info.run_id
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_table(run_id, data, artifact_file)
 
 
@@ -1326,8 +1343,8 @@ def load_table(
     return MlflowClient().load_table(experiment_id, artifact_file, run_ids, extra_columns)
 
 
-def _record_logged_model(mlflow_model):
-    run_id = _get_or_start_run().info.run_id
+def _record_logged_model(mlflow_model, run_id=None):
+    run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)
 
 
@@ -2076,6 +2093,7 @@ def autolog(
         "pytorch_lightning": "mlflow.pytorch",
         "setfit": "mlflow.transformers",
         "transformers": "mlflow.transformers",
+        "langchain": "mlflow.langchain",
     }
 
     def get_autologging_params(autolog_fn):

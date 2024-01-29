@@ -259,6 +259,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    example_no_conversion=False,
     **kwargs,
 ):
     """
@@ -296,6 +297,7 @@ def save_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
             or ``top_p`` value to use for chat completion.
@@ -372,7 +374,7 @@ def save_model(
         )
 
     if input_example is not None:
-        _save_example(mlflow_model, input_example, path)
+        _save_example(mlflow_model, input_example, path, example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
     model_data_path = os.path.join(path, MODEL_FILENAME)
@@ -457,6 +459,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    example_no_conversion=False,
     **kwargs,
 ):
     """
@@ -500,6 +503,7 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        example_no_conversion: {{ example_no_conversion }}
         kwargs: Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
             :ref:`mlflow.openai.messages` for more details on this parameter)
             or ``top_p`` value to use for chat completion.
@@ -550,6 +554,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        example_no_conversion=example_no_conversion,
         **kwargs,
     )
 
@@ -648,15 +653,16 @@ class _OpenAIWrapper:
         self.api_token = _OAITokenHolder(self.api_config.api_type)
         # If the same parameter exists in self.model & self.api_config,
         # we use the parameter from self.model
-        self.envs = {
-            x: getattr(self.api_config, x)
-            for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]
-            if getattr(self.api_config, x) is not None and x not in self.model
-        }
-        api_type = self.model.get("api_type") or self.envs.get("api_type")
-        if api_type in ("azure", "azure_ad", "azuread"):
-            deployment_id = self.model.get("deployment_id") or self.envs.get("deployment_id")
-            if self.model.get("engine") or self.envs.get("engine"):
+        self.request_configs = {}
+        for x in ["api_base", "api_version", "api_type", "engine", "deployment_id"]:
+            if x in self.model:
+                self.request_configs[x] = self.model.pop(x)
+            elif value := getattr(self.api_config, x):
+                self.request_configs[x] = value
+
+        if self.request_configs.get("api_type") in ("azure", "azure_ad", "azuread"):
+            deployment_id = self.request_configs.get("deployment_id")
+            if self.request_configs.get("engine"):
                 # Avoid using both parameters as they serve the same purpose
                 # Invalid inputs:
                 #   - Wrong engine + correct/wrong deployment_id
@@ -699,11 +705,11 @@ class _OpenAIWrapper:
             return data[self.formater.variables].to_dict(orient="records")
 
     def _construct_request_url(self, task_url, default_url):
-        api_type = self.model.get("api_type") or self.envs.get("api_type")
+        api_type = self.request_configs.get("api_type")
         if api_type in ("azure", "azure_ad", "azuread"):
-            api_base = self.envs.get("api_base")
-            api_version = self.envs.get("api_version")
-            deployment_id = self.envs.get("deployment_id")
+            api_base = self.request_configs.get("api_base")
+            api_version = self.request_configs.get("api_version")
+            deployment_id = self.request_configs.get("deployment_id")
 
             return (
                 f"{api_base}/openai/deployments/{deployment_id}/"
@@ -841,10 +847,12 @@ def _load_pyfunc(path):
 
 @experimental
 def load_model(model_uri, dst_path=None):
-    """Load an OpenAI model from a local file or a run.
+    """
+    Load an OpenAI model from a local file or a run.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:
+
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``

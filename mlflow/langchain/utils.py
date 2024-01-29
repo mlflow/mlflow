@@ -6,7 +6,7 @@ import shutil
 import types
 from functools import lru_cache
 from importlib.util import find_spec
-from typing import Any, List, NamedTuple, Optional
+from typing import NamedTuple
 
 import cloudpickle
 import yaml
@@ -95,6 +95,7 @@ def picklable_runnable_types():
         pass
 
     try:
+        # TODO: fix this, RunnableAssign is not picklable
         from langchain.schema.runnable.passthrough import RunnableAssign
 
         types += (RunnableAssign,)
@@ -226,6 +227,28 @@ def _get_map_of_special_chain_class_to_loader_arg():
     return class_to_loader_arg
 
 
+@lru_cache
+def _get_supported_llms():
+    import langchain.chat_models
+    import langchain.llms
+
+    llms = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
+
+    if hasattr(langchain.llms, "Databricks"):
+        llms.add(langchain.llms.Databricks)
+
+    if hasattr(langchain.llms, "Mlflow"):
+        llms.add(langchain.llms.Mlflow)
+
+    if hasattr(langchain.chat_models, "ChatDatabricks"):
+        llms.add(langchain.chat_models.ChatDatabricks)
+
+    if hasattr(langchain.chat_models, "ChatMlflow"):
+        llms.add(langchain.chat_models.ChatMlflow)
+
+    return llms
+
+
 def _validate_and_wrap_lc_model(lc_model, loader_fn):
     import langchain.agents.agent
     import langchain.chains.base
@@ -239,7 +262,7 @@ def _validate_and_wrap_lc_model(lc_model, loader_fn):
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
         )
 
-    _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
+    _SUPPORTED_LLMS = _get_supported_llms()
     if isinstance(lc_model, langchain.chains.llm.LLMChain) and not any(
         isinstance(lc_model.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS
     ):
@@ -448,59 +471,3 @@ def _load_base_lcs(
 
         model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
     return model
-
-
-# This is an internal function that is used to generate
-# a fake chat model for testing purposes.
-# cloudpickle can not pickle a pydantic model defined
-# within the same scope, so put it here.
-def _fake_simple_chat_model():
-    from langchain.callbacks.manager import CallbackManagerForLLMRun
-    from langchain.chat_models.base import SimpleChatModel
-    from langchain.schema.messages import BaseMessage
-
-    class FakeChatModel(SimpleChatModel):
-        """Fake Chat Model wrapper for testing purposes."""
-
-        def _call(
-            self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
-            **kwargs: Any,
-        ) -> str:
-            return "Databricks"
-
-        @property
-        def _llm_type(self) -> str:
-            return "fake chat model"
-
-    return FakeChatModel
-
-
-def _fake_mlflow_question_classifier():
-    from langchain.callbacks.manager import CallbackManagerForLLMRun
-    from langchain.chat_models.base import SimpleChatModel
-    from langchain.schema.messages import BaseMessage
-
-    class FakeMLflowClassifier(SimpleChatModel):
-        """Fake Chat Model wrapper for testing purposes."""
-
-        def _call(
-            self,
-            messages: List[BaseMessage],
-            stop: Optional[List[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
-            **kwargs: Any,
-        ) -> str:
-            if "MLflow" in messages[0].content.split(":")[1]:
-                return "yes"
-            if "cat" in messages[0].content.split(":")[1]:
-                return "no"
-            return "unknown"
-
-        @property
-        def _llm_type(self) -> str:
-            return "fake mlflow classifier"
-
-    return FakeMLflowClassifier
