@@ -1,10 +1,13 @@
 import logging
 import os
+import shutil
 import tempfile
+import time
 import warnings
 
 from packaging.version import Version
 
+from mlflow.utils.file_utils import create_tmp_dir
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
@@ -279,6 +282,98 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.metrics_logger.flush()
 
 
+class __MLflowModelCheckpoint(pl.Callback, metaclass=ExceptionSafeAbstractClass):
+
+    def __init__(
+        self,
+        monitor,
+        mode,
+        save_best_only,
+        save_weights_only,
+        every_n_epochs,
+        train_time_interval_S,
+    ):
+        self.monitor = monitor
+        self.mode = mode
+        self.save_best_only = save_best_only
+        self.save_weights_only = save_weights_only
+        self.every_n_epochs = every_n_epochs
+        self.train_time_interval_S = train_time_interval_S
+        self.last_checkpoint_timestamp = time.time()
+        self.last_monitor_value = None
+
+    def _is_new_checkpoint_better(self, new_monitor_value):
+        if self.last_monitor_value is None:
+            return True
+
+        if self.mode == "min":
+            return new_monitor_value <= self.last_monitor_value
+
+        if self.mode == "max":
+            return new_monitor_value >= self.last_monitor_value
+
+        assert False, "Illegal __MLflowModelCheckpoint config."
+
+    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        current_epoch = pl_module.current_epoch
+        metric_dict = trainer.callback_metrics.copy()
+
+        should_checkpoint = False
+        if self.every_n_epochs and (current_epoch % self.every_n_epochs == 0):
+            should_checkpoint = True
+        elif (
+                self.train_time_interval_S and
+                time.time() - self.last_checkpoint_timestamp > self.train_time_interval_S
+        ):
+            should_checkpoint = True
+
+        if not should_checkpoint:
+            return
+
+        if self.save_best_only:
+            if self.monitor not in metric_dict:
+                # "save-best-only" requires comparing the monitor metric value,
+                # but the provided monitor metric is not available,
+                # skip model checkpoint autologging
+                return
+
+            if not self._is_new_checkpoint_better(metric_dict[self.monitor]):
+                # Current checkpoint is worse than last saved checkpoint,
+                # so skip checkpointing.
+                return
+
+        if self.save_best_only:
+            if self.save_weights_only:
+                checkpoint_model_filename = "last_checkpoint_model.weights.pth"
+            else:
+                checkpoint_model_filename = "last_checkpoint_model.pth"
+            checkpoint_metrics_filename = "last_checkpoint_metrics.json"
+            checkpoint_artifact_dir = ""
+        else:
+            if self.save_weights_only:
+                checkpoint_model_filename = f"checkpoint_model_epoch_{current_epoch}.weights.pth"
+            else:
+                checkpoint_model_filename = f"checkpoint_model_epoch_{current_epoch}.pth"
+            checkpoint_metrics_filename = f"checkpoint_metrics_epoch_{current_epoch}.json"
+            checkpoint_artifact_dir = "checkpoints"
+
+        mlflow.log_dict(
+            metric_dict,
+            os.path.join(checkpoint_artifact_dir, checkpoint_metrics_filename)
+        )
+
+        tmp_dir = create_tmp_dir()
+        try:
+            tmp_model_save_path = os.path.join(tmp_dir, checkpoint_model_filename)
+            trainer.save_checkpoint(tmp_model_save_path, weights_only=self.save_weights_only)
+
+            mlflow.log_artifact(tmp_model_save_path, checkpoint_artifact_dir)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        self.last_checkpoint_timestamp = time.time()
+
+
 # PyTorch-Lightning refactored the LoggerConnector class in version 1.4.0 and made metrics
 # update on demand. Prior to this, the metrics from the current step were not available to
 # callbacks immediately, so the view of metrics was off by one step.
@@ -385,6 +480,47 @@ def patched_fit(original, self, *args, **kwargs):
                     client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
                 )
             ]
+
+        model_checkpoint = get_autologging_config(
+            mlflow.pytorch.FLAVOR_NAME, "model_checkpoint", True
+        )
+        if model_checkpoint:
+            if _pl_version >= Version("1.4.0"):
+                model_checkpoint_monitor = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_monitor", "val_loss"
+                )
+                model_checkpoint_mode = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_mode", "min"
+                )
+                model_checkpoint_save_best_only = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_save_best_only", True
+                )
+                model_checkpoint_save_weights_only = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_save_weights_only", True
+                )
+                model_checkpoint_every_n_epochs = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_every_n_epochs", None
+                )
+                model_checkpoint_train_time_interval_S = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_train_time_interval_S", None
+                )
+
+                # __MLflowModelCheckpoint only supports pytorch-lightning >- 1.4.0
+                if not any(isinstance(callbacks, __MLflowModelCheckpoint) for callbacks in self.callbacks):
+                    self.callbacks += [
+                        __MLflowModelCheckpoint(
+                            monitor=model_checkpoint_monitor,
+                            mode=model_checkpoint_mode,
+                            save_best_only=model_checkpoint_save_best_only,
+                            save_weights_only=model_checkpoint_save_weights_only,
+                            every_n_epochs=model_checkpoint_every_n_epochs,
+                            train_time_interval_S=model_checkpoint_train_time_interval_S,
+                        )
+                    ]
+            else:
+                warnings.warn(
+                    "Automatic model checkpointing is disabled because this feature only "
+                    "supports pytorch-lightning >= 1.4.0.")
 
         client.flush(synchronous=False)
 

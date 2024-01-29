@@ -886,6 +886,13 @@ def autolog(
     silent=False,
     registered_model_name=None,
     extra_tags=None,
+    model_checkpoint=True,
+    model_checkpoint_monitor="val_loss",
+    model_checkpoint_mode="min",
+    model_checkpoint_save_best_only=True,
+    model_checkpoint_save_weights_only=True,
+    model_checkpoint_every_n_epochs=None,
+    model_checkpoint_train_time_interval_S=600,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
