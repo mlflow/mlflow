@@ -946,6 +946,26 @@ def autolog(
         new model version of the registered model with this name. The registered model is created if
         it does not already exist.
     :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    :param model_checkpoint: Enable automatic model checkpointing, this feature only supports
+        pytorch-lightning >= 1.4.0
+    :param model_checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
+        you set `model_checkpoint_save_best_only` to True.
+    :param model_checkpoint_save_best_only: If True, automatic model checkpointing only saves when
+        the model is considered the "best" and the latest best model according to the quantity
+        monitored will not be overwritten.
+    :param model_checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
+        if save_best_only=True, the decision to overwrite the current save file is made based on
+        either the maximization or the minimization of the monitored quantity.
+    :param model_checkpoint_save_weights_only: In automatic model checkpointing, if True, then
+        only the model’s weights will be saved. Otherwise, the optimizer states,
+        lr-scheduler states, etc are added in the checkpoint too.
+    :param model_checkpoint_every_n_epochs: Number of epochs between checkpoints for automatic
+        model checkpointing.
+    :param model_checkpoint_train_time_interval_S: Automatic model checkpoints are monitored
+        at the specified time interval in seconds. For all practical purposes, this cannot be
+        smaller than the amount of time it takes to process a single training batch. This is
+        not guaranteed to execute at the exact time specified, but should be close.
+        This must be mutually exclusive with `model_checkpoint_every_n_epochs`.
 
     .. testcode:: python
         :caption: Example
