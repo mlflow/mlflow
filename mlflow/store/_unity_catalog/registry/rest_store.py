@@ -335,7 +335,8 @@ class UcModelRegistryStore(BaseRestStore):
             )
         else:
             message = (
-                f"Detected attempt to load latest model version in stages {stages}. You may see this error because:\n"
+                f"Detected attempt to load latest model version in stages {stages}. "
+                f"You may see this error because:\n"
                 f"1) You're attempting to load a model version by stage. Setting stages "
                 f"and loading model versions by stage is unsupported in Unity Catalog. Instead, "
                 f"use aliases for flexible model deployment. See "
