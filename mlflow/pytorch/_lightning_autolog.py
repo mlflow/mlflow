@@ -282,7 +282,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.metrics_logger.flush()
 
 
-class __MLflowModelCheckpoint(pl.Callback, metaclass=ExceptionSafeAbstractClass):
+class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
 
     def __init__(
         self,
@@ -315,7 +315,7 @@ class __MLflowModelCheckpoint(pl.Callback, metaclass=ExceptionSafeAbstractClass)
         assert False, "Illegal __MLflowModelCheckpoint config."
 
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-        current_epoch = pl_module.current_epoch
+        current_epoch = trainer.current_epoch
         metric_dict = trainer.callback_metrics.copy()
 
         should_checkpoint = False
@@ -337,10 +337,13 @@ class __MLflowModelCheckpoint(pl.Callback, metaclass=ExceptionSafeAbstractClass)
                 # skip model checkpoint autologging
                 return
 
-            if not self._is_new_checkpoint_better(metric_dict[self.monitor]):
+            new_monitor_value = metric_dict[self.monitor]
+            if not self._is_new_checkpoint_better(new_monitor_value):
                 # Current checkpoint is worse than last saved checkpoint,
                 # so skip checkpointing.
                 return
+
+            self.last_monitor_value = new_monitor_value
 
         if self.save_best_only:
             if self.save_weights_only:
@@ -506,9 +509,9 @@ def patched_fit(original, self, *args, **kwargs):
                 )
 
                 # __MLflowModelCheckpoint only supports pytorch-lightning >- 1.4.0
-                if not any(isinstance(callbacks, __MLflowModelCheckpoint) for callbacks in self.callbacks):
+                if not any(isinstance(callbacks, __MLflowModelCheckpointCallback) for callbacks in self.callbacks):
                     self.callbacks += [
-                        __MLflowModelCheckpoint(
+                        __MLflowModelCheckpointCallback(
                             monitor=model_checkpoint_monitor,
                             mode=model_checkpoint_mode,
                             save_best_only=model_checkpoint_save_best_only,
