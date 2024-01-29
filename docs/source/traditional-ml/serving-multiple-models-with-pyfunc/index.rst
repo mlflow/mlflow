@@ -1,5 +1,5 @@
-Serving Multiple Models on a Single Endpoint with Custom PyFunc
-===============================================================
+Serving Multiple Models on a Single Endpoint with a Custom PyFunc Model
+=======================================================================
 
 This tutorial addresses a common scenario in machine learning: serving multiple models through a 
 single endpoint. Utilizing services like Sagemaker's Multi-Model Endpoints, you can host numerous 
@@ -26,14 +26,17 @@ single endpoint.
 
 1 - What is PyFunc?
 -------------------
-Custom PyFunc is a powerful MLflow feature that lets users customize model behavior. Going forward we
-assume basic working knowledge of PyFunc, so if you're unfamiliar, check out the 
-``Creating Custom PyFunc`` tutorial.
+Custom PyFunc models are a powerful MLflow feature that lets users customize model functionality
+where named flavors may be lacking. Going forward we assume basic working knowledge of PyFunc, so if
+you're unfamiliar, check out the 
+`Creating Custom PyFunc <https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html>_` 
+tutorial.
 
 2 - What do I need to do?
 -------------------------
-To create an MME, you'll extend PythonModel from :py:class:`PythonModel <mlflow.pyfunc.PythonModel>`.
-Our child implementation generally involves thinking about the three MLflow components below...
+To create an MME, you'll create a child implementation of 
+:py:class:`PythonModel <mlflow.pyfunc.PythonModel>`. More specifically, we'll need to focus on the
+below components...
 
 - :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`: This method defines artifacts from the specified PythonModelContext that can be used by ``predict()`` when evaluating inputs. When loading an MLflow model with load_model(), this method is called as soon as the PythonModel is constructed. In our example, this method will load our models from MLflow model registry.
 - :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`: This method evaluates a pyfunc-compatible input and produces a pyfunc-compatible output. In our example, it analyzes the input payload and, based on its parameters, selects and applies the appropriate model to return predictions.
