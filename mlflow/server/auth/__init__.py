@@ -485,7 +485,8 @@ def set_can_manage_experiment_permission(resp: Response):
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
     username = authenticate_request().username
-    store.create_experiment_permission(experiment_id, username, MANAGE.name)
+    if store.get_experiment_permission(experiment_id, username).permission != MANAGE.name:
+        store.create_experiment_permission(experiment_id, username, MANAGE.name)
 
 
 def set_can_manage_registered_model_permission(resp: Response):
@@ -493,7 +494,8 @@ def set_can_manage_registered_model_permission(resp: Response):
     parse_dict(resp.json, response_message)
     name = response_message.registered_model.name
     username = authenticate_request().username
-    store.create_registered_model_permission(name, username, MANAGE.name)
+    if store.get_registered_model_permission(name, username).permission != MANAGE.name:
+        store.create_registered_model_permission(name, username, MANAGE.name)
 
 
 def filter_search_experiments(resp: Response):
