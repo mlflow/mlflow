@@ -4,7 +4,7 @@
 MLflow Tracking
 ===============
 
-The MLflow Tracking is an API and UI for logging parameters, code versions, metrics, and output files
+The awesome MLflow Tracking is an API and UI for logging parameters, code versions, metrics, and output files
 when running your machine learning code and for later visualizing the results.
 MLflow Tracking provides :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R <r-api>`, and :ref:`Java <java_api>` APIs.
 
