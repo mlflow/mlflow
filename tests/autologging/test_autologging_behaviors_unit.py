@@ -178,6 +178,7 @@ def test_silent_mode_is_respected_in_multithreaded_environments(
 
     executions = []
     with warnings.catch_warnings(record=True) as warnings_record:
+        warnings.simplefilter("always")
         with ThreadPoolExecutor(max_workers=50) as executor:
             for _ in range(100):
                 executions.append(executor.submit(parallel_fn))
