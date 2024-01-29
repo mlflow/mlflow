@@ -329,17 +329,17 @@ class UcModelRegistryStore(BaseRestStore):
         alias_doc_url = "https://mlflow.org/docs/latest/model-registry.html#deploy-and-organize-models-with-aliases-and-tags"
         if stages is None:
             message = (
-                f"To load the latest version of a model in Unity Catalog, you can "
-                f"set an alias on the model version and load it by alias. See "
+                "To load the latest version of a model in Unity Catalog, you can "
+                "set an alias on the model version and load it by alias. See "
                 f"{alias_doc_url} for details."
             )
         else:
             message = (
                 f"Detected attempt to load latest model version in stages {stages}. "
-                f"You may see this error because:\n"
-                f"1) You're attempting to load a model version by stage. Setting stages "
-                f"and loading model versions by stage is unsupported in Unity Catalog. Instead, "
-                f"use aliases for flexible model deployment. See "
+                "You may see this error because:\n"
+                "1) You're attempting to load a model version by stage. Setting stages "
+                "and loading model versions by stage is unsupported in Unity Catalog. Instead, "
+                "use aliases for flexible model deployment. See "
                 f"{alias_doc_url} for details.\n"
                 "2) You're attempting to load a model version by alias. Use "
                 "syntax 'models:/your_model_name@your_alias_name'\n"
