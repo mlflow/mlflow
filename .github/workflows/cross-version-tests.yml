@@ -94,7 +94,7 @@ jobs:
             };
       - name: Test set_matrix.py
         run: |
-          python -m pytest --noconftest tests/dev/test_set_matrix.py
+          python -m pytest --noconftest dev/tests
       - id: set-matrix
         name: Set matrix
         env:
