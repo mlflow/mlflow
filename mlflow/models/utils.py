@@ -60,7 +60,14 @@ PyFuncInput = Union[
     str,
     SparkDataFrame,
 ]
-PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str, SparkDataFrame,]
+PyFuncOutput = Union[
+    pd.DataFrame,
+    pd.Series,
+    np.ndarray,
+    list,
+    str,
+    SparkDataFrame,
+]
 
 _logger = logging.getLogger(__name__)
 
