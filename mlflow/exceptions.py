@@ -67,6 +67,8 @@ class MlflowException(Exception):
     The error message associated with this exception may be exposed to clients in HTTP responses
     for debugging purposes. If the error text is sensitive, raise a generic `Exception` object
     instead.
+
+    Note: Instance of `MlflowException` is pickleable, see `__getstate__` and `__setstate__`
     """
 
     def __init__(self, message, error_code=INTERNAL_ERROR, **kwargs):
@@ -108,6 +110,16 @@ class MlflowException(Exception):
                 of the MlflowException.
         """
         return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
+
+    def __getstate__(self):
+        # Copy the object's state from self.__dict__ which contains
+        # all our instance attributes. Always use the dict.copy()
+        # method to avoid modifying the original state.
+        return self.__dict__.copy()
+
+    def __setstate__(self, state):
+        # Restore instance attributes
+        self.__dict__.update(state)
 
 
 class RestException(MlflowException):
