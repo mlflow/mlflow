@@ -17,7 +17,6 @@ from mlflow.models.utils import (
     _enforce_datatype,
     _enforce_object,
     _enforce_property,
-    _enforce_schema,
     get_model_version_from_model_uri,
 )
 from mlflow.types import DataType
