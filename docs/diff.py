@@ -36,7 +36,7 @@ def main():
                     hrefs.append(p.relative_to("build/html"))
 
         # generate html file for each rst file
-        links = "\n".join(f"<a href='{href}'>{href}</a>" for href in hrefs)
+        links = "\n".join(f"<li><a href='{href}'><h3>{href}</h3></a></li>" for href in hrefs)
         html = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -46,7 +46,9 @@ def main():
   <title>Document</title>
 </head>
 <body>
-  {links}
+  <ul>
+    {links}
+  </ul>
 </body>
 </html>
 """
