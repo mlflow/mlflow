@@ -32,6 +32,7 @@ def main():
                     )
                 )
                 if diff:
+                    print("".join(diff))
                     hrefs.append(p.relative_to("build/html"))
 
         # generate html file for each rst file
