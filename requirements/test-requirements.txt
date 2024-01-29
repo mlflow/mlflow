@@ -44,8 +44,6 @@ databricks-sdk
 openai<1.0
 # Required for showing pytest stats
 psutil
-# Required for the GraphQL handler
-graphene<4
 # SQLAlchemy == 2.0.25 requires typing_extensions >= 4.6.0
 typing_extensions>=4.6.0
 # Required for importing boto3 ClientError directly for testing
