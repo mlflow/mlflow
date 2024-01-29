@@ -53,7 +53,13 @@ def test_rest_exception():
 
 
 def test_rest_exception_with_unrecognized_error_code():
+    # Test that we can create a RestException with a convertible error code.
+    exception = RestException({"error_code": "403", "messages": "something important."})
+    assert "something important." in str(exception)
+    assert exception.error_code == "PERMISSION_DENIED"
+    json.loads(exception.serialize_as_json())
+
     # Test that we can create a RestException with an unrecognized error code.
-    exc = RestException({"error_code": "403", "messages": "something important."})
-    assert "something important." in str(exc)
-    json.loads(exc.serialize_as_json())
+    exception = RestException({"error_code": "weird error", "messages": "something important."})
+    assert "something important." in str(exception)
+    json.loads(exception.serialize_as_json())
