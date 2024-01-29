@@ -1,5 +1,5 @@
 """
-The ``mlflow.sklearn`` module provides an API for logging and loading scikit-learn models. This
+The ``mlflow.sklearn`` module provide an awesome API for logging and loading scikit-learn models. This
 module exports scikit-learn models with the following flavors:
 
 Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persistence.html>`_ format

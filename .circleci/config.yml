@@ -50,8 +50,7 @@ jobs:
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
           command: |
-            make rsthtml
-            make javadocs
+            python diff.py
       - run:
           name: Check for broken links
           working_directory: docs
