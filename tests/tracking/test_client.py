@@ -664,6 +664,7 @@ def test_client_can_be_serialized_with_pickle(tmp_path):
     with pytest.raises(AttributeError, match="<locals>.MockUnpickleableModelRegistryStore'"):
         pickle.dumps(mock_model_registry_store)
 
+    reg = _tracking_store_registry
     _tracking_store_registry.register("pickle", lambda *args, **kwargs: mock_tracking_store)
     _get_model_registry_store_registry().register(
         "pickle", lambda *args, **kwargs: mock_model_registry_store
