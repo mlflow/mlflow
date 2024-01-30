@@ -32,6 +32,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "Get Experiment By Name",
     };
+    option (graphql) = {};
   }
 
   // Create an experiment with a name. Returns the ID of the newly created experiment.
@@ -67,6 +68,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "Search Experiments",
     };
+    option (graphql) = {};
   }
 
   // Get metadata for an experiment. This method works on deleted experiments.
@@ -402,6 +404,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "Log Model",
     };
+    option (graphql) = {};
   }
 
   // .. note::
@@ -416,6 +419,7 @@ service MlflowService {
       visibility: PUBLIC,
       rpc_doc_title: "Log Inputs",
     };
+    option (graphql) = {};
   }
 }
 
