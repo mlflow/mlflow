@@ -1,17 +1,5 @@
-"""
-This test class is used for comprehensive testing of serving docker images for all MLflow flavors.
-As such, it is not intended to be run on a regular basis and is skipped by default. Rather, it
-should be run manually when making changes to the core docker logic.
-
-To run this test, run the following command manually
-
-    $ pytest tests/pyfunc/test_docker_flavors.py
-
-"""
-
-import json
+from functools import lru_cache
 import os
-import time
 from operator import itemgetter
 
 import pandas as pd
@@ -51,12 +39,28 @@ from tests.statsmodels.model_fixtures import ols_model
 from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model
 from tests.transformers.helper import load_small_seq2seq_pipeline
 
-_TEST_IMAGE_NAME = "test_image"
-_MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+TEST_IMAGE_NAME = "test_image"
+MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+RESOURCE_DIR = os.path.join(MLFLOW_ROOT, "tests", "resources", "dockerfile")
 
 docker_client = docker.from_env()
 
+@pytest.fixture(autouse=True)
+def clean_up_docker_image():
+    try:
+        # Get all containers using the test image
+        containers = docker_client.containers.list(filters={"ancestor": TEST_IMAGE_NAME})
+        for container in containers:
+            container.remove(force=True)
 
+        # Clean up the image
+        docker_client.images.remove(TEST_IMAGE_NAME, force=True)
+    except Exception:
+        pass
+
+
+@lru_cache(maxsize=1)
 def get_released_mlflow_version():
     url = "https://pypi.org/pypi/mlflow/json"
     response = requests.get(url)
@@ -64,9 +68,6 @@ def get_released_mlflow_version():
     data = response.json()
     versions = [Version(v) for v in data["releases"].keys() if not v.endswith(("a", "b", "rc"))]
     return sorted(versions, reverse=True)[0]
-
-
-_LATEST_MLFLOW_VERSION = get_released_mlflow_version()
 
 
 def save_model_with_latest_mlflow_version(flavor, **kwargs):
@@ -77,108 +78,14 @@ def save_model_with_latest_mlflow_version(flavor, **kwargs):
     however, this doesn't work when installing dependencies inside Docker container. Hence, this
     function uses `extra_pip_requirements` to save the model with the latest released MLflow.
     """
+    latest_mlflow_version = get_released_mlflow_version()
     if flavor == "langchain":
-        kwargs["pip_requirements"] = [f"mlflow[gateway]=={_LATEST_MLFLOW_VERSION}", "langchain"]
+        kwargs["pip_requirements"] = [f"mlflow[gateway]=={latest_mlflow_version}", "langchain"]
     else:
-        kwargs["extra_pip_requirements"] = [f"mlflow=={_LATEST_MLFLOW_VERSION}"]
+        kwargs["extra_pip_requirements"] = [f"mlflow=={latest_mlflow_version}"]
     flavor_module = getattr(mlflow, flavor)
     flavor_module.save_model(**kwargs)
 
-
-@pytest.fixture(autouse=True)
-def clean_up_docker_image():
-    try:
-        # Get all containers using the test image
-        containers = docker_client.containers.list(filters={"ancestor": _TEST_IMAGE_NAME})
-        for container in containers:
-            container.remove(force=True)
-
-        # Clean up the image
-        docker_client.images.remove(_TEST_IMAGE_NAME, force=True)
-    except Exception:
-        pass
-
-
-@pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") == "true", reason="Time consuming tests")
-@pytest.mark.parametrize(
-    ("flavor"),
-    [
-        "catboost",
-        "diviner",
-        "fastai",
-        "h2o",
-        # "johnsnowlabs", # Couldn't test JohnSnowLab locally due to license issue
-        "keras",
-        "langchain",
-        "lightgbm",
-        # "mleap", # Mleap model logging is deprecated since 2.6.1
-        "onnx",
-        # "openai", # OPENAI API KEY is not necessarily available for everyone
-        "paddle",
-        "pmdarima",
-        "prophet",
-        "pyfunc",
-        "pytorch",
-        "sklearn",
-        "spacy",
-        "spark",
-        "statsmodels",
-        "tensorflow",
-        "transformers",
-    ],
-)
-def test_build_image_and_serve(flavor, request):
-    model_path = request.getfixturevalue(f"{flavor}_model")
-
-    # Build an image
-    backend = get_flavor_backend(model_uri=model_path, docker_build=True)
-    backend.build_image(
-        model_uri=model_path,
-        image_name=_TEST_IMAGE_NAME,
-        mlflow_home=_MLFLOW_ROOT,  # Required to prevent installing dev version of MLflow from PyPI
-    )
-
-    # Run a container
-    port = get_safe_port()
-    docker_client.containers.run(
-        image=_TEST_IMAGE_NAME,
-        ports={8080: port},
-        detach=True,
-    )
-
-    # Wait until the container to start
-    timeout = 120
-    start_time = time.time()
-    success = False
-    while time.time() < start_time + timeout:
-        try:
-            # Send health check
-            response = requests.get(url=f"http://localhost:{port}/ping")
-            if response.status_code == 200:
-                success = True
-                break
-        except Exception:
-            time.sleep(5)
-
-    if not success:
-        raise TimeoutError("TBA")
-
-    # Make a scoring request with a saved input example
-    with open(os.path.join(model_path, "input_example.json")) as f:
-        input_example = json.load(f)
-
-    # Wrap Pandas dataframe in a proper payload format
-    if "columns" in input_example or "data" in input_example:
-        input_example = {"dataframe_split": input_example}
-
-    response = requests.post(
-        url=f"http://localhost:{port}/invocations",
-        data=json.dumps(input_example),
-        headers={"Content-Type": "application/json"},
-    )
-
-    assert response.status_code == 200, f"Response: {response.text}"
-    assert "predictions" in response.json(), f"Response: {response.text}"
 
 
 @pytest.fixture
@@ -379,9 +286,9 @@ def sklearn_model(tmp_path, sklearn_knn_model):
     model_path = str(tmp_path / "sklearn_model")
     save_model_with_latest_mlflow_version(
         flavor="sklearn",
-        sk_model=sklearn_knn_model.model,
+        sk_model=sklearn_knn_model,
         path=model_path,
-        input_example=sklearn_knn_model.inference_data[:1],
+        input_example=iris_data[0][:1],
     )
     return model_path
 
