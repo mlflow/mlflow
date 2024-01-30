@@ -73,7 +73,7 @@ jobs:
           yarn i18n:check
       - name: Run tests
         run: |
-          yarn test --silent --logHeapUsage
+          yarn test --silent --logHeapUsage --maxConcurrency=1 --maxWorkers=1
       - name: Run build
         if: runner.os == 'Linux'
         env:
