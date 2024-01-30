@@ -17,6 +17,7 @@ from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
     _infer_requirements,
     _parse_requirements,
+    warn_dependency_requirement_mismatches,
 )
 from mlflow.version import VERSION
 
@@ -51,13 +52,14 @@ class _PythonEnv:
         """
         Represents environment information for MLflow Models and Projects.
 
-        :param python: Python version for the environment. If unspecified, defaults to the current
-                       Python version.
-        :param build_dependencies: List of build dependencies for the environment that must
-                                   be installed before installing ``dependencies``. If unspecified,
-                                   defaults to an empty list.
-        :param dependencies: List of dependencies for the environment. If unspecified, defaults to
-                             an empty list.
+        Args:
+            python: Python version for the environment. If unspecified, defaults to the current
+                Python version.
+            build_dependencies: List of build dependencies for the environment that must
+                be installed before installing ``dependencies``. If unspecified,
+                defaults to an empty list.
+            dependencies: List of dependencies for the environment. If unspecified, defaults to
+                an empty list.
         """
         if python is not None and not isinstance(python, str):
             raise TypeError(f"`python` must be a string but got {type(python)}")
@@ -200,21 +202,24 @@ def _mlflow_conda_env(
     additional_conda_channels=None,
     install_mlflow=True,
 ):
-    """
-    Creates a Conda environment with the specified package channels and dependencies. If there are
-    any pip dependencies, including from the install_mlflow parameter, then pip will be added to
+    """Creates a Conda environment with the specified package channels and dependencies. If there
+    are any pip dependencies, including from the install_mlflow parameter, then pip will be added to
     the conda dependencies. This is done to ensure that the pip inside the conda environment is
     used to install the pip dependencies.
 
-    :param path: Local filesystem path where the conda env file is to be written. If unspecified,
-                 the conda env will not be written to the filesystem; it will still be returned
-                 in dictionary format.
-    :param additional_conda_deps: List of additional conda dependencies passed as strings.
-    :param additional_pip_deps: List of additional pip dependencies passed as strings.
-    :param additional_conda_channels: List of additional conda channels to search when resolving
-                                      packages.
-    :return: ``None`` if ``path`` is specified. Otherwise, the a dictionary representation of the
-             Conda environment.
+    Args:
+        path: Local filesystem path where the conda env file is to be written. If unspecified,
+            the conda env will not be written to the filesystem; it will still be returned
+            in dictionary format.
+        additional_conda_deps: List of additional conda dependencies passed as strings.
+        additional_pip_deps: List of additional pip dependencies passed as strings.
+        additional_conda_channels: List of additional conda channels to search when resolving
+            packages.
+
+    Returns:
+        None if path is specified. Otherwise, the a dictionary representation of the
+        Conda environment.
+
     """
     additional_pip_deps = additional_pip_deps or []
     mlflow_deps = (
@@ -256,9 +261,10 @@ def _mlflow_conda_env(
 
 def _get_pip_version():
     """
-    :return: The version of ``pip`` that is installed in the current environment,
-             or ``None`` if ``pip`` is not currently installed / does not have a
-             ``__version__`` attribute.
+    Returns:
+        The version of ``pip`` that is installed in the current environment,
+        or ``None`` if ``pip`` is not currently installed / does not have a
+        ``__version__`` attribute.
     """
     try:
         import pip
@@ -287,7 +293,8 @@ def _is_pip_deps(dep):
 
 def _get_pip_deps(conda_env):
     """
-    :return: The pip dependencies from the conda env
+    Returns:
+        The pip dependencies from the conda env.
     """
     if conda_env is not None:
         for dep in conda_env["dependencies"]:
@@ -332,14 +339,16 @@ def _log_pip_requirements(conda_env, path, requirements_file=_REQUIREMENTS_FILE_
 
 
 def _parse_pip_requirements(pip_requirements):
-    """
-    Parses an iterable of pip requirement strings or a pip requirements file.
+    """Parses an iterable of pip requirement strings or a pip requirements file.
 
-    :param pip_requirements: Either an iterable of pip requirement strings
-        (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip requirements
-        file on the local filesystem (e.g. ``"requirements.txt"``). If ``None``, an empty list will
-        be returned.
-    :return: A tuple of parsed requirements and constraints.
+    Args:
+        pip_requirements: Either an iterable of pip requirement strings
+            (e.g. ``["scikit-learn", "-r requirements.txt"]``) or the string path to a pip
+            requirements file on the local filesystem (e.g. ``"requirements.txt"``). If ``None``,
+            an empty list will be returned.
+
+    Returns:
+        A tuple of parsed requirements and constraints.
     """
     if pip_requirements is None:
         return [], []
@@ -383,15 +392,18 @@ _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
 
 
 def infer_pip_requirements(model_uri, flavor, fallback=None):
-    """
-    Infers the pip requirements of the specified model by creating a subprocess and loading
+    """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
-    :param model_uri: The URI of the model.
-    :param flavor: The flavor name of the model.
-    :param fallback: If provided, an unexpected error during the inference procedure is swallowed
-                     and the value of ``fallback`` is returned. Otherwise, the error is raised.
-    :return: A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+    Args:
+        model_uri: The URI of the model.
+        flavor: The flavor name of the model.
+        fallback: If provided, an unexpected error during the inference procedure is swallowed
+            and the value of ``fallback`` is returned. Otherwise, the error is raised.
+
+    Returns:
+        A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+
     """
     try:
         return _infer_requirements(model_uri, flavor)
@@ -466,10 +478,11 @@ def _is_mlflow_requirement(requirement_string):
 
 
 def _generate_mlflow_version_pinning() -> str:
-    """
-    Returns a pinned requirement for the current MLflow version (e.g., "mlflow==3.2.1").
+    """Returns a pinned requirement for the current MLflow version (e.g., "mlflow==3.2.1").
 
-    :return: A pinned requirement for the current MLflow version.
+    Returns:
+        A pinned requirement for the current MLflow version.
+
     """
     if _MLFLOW_TESTING.get():
         # The local PyPI server should be running. It serves a wheel for the current MLflow version.
@@ -517,6 +530,9 @@ def _process_pip_requirements(
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
+
+    # Check if pip requirements contain incompatible version with the current environment
+    warn_dependency_requirement_mismatches(sanitized_pip_reqs)
 
     if constraints:
         sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
@@ -676,6 +692,9 @@ def _process_conda_env(conda_env):
     if not _contains_mlflow_requirement(pip_reqs):
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
+    # Check if pip requirements contain incompatible version with the current environment
+    warn_dependency_requirement_mismatches(pip_reqs)
+
     if constraints:
         pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
@@ -684,12 +703,15 @@ def _process_conda_env(conda_env):
 
 
 def _get_mlflow_env_name(s):
-    """
-    Creates an environment name for an MLflow model by hashing the given string.
+    """Creates an environment name for an MLflow model by hashing the given string.
 
-    :param s: String to hash (e.g. the content of `conda.yaml`).
-    :returns: String in the form of "mlflow-{hash}"
-              (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
+    Args:
+        s: String to hash (e.g. the content of `conda.yaml`).
+
+    Returns:
+        String in the form of "mlflow-{hash}"
+        (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
+
     """
     return "mlflow-" + insecure_hash.sha1(s.encode("utf-8")).hexdigest()
 

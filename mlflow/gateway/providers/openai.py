@@ -1,12 +1,18 @@
+import json
+from typing import AsyncIterable
+
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.utils import send_request
+from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 
 class OpenAIProvider(BaseProvider):
+    NAME = "OpenAI"
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
@@ -72,6 +78,48 @@ class OpenAIProvider(BaseProvider):
             return {"model": self.config.model.name, **payload}
         else:
             return payload
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+
+        stream = send_stream_request(
+            headers=self._request_headers,
+            base_url=self._request_base_url,
+            path="chat/completions",
+            payload=self._add_model_to_payload_if_necessary(payload),
+        )
+
+        async for chunk in handle_incomplete_chunks(stream):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+
+            data = strip_sse_prefix(chunk.decode("utf-8"))
+            if data == "[DONE]":
+                return
+
+            resp = json.loads(data)
+            yield chat.StreamResponsePayload(
+                id=resp["id"],
+                object=resp["object"],
+                created=resp["created"],
+                model=resp["model"],
+                choices=[
+                    chat.StreamChoice(
+                        index=c["index"],
+                        finish_reason=c["finish_reason"],
+                        delta=chat.StreamDelta(
+                            role=c["delta"].get("role"), content=c["delta"].get("content")
+                        ),
+                    )
+                    for c in resp["choices"]
+                ],
+            )
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -158,6 +206,52 @@ class OpenAIProvider(BaseProvider):
                 total_tokens=resp["usage"]["total_tokens"],
             ),
         )
+
+    async def completions_stream(
+        self, payload: completions.RequestPayload
+    ) -> AsyncIterable[completions.StreamResponsePayload]:
+        from fastapi.encoders import jsonable_encoder
+
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        payload = self._prepare_completion_request_payload(payload)
+
+        stream = send_stream_request(
+            headers=self._request_headers,
+            base_url=self._request_base_url,
+            path="chat/completions",
+            payload=self._add_model_to_payload_if_necessary(payload),
+        )
+
+        async for chunk in handle_incomplete_chunks(stream):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+
+            data = strip_sse_prefix(chunk.decode("utf-8"))
+            if data == "[DONE]":
+                return
+
+            resp = json.loads(data)
+            yield completions.StreamResponsePayload(
+                id=resp["id"],
+                # The chat models response from OpenAI is of object type "chat.completion.chunk".
+                # Since we're using the completions response format here, we hardcode the
+                # "text_completion_chunk" object type in the response instead
+                object="text_completion_chunk",
+                created=resp["created"],
+                model=resp["model"],
+                choices=[
+                    completions.StreamChoice(
+                        index=c["index"],
+                        finish_reason=c["finish_reason"],
+                        delta=completions.StreamDelta(
+                            content=c["delta"].get("content"),
+                        ),
+                    )
+                    for c in resp["choices"]
+                ],
+            )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder

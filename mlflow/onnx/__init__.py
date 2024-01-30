@@ -55,9 +55,10 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     return list(
         map(
@@ -75,8 +76,9 @@ def get_default_pip_requirements():
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -100,53 +102,54 @@ def save_model(
     """
     Save an ONNX model to a path on the local file system.
 
-    :param onnx_model: ONNX model to be saved.
-    :param path: Local path where the model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+    Args:
+        onnx_model: ONNX model to be saved.
+        path: Local path where the model is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models import infer_signature
 
-                        from mlflow.models import infer_signature
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param onnx_execution_providers: List of strings defining onnxruntime execution providers.
-                                     Defaults to example:
-                                     ``['CUDAExecutionProvider', 'CPUExecutionProvider']``
-                                     This uses GPU preferentially over CPU.
-                                     See onnxruntime API for further descriptions:
-                                     https://onnxruntime.ai/docs/execution-providers/
-    :param onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
-                                 For example:
-                                 ``{
-                                 'graph_optimization_level': 99,
-                                 'intra_op_num_threads': 1,
-                                 'inter_op_num_threads': 1,
-                                 'execution_mode': 'sequential'
-                                 }``
-                                 'execution_mode' can be set to 'sequential' or 'parallel'.
-                                 See onnxruntime API for further descriptions:
-                                 https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-    :param save_as_external_data: Save tensors to external file(s).
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        onnx_execution_providers: List of strings defining onnxruntime execution providers.
+            Defaults to example:
+            ``['CUDAExecutionProvider', 'CPUExecutionProvider']``
+            This uses GPU preferentially over CPU.
+            See onnxruntime API for further descriptions:
+            https://onnxruntime.ai/docs/execution-providers/
+        onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
+            For example:
+            ``{
+            'graph_optimization_level': 99,
+            'intra_op_num_threads': 1,
+            'inter_op_num_threads': 1,
+            'execution_mode': 'sequential'
+            }``
+            'execution_mode' can be set to 'sequential' or 'parallel'.
+            See onnxruntime API for further descriptions:
+            https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        save_as_external_data: Save tensors to external file(s).
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
     """
     import onnx
 
@@ -321,31 +324,33 @@ class _OnnxModelWrapper:
         self, data, params: Optional[Dict[str, Any]] = None
     ):  # pylint: disable=unused-argument
         """
-        :param data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
+        Args:
+            data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
+                Dictionary input is expected to be a valid ONNX model feed dictionary.
 
-                     Dictionary input is expected to be a valid ONNX model feed dictionary.
+                Numpy array input is supported iff the model has a single tensor input and is
+                converted into an ONNX feed dictionary with the appropriate key.
 
-                     Numpy array input is supported iff the model has a single tensor input and is
-                     converted into an ONNX feed dictionary with the appropriate key.
+                Pandas DataFrame is converted to ONNX inputs as follows:
+                    - If the underlying ONNX model only defines a *single* input tensor, the
+                      DataFrame's values are converted to a NumPy array representation using the
+                      `DataFrame.values()
+                      <https://pandas.pydata.org/pandas-docs/stable/reference/api/
+                      pandas.DataFrame.values.html#pandas.DataFrame.values>`_ method.
+                    - If the underlying ONNX model defines *multiple* input tensors, each column
+                      of the DataFrame is converted to a NumPy array representation.
 
-                     Pandas DataFrame is converted to ONNX inputs as follows:
-                        - If the underlying ONNX model only defines a *single* input tensor, the
-                          DataFrame's values are converted to a NumPy array representation using the
-                         `DataFrame.values()
-                         <https://pandas.pydata.org/pandas-docs/stable/reference/api/
-                          pandas.DataFrame.values.html#pandas.DataFrame.values>`_ method.
-                        - If the underlying ONNX model defines *multiple* input tensors, each column
-                          of the DataFrame is converted to a NumPy array representation.
+                For more information about the ONNX Runtime, see
+                `<https://github.com/microsoft/onnxruntime>`_.
+            params: Additional parameters to pass to the model for inference.
 
-                      For more information about the ONNX Runtime, see
-                      `<https://github.com/microsoft/onnxruntime>`_.
-        :param params: Additional parameters to pass to the model for inference.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                                        release without warning.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-        :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
-                 in a pandas.DataFrame. If the input is a numpy array or a dictionary the
-                 predictions are returned in a dictionary.
+        Returns:
+            Model predictions. If the input is a pandas.DataFrame, the predictions are returned
+            in a pandas.DataFrame. If the input is a numpy array or a dictionary the
+            predictions are returned in a dictionary.
         """
         if isinstance(data, dict):
             feed_dict = data
@@ -412,23 +417,25 @@ def load_model(model_uri, dst_path=None):
     """
     Load an ONNX model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model, for example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/
-                      tracking.html#artifact-stores>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
+            For more information about supported URI schemes, see the
+            `Artifacts Documentation <https://www.mlflow.org/docs/latest/
+            tracking.html#artifact-stores>`_.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
 
-    :return: An ONNX model instance.
+    Returns:
+        An ONNX model instance.
 
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
@@ -458,60 +465,63 @@ def log_model(
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
-    :param onnx_model: ONNX model to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
+    Args:
+        onnx_model: ONNX model to be saved.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system
+            path when the model is loaded.
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models import infer_signature
 
-                        from mlflow.models import infer_signature
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param onnx_execution_providers: List of strings defining onnxruntime execution providers.
-                                     Defaults to example:
-                                     ['CUDAExecutionProvider', 'CPUExecutionProvider']
-                                     This uses GPU preferentially over CPU.
-                                     See onnxruntime API for further descriptions:
-                                     https://onnxruntime.ai/docs/execution-providers/
-    :param onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
-                                 For example:
-                                 ``{
-                                 'graph_optimization_level': 99,
-                                 'intra_op_num_threads': 1,
-                                 'inter_op_num_threads': 1,
-                                 'execution_mode': 'sequential'
-                                 }``
-                                 'execution_mode' can be set to 'sequential' or 'parallel'.
-                                 See onnxruntime API for further descriptions:
-                                 https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-    :param save_as_external_data: Save tensors to external file(s).
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        onnx_execution_providers: List of strings defining onnxruntime execution providers.
+            Defaults to example:
+            ['CUDAExecutionProvider', 'CPUExecutionProvider']
+            This uses GPU preferentially over CPU.
+            See onnxruntime API for further descriptions:
+            https://onnxruntime.ai/docs/execution-providers/
+        onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
+            For example:
+            ``{
+            'graph_optimization_level': 99,
+            'intra_op_num_threads': 1,
+            'inter_op_num_threads': 1,
+            'execution_mode': 'sequential'
+            }``
+            'execution_mode' can be set to 'sequential' or 'parallel'.
+            See onnxruntime API for further descriptions:
+            https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        save_as_external_data: Save tensors to external file(s).
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
     """
     return Model.log(
         artifact_path=artifact_path,

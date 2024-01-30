@@ -9,6 +9,7 @@ import React, { Component } from 'react';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { getExperimentApi, getRunApi, setTagApi } from '../actions';
 import { searchModelVersionsApi } from '../../model-registry/actions';
+import { shouldEnableDeepLearningUI } from '../../common/utils/FeatureUtils';
 import { connect } from 'react-redux';
 import { RunView } from './RunView';
 import Routes from '../routes';
@@ -21,6 +22,7 @@ import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
+import { RunPageV2 } from './run-page/RunPageV2';
 
 type RunPageImplProps = {
   runUuid: string;
@@ -48,6 +50,11 @@ export class RunPageImpl extends Component<RunPageImplProps> {
     }
   }
 
+  reloadRunData = async () => {
+    const { runUuid } = this.props;
+    return this.props.getRunApi(runUuid);
+  };
+
   handleSetRunTag = (tagName: any, value: any) => {
     const { runUuid } = this.props;
     return this.props
@@ -73,6 +80,7 @@ export class RunPageImpl extends Component<RunPageImplProps> {
         }
         experimentId={this.props.experimentId}
         handleSetRunTag={this.handleSetRunTag}
+        onRunDataUpdated={this.reloadRunData}
       />
     );
   };
@@ -112,5 +120,12 @@ const mapDispatchToProps = {
 
 const RunPageWithRouter = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(RunPageImpl));
 
-export const RunPage = withErrorBoundary(ErrorUtils.mlflowServices.RUN_TRACKING, RunPageWithRouter);
+// Display modern version of the page component if flag is set
+const RunPageVersionSelector = () =>
+  // TODO: remove current implementation of <RunPage> and
+  // rename <RunPageV2> -> <RunPage> after flag is ramped up
+  shouldEnableDeepLearningUI() ? <RunPageV2 /> : <RunPageWithRouter />;
+
+export const RunPage = withErrorBoundary(ErrorUtils.mlflowServices.RUN_TRACKING, RunPageVersionSelector);
+
 export default RunPage;

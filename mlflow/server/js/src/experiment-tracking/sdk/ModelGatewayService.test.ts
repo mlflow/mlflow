@@ -1,5 +1,7 @@
-import { ModelGatewayRouteType, ModelGatewayService } from './ModelGatewayService';
+import { ModelGatewayService } from './ModelGatewayService';
+import { ModelGatewayRouteTask } from './MlflowEnums';
 import { fetchEndpoint } from '../../common/utils/FetchUtils';
+import { MlflowService } from './MlflowService';
 
 jest.mock('../../common/utils/FetchUtils', () => ({
   ...jest.requireActual('../../common/utils/FetchUtils'),
@@ -7,62 +9,85 @@ jest.mock('../../common/utils/FetchUtils', () => ({
 }));
 
 describe('ModelGatewayService', () => {
+  beforeEach(() => {
+    jest
+      .spyOn(MlflowService, 'gatewayProxyPost')
+      .mockResolvedValue({ choices: [{ message: { content: 'output text' } }], usage: {} });
+  });
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  test('Creates a request call to the completions model route', () => {
-    ModelGatewayService.queryModelGatewayRoute(
+  test('Creates a request call to the MLflow deployments model route', async () => {
+    const result = await ModelGatewayService.queryModelGatewayRoute(
       {
-        model: { name: 'completions_model', provider: 'closed-ai' },
-        name: 'completions_route',
-        endpoint_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
-        endpoint_url: '/gateway/completions/invocations',
-      },
-      { inputText: 'input text', parameters: { temperature: 0.5, max_tokens: 50 } },
-    );
-
-    expect(fetchEndpoint).toBeCalledWith(
-      expect.objectContaining({
-        body: JSON.stringify({ prompt: 'input text', temperature: 0.5, max_tokens: 50 }),
-      }),
-    );
-  });
-
-  test('Creates a request call to the chat model route', () => {
-    ModelGatewayService.queryModelGatewayRoute(
-      {
-        model: { name: 'chat_model', provider: 'closed-ai' },
         name: 'chat_route',
-        endpoint_type: ModelGatewayRouteType.LLM_V1_CHAT,
-        endpoint_url: '/gateway/chat/invocations',
+        key: 'mlflow_deployment_endpoint:test-mlflow-deployment-endpoint-chat',
+        task: ModelGatewayRouteTask.LLM_V1_CHAT,
+        type: 'mlflow_deployment_endpoint',
+        mlflowDeployment: {
+          endpoint_type: ModelGatewayRouteTask.LLM_V1_CHAT,
+          endpoint_url: '/endpoint-url',
+          model: {
+            name: 'mpt-7b',
+            provider: 'mosaic',
+          },
+          name: 'test-mlflow-deployment-endpoint-chat',
+        },
       },
       { inputText: 'input text', parameters: { temperature: 0.5, max_tokens: 50 } },
     );
 
-    expect(fetchEndpoint).toBeCalledWith(
+    expect(MlflowService.gatewayProxyPost).toBeCalledWith(
       expect.objectContaining({
-        body: JSON.stringify({
-          messages: [{ content: 'input text', role: 'user' }],
-          temperature: 0.5,
-          max_tokens: 50,
-        }),
+        gateway_path: 'endpoint-url',
+        json_data: { messages: [{ content: 'input text', role: 'user' }], temperature: 0.5, max_tokens: 50 },
+      }),
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        text: 'output text',
       }),
     );
   });
 
-  test('Attempts to call unsupported embeddings model route', () => {
-    const callEmbeddingsRoute = () =>
-      ModelGatewayService.queryModelGatewayRoute(
+  test('Throws when task is not supported', async () => {
+    try {
+      await ModelGatewayService.queryModelGatewayRoute(
         {
-          model: { name: 'chat_model', provider: 'closed-ai' },
-          name: 'chat_route',
-          endpoint_type: ModelGatewayRouteType.LLM_V1_EMBEDDINGS,
-          endpoint_url: '/gateway/embeddings/invocations',
+          name: 'embeddings_route',
+          key: 'mlflow_deployment_endpoint:test-mlflow-deployment-endpoint-embeddings',
+          task: ModelGatewayRouteTask.LLM_V1_EMBEDDINGS,
+          type: 'mlflow_deployment_endpoint',
+          mlflowDeployment: {
+            endpoint_type: ModelGatewayRouteTask.LLM_V1_EMBEDDINGS,
+            endpoint_url: '/endpoint-url',
+            model: {
+              name: 'mpt-7b',
+              provider: 'mosaic',
+            },
+            name: 'test-mlflow-deployment-endpoint-embeddings',
+          },
         },
         { inputText: 'input text', parameters: { temperature: 0.5, max_tokens: 50 } },
       );
+    } catch (e: any) {
+      expect(e.message).toMatch(/Unsupported served LLM model task/);
+    }
+  });
 
-    expect(callEmbeddingsRoute).toThrowError();
+  test('Throws when route type is not supported', async () => {
+    try {
+      await ModelGatewayService.queryModelGatewayRoute(
+        {
+          type: 'some-unsupported-type',
+          name: 'completions_route',
+        } as any,
+        { inputText: 'input text', parameters: { temperature: 0.5, max_tokens: 50 } },
+      );
+    } catch (e: any) {
+      expect(e.message).toMatch(/Unknown route type/);
+    }
   });
 });

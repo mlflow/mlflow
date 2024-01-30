@@ -10,10 +10,12 @@ from mlflow.gateway.providers.utils import (
     rename_payload_keys,
     send_request,
 )
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas import completions
 
 
 class HFTextGenerationInferenceServerProvider(BaseProvider):
+    NAME = "Hugging Face Text Generation Inference"
+
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(
@@ -29,12 +31,6 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
             base_url=self.huggingface_config.hf_server_url,
             path=path,
             payload=payload,
-        )
-
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        raise HTTPException(
-            status_code=404,
-            detail="The chat route is not available for the Text Generation Inference provider.",
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
@@ -114,13 +110,5 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
                 prompt_tokens=input_tokens,
                 completion_tokens=output_tokens,
                 total_tokens=input_tokens + output_tokens,
-            ),
-        )
-
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "The embedding route is not available for the Text Generation Inference provider."
             ),
         )

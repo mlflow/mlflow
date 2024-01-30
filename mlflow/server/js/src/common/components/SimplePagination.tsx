@@ -21,14 +21,7 @@ type Props = {
 
 export class SimplePagination extends React.Component<Props> {
   render() {
-    const {
-      currentPage,
-      isLastPage,
-      onClickNext,
-      onClickPrev,
-      maxResultOptions,
-      removeBottomSpacing,
-    } = this.props;
+    const { currentPage, isLastPage, onClickNext, onClickPrev, maxResultOptions, removeBottomSpacing } = this.props;
     const numEntries = this.props.getSelectedPerPageSelection();
     let total;
 
@@ -44,12 +37,8 @@ export class SimplePagination extends React.Component<Props> {
 
     return (
       <div
-        className='pagination-section'
-        css={[
-          classNames.wrapper,
-          classNames.paginationOverride,
-          removeBottomSpacing && classNames.removeBottomSpacing,
-        ]}
+        className="pagination-section"
+        css={[classNames.wrapper, classNames.paginationOverride, removeBottomSpacing && classNames.removeBottomSpacing]}
       >
         {/* @ts-expect-error TS(2741): Property 'pageSize' is missing in type '{ currentP... Remove this comment to see the full error message */}
         <Pagination

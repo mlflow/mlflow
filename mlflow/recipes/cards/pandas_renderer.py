@@ -42,8 +42,13 @@ def datetime_and_timedelta_converter(dtype):
     The converter method takes in a numpy array of objects of the provided
     dtype and returns a numpy array of the numbers backing that object for
     statistical analysis. Returns None if no converter is necessary.
-    :param dtype: The numpy dtype to make a converter for.
-    :return: The converter method or None.
+
+    Args:
+        dtype: The numpy dtype to make a converter for.
+
+    Returns:
+        The converter method or None.
+
     """
     if np.issubdtype(dtype, np.datetime64):
 
@@ -65,8 +70,11 @@ def compute_common_stats(column) -> facet_feature_statistics_pb2.CommonStatistic
     """
     Computes common statistics for a given column in the DataFrame.
 
-    :param column: A column from a DataFrame.
-    :return: A CommonStatistics proto.
+    Args:
+        column: A column from a DataFrame.
+
+    Returns:
+        A CommonStatistics proto.
     """
     common_stats = facet_feature_statistics_pb2.CommonStatistics()
     common_stats.num_missing = column.isnull().sum()
@@ -86,8 +94,11 @@ def convert_to_dataset_feature_statistics(
     """
     Converts the data statistics from DataFrame format to DatasetFeatureStatistics proto.
 
-    :param df: The DataFrame for which feature statistics need to be computed.
-    :return: A DatasetFeatureStatistics proto.
+    Args:
+        df: The DataFrame for which feature statistics need to be computed.
+
+    Returns:
+        A DatasetFeatureStatistics proto.
     """
     fs_proto = facet_feature_statistics_pb2.FeatureNameStatistics
     feature_stats = facet_feature_statistics_pb2.DatasetFeatureStatistics()
@@ -192,8 +203,11 @@ def convert_to_proto(df: pd.DataFrame) -> facet_feature_statistics_pb2.DatasetFe
     """
     Converts the data from DataFrame format to DatasetFeatureStatisticsList proto.
 
-    :param df: The DataFrame for which feature statistics need to be computed.
-    :return: A DatasetFeatureStatisticsList proto.
+    Args:
+        df: The DataFrame for which feature statistics need to be computed.
+
+    Returns:
+        A DatasetFeatureStatisticsList proto.
     """
     feature_stats = convert_to_dataset_feature_statistics(df)
     feature_stats_list = facet_feature_statistics_pb2.DatasetFeatureStatisticsList()
@@ -206,9 +220,13 @@ def convert_to_comparison_proto(
 ) -> facet_feature_statistics_pb2.DatasetFeatureStatisticsList:
     """
     Converts a collection of named stats DataFrames to a single DatasetFeatureStatisticsList proto.
-    :param dfs: The named "glimpses" that contain the DataFrame. Each "glimpse"
-        DataFrame has the same properties as the input to `convert_to_proto()`.
-    :return: A DatasetFeatureStatisticsList proto which contains a translation
+
+    Args:
+        dfs: The named "glimpses" that contain the DataFrame. Each "glimpse"
+            DataFrame has the same properties as the input to `convert_to_proto()`.
+
+    Returns:
+        A DatasetFeatureStatisticsList proto which contains a translation
         of the glimpses with the given names.
     """
     feature_stats_list = facet_feature_statistics_pb2.DatasetFeatureStatisticsList()
@@ -249,10 +267,14 @@ def construct_facets_html(
 ) -> str:
     """
     Constructs the facets HTML to visualize the serialized FeatureStatisticsList proto.
-    :param proto: A DatasetFeatureStatisticsList proto which contains the statistics for a DataFrame
-    :param compare: If True, then the returned visualization switches on the comparison
-        mode for several stats.
-    :return: the HTML for Facets visualization
+
+    Args:
+        proto: A DatasetFeatureStatisticsList proto which contains the statistics for a DataFrame.
+        compare: If True, then the returned visualization switches on the comparison
+            mode for several stats.
+
+    Returns:
+        The HTML for Facets visualization.
     """
     # facets_html_bundle = _get_facets_html_bundle()
     protostr = base64.b64encode(proto.SerializeToString()).decode("utf-8")
@@ -270,12 +292,16 @@ def construct_facets_html(
 
 
 def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> str:
-    """Rendering the data statistics in a HTML format.
+    """
+    Rendering the data statistics in a HTML format.
 
-    :param inputs: Either a single "glimpse" DataFrame that contains the statistics, or a
-        collection of (name, DataFrame) pairs where each pair names a separate "glimpse"
-        and they are all visualized in comparison mode.
-    :return: None
+    Args:
+        inputs: Either a single "glimpse" DataFrame that contains the statistics, or a
+            collection of (name, DataFrame) pairs where each pair names a separate "glimpse"
+            and they are all visualized in comparison mode.
+
+    Returns:
+        None
     """
     if isinstance(inputs, pd.DataFrame):
         if not inputs.empty:

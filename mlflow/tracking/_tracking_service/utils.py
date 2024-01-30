@@ -208,6 +208,10 @@ def _register_tracking_stores():
     _tracking_store_registry.register_entrypoints()
 
 
+def _register(scheme, builder):
+    _tracking_store_registry.register(scheme, builder)
+
+
 _register_tracking_stores()
 
 

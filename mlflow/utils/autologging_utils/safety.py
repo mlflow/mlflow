@@ -143,21 +143,22 @@ class PatchFunction:
         """
         Invokes the patch function code.
 
-        :param original: The original, underlying function over which the `PatchFunction`
-                         is being applied.
-        :param *args: The positional arguments passed to the original function.
-        :param **kwargs: The keyword arguments passed to the original function.
+        Args:
+            original: The original, underlying function over which the `PatchFunction`
+                is being applied.
+            *args: The positional arguments passed to the original function.
+            **kwargs: The keyword arguments passed to the original function.
         """
         pass
 
     @abstractmethod
     def _on_exception(self, exception):
-        """
-        Called when an unhandled standard Python exception (i.e. an exception inheriting from
+        """Called when an unhandled standard Python exception (i.e. an exception inheriting from
         `Exception`) or a `KeyboardInterrupt` prematurely terminates the execution of
         `_patch_implementation`.
 
-        :param exception: The unhandled exception thrown by `_patch_implementation`.
+        Args:
+            exception: The unhandled exception thrown by `_patch_implementation`.
         """
         pass
 
@@ -178,8 +179,7 @@ class PatchFunction:
 
 
 def with_managed_run(autologging_integration, patch_function, tags=None):
-    """
-    Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
+    """Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
     `patch_function` with an active MLflow run. The following properties apply:
 
         - An MLflow run is only created if there is no active run present when the
@@ -195,12 +195,13 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
     is responsible for terminating them by the time it terminates
     (or in the event of an exception).
 
-    :param autologging_integration: The autologging integration associated
-                                    with the `patch_function`.
-    :param patch_function: A `PatchFunction` class definition or a function object
-                           compatible with `safe_patch`.
-    :param tags: A dictionary of string tags to set on each managed run created during the
-                 execution of `patch_function`.
+    Args:
+        autologging_integration: The autologging integration associated
+            with the `patch_function`.
+        patch_function: A `PatchFunction` class definition or a function object
+            compatible with `safe_patch`.
+        tags: A dictionary of string tags to set on each managed run created during the
+            execution of `patch_function`.
     """
 
     def create_managed_run():
@@ -277,6 +278,25 @@ def is_testing():
     return _MLFLOW_AUTOLOGGING_TESTING.get()
 
 
+def _resolve_extra_tags(autologging_integration, extra_tags):
+    tags = {MLFLOW_AUTOLOGGING: autologging_integration}
+    if extra_tags:
+        if isinstance(extra_tags, dict):
+            if MLFLOW_AUTOLOGGING in extra_tags:
+                extra_tags.pop(MLFLOW_AUTOLOGGING)
+                _logger.warning(
+                    f"Tag `{MLFLOW_AUTOLOGGING}` is ignored as it is a reserved tag by MLflow "
+                    f"autologging."
+                )
+            tags.update(extra_tags)
+        else:
+            raise mlflow.exceptions.MlflowException.invalid_parameter_value(
+                f"Invalid `extra_tags` type: expecting dictionary, "
+                f"received `{type(extra_tags).__name__}`"
+            )
+    return tags
+
+
 def safe_patch(
     autologging_integration,
     destination,
@@ -285,48 +305,35 @@ def safe_patch(
     manage_run=False,
     extra_tags=None,
 ):
-    """
-    Patches the specified `function_name` on the specified `destination` class for autologging
+    """Patches the specified `function_name` on the specified `destination` class for autologging
     purposes, preceding its implementation with an error-safe copy of the specified patch
     `patch_function` with the following error handling behavior:
         - Exceptions thrown from the underlying / original function
           (`<destination>.<function_name>`) are propagated to the caller.
         - Exceptions thrown from other parts of the patched implementation (`patch_function`)
           are caught and logged as warnings.
-    :param autologging_integration: The name of the autologging integration associated with the
-                                    patch.
-    :param destination: The Python class on which the patch is being defined.
-    :param function_name: The name of the function to patch on the specified `destination` class.
-    :param patch_function: The patched function code to apply. This is either a `PatchFunction`
-                           class definition or a function object. If it is a function object, the
-                           first argument should be reserved for an `original` method argument
-                           representing the underlying / original function. Subsequent arguments
-                           should be identical to those of the original function being patched.
-    :param manage_run: If `True`, applies the `with_managed_run` wrapper to the specified
-                       `patch_function`, which automatically creates & terminates an MLflow
-                       active run during patch code execution if necessary. If `False`,
-                       does not apply the `with_managed_run` wrapper to the specified
-                       `patch_function`.
-    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+
+    Args:
+        autologging_integration: The name of the autologging integration associated with the
+            patch.
+        destination: The Python class on which the patch is being defined.
+        function_name: The name of the function to patch on the specified `destination` class.
+        patch_function: The patched function code to apply. This is either a `PatchFunction`
+            class definition or a function object. If it is a function object, the
+            first argument should be reserved for an `original` method argument
+            representing the underlying / original function. Subsequent arguments
+            should be identical to those of the original function being patched.
+        manage_run: If `True`, applies the `with_managed_run` wrapper to the specified
+            `patch_function`, which automatically creates & terminates an MLflow
+            active run during patch code execution if necessary. If `False`,
+            does not apply the `with_managed_run` wrapper to the specified
+            `patch_function`.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
 
     if manage_run:
-        tags = {MLFLOW_AUTOLOGGING: autologging_integration}
-        if extra_tags:
-            if isinstance(extra_tags, dict):
-                if MLFLOW_AUTOLOGGING in extra_tags:
-                    extra_tags.pop(MLFLOW_AUTOLOGGING)
-                    _logger.warning(
-                        f"Tag `{MLFLOW_AUTOLOGGING}` is ignored as it is a reserved tag by MLflow "
-                        f"autologging."
-                    )
-                tags.update(extra_tags)
-            else:
-                raise mlflow.exceptions.MlflowException.invalid_parameter_value(
-                    f"Invalid `extra_tags` type: expecting dictionary, "
-                    f"received `{type(extra_tags).__name__}`"
-                )
+        tags = _resolve_extra_tags(autologging_integration, extra_tags)
         patch_function = with_managed_run(
             autologging_integration,
             patch_function,
@@ -668,14 +675,13 @@ def safe_patch(
 
 
 def revert_patches(autologging_integration):
-    """
-    Reverts all patches on the specified destination class for autologging disablement
-    purposes.
+    """Reverts all patches on the specified destination class for autologging disablement purposes.
 
-    :param autologging_integration: The name of the autologging integration associated with the
-                                    patch. Note: If called via fluent api
-                                    (`autologging_integration="mlflow"`), then revert all patches
-                                    for all active autologging integrations.
+    Args:
+        autologging_integration: The name of the autologging integration associated with the
+            patch. Note: If called via fluent api (`autologging_integration="mlflow"`), then revert
+            all patches for all active autologging integrations.
+
     """
     for patch in _AUTOLOGGING_PATCHES.get(autologging_integration, []):
         gorilla.revert(patch)
@@ -723,13 +729,13 @@ class _AutologgingSessionManager:
 
 
 def update_wrapper_extended(wrapper, wrapped):
-    """
-    Update a `wrapper` function to look like the `wrapped` function. This is an extension of
+    """Update a `wrapper` function to look like the `wrapped` function. This is an extension of
     `functools.update_wrapper` that applies the docstring *and* signature of `wrapped` to
     `wrapper`, producing a new function.
 
-    :return: A new function with the same implementation as `wrapper` and the same docstring
-             & signature as `wrapped`.
+    Returns:
+        A new function with the same implementation as `wrapper` and the same docstring
+        & signature as `wrapped`.
     """
     updated_wrapper = functools.update_wrapper(wrapper, wrapped)
     # Assign the signature of the `wrapped` function to the updated wrapper function.
@@ -743,14 +749,15 @@ def update_wrapper_extended(wrapper, wrapped):
 
 
 def _wrap_patch(destination, name, patch_obj, settings=None):
-    """
-    Apply a patch.
+    """Apply a patch.
 
-    :param destination: Patch destination
-    :param name: Name of the attribute at the destination
-    :param patch_obj: Patch object, it should be a function or a property decorated function
-                      to be assigned to the patch point {destination}.{name}
-    :param settings: Settings for gorilla.Patch
+    Args:
+        destination: Patch destination.
+        name: Name of the attribute at the destination.
+        patch_obj: Patch object, it should be a function or a property decorated function
+            to be assigned to the patch point {destination}.{name}.
+        settings: Settings for gorilla.Patch.
+
     """
     if settings is None:
         settings = gorilla.Settings(allow_hit=True, store_hit=True)
@@ -765,9 +772,10 @@ def _store_patch(autologging_integration, patch):
     Stores a patch for a specified autologging_integration class. Later to be used for being able
     to revert the patch when disabling autologging.
 
-    :param autologging_integration: The name of the autologging integration associated with the
-                                    patch.
-    :param patch: The patch to be stored.
+    Args:
+        autologging_integration: The name of the autologging integration associated with the
+            patch.
+        patch: The patch to be stored.
     """
     if autologging_integration in _AUTOLOGGING_PATCHES:
         _AUTOLOGGING_PATCHES[autologging_integration].add(patch)
@@ -825,15 +833,18 @@ class ValidationExemptArgument(typing.NamedTuple):
         This method checks if the properties provided through the function arguments matches the
         properties defined in the NamedTuple.
 
-        :param autologging_integration: The name of an autologging integration.
-        :param function_name: The name of the function that is being matched.
-        :param value: The value of the argument.
-        :param argument_index: The index of the argument, if it is passed as a positional
-                                          argument. Otherwise it is None.
-        :param argument_name: The name of the argument, if it is passed as a keyword
-                                      argument. Otherwise it is None.
-        :return: Returns True if the given function properties matches the exempt argument's
-                 properties. Returns False otherwise.
+        Args:
+            autologging_integration: The name of an autologging integration.
+            function_name: The name of the function that is being matched.
+            value: The value of the argument.
+            argument_index: The index of the argument, if it is passed as a positional
+                argument. Otherwise it is None.
+            argument_name: The name of the argument, if it is passed as a keyword
+                argument. Otherwise it is None.
+
+        Returns:
+            Returns True if the given function properties matches the exempt argument's
+            properties. Returns False otherwise.
         """
         return (
             self.autologging_integration == autologging_integration
@@ -867,18 +878,20 @@ def _is_arg_exempt_from_validation(
     argument_index=None,
     argument_name=None,
 ):
-    """
-    This function is responsible for determining whether or not an argument is exempt from autolog
-    safety validations. This includes both type checking and immutable checking.
+    """This function is responsible for determining whether or not an argument is exempt from
+    autolog safety validations. This includes both type checking and immutable checking.
 
-    :param autologging_integration: The name of the autologging integration.
-    :param function_name: The name of the function that is being validated.
-    :param argument: The actual argument.
-    :param argument_index: The index of the argument, if it is passed as a positional
-                                      argument. Otherwise it is None.
-    :param argument_name: The name of the argument, if it is passed as a keyword argument.
-                                  Otherwise it is None.
-    :return: True or False
+    Args:
+        autologging_integration: The name of the autologging integration.
+        function_name: The name of the function that is being validated.
+        argument: The actual argument.
+        argument_index: The index of the argument, if it is passed as a positional
+            argument. Otherwise it is None.
+        argument_name: The name of the argument, if it is passed as a keyword argument.
+            Otherwise it is None.
+
+    Returns:
+        True or False
     """
     return any(
         exemption.matches(
@@ -926,6 +939,8 @@ def _validate_args(
         if type(inp) == list:
             for item in inp:
                 _validate_new_input(item)
+        elif isinstance(inp, dict) and "callbacks" in inp:
+            _validate_new_input(inp["callbacks"])
         elif callable(inp):
             assert getattr(inp, _ATTRIBUTE_EXCEPTION_SAFE, False), (
                 f"New function argument '{inp}' passed to original function is not exception-safe."
@@ -974,8 +989,9 @@ def _validate_args(
             - for all other input types, `autologging_call_input` and `user_call_input`
               must be equivalent by reference equality or by object equality
 
-        :param autologging_call_input: call input from autologging
-        :param user_call_input: call input from user
+        Args:
+            autologging_call_input: call input from autologging.
+            user_call_input: call input from user.
         """
 
         if user_call_input is None and autologging_call_input is not None:

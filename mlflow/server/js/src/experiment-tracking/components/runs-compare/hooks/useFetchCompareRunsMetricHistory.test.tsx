@@ -32,6 +32,7 @@ describe('useFetchCompareRunsMetricHistory', () => {
     metricKeys: string[],
     runsData: { runInfo: RunInfoEntity }[],
     metricsByRunUuid: any = {},
+    enabled = true,
   ) => {
     const MOCK_STATE = {
       entities: {
@@ -42,11 +43,11 @@ describe('useFetchCompareRunsMetricHistory', () => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
 
     const Component = () => {
-      const { isLoading, error } = useFetchCompareRunsMetricHistory(metricKeys, runsData);
+      const { isLoading, error } = useFetchCompareRunsMetricHistory(metricKeys, runsData, undefined, enabled);
       return (
         <div>
-          {isLoading && <div data-testid='loading' />}
-          {error && <div data-testid='error' />}
+          {isLoading && <div data-testid="loading" />}
+          {error && <div data-testid="error" />}
         </div>
       );
     };
@@ -84,6 +85,14 @@ describe('useFetchCompareRunsMetricHistory', () => {
     expect(isErrorIndicatorShown()).toBe(false);
   });
 
+  it('does not fetch metric history if disabled', async () => {
+    wrapper = mountWrappingComponent(['metric_1'], [mockRun('run_1'), mockRun('run_2')], {}, false);
+    expect(getMetricHistoryApiMock).toBeCalledTimes(0);
+
+    expect(isLoadingIndicatorShown()).toBe(false);
+    expect(isErrorIndicatorShown()).toBe(false);
+  });
+
   it('is not fetching metric history for runs that already have it fetched', async () => {
     const existingMetricHistoryState = {
       run_3: {
@@ -91,11 +100,7 @@ describe('useFetchCompareRunsMetricHistory', () => {
       },
     };
     act(() => {
-      wrapper = mountWrappingComponent(
-        ['metric_1'],
-        [mockRun('run_3'), mockRun('run_4')],
-        existingMetricHistoryState,
-      );
+      wrapper = mountWrappingComponent(['metric_1'], [mockRun('run_3'), mockRun('run_4')], existingMetricHistoryState);
     });
     expect(getMetricHistoryApiMock).toBeCalledTimes(1);
     expect(getMetricHistoryApiMock).toBeCalledWith(['run_4'], 'metric_1', undefined);
