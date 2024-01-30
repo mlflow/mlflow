@@ -136,8 +136,8 @@ class RestException(MlflowException):
             except ValueError or KeyError:
                 _logger.warning(
                     f"Received error code not recognized by MLflow: {error_code}, this may "
-                    "indicate your request hits error outside the MLflow server, e.g., proxy "
-                    "server, IP blocker or so."
+                    "indicate your request encountered an error before reaching MLflow server, "
+                    "e.g., within a proxy server or authentication / authorization service."
                 )
                 super().__init__(message)
 
