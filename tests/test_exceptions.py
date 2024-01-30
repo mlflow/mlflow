@@ -1,7 +1,7 @@
 import json
 import pickle
-import mlflow
 
+import mlflow
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import (
     ENDPOINT_NOT_FOUND,
