@@ -20,7 +20,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
-from mlflow.tracking._tracking_service.utils import _tracking_store_registry
+from mlflow.tracking._tracking_service.utils import _register
 from mlflow.utils.databricks_utils import _construct_databricks_run_url, get_databricks_runtime
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
@@ -664,7 +664,7 @@ def test_client_can_be_serialized_with_pickle(tmp_path):
     with pytest.raises(AttributeError, match="<locals>.MockUnpickleableModelRegistryStore'"):
         pickle.dumps(mock_model_registry_store)
 
-    _tracking_store_registry.register("pickle", lambda *args, **kwargs: mock_tracking_store)
+    _register("pickle", lambda *args, **kwargs: mock_tracking_store)
     _get_model_registry_store_registry().register(
         "pickle", lambda *args, **kwargs: mock_model_registry_store
     )
