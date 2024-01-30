@@ -37,7 +37,6 @@ def is_tracking_uri_set():
 
 
 def set_tracking_uri(uri: Union[str, Path]) -> None:
-    # pylint: disable=line-too-long
     """
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.
@@ -45,9 +44,12 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
     Args:
         uri:
 
-            - An empty string, or a local file path, prefixed with ``file:/``. Data is stored locally at the provided file (or ``./mlruns`` if empty).
+            - An empty string, or a local file path, prefixed with ``file:/``. Data is stored
+              locally at the provided file (or ``./mlruns`` if empty).
             - An HTTP URI like ``https://my-tracking-server:5000``.
-            - A Databricks workspace, provided as the string "databricks" or, to use a Databricks CLI `profile <https://github.com/databricks/databricks-cli#installation>`_, "databricks://<profileName>".
+            - A Databricks workspace, provided as the string "databricks" or, to use a Databricks
+              CLI `profile <https://github.com/databricks/databricks-cli#installation>`_,
+              "databricks://<profileName>".
             - A :py:class:`pathlib.Path` instance
 
     .. testcode:: python
@@ -64,7 +66,6 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
 
         Current tracking uri: file:///tmp/my_tracking
     """
-    # pylint: enable=line-too-long
     if isinstance(uri, Path):
         # On Windows with Python3.8 (https://bugs.python.org/issue38671)
         # .resolve() doesn't return the absolute path if the directory doesn't exist
