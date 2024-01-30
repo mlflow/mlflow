@@ -51,7 +51,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_KEY,
     _METADATA_LLM_INFERENCE_TASK_KEY,
-    _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE,
+    _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
     postprocess_output_for_llm_inference_task,
 )
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
@@ -523,7 +523,6 @@ def save_model(
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
     if llm_inference_task:
-        _validate_llm_inference_task_type(llm_inference_task, transformers_task)
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: task})
         if mlflow_model.metadata:
             mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY] = task
@@ -1353,9 +1352,12 @@ def _extract_torch_dtype_if_set(pipeline):
 
 def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str]:
     """
-    Determines whether a ``transformers`` task type or a MLflow inference task type is provided.
-    If ``transformers`` task type is not provided, the appropriate ``transformers`` task type
-    based on the model type.
+    From the ``task`` parameter, determine the appropriate ``transformers`` task type and
+    MLflow LLM inference task type if possible.
+    1. If ``task`` is not provided, infer the ``transformers`` task type from the model.
+    2. If ``task`` is provided and a valid ``transformers`` task type, use it.
+    3. If ``task`` is provided and not a valid ``transformers`` task type, assume it's an MLflow
+    LLM inference task type, and infer the ``transformers`` task type.
     """
     transformers_task, llm_inference_task = None, None
 
@@ -1366,6 +1368,7 @@ def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str
     else:
         transformers_task = _infer_transformers_task_type(model)
         llm_inference_task = task
+        _validate_llm_inference_task_type(llm_inference_task, transformers_task)
 
     return transformers_task, llm_inference_task
 
@@ -1437,7 +1440,7 @@ def _validate_llm_inference_task_type(llm_inference_task: str, transformers_task
     """
     Validates that an ``inference_task`` type is supported by ``transformers`` pipeline type.
     """
-    supported_llm_inference_tasks = _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE.get(
+    supported_llm_inference_tasks = _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK.get(
         transformers_task, []
     )
 
@@ -1891,11 +1894,11 @@ class _TransformersWrapper:
             # Override the inference configuration with any additional kwargs provided by the user.
             self.model_config.update(params)
 
-    def _validate_model_config_and_return_output(self, data, force_return_tensors=False):
+    def _validate_model_config_and_return_output(self, data, return_tensors=False):
         import transformers
 
         model_config = copy.deepcopy(self.model_config)
-        if force_return_tensors:
+        if return_tensors:
             model_config["return_tensors"] = True
 
         try:
@@ -2060,13 +2063,13 @@ class _TransformersWrapper:
             return conversation_output.generated_responses[-1]
         else:
             # If inference task is defined, return tensors internally to get usage information
-            force_return_tensors = False
+            return_tensors = False
             if self.llm_inference_task:
-                force_return_tensors = True
+                return_tensors = True
                 output_key = "generated_token_ids"
 
             raw_output = self._validate_model_config_and_return_output(
-                data, force_return_tensors=force_return_tensors
+                data, return_tensors=return_tensors
             )
 
         # Handle the pipeline outputs

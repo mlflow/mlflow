@@ -1,3 +1,4 @@
+from typing import List
 from unittest import mock
 
 import torch
@@ -9,37 +10,43 @@ from mlflow.transformers.llm_inference_utils import (
 )
 
 
-def test_output_dict_for_completions(text_generation_pipeline):
-    prompt = "a b c"
+class DummyTokenizer:
+    def __call__(self, text: str, **kwargs):
+        input_ids = list(map(int, text.split(" ")))
+        return {"input_ids": torch.tensor(input_ids)}
+
+    def decode(self, tensor: List[int], **kwargs):
+        return " ".join([str(x) for x in tensor])
+
+
+def test_output_dict_for_completions():
+    prompt = "1 2 3"
     output_tensor = [1, 2, 3, 4, 5]
     model_config = {"max_new_tokens": 2}
     inference_task = "llm/v1/completions"
 
-    text_generation_pipeline.tokenizer = mock.MagicMock(
-        return_value={"input_ids": torch.tensor([1, 2, 3])}
-    )
-    text_generation_pipeline.tokenizer.decode = mock.MagicMock(return_value="a b c d e")
+    pipeline = mock.MagicMock()
+    pipeline.tokenizer = DummyTokenizer()
 
     output_dict = _get_output_and_usage_from_tensor(
-        prompt, output_tensor, text_generation_pipeline, model_config, inference_task
+        prompt, output_tensor, pipeline, model_config, inference_task
     )
 
-    assert output_dict["text"] == "d e"
+    assert output_dict["text"] == "4 5"
     assert output_dict["finish_reason"] == "length"
 
     usage = output_dict["usage"]
     assert usage["prompt_tokens"] + usage["completion_tokens"] == usage["total_tokens"]
 
 
-def test_token_usage(text_generation_pipeline):
-    prompt = "one two three"
+def test_token_usage():
+    prompt = "1 2 3"
     output_tensor = [1, 2, 3, 4, 5]
 
-    text_generation_pipeline.tokenizer = mock.MagicMock(
-        return_value={"input_ids": torch.tensor([1, 2, 3])}
-    )
+    pipeline = mock.MagicMock()
+    pipeline.tokenizer = DummyTokenizer()
 
-    usage = _get_token_usage(prompt, output_tensor, text_generation_pipeline, {})
+    usage = _get_token_usage(prompt, output_tensor, pipeline, {})
     assert usage["prompt_tokens"] == 3
     assert usage["completion_tokens"] == 2
     assert usage["total_tokens"] == 5
