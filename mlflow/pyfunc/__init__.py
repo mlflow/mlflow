@@ -25,8 +25,8 @@ metadata (MLmodel file). You can score the model by calling the :py:func:`predic
 
   predict(
     model_input: [pandas.DataFrame, numpy.ndarray, scipy.sparse.(csc.csc_matrix | csr.csr_matrix),
-    List[Any], Dict[str, Any]]
-  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
+    List[Any], Dict[str, Any], pyspark.sql.DataFrame]
+  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | pyspark.sql.DataFrame]
 
 All PyFunc models will support `pandas.DataFrame` as input and PyFunc deep learning models will
 also support tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and
@@ -72,8 +72,8 @@ following parameters:
 
           predict(
             model_input: [pandas.DataFrame, numpy.ndarray,
-            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]]
-          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
+            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]], pyspark.sql.DataFrame
+          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | pyspark.sql.DataFrame]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -448,8 +448,8 @@ class PyFuncModel:
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
 
         :param data: Model input as one of pandas.DataFrame, numpy.ndarray,
-                     scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], or
-                     Dict[str, numpy.ndarray].
+                     scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any],
+                     Dict[str, numpy.ndarray] or pyspark.sql.DataFrame.
                      For model signatures with tensor spec inputs
                      (e.g. the Tensorflow core / Keras model), the input data type must be one of
                      `numpy.ndarray`, `List[numpy.ndarray]`, `Dict[str, numpy.ndarray]` or
@@ -457,7 +457,10 @@ class PyFuncModel:
                      contains a signature with tensor spec inputs, the corresponding column values
                      in the pandas DataFrame will be reshaped to the required shape with 'C' order
                      (i.e. read / write the elements using C-like index order), and DataFrame
-                     column values will be cast as the required tensor spec type.
+                     column values will be cast as the required tensor spec type. If data is of `pyspark.sql.DataFrame`
+                     type then schema enforcement is only supported with certain data types. See `Model
+                     Signature Enforcement <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_
+                     for more details."
 
         :param params: Additional parameters to pass to the model for inference.
 
