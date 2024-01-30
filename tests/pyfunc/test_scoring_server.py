@@ -58,7 +58,7 @@ def build_and_save_sklearn_model(model_path):
     mlflow.sklearn.save_model(model, path=model_path)
 
 
-class MyLLM(PythonModel):
+class MyChatLLM(PythonModel):
     def predict(self, context, model_input, params=None):
         # If (and only-if) we define model signature, input is converted
         # to pandas DataFrame in _enforce_schema applied in Pyfunc.predict.
@@ -85,6 +85,25 @@ class MyLLM(PythonModel):
                 }
             ],
             "usage": {"prompt_tokens": 47, "completion_tokens": 49, "total_tokens": 96},
+            # Echo model input and params for testing purposes
+            "model_input": model_input,
+            "params": params,
+        }
+
+
+class MyCompletionsLLM(PythonModel):
+    def predict(self, context, model_input, params=None):
+        ret = model_input["prompt"]
+
+        return {
+            "model": "llama-2-70b-chat-hf",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": ret,
+                    "finish_reason": "stop",
+                }
+            ],
             # Echo model input and params for testing purposes
             "model_input": model_input,
             "params": params,
@@ -835,10 +854,10 @@ _LLM_CHAT_INPUT_SCHEMA = Schema(
         ),
     ],
 )
-def test_scoring_server_allows_payloads_with_llm_keys_for_pyfunc(
+def test_scoring_server_allows_payloads_with_llm_chat_keys_for_pyfunc(
     model_path, signature, expected_model_input, expected_params
 ):
-    mlflow.pyfunc.save_model(model_path, python_model=MyLLM(), signature=signature)
+    mlflow.pyfunc.save_model(model_path, python_model=MyChatLLM(), signature=signature)
 
     payload = json.dumps(
         {
@@ -855,6 +874,45 @@ def test_scoring_server_allows_payloads_with_llm_keys_for_pyfunc(
     )
     expect_status_code(response, 200)
     assert json.loads(response.content)["choices"][0]["message"]["content"] == "hello!"
+    assert json.loads(response.content)["model_input"] == expected_model_input
+    assert json.loads(response.content)["params"] == expected_params
+
+
+@pytest.mark.parametrize(
+    ("signature", "expected_model_input", "expected_params"),
+    [
+        # Test case: no signature, everything should go to data
+        (
+            None,
+            {
+                "prompt": "hello!",
+                "max_tokens": 20,
+                "temperature": 0.5,
+            },
+            {},
+        ),
+    ],
+)
+def test_scoring_server_allows_payloads_with_llm_completions_keys_for_pyfunc(
+    model_path, signature, expected_model_input, expected_params
+):
+    mlflow.pyfunc.save_model(model_path, python_model=MyCompletionsLLM(), signature=signature)
+
+    payload = json.dumps(
+        {
+            "prompt": "hello!",
+            "temperature": 0.5,
+            "max_tokens": 20,
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["choices"][0]["text"] == "hello!"
     assert json.loads(response.content)["model_input"] == expected_model_input
     assert json.loads(response.content)["params"] == expected_params
 
