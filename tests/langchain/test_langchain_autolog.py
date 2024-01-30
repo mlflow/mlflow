@@ -4,6 +4,8 @@ from operator import itemgetter
 from typing import Any, List, Optional
 from unittest import mock
 
+import pandas as pd
+import pytest
 from langchain.chains import LLMChain
 from langchain.document_loaders import TextLoader
 from langchain.llms import OpenAI
@@ -13,7 +15,10 @@ from test_langchain_model_export import FAISS, DeterministicDummyEmbeddings
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.langchain._langchain_autolog import UNSUPPORT_LOG_MODEL_MESSAGE
+from mlflow.langchain._langchain_autolog import (
+    UNSUPPORT_LOG_MODEL_MESSAGE,
+    _combine_input_and_output,
+)
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -578,3 +583,58 @@ def test_unsupported_log_model_models_autolog(tmp_path):
         assert retrieval_chain.invoke(question) == TEST_CONTENT
         logger_mock.assert_called_once_with(UNSUPPORT_LOG_MODEL_MESSAGE)
         log_model_mock.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("input", "output", "expected"),
+    [
+        ("data", "result", {"input": ["data"], "output": ["result"], "session_id": ["session_id"]}),
+        (
+            "data",
+            {"result": "some_result"},
+            {"input": ["data"], "output-result": "some_result", "session_id": ["session_id"]},
+        ),
+        (
+            "data",
+            ["some_result"],
+            {"input": ["data"], "output": ["some_result"], "session_id": ["session_id"]},
+        ),
+        (
+            ["data"],
+            "some_result",
+            {"input": ["data"], "output": ["some_result"], "session_id": ["session_id"]},
+        ),
+        (
+            {"data": "some_data"},
+            ["some_result"],
+            {"input-data": "some_data", "output": ["some_result"], "session_id": ["session_id"]},
+        ),
+        (
+            {"data": "some_data"},
+            {"result": "some_result"},
+            {
+                "input-data": "some_data",
+                "output-result": "some_result",
+                "session_id": ["session_id"],
+            },
+        ),
+        (
+            [{"data": "some_data"}],
+            {"result": "some_result"},
+            {
+                "input": [{"data": "some_data"}],
+                "output-result": "some_result",
+                "session_id": ["session_id"],
+            },
+        ),
+    ],
+)
+def test_combine_input_and_output(input, output, expected):
+    assert (
+        _combine_input_and_output(input, output, session_id="session_id", func_name="") == expected
+    )
+    with mlflow.start_run() as run:
+        mlflow.log_table(expected, "inference_inputs_outputs.json", run.info.run_id)
+    loaded_table = mlflow.load_table("inference_inputs_outputs.json", run_ids=[run.info.run_id])
+    pdf = pd.DataFrame(expected)
+    pd.testing.assert_frame_equal(loaded_table, pdf)

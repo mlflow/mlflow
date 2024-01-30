@@ -56,29 +56,28 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
     )
 
 
+def _convert_data_to_dict(data, key):
+    if isinstance(data, dict):
+        return {f"{key}-{k}": v for k, v in data.items()}
+    if isinstance(data, list):
+        return {key: data}
+    if isinstance(data, str):
+        return {key: [data]}
+    raise MlflowException("Unsupported data type.")
+
+
 def _combine_input_and_output(input, output, session_id, func_name):
     """
     Combine input and output into a single dictionary
     """
     if func_name == "get_relevant_documents" and output is not None:
         output = [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in output]
-    if input is None:
-        return {
-            "output": output if isinstance(output, (list, dict)) else [output],
-            "session_id": session_id,
-        }
-    if isinstance(input, (str, dict)):
-        return {"input": [input], "output": [output], "session_id": session_id}
-    if isinstance(input, list) and (
-        all(isinstance(x, str) for x in input) or all(isinstance(x, dict) for x in input)
-    ):
-        if not isinstance(output, list) or len(output) != len(input):
-            raise MlflowException(
-                "Failed to combine input and output data with different lengths "
-                "into a single pandas DataFrame. "
-            )
-        return {"input": input, "output": output, "session_id": session_id}
-    raise MlflowException("Unsupported input type.")
+    result = {"session_id": [session_id]}
+    input = _convert_data_to_dict(input, "input") if input else {}
+    output = _convert_data_to_dict(output, "output") if output else {}
+    result.update(input)
+    result.update(output)
+    return result
 
 
 def _update_langchain_model_config(model):
