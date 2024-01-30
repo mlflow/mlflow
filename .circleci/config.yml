@@ -31,6 +31,11 @@ jobs:
 
     steps:
       - checkout
+      - run: |
+          if [ -n "$CIRCLE_PR_NUMBER" ]; then
+            git fetch origin refs/pull/$CIRCLE_PR_NUMBER/merge
+            git checkout FETCH_HEAD
+          fi
       - run:
           name: Install Java
           command: |
@@ -76,6 +81,11 @@ jobs:
 
     steps:
       - checkout
+      - run: |
+          if [ -n "$CIRCLE_PR_NUMBER" ]; then
+            git fetch origin refs/pull/$CIRCLE_PR_NUMBER/merge
+            git checkout FETCH_HEAD
+          fi
       - run:
           name: Pull submodule
           command: |
