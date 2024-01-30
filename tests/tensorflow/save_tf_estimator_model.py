@@ -4,6 +4,7 @@ import copy
 import os
 import pickle
 
+import iris_data_utils
 import numpy as np
 import pandas as pd
 import pandas.testing
@@ -12,8 +13,6 @@ from tensorflow import estimator as tf_estimator
 
 import mlflow
 from mlflow.utils.file_utils import TempDir
-
-from tests.tensorflow import iris_data_utils
 
 assert mlflow.__version__ == "1.28.0"
 

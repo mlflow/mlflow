@@ -121,7 +121,7 @@ def iris_pandas_df():
 
 
 @pytest.fixture(scope="module")
-def iris_spark_and_pandas_df(spark):
+def iris_df(spark):
     pdf = iris_pandas_df()
     feature_names = list(pdf.drop("label", axis=1).columns)
     iris_spark_df = spark.createDataFrame(pdf)
@@ -144,8 +144,8 @@ def iris_signature():
 
 
 @pytest.fixture(scope="module")
-def spark_model_iris(iris_spark_and_pandas_df):
-    feature_names, iris_pandas_df, iris_spark_df = iris_spark_and_pandas_df
+def spark_model_iris(iris_df):
+    feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
     lr = LogisticRegression(maxIter=50, regParam=0.1, elasticNetParam=0.8)
     pipeline = Pipeline(stages=[assembler, lr])
@@ -159,8 +159,8 @@ def spark_model_iris(iris_spark_and_pandas_df):
 
 
 @pytest.fixture(scope="module")
-def spark_model_transformer(iris_spark_and_pandas_df):
-    feature_names, iris_pandas_df, iris_spark_df = iris_spark_and_pandas_df
+def spark_model_transformer(iris_df):
+    feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
     # Fit the model
     preds_df = assembler.transform(iris_spark_df)
@@ -171,8 +171,8 @@ def spark_model_transformer(iris_spark_and_pandas_df):
 
 
 @pytest.fixture(scope="module")
-def spark_model_estimator(iriiris_spark_and_pandas_dfs_df):
-    feature_names, iris_pandas_df, iris_spark_df = iris_spark_and_pandas_df
+def spark_model_estimator(iris_df):
+    feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
     features_df = assembler.transform(iris_spark_df)
     lr = LogisticRegression(maxIter=50, regParam=0.1, elasticNetParam=0.8)

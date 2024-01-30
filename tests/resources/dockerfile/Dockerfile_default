@@ -1,5 +1,5 @@
 # Build an image that can serve mlflow models.
-FROM python:3.9.8-slim
+FROM python:$PYTHON_VERSION-slim
 
 RUN apt-get -y update && apt-get install -y --no-install-recommends nginx
 
@@ -8,7 +8,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends nginx
 WORKDIR /opt/mlflow
 
 # Install MLflow
-RUN pip install mlflow==$VERSION
+RUN pip install mlflow==$MLFLOW_VERSION
 
 # Copy model to image and install dependencies
 COPY model_dir/model /opt/ml/model

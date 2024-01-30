@@ -12,6 +12,7 @@ import docker
 import mlflow
 from mlflow.models import Model
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.version import VERSION
 
@@ -23,7 +24,9 @@ _docker_client = docker.from_env()
 
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
     actual_dockerfile = actual_dockerfile_path.read_text()
-    expected_dockerfile = expected_dockerfile_path.read_text().replace("$VERSION", VERSION)
+    expected_dockerfile = expected_dockerfile_path.read_text() \
+                            .replace("$MLFLOW_VERSION", VERSION) \
+                            .replace("$PYTHON_VERSION", PYTHON_VERSION) \
 
     assert (
         actual_dockerfile == expected_dockerfile

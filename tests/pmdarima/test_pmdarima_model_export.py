@@ -51,7 +51,7 @@ def pmdarima_custom_env(tmp_path):
 
 
 @pytest.fixture(scope="module")
-def pmdarima_test_data():
+def test_data():
     data_conf = {
         "shift": False,
         "start": "2016-01-01",
@@ -66,16 +66,16 @@ def pmdarima_test_data():
 
 
 @pytest.fixture(scope="module")
-def auto_arima_model(pmdarima_test_data):
+def auto_arima_model(test_data):
     return pmdarima.auto_arima(
-        pmdarima_test_data["orders"], max_d=1, suppress_warnings=True, error_action="raise"
+        test_data["orders"], max_d=1, suppress_warnings=True, error_action="raise"
     )
 
 
 @pytest.fixture(scope="module")
-def auto_arima_object_model(pmdarima_test_data):
+def auto_arima_object_model(test_data):
     model = pmdarima.arima.ARIMA(order=(2, 1, 3), maxiter=25)
-    return model.fit(pmdarima_test_data["orders"])
+    return model.fit(test_data["orders"])
 
 
 def test_pmdarima_auto_arima_save_and_load(auto_arima_model, model_path):

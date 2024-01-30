@@ -18,7 +18,6 @@ import pandas as pd
 import pytest
 import requests
 from packaging.version import Version
-from sklearn import datasets
 
 import docker
 import mlflow
@@ -33,23 +32,22 @@ from tests.diviner.test_diviner_model_export import (
 from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw
 from tests.h2o.test_h2o_model_export import h2o_iris_model
 from tests.helper_functions import get_safe_port
+from tests.models.test_model import iris_data, sklearn_knn_model
 from tests.langchain.test_langchain_model_export import fake_chat_model
 from tests.lightgbm.test_lightgbm_model_export import lgb_model
 from tests.paddle.test_paddle_model_export import pd_model
 from tests.pmdarima.test_pmdarima_model_export import (
     auto_arima_object_model,
-    pmdarima_test_data,
+    test_data,
 )
 from tests.prophet.test_prophet_model_export import prophet_model as prophet_raw_model
-from tests.sklearn.test_sklearn_model_export import iris_df, sklearn_knn_model
 from tests.spacy.test_spacy_model_export import spacy_model_with_data
 from tests.spark.test_spark_model_export import (
-    iris_spark_and_pandas_df,
+    iris_df,
     spark,
     spark_model_iris,
 )
 from tests.statsmodels.model_fixtures import ols_model
-from tests.tensorflow.test_keras_model_export import get_model
 from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model
 from tests.transformers.helper import load_small_seq2seq_pipeline
 
@@ -236,11 +234,18 @@ def h2o_model(tmp_path, h2o_iris_model):
 
 @pytest.fixture
 def keras_model(tmp_path):
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense
+
     model_path = str(tmp_path / "keras_model")
-    iris_data = datasets.load_iris(return_X_y=True)
+
+    model = Sequential()
+    model.add(Dense(3, input_dim=4))
+    model.add(Dense(1))
+
     save_model_with_latest_mlflow_version(
         flavor="tensorflow",
-        model=get_model(iris_data),
+        model=model,
         path=model_path,
         input_example=iris_data[0][:1],
     )
