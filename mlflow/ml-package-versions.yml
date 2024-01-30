@@ -79,13 +79,13 @@ keras:
     pip_release: "keras"
     install_dev: |
       pip install --upgrade keras-nightly
-      export KERAS_BACKEND=tensorflow
+      export KERAS_BACKEND=jax
 
   models:
     minimum: "3.0.2"
     maximum: "3.0.2"
     requirements:
-      ">= 3.0.0": ["tensorflow"]
+      ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
       pytest tests/keras/test_callback.py
 
@@ -93,7 +93,7 @@ keras:
     minimum: "3.0.2"
     maximum: "3.0.2"
     requirements:
-      ">= 3.0.0": ["tensorflow"]
+      ">= 3.0.0": ["jax[cpu]>0.4"]
     run: |
       pytest tests/keras/test_autolog.py
 
