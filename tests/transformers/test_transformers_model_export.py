@@ -49,7 +49,7 @@ from mlflow.transformers import (
     _should_add_pyfunc_to_model,
     _TransformersModel,
     _TransformersWrapper,
-    _validate_inference_task_type,
+    _validate_llm_inference_task_type,
     _validate_transformers_task_type,
     _write_card_data,
     _write_license_information,
@@ -193,12 +193,12 @@ def test_inference_task_validation():
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/invalid' is not"
     ):
-        _validate_inference_task_type("llm/v1/invalid", "text-generation")
+        _validate_llm_inference_task_type("llm/v1/invalid", "text-generation")
     with pytest.raises(
         MlflowException, match="The task provided is invalid. 'llm/v1/completions' is not"
     ):
-        _validate_inference_task_type("llm/v1/completions", "text-classification")
-    _validate_inference_task_type("llm/v1/completions", "text-generation")
+        _validate_llm_inference_task_type("llm/v1/completions", "text-classification")
+    _validate_llm_inference_task_type("llm/v1/completions", "text-generation")
 
 
 def test_instance_extraction(small_qa_pipeline):

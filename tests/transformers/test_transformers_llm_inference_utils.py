@@ -1,4 +1,8 @@
-from mlflow.transformers.inference_utils import (
+from unittest import mock
+
+import torch
+
+from mlflow.transformers.llm_inference_utils import (
     _get_finish_reason,
     _get_output_and_usage_from_tensor,
     _get_token_usage,
@@ -26,13 +30,17 @@ def test_output_dict_for_completions(text_generation_pipeline):
 
 
 def test_token_usage(text_generation_pipeline):
-    prompt = "."
-    output_tensor = text_generation_pipeline.tokenizer(". So")["input_ids"]
+    prompt = "one two three"
+    output_tensor = [1, 2, 3, 4, 5]
+
+    text_generation_pipeline.tokenizer = mock.MagicMock(
+        return_value={"input_ids": torch.tensor([1, 2, 3])}
+    )
 
     usage = _get_token_usage(prompt, output_tensor, text_generation_pipeline, {})
-    assert usage["prompt_tokens"] == 1
-    assert usage["completion_tokens"] == 1
-    assert usage["total_tokens"] == 2
+    assert usage["prompt_tokens"] == 3
+    assert usage["completion_tokens"] == 2
+    assert usage["total_tokens"] == 5
 
 
 def test_finish_reason():

@@ -48,10 +48,11 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.transformers.inference_utils import (
-    _INFERENCE_TASK_CHAT,
-    _INFERENCE_TASK_COMPLETIONS,
-    _get_output_and_usage_from_tensor,
+from mlflow.transformers.llm_inference_utils import (
+    _LLM_INFERENCE_TASK_KEY,
+    _METADATA_LLM_INFERENCE_TASK_KEY,
+    _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE,
+    postprocess_output_for_llm_inference_task,
 )
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
@@ -100,10 +101,6 @@ _IMAGE_PROCESSOR_KEY = "image_processor"
 _IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
 _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
-_INFERENCE_TASK_KEY = "inference_task"
-# The inference task is saved as "task" in the metadata for forward compatibility with
-# future Databricks Provisioned Throughput support of more model architectures for inference.
-_METADATA_INFERENCE_TASK_KEY = "task"
 _LICENSE_FILE_NAME = "LICENSE.txt"
 _LICENSE_FILE_PATTERN = re.compile(r"license(\.[a-z]+|$)", re.IGNORECASE)
 _MODEL_KEY = "model"
@@ -145,10 +142,6 @@ _PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
     "pipeline kwarg set to False by default. To override this behavior, provide a "
     "`model_config` dict with `return_full_text` set to `True` when saving the model."
 )
-
-_SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE = {
-    "text-generation": [_INFERENCE_TASK_COMPLETIONS, _INFERENCE_TASK_CHAT],
-}
 
 _logger = logging.getLogger(__name__)
 
@@ -475,7 +468,7 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
-    transformers_task, inference_task = _get_or_infer_task_type(transformers_model, task)
+    transformers_task, llm_inference_task = _get_or_infer_task_type(transformers_model, task)
 
     if not isinstance(transformers_model, transformers.Pipeline):
         built_pipeline = _build_pipeline_from_model_input(transformers_model, transformers_task)
@@ -529,13 +522,13 @@ def save_model(
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
-    if inference_task:
-        _validate_inference_task_type(inference_task, transformers_task)
-        flavor_conf.update({_INFERENCE_TASK_KEY: task})
+    if llm_inference_task:
+        _validate_llm_inference_task_type(llm_inference_task, transformers_task)
+        flavor_conf.update({_LLM_INFERENCE_TASK_KEY: task})
         if mlflow_model.metadata:
-            mlflow_model.metadata[_METADATA_INFERENCE_TASK_KEY] = task
+            mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY] = task
         else:
-            mlflow_model.metadata = {_METADATA_INFERENCE_TASK_KEY: task}
+            mlflow_model.metadata = {_METADATA_LLM_INFERENCE_TASK_KEY: task}
 
     # Save the model object
     built_pipeline.model.save_pretrained(
@@ -1364,7 +1357,7 @@ def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str
     If ``transformers`` task type is not provided, the appropriate ``transformers`` task type
     based on the model type.
     """
-    transformers_task, inference_task = None, None
+    transformers_task, llm_inference_task = None, None
 
     if not task:
         transformers_task = _infer_transformers_task_type(model)
@@ -1372,9 +1365,9 @@ def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str
         transformers_task = task
     else:
         transformers_task = _infer_transformers_task_type(model)
-        inference_task = task
+        llm_inference_task = task
 
-    return transformers_task, inference_task
+    return transformers_task, llm_inference_task
 
 
 def _infer_transformers_task_type(model) -> str:
@@ -1440,19 +1433,19 @@ def _validate_transformers_task_type(transformers_task: str) -> None:
         )
 
 
-def _validate_inference_task_type(inference_task: str, transformers_task: str) -> None:
+def _validate_llm_inference_task_type(llm_inference_task: str, transformers_task: str) -> None:
     """
     Validates that an ``inference_task`` type is supported by ``transformers`` pipeline type.
     """
-    supported_inference_tasks = _SUPPORTED_INFERENCE_TASK_TYPES_BY_PIPELINE.get(
+    supported_llm_inference_tasks = _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE.get(
         transformers_task, []
     )
 
-    if inference_task not in supported_inference_tasks:
+    if llm_inference_task not in supported_llm_inference_tasks:
         raise MlflowException(
-            f"The task provided is invalid. '{inference_task}' is not a supported task. "
+            f"The task provided is invalid. '{llm_inference_task}' is not a supported task. "
             f"Must be one of the registered MLflow inference tasks supported for "
-            f"the {transformers_task} pipeline: {supported_inference_tasks}, or one of the "
+            f"the {transformers_task} pipeline: {supported_llm_inference_tasks}, or one of the "
             f"registered transformers tasks",
             error_code=BAD_REQUEST,
         )
@@ -1854,8 +1847,8 @@ class _TransformersWrapper:
         # InstructionTextGenerationPipeline [Dolly] https://huggingface.co/databricks/dolly-v2-12b
         #   (and all variants)
         self._supported_custom_generator_types = {"InstructionTextGenerationPipeline"}
-        self.inference_task = (
-            self.flavor_config.get(_INFERENCE_TASK_KEY) if self.flavor_config else None
+        self.llm_inference_task = (
+            self.flavor_config.get(_LLM_INFERENCE_TASK_KEY) if self.flavor_config else None
         )
 
     def _convert_pandas_to_dict(self, data):
@@ -2068,7 +2061,7 @@ class _TransformersWrapper:
         else:
             # If inference task is defined, return tensors internally to get usage information
             force_return_tensors = False
-            if self.inference_task:
+            if self.llm_inference_task:
                 force_return_tensors = True
                 output_key = "generated_token_ids"
 
@@ -2089,8 +2082,10 @@ class _TransformersWrapper:
                 collapse_whitespace,
             )
 
-            if self.inference_task:
-                output = self._postprocess_output_for_inference_task(data, output)
+            if self.llm_inference_task:
+                output = postprocess_output_for_llm_inference_task(
+                    data, output, self.pipeline, self.model_config, self.llm_inference_task
+                )
 
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
             return self._parse_feature_extraction_output(raw_output)
@@ -3004,19 +2999,6 @@ class _TransformersWrapper:
         raise MlflowException.invalid_parameter_value(
             "Prompt templating is only supported for data of type str or List[str]. "
         )
-
-    def _postprocess_output_for_inference_task(self, data, output):
-        """
-        Wrap output data with usage information according to the MLflow inference task.
-        """
-        output_dicts = []
-        for input_data, output_tensor in zip(data, output):
-            output_dict = _get_output_and_usage_from_tensor(
-                input_data, output_tensor, self.pipeline, self.model_config, self.inference_task
-            )
-            output_dicts.append(output_dict)
-
-        return output_dicts
 
 
 @experimental
