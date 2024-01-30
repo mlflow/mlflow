@@ -1,4 +1,6 @@
 import json
+import pickle
+import mlflow
 
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import (
@@ -50,3 +52,12 @@ def test_rest_exception():
     deserialized_rest_exception = RestException(json.loads(json_exception))
     assert deserialized_rest_exception.error_code == "RESOURCE_ALREADY_EXISTS"
     assert "test" in deserialized_rest_exception.message
+
+
+def test_test_rest_exception_pickleable():
+    v1 = mlflow.exceptions.RestException({"error_code": "INTERNAL_ERROR", "message": "abc"})
+    s1 = pickle.dumps(v1)
+    v2 = pickle.loads(s1)
+
+    assert v1.error_code == v2.error_code
+    assert v1.message == v2.message
