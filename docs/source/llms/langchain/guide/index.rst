@@ -255,14 +255,14 @@ MLflow `langchain` flavor supports autologging of LangChain models, which provid
 - **Automated Input and Output Logging**: Autologging takes care of logging inputs and outputs of the LangChain model during inference. The recorded results are neatly organized into an inference_inputs_outputs.json file, providing a comprehensive overview of the model's inference history.
 
 .. note::
-    To use MLflow LangChain autologging, please upgrade langchain to version 0.1.0 or higher.
-    Currently you might need to manually install langchain_community>=0.0.16 to enable autologging artifacts and metrics. (we're working on improvements in the meantime)
-    If autologging doesn't log artifacts as expected, please check the warning messages in stdout logs. 
-    For langchain_community==0.0.16, please try to install textstat and spacy libraries manually, and restart your python environment.
+    To use MLflow LangChain autologging, please upgrade langchain to **version 0.1.0** or higher.
+    Depending on your existing environment, you may need to manually install langchain_community>=0.0.16 in order to enable the automatic logging of artifacts and metrics. (this behavior will be modified in the future to be an optional import)
+    If autologging doesn't log artifacts as expected, please check the warning messages in `stdout` logs. 
+    For langchain_community==0.0.16, you will need to install the `textstat` and `spacy` libraries manually, as well as restarting any active interactive environment (i.e., a notebook environment). On Databricks, you can achieve this via executing `dbutils.library.restartPython()` to force the Python REPL to restart, allowing the newly installed libraries to be available.
 
-MLflow langchain autologging injects `MlflowCallbackHandler <https://github.com/langchain-ai/langchain/blob/master/libs/community/langchain_community/callbacks/mlflow_callback.py>`_ into the langchain model inference process, to log
-metrics and artifacts automatically. We log the model if `log_models` is set to True when calling :py:func:`mlflow.langchain.autolog`, supported model types are `Chain`, `AgentExecutor`, `BaseRetriever`, `RunnableSequence`, `RunnableParallel`, `RunnableBranch`, `SimpleChatModel`, `ChatPromptTemplate`,
-`RunnableLambda`, `RunnablePassthrough`, and more model types will be supported in the future.
+MLflow langchain autologging injects `MlflowCallbackHandler <https://github.com/langchain-ai/langchain/blob/master/libs/community/langchain_community/callbacks/mlflow_callback.py>`_ into the langchain model inference process to log
+metrics and artifacts automatically. We will only log the model if both `log_models` is set to `True` when calling :py:func:`mlflow.langchain.autolog` and the objects being invoked are within the supported model types: `Chain`, `AgentExecutor`, `BaseRetriever`, `RunnableSequence`, `RunnableParallel`, `RunnableBranch`, `SimpleChatModel`, `ChatPromptTemplate`,
+`RunnableLambda`, `RunnablePassthrough`. Additional model types will be supported in the future.
 
 .. note::
     We patch `invoke` function for all supported langchain models, `__call__` function for Chains, AgentExecutors models, and `get_relevant_documents` function for BaseRetrievers, so only when those functions are called MLflow autologs metrics and artifacts.
@@ -330,6 +330,10 @@ Metrics:
   |                                               | (they're the text analysis metrics of the generation text if `textstat`   |
   |                                               | library is installed)                                                     |
   +-----------------------------------------------+---------------------------------------------------------------------------+
+
+.. note::
+    Each inference call logs those artifacts into a separate directory named `artifacts-<session_id>-<idx>`, where `session_id` is randomly generated uuid, and `idx` is the index of the inference call.
+    `session_id` is also preserved in the `inference_inputs_outputs.json` file, so you can easily find the corresponding artifacts for each inference call.
 
 If you encounter any issues unexpected, please feel free to open an issue in `MLflow Github repo <https://github.com/mlflow/mlflow/issues>`_.
 
