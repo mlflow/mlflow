@@ -18,7 +18,7 @@ import mlflow
 import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.pytorch import load_best_checkpoint
+from mlflow.pytorch import load_latest_checkpoint
 from mlflow.pytorch._lightning_autolog import (
     _get_optimizer_name,
     __MLflowModelCheckpointCallback,
@@ -738,6 +738,5 @@ def test_automatic_model_checkpoint():
         'val_acc', 'val_loss', 'train_acc', 'loss_forked_epoch', 'epoch'
     }
 
-    loaded_model = load_best_checkpoint(IrisClassification, run.info.run_id)
+    loaded_model = load_latest_checkpoint(IrisClassification, run.info.run_id)
     assert isinstance(loaded_model, IrisClassification)
-

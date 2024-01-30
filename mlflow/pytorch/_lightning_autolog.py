@@ -290,7 +290,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.metrics_logger.flush()
 
 
-_BEST_CHECKPOINT_ARTIFACT_TAG_KEY = "_best_checkpoint_artifact"
+_LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "_latest_checkpoint_artifact"
 
 
 class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
@@ -372,7 +372,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
             checkpoint_artifact_dir = "checkpoints"
 
         mlflow.set_tag(
-            _BEST_CHECKPOINT_ARTIFACT_TAG_KEY,
+            _LATEST_CHECKPOINT_ARTIFACT_TAG_KEY,
             os.path.join(checkpoint_artifact_dir, checkpoint_model_filename)
         )
 

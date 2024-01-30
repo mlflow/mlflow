@@ -1129,17 +1129,17 @@ if autolog.__doc__ is not None:
     )
 
 
-def load_best_checkpoint(model_class, run_id=None):
+def load_latest_checkpoint(model_class, run_id=None):
     """
     If you enable model_checkpoint in autologging, during pytorch-lightning model
     training execution, checkpointed models are logged as MLflow artifacts.
-    Using this API, you can load the best checkpointed model.
+    Using this API, you can load the latest checkpointed model.
 
     :param model_class: The class of the training model
     :param run_id: The id of the run which model is logged to. If not provided,
       current active run is used.
     """
-    from mlflow.pytorch._lightning_autolog import _BEST_CHECKPOINT_ARTIFACT_TAG_KEY
+    from mlflow.pytorch._lightning_autolog import _LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 
     client = MlflowClient()
 
@@ -1154,7 +1154,7 @@ def load_best_checkpoint(model_class, run_id=None):
     else:
         run = client.get_run(run_id)
 
-    best_checkpoint_artifact = run.data.tags.get(_BEST_CHECKPOINT_ARTIFACT_TAG_KEY)
+    best_checkpoint_artifact = run.data.tags.get(_LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
     if best_checkpoint_artifact is None:
         raise MlflowException("There is no logged checkpoint artifact in current run.")
 
