@@ -23,12 +23,14 @@ def main():
         .stdout.strip()
         .splitlines()
     )
+    print(changed_files)
     changed_pages = set()
     for p in BUILD_DIR.rglob("**/*.html"):
         if m := SOURCE_REGEX.search(p.read_text()):
             source = m.group(1)
             if source in changed_files:
                 changed_pages.add(p.relative_to(BUILD_DIR))
+    print(changed_pages)
 
     links = "".join(f'<li><a href="{p}">{p}</a></li>' for p in changed_pages)
     diff_html = f"""
