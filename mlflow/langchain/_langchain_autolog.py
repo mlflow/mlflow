@@ -300,7 +300,13 @@ def patched_inference(func_name, original, self, *args, **kwargs):
                 _logger.info("Input data gathering failed, only log inference results.")
         else:
             input_data = input_example
-        data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
+        try:
+            data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
+        except Exception as e:
+            _logger.warning(
+                "Failed to log inputs and outputs into `inference_inputs_outputs.json` "
+                f"file due to error {e}."
+            )
         mlflow.log_table(
             data_dict, "inference_inputs_outputs.json", run_id=mlflow_callback.mlflg.run_id
         )
