@@ -65,7 +65,7 @@ jobs:
             JAVA_HOME: /usr/lib/jvm/default-java
           command: |
             make rsthtml
-            make javadocs
+            # make javadocs
             python diff.py
       - run:
           name: Check for broken links

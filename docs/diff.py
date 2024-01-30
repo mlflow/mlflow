@@ -8,14 +8,7 @@ def main():
     BUILD_DIR = pathlib.Path("build/html")
     changed_files = set(
         subprocess.run(
-            [
-                "git",
-                "diff-tree",
-                "--no-commit-id",
-                "--name-only",
-                "-r",
-                "HEAD",
-            ],
+            ["git", "diff", "--name-only", "master"],
             text=True,
             capture_output=True,
             check=True,
