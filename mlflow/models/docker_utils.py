@@ -4,7 +4,7 @@ from subprocess import PIPE, STDOUT, Popen
 from urllib.parse import urlparse
 
 from mlflow.utils import env_manager as em
-from mlflow.utils.file_utils import TempDir, _copy_project
+from mlflow.utils.file_utils import _copy_project
 from mlflow.utils.logging_utils import eprint
 from mlflow.version import VERSION
 
@@ -93,8 +93,7 @@ RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-re
          maven \
     && rm -rf /var/lib/apt/lists/*
 
-{setup_miniconda}
-{setup_pyenv_and_virtualenv}
+{setup_python_env}
 
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
@@ -104,6 +103,10 @@ WORKDIR /opt/mlflow
 {install_mlflow}
 
 {custom_setup_steps}
+
+ENV MLFLOW_DISABLE_ENV_CREATION={disable_env_creation}
+ENV ENABLE_MLSERVER={enable_mlserver}
+
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints
@@ -119,6 +122,8 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
     Get docker build commands for installing MLflow given a Docker context dir and optional source
     directory
     """
+    mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
+
     maven_proxy = _get_maven_proxy()
     if mlflow_home:
         mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=dockerfile_context_dir)
@@ -149,79 +154,37 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         )
 
 
-def _generate_dockerfile_content(
-    setup_miniconda, setup_pyenv_and_virtualenv, install_mlflow, custom_setup_steps, entrypoint
+def generate_dockerfile(
+    output_dir,
+    entrypoint,
+    env_manager,
+    mlflow_home=None,
+    custom_setup_steps=None,
+    enable_mlserver=False,
+    disable_env_creation=False,
 ):
     """
     Generates a Dockerfile that can be used to build a docker image, that serves ML model
     stored and tracked in MLflow.
-
-    It just takes string parameters containing docker imperatives and has no logic
-    whatsoever. It will be more convenient if a more sophisticated function
-    with some boolean flags would be called `generate_dockerfile`
-    while this function being a backend of sorts for such function.
-
-    :param setup_miniconda: Docker instructions related to set up miniconda. If used at all,
-    variable `SETUP_MINICONDA` provides a working template for instructions. Should be either an
-    empty string or `SETUP_MINICONDA`-based instructions :param setup_pyenv_and_virtualenv:
-    Docker instructions related to set up pyenv and virtualenv. If used at all, variable
-    `SETUP_PYENV_AND_VIRTUALENV` provides a working template for instructions. Should be either
-    an empty string or `SETUP_PYENV_AND_VIRTUALENV`-based :param install_mlflow: Docker
-    instruction for installing MLflow in given Docker context dir and optional source directory
-    :param custom_setup_steps: Docker instructions for any customizations in the resulting
-    Dockerfile :param entrypoint: String containing ENTRYPOINT directive for docker image
     """
-    return _DOCKERFILE_TEMPLATE.format(
-        setup_miniconda=setup_miniconda,
-        setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
-        install_mlflow=install_mlflow,
-        custom_setup_steps=custom_setup_steps,
-        entrypoint=entrypoint,
+    install_mlflow_steps = _get_mlflow_install_step(output_dir, mlflow_home)
+    setup_python_env_steps = (
+        SETUP_MINICONDA if env_manager == em.CONDA else SETUP_PYENV_AND_VIRTUALENV
     )
-
-
-def _build_image(
-    image_name, entrypoint, env_manager, mlflow_home=None, custom_setup_steps_hook=None
-):
-    """
-    Build an MLflow Docker image that can be used to serve a
-    The image is built locally and it requires Docker to run.
-
-    :param image_name: Docker image name.
-    :param entry_point: String containing ENTRYPOINT directive for docker image
-    :param env_manager: Environment manager to create a model environment for serving.
-    :param mlflow_home: (Optional) Path to a local copy of the MLflow GitHub repository.
-                        If specified, the image will install MLflow from this directory.
-                        If None, it will install MLflow from pip.
-    :param custom_setup_steps_hook: (Optional) Single-argument function that takes the string path
-           of a dockerfile context directory and returns a string containing Dockerfile commands to
-           run during the image build step.
-    """
-    mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
-
-    is_conda = env_manager == em.CONDA
-    setup_miniconda = SETUP_MINICONDA if is_conda else ""
-    setup_pyenv_and_virtualenv = "" if is_conda else SETUP_PYENV_AND_VIRTUALENV
-
-    with TempDir() as tmp:
-        cwd = tmp.path()
-        install_mlflow = _get_mlflow_install_step(cwd, mlflow_home)
-        custom_setup_steps = custom_setup_steps_hook(cwd) if custom_setup_steps_hook else ""
-        with open(os.path.join(cwd, "Dockerfile"), "w") as f:
-            f.write(
-                _generate_dockerfile_content(
-                    setup_miniconda=setup_miniconda,
-                    setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
-                    install_mlflow=install_mlflow,
-                    custom_setup_steps=custom_setup_steps,
-                    entrypoint=entrypoint,
-                )
+    with open(os.path.join(output_dir, "Dockerfile"), "w") as f:
+        f.write(
+            _DOCKERFILE_TEMPLATE.format(
+                setup_python_env=setup_python_env_steps,
+                install_mlflow=install_mlflow_steps,
+                custom_setup_steps=custom_setup_steps,
+                entrypoint=entrypoint,
+                enable_mlserver=enable_mlserver,
+                disable_env_creation=disable_env_creation,
             )
-        _logger.info("Building docker image with name %s", image_name)
-        _build_image_from_context(context_dir=cwd, image_name=image_name)
+        )
 
 
-def _build_image_from_context(context_dir: str, image_name: str):
+def build_image_from_context(context_dir: str, image_name: str):
     import docker
 
     client = docker.from_env()

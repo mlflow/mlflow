@@ -141,17 +141,18 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         """
         Constructs a step card instance corresponding to the current ingest step state.
 
-        :param ingested_dataset_path: The local filesystem path to the ingested parquet dataset
-                                      file.
-        :param dataset_src_location: The source location of the dataset
-                                     (e.g. '/tmp/myfile.parquet', 's3://mybucket/mypath', ...),
-                                     if the dataset is a location-based dataset. Either
-                                     ``dataset_src_location`` or ``dataset_sql`` must be specified.
-        :param dataset_sql: The Spark SQL query string that defines the dataset
-                            (e.g. 'SELECT * FROM my_spark_table'), if the dataset is a Spark SQL
-                            dataset. Either ``dataset_src_location`` or ``dataset_sql`` must be
-                            specified.
-        :return: An BaseCard instance corresponding to the current ingest step state.
+        Args:
+            ingested_dataset_path: The local filesystem path to the ingested parquet dataset file.
+            dataset_src_location: The source location of the dataset (e.g. '/tmp/myfile.parquet',
+                's3://mybucket/mypath', ...), if the dataset is a location-based dataset. Either
+                ``dataset_src_location`` or ``dataset_sql`` must be specified.
+            dataset_sql: The Spark SQL query string that defines the dataset
+                (e.g. 'SELECT * FROM my_spark_table'), if the dataset is a Spark SQL dataset. Either
+                ``dataset_src_location`` or ``dataset_sql`` must be specified.
+
+        Returns:
+            An BaseCard instance corresponding to the current ingest step state.
+
         """
         if dataset_src_location is None and dataset_sql is None:
             raise MlflowException(
@@ -171,7 +172,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
             )
         # Tab #2 -- Ingested dataset schema.
         schema_html = BaseCard.render_table(schema["fields"])
-        card.add_tab("Data Schema", "{{SCHEMA|e}}").add_html("SCHEMA", schema_html)
+        card.add_tab("Data Schema", "{{SCHEMA}}").add_html("SCHEMA", schema_html)
 
         if data_preview is not None:
             # Tab #3 -- Ingested dataset preview.
