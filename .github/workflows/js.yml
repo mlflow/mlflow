@@ -73,7 +73,7 @@ jobs:
           yarn i18n:check
       - name: Run tests
         run: |
-          yarn test --silent
+          yarn test --silent --logHeapUsage
       - name: Run build
         if: runner.os == 'Linux'
         env:
