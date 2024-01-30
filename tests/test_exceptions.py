@@ -1,7 +1,6 @@
 import json
 import pickle
 
-import mlflow
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import (
     ENDPOINT_NOT_FOUND,
@@ -55,7 +54,7 @@ def test_rest_exception():
 
 
 def test_rest_exception_pickleable():
-    e1 = mlflow.exceptions.RestException({"error_code": "INTERNAL_ERROR", "message": "abc"})
+    e1 = RestException({"error_code": "INTERNAL_ERROR", "message": "abc"})
     e2 = pickle.loads(pickle.dumps(e1))
 
     assert e1.error_code == e2.error_code
