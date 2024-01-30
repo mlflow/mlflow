@@ -92,16 +92,38 @@ class MyChatLLM(PythonModel):
 
 
 class MyCompletionsLLM(PythonModel):
+    # Example model that takes "prompt" as model input
     def predict(self, context, model_input, params=None):
+        if isinstance(model_input, pd.DataFrame):
+            model_input = model_input.to_dict(orient="records")[0]
+
         ret = model_input["prompt"]
 
         return {
-            "model": "llama-2-70b-chat-hf",
             "choices": [
                 {
                     "index": 0,
                     "text": ret,
                     "finish_reason": "stop",
+                }
+            ],
+            # Echo model input and params for testing purposes
+            "model_input": model_input,
+            "params": params,
+        }
+
+
+class MyEmbeddingsLLM(PythonModel):
+    # Example model that takes "input" as model input
+    def predict(self, context, model_input, params=None):
+        if isinstance(model_input, pd.DataFrame):
+            model_input = model_input.to_dict(orient="records")[0]
+
+        return {
+            "data": [
+                {
+                    "index": 0,
+                    "embedding": [0.1, 0.2, 0.3],
                 }
             ],
             # Echo model input and params for testing purposes
@@ -878,6 +900,16 @@ def test_scoring_server_allows_payloads_with_llm_chat_keys_for_pyfunc(
     assert json.loads(response.content)["params"] == expected_params
 
 
+_LLM_COMPLETIONS_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            DataType.string,
+            name="prompt",
+        )
+    ]
+)
+
+
 @pytest.mark.parametrize(
     ("signature", "expected_model_input", "expected_params"),
     [
@@ -890,6 +922,27 @@ def test_scoring_server_allows_payloads_with_llm_chat_keys_for_pyfunc(
                 "temperature": 0.5,
             },
             {},
+        ),
+        # Test case: signature with params, split params and data
+        (
+            ModelSignature(
+                inputs=_LLM_COMPLETIONS_INPUT_SCHEMA,
+                params=ParamSchema(
+                    [
+                        ParamSpec("temperature", DataType.double, default=0.5),
+                        ParamSpec("max_tokens", DataType.integer, default=20),
+                        ParamSpec("top_p", DataType.double, default=0.9),
+                    ]
+                ),
+            ),
+            {
+                "prompt": "hello!",
+            },
+            {
+                "temperature": 0.5,
+                "max_tokens": 20,
+                "top_p": 0.9,  # filled with the default value
+            },
         ),
     ],
 )
@@ -913,6 +966,63 @@ def test_scoring_server_allows_payloads_with_llm_completions_keys_for_pyfunc(
     )
     expect_status_code(response, 200)
     assert json.loads(response.content)["choices"][0]["text"] == "hello!"
+    assert json.loads(response.content)["model_input"] == expected_model_input
+    assert json.loads(response.content)["params"] == expected_params
+
+
+_LLM_EMBEDDINGS_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(
+            DataType.string,
+            name="input",
+        )
+    ]
+)
+
+
+@pytest.mark.parametrize(
+    ("signature", "expected_model_input", "expected_params"),
+    [
+        # Test case: no signature, everything should go to data
+        (
+            None,
+            {
+                "input": "hello!",
+                "random": "test",
+            },
+            {},
+        ),
+        # Test case: signature with params, split params and data
+        (
+            ModelSignature(
+                inputs=_LLM_EMBEDDINGS_INPUT_SCHEMA,
+            ),
+            {
+                "input": "hello!",
+            },
+            {},
+        ),
+    ],
+)
+def test_scoring_server_allows_payloads_with_llm_embeddings_keys_for_pyfunc(
+    model_path, signature, expected_model_input, expected_params
+):
+    mlflow.pyfunc.save_model(model_path, python_model=MyEmbeddingsLLM(), signature=signature)
+
+    payload = json.dumps(
+        {
+            "input": "hello!",
+            "random": "test",
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_path,
+        data=payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["data"][0]["embedding"] == [0.1, 0.2, 0.3]
     assert json.loads(response.content)["model_input"] == expected_model_input
     assert json.loads(response.content)["params"] == expected_params
 
