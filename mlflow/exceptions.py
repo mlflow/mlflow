@@ -67,8 +67,6 @@ class MlflowException(Exception):
     The error message associated with this exception may be exposed to clients in HTTP responses
     for debugging purposes. If the error text is sensitive, raise a generic `Exception` object
     instead.
-
-    Note: Instance of `MlflowException` is pickleable, see `__getstate__` and `__setstate__`
     """
 
     def __init__(self, message, error_code=INTERNAL_ERROR, **kwargs):
@@ -125,6 +123,9 @@ class RestException(MlflowException):
         self.json = json
 
     def __reduce__(self):
+        """
+        Overriding `__reduce__` to make `RestException` instance pickle-able.
+        """
         return type(self), (self.json,)
 
 
