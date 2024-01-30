@@ -51,7 +51,7 @@ JAVA_FLAVORS = {"johnsnowlabs", "h2o", "mleap", "spark"}
 
 # Some flavor requires additional packages to be installed in the environment
 FLAVOR_SPECIFIC_APT_PACKAGES = {
-    "libgomp": ["libgomp1"],
+    "lightgbm": ["libgomp1"],
     "paddle": ["libgomp1"],
 }
 

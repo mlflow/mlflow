@@ -11,7 +11,7 @@ import mlflow
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.sagemaker.cli import build_and_push_container
 
-from tests.pyfunc.test_docker import assert_dockerfiles_equal
+from tests.pyfunc.docker.test_docker import assert_dockerfiles_equal
 
 _MLFLOW_ROOT = Path(mlflow.__file__).parent.parent
 _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
