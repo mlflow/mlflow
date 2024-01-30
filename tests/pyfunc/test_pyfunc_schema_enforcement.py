@@ -13,7 +13,22 @@ import pytest
 import sklearn.linear_model
 from packaging.version import Version
 from pyspark.sql import SparkSession
-from pyspark.sql.types import *
+from pyspark.sql.types import (
+    ArrayType,
+    BinaryType,
+    BooleanType,
+    DateType,
+    DoubleType,
+    FloatType,
+    IntegerType,
+    LongType,
+    MapType,
+    ShortType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -2716,32 +2731,6 @@ def test_enforce_schema_spark_dataframe_missing_col():
         _enforce_schema(df, input_schema)
 
 
-def test_enforce_schema_spark_dataframe_missing_col():
-    spark = SparkSession.builder.appName("test").getOrCreate()
-
-    spark_df_schema = StructType(
-        [StructField("smallint", ShortType(), True), StructField("int", IntegerType(), True)]
-    )
-
-    data = [
-        (
-            1,  # smallint
-            2,  # int
-        )
-    ]
-
-    df = spark.createDataFrame(data, spark_df_schema)
-    input_schema = Schema(
-        [
-            ColSpec(DataType.integer, "smallint"),
-            ColSpec(DataType.integer, "int"),
-            ColSpec(DataType.long, "bigint"),
-        ]
-    )
-    with pytest.raises(MlflowException, match="Model is missing inputs"):
-        _enforce_schema(df, input_schema)
-
-
 def test_enforce_schema_spark_dataframe_incompatible_type():
     spark = SparkSession.builder.appName("test").getOrCreate()
 
@@ -2819,12 +2808,11 @@ def test_enforce_schema_spark_dataframe_null_values():
     input_schema = Schema(
         [
             ColSpec(DataType.integer, "a"),
-            ColSpec(DataType.integer, "b"),
+            ColSpec(DataType.double, "b"),
         ]
     )
     with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
         _enforce_schema(df, input_schema)
         mock_warning.assert_called_once_with(
-            f"Input column b is a required column containing null values."
+            "Input column b is a required column containing null values."
         )
-

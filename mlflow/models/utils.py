@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+from pyspark.sql import DataFrame as SparkDataFrame
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
@@ -26,7 +27,6 @@ from mlflow.utils.proto_json_utils import (
     parse_tf_serving_input,
 )
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
-from pyspark.sql import DataFrame as SparkDataFrame
 
 try:
     from scipy.sparse import csc_matrix, csr_matrix
@@ -960,7 +960,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
             if extra_cols:
                 message += f" Note that there were extra inputs: {extra_cols}"
             raise MlflowException(message)
-        #check for null values in required columns of Pyspark DataFrame
+        # check for null values in required columns of Pyspark DataFrame
         if isinstance(original_pf_input, SparkDataFrame):
             for col in input_names:
                 if original_pf_input.filter(original_pf_input[col].isNull()).count() > 0:
