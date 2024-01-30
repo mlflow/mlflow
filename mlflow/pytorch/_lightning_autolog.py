@@ -282,6 +282,9 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.metrics_logger.flush()
 
 
+_BEST_CHECKPOINT_ARTIFACT_TAG_KEY = "_best_checkpoint_artifact"
+
+
 class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
 
     def __init__(
@@ -299,7 +302,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
         self.save_weights_only = save_weights_only
         self.every_n_epochs = every_n_epochs
         self.train_time_interval_S = train_time_interval_S
-        self.last_checkpoint_timestamp = time.time()
+        self.latest_checkpoint_timestamp = time.time()
         self.last_monitor_value = None
 
     def _is_new_checkpoint_better(self, new_monitor_value):
@@ -323,7 +326,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
             should_checkpoint = True
         elif (
                 self.train_time_interval_S and
-                time.time() - self.last_checkpoint_timestamp > self.train_time_interval_S
+                time.time() - self.latest_checkpoint_timestamp > self.train_time_interval_S
         ):
             should_checkpoint = True
 
@@ -347,10 +350,10 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
 
         if self.save_best_only:
             if self.save_weights_only:
-                checkpoint_model_filename = "last_checkpoint_model.weights.pth"
+                checkpoint_model_filename = "latest_checkpoint_model.weights.pth"
             else:
-                checkpoint_model_filename = "last_checkpoint_model.pth"
-            checkpoint_metrics_filename = "last_checkpoint_metrics.json"
+                checkpoint_model_filename = "latest_checkpoint_model.pth"
+            checkpoint_metrics_filename = "latest_checkpoint_metrics.json"
             checkpoint_artifact_dir = ""
         else:
             if self.save_weights_only:
@@ -359,6 +362,11 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
                 checkpoint_model_filename = f"checkpoint_model_epoch_{current_epoch}.pth"
             checkpoint_metrics_filename = f"checkpoint_metrics_epoch_{current_epoch}.json"
             checkpoint_artifact_dir = "checkpoints"
+
+        mlflow.set_tag(
+            _BEST_CHECKPOINT_ARTIFACT_TAG_KEY,
+            os.path.join(checkpoint_artifact_dir, checkpoint_model_filename)
+        )
 
         mlflow.log_dict(
             {**metric_dict, "epoch": current_epoch},
@@ -374,7 +382,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
-        self.last_checkpoint_timestamp = time.time()
+        self.latest_checkpoint_timestamp = time.time()
 
 
 # PyTorch-Lightning refactored the LoggerConnector class in version 1.4.0 and made metrics

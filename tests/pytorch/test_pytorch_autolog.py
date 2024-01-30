@@ -18,6 +18,7 @@ import mlflow
 import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
+from mlflow.pytorch import load_best_checkpoint
 from mlflow.pytorch._lightning_autolog import (
     _get_optimizer_name,
     __MLflowModelCheckpointCallback,
@@ -501,13 +502,13 @@ def test_model_checkpoint_callback():
 
         trainer1 = FakeTrainer()
         trainer1.current_epoch = 1
-        trainer1.callback_metrics = {"loss": 1.5, "val_loss": 1.6}
+        trainer1.callback_metrics = {"loss": torch.tensor(1.5), "val_loss": torch.tensor(2.0)}
         trainer1.expect_weights_only_saving = False
         trainer1.expected_checkpoint_filename = "checkpoint_model_epoch_1.pth"
         callback1.on_train_epoch_end(trainer1, model)
 
         log_dict_mock.assert_called_once_with(
-            {"loss": 1.5, "val_loss": 1.6, "epoch": 1},
+            {"loss": 1.5, "val_loss": 2.0, "epoch": 1},
             "checkpoints/checkpoint_metrics_epoch_1.json",
         )
         log_artifact_mock.assert_called_once_with(
@@ -626,12 +627,12 @@ def test_model_checkpoint_callback():
         trainer5.current_epoch = 1
         trainer5.callback_metrics = {"loss": 1.5, "val_loss": 1.6}
         trainer5.expect_weights_only_saving = False
-        trainer5.expected_checkpoint_filename = "last_checkpoint_model.pth"
+        trainer5.expected_checkpoint_filename = "latest_checkpoint_model.pth"
         callback5.on_train_epoch_end(trainer5, model)
 
         log_dict_mock.assert_called_once_with(
             {"loss": 1.5, "val_loss": 1.6, "epoch": 1},
-            "last_checkpoint_metrics.json",
+            "latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
             mock.ANY, "",
@@ -648,12 +649,12 @@ def test_model_checkpoint_callback():
         trainer5.current_epoch = 3
         trainer5.callback_metrics = {"loss": 1.3, "val_loss": 1.5}
         trainer5.expect_weights_only_saving = False
-        trainer5.expected_checkpoint_filename = "last_checkpoint_model.pth"
+        trainer5.expected_checkpoint_filename = "latest_checkpoint_model.pth"
         callback5.on_train_epoch_end(trainer5, model)
 
         log_dict_mock.assert_called_once_with(
             {"loss": 1.3, "val_loss": 1.5, "epoch": 3},
-            "last_checkpoint_metrics.json",
+            "latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
             mock.ANY, "",
@@ -675,12 +676,12 @@ def test_model_checkpoint_callback():
         trainer6.current_epoch = 1
         trainer6.callback_metrics = {"acc": 0.9, "val_acc": 0.8}
         trainer6.expect_weights_only_saving = False
-        trainer6.expected_checkpoint_filename = "last_checkpoint_model.pth"
+        trainer6.expected_checkpoint_filename = "latest_checkpoint_model.pth"
         callback6.on_train_epoch_end(trainer6, model)
 
         log_dict_mock.assert_called_once_with(
             {"acc": 0.9, "val_acc": 0.8, "epoch": 1},
-            "last_checkpoint_metrics.json",
+            "latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
             mock.ANY, "",
@@ -691,12 +692,12 @@ def test_model_checkpoint_callback():
         trainer6.current_epoch = 2
         trainer6.callback_metrics = {"acc": 0.95, "val_acc": 0.85}
         trainer6.expect_weights_only_saving = False
-        trainer6.expected_checkpoint_filename = "last_checkpoint_model.pth"
+        trainer6.expected_checkpoint_filename = "latest_checkpoint_model.pth"
         callback6.on_train_epoch_end(trainer6, model)
 
         log_dict_mock.assert_called_once_with(
             {"acc": 0.95, "val_acc": 0.85, "epoch": 2},
-            "last_checkpoint_metrics.json",
+            "latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
             mock.ANY, "",
@@ -725,15 +726,18 @@ def test_automatic_model_checkpoint():
     client = MlflowClient()
     artifacts = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
 
-    assert 'last_checkpoint_metrics.json' in artifacts
-    assert 'last_checkpoint_model.weights.pth' in artifacts
+    assert 'latest_checkpoint_metrics.json' in artifacts
+    assert 'latest_checkpoint_model.weights.pth' in artifacts
 
     result_metrics = mlflow.artifacts.load_dict(
-        f'runs:/{run.info.run_id}/last_checkpoint_metrics.json'
+        f'runs:/{run.info.run_id}/latest_checkpoint_metrics.json'
     )
 
     assert set(result_metrics.keys()) == {
         'loss', 'loss_forked', 'loss_forked_step',
         'val_acc', 'val_loss', 'train_acc', 'loss_forked_epoch', 'epoch'
     }
+
+    loaded_model = load_best_checkpoint(IrisClassification, run.info.run_id)
+    assert isinstance(loaded_model, IrisClassification)
 
