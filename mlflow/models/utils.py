@@ -843,6 +843,10 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     For column-based signatures, we make sure the types of the input match the type specified in
     the schema or if it can be safely converted to match the input schema.
 
+    For Pyspark DataFrame inputs, schema enforcement does not support Array and Object types.
+    During schema enforcement, MLflow casts a sample of the PySpark DataFrame into a Pandas
+    DataFrame.
+
     For tensor-based signatures, we make sure the shape and type of the input matches the shape
     and type specified in model's input schema.
     """
@@ -850,7 +854,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     def _is_scalar(x):
         return np.isscalar(x) or x is None
 
-    old_pf_input = pf_input
+    original_pf_input = pf_input
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
@@ -917,6 +921,13 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         elif isinstance(pf_input, (list, np.ndarray, pd.Series)):
             pf_input = pd.DataFrame(pf_input)
         elif isinstance(pf_input, SparkDataFrame):
+            for column, dtype in pf_input.dtypes:
+                if "array" in dtype or "map" in dtype:
+                    _logger.warning(
+                        "The input data contains array or map type. Note that"
+                        " array and map type are not supported in schema validation"
+                        " when using pyspark DataFrame as input"
+                    )
             pf_input = pf_input.limit(10).toPandas()
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
@@ -961,12 +972,12 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
             )
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)
-    elif isinstance(old_pf_input, SparkDataFrame):
+    elif isinstance(original_pf_input, SparkDataFrame):
         if input_schema.has_input_names():
             _enforce_named_col_schema(pf_input, input_schema)
         else:
             _enforce_unnamed_col_schema(pf_input, input_schema)
-        return old_pf_input
+        return original_pf_input
     elif input_schema.has_input_names():
         return _enforce_named_col_schema(pf_input, input_schema)
     else:

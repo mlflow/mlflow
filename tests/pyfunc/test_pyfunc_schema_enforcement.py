@@ -2765,3 +2765,38 @@ def test_enforce_schema_spark_dataframe_incompatible_type():
     )
     with pytest.raises(MlflowException, match="Incompatible input types"):
         _enforce_schema(df, input_schema)
+
+
+def test_enforce_schema_spark_dataframe_complex_types():
+    spark = SparkSession.builder.appName("test").getOrCreate()
+
+    spark_df_schema = StructType(
+        [
+            StructField("int", IntegerType(), True),
+            StructField("array", ArrayType(IntegerType()), True),
+            StructField("map", MapType(StringType(), IntegerType()), True),
+        ]
+    )
+
+    data = [
+        (
+            1,  # int
+            [1, 2, 3],  # array
+            {"key1": 1, "key2": 2},  # map
+        )
+    ]
+
+    df = spark.createDataFrame(data, spark_df_schema)
+    input_schema = Schema(
+        [
+            ColSpec(DataType.integer, "int"),
+        ]
+    )
+
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        _enforce_schema(df, input_schema)
+        mock_warning.assert_called_once_with(
+            "The input data contains array or map type. Note that"
+            " array and map type are not supported in schema validation"
+            " when using pyspark DataFrame as input"
+        )
