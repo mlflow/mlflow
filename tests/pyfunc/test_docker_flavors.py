@@ -3,9 +3,9 @@ This test class is used for comprehensive testing of serving docker images for a
 As such, it is not intended to be run on a regular basis and is skipped by default. Rather, it
 should be run manually when making changes to the core docker logic.
 
-To run this test, run the following command to disable the skip flag:
+To run this test, run the following command manually
 
-    $ pytest tests/pyfunc/test_docker_flavors.py --no-skips
+    $ pytest tests/pyfunc/test_docker_flavors.py
 
 """
 
