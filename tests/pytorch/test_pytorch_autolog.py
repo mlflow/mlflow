@@ -465,7 +465,7 @@ def test_autolog_registering_model():
         assert registered_model.name == registered_model_name
 
 
-def test_model_checkpoint():
+def test_model_checkpoint_callback():
 
     class FakeTrainer:
 
@@ -507,7 +507,7 @@ def test_model_checkpoint():
         callback1.on_train_epoch_end(trainer1, model)
 
         log_dict_mock.assert_called_once_with(
-            {"loss": 1.5, "val_loss": 1.6},
+            {"loss": 1.5, "val_loss": 1.6, "epoch": 1},
             "checkpoints/checkpoint_metrics_epoch_1.json",
         )
         log_artifact_mock.assert_called_once_with(
@@ -568,7 +568,7 @@ def test_model_checkpoint():
         callback3.on_train_epoch_end(trainer3, model)
 
         log_dict_mock.assert_called_once_with(
-            {"loss": 1.2, "val_loss": 1.3},
+            {"loss": 1.2, "val_loss": 1.3, "epoch": 2},
             "checkpoints/checkpoint_metrics_epoch_2.json",
         )
         log_artifact_mock.assert_called_once_with(
@@ -602,7 +602,7 @@ def test_model_checkpoint():
         callback4.on_train_epoch_end(trainer4, model)
 
         log_dict_mock.assert_called_once_with(
-            {"loss": 1.2, "val_loss": 1.3},
+            {"loss": 1.2, "val_loss": 1.3, "epoch": 5},
             "checkpoints/checkpoint_metrics_epoch_5.json",
         )
         log_artifact_mock.assert_called_once_with(
@@ -630,7 +630,7 @@ def test_model_checkpoint():
         callback5.on_train_epoch_end(trainer5, model)
 
         log_dict_mock.assert_called_once_with(
-            {"loss": 1.5, "val_loss": 1.6},
+            {"loss": 1.5, "val_loss": 1.6, "epoch": 1},
             "last_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
@@ -652,7 +652,7 @@ def test_model_checkpoint():
         callback5.on_train_epoch_end(trainer5, model)
 
         log_dict_mock.assert_called_once_with(
-            {"loss": 1.3, "val_loss": 1.5},
+            {"loss": 1.3, "val_loss": 1.5, "epoch": 3},
             "last_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
@@ -679,7 +679,7 @@ def test_model_checkpoint():
         callback6.on_train_epoch_end(trainer6, model)
 
         log_dict_mock.assert_called_once_with(
-            {"acc": 0.9, "val_acc": 0.8},
+            {"acc": 0.9, "val_acc": 0.8, "epoch": 1},
             "last_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
@@ -695,9 +695,45 @@ def test_model_checkpoint():
         callback6.on_train_epoch_end(trainer6, model)
 
         log_dict_mock.assert_called_once_with(
-            {"acc": 0.95, "val_acc": 0.85},
+            {"acc": 0.95, "val_acc": 0.85, "epoch": 2},
             "last_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
             mock.ANY, "",
         )
+
+
+def test_automatic_model_checkpoint():
+    mlflow.pytorch.autolog(
+        model_checkpoint=True,
+        model_checkpoint_monitor="val_loss",
+        model_checkpoint_mode="min",
+        model_checkpoint_save_best_only=True,
+        model_checkpoint_save_weights_only=True,
+        model_checkpoint_every_n_epochs=1,
+        model_checkpoint_train_time_interval_S=None,
+    )
+
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+
+    with mlflow.start_run() as run:
+        trainer.fit(model, dm)
+
+    client = MlflowClient()
+    artifacts = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
+
+    assert 'last_checkpoint_metrics.json' in artifacts
+    assert 'last_checkpoint_model.weights.pth' in artifacts
+
+    result_metrics = mlflow.artifacts.load_dict(
+        f'runs:/{run.info.run_id}/last_checkpoint_metrics.json'
+    )
+
+    assert set(result_metrics.keys()) == {
+        'loss', 'loss_forked', 'loss_forked_step',
+        'val_acc', 'val_loss', 'train_acc', 'loss_forked_epoch', 'epoch'
+    }
+

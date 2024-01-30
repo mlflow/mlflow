@@ -316,7 +316,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
 
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         current_epoch = trainer.current_epoch
-        metric_dict = trainer.callback_metrics.copy()
+        metric_dict = {k: float(v) for k, v in trainer.callback_metrics.items()}
 
         should_checkpoint = False
         if self.every_n_epochs and (current_epoch % self.every_n_epochs == 0):
@@ -361,7 +361,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
             checkpoint_artifact_dir = "checkpoints"
 
         mlflow.log_dict(
-            metric_dict,
+            {**metric_dict, "epoch": current_epoch},
             os.path.join(checkpoint_artifact_dir, checkpoint_metrics_filename)
         )
 
