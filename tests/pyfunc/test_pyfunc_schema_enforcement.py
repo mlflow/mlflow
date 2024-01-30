@@ -2800,3 +2800,31 @@ def test_enforce_schema_spark_dataframe_complex_types():
             " array and map type are not supported in schema validation"
             " when using pyspark DataFrame as input"
         )
+
+
+def test_enforce_schema_spark_dataframe_null_values():
+    spark = SparkSession.builder.appName("test").getOrCreate()
+    spark_df_schema = StructType(
+        [StructField("a", ShortType(), True), StructField("b", DoubleType(), True)]
+    )
+
+    data = [
+        (
+            1,  # a
+            None,  # b
+        )
+    ]
+
+    df = spark.createDataFrame(data, spark_df_schema)
+    input_schema = Schema(
+        [
+            ColSpec(DataType.integer, "a"),
+            ColSpec(DataType.integer, "b"),
+        ]
+    )
+    with mock.patch("mlflow.models.utils._logger.warning") as mock_warning:
+        _enforce_schema(df, input_schema)
+        mock_warning.assert_called_once_with(
+            f"Input column b is a required column containing null values."
+        )
+
