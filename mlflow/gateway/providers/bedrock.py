@@ -17,7 +17,7 @@ from mlflow.gateway.providers.anthropic import AnthropicAdapter
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.cohere import CohereAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas import completions
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
@@ -164,6 +164,8 @@ AWS_MODEL_PROVIDER_TO_ADAPTER = {
 
 
 class AWSBedrockProvider(BaseProvider):
+    NAME = "AWS Bedrock"
+
     def __init__(self, config: RouteConfig):
         super().__init__(config)
 
@@ -283,15 +285,3 @@ class AWSBedrockProvider(BaseProvider):
         payload = self.underlying_provider_adapter.completions_to_model(payload, self.config)
         response = self._request(payload)
         return self.underlying_provider_adapter.model_to_completions(response, self.config)
-
-    async def chat(self, payload: chat.RequestPayload) -> None:
-        # AWS Bedrock does not have a chat endpoint
-        raise HTTPException(
-            status_code=404, detail="The chat route is not available for AWS Bedrock models."
-        )
-
-    async def embeddings(self, payload: embeddings.RequestPayload) -> None:
-        # AWS Bedrock does not have an embeddings endpoint
-        raise HTTPException(
-            status_code=404, detail="The embeddings route is not available for AWS Bedrock models."
-        )

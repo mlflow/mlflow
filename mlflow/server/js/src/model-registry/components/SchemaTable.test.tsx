@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 
 import { SchemaTable } from './SchemaTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { renderWithIntl } from '../../common/utils/TestUtils';
+import { renderWithIntl } from '../../common/utils/TestUtils.react18';
 
 function clickHeaderRow(container: HTMLElement, rowIndex: number): void {
   // click to render inputs table

@@ -1,13 +1,7 @@
 import userEvent from '@testing-library/user-event';
 
 import { ModelVersionViewAliasEditor } from './ModelVersionViewAliasEditor';
-import {
-  act,
-  findAntdOption,
-  renderWithIntl,
-  screen,
-  within,
-} from '../../../common/utils/TestUtils';
+import { renderWithIntl, act, screen, within, findAntdOption } from 'common/utils/TestUtils.react17';
 import { Provider } from 'react-redux';
 
 import configureStore from 'redux-mock-store';
@@ -101,21 +95,12 @@ class MockDatabase {
     aliasVersion.aliases = Array.from(new Set([...(aliasVersion.aliases || []), alias]));
     const model = this.models.find((existingModel) => existingModel.name === name);
     if (model) {
-      model.aliases = this.modelVersions.flatMap(
-        ({ version: existingVersion, aliases: existingAliases }) =>
-          (existingAliases || []).map((a) => ({ version: existingVersion, alias: a })),
+      model.aliases = this.modelVersions.flatMap(({ version: existingVersion, aliases: existingAliases }) =>
+        (existingAliases || []).map((a) => ({ version: existingVersion, alias: a })),
       );
     }
   };
-  deleteAlias = async ({
-    alias,
-    name,
-    version,
-  }: {
-    alias: string;
-    name: string;
-    version: string;
-  }) => {
+  deleteAlias = async ({ alias, name, version }: { alias: string; name: string; version: string }) => {
     const existingAliasVersion = this.modelVersions.find(
       (versionEntity) => versionEntity.name === name && versionEntity.version === version,
     );
@@ -125,9 +110,8 @@ class MockDatabase {
 
     const model = this.models.find((existingModel) => existingModel.name === name);
     if (model) {
-      model.aliases = this.modelVersions.flatMap(
-        ({ version: existingVersion, aliases: existingAliases }) =>
-          (existingAliases || []).map((a) => ({ version: existingVersion, alias: a })),
+      model.aliases = this.modelVersions.flatMap(({ version: existingVersion, aliases: existingAliases }) =>
+        (existingAliases || []).map((a) => ({ version: existingVersion, alias: a })),
       );
     }
   };
@@ -262,9 +246,7 @@ describe('useEditRegisteredModelAliasesModal integration', () => {
 
     // Locate the tag pill with the existing "first_version" alias, click the "X" button within
     userEvent.click(
-      within(
-        within(screen.getByRole('dialog')).getByRole('status', { name: 'first_version' }),
-      ).getByRole('button'),
+      within(within(screen.getByRole('dialog')).getByRole('status', { name: 'first_version' })).getByRole('button'),
     );
 
     // Save the new aliases

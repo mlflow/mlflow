@@ -271,8 +271,12 @@ class APIRequest:
     @staticmethod
     def _transform_request_json_for_chat_if_necessary(request_json, lc_model):
         """
-        :return: A 2-element tuple containing: 1. the new request and 2. a boolean indicating
-                 whether or not the request was transformed from the OpenAI chat format
+        Returns:
+            A 2-element tuple containing:
+
+                1. The new request.
+                2. A boolean indicating whether or not the request was transformed from the OpenAI
+                chat format.
         """
         input_fields = APIRequest._get_lc_model_input_fields(lc_model)
         if "messages" in input_fields:

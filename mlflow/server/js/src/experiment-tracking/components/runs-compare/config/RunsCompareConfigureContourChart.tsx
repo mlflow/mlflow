@@ -11,6 +11,7 @@ import {
   RunsCompareConfigureField,
   RunsCompareRunNumberSelect,
 } from './RunsCompareConfigure.common';
+import { shouldEnableDeepLearningUI } from 'common/utils/FeatureUtils';
 
 type ValidAxis = keyof Pick<RunsCompareContourCardConfig, 'xaxis' | 'yaxis' | 'zaxis'>;
 
@@ -29,6 +30,8 @@ export const RunsCompareConfigureContourChart = ({
   onStateChange: (setter: (current: RunsCompareCardConfig) => RunsCompareContourCardConfig) => void;
 }) => {
   const { formatMessage } = useIntl();
+  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
+  const runSelectOptions = usingV2ChartImprovements ? [5, 10, 20, 50, 100] : [5, 10, 20];
 
   /**
    * Callback for updating X or Y axis
@@ -93,8 +96,7 @@ export const RunsCompareConfigureContourChart = ({
       <RunsCompareConfigureField
         title={formatMessage({
           defaultMessage: 'X axis',
-          description:
-            'Label for X axis in Contour chart configurator in compare runs chart config modal',
+          description: 'Label for X axis in Contour chart configurator in compare runs chart config modal',
         })}
       >
         <RunsCompareMetricParamSelect
@@ -109,8 +111,7 @@ export const RunsCompareConfigureContourChart = ({
       <RunsCompareConfigureField
         title={formatMessage({
           defaultMessage: 'Y axis',
-          description:
-            'Label for Y axis in Contour chart configurator in compare runs chart config modal',
+          description: 'Label for Y axis in Contour chart configurator in compare runs chart config modal',
         })}
       >
         <RunsCompareMetricParamSelect
@@ -125,8 +126,7 @@ export const RunsCompareConfigureContourChart = ({
       <RunsCompareConfigureField
         title={formatMessage({
           defaultMessage: 'Z axis',
-          description:
-            'Label for Z axis in Contour chart configurator in compare runs chart config modal',
+          description: 'Label for Z axis in Contour chart configurator in compare runs chart config modal',
         })}
       >
         <RunsCompareMetricParamSelect
@@ -141,7 +141,7 @@ export const RunsCompareConfigureContourChart = ({
       <RunsCompareRunNumberSelect
         value={state.runsCountToCompare}
         onChange={updateVisibleRunCount}
-        options={[5, 10, 20]}
+        options={runSelectOptions}
       />
     </>
   );

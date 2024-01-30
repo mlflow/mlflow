@@ -87,11 +87,11 @@ def _load_model_from_path(path: str, model_config=None):
 
 
 def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
-    """
-    Load the model
+    """Load the model
 
-    :param file_path: Path to file to load the model from.
-    :param model_type: Type of the model to load.
+    Args:
+        file_path: Path to file to load the model from.
+        model_type: Type of the model to load.
     """
     from langchain.schema.runnable import RunnableParallel, RunnableSequence
 
@@ -131,10 +131,10 @@ def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
 
 
 def runnable_sequence_from_steps(steps):
-    """
-    Construct a RunnableSequence from steps.
+    """Construct a RunnableSequence from steps.
 
-    :param steps: List of steps to construct the RunnableSequence from.
+    Args:
+        steps: List of steps to construct the RunnableSequence from.
     """
     from langchain.schema.runnable import RunnableSequence
 
@@ -146,11 +146,11 @@ def runnable_sequence_from_steps(steps):
 
 
 def _load_runnable_branch(file_path: Union[Path, str], model_type: str):
-    """
-    Load the model
+    """Load the model
 
-    :param file_path: Path to file to load the model from.
-    :param model_type: Type of the model to load.
+    Args:
+        file_path: Path to file to load the model from.
+        model_type: Type of the model to load.
     """
     from langchain.schema.runnable import RunnableBranch
 
@@ -232,8 +232,9 @@ def _save_internal_runnables(runnable, path, loader_fn, persist_dir):
 
 
 def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None, persist_dir=None):
-    """
-    Save the model with steps. Currently it supports saving RunnableSequence and RunnableParallel.
+    """Save the model with steps. Currently it supports saving RunnableSequence and
+    RunnableParallel.
+
     If saving a RunnableSequence, steps is a list of Runnable objects. We save each step to the
     subfolder named by the step index.
     e.g.  - model
@@ -255,8 +256,9 @@ def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None
 
     We save steps.yaml file to the model folder. It contains each step's model's configuration.
 
-    :steps: steps of the runnable.
-    :param file_path: Path to file to save the model to.
+    Args:
+        steps: Steps of the runnable.
+        file_path: Path to file to save the model to.
     """
     # Convert file to Path object.
     save_path = Path(file_path) if isinstance(file_path, str) else file_path
@@ -295,7 +297,7 @@ def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None
 
 def _save_runnable_branch(model, file_path, loader_fn, persist_dir):
     """
-    save runnable branch in to path.
+    Save runnable branch in to path.
     """
     save_path = Path(file_path) if isinstance(file_path, str) else file_path
     save_path.mkdir(parents=True, exist_ok=True)

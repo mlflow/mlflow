@@ -45,4 +45,9 @@ export declare function openMenu<P, S, C>(getSelect: () => ReactWrapper<P, S, C>
  * the menu, and returns a list of the text of each option in order.
  */
 export declare function getAllOptions<P, S, C>(getSelect: () => ReactWrapper<P, S, C>): Promise<string[]>;
+/**
+ * Creates a new option for a Select with `mode="tags"` by typing it into the input,
+ * clicking on the option in the options list, and then closing the menu.
+ */
+export declare function createNewOption<P, S, C>(getSelect: () => ReactWrapper<P, S, C>, option: string): Promise<void>;
 //# sourceMappingURL=selectEvent.d.ts.map

@@ -9,15 +9,15 @@ export const shouldDisableLegacyRunCompareCharts = () => false;
 /**
  * UI feature preview: displays data lineage (datasets used) in experiment runs
  */
-export const shouldEnableExperimentDatasetTracking = () => true;
+export const shouldEnableExperimentDatasetTracking = () => false;
 /**
  * UI feature preview: enables artifact-based ML experiment output data analysis, used for evaluating LLM prediction data
  */
 export const shouldEnableArtifactBasedEvaluation = () => true;
 
-export const shouldEnableDatasetsDropdown = () => false;
-
 export const shouldEnableDeepLearningUI = () => false;
+
+export const shouldEnableDeepLearningUIPhase2 = () => false;
 
 /**
  * UI feature preview: enables prompt lab
@@ -25,10 +25,11 @@ export const shouldEnableDeepLearningUI = () => false;
 export const shouldEnablePromptLab = () => true;
 
 export const shouldUsePathRouting = () => false;
+export const shouldEnableShareExperimentViewByTags = () => false;
 
 /**
- * A flag determining if we should display "New model registry UI" toggle switch.
+ * A flag determining if we should display the new models UI.
  */
-export const shouldUseToggleModelsNextUI = () => {
+export const shouldShowModelsNextUI = () => {
   return true;
 };
