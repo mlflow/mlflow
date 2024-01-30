@@ -32,6 +32,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        option: [--testPathPattern, --testPathIgnorePatterns]
         include:
           - os: ubuntu-latest
             shell: bash
@@ -73,7 +74,7 @@ jobs:
           yarn i18n:check
       - name: Run tests
         run: |
-          yarn test --silent
+          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
       - name: Run build
         if: runner.os == 'Linux'
         env:
