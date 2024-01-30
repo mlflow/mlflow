@@ -66,6 +66,7 @@ jobs:
           command: |
             make rsthtml
             make javadocs
+            python diff.py
       - run:
           name: Check for broken links
           working_directory: docs
