@@ -992,7 +992,7 @@ _LLM_EMBEDDINGS_INPUT_SCHEMA = Schema(
             },
             {},
         ),
-        # Test case: signature with params, split params and data
+        # Test case: signature with no params accepted, ignores params
         (
             ModelSignature(
                 inputs=_LLM_EMBEDDINGS_INPUT_SCHEMA,
