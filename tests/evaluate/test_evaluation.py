@@ -58,6 +58,8 @@ from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils import insecure_hash
 from mlflow.utils.file_utils import TempDir
 
+from tests.utils.test_file_utils import spark_session  # noqa: F401
+
 
 def get_iris():
     iris = sklearn.datasets.load_iris()
@@ -106,12 +108,6 @@ def get_raw_tag(run_id, tag_name):
 
 def get_local_artifact_path(run_id, artifact_path):
     return get_artifact_uri(run_id, artifact_path).replace("file://", "")
-
-
-@pytest.fixture(scope="module")
-def spark_session():
-    with SparkSession.builder.master("local[*]").getOrCreate() as session:
-        yield session
 
 
 @pytest.fixture(scope="module")
