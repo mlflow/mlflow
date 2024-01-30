@@ -341,10 +341,9 @@ def push_model_to_sagemaker(
 @click.option("--build/--no-build", default=True, help="Build the container if set.")
 @click.option("--push/--no-push", default=True, help="Push the container to AWS ECR if set.")
 @click.option("--container", "-c", default=IMAGE, help="image name")
-@cli_args.INSTALL_JAVA
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
-def build_and_push_container(build, push, container, install_java, env_manager, mlflow_home):
+def build_and_push_container(build, push, container, env_manager, mlflow_home):
     """
     Build new MLflow Sagemaker image, assign it a name, and push to ECR.
 
@@ -359,8 +358,8 @@ def build_and_push_container(build, push, container, install_java, env_manager, 
         click.echo("skipping both build and push, have nothing to do!")
     if build:
         sagemaker_image_entrypoint = (
-            'ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; '
-            f"C._init(sys.argv[1], '{env_manager}')\"]"
+            "import sys; from mlflow.models import container as C; "
+            f"C._init(sys.argv[1], '{env_manager}')"
         )
 
         setup_container = (
@@ -371,12 +370,14 @@ def build_and_push_container(build, push, container, install_java, env_manager, 
 
         with tempfile.TemporaryDirectory() as tmp:
             docker_utils.generate_dockerfile(
+                base_image=mlflow.models.docker_utils.UBUNTU_BASE_IMAGE,
                 output_dir=tmp,
                 entrypoint=sagemaker_image_entrypoint,
                 env_manager=env_manager,
                 mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
-                custom_setup_steps=setup_container,
-                install_java=install_java,
+                model_install_steps=setup_container,
+                # Create a conda env or virtualenv at runtime after the model is loaded
+                disable_env_creation_at_runtime=False,
             )
 
             docker_utils.build_image_from_context(tmp, image_name=container)

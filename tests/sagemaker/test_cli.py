@@ -53,36 +53,3 @@ def test_build_and_push_container(tmp_path, env_manager):
 
     # Clean up generated image
     _docker_client.images.remove(_TEST_IMAGE_NAME, force=True)
-
-
-def test_build_and_push_container_with_java(tmp_path):
-    dst_dir = tmp_path / "context"
-
-    # Copy the context dir to a temp dir so we can verify the generated Dockerfile
-    def _build_image_with_copy(context_dir, image_name):
-        shutil.copytree(context_dir, dst_dir)
-        build_image_from_context(context_dir, image_name)
-
-    with mock.patch(
-        "mlflow.models.docker_utils.build_image_from_context", side_effect=_build_image_with_copy
-    ):
-        res = CliRunner().invoke(
-            build_and_push_container,
-            [
-                "--no-push",
-                "--mlflow-home",
-                ".",
-                "--container",
-                _TEST_IMAGE_NAME,
-                "--install-java",
-            ],
-            catch_exceptions=False,
-        )
-        assert res.exit_code == 0
-
-    actual = dst_dir / "Dockerfile"
-    expected = Path(_RESOURCE_DIR) / "Dockerfile_sagemaker_install_java"
-    assert_dockerfiles_equal(actual, expected)
-
-    # Clean up generated image
-    _docker_client.images.remove(_TEST_IMAGE_NAME, force=True)

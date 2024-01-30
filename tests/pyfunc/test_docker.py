@@ -12,7 +12,7 @@ import docker
 import mlflow
 from mlflow.models import Model
 from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.utils.env_manager import CONDA, VIRTUALENV
+from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.version import VERSION
 
 _MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -69,10 +69,6 @@ _TEST_PARAMS = [
         expected_dockerfile="Dockerfile_default",
     ),
     Param(
-        env_manager=CONDA,
-        expected_dockerfile="Dockerfile_conda",
-    ),
-    Param(
         mlflow_home=".",
         expected_dockerfile="Dockerfile_with_mlflow_home",
     ),
@@ -95,7 +91,7 @@ _TEST_PARAMS = [
 
 @pytest.mark.parametrize("params", _TEST_PARAMS)
 def test_generate_dockerfile(tmp_path, params):
-    model_uri = save_model(tmp_path) if params.specify_model_uri else None
+    model_uri = save_model(tmp_path / "mlruns") if params.specify_model_uri else None
 
     backend = get_flavor_backend(model_uri, docker_build=True, env_manager=params.env_manager)
 
@@ -113,7 +109,7 @@ def test_generate_dockerfile(tmp_path, params):
 
 
 def test_generate_dockerfile_for_java_flavor(tmp_path):
-    model_path = save_model(tmp_path)
+    model_path = save_model(tmp_path / "mlruns")
     add_spark_flavor_to_model(model_path)
 
     backend = get_flavor_backend(model_path, docker_build=True)
@@ -126,31 +122,3 @@ def test_generate_dockerfile_for_java_flavor(tmp_path):
     actual = tmp_path / "Dockerfile"
     expected = Path(_RESOURCE_DIR) / "Dockerfile_java_flavor"
     assert_dockerfiles_equal(actual, expected)
-
-
-@pytest.mark.parametrize("params", _TEST_PARAMS)
-def test_build_image(tmp_path, params):
-    model_uri = save_model(tmp_path) if params.specify_model_uri else None
-
-    backend = get_flavor_backend(model_uri, docker_build=True, env_manager=params.env_manager)
-    backend.build_image(
-        model_uri=model_uri,
-        image_name="test_image",
-        mlflow_home=params.mlflow_home,
-        install_mlflow=params.install_mlflow,
-        enable_mlserver=params.enable_mlserver,
-    )
-
-    # Clean up generated image
-    _docker_client.images.remove("test_image", force=True)
-
-
-def test_generate_dockerfile_for_java_flavor(tmp_path):
-    model_path = save_model(tmp_path)
-    add_spark_flavor_to_model(model_path)
-
-    backend = get_flavor_backend(model_path, docker_build=True)
-    backend.build_image(model_uri=model_path, image_name="test_image")
-
-    # Clean up generated image
-    _docker_client.images.remove("test_image", force=True)

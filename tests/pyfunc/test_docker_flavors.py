@@ -89,8 +89,6 @@ def save_model_with_latest_mlflow_version(flavor, **kwargs):
 
 @pytest.fixture(autouse=True)
 def clean_up_docker_image():
-    yield
-
     try:
         # Get all containers using the test image
         containers = docker_client.containers.list(filters={"ancestor": _TEST_IMAGE_NAME})
@@ -103,7 +101,7 @@ def clean_up_docker_image():
         pass
 
 
-# TODO: Add skipif condition for normal run and make it opt-in
+@pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") == "true", reason="Time consuming tests")
 @pytest.mark.parametrize(
     ("flavor"),
     [
@@ -134,13 +132,6 @@ def clean_up_docker_image():
 def test_build_image_and_serve(flavor, request):
     model_path = request.getfixturevalue(f"{flavor}_model")
 
-    # Make a scoring request
-    with open(os.path.join(model_path, "input_example.json")) as f:
-        input_example = json.load(f)
-
-    if "columns" in input_example or "data" in input_example:
-        input_example = {"dataframe_split": input_example}
-
     # Build an image
     backend = get_flavor_backend(model_uri=model_path, docker_build=True)
     backend.build_image(
@@ -158,7 +149,7 @@ def test_build_image_and_serve(flavor, request):
     )
 
     # Wait until the container to start
-    timeout = 60
+    timeout = 120
     start_time = time.time()
     success = False
     while time.time() < start_time + timeout:

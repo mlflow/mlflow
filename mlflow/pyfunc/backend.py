@@ -10,8 +10,11 @@ import sys
 import warnings
 from pathlib import Path
 
+from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import FlavorBackend, docker_utils
+from mlflow.models.docker_utils import PYTHON_SLIM_BASE_IMAGE, UBUNTU_BASE_IMAGE
+from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.pyfunc import (
     ENV,
     _extract_conda_env,
@@ -22,7 +25,7 @@ from mlflow.pyfunc import (
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import get_conda_bin_executable, get_or_create_conda_env
-from mlflow.utils.environment import Environment
+from mlflow.utils.environment import Environment, _PythonEnv
 from mlflow.utils.file_utils import (
     TempDir,
     get_or_create_nfs_tmp_dir,
@@ -45,6 +48,12 @@ _STDIN_SERVER_SCRIPT = Path(__file__).parent.joinpath("stdin_server.py")
 
 # Flavors that require Java to be installed in the environment
 JAVA_FLAVORS = {"johnsnowlabs", "h2o", "mleap", "spark"}
+
+# Some flavor requires additional packages to be installed in the environment
+FLAVOR_SPECIFIC_APT_PACKAGES = {"paddle": ["libgomp1"]}
+
+# Directory to store loaded model inside the Docker context directory
+_MODEL_DIR_NAME = "model_dir"
 
 
 class PyFuncBackend(FlavorBackend):
@@ -322,53 +331,6 @@ class PyFuncBackend(FlavorBackend):
             # Can not find conda
             return False
 
-    def generate_dockerfile(
-        self,
-        model_uri,
-        output_dir,
-        install_java=False,
-        install_mlflow=False,
-        mlflow_home=None,
-        enable_mlserver=False,
-    ):
-        os.makedirs(output_dir, exist_ok=True)
-        _logger.debug("Created all folders in path", extra={"output_directory": output_dir})
-
-        if model_uri:
-            model_dir = self._download_model(output_dir, model_uri)
-            # Copy model to image if model_uri is specified
-            custom_setup_steps = (
-                "# Copy model to image and install dependencies\n"
-                f"COPY {model_dir} /opt/ml/model\nRUN python -c "
-                f'"{self._get_install_pyfunc_deps_cmd(install_mlflow, enable_mlserver)}"'
-            )
-            # Check if the model requires Java
-            if not install_java:
-                model_path = os.path.join(output_dir, model_dir)
-                flavors = _get_all_flavor_configurations(model_path).keys()
-                if java_flavors := JAVA_FLAVORS & flavors:
-                    _logger.info(
-                        f"Detected java flavors {java_flavors}, installing Java in the image"
-                    )
-                    install_java = True
-        else:
-            custom_setup_steps = ""
-            install_java = True  # Always install Java if model_uri is not specified
-
-        pyfunc_entrypoint = self._pyfunc_entrypoint(model_uri, install_mlflow, enable_mlserver)
-
-        dockerfile_text = docker_utils.generate_dockerfile(
-            output_dir=output_dir,
-            custom_setup_steps=custom_setup_steps,
-            entrypoint=pyfunc_entrypoint,
-            env_manager=self._env_manager,
-            mlflow_home=mlflow_home,
-            enable_mlserver=enable_mlserver,
-            install_java=install_java,
-            disable_env_creation=True,  # Always disable env creation for pyfunc
-        )
-        _logger.debug("generated dockerfile at {output_dir}", extra={"dockerfile": dockerfile_text})
-
     def build_image(
         self,
         model_uri,
@@ -392,30 +354,124 @@ class PyFuncBackend(FlavorBackend):
             _logger.info("Building docker image with name %s", image_name)
             docker_utils.build_image_from_context(context_dir=cwd, image_name=image_name)
 
-    def _pyfunc_entrypoint(self, model_uri, install_mlflow, enable_mlserver):
+    def generate_dockerfile(
+        self,
+        model_uri,
+        output_dir,
+        install_java=False,
+        install_mlflow=False,
+        mlflow_home=None,
+        enable_mlserver=False,
+    ):
+        os.makedirs(output_dir, exist_ok=True)
+        _logger.debug("Created all folders in path", extra={"output_directory": output_dir})
+
         if model_uri:
-            # If model_uri is specified, dependencies are installed at build time so we don't
-            # need to run the install command at runtime
-            install_deps_cmd = ""
+            model_cwd = os.path.join(output_dir, _MODEL_DIR_NAME)
+            pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
+            model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
+            base_image = self._get_base_image(model_path, install_java)
+
+            # We don't need virtualenv or conda if base image is python
+            env_manager = (
+                _EnvManager.LOCAL if base_image.startswith("python") else self._env_manager
+            )
+
+            model_install_steps = self._model_installation_steps(
+                model_path, env_manager, install_mlflow, enable_mlserver
+            )
+            entrypoint = f"from mlflow.models import container as C; C._serve('{env_manager}')"
+
         else:
-            install_deps_cmd = self._get_install_pyfunc_deps_cmd(install_mlflow, enable_mlserver)
-        entrypoint = (
-            f"from mlflow.models import container as C;{install_deps_cmd} "
-            f"C._serve('{self._env_manager}')"
-        )
-        return f'ENTRYPOINT ["python", "-c", "{entrypoint}"]'
+            base_image = UBUNTU_BASE_IMAGE
+            model_install_steps = ""
+            # If model_uri is not specified, dependencies are installed at runtime
+            entrypoint = (
+                self._get_install_pyfunc_deps_cmd(
+                    self._env_manager, install_mlflow, enable_mlserver
+                )
+                + f" C._serve('{self._env_manager}')"
+            )
 
-    def _get_install_pyfunc_deps_cmd(self, install_mlflow, enable_mlserver):
+        dockerfile_text = docker_utils.generate_dockerfile(
+            output_dir=output_dir,
+            base_image=base_image,
+            model_install_steps=model_install_steps,
+            entrypoint=entrypoint,
+            env_manager=self._env_manager,
+            mlflow_home=mlflow_home,
+            enable_mlserver=enable_mlserver,
+            # always disable env creation at runtime for pyfunc
+            disable_env_creation_at_runtime=True,
+        )
+        _logger.debug("generated dockerfile at {output_dir}", extra={"dockerfile": dockerfile_text})
+
+    def _get_base_image(self, model_path: str, install_java: bool) -> str:
+        """
+        Determine the base image to use for the Dockerfile.
+
+        We use Python slim base image when all of the following conditions are met:
+          1. Model URI is specified by the user
+          2. Model flavor does not require Java
+          3. Python version is specified in the model
+
+        Returns:
+            Either the Ubuntu base image or the Python slim base image.
+        """
+        # Check if the model requires Java
+        if not install_java:
+            flavors = _get_all_flavor_configurations(model_path).keys()
+            if java_flavors := JAVA_FLAVORS & flavors:
+                _logger.info(f"Detected java flavors {java_flavors}, installing Java in the image")
+                install_java = True
+
+        # Use ubuntu base image if Java is required
+        if install_java:
+            return UBUNTU_BASE_IMAGE
+
+        # Get Python version from MLmodel
+        try:
+            model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
+            model = Model.load(model_config_path)
+
+            conf = model.flavors[pyfunc.FLAVOR_NAME]
+            env_conf = conf[pyfunc.ENV]
+            python_env_config_path = os.path.join(model_path, env_conf[_EnvManager.VIRTUALENV])
+
+            python_env = _PythonEnv.from_yaml(python_env_config_path)
+            return PYTHON_SLIM_BASE_IMAGE.format(version=python_env.python)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to determine Python version from {model_config_path}. "
+                f"Defaulting to {UBUNTU_BASE_IMAGE}. Error: {e}"
+            )
+            return UBUNTU_BASE_IMAGE
+
+    def _model_installation_steps(self, model_path, env_manager, install_mlflow, enable_mlserver):
+        model_dir = str(posixpath.join(_MODEL_DIR_NAME, os.path.basename(model_path)))
+        # Copy model to image if model_uri is specified
+        steps = (
+            "# Copy model to image and install dependencies\n"
+            f"COPY {model_dir} /opt/ml/model\nRUN python -c "
+        )
+        steps += (
+            f'"{self._get_install_pyfunc_deps_cmd(env_manager, install_mlflow, enable_mlserver)}"'
+        )
+
+        # Install flavor-specific dependencies if needed
+        flavors = _get_all_flavor_configurations(model_path).keys()
+        for flavor in flavors:
+            if flavor in FLAVOR_SPECIFIC_APT_PACKAGES:
+                packages = " ".join(FLAVOR_SPECIFIC_APT_PACKAGES[flavor])
+                steps += f"\nRUN apt-get install -y --no-install-recommends {packages}"
+
+        return steps
+
+    def _get_install_pyfunc_deps_cmd(
+        self, env_manager: _EnvManager, install_mlflow: bool, enable_mlserver: bool
+    ):
         return (
-            "from mlflow.models.container import _install_pyfunc_deps; "
-            f"_install_pyfunc_deps('/opt/ml/model', install_mlflow={install_mlflow}, "
-            f"enable_mlserver={enable_mlserver}, env_manager='{self._env_manager}');"
+            "from mlflow.models import container as C; "
+            f"C._install_pyfunc_deps('/opt/ml/model', install_mlflow={install_mlflow}, "
+            f"enable_mlserver={enable_mlserver}, env_manager='{env_manager}');"
         )
-
-    def _download_model(self, output_dir, model_uri):
-        model_cwd = os.path.join(output_dir, "model_dir")
-        pathlib.Path(model_cwd).mkdir(parents=True, exist_ok=True)
-
-        # If model_uri is specified, copy the model to the image and install its dependencies
-        model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
-        return str(posixpath.join("model_dir", os.path.basename(model_path)))
