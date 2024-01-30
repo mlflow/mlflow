@@ -111,16 +111,6 @@ class MlflowException(Exception):
         """
         return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
 
-    def __getstate__(self):
-        # Copy the object's state from self.__dict__ which contains
-        # all our instance attributes. Always use the dict.copy()
-        # method to avoid modifying the original state.
-        return self.__dict__.copy()
-
-    def __setstate__(self, state):
-        # Restore instance attributes
-        self.__dict__.update(state)
-
 
 class RestException(MlflowException):
     """Exception thrown on non 200-level responses from the REST API"""
@@ -133,6 +123,9 @@ class RestException(MlflowException):
         )
         super().__init__(message, error_code=ErrorCode.Value(error_code))
         self.json = json
+
+    def __reduce__(self):
+        return type(self), (self.json,)
 
 
 class ExecutionException(MlflowException):
