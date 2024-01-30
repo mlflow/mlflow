@@ -74,7 +74,7 @@ jobs:
           yarn i18n:check
       - name: Run tests
         run: |
-          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
+          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components --logHeapUsage
       - name: Run build
         if: runner.os == 'Linux'
         env:
