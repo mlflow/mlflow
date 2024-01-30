@@ -149,7 +149,6 @@ def _get_conda_env_for_underlying_model(underlying_model_path):
 
 
 def log_explanation(predict_function, features, artifact_path=None):
-    # pylint: disable=line-too-long
     r"""
     Given a ``predict_function`` capable of computing ML model output on the provided ``features``,
     computes and logs explanations of an ML model's output. Explanations are logged as a directory
@@ -171,7 +170,9 @@ def log_explanation(predict_function, features, artifact_path=None):
                     ...
 
             - ``X``: An array-like object whose shape should be (# samples, # features).
-            - ``pred``: An array-like object whose shape should be (# samples) for a regressor or (# classes, # samples) for a classifier. For a classifier, the values in ``pred`` should correspond to the predicted probability of each class.
+            - ``pred``: An array-like object whose shape should be (# samples) for a regressor or 
+              (# classes, # samples) for a classifier. For a classifier, the values in ``pred`` 
+              should correspond to the predicted probability of each class.
 
             Acceptable array-like object types:
 
@@ -267,7 +268,6 @@ def log_explanation(predict_function, features, artifact_path=None):
 
         Logged artifacts
     """
-    # pylint: enable=line-too-long
     import matplotlib.pyplot as plt
     import shap
 
