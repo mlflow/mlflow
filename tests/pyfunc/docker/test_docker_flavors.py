@@ -13,11 +13,11 @@ import json
 import os
 import time
 
-from packaging.version import Version
 import pytest
 import requests
 
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+
 from tests.helper_functions import get_safe_port
 from tests.pyfunc.docker.conftest import MLFLOW_ROOT, TEST_IMAGE_NAME, docker_client
 
@@ -84,7 +84,7 @@ def test_build_image_and_serve(flavor, request):
             time.sleep(5)
 
     if not success:
-        raise TimeoutError("TBA")
+        raise TimeoutError(f"Container did not start in {timeout} seconds")
 
     # Make a scoring request with a saved input example
     with open(os.path.join(model_path, "input_example.json")) as f:

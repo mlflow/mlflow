@@ -1,11 +1,10 @@
 import difflib
 import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
-import shutil
 from typing import Optional
 from unittest import mock
-from mlflow.models.docker_utils import build_image_from_context
 
 import pytest
 import sklearn
@@ -13,19 +12,22 @@ import sklearn.neighbors
 
 import mlflow
 from mlflow.models import Model
+from mlflow.models.docker_utils import build_image_from_context
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.version import VERSION
+
 from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_version
 
 
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
     actual_dockerfile = actual_dockerfile_path.read_text()
-    expected_dockerfile = expected_dockerfile_path.read_text() \
-                            .replace("$MLFLOW_VERSION", VERSION) \
-                            .replace("$PYTHON_VERSION", PYTHON_VERSION) \
-
+    expected_dockerfile = (
+        expected_dockerfile_path.read_text()
+        .replace("$MLFLOW_VERSION", VERSION)
+        .replace("$PYTHON_VERSION", PYTHON_VERSION)
+    )
     assert (
         actual_dockerfile == expected_dockerfile
     ), "Generated Dockerfile does not match expected one. Diff:\n" + "\n".join(
@@ -110,7 +112,6 @@ def test_build_image(tmp_path, params):
     assert_dockerfiles_equal(actual, expected)
 
 
-
 def test_generate_dockerfile_for_java_flavor(tmp_path):
     model_path = save_model(tmp_path)
     add_spark_flavor_to_model(model_path)
@@ -125,5 +126,3 @@ def test_generate_dockerfile_for_java_flavor(tmp_path):
     actual = tmp_path / "Dockerfile"
     expected = Path(RESOURCE_DIR) / "Dockerfile_java_flavor"
     assert_dockerfiles_equal(actual, expected)
-
-

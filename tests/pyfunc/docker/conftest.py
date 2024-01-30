@@ -1,5 +1,5 @@
-from functools import lru_cache
 import os
+from functools import lru_cache
 from operator import itemgetter
 
 import pandas as pd
@@ -20,9 +20,9 @@ from tests.diviner.test_diviner_model_export import (
 from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw
 from tests.h2o.test_h2o_model_export import h2o_iris_model
 from tests.helper_functions import get_safe_port
-from tests.models.test_model import iris_data, sklearn_knn_model
 from tests.langchain.test_langchain_model_export import fake_chat_model
 from tests.lightgbm.test_lightgbm_model_export import lgb_model
+from tests.models.test_model import iris_data, sklearn_knn_model
 from tests.paddle.test_paddle_model_export import pd_model
 from tests.pmdarima.test_pmdarima_model_export import (
     auto_arima_object_model,
@@ -39,12 +39,12 @@ from tests.statsmodels.model_fixtures import ols_model
 from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model
 from tests.transformers.helper import load_small_seq2seq_pipeline
 
-
 TEST_IMAGE_NAME = "test_image"
 MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 RESOURCE_DIR = os.path.join(MLFLOW_ROOT, "tests", "resources", "dockerfile")
 
 docker_client = docker.from_env()
+
 
 @pytest.fixture(autouse=True)
 def clean_up_docker_image():
@@ -85,7 +85,6 @@ def save_model_with_latest_mlflow_version(flavor, **kwargs):
         kwargs["extra_pip_requirements"] = [f"mlflow=={latest_mlflow_version}"]
     flavor_module = getattr(mlflow, flavor)
     flavor_module.save_model(**kwargs)
-
 
 
 @pytest.fixture
@@ -141,8 +140,8 @@ def h2o_model(tmp_path, h2o_iris_model):
 
 @pytest.fixture
 def keras_model(tmp_path):
-    from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Dense
+    from tensorflow.keras.models import Sequential
 
     model_path = str(tmp_path / "keras_model")
 
