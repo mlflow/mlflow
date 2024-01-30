@@ -9,6 +9,7 @@ from mlflow.utils.file_utils import (
     mkdir,
     relative_path_to_artifact_path,
 )
+from mlflow.utils.uri import validate_path_is_safe
 
 
 class LocalArtifactRepository(ArtifactRepository):
@@ -74,8 +75,9 @@ class LocalArtifactRepository(ArtifactRepository):
         """
         if dst_path:
             return super().download_artifacts(artifact_path, dst_path)
-        # NOTE: The artifact_path is expected to be in posix format.
+        # NOTE: The artifact_path is expected to be a relative path in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
+        artifact_path = validate_path_is_safe(artifact_path)
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
         if not os.path.exists(local_artifact_path):
             raise OSError(f"No such file or directory: '{local_artifact_path}'")
@@ -100,8 +102,9 @@ class LocalArtifactRepository(ArtifactRepository):
             return []
 
     def _download_file(self, remote_file_path, local_path):
-        # NOTE: The remote_file_path is expected to be in posix format.
+        # NOTE: The remote_file_path is expected to be a relative path in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
+        remote_file_path = validate_path_is_safe(remote_file_path)
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
         shutil.copy2(remote_file_path, local_path)
 
