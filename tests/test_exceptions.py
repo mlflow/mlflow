@@ -50,3 +50,16 @@ def test_rest_exception():
     deserialized_rest_exception = RestException(json.loads(json_exception))
     assert deserialized_rest_exception.error_code == "RESOURCE_ALREADY_EXISTS"
     assert "test" in deserialized_rest_exception.message
+
+
+def test_rest_exception_with_unrecognized_error_code():
+    # Test that we can create a RestException with a convertible error code.
+    exception = RestException({"error_code": "403", "messages": "something important."})
+    assert "something important." in str(exception)
+    assert exception.error_code == "PERMISSION_DENIED"
+    json.loads(exception.serialize_as_json())
+
+    # Test that we can create a RestException with an unrecognized error code.
+    exception = RestException({"error_code": "weird error", "messages": "something important."})
+    assert "something important." in str(exception)
+    json.loads(exception.serialize_as_json())
