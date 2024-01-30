@@ -317,7 +317,7 @@ class SqlTag(Base):
         Convert DB model to corresponding MLflow entity.
 
         Returns:
-            mlflow.entities.RunTag: Description of the return value.
+            :py:class:`mlflow.entities.RunTag`.
         """
         return RunTag(key=self.key, value=self.value)
 
