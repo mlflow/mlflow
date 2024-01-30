@@ -29,7 +29,7 @@ single endpoint.
 Custom PyFunc models are a powerful MLflow feature that lets users customize model functionality
 where named flavors may be lacking. Going forward we assume basic working knowledge of PyFunc, so if
 you're unfamiliar, check out the 
-`Creating Custom PyFunc <https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html>_` 
+`Creating Custom PyFunc <https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html>`_
 tutorial.
 
 2 - What do I need to do?
