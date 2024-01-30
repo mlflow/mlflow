@@ -3938,3 +3938,30 @@ def test_text_generation_task_completions_predict_with_hf_params(
     ) or (
         inference[0]["finish_reason"] == "stop" and inference[0]["usage"]["completion_tokens"] < 10
     )
+
+
+def test_text_generation_task_completions_serve(text_generation_pipeline):
+    data = {"prompt": "How to learn Python in 3 weeks?"}
+    output = {"text": "Start with"}
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=text_generation_pipeline,
+            artifact_path="model",
+            task="llm/v1/completions",
+            signature=infer_signature(data, output),
+        )
+
+    inference_payload = json.dumps({"inputs": data})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    output_dict = values.to_dict("records")[0]
+    assert not output_dict["text"].startswith("How to learn")
+    assert output_dict["finish_reason"] == "stop"
+    assert output_dict["usage"]["prompt_tokens"] < 20
