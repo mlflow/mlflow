@@ -35,6 +35,7 @@ The following example demonstrates how to construct a :py:class:`mlflow.data.pan
     import pandas as pd
     from mlflow.data.pandas_dataset import PandasDataset
 
+
     CSV_DELIMITER = ";"
 
     dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"
@@ -42,10 +43,7 @@ The following example demonstrates how to construct a :py:class:`mlflow.data.pan
 
     # Create an instance of a PandasDataset
     dataset = mlflow.data.from_pandas(
-        raw_data, 
-        source=dataset_source_url, 
-        name="wine quality - white", 
-        targets="quality"
+        raw_data, source=dataset_source_url, name="wine quality - white", targets="quality"
     )
 
 DatasetSource
@@ -64,9 +62,9 @@ The following example demonstrates how to use the ``log_inputs`` API to log a tr
 
 .. code-block:: python
 
-   import mlflow
-   import pandas as pd
-   from mlflow.data.pandas_dataset import PandasDataset
+    import mlflow
+    import pandas as pd
+    from mlflow.data.pandas_dataset import PandasDataset
 
     CSV_DELIMITER = ";"
 
@@ -75,23 +73,20 @@ The following example demonstrates how to use the ``log_inputs`` API to log a tr
 
     # Create an instance of a PandasDataset
     dataset = mlflow.data.from_pandas(
-        raw_data, 
-        source=dataset_source_url, 
-        name="wine quality - white", 
-        targets="quality"
+        raw_data, source=dataset_source_url, name="wine quality - white", targets="quality"
     )
 
-   # Log the Dataset to an MLflow run by using the `log_input` API
+    # Log the Dataset to an MLflow run by using the `log_input` API
     with mlflow.start_run() as run:
         mlflow.log_input(dataset, context="training")
 
-   # Retrieve the run information
+    # Retrieve the run information
     logged_run = mlflow.get_run(run.info.run_id)
 
     # Retrieve the Dataset object
     logged_dataset = logged_run.inputs.dataset_inputs[0].dataset
 
-   # View some of the recorded Dataset information
+    # View some of the recorded Dataset information
     print(f"Dataset name: {logged_dataset.name}")
     print(f"Dataset digest: {logged_dataset.digest}")
     print(f"Dataset profile: {logged_dataset.profile}")
@@ -133,13 +128,13 @@ access the Dataset's source via the following API:
 
    # Loading the dataset's source
    dataset_source = mlflow.data.get_source(logged_dataset)
-   
+
    local_dataset = retrieved_data.load()
 
-    print(f"The local file where the data has been downloaded to:\n {local_dataset}")
+   print(f"The local file where the data has been downloaded to: {local_dataset}")
 
-    # Load the data again
-    loaded_data = pd.read_csv(local_dataset, delimiter=CSV_DELIMITER)
+   # Load the data again
+   loaded_data = pd.read_csv(local_dataset, delimiter=CSV_DELIMITER)
 
 The print statement from above resolves to the local file that was created when calling ``load``.
 
@@ -184,7 +179,9 @@ To see how this integration functions, let's take a look at a fairly simple and 
     X = raw_data.drop("quality", axis=1)
 
     # Split the data into training and test sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=17)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.33, random_state=17
+    )
 
     # Create a label encoder object
     le = LabelEncoder()
@@ -206,26 +203,21 @@ To see how this integration functions, let's take a look at a fairly simple and 
     eval_data["predictions"] = le.inverse_transform(y_test_pred)
 
     # Create the PandasDataset for use in mlflow evaluate
-    pd_dataset = mlflow.data.from_pandas(eval_data, predictions="predictions", targets="label")
+    pd_dataset = mlflow.data.from_pandas(
+        eval_data, predictions="predictions", targets="label"
+    )
 
     mlflow.set_experiment("White Wine Quality")
 
     # Log the Dataset, model, and execute an evaluation run using the configured Dataset
     with mlflow.start_run() as run:
-        
         mlflow.log_input(pd_dataset, context="training")
-        
+
         mlflow.xgboost.log_model(
-            artifact_path="white-wine-xgb",
-            xgb_model=model,
-            input_example=X_test
+            artifact_path="white-wine-xgb", xgb_model=model, input_example=X_test
         )
-        
-        result = mlflow.evaluate(
-            data=pd_dataset,
-            predictions=None,
-            model_type="classifier"
-        )
+
+        result = mlflow.evaluate(data=pd_dataset, predictions=None, model_type="classifier")
 
 Navigating to the MLflow UI, we can see how the Dataset, model, metrics, and a classification-specific confusion matrix are all logged 
 to the run.
