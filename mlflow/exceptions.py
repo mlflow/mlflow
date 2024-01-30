@@ -126,7 +126,7 @@ class RestException(MlflowException):
         """
         Overriding `__reduce__` to make `RestException` instance pickle-able.
         """
-        return type(self), (self.json,)
+        return RestException, (self.json,)
 
 
 class ExecutionException(MlflowException):

@@ -54,10 +54,9 @@ def test_rest_exception():
     assert "test" in deserialized_rest_exception.message
 
 
-def test_test_rest_exception_pickleable():
-    v1 = mlflow.exceptions.RestException({"error_code": "INTERNAL_ERROR", "message": "abc"})
-    s1 = pickle.dumps(v1)
-    v2 = pickle.loads(s1)
+def test_rest_exception_pickleable():
+    e1 = mlflow.exceptions.RestException({"error_code": "INTERNAL_ERROR", "message": "abc"})
+    e2 = pickle.loads(pickle.dumps(e1))
 
-    assert v1.error_code == v2.error_code
-    assert v1.message == v2.message
+    assert e1.error_code == e2.error_code
+    assert e1.message == e2.message
