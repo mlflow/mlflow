@@ -125,7 +125,7 @@ def load_model(model_uri, dst_path=None, custom_objects=None, load_model_kwargs=
 
 
 def _load_pyfunc(path):
-    """Logics of loading a saved Keras model as PyFunc model.
+    """Logics of loading a saved Keras model as a PyFunc model.
 
     This function is called by `mlflow.pyfunc.load_model`.
 
