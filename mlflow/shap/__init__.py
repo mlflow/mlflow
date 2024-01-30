@@ -170,8 +170,8 @@ def log_explanation(predict_function, features, artifact_path=None):
                     ...
 
             - ``X``: An array-like object whose shape should be (# samples, # features).
-            - ``pred``: An array-like object whose shape should be (# samples) for a regressor or 
-              (# classes, # samples) for a classifier. For a classifier, the values in ``pred`` 
+            - ``pred``: An array-like object whose shape should be (# samples) for a regressor or
+              (# classes, # samples) for a classifier. For a classifier, the values in ``pred``
               should correspond to the predicted probability of each class.
 
             Acceptable array-like object types:
