@@ -1,8 +1,8 @@
+import os
 import pathlib
 import re
-import subprocess
+
 import requests
-import os
 
 
 def fetch_changed_files():
