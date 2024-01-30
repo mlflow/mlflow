@@ -75,7 +75,10 @@ INPUTS = "inputs"
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 
 # Support unwrapped JSON with these keys for LLM use cases of Chat, Completions, Embeddings tasks
-SUPPORTED_LLM_FORMATS = ["messages", "prompt", "input"]
+LLM_CHAT_KEY = "messages"
+LLM_COMPLETIONS_KEY = "prompt"
+LLM_EMBEDDINGS_KEY = "input"
+SUPPORTED_LLM_FORMATS = {LLM_CHAT_KEY, LLM_COMPLETIONS_KEY, LLM_EMBEDDINGS_KEY}
 
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
