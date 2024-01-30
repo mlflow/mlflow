@@ -21,6 +21,7 @@ from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.tensorflow import load_latest_checkpoint
 from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
 from mlflow.tensorflow.callback import MLflowCallback
 from mlflow.types.utils import _infer_schema
@@ -1383,3 +1384,57 @@ def test_autolog_throw_error_on_explicit_mlflow_callback(keras_data_gen_sequence
     with mlflow.start_run() as run:
         with pytest.raises(MlflowException, match="MLflow autologging must be turned off*"):
             model.fit(keras_data_gen_sequence, callbacks=[MLflowCallback(run)])
+
+
+def test_keras_automatic_model_checkpoint(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(
+        model_checkpoint=True,
+        model_checkpoint_monitor="val_accuracy",
+        model_checkpoint_mode="max",
+        model_checkpoint_save_best_only=True,
+        model_checkpoint_save_weights_only=True,
+        model_checkpoint_every_n_epochs=1,
+        model_checkpoint_train_time_interval_S=None,
+    )
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit(data, labels, epochs=10, validation_split=0.1)
+
+    client = MlflowClient()
+    artifacts = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
+
+    assert 'latest_checkpoint_metrics.json' in artifacts
+    assert 'latest_checkpoint_model.weights.h5' in artifacts
+
+    result_metrics = mlflow.artifacts.load_dict(
+        f'runs:/{run.info.run_id}/latest_checkpoint_metrics.json'
+    )
+    assert set(result_metrics.keys()) == {
+        'loss', 'epoch', 'accuracy', 'val_accuracy', 'val_loss'
+    }
+
+    model2 = create_tf_keras_model()
+    load_latest_checkpoint(model2, run.info.run_id)
+
+    # Test model checkpointing saving weights_only = False
+    mlflow.tensorflow.autolog(
+        model_checkpoint=True,
+        model_checkpoint_monitor="val_accuracy",
+        model_checkpoint_mode="max",
+        model_checkpoint_save_best_only=True,
+        model_checkpoint_save_weights_only=False,
+        model_checkpoint_every_n_epochs=1,
+        model_checkpoint_train_time_interval_S=None,
+    )
+
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit(data, labels, epochs=10, validation_split=0.1)
+
+    load_latest_checkpoint(run_id=run.info.run_id)

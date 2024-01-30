@@ -1,4 +1,7 @@
+import os
+import shutil
 import warnings
+import time
 from typing import Dict, Union
 
 import numpy as np
@@ -6,6 +9,7 @@ import tensorflow
 from tensorflow.keras.callbacks import Callback, TensorBoard
 
 import mlflow
+from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
     ExceptionSafeClass,
@@ -97,8 +101,9 @@ class __MLflowModelCheckpointCallback(Callback, metaclass=ExceptionSafeClass):
 
         assert False, "Illegal __MLflowModelCheckpoint config."
 
-    def on_epoch_end(self, epoch, logs=None):
-        metric_dict = {k: float(v) for k, v in trainer.callback_metrics.items()}
+    def on_epoch_end(self, epoch, metrics=None):
+        metrics = metrics or {}
+        metric_dict = {k: float(v) for k, v in metrics.items()}
 
         should_checkpoint = False
         if self.every_n_epochs and (epoch % self.every_n_epochs == 0):
@@ -129,16 +134,16 @@ class __MLflowModelCheckpointCallback(Callback, metaclass=ExceptionSafeClass):
 
         if self.save_best_only:
             if self.save_weights_only:
-                checkpoint_model_filename = "latest_checkpoint_model.weights.pth"
+                checkpoint_model_filename = "latest_checkpoint_model.weights.h5"
             else:
-                checkpoint_model_filename = "latest_checkpoint_model.pth"
+                checkpoint_model_filename = "latest_checkpoint_model.h5"
             checkpoint_metrics_filename = "latest_checkpoint_metrics.json"
             checkpoint_artifact_dir = ""
         else:
             if self.save_weights_only:
-                checkpoint_model_filename = f"checkpoint_model_epoch_{epoch}.weights.pth"
+                checkpoint_model_filename = f"checkpoint_model_epoch_{epoch}.weights.h5"
             else:
-                checkpoint_model_filename = f"checkpoint_model_epoch_{epoch}.pth"
+                checkpoint_model_filename = f"checkpoint_model_epoch_{epoch}.h5"
             checkpoint_metrics_filename = f"checkpoint_metrics_epoch_{epoch}.json"
             checkpoint_artifact_dir = "checkpoints"
 

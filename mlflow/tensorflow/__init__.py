@@ -23,6 +23,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.client import MlflowClient
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
@@ -1416,3 +1417,54 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targ
         return
 
     mlflow.log_input(dataset, context)
+
+
+def load_latest_checkpoint(model=None, run_id=None):
+    """
+    If you enable model_checkpoint in autologging, during pytorch-lightning model
+    training execution, checkpointed models are logged as MLflow artifacts.
+    Using this API, you can load the latest checkpointed model.
+
+    :param model: (Optional) The training model, this argument is required
+      only when the saved checkpoint is "weight-only".
+    :param run_id: (Optional) The id of the run which model is logged to.
+      If not provided, current active run is used.
+    """
+    from mlflow.tensorflow._autolog import _LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
+    from tensorflow import keras
+
+    client = MlflowClient()
+
+    if run_id is None:
+        run = mlflow.active_run()
+        if run is None:
+            raise MlflowException(
+                "There is no active run, please provide the 'run_id' for "
+                "'load_best_checkpoint' call."
+            )
+        run_id = run.info.run_id
+    else:
+        run = client.get_run(run_id)
+
+    best_checkpoint_artifact = run.data.tags.get(_LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
+    if best_checkpoint_artifact is None:
+        raise MlflowException("There is no logged checkpoint artifact in current run.")
+
+    if os.path.basename(best_checkpoint_artifact).split(".")[-2] == "weights":
+        # the model is saved as weights only
+        is_weights_only = True
+        if model is None:
+            raise MlflowException(
+                "The latest checkpoint is weights-only, you need to provide 'model' "
+                "argument when calling 'load_latest_checkpoint'."
+            )
+    else:
+        is_weights_only = False
+
+    downloaded_checkpoint_filepath = client.download_artifacts(run_id, best_checkpoint_artifact)
+
+    if is_weights_only:
+        model.load_weights(downloaded_checkpoint_filepath)
+        return model
+
+    return keras.models.load_model(downloaded_checkpoint_filepath)
