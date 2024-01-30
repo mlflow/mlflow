@@ -955,7 +955,11 @@ def _setup_callbacks(callbacks, metrics_logger):
     input list, and returns the new list and appropriate log directory.
     """
     # pylint: disable=no-name-in-module
-    from mlflow.tensorflow._autolog import __MLflowTfKeras2Callback, _TensorBoard
+    from mlflow.tensorflow._autolog import (
+        __MLflowTfKeras2Callback,
+        __MLflowModelCheckpointCallback,
+        _TensorBoard,
+    )
 
     tb = _get_tensorboard_callback(callbacks)
     for callback in callbacks:
@@ -972,6 +976,37 @@ def _setup_callbacks(callbacks, metrics_logger):
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
     callbacks.append(__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS))
+
+    model_checkpoint = get_autologging_config(
+        mlflow.tensorflow.FLAVOR_NAME, "model_checkpoint", True
+    )
+    if model_checkpoint:
+        model_checkpoint_monitor = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "model_checkpoint_monitor", "val_loss"
+        )
+        model_checkpoint_mode = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "model_checkpoint_mode", "min"
+        )
+        model_checkpoint_save_best_only = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "model_checkpoint_save_best_only", True
+        )
+        model_checkpoint_save_weights_only = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "model_checkpoint_save_weights_only", True
+        )
+        model_checkpoint_every_n_epochs = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "model_checkpoint_every_n_epochs", None
+        )
+        model_checkpoint_train_time_interval_S = get_autologging_config(
+            mlflow.tensorflow.FLAVOR_NAME, "model_checkpoint_train_time_interval_S", None
+        )
+        callbacks.append(__MLflowModelCheckpointCallback(
+            monitor=model_checkpoint_monitor,
+            mode=model_checkpoint_mode,
+            save_best_only=model_checkpoint_save_best_only,
+            save_weights_only=model_checkpoint_save_weights_only,
+            every_n_epochs=model_checkpoint_every_n_epochs,
+            train_time_interval_S=model_checkpoint_train_time_interval_S,
+        ))
     return callbacks, log_dir
 
 
@@ -990,6 +1025,13 @@ def autolog(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
     extra_tags=None,
+    model_checkpoint=True,
+    model_checkpoint_monitor="val_loss",
+    model_checkpoint_mode="min",
+    model_checkpoint_save_best_only=True,
+    model_checkpoint_save_weights_only=True,
+    model_checkpoint_every_n_epochs=None,
+    model_checkpoint_train_time_interval_S=600,
 ):  # pylint: disable=unused-argument
     # pylint: disable=no-name-in-module
     """
@@ -1069,6 +1111,25 @@ def autolog(
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        model_checkpoint: Enable automatic model checkpointing.
+        model_checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
+            you set `model_checkpoint_save_best_only` to True.
+        model_checkpoint_save_best_only: If True, automatic model checkpointing only saves when
+            the model is considered the "best" and the latest best model according to the quantity
+            monitored will not be overwritten.
+        model_checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
+            if save_best_only=True, the decision to overwrite the current save file is made based on
+            either the maximization or the minimization of the monitored quantity.
+        model_checkpoint_save_weights_only: In automatic model checkpointing, if True, then
+            only the model’s weights will be saved. Otherwise, the optimizer states,
+            lr-scheduler states, etc are added in the checkpoint too.
+        model_checkpoint_every_n_epochs: Number of epochs between checkpoints for automatic
+            model checkpointing.
+        model_checkpoint_train_time_interval_S: Automatic model checkpoints are monitored
+            at the specified time interval in seconds. For all practical purposes, this cannot be
+            smaller than the amount of time it takes to process a single training batch. This is
+            not guaranteed to execute at the exact time specified, but should be close.
+            This must be mutually exclusive with `model_checkpoint_every_n_epochs`.
     """
     import tensorflow as tf
 

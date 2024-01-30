@@ -62,6 +62,112 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
             self.metrics_logger.record_metrics(logs, epoch)
 
 
+_LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "_latest_checkpoint_artifact"
+
+
+class __MLflowModelCheckpointCallback(Callback, metaclass=ExceptionSafeClass):
+
+    def __init__(
+        self,
+        monitor,
+        mode,
+        save_best_only,
+        save_weights_only,
+        every_n_epochs,
+        train_time_interval_S,
+    ):
+        self.monitor = monitor
+        self.mode = mode
+        self.save_best_only = save_best_only
+        self.save_weights_only = save_weights_only
+        self.every_n_epochs = every_n_epochs
+        self.train_time_interval_S = train_time_interval_S
+        self.latest_checkpoint_timestamp = time.time()
+        self.last_monitor_value = None
+
+    def _is_new_checkpoint_better(self, new_monitor_value):
+        if self.last_monitor_value is None:
+            return True
+
+        if self.mode == "min":
+            return new_monitor_value <= self.last_monitor_value
+
+        if self.mode == "max":
+            return new_monitor_value >= self.last_monitor_value
+
+        assert False, "Illegal __MLflowModelCheckpoint config."
+
+    def on_epoch_end(self, epoch, logs=None):
+        metric_dict = {k: float(v) for k, v in trainer.callback_metrics.items()}
+
+        should_checkpoint = False
+        if self.every_n_epochs and (epoch % self.every_n_epochs == 0):
+            should_checkpoint = True
+        elif (
+                self.train_time_interval_S and
+                time.time() - self.latest_checkpoint_timestamp > self.train_time_interval_S
+        ):
+            should_checkpoint = True
+
+        if not should_checkpoint:
+            return
+
+        if self.save_best_only:
+            if self.monitor not in metric_dict:
+                # "save-best-only" requires comparing the monitor metric value,
+                # but the provided monitor metric is not available,
+                # skip model checkpoint autologging
+                return
+
+            new_monitor_value = metric_dict[self.monitor]
+            if not self._is_new_checkpoint_better(new_monitor_value):
+                # Current checkpoint is worse than last saved checkpoint,
+                # so skip checkpointing.
+                return
+
+            self.last_monitor_value = new_monitor_value
+
+        if self.save_best_only:
+            if self.save_weights_only:
+                checkpoint_model_filename = "latest_checkpoint_model.weights.pth"
+            else:
+                checkpoint_model_filename = "latest_checkpoint_model.pth"
+            checkpoint_metrics_filename = "latest_checkpoint_metrics.json"
+            checkpoint_artifact_dir = ""
+        else:
+            if self.save_weights_only:
+                checkpoint_model_filename = f"checkpoint_model_epoch_{epoch}.weights.pth"
+            else:
+                checkpoint_model_filename = f"checkpoint_model_epoch_{epoch}.pth"
+            checkpoint_metrics_filename = f"checkpoint_metrics_epoch_{epoch}.json"
+            checkpoint_artifact_dir = "checkpoints"
+
+        mlflow.set_tag(
+            _LATEST_CHECKPOINT_ARTIFACT_TAG_KEY,
+            os.path.join(checkpoint_artifact_dir, checkpoint_model_filename)
+        )
+
+        mlflow.log_dict(
+            {**metric_dict, "epoch": epoch},
+            os.path.join(checkpoint_artifact_dir, checkpoint_metrics_filename)
+        )
+
+        tmp_dir = create_tmp_dir()
+        try:
+            tmp_model_save_path = os.path.join(tmp_dir, checkpoint_model_filename)
+            if self.save_weights_only:
+                self.model.save_weights(tmp_model_save_path, overwrite=True)
+            else:
+                self.model.save(tmp_model_save_path, overwrite=True)
+
+            mlflow.log_artifact(tmp_model_save_path, checkpoint_artifact_dir)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        self.latest_checkpoint_timestamp = time.time()
+
+
+
 def _extract_input_example_from_tensor_or_ndarray(
     input_features: Union[tensorflow.Tensor, np.ndarray]
 ) -> np.ndarray:
