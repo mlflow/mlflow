@@ -162,7 +162,8 @@ Column-based signature also support composite data types of these primitives.
 
     Support for Array and Object types was introduced in MLflow version **2.10.0**. These types will not be recognized in previous versions of MLflow. 
     If you are saving a model that uses these signature types, you should ensure that any other environment that attempts to load these models 
-    has a version of MLflow installed that is at least 2.10.0.
+    has a version of MLflow installed that is at least 2.10.0. Additionally, schema enforcement with Pyspark Dataframes does not support Array and Object
+    types.
 
 Additional examples for composite data types can be seen by viewing the `signature examples notebook <notebooks/signature_examples.html>`_.
 
@@ -401,6 +402,9 @@ Input Type Enforcement
 MLflow enforces input types as defined in the model's signature. For column-based signature models (such as those using DataFrame inputs), MLflow 
 performs safe type conversions where necessary, allowing only lossless conversions. For example, converting int to long or int to double is 
 permissible, but converting long to double is not. In cases where types cannot be made compatible, MLflow will raise an error.
+
+For Pyspark DataFrame inputs, schema enforcement does not support Array and Object types. During schema enforcement, MLflow casts a sample of the
+PySpark DataFrame into a Pandas DataFrame to ensure compatibility with model signatures.
 
 For tensor-based signature models, type checking is more stringent. An exception is thrown if the input type does not align with the schema-specified type.
 
