@@ -297,7 +297,7 @@ def _save_runnable_with_steps(steps, file_path: Union[Path, str], loader_fn=None
 
 def _save_runnable_branch(model, file_path, loader_fn, persist_dir):
     """
-    save runnable branch in to path.
+    Save runnable branch in to path.
     """
     save_path = Path(file_path) if isinstance(file_path, str) else file_path
     save_path.mkdir(parents=True, exist_ok=True)
