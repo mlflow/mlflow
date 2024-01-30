@@ -125,7 +125,7 @@ def set_experiment(
         Experiment_id: 1
         Artifact Location: file:///.../mlruns/1
         Tags: {}
-        Lifecycle_stage: activ
+        Lifecycle_stage: active
     """
     if (experiment_name is not None and experiment_id is not None) or (
         experiment_name is None and experiment_id is None
