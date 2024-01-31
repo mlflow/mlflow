@@ -1,4 +1,5 @@
 import json
+import keyword
 import logging
 import math
 import operator
@@ -215,6 +216,20 @@ def make_metric(
             f"The metric name '{name}' provided is not a valid Python identifier, which will "
             "prevent its use as a base metric for derived metrics. Please use a valid identifier "
             "to enable creation of derived metrics that use the given metric."
+        )
+
+    if keyword.iskeyword(name):
+        _logger.warning(
+            f"The metric name '{name}' is a reserved Python keyword, which will "
+            "prevent its use as a base metric for derived metrics. Please use a valid identifier "
+            "to enable creation of derived metrics that use the given metric."
+        )
+
+    if name in ["predictions", "targets", "metrics"]:
+        _logger.warning(
+            f"The metric name '{name}' is used as a special parameter in MLflow metrics, which "
+            "will prevent its use as a base metric for derived metrics. Please use a different "
+            "name to enable creation of derived metrics that use the given metric."
         )
 
     return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version, metric_details)

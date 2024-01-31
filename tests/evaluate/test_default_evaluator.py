@@ -3112,7 +3112,7 @@ def test_derived_metrics_circular_dependencies_raises_exception():
             )
 
 
-def test_custom_metric_bad_naming():
+def test_custom_metric_bad_names():
     def metric_fn(predictions, targets):
         return 0
 
@@ -3132,6 +3132,22 @@ def test_custom_metric_bad_naming():
             "The metric name 'bad-metric-name' provided is not a valid Python identifier, which "
             "will prevent its use as a base metric for derived metrics. Please use a valid "
             "identifier to enable creation of derived metrics that use the given metric."
+        )
+
+    with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
+        make_metric(eval_fn=metric_fn, name="None", greater_is_better=True)
+        mock_warning.assert_called_once_with(
+            "The metric name 'None' is a reserved Python keyword, which will "
+            "prevent its use as a base metric for derived metrics. Please use a valid identifier "
+            "to enable creation of derived metrics that use the given metric."
+        )
+
+    with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
+        make_metric(eval_fn=metric_fn, name="predictions", greater_is_better=True)
+        mock_warning.assert_called_once_with(
+            "The metric name 'predictions' is used as a special parameter in MLflow metrics, which "
+            "will prevent its use as a base metric for derived metrics. Please use a different "
+            "name to enable creation of derived metrics that use the given metric."
         )
 
 
