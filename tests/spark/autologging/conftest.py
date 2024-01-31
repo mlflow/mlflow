@@ -5,7 +5,7 @@ import pytest
 from pyspark.sql import Row
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
-from mlflow._spark_autologging import clear_table_infos
+from mlflow.spark._autolog import clear_table_infos
 
 from tests.spark.autologging.utils import _get_or_create_spark_session
 
