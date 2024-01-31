@@ -65,6 +65,11 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             s3_endpoint_url=self._s3_endpoint_url,
         )
         try:
+            head_bucket_resp = temp_client.head_bucket(Bucket=self.bucket)
+            if "BucketLocationName" in head_bucket_resp:
+                _logger.info("Directory bucket found with BucketLocationName %s", head_bucket_resp["BucketLocationName"])
+            else:
+                _logger.info("Non-directory bucket found with response %s", str(head_bucket_resp))
             return temp_client.head_bucket(Bucket=self.bucket)["BucketRegion"]
         except ClientError as error:
             return error.response["ResponseMetadata"]["HTTPHeaders"]["x-amz-bucket-region"]
