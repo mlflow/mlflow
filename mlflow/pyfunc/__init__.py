@@ -307,8 +307,12 @@ from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
-from pyspark.sql import DataFrame as SparkDataFrame
+try:
+    from pyspark.sql import DataFrame as SparkDataFrame
 
+    HAS_PYSPARK = True
+except ImportError:
+    HAS_PYSPARK = False
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
 CODE = "code"
@@ -490,7 +494,7 @@ class PyFuncModel:
             if inspect.signature(self._predict_fn).parameters.get("params"):
                 return self._predict_fn(data, params=params)
             _log_warning_if_params_not_in_predict_signature(_logger, params)
-            if isinstance(data, SparkDataFrame):
+            if HAS_PYSPARK and isinstance(data, SparkDataFrame):
                 _logger.warning(
                     "Input data is a Spark DataFrame. Note that behaviour for Spark DataFrames is model dependent."
                 )
