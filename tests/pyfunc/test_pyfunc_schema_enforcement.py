@@ -2653,10 +2653,12 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
     expected_result = df.to_dict(orient="records")
     np.testing.assert_equal(result, expected_result)
 
+@pytest.fixture(scope="module")
+def spark():
+    with SparkSession.builder.getOrCreate() as spark:
+        yield spark
 
-def test_enforce_schema_spark_dataframe():
-    spark = SparkSession.builder.appName("test").getOrCreate()
-
+def test_enforce_schema_spark_dataframe(spark):
     spark_df_schema = StructType(
         [
             StructField("smallint", ShortType(), True),
@@ -2705,9 +2707,7 @@ def test_enforce_schema_spark_dataframe():
     _enforce_schema(df, input_schema)
 
 
-def test_enforce_schema_spark_dataframe_missing_col():
-    spark = SparkSession.builder.appName("test").getOrCreate()
-
+def test_enforce_schema_spark_dataframe_missing_col(spark):
     spark_df_schema = StructType(
         [StructField("smallint", ShortType(), True), StructField("int", IntegerType(), True)]
     )
@@ -2731,9 +2731,7 @@ def test_enforce_schema_spark_dataframe_missing_col():
         _enforce_schema(df, input_schema)
 
 
-def test_enforce_schema_spark_dataframe_incompatible_type():
-    spark = SparkSession.builder.appName("test").getOrCreate()
-
+def test_enforce_schema_spark_dataframe_incompatible_type(spark):
     spark_df_schema = StructType(
         [StructField("a", ShortType(), True), StructField("b", DoubleType(), True)]
     )
@@ -2791,8 +2789,7 @@ def test_enforce_schema_spark_dataframe_complex_types():
         )
 
 
-def test_enforce_schema_spark_dataframe_null_values():
-    spark = SparkSession.builder.appName("test").getOrCreate()
+def test_enforce_schema_spark_dataframe_null_values(spark):
     spark_df_schema = StructType(
         [StructField("a", ShortType(), True), StructField("b", DoubleType(), True)]
     )
