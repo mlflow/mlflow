@@ -141,6 +141,12 @@ class RestException(MlflowException):
                 )
                 super().__init__(message)
 
+    def __reduce__(self):
+        """
+        Overriding `__reduce__` to make `RestException` instance pickle-able.
+        """
+        return RestException, (self.json,)
+
 
 class ExecutionException(MlflowException):
     """Exception thrown when executing a project fails"""
