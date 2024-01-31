@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-from pyspark.sql import DataFrame as SparkDataFrame
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
@@ -35,6 +34,13 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
+try:
+    from pyspark.sql import DataFrame as SparkDataFrame
+    HAS_PYSPARK = True
+except ImportError:
+    HAS_PYSPARK = False
+
+
 INPUT_EXAMPLE_PATH = "artifact_path"
 EXAMPLE_DATA_KEY = "inputs"
 EXAMPLE_PARAMS_KEY = "params"
@@ -57,17 +63,19 @@ PyFuncInput = Union[
     bytes,
     float,
     int,
-    str,
-    SparkDataFrame,
+    str
 ]
 PyFuncOutput = Union[
     pd.DataFrame,
     pd.Series,
     np.ndarray,
     list,
-    str,
-    SparkDataFrame,
+    str
 ]
+
+if HAS_PYSPARK:
+    PyFuncInput = Union[PyFuncInput, SparkDataFrame]
+    PyFuncOutput = Union[PyFuncOutput, SparkDataFrame]
 
 _logger = logging.getLogger(__name__)
 
@@ -920,7 +928,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     )
         elif isinstance(pf_input, (list, np.ndarray, pd.Series)):
             pf_input = pd.DataFrame(pf_input)
-        elif isinstance(pf_input, SparkDataFrame):
+        elif HAS_PYSPARK and isinstance(pf_input, SparkDataFrame):
             for column, dtype in pf_input.dtypes:
                 if "array" in dtype or "map" in dtype:
                     _logger.warning(
@@ -972,7 +980,7 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
             )
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)
-    elif isinstance(original_pf_input, SparkDataFrame):
+    elif HAS_PYSPARK and isinstance(original_pf_input, SparkDataFrame):
         if input_schema.has_input_names():
             _enforce_named_col_schema(pf_input, input_schema)
         else:

@@ -2754,9 +2754,7 @@ def test_enforce_schema_spark_dataframe_incompatible_type(spark):
         _enforce_schema(df, input_schema)
 
 
-def test_enforce_schema_spark_dataframe_complex_types():
-    spark = SparkSession.builder.appName("test").getOrCreate()
-
+def test_enforce_schema_spark_dataframe_complex_types(spark):
     spark_df_schema = StructType(
         [
             StructField("int", IntegerType(), True),
