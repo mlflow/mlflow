@@ -36,6 +36,7 @@ except ImportError:
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
+
     HAS_PYSPARK = True
 except ImportError:
     HAS_PYSPARK = False
@@ -63,15 +64,9 @@ PyFuncInput = Union[
     bytes,
     float,
     int,
-    str
+    str,
 ]
-PyFuncOutput = Union[
-    pd.DataFrame,
-    pd.Series,
-    np.ndarray,
-    list,
-    str
-]
+PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
 
 if HAS_PYSPARK:
     PyFuncInput = Union[PyFuncInput, SparkDataFrame]

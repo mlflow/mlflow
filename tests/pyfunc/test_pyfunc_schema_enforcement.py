@@ -2653,10 +2653,12 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
     expected_result = df.to_dict(orient="records")
     np.testing.assert_equal(result, expected_result)
 
+
 @pytest.fixture(scope="module")
 def spark():
     with SparkSession.builder.getOrCreate() as spark:
         yield spark
+
 
 def test_enforce_schema_spark_dataframe(spark):
     spark_df_schema = StructType(
@@ -2785,4 +2787,3 @@ def test_enforce_schema_spark_dataframe_complex_types(spark):
             " array and map type are not supported in schema validation"
             " when using pyspark DataFrame as input"
         )
-
