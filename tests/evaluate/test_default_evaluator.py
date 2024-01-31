@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import re
 import json
 from os.path import join as path_join
 from pathlib import Path
@@ -3109,6 +3110,29 @@ def test_derived_metrics_circular_dependencies_raises_exception():
                 ],
                 evaluators="default",
             )
+
+
+def test_custom_metric_bad_naming():
+    def metric_fn(predictions, targets):
+        return 0
+    
+    error_message = re.escape(
+        "Invalid metric name 'metric/with/slash'. Metric names cannot include "
+        "forward slashes ('/')."
+    )
+    with pytest.raises(
+        MlflowException,
+        match=error_message,
+    ):
+        make_metric(eval_fn=metric_fn, name="metric/with/slash", greater_is_better=True)
+    
+    with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
+        make_metric(eval_fn=metric_fn, name="bad-metric-name", greater_is_better=True)
+        mock_warning.assert_called_once_with(
+            "The metric name 'bad-metric-name' provided is not a valid Python identifier, which "
+            "will prevent its use as a base metric for derived metrics. Please use a valid "
+            "identifier to enable creation of derived metrics that use the given metric."
+        )
 
 
 def test_multi_output_model_error_handling():

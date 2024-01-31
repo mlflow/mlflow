@@ -206,11 +206,11 @@ def make_metric(
 
     if "/" in name:
         raise MlflowException(
-            f"Invalid metric name '{name}'. Metric names cannot include forward slashes ('/'). ",
+            f"Invalid metric name '{name}'. Metric names cannot include forward slashes ('/').",
             INVALID_PARAMETER_VALUE,
         )
 
-    if name.isidentifier():
+    if not name.isidentifier():
         _logger.warning(
             f"The metric name '{name}' provided is not a valid Python identifier, which will "
             "prevent its use as a base metric for derived metrics. Please use a valid identifier "
