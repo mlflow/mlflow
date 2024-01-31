@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import io
-import re
 import json
+import re
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -3115,7 +3115,7 @@ def test_derived_metrics_circular_dependencies_raises_exception():
 def test_custom_metric_bad_naming():
     def metric_fn(predictions, targets):
         return 0
-    
+
     error_message = re.escape(
         "Invalid metric name 'metric/with/slash'. Metric names cannot include "
         "forward slashes ('/')."
@@ -3125,7 +3125,7 @@ def test_custom_metric_bad_naming():
         match=error_message,
     ):
         make_metric(eval_fn=metric_fn, name="metric/with/slash", greater_is_better=True)
-    
+
     with mock.patch("mlflow.models.evaluation.base._logger.warning") as mock_warning:
         make_metric(eval_fn=metric_fn, name="bad-metric-name", greater_is_better=True)
         mock_warning.assert_called_once_with(
