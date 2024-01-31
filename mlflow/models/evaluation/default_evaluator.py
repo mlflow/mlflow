@@ -568,7 +568,7 @@ def _is_string(value):
 
 def _evaluate_metric(metric_tuple, eval_fn_args):
     """
-    This function calls the `metric` function and performs validations on the returned
+    This function calls the metric function and performs validations on the returned
     result to ensure that they are in the expected format. It will warn and will not log metrics
     that are in the wrong format.
 
@@ -1175,6 +1175,19 @@ class DefaultEvaluator(ModelEvaluator):
         return artifact
 
     def _get_args_for_metrics(self, metric_tuple, eval_df):
+        """
+        Get the appropriate arguments for the provided metric_tuple given the eval_df.
+
+        :param metric_tuple: The metric tuple containing a user provided function and its index
+            in the ``extra_metrics`` parameter of ``mlflow.evaluate``
+
+        :param eval_df: The evaluation dataframe containing the prediction and target columns.
+
+        :return: tuple: A tuple of (bool, list) where:
+            - If there was some error in getting the arguments, returns (False, list of missing
+                parameters).
+            - Otherwise, returns (True, list of arguments).
+        """
         # deepcopying eval_df and builtin_metrics for each custom metric function call,
         # in case the user modifies them inside their function(s).
         eval_df_copy = eval_df.copy()
@@ -1248,8 +1261,8 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(param.default)
 
         if len(params_not_found) > 0:
-            return metric_tuple.name, params_not_found
-        return eval_fn_args
+            return False, params_not_found
+        return True, eval_fn_args
 
     def _log_custom_artifacts(self, eval_df):
         if not self.custom_artifacts:
@@ -1528,14 +1541,13 @@ class DefaultEvaluator(ModelEvaluator):
             failed_results = []
             did_append_metric = False
             for metric_tuple in remaining_metrics:
-                result = self._get_args_for_metrics(metric_tuple, eval_df)
-                # cannot calculate the metric yet
-                if isinstance(result, tuple):
-                    pending_metrics.append(metric_tuple)
-                    failed_results.append(result)
-                else:  # can calculate this metric "immediately"
+                can_calculate, eval_fn_args = self._get_args_for_metrics(metric_tuple, eval_df)
+                if can_calculate:
                     self.ordered_metrics.append(metric_tuple)
                     did_append_metric = True
+                else:  # cannot calculate the metric yet
+                    pending_metrics.append(metric_tuple)
+                    failed_results.append(eval_fn_args)
 
             # cant calculate any more metrics
             if not did_append_metric:
@@ -1550,7 +1562,7 @@ class DefaultEvaluator(ModelEvaluator):
         first_row_df = eval_df.iloc[[0]]
         for metric_tuple in self.ordered_metrics:
             try:
-                eval_fn_args = self._get_args_for_metrics(metric_tuple, first_row_df)
+                _, eval_fn_args = self._get_args_for_metrics(metric_tuple, first_row_df)
                 metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
                 if metric_value:
                     name = (
@@ -1584,7 +1596,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         # calculate metrics for the full eval_df
         for metric_tuple in self.ordered_metrics:
-            eval_fn_args = self._get_args_for_metrics(metric_tuple, eval_df)
+            _, eval_fn_args = self._get_args_for_metrics(metric_tuple, eval_df)
             metric_value = _evaluate_metric(metric_tuple, eval_fn_args)
 
             if metric_value:
@@ -1727,7 +1739,7 @@ class DefaultEvaluator(ModelEvaluator):
             self._metric_to_metric_tuple(-1, metric) for metric in builtin_metrics
         ]
 
-    def _prefix_metrics(self):
+    def _add_prefix_to_metrics(self):
         def _prefix_value(value):
             aggregate = (
                 {f"{prefix}{k}": v for k, v in value.aggregate_results.items()}
@@ -1790,7 +1802,7 @@ class DefaultEvaluator(ModelEvaluator):
                 if not is_baseline_model:
                     self._log_custom_artifacts(eval_df)
 
-                self._prefix_metrics()
+                self._add_prefix_to_metrics()
 
                 if not is_baseline_model:
                     self._log_artifacts()
