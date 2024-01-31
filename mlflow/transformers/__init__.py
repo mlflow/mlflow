@@ -2056,7 +2056,7 @@ class _TransformersWrapper:
         data = self._coerce_exploded_dict_to_single_dict(data)
         data = self._parse_input_for_table_question_answering(data)
         data = self._parse_conversation_input(data)
-        if (
+        if (  # noqa: SIM114
             isinstance(
                 self.pipeline,
                 (
@@ -2069,6 +2069,36 @@ class _TransformersWrapper:
             )
             and isinstance(data, list)
             and all(isinstance(entry, dict) for entry in data)
+        ):
+            return [list(entry.values())[0] for entry in data]
+        # NB: For Text2TextGenerationPipeline, we need more complex handling for dictionary,
+        # as we allow both single string input and dictionary input (or list of them). Both
+        # are once wrapped to Pandas DataFrame during schema enforcement and convert back to
+        # dictionary. The difference between two is columns of the DataFrame, where the first
+        # case (string) will have auto-generated columns like 0, 1, ... while the latter (dict)
+        # will have the original keys to be the columns. When converting back to dictionary,
+        # those columns will becomes the key of dictionary.
+        #
+        # E.g.
+        #  1. If user's input is string like model.predict("foo")
+        #    -> Raw input: "foo"
+        #    -> Pandas dataframe has column 0, with single row "foo"
+        #    -> Derived dictionary will be {0: "foo"}
+        #  2. If user's input is dictionary like model.predict({"text": "foo"})
+        #    -> Raw input: {"text": "foo"}
+        #    -> Pandas dataframe has column "text", with single row "foo"
+        #    -> Derived dictionary will be {"text": "foo"}
+        #
+        # Then for the first case, we want to extract values only, similar to other pipelines.
+        # However, for the second case, we want to keep the key-value pair as it is.
+        # In long-term, we should definitely change the upstream handling to avoid this
+        # complexity, but here we just try to make it work by checking if the key is auto-generated.
+        elif (
+            isinstance(self.pipeline, transformers.Text2TextGenerationPipeline)
+            and isinstance(data, list)
+            and all(isinstance(entry, dict) for entry in data)
+            # Pandas Dataframe derived dictionary will have integer key (row index)
+            and 0 in data[0].keys()
         ):
             return [list(entry.values())[0] for entry in data]
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
@@ -2926,6 +2956,7 @@ class _TransformersWrapper:
         # throw for unsupported types
         raise MlflowException.invalid_parameter_value(
             "Prompt templating is only supported for data of type str or List[str]. "
+            f"Got {type(input_data)} instead."
         )
 
 
