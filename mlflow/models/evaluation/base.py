@@ -204,6 +204,11 @@ def make_metric(
             )
         name = eval_fn.__name__
 
+    if "/" in name:
+        raise MlflowException(
+            f"Metric name '{name}' cannot contain a forward slash ('/').",
+        )
+
     return EvaluationMetric(eval_fn, name, greater_is_better, long_name, version, metric_details)
 
 

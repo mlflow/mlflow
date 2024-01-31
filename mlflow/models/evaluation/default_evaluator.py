@@ -1174,6 +1174,9 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
+    def _get_metric_names(self, metrics_values):
+        return [metric_name.split("/")[0] for metric_name in metrics_values.keys()]
+
     def _get_args_for_metrics(
         self, metric_tuple, eval_df
     ) -> Tuple[bool, List[Union[str, pd.DataFrame]]]:
@@ -1250,10 +1253,13 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(self.evaluator_config.get(column))
 
                     # case where this is the name of another metric
-                    elif column in self.metrics_values:
+                    elif column in self._get_metric_names(self.metrics_values):
                         eval_fn_args.append(self.metrics_values[column])
 
-                    # only for checking dependencies
+                    # in the case that:
+                    # the metric has not been calculated yet, but is scheduled to be calculated
+                    # "before" this metric in self.ordered_metrics, we append None to indicate
+                    # that there is not an error in the dependencies
                     elif column in [metric_tuple.name for metric_tuple in self.ordered_metrics]:
                         eval_fn_args.append(None)
 
@@ -1533,7 +1539,7 @@ class DefaultEvaluator(ModelEvaluator):
          configuration:
         evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
         stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
-        raise MlflowException(stripped_message)
+        raise MlflowException(stripped_message, error_code=INVALID_PARAMETER_VALUE)
 
     def _order_extra_metrics(self, eval_df):
         remaining_metrics = self.extra_metrics
