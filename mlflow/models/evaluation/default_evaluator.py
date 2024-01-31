@@ -1255,7 +1255,7 @@ class DefaultEvaluator(ModelEvaluator):
                         eval_fn_args.append(self.evaluator_config.get(column))
 
                     # case where this is the name of another metric
-                    if metric_value := self._get_column_in_metrics_values(column):
+                    elif metric_value := self._get_column_in_metrics_values(column):
                         eval_fn_args.append(metric_value)
 
                     # in the case that:
@@ -1557,7 +1557,7 @@ class DefaultEvaluator(ModelEvaluator):
                     did_append_metric = True
                 else:  # cannot calculate the metric yet
                     pending_metrics.append(metric_tuple)
-                    failed_results.append(eval_fn_args)
+                    failed_results.append((metric_tuple.name, eval_fn_args))
 
             # cant calculate any more metrics
             if not did_append_metric:
