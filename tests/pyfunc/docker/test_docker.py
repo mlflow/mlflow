@@ -22,7 +22,9 @@ from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_versi
 
 
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
-    actual_dockerfile = actual_dockerfile_path.read_text()
+    actual_dockerfile = actual_dockerfile_path.read_text().replace(
+        VERSION, get_released_mlflow_version()
+    )
     expected_dockerfile = (
         expected_dockerfile_path.read_text()
         .replace("$MLFLOW_VERSION", get_released_mlflow_version())
