@@ -46,9 +46,7 @@ class _BaseDataclass:
                     setattr(self, key, [cls(**v) for v in values])
                 except TypeError as e:
                     raise ValueError(f"Error when coercing {values} to {cls.__name__}: {e}")
-            elif all(isinstance(v, cls) for v in values):
-                pass
-            else:
+            elif any(not isinstance(v, cls) for v in values):
                 raise ValueError(
                     f"Items in `{key}` must all have the same type: {cls.__name__} or dict"
                 )
@@ -62,12 +60,10 @@ class ChatMessage(_BaseDataclass):
     """
     A message in a chat request or response.
 
-    :param role:    The role of the entity that sent the message (e.g. ``"user"``, ``"system"``).
-    :type role:     str
-    :param content: The content of the message.
-    :type content:  str
-    :param name:    The name of the entity that sent the message. **Optional**
-    :type name:     str
+    Args:
+        role (str): The role of the entity that sent the message (e.g. ``"user"``, ``"system"``).
+        content (str): The content of the message.
+        name (str): The name of the entity that sent the message. **Optional**.
     """
 
     role: str
@@ -85,21 +81,17 @@ class ChatParams(_BaseDataclass):
     """
     Common parameters used for chat inference
 
-    :param temperature: A param used to control randomness and creativity during inference.
-                        **Optional**, defaults to ``1.0``
-    :type temperature:  float
-    :param max_tokens:  The maximum number of new tokens to generate.
-                        **Optional**, defaults to ``None`` (unlimited)
-    :type max_tokens:   int
-    :param stop:        A list of tokens at which to stop generation. **Optional**,
-                        defaults to ``None``
-    :type stop:         List[str]
-    :param n:           The number of responses to generate. **Optional**,
-                        defaults to ``1``
-    :type n:            int
-    :param stream:      Whether to stream back responses as they are generated. **Optional**,
-                        defaults to ``False``
-    :type stream:       bool
+    Args:
+        temperature (float): A param used to control randomness and creativity during inference.
+            **Optional**, defaults to ``1.0``
+        max_tokens (int): The maximum number of new tokens to generate.
+            **Optional**, defaults to ``None`` (unlimited)
+        stop (List[str]): A list of tokens at which to stop generation.
+            **Optional**, defaults to ``None``
+        n (int): The number of responses to generate.
+            **Optional**, defaults to ``1``
+        stream (bool): Whether to stream back responses as they are generated.
+            **Optional**, defaults to ``False``
     """
 
     temperature: float = 1.0
@@ -121,23 +113,19 @@ class ChatRequest(ChatParams):
     """
     Format of the request object expected by the chat endpoint.
 
-    :param messages:    A list of :py:class:`ChatMessage` that will be passed to the model.
-                        **Optional**, defaults to empty list (``[]``)
-    :type messages:     List[:py:class:`ChatMessage`]
-    :param temperature: A param used to control randomness and creativity during inference.
-                        **Optional**, defaults to ``1.0``
-    :type temperature:  float
-    :param max_tokens:  The maximum number of new tokens to generate.
-                        **Optional**, defaults to ``None`` (unlimited)
-    :type max_tokens:   int
-    :param stop:        A list of tokens at which to stop generation.
-                        **Optional**, defaults to ``None``
-    :type stop:         List[str]
-    :param n:           The number of responses to generate. **Optional**, defaults to ``1``
-    :type n:            int
-    :param stream:      Whether to stream back responses as they are generated.
-                        **Optional**, defaults to ``False``
-    :type stream:       bool
+    Args:
+        messages (List[:py:class:`ChatMessage`]): A list of :py:class:`ChatMessage`
+            that will be passed to the model. **Optional**, defaults to empty list (``[]``)
+        temperature (float): A param used to control randomness and creativity during inference.
+            **Optional**, defaults to ``1.0``
+        max_tokens (int): The maximum number of new tokens to generate.
+            **Optional**, defaults to ``None`` (unlimited)
+        stop (List[str]): A list of tokens at which to stop generation. **Optional**,
+            defaults to ``None``
+        n (int): The number of responses to generate. **Optional**,
+            defaults to ``1``
+        stream (bool): Whether to stream back responses as they are generated. **Optional**,
+            defaults to ``False``
     """
 
     messages: List[ChatMessage] = field(default_factory=list)
@@ -152,12 +140,10 @@ class ChatChoice(_BaseDataclass):
     """
     A single chat response generated by the model.
 
-    :param index:         The index of the response in the list of responses.
-    :type index:          int
-    :param message:       The message that was generated.
-    :type message:        :py:class:`ChatMessage`
-    :param finish_reason: The reason why generation stopped.
-    :type finish_reason:  str
+    Args:
+        index (int): The index of the response in the list of responses.
+        message (:py:class:`ChatMessage`): The message that was generated.
+        finish_reason (str): The reason why generation stopped.
     """
 
     index: int
@@ -167,8 +153,12 @@ class ChatChoice(_BaseDataclass):
     def __post_init__(self):
         self._validate_field("index", int, True)
         self._validate_field("finish_reason", str, True)
-        if not isinstance(self.message, ChatMessage):
+        if isinstance(self.message, dict):
             self.message = ChatMessage(**self.message)
+        if not isinstance(self.message, ChatMessage):
+            raise ValueError(
+                f"Expected `message` to be of type ChatMessage or dict, got {type(self.message)}"
+            )
 
 
 @dataclass
@@ -176,12 +166,10 @@ class TokenUsageStats(_BaseDataclass):
     """
     Stats about the number of tokens used during inference.
 
-    :param prompt_tokens:     The number of tokens in the prompt.
-    :type prompt_tokens:      int
-    :param completion_tokens: The number of tokens in the generated completion.
-    :type completion_tokens:  int
-    :param total_tokens:      The total number of tokens used.
-    :type total_tokens:       int
+    Args:
+        prompt_tokens (int): The number of tokens in the prompt.
+        completion_tokens (int): The number of tokens in the generated completion.
+        total_tokens (int): The total number of tokens used.
     """
 
     prompt_tokens: int
@@ -199,19 +187,15 @@ class ChatResponse(_BaseDataclass):
     """
     The full response object returned by the chat endpoint.
 
-    :param id:      The ID of the response.
-    :type id:       str
-    :param object:  The object type.
-    :type object:   str
-    :param created: The time the response was created. **Optional**, defaults to the current time.
-    :type created:  int
-    :param model:   The name of the model used.
-    :type model:    str
-    :param choices: A list of :py:class:`ChatChoice` objects containing the
-                    generated responses
-    :type choices:  List[:py:class:`ChatChoice`]
-    :param usage:   An object describing the tokens used by the request.
-    :type usage:    :py:class:`TokenUsageStats`
+    Args:
+        id (str): The ID of the response.
+        object (str): The object type.
+        created (int): The time the response was created.
+            **Optional**, defaults to the current time.
+        model (str): The name of the model used.
+        choices (List[:py:class:`ChatChoice`]): A list of :py:class:`ChatChoice` objects
+            containing the generated responses
+        usage (:py:class:`TokenUsageStats`): An object describing the tokens used by the request.
     """
 
     id: str
@@ -227,8 +211,12 @@ class ChatResponse(_BaseDataclass):
         self._validate_field("created", int, True)
         self._validate_field("model", str, True)
         self._convert_dataclass_list("choices", ChatChoice)
-        if not isinstance(self.usage, TokenUsageStats):
+        if isinstance(self.usage, dict):
             self.usage = TokenUsageStats(**self.usage)
+        if not isinstance(self.usage, TokenUsageStats):
+            raise ValueError(
+                f"Expected `usage` to be of type TokenUsageStats or dict, got {type(self.usage)}"
+            )
 
 
 CHAT_MODEL_INPUT_SCHEMA = Schema(

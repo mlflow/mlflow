@@ -212,13 +212,18 @@ class ChatModel(PythonModel, metaclass=ABCMeta):
         """
         Evaluates a chat input and produces a chat output.
 
-        :param messages: A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
-                         objects representing chat history.
-        :param params: A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
-                       containing various parameters used to modify model behavior during
-                       inference.
-        :return: A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
-                 the model's response(s), as well as other metadata.
+        Args:
+            messages (List[:py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`]):
+                A list of :py:class:`ChatMessage <mlflow.types.llm.ChatMessage>`
+                objects representing chat history.
+            params (:py:class:`ChatParams <mlflow.types.llm.ChatParams>`):
+                A :py:class:`ChatParams <mlflow.types.llm.ChatParams>` object
+                containing various parameters used to modify model behavior during
+                inference.
+
+        Returns:
+            A :py:class:`ChatResponse <mlflow.types.llm.ChatResponse>` object containing
+            the model's response(s), as well as other metadata.
         """
 
 
@@ -381,7 +386,9 @@ def _save_model_with_class_artifacts_params(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
+def _load_context_model_and_signature(
+    model_path: str, model_config: Optional[Dict[str, Any]] = None
+):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -421,6 +428,12 @@ def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None)
     context = PythonModelContext(artifacts=artifacts, model_config=model_config)
     python_model.load_context(context=context)
     signature = mlflow.models.Model.load(model_path).signature
+
+    return context, python_model, signature
+
+
+def _load_pyfunc(model_path: str, model_config: Optional[Dict[str, Any]] = None):
+    context, python_model, signature = _load_context_model_and_signature(model_path, model_config)
     return _PythonModelPyfuncWrapper(
         python_model=python_model, context=context, signature=signature
     )
