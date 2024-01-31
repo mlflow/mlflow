@@ -1,9 +1,13 @@
-import type {
-  RunsChartAxisDef,
-  RunsChartsRunData,
-} from '../runs-charts/components/RunsCharts.common';
+import type { RunsChartAxisDef, RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import { getUUID } from '../../../common/utils/ActionUtils';
-import { MetricEntitiesByName } from '../../types';
+import { MetricEntitiesByName, ChartSectionConfig } from '../../types';
+import {
+  MLFLOW_MODEL_METRIC_PREFIX,
+  MLFLOW_SYSTEM_METRIC_PREFIX,
+  MLFLOW_MODEL_METRIC_NAME,
+  MLFLOW_SYSTEM_METRIC_NAME,
+} from '../../constants';
+import { uniq } from 'lodash';
 
 /**
  * Enum for all recognized chart types used in compare runs
@@ -15,6 +19,8 @@ export enum RunsCompareChartType {
   CONTOUR = 'CONTOUR',
   PARALLEL = 'PARALLEL',
 }
+
+const MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON = 1;
 
 /**
  * Simple interface corresponding to `RunsCompareChartCard`.
@@ -31,9 +37,14 @@ export abstract class RunsCompareCardConfig {
   uuid?: string;
   type: RunsCompareChartType = RunsCompareChartType.BAR;
   runsCountToCompare?: number = 10;
+  metricSectionId?: string = '';
+  deleted = false;
+  isGenerated = false;
 
-  constructor(uuid?: string) {
+  constructor(isGenerated: boolean, uuid?: string, metricSectionId?: string) {
+    this.isGenerated = isGenerated;
     this.uuid = uuid;
+    this.metricSectionId = metricSectionId;
   }
 
   /**
@@ -52,25 +63,31 @@ export abstract class RunsCompareCardConfig {
    * Creates empty chart (card) config basing on a type.
    * TODO: consume visible run set and determine best configuration of metrics, params etc.
    */
-  static getEmptyChartCardByType(type: RunsCompareChartType, uuid?: string) {
+  static getEmptyChartCardByType(
+    type: RunsCompareChartType,
+    isGenerated: boolean,
+    uuid?: string,
+    metricSectionId?: string,
+  ) {
     if (type === RunsCompareChartType.BAR) {
-      return new RunsCompareBarCardConfig(uuid);
+      return new RunsCompareBarCardConfig(isGenerated, uuid, metricSectionId);
     } else if (type === RunsCompareChartType.SCATTER) {
-      return new RunsCompareScatterCardConfig(uuid);
+      return new RunsCompareScatterCardConfig(isGenerated, uuid, metricSectionId);
     } else if (type === RunsCompareChartType.PARALLEL) {
-      return new RunsCompareParallelCardConfig(uuid);
+      return new RunsCompareParallelCardConfig(isGenerated, uuid, metricSectionId);
     } else if (type === RunsCompareChartType.LINE) {
-      return new RunsCompareLineCardConfig(uuid);
+      return new RunsCompareLineCardConfig(isGenerated, uuid, metricSectionId);
     } else {
       // Must be contour
-      return new RunsCompareContourCardConfig(uuid);
+      return new RunsCompareContourCardConfig(isGenerated, uuid, metricSectionId);
     }
   }
 
-  static getBaseChartConfigs(primaryMetricKey: string, primary_metric_data: MetricEntitiesByName) {
+  static getBaseChartConfigs(primaryMetricKey: string, runsData: RunsChartsRunData[]) {
     const resultChartSet: RunsCompareCardConfig[] = [];
     const MAX_NUMBER_OF_METRICS_TO_RENDER = 30;
-    const MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON = 2;
+
+    const allMetricKeys = uniq(runsData.flatMap((run) => Object.keys(run.metrics)));
 
     const metricsToRender: Set<string> = new Set();
     // Add primary_metric to render first
@@ -79,29 +96,23 @@ export abstract class RunsCompareCardConfig {
     }
 
     // Adding other metrics to render
-    for (const metricsKey of Object.keys(primary_metric_data)) {
+    for (const metricsKey of allMetricKeys) {
       metricsToRender.add(metricsKey);
     }
 
     // Render only first N metrics
-    const renderFirstNMetrics: string[] = [...metricsToRender].slice(
-      0,
-      MAX_NUMBER_OF_METRICS_TO_RENDER,
-    );
+    const renderFirstNMetrics: string[] = [...metricsToRender].slice(0, MAX_NUMBER_OF_METRICS_TO_RENDER);
 
     renderFirstNMetrics.forEach((metricsKey) => {
-      let chartType = RunsCompareChartType.BAR;
-      // If the metric has multiple epochs, add a line chart or else add a bar chart
-      if (
-        primary_metric_data[metricsKey]?.step !== undefined &&
-        primary_metric_data[metricsKey]?.step >= MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON
-      ) {
-        chartType = RunsCompareChartType.LINE;
-      }
+      // If the metric has multiple epochs, add a line chart. Otherwise, add a bar chart
+      const anyRunHasMultipleEpochs = runsData.some(
+        (run) => run.metrics?.[metricsKey]?.step >= MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON,
+      );
+      const chartType = anyRunHasMultipleEpochs ? RunsCompareChartType.LINE : RunsCompareChartType.BAR;
 
       // Add a bar metric chart only if at least one metric key is detected
       resultChartSet.push({
-        ...RunsCompareCardConfig.getEmptyChartCardByType(chartType, getUUID()),
+        ...RunsCompareCardConfig.getEmptyChartCardByType(chartType, true, getUUID()),
         metricKey: metricsKey,
       } as RunsCompareBarCardConfig);
     });
@@ -109,11 +120,221 @@ export abstract class RunsCompareCardConfig {
     // If no other charts exist, show empty parallel coordinates plot
     if (resultChartSet.length === 0) {
       resultChartSet.push(
-        RunsCompareCardConfig.getEmptyChartCardByType(RunsCompareChartType.PARALLEL, getUUID()),
+        RunsCompareCardConfig.getEmptyChartCardByType(RunsCompareChartType.PARALLEL, false, getUUID()),
       );
     }
 
     return resultChartSet;
+  }
+
+  // Extract chart section from metric key
+  static extractChartSectionName = (metricKey: string, delimiter = '/') => {
+    const parts = metricKey.split(delimiter);
+    const section = parts.slice(0, -1).join(delimiter);
+    if (section === MLFLOW_MODEL_METRIC_PREFIX) {
+      return MLFLOW_MODEL_METRIC_NAME;
+    } else if (section + delimiter === MLFLOW_SYSTEM_METRIC_PREFIX) {
+      return MLFLOW_SYSTEM_METRIC_NAME;
+    }
+    return section;
+  };
+
+  static getBaseChartAndSectionConfigs(primaryMetricKey: string, runsData: RunsChartsRunData[]) {
+    const resultChartSet: RunsCompareCardConfig[] = [];
+
+    const allMetricKeys = uniq(runsData.flatMap((run) => Object.keys(run.metrics)));
+
+    const metricsToRender: Set<string> = new Set();
+    // Add primary_metric to render first
+    if (primaryMetricKey) {
+      metricsToRender.add(primaryMetricKey);
+    }
+
+    // Adding other metrics to render
+    for (const metricsKey of allMetricKeys) {
+      metricsToRender.add(metricsKey);
+    }
+
+    const sectionName2Uuid: Record<string, string> = {};
+    sectionName2Uuid[MLFLOW_MODEL_METRIC_NAME] = getUUID();
+    sectionName2Uuid[MLFLOW_SYSTEM_METRIC_NAME] = getUUID();
+
+    metricsToRender.forEach((metricsKey) => {
+      if (!sectionName2Uuid[RunsCompareCardConfig.extractChartSectionName(metricsKey)]) {
+        sectionName2Uuid[RunsCompareCardConfig.extractChartSectionName(metricsKey)] = getUUID();
+      }
+    });
+
+    Array.from(metricsToRender)
+      .sort()
+      .forEach((metricsKey) => {
+        // If the metric has multiple epochs, add a line chart. Otherwise, add a bar chart
+        const anyRunHasMultipleEpochs = runsData.some(
+          (run) => run.metrics?.[metricsKey]?.step >= MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON,
+        );
+        const chartType = anyRunHasMultipleEpochs ? RunsCompareChartType.LINE : RunsCompareChartType.BAR;
+
+        const sectionId = sectionName2Uuid[RunsCompareCardConfig.extractChartSectionName(metricsKey)];
+
+        // Add a bar metric chart only if at least one metric key is detected
+        resultChartSet.push({
+          ...RunsCompareCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
+          metricKey: metricsKey,
+        } as RunsCompareBarCardConfig);
+      });
+
+    // If no other charts exist, show empty parallel coordinates plot
+    if (resultChartSet.length === 0) {
+      const sectionId = sectionName2Uuid[MLFLOW_MODEL_METRIC_NAME];
+      resultChartSet.push(
+        RunsCompareCardConfig.getEmptyChartCardByType(RunsCompareChartType.PARALLEL, false, getUUID(), sectionId),
+      );
+    }
+    const rest = Object.keys(sectionName2Uuid)
+      .filter((sectionName) => sectionName !== MLFLOW_MODEL_METRIC_NAME && sectionName !== MLFLOW_SYSTEM_METRIC_NAME)
+      .sort();
+    const sortedSectionNames = [...rest, MLFLOW_MODEL_METRIC_NAME, MLFLOW_SYSTEM_METRIC_NAME];
+
+    // Create section configs
+    const resultSectionSet: ChartSectionConfig[] = sortedSectionNames.map((sectionName) => ({
+      uuid: sectionName2Uuid[sectionName],
+      name: sectionName,
+      display: true,
+      isReordered: false,
+      deleted: false,
+      isGenerated: true,
+    }));
+
+    return { resultChartSet, resultSectionSet };
+  }
+
+  static updateChartAndSectionConfigs(
+    compareRunCharts: RunsCompareCardConfig[],
+    compareRunSections: ChartSectionConfig[],
+    runsData: RunsChartsRunData[],
+    isAccordionReordered: boolean,
+  ) {
+    // Make copies of the current charts and sections
+    const resultChartSet: RunsCompareCardConfig[] = compareRunCharts.slice();
+    let resultSectionSet: ChartSectionConfig[] = compareRunSections.slice();
+    // Flag for whether the section or chart set have been updated
+    let isResultUpdated = false;
+
+    const allMetricKeys = uniq(runsData.flatMap((run) => Object.keys(run.metrics)));
+
+    // Create set of metrics to render based on runsData
+    const metricsToRender: Set<string> = new Set();
+    // Adding other metrics to render
+    for (const metricsKey of allMetricKeys) {
+      metricsToRender.add(metricsKey);
+    }
+
+    // Create sectionName2Uuid mappings from existing sections
+    const sectionName2Uuid: Record<string, string> = {};
+    compareRunSections.forEach((section) => (sectionName2Uuid[section.name] = section.uuid));
+
+    // Append new charts at the end instead of alphabetically
+    metricsToRender.forEach((metricKey) => {
+      // Check if metricKey exists in the current chart set
+      const doesMetricKeyExist =
+        resultChartSet.findIndex((chart) => {
+          const chartMetricKey = (chart as RunsCompareBarCardConfig).metricKey;
+          return chartMetricKey ? chartMetricKey === metricKey : false;
+        }) >= 0;
+
+      // Check if there is a generated chart with metricKey
+      const generatedChartIndex = resultChartSet.findIndex((chart) => {
+        const chartMetricKey = (chart as RunsCompareBarCardConfig).metricKey;
+        return chartMetricKey && chartMetricKey === metricKey && chart.isGenerated;
+      });
+
+      // If the metric has multiple epochs, add a line chart. Otherwise, add a bar chart
+      const anyRunHasMultipleEpochs = runsData.some(
+        (run) => run.metrics?.[metricKey]?.step >= MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON,
+      );
+      const chartType = anyRunHasMultipleEpochs ? RunsCompareChartType.LINE : RunsCompareChartType.BAR;
+
+      // This is a new metric key, so add it to the chart set
+      if (!doesMetricKeyExist) {
+        // result is updated when there is a new metric key
+        isResultUpdated = true;
+
+        // Insert a new UUID if section doesn't exist
+        const sectionName = RunsCompareCardConfig.extractChartSectionName(metricKey);
+        if (!sectionName2Uuid[sectionName]) {
+          sectionName2Uuid[sectionName] = getUUID();
+        }
+
+        // Get section for metricKey and check if it has been reordered
+        const sectionId = sectionName2Uuid[sectionName];
+        // If section is undefined, it may be a new section, so its not reordered
+        const section = resultSectionSet.find((section) => section.uuid === sectionId);
+        const isSectionReordered = section ? section.isReordered : false;
+
+        const newChartConfig = {
+          ...RunsCompareCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
+          metricKey: metricKey,
+        } as RunsCompareBarCardConfig;
+
+        if (isSectionReordered) {
+          // If the section has been reordered, then append to the end of the section
+          resultChartSet.push(newChartConfig);
+        } else {
+          // If section has not been reordered, then insert alphabetically
+          const insertIndex = resultChartSet.findIndex((chart) => {
+            const chartMetricKey = (chart as RunsCompareBarCardConfig).metricKey;
+            return chartMetricKey ? chartMetricKey.localeCompare(metricKey) >= 0 : false;
+          });
+          resultChartSet.splice(insertIndex, 0, newChartConfig);
+        }
+      } else if (
+        generatedChartIndex >= 0 &&
+        resultChartSet[generatedChartIndex].type === RunsCompareChartType.BAR &&
+        chartType === RunsCompareChartType.LINE
+      ) {
+        isResultUpdated = true;
+        // If the chart type has been updated to a line chart from a bar chart, then update the chart type
+        const prevChart = resultChartSet[generatedChartIndex];
+        resultChartSet[generatedChartIndex] = {
+          ...RunsCompareCardConfig.getEmptyChartCardByType(
+            chartType,
+            prevChart.isGenerated,
+            prevChart.uuid,
+            prevChart.metricSectionId,
+          ),
+          metricKey: metricKey,
+          deleted: prevChart.deleted,
+        } as RunsCompareLineCardConfig;
+      }
+    });
+
+    Object.keys(sectionName2Uuid).forEach((sectionName) => {
+      // Check if it is a new section
+      const doesSectionNameExist = resultSectionSet.findIndex((section) => section.name === sectionName) >= 0;
+      if (!doesSectionNameExist) {
+        resultSectionSet.push({
+          uuid: sectionName2Uuid[sectionName],
+          name: sectionName,
+          display: true,
+          isReordered: false,
+        });
+      }
+    });
+
+    if (!isAccordionReordered) {
+      // If sections are in order (not been reordered), then sort alphabetically
+      const rest = resultSectionSet.filter(
+        (section) => section.name !== MLFLOW_MODEL_METRIC_NAME && section.name !== MLFLOW_SYSTEM_METRIC_NAME,
+      );
+      rest.sort((a, b) => a.name.localeCompare(b.name));
+      resultSectionSet = [
+        ...rest,
+        compareRunSections[compareRunSections.length - 2],
+        compareRunSections[compareRunSections.length - 1],
+      ];
+    }
+
+    return { resultChartSet, resultSectionSet, isResultUpdated };
   }
 }
 
@@ -135,6 +356,12 @@ export class RunsCompareLineCardConfig extends RunsCompareCardConfig {
   metricKey = '';
 
   /**
+   * New key to support multiple metrics
+   * NOTE: This key will not be present in older charts
+   */
+  selectedMetricKeys?: string[];
+
+  /**
    * Smoothness
    */
   lineSmoothness = 0;
@@ -145,9 +372,9 @@ export class RunsCompareLineCardConfig extends RunsCompareCardConfig {
   scaleType: 'linear' | 'log' = 'linear';
 
   /**
-   * Choose X axis mode - numeric step or absolute time
+   * Choose X axis mode - numeric step, relative time in seconds or absolute time value
    */
-  xAxisKey: 'step' | 'time' = 'step';
+  xAxisKey: 'step' | 'time' | 'time-relative' = 'step';
 }
 
 // TODO: add configuration fields relevant to bar chart

@@ -42,9 +42,7 @@ describe('ModelVersionPage', () => {
     (getUUID as any).mockImplementation(() => `${counter++}`);
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
     // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() =>
-      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
-    );
+    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     minimalProps = {
       params: {
         modelName: encodeURIComponent('Model A'),
@@ -52,9 +50,7 @@ describe('ModelVersionPage', () => {
       },
       navigate,
     };
-    const versions = [
-      mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-    ];
+    const versions = [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)];
     minimalStoreState = {
       entities: {
         runInfosByUuid: {},
@@ -64,12 +60,7 @@ describe('ModelVersionPage', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            1: mockModelVersionDetailed(
-              'Model A',
-              '1',
-              Stages.PRODUCTION,
-              ModelVersionStatus.READY,
-            ),
+            1: mockModelVersionDetailed('Model A', '1', Stages.PRODUCTION, ModelVersionStatus.READY),
           },
         },
         activitiesByModelVersion: {},

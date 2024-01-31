@@ -36,26 +36,29 @@ def _is_valid_uri(uri: str) -> bool:
 
 
 def resolve_endpoint_url(base_url: str, endpoint: str) -> str:
-    """
-    Performs a validation on whether the returned value is a fully qualified url
+    """Performs a validation on whether the returned value is a fully qualified url
     or requires the assembly of a fully qualified url by appending `endpoint`.
 
-    :param base_url: The base URL. Should include the scheme and domain, e.g.,
-                     ``http://127.0.0.1:6000``.
-    :param endpoint: The endpoint to be appended to the base URL, e.g., ``/api/2.0/endpoints/`` or,
-                     in the case of Databricks, the fully qualified url.
-    :return: The complete URL, either directly returned or formed and returned by joining the
-             base URL and the endpoint path.
+    Args:
+        base_url: The base URL. Should include the scheme and domain, e.g.,
+            ``http://127.0.0.1:6000``.
+        endpoint: The endpoint to be appended to the base URL, e.g., ``/api/2.0/endpoints/`` or,
+            in the case of Databricks, the fully qualified url.
+
+    Returns:
+        The complete URL, either directly returned or formed and returned by joining the
+        base URL and the endpoint path.
+
     """
     return endpoint if _is_valid_uri(endpoint) else append_to_uri_path(base_url, endpoint)
 
 
 def set_deployments_target(target: str):
-    """
-    Sets the target deployment client for MLflow deployments
+    """Sets the target deployment client for MLflow deployments
 
-    :param target: The full uri of a running MLflow deployments server or, if running on
-                        Databricks, "databricks".
+    Args:
+        target: The full uri of a running MLflow deployments server or, if running on
+            Databricks, "databricks".
     """
     if not _is_valid_target(target):
         raise MlflowException.invalid_parameter_value(

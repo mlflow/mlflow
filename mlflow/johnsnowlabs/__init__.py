@@ -134,9 +134,10 @@ def _set_env_vars():
 @experimental
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     from johnsnowlabs import settings
 
@@ -183,8 +184,9 @@ def get_default_pip_requirements():
 @experimental
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -215,66 +217,69 @@ def log_model(
 
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
-    :param spark_model: NLUPipeline obtained via `nlp.load()
-                        <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
-    :param store_license: If True, the license will be stored with the model and used and re-loading
-                          it.
-    :param artifact_path: Run relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
+    Args:
+        spark_model: NLUPipeline obtained via `nlp.load()
+            <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
+        store_license: If True, the license will be stored with the model and used and re-loading
+            it.
+        artifact_path: Run relative artifact path.
+        conda_env: Either a dictionary representation of a Conda environment or the path to a
+            Conda environment yaml file. If provided, this describes the environment
+            this model should be run in. At minimum, it should specify the dependencies
+            contained in :func:`get_default_conda_env()`. If `None`, the default
+            :func:`get_default_conda_env()` environment is added to the model.
+            The following is an *example* dictionary representation of a Conda
+            environment::
 
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.8.15',
-                                'johnsnowlabs'
-                            ]
-                        }
-    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-                       filesystem if running in local mode. The model is written in this
-                       destination and then copied into the model's artifact directory. This is
-                       necessary as Spark ML models read from and write to DFS if running on a
-                       cluster. If this operation completes successfully, all temporary files
-                       created on the DFS are removed. Defaults to ``/tmp/mlflow``.
-    :param sample_input: A sample input used to add the MLeap flavor to the model.
-                         This must be a PySpark DataFrame that the model can evaluate. If
-                         ``sample_input`` is ``None``, the MLeap flavor is not added.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
+                {
+                    'name': 'mlflow-env',
+                    'channels': ['defaults'],
+                    'dependencies': [
+                        'python=3.8.15',
+                        'johnsnowlabs'
+                    ]
+                }
+        dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+            filesystem if running in local mode. The model is written in this
+            destination and then copied into the model's artifact directory. This is
+            necessary as Spark ML models read from and write to DFS if running on a
+            cluster. If this operation completes successfully, all temporary files
+            created on the DFS are removed. Defaults to ``/tmp/mlflow``.
+        sample_input: A sample input used to add the MLeap flavor to the model.
+            This must be a PySpark DataFrame that the model can evaluate. If
+            ``sample_input`` is ``None``, the MLeap flavor is not added.
+        registered_model_name: If given, create a model version under
+            ``registered_model_name``, also creating a registered model if one
+            with the given name does not exist.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models.signature import infer_signature
 
-                        from mlflow.models.signature import infer_signature
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish
+            being created and is in ``READY`` status. By default, the function
+            waits for five minutes. Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
+
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+        metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -313,6 +318,7 @@ def log_model(
         # Log it
         mlflow.johnsnowlabs.log_model(trained_classifier, "my_trained_model")
     """
+
     _validate_env_vars()
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
@@ -504,60 +510,60 @@ def save_model(
     Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
     is also serialized in MLeap format and the MLeap flavor is added.
 
-    :param store_license: If True, the license will be stored with the model and used and
-                          re-loading it.
-    :param spark_model: Either a pyspark.ml.pipeline.PipelineModel or nlu.NLUPipeline object to be
-                        saved. `Every johnsnowlabs model <https://nlp.johnsnowlabs.com/models>`_
-                        is a PipelineModel and loadable as nlu.NLUPipeline.
-    :param path: Local path where the model is to be saved.
-    :param mlflow_model: MLflow model config this flavor is being added to.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
+    Args:
+        store_license: If True, the license will be stored with the model and used and
+            re-loading it.
+        spark_model: Either a pyspark.ml.pipeline.PipelineModel or nlu.NLUPipeline object to be
+            saved. `Every johnsnowlabs model <https://nlp.johnsnowlabs.com/models>`_
+            is a PipelineModel and loadable as nlu.NLUPipeline.
+        path: Local path where the model is to be saved.
+        mlflow_model: MLflow model config this flavor is being added to.
+        conda_env: Either a dictionary representation of a Conda environment or the path to a
+            Conda environment yaml file. If provided, this describes the environment
+            this model should be run in. At minimum, it should specify the dependencies
+            contained in :func:`get_default_conda_env()`. If `None`, the default
+            :func:`get_default_conda_env()` environment is added to the model.
+            The following is an *example* dictionary representation of a Conda
+            environment::
 
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.8.15',
-                                'johnsnowlabs'
-                            ]
-                        }
-    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-                       filesystem if running in local mode. The model is be written in this
-                       destination and then copied to the requested local path. This is necessary
-                       as Spark ML models read from and write to DFS if running on a cluster. All
-                       temporary files created on the DFS are removed if this operation
-                       completes successfully. Defaults to ``/tmp/mlflow``.
-    :param sample_input: A sample input that is used to add the MLeap flavor to the model.
-                         This must be a PySpark DataFrame that the model can evaluate. If
-                         ``sample_input`` is ``None``, the MLeap flavor is not added.
+                {
+                    'name': 'mlflow-env',
+                    'channels': ['defaults'],
+                    'dependencies': [
+                        'python=3.8.15',
+                        'johnsnowlabs'
+                    ]
+                }
+        dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+            filesystem if running in local mode. The model is be written in this
+            destination and then copied to the requested local path. This is necessary
+            as Spark ML models read from and write to DFS if running on a cluster. All
+            temporary files created on the DFS are removed if this operation
+            completes successfully. Defaults to ``/tmp/mlflow``.
+        sample_input: A sample input that is used to add the MLeap flavor to the model.
+            This must be a PySpark DataFrame that the model can evaluate. If
+            ``sample_input`` is ``None``, the MLeap flavor is not added.
+        signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+            describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+            The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+            from datasets with valid model input (e.g. the training dataset with target
+            column omitted) and valid model output (e.g. model predictions generated on
+            the training dataset), for example:
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+            .. code-block:: python
 
-                      .. code-block:: python
+                from mlflow.models.signature import infer_signature
 
-                        from mlflow.models.signature import infer_signature
+                train = df.drop_column("target_label")
+                predictions = ...  # compute model predictions
+                signature = infer_signature(train, predictions)
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                release without warning.
 
     .. code-block:: python
         :caption: Example
@@ -668,25 +674,29 @@ def load_model(
     """
     Load the Johnsnowlabs MLflow model from the path.
 
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
-    :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
-                       filesystem if running in local mode. The model is loaded from this
-                       destination. Defaults to ``/tmp/mlflow``.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
-    :return: `nlu.NLUPipeline <https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api>`_
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
+        dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
+            filesystem if running in local mode. The model is loaded from this
+            destination. Defaults to ``/tmp/mlflow``.
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
+
+    Returns:
+        A
+        `nlu.NLUPipeline <https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api>`_.
 
     .. code-block:: python
         :caption: Example
@@ -745,12 +755,16 @@ def load_model(
 
 
 def _load_pyfunc(path, spark=None):
-    """
-    Load PyFunc implementation. Called by ``pyfunc.load_model``.
-    :param path: Local filesystem path to the MLflow Model with the ``johnsnowlabs`` flavor.
-    :param spark: Optionally pass spark context when using pyfunc as UDF. required, because
-                  we cannot fetch the Sparkcontext inside of the Workernode which executes the UDF.
-    :return:
+    """Load PyFunc implementation. Called by ``pyfunc.load_model``.
+
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``johnsnowlabs`` flavor.
+        spark: Optionally pass spark context when using pyfunc as UDF. required, because
+            we cannot fetch the Sparkcontext inside of the Workernode which executes the UDF.
+
+    Returns:
+        None.
+
     """
     return _PyFuncModelWrapper(
         _load_model(model_uri=path),
@@ -759,15 +773,18 @@ def _load_pyfunc(path, spark=None):
 
 
 def _get_or_create_sparksession(model_path=None):
-    """
-    1. Check if SparkSession running and get it
-    2. If none exists, create a new one using jars in model_path
-    3. If model_path not defined, rely on nlp.start() to create a new
-    one using johnsnowlabs Jar resolution method
-    See https://nlp.johnsnowlabs.com/docs/en/jsl/start-a-sparksession
-    and https://nlp.johnsnowlabs.com/docs/en/jsl/install_advanced
-    :param model_path:
-    :return:
+    """Check if SparkSession running and get it.
+
+    If none exists, create a new one using jars in model_path. If model_path not defined, rely on
+    nlp.start() to create a new one using johnsnowlabs Jar resolution method. See
+    https://nlp.johnsnowlabs.com/docs/en/jsl/start-a-sparksession and
+    https://nlp.johnsnowlabs.com/docs/en/jsl/install_advanced.
+
+    Args:
+        model_path:
+
+    Returns:
+
     """
     from johnsnowlabs import nlp
 
@@ -858,15 +875,18 @@ class _PyFuncModelWrapper:
         self.spark_model = spark_model
 
     def predict(self, text, params: Optional[Dict[str, Any]] = None):
-        """
-        Generate predictions given input data in a pandas DataFrame.
+        """Generate predictions given input data in a pandas DataFrame.
 
-        :param text: pandas DataFrame containing input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            text: pandas DataFrame containing input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
-        :return: List with model predictions.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
+
+        Returns:
+            List with model predictions.
+
         """
         output_level = params.get("output_level", "") if params else ""
         return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()

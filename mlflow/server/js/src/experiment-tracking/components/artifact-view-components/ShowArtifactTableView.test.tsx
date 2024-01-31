@@ -64,9 +64,7 @@ describe('ShowArtifactTableView', () => {
     setImmediate(() => {
       wrapper.update();
       expect(
-        wrapper
-          .find('tbody')
-          .findWhere((n: any) => n.name() === 'tr' && n.prop('aria-hidden') !== 'true').length,
+        wrapper.find('tbody').findWhere((n: any) => n.name() === 'tr' && n.prop('aria-hidden') !== 'true').length,
       ).toBe(500);
       done();
     });

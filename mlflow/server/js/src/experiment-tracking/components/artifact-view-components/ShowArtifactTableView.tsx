@@ -81,14 +81,10 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
   }
 
   if (loading) {
-    return <div className='artifact-text-view-loading'>Loading...</div>;
+    return <div className="artifact-text-view-loading">Loading...</div>;
   }
   if (error) {
-    return (
-      <div className='artifact-text-view-error'>
-        Oops we couldn't load your file because of an error.
-      </div>
-    );
+    return <div className="artifact-text-view-error">Oops we couldn't load your file because of an error.</div>;
   }
 
   if (data) {
@@ -97,8 +93,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
       title: f,
       dataIndex: f,
       key: f,
-      sorter: (a: any, b: any) =>
-        typeof a[f] === 'string' ? a[f].localeCompare(b[f]) : a[f] - b[f],
+      sorter: (a: any, b: any) => (typeof a[f] === 'string' ? a[f].localeCompare(b[f]) : a[f] - b[f]),
       width: 200,
 
       ellipsis: {
@@ -112,8 +107,8 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
       <div css={{ overscrollBehaviorX: 'contain', overflowX: 'scroll', margin: 10 }}>
         <span css={{ display: 'flex', justifyContent: 'center' }}>
           <FormattedMessage
-            defaultMessage='Previewing the first {numRows} rows'
-            description='Title for showing the number of rows in the parsed data preview'
+            defaultMessage="Previewing the first {numRows} rows"
+            description="Title for showing the number of rows in the parsed data preview"
             values={{ numRows }}
           />
         </span>
@@ -129,8 +124,8 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }: Props) => {
     );
   } else {
     return (
-      <div className='ShowArtifactPage'>
-        <div className='text-area-border-box'>{text}</div>
+      <div className="ShowArtifactPage">
+        <div className="text-area-border-box">{text}</div>
       </div>
     );
   }

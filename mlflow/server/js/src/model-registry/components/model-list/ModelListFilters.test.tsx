@@ -23,9 +23,7 @@ describe('ModelListFilters', () => {
       onSearchFilterChange,
     });
 
-    wrapper
-      .find('input[data-testid="model-search-input"]')
-      .simulate('change', { target: { value: 'searched model' } });
+    wrapper.find('input[data-testid="model-search-input"]').simulate('change', { target: { value: 'searched model' } });
 
     wrapper.find('input[data-testid="model-search-input"]').simulate('submit');
 

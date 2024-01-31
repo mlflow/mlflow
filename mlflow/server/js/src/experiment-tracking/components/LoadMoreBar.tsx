@@ -36,18 +36,15 @@ export class LoadMoreBarImpl extends React.PureComponent<Props> {
     const { disableButton, onLoadMore, nestChildren, intl, designSystemThemeApi } = this.props;
     const loadMoreButton = (
       <Button
-        className='load-more-button'
+        className="load-more-button"
         style={styles.loadMoreButton}
-        type='primary'
-        htmlType='button'
+        type="primary"
+        htmlType="button"
         onClick={onLoadMore}
-        size='small'
+        size="small"
         disabled={disableButton}
       >
-        <FormattedMessage
-          defaultMessage='Load more'
-          description='Load more button text to load more experiment runs'
-        />
+        <FormattedMessage defaultMessage="Load more" description="Load more button text to load more experiment runs" />
       </Button>
     );
 
@@ -55,12 +52,11 @@ export class LoadMoreBarImpl extends React.PureComponent<Props> {
       return (
         <Tooltip
           // @ts-expect-error TS(2322): Type '{ children: Element; className: string; plac... Remove this comment to see the full error message
-          className='load-more-button-disabled-tooltip'
-          placement='bottom'
+          className="load-more-button-disabled-tooltip"
+          placement="bottom"
           title={intl.formatMessage({
             defaultMessage: 'No more runs to load.',
-            description:
-              'Tooltip text for load more button when there are no more experiment runs to load',
+            description: 'Tooltip text for load more button when there are no more experiment runs to load',
           })}
         >
           {loadMoreButton}
@@ -72,8 +68,8 @@ export class LoadMoreBarImpl extends React.PureComponent<Props> {
           {loadMoreButton}
           <Tooltip
             // @ts-expect-error TS(2322): Type '{ children: Element; className: string; plac... Remove this comment to see the full error message
-            className='load-more-button-nested-info-tooltip'
-            placement='bottom'
+            className="load-more-button-nested-info-tooltip"
+            placement="bottom"
             title={intl.formatMessage({
               defaultMessage: 'Loaded child runs are nested under their parents.',
               description:
@@ -82,7 +78,7 @@ export class LoadMoreBarImpl extends React.PureComponent<Props> {
             })}
           >
             <i
-              className='fas fa-info-circle'
+              className="fas fa-info-circle"
               css={{
                 marginLeft: designSystemThemeApi.theme.spacing.sm,
                 color: designSystemThemeApi.theme.colors.actionPrimaryBackgroundDefault,
@@ -99,9 +95,9 @@ export class LoadMoreBarImpl extends React.PureComponent<Props> {
   render() {
     const { loadingMore, style } = this.props;
     return (
-      <div className='load-more-row' style={{ ...styles.loadMoreRows, ...style }}>
+      <div className="load-more-row" style={{ ...styles.loadMoreRows, ...style }}>
         {loadingMore ? (
-          <div className='loading-more-wrapper' style={styles.loadingMoreWrapper}>
+          <div className="loading-more-wrapper" style={styles.loadingMoreWrapper}>
             <SyncIcon spin style={styles.loadingMoreIcon} />
           </div>
         ) : (

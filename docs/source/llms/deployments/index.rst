@@ -101,6 +101,9 @@ For details about the configuration file's parameters (including parameters for 
           name: gpt-3.5-turbo
           config:
             openai_api_key: $OPENAI_API_KEY
+        limit:
+          renewal_period: minute
+          calls: 10
 
       - name: chat
         endpoint_type: llm/v1/chat
@@ -284,6 +287,9 @@ Here's an example of a provider configuration within an endpoint:
           name: gpt-4
           config:
             openai_api_key: $OPENAI_API_KEY
+        limit:
+          renewal_period: minute
+          calls: 10
 
 In the above configuration, ``openai`` is the `provider` for the model.
 
@@ -324,6 +330,11 @@ an endpoint in the MLflow Deployments Server consists of the following fields:
     * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for OpenAI's ``GPT-3.5-Turbo`` model.
     * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
 
+* **limit**: Specify the rate limit setting this endpoint will follow. The limit field contains the following fields:
+
+    * **renewal_period**: The time unit of the rate limit, one of [second|minute|hour|day|month|year].
+    * **calls**: The number of calls this endpoint will accept within the specified time unit.
+
 Here's an example of an endpoint configuration:
 
 .. code-block:: yaml
@@ -336,6 +347,9 @@ Here's an example of an endpoint configuration:
           name: gpt-3.5-turbo
           config:
             openai_api_key: $OPENAI_API_KEY
+        limit:
+          renewal_period: minute
+          calls: 10
 
 In the example above, a request sent to the completions endpoint would be forwarded to the
 ``gpt-3.5-turbo`` model provided by ``openai``.
@@ -423,10 +437,13 @@ Here is an example of a single-endpoint configuration:
           name: gpt-3.5-turbo
           config:
             openai_api_key: $OPENAI_API_KEY
+        limit:
+          renewal_period: minute
+          calls: 10
 
 
 In this example, we define an endpoint named ``chat`` that corresponds to the ``llm/v1/chat`` type, which
-will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service.
+will use the ``gpt-3.5-turbo`` model from OpenAI to return query responses from the OpenAI service, and accept up to 10 requests per minute.
 
 The MLflow Deployments Server configuration is very easy to update.
 Simply edit the configuration file and save your changes, and the MLflow Deployments Server will automatically
@@ -681,6 +698,9 @@ An example configuration for Azure OpenAI is:
             openai_deployment_name: "{your_deployment_name}"
             openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
             openai_api_version: "2023-05-15"
+        limit:
+          renewal_period: minute
+          calls: 10
 
 
 .. note::
@@ -804,10 +824,7 @@ In addition to the :ref:`standard_query_parameters`, you can pass any additional
 - ``top_k`` (supported by MosaicML, Anthropic, PaLM, Cohere)
 - ``frequency_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
 - ``presence_penalty`` (supported by OpenAI, Cohere, AI21 Labs)
-
-The following parameters are not allowed:
-
-- ``stream`` is not supported. Setting this parameter on any provider will not work currently.
+- ``stream`` (supported by OpenAI)
 
 Below is an example of submitting a query request to an MLflow Deployments Server endpoint using additional parameters:
 
@@ -853,6 +870,65 @@ The results of the query are:
             "total_tokens": 635,
         },
     }
+
+Streaming
+~~~~~~~~~
+
+Some providers support streaming responses. Streaming responses are useful when you want to
+receive responses as they are generated, rather than waiting for the entire response to be
+generated before receiving it. Streaming responses are supported by the following providers:
+
++------------+---------------------+--------------+
+|  Provider  | Endpoints                          |
++------------+---------------------+--------------+
+|            | llm/v1/completions  | llm/v1/chat  |
++============+=====================+==============+
+| OpenAI     | ✓                   | ✓            |
++------------+---------------------+--------------+
+| Cohere     | ✓                   | ✘            |
++------------+---------------------+--------------+
+
+To enable streaming responses, set the ``stream`` parameter to ``true`` in your request. For example:
+
+.. code-block:: bash
+
+     curl -X POST http://my.deployments:8888/endpoints/chat/invocations \
+        -H "Content-Type: application/json" \
+        -d '{"messages": [{"role": "user", "content": "hello"}], "stream": true}'
+
+
+The results of the query follow the `OpenAI schema <https://platform.openai.com/docs/api-reference/chat/streaming>`_.
+
+
+Chat
+^^^^
+
+.. code-block:: text
+
+    data: {"choices": [{"delta": {"content": null, "role": "assistant"}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+    data: {"choices": [{"delta": {"content": "Hello", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+    data: {"choices": [{"delta": {"content": " there", "role": null}, "finish_reason": null, "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+    data: {"choices": [{"delta": {"content": null, "role": null}, "finish_reason": "stop", "index": 0}], "created": 1701161926, "id": "chatcmpl-8PoDWSiVE8MHNsUZF2awkW5gNGYs3", "model": "gpt-35-turbo", "object": "chat.completion.chunk"}
+
+
+Completions
+^^^^^^^^^^^
+
+.. code-block:: text
+
+    data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": "If"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": " an"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": " asteroid"}, "finish_reason": null, "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
+    data: {"choices": [{"delta": {"role": null, "content": null}, "finish_reason": "length", "index": 0}], "created": 1701161629, "id": "chatcmpl-8Po8jVXzljc245k1Ah4UsAcm2zxQ2", "model": "gpt-35-turbo", "object": "text_completion_chunk"}
+
 
 FastAPI Documentation ("/docs")
 -------------------------------

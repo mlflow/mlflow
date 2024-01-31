@@ -1,22 +1,15 @@
-import {
-  BarChartIcon,
-  Button,
-  ListBorderIcon,
-  Popover,
-  SegmentedControlButton,
-  SegmentedControlGroup,
-  Tabs,
-  Tag,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, Popover, Tabs, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
-import { shouldEnableArtifactBasedEvaluation } from '../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableArtifactBasedEvaluation,
+  shouldEnableShareExperimentViewByTags,
+} from '../../../../../common/utils/FeatureUtils';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewIcon } from 'shared/building_blocks/PreviewIcon';
+import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 
 const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
 const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
@@ -25,6 +18,7 @@ export interface ExperimentViewRunsModeSwitchProps {
   compareRunsMode: ExperimentViewRunsCompareMode;
   setCompareRunsMode: (newCompareRunsMode: ExperimentViewRunsCompareMode) => void;
   viewState: SearchExperimentRunsViewState;
+  runsAreGrouped?: boolean;
 }
 
 const ChartViewButtonTooltip: React.FC<{
@@ -59,20 +53,17 @@ const ChartViewButtonTooltip: React.FC<{
         <Popover.Trigger asChild>
           <div css={{ position: 'absolute', inset: 0 }} />
         </Popover.Trigger>
-        <Popover.Content align='start'>
+        <Popover.Content align="start">
           <div css={{ maxWidth: '200px' }}>
             <Typography.Paragraph>
               <FormattedMessage
-                defaultMessage='You can now switch to the chart view to compare runs'
-                description='Tooltip to push users to use the chart view instead of compare view'
+                defaultMessage="You can now switch to the chart view to compare runs"
+                description="Tooltip to push users to use the chart view instead of compare view"
               />
             </Typography.Paragraph>
             <div css={{ textAlign: 'right' }}>
-              <Button onClick={() => updateIsTooltipOpen(false)} type='primary'>
-                <FormattedMessage
-                  defaultMessage='Got it'
-                  description='Button action text for chart switcher tooltip'
-                />
+              <Button onClick={() => updateIsTooltipOpen(false)} type="primary">
+                <FormattedMessage defaultMessage="Got it" description="Button action text for chart switcher tooltip" />
               </Button>
             </div>
           </div>
@@ -87,20 +78,27 @@ const ChartViewButtonTooltip: React.FC<{
  * Allows switching between "table", "chart" and "evaluation" modes of experiment view
  */
 export const ExperimentViewRunsModeSwitch = ({
-  compareRunsMode,
+  compareRunsMode: compareRunsModeFromProps,
   setCompareRunsMode,
   viewState,
+  runsAreGrouped,
 }: ExperimentViewRunsModeSwitchProps) => {
+  const usingNewViewStateModel = shouldEnableShareExperimentViewByTags();
+  const [viewModeFromURL, setViewModeInURL] = useExperimentPageViewMode();
+
+  // In the new view state model, use the view mode serialized in the URL
+  const compareRunsMode = usingNewViewStateModel ? compareRunsModeFromProps : viewModeFromURL;
+
   const isComparingRuns = compareRunsMode !== undefined;
   const { classNamePrefix } = useDesignSystemTheme();
 
-  const activeTab = compareRunsMode || 'TABLE';
+  const activeTab = (usingNewViewStateModel ? viewModeFromURL : compareRunsMode) || 'TABLE';
   const previewIcon = () => {
     return (
-      <Tag style={{ marginLeft: '4px' }} color='turquoise'>
+      <Tag style={{ marginLeft: '4px' }} color="turquoise">
         <FormattedMessage
-          defaultMessage='Experimental'
-          description='Experimental badge shown for features which are experimental'
+          defaultMessage="Experimental"
+          description="Experimental badge shown for features which are experimental"
         />
       </Tag>
     );
@@ -109,33 +107,39 @@ export const ExperimentViewRunsModeSwitch = ({
   return (
     <Tabs
       dangerouslyAppendEmotionCSS={{
-        [`.${classNamePrefix}-tabs-nav`]: { marginBottom: 0, '::before': { border: 'none' } },
+        [`.${classNamePrefix}-tabs-nav`]: {
+          marginBottom: 0,
+          '::before': { border: 'none' },
+        },
       }}
       activeKey={activeTab}
-      onChange={(tabKey) =>
-        setCompareRunsMode(
-          (tabKey === 'TABLE' ? undefined : tabKey) as ExperimentViewRunsCompareMode,
-        )
-      }
+      onChange={(tabKey) => {
+        const newValue = (tabKey === 'TABLE' ? undefined : tabKey) as ExperimentViewRunsCompareMode;
+        if (usingNewViewStateModel) {
+          setViewModeInURL(newValue);
+        } else {
+          setCompareRunsMode(newValue);
+        }
+      }}
     >
       <Tabs.TabPane
         tab={
-          <span data-testid='experiment-runs-mode-switch-list'>
+          <span data-testid="experiment-runs-mode-switch-list">
             <FormattedMessage
-              defaultMessage='Table'
-              description='A button enabling table mode on the experiment page'
+              defaultMessage="Table"
+              description="A button enabling table mode on the experiment page"
             />
           </span>
         }
-        key='TABLE'
+        key="TABLE"
       />
       <Tabs.TabPane
         tab={
           <>
-            <span data-testid='experiment-runs-mode-switch-compare'>
+            <span data-testid="experiment-runs-mode-switch-compare">
               <FormattedMessage
-                defaultMessage='Chart'
-                description='A button enabling compare runs (chart) mode on the experiment page'
+                defaultMessage="Chart"
+                description="A button enabling compare runs (chart) mode on the experiment page"
               />
             </span>
             <ChartViewButtonTooltip
@@ -144,20 +148,32 @@ export const ExperimentViewRunsModeSwitch = ({
             />
           </>
         }
-        key='CHART'
+        key="CHART"
       />
       {shouldEnableArtifactBasedEvaluation() && (
         <Tabs.TabPane
+          disabled={runsAreGrouped}
           tab={
-            <span data-testid='experiment-runs-mode-switch-evaluation'>
-              <FormattedMessage
-                defaultMessage='Evaluation'
-                description='A button enabling compare runs (evaluation) mode on the experiment page'
-              />{' '}
-              {previewIcon()}
-            </span>
+            <Tooltip
+              title={
+                runsAreGrouped ? (
+                  <FormattedMessage
+                    defaultMessage="Unavailable when runs are grouped"
+                    description="Experiment page > view mode switch > evaluation mode disabled tooltip"
+                  />
+                ) : undefined
+              }
+            >
+              <span data-testid="experiment-runs-mode-switch-evaluation">
+                <FormattedMessage
+                  defaultMessage="Evaluation"
+                  description="A button enabling compare runs (evaluation) mode on the experiment page"
+                />{' '}
+                {previewIcon()}
+              </span>
+            </Tooltip>
           }
-          key='ARTIFACT'
+          key="ARTIFACT"
         />
       )}
     </Tabs>

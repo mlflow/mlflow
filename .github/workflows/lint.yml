@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 30
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         id: setup-python
