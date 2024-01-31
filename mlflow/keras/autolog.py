@@ -54,18 +54,17 @@ def _log_dataset(dataset, source, context, name=None, targets=None):
     """Helper function to log the dataset information to MLflow."""
     try:
         import tensorflow as tf
+
+        is_tf_dataset = isinstance(dataset, tf.data.Dataset)
+        is_tf_tensor = isinstance(dataset, tf.Tensor)
     except ImportError:
-        _logger.warning(
-            "Logging dataset in Keras training is currently only supported in Tensorflow "
-            "backend."
-        )
-        return
+        pass
 
     if isinstance(dataset, np.ndarray):
         dataset = from_numpy(features=dataset, targets=targets, source=source, name=name)
-    elif isinstance(dataset, tf.Tensor):
+    elif is_tf_tensor:
         dataset = from_tensorflow(features=dataset, targets=targets, source=source, name=name)
-    elif isinstance(dataset, tf.data.Dataset):
+    elif is_tf_dataset:
         dataset = from_tensorflow(features=dataset, source=source, name=name)
     elif isinstance(dataset, tuple):
         x = dataset[0]
