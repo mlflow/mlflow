@@ -190,7 +190,8 @@ def h2o_model(tmp_path, h2o_iris_model):
 
 
 @pytest.fixture
-def keras_model(tmp_path):
+def keras_model(tmp_path, iris_data):
+    from sklearn import datasets
     from tensorflow.keras.layers import Dense
     from tensorflow.keras.models import Sequential
 
@@ -200,11 +201,12 @@ def keras_model(tmp_path):
     model.add(Dense(3, input_dim=4))
     model.add(Dense(1))
 
+    X, y = datasets.load_iris(return_X_y=True)
     save_model_with_latest_mlflow_version(
         flavor="tensorflow",
         model=model,
         path=model_path,
-        input_example=iris_data[0][:1],
+        input_example=X[:3, :],
     )
     return model_path
 
@@ -332,7 +334,7 @@ def pytorch_model(tmp_path):
 
 
 @pytest.fixture
-def sklearn_model(tmp_path, sklearn_knn_model):
+def sklearn_model(tmp_path, sklearn_knn_model, iris_data):
     model_path = str(tmp_path / "sklearn_model")
     save_model_with_latest_mlflow_version(
         flavor="sklearn",

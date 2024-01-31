@@ -36,7 +36,7 @@ def get_released_mlflow_version():
     response.raise_for_status()
     data = response.json()
     versions = [Version(v) for v in data["releases"].keys() if not v.endswith(("a", "b", "rc"))]
-    return sorted(versions, reverse=True)[0]
+    return str(sorted(versions, reverse=True)[0])
 
 
 def save_model_with_latest_mlflow_version(flavor, **kwargs):

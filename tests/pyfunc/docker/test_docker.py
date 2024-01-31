@@ -25,7 +25,7 @@ def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_p
     actual_dockerfile = actual_dockerfile_path.read_text()
     expected_dockerfile = (
         expected_dockerfile_path.read_text()
-        .replace("$MLFLOW_VERSION", VERSION)
+        .replace("$MLFLOW_VERSION", get_released_mlflow_version())
         .replace("$PYTHON_VERSION", PYTHON_VERSION)
     )
     assert (
@@ -84,14 +84,13 @@ def test_build_image(tmp_path, params):
 
     # Copy the context dir to a temp dir so we can verify the generated Dockerfile
     def _build_image_with_copy(context_dir, image_name):
-        shutil.copytree(context_dir, dst_dir)
-
         # Replace mlflow dev version in Dockerfile with the latest released one
         dockerfile = Path(context_dir) / "Dockerfile"
         content = dockerfile.read_text()
-        content = content.replace(f"mlflow=={VERSION}", f"mlflow=={get_released_mlflow_version()}")
+        content = content.replace(VERSION, get_released_mlflow_version())
         dockerfile.write_text(content)
 
+        shutil.copytree(context_dir, dst_dir)
         build_image_from_context(context_dir, image_name)
 
     dst_dir = tmp_path / "context"
