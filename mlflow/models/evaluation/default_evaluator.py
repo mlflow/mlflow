@@ -13,7 +13,7 @@ import traceback
 import warnings
 from collections import namedtuple
 from functools import partial
-from typing import Callable, NamedTuple
+from typing import Callable, List, NamedTuple, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -1174,7 +1174,9 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
-    def _get_args_for_metrics(self, metric_tuple, eval_df):
+    def _get_args_for_metrics(
+        self, metric_tuple, eval_df
+    ) -> Tuple[bool, List[Union[str, pd.DataFrame]]]:
         """
         Get the appropriate arguments for the provided metric_tuple given the eval_df.
 
