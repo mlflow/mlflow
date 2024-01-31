@@ -30,7 +30,7 @@ def _infer_batch_size(*keras_fit_args, **keras_fit_kwargs):
     if "batch_size" in keras_fit_kwargs:
         return keras_fit_kwargs["batch_size"]
 
-    training_data = keras_fit_kwargs["x"] if "x" in keras_fit_args else keras_fit_args[0]
+    training_data = keras_fit_kwargs["x"] if "x" in keras_fit_kwargs else keras_fit_args[0]
     batch_size = getattr(training_data, "batch_size", None) or getattr(
         training_data, "_batch_size", None
     )

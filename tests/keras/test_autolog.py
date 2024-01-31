@@ -136,6 +136,8 @@ def test_custom_autolog_behavior(
     log_model_signatures,
     save_exported_model,
 ):
+    if keras.backend.backend() != "tensorflow" and save_exported_model:
+        pytest.skip("Only TensorFlow backend supports saving exported models.")
     mlflow.keras.autolog(
         log_every_epoch=log_every_epoch,
         log_every_n_steps=log_every_n_steps,
