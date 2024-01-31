@@ -960,13 +960,6 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
             if extra_cols:
                 message += f" Note that there were extra inputs: {extra_cols}"
             raise MlflowException(message)
-        # check for null values in required columns of Pyspark DataFrame
-        if isinstance(original_pf_input, SparkDataFrame):
-            for col in input_names:
-                if original_pf_input.filter(original_pf_input[col].isNull()).count() > 0:
-                    _logger.warning(
-                        f"Input column {col} is a required column containing null values."
-                    )
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
         num_actual_columns = len(pf_input.columns)
