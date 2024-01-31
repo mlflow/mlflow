@@ -6,7 +6,7 @@ from pyspark.sql.types import IntegerType, StructField, StructType
 
 import mlflow
 import mlflow.spark
-from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
+from mlflow.spark._autolog import _SPARK_TABLE_INFO_TAG_NAME
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 from tests.spark.autologging.utils import _assert_spark_data_logged
