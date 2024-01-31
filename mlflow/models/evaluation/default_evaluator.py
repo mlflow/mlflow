@@ -1174,6 +1174,11 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
+    def _get_metric(self, metrics_values, column):
+        for metric_name, metric_value in metrics_values.items():
+            if metric_name.split("/")[0] == column:
+                return metric_value
+
     def _get_metric_names(self, metrics_values):
         return [metric_name.split("/")[0] for metric_name in metrics_values.keys()]
 
@@ -1254,7 +1259,7 @@ class DefaultEvaluator(ModelEvaluator):
 
                     # case where this is the name of another metric
                     elif column in self._get_metric_names(self.metrics_values):
-                        eval_fn_args.append(self.metrics_values[column])
+                        eval_fn_args.append(self._get_metric(self.metrics_values, column))
 
                     # in the case that:
                     # the metric has not been calculated yet, but is scheduled to be calculated

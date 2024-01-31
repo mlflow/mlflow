@@ -3023,8 +3023,8 @@ def test_derived_metrics():
             predictions="answer",
             model_type="text",
             extra_metrics=[
-                make_metric(eval_fn=metric_1, greater_is_better=True),
-                make_metric(eval_fn=metric_2, greater_is_better=True),
+                make_metric(eval_fn=metric_1, greater_is_better=True, version="v1"),
+                make_metric(eval_fn=metric_2, greater_is_better=True, version="v2"),
                 make_metric(eval_fn=metric_3, greater_is_better=True),
             ],
             evaluators="default",
@@ -3039,22 +3039,22 @@ def test_derived_metrics():
         "toxicity/v1/score",
         "flesch_kincaid_grade_level/v1/score",
         "ari_grade_level/v1/score",
-        "metric_1/score",
-        "metric_2/score",
+        "metric_1/v1/score",
+        "metric_2/v2/score",
         "metric_3/score",
-        "metric_1/justification",
-        "metric_2/justification",
+        "metric_1/v1/justification",
+        "metric_2/v2/justification",
         "metric_3/justification",
     }
 
-    assert logged_data["metric_1/score"].tolist() == [0, 1]
-    assert logged_data["metric_2/score"].tolist() == [0, 5]
+    assert logged_data["metric_1/v1/score"].tolist() == [0, 1]
+    assert logged_data["metric_2/v2/score"].tolist() == [0, 5]
     assert logged_data["metric_3/score"].tolist() == [-1, 4]
-    assert logged_data["metric_1/justification"].tolist() == [
+    assert logged_data["metric_1/v1/justification"].tolist() == [
         "first justification",
         "second justification",
     ]
-    assert logged_data["metric_2/justification"].tolist() == [
+    assert logged_data["metric_2/v2/justification"].tolist() == [
         "metric_2: first justification",
         "metric_2: second justification",
     ]
@@ -3063,12 +3063,12 @@ def test_derived_metrics():
         "second justification",
     ]
 
-    assert results.metrics["metric_1/aggregate"] == 0.5
-    assert results.metrics["metric_2/aggregate"] == 0.5
+    assert results.metrics["metric_1/v1/aggregate"] == 0.5
+    assert results.metrics["metric_2/v2/aggregate"] == 0.5
     assert results.metrics["metric_3/aggregate"] == 0.5
-    assert "metric_2/mean" in results.metrics.keys()
-    assert "metric_2/variance" in results.metrics.keys()
-    assert "metric_2/p90" in results.metrics.keys()
+    assert "metric_2/v2/mean" in results.metrics.keys()
+    assert "metric_2/v2/variance" in results.metrics.keys()
+    assert "metric_2/v2/p90" in results.metrics.keys()
     assert "metric_3/mean" in results.metrics.keys()
     assert "metric_3/variance" in results.metrics.keys()
     assert "metric_3/p90" in results.metrics.keys()
