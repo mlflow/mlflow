@@ -75,6 +75,9 @@ logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_TYPE_KEY = "model_type"
+_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY = "databricks_vector_search_index_name"
+_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY = "databricks_vector_search_endpoint_name"
+_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY = "databricks_embeddings_endpoint_name"
 
 
 def get_default_pip_requirements():
@@ -270,6 +273,19 @@ def save_model(
         _MODEL_TYPE_KEY: lc_model.__class__.__name__,
         **model_data_kwargs,
     }
+
+    if isinstance(lc_model, langchain.chains.RetrievalQA):
+        retriever = lc_model.retriever
+        if retriever and hasattr(retriever, "vectorstore"):
+            vectorstore = retriever.vectorstore
+            if isinstance(vectorstore, langchain.vectorstores.DatabricksVectorSearch):
+                flavor_conf[_DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY] = vectorstore.index_name
+                flavor_conf[_DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME_KEY] = vectorstore.endpoint
+
+            embeddings = vectorstore.embeddings
+            if isinstance(embeddings, langchain.embeddings.DatabricksEmbeddings):
+                flavor_conf[_DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY] = embeddings.endpoint
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         langchain_version=langchain.__version__,
