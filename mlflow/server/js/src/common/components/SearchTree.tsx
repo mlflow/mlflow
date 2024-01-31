@@ -108,7 +108,7 @@ export class SearchTreeImpl extends React.Component<SearchTreeImplProps, SearchT
           // We set the span title to display search tree node text on hover
           <span style={styles.treeNodeTextStyle} title={item.title}>
             {beforeStr}
-            <span className='search-highlight' style={styles.searchHighlight}>
+            <span className="search-highlight" style={styles.searchHighlight}>
               {matchStr}
             </span>
             {afterStr}

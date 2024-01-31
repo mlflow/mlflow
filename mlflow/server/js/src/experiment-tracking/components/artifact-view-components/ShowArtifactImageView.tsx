@@ -8,10 +8,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Image } from 'antd';
 import { DesignSystemContext, LegacySkeleton } from '@databricks/design-system';
-import {
-  getArtifactBytesContent,
-  getArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactBytesContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 
 type Props = {
   runUuid: string;

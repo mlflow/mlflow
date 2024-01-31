@@ -1,14 +1,11 @@
-import { throttle } from 'lodash';
-import { Layout, Margin } from 'plotly.js';
+import { compact, throttle } from 'lodash';
+import { Dash, Layout, Margin } from 'plotly.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlotParams } from 'react-plotly.js';
-import {
-  KeyValueEntity,
-  MetricEntitiesByName,
-  MetricHistoryByName,
-  RunInfoEntity,
-} from '../../../types';
+import { MetricEntitiesByName, MetricEntity, MetricHistoryByName, RunInfoEntity } from '../../../types';
 import { Theme } from '@emotion/react';
+import { LegendLabelData } from './RunsMetricsLegend';
+import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';
 
 /**
  * Common props for all charts used in experiment runs
@@ -75,9 +72,27 @@ export interface RunsChartAxisDef {
 
 export interface RunsChartsRunData {
   /**
-   * Run's RunInfo object containing the metadata
+   * UUID of a chart data trace
    */
-  runInfo: RunInfoEntity;
+  uuid: string;
+  /**
+   * Run or group name displayed in the legend and hover box
+   */
+  displayName: string;
+  /**
+   * Run's RunInfo object containing the metadata.
+   * Unset for run groups.
+   */
+  runInfo?: RunInfoEntity;
+  /**
+   * Run's parent group info. Set only for run groups.
+   */
+  groupParentInfo?: RunGroupParentInfo;
+  /**
+   * Set to "false" if run grouping is enabled, but run is not a part of any group.
+   * Undefined if run grouping is disabled.
+   */
+  belongsToGroup?: boolean;
   /**
    * Object containing latest run's metrics by key
    */
@@ -88,9 +103,14 @@ export interface RunsChartsRunData {
    */
   metricsHistory?: MetricHistoryByName;
   /**
+   * Set for run groups, contains aggregated metrics history for each run group.
+   * It's keyed by a metric name, then by an aggregate function (min, max, average).
+   */
+  aggregatedMetricsHistory?: Record<string, Record<RunGroupingAggregateFunction, MetricEntity[]>>;
+  /**
    * Object containing run's params by key
    */
-  params: Record<string, KeyValueEntity>;
+  params: Record<string, { key: string; value: string | number }>;
   /**
    * Color corresponding to the run
    */
@@ -142,10 +162,7 @@ export const useDynamicPlotSize = (throttleMs = 100) => {
         return;
       }
 
-      setDimensionsThrottled(
-        Math.round(observerEntry.contentRect.width),
-        Math.round(observerEntry.contentRect.height),
-      );
+      setDimensionsThrottled(Math.round(observerEntry.contentRect.width), Math.round(observerEntry.contentRect.height));
     });
 
     observer.observe(containerDiv);
@@ -209,6 +226,7 @@ export const commonRunsChartStyles = {
     // Variable used by chart trace highlighting
     '--trace-transition': 'opacity .16s',
     '--trace-opacity-highlighted': '1',
+    '--trace-opacity-dimmed': '0',
     '--trace-opacity-dimmed-low': '0.45',
     '--trace-opacity-dimmed-high': '0.55',
     '--trace-stroke-color': 'black',
@@ -291,3 +309,64 @@ export const createThemedPlotlyLayout = (theme: Theme): Partial<Layout> => ({
     gridcolor: theme.colors.borderDecorative,
   },
 });
+
+/**
+ * Creates a key for sampled chart data range, e.g. [-4,4] becomes "-4,4".
+ * "DEFAULT" is used for automatic chart range.
+ */
+export const createChartAxisRangeKey = (range?: [number | string, number | string]) =>
+  range ? range.join(',') : 'DEFAULT';
+
+export const getLegendDataFromRuns = (
+  runsData: Pick<RunsChartsRunData, 'displayName' | 'color'>[],
+): LegendLabelData[] =>
+  runsData.map(
+    (run): LegendLabelData => ({
+      label: run.displayName,
+      color: run.color ?? '',
+    }),
+  );
+
+export const getLineChartLegendData = (
+  runsData: Pick<RunsChartsRunData, 'runInfo' | 'color' | 'metricsHistory' | 'displayName'>[],
+  selectedMetricKeys: string[] | undefined,
+  metricKey: string,
+): LegendLabelData[] =>
+  runsData.flatMap((runEntry): LegendLabelData[] => {
+    if (!runEntry.metricsHistory) {
+      return [];
+    }
+
+    const metricKeys = selectedMetricKeys ?? [metricKey];
+    return metricKeys.map((mk, idx) => ({
+      label: `${runEntry.displayName} (${mk})`,
+      color: runEntry.color ?? '',
+      dashStyle: lineDashStyles[idx % lineDashStyles.length],
+    }));
+  });
+
+/**
+ * Returns true if the sorted array contains duplicate values.
+ * Uses simple O(n) algorithm and for loop to avoid creating a set.
+ */
+export const containsDuplicateXValues = (xValues: number[]) => {
+  for (let i = 1; i < xValues.length; i++) {
+    if (xValues[i] === xValues[i - 1]) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export const lineDashStyles: Dash[] = ['solid', 'dash', 'dot', 'longdash', 'dashdot', 'longdashdot'];
+
+/**
+ * Calculates a semi-translucent hex color value based on the provided hex color and alpha value.
+ */
+export const createFadedTraceColor = (hexColor?: string, alpha = 0.1) => {
+  if (!hexColor) {
+    return hexColor;
+  }
+  const fadedColor = Math.round(Math.min(Math.max(alpha || 1, 0), 1) * 255);
+  return hexColor + fadedColor.toString(16).toUpperCase();
+};

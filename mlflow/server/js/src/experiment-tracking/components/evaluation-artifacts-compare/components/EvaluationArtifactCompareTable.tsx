@@ -18,10 +18,7 @@ import { useEvaluationAddNewInputsModal } from '../hooks/useEvaluationAddNewInpu
 import { useDispatch, useSelector } from 'react-redux';
 import { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { evaluateAddInputValues } from '../../../actions/PromptEngineeringActions';
-import {
-  canEvaluateOnRun,
-  extractRequiredInputParamsForRun,
-} from '../../prompt-engineering/PromptEngineering.utils';
+import { canEvaluateOnRun, extractRequiredInputParamsForRun } from '../../prompt-engineering/PromptEngineering.utils';
 import { useIntl } from 'react-intl';
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
 import { EvaluationTableHeader } from './EvaluationTableHeader';
@@ -56,9 +53,7 @@ export const EvaluationArtifactCompareTable = ({
   const [columns, setColumns] = useState<ColDef[]>([]);
 
   const [gridApi, setGridApi] = useState<GridApi | null>(null);
-  const pendingData = useSelector(
-    ({ evaluationData }: ReduxState) => evaluationData.evaluationPendingDataByRunUuid,
-  );
+  const pendingData = useSelector(({ evaluationData }: ReduxState) => evaluationData.evaluationPendingDataByRunUuid);
   const gridWrapperRef = useRef<HTMLDivElement>(null);
 
   const { isHeaderExpanded } = usePromptEngineeringContext();
@@ -134,8 +129,7 @@ export const EvaluationArtifactCompareTable = ({
     ({ value, colDef, column }: CellClickedEvent) => {
       const emptyMessage = intl.formatMessage({
         defaultMessage: '(empty)',
-        description:
-          'Experiment page > artifact compare view > results table > no result (empty cell)',
+        description: 'Experiment page > artifact compare view > results table > no result (empty cell)',
       });
       return onCellClick?.(value || emptyMessage, colDef.headerName || column.getId());
     },
@@ -150,8 +144,7 @@ export const EvaluationArtifactCompareTable = ({
   useEffect(() => {
     const cols: ColDef[] = [];
 
-    const { initialWidthGroupBy, initialWidthOutput, maxWidth, minWidth } =
-      EVALUATION_ARTIFACTS_TEXT_COLUMN_WIDTH;
+    const { initialWidthGroupBy, initialWidthOutput, maxWidth, minWidth } = EVALUATION_ARTIFACTS_TEXT_COLUMN_WIDTH;
 
     if (shouldEnablePromptLab() && visibleRuns.some((run) => canEvaluateOnRun(run))) {
       cols.push({
@@ -245,14 +238,10 @@ export const EvaluationArtifactCompareTable = ({
 
     // Check if we need to have a tall header, i.e. if we have any runs
     // with datasets or with evaluation metadata
-    const runsContainHeaderMetadata = visibleRuns.some(
-      (run) => canEvaluateOnRun(run) || run.datasets?.length > 0,
-    );
+    const runsContainHeaderMetadata = visibleRuns.some((run) => canEvaluateOnRun(run) || run.datasets?.length > 0);
 
     // Set header height dynamically
-    gridApi.setHeaderHeight(
-      getEvaluationArtifactsTableHeaderHeight(isHeaderExpanded, runsContainHeaderMetadata),
-    );
+    gridApi.setHeaderHeight(getEvaluationArtifactsTableHeaderHeight(isHeaderExpanded, runsContainHeaderMetadata));
   }, [gridApi, isHeaderExpanded, visibleRuns]);
 
   return (

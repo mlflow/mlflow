@@ -490,3 +490,12 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: encounters a redirect response.
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
+
+# Specifies the timeout for deployment client APIs to declare a request has timed out
+MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", int, 120
+)
+
+MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
+)

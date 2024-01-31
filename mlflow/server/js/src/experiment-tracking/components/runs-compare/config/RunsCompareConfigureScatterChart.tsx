@@ -21,8 +21,8 @@ scatterPlotDefaultOptions.push(
     value: 100,
     label: (
       <FormattedMessage
-        defaultMessage='100'
-        description='Label for 100 first runs visible in run count selector within runs compare configuration modal'
+        defaultMessage="100"
+        description="Label for 100 first runs visible in run count selector within runs compare configuration modal"
       />
     ),
   },
@@ -30,8 +30,8 @@ scatterPlotDefaultOptions.push(
     value: 250,
     label: (
       <FormattedMessage
-        defaultMessage='250'
-        description='Label for 250 first runs visible in run count selector within runs compare configuration modal'
+        defaultMessage="250"
+        description="Label for 250 first runs visible in run count selector within runs compare configuration modal"
       />
     ),
   },
@@ -39,8 +39,8 @@ scatterPlotDefaultOptions.push(
     value: 500,
     label: (
       <FormattedMessage
-        defaultMessage='500'
-        description='Label for 500 first runs visible in run count selector within runs compare configuration modal'
+        defaultMessage="500"
+        description="Label for 500 first runs visible in run count selector within runs compare configuration modal"
       />
     ),
   },
@@ -118,8 +118,7 @@ export const RunsCompareConfigureScatterChart = ({
       <RunsCompareConfigureField
         title={formatMessage({
           defaultMessage: 'X axis',
-          description:
-            'Label for X axis in scatter chart configurator in compare runs chart config modal',
+          description: 'Label for X axis in scatter chart configurator in compare runs chart config modal',
         })}
       >
         <RunsCompareMetricParamSelect
@@ -134,8 +133,7 @@ export const RunsCompareConfigureScatterChart = ({
       <RunsCompareConfigureField
         title={formatMessage({
           defaultMessage: 'Y axis',
-          description:
-            'Label for Y axis in scatter chart configurator in compare runs chart config modal',
+          description: 'Label for Y axis in scatter chart configurator in compare runs chart config modal',
         })}
       >
         <RunsCompareMetricParamSelect
