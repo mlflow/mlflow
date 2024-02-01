@@ -579,7 +579,7 @@ def test_model_checkpoint_callback():
         # Test checkpoint every 10 steps, save_best_only = True, monitor = 'val_acc_step',
         # mode = "max"
         callback4 = __MLflowModelCheckpointCallback(
-            monitor="val_acc_step",
+            monitor="train_acc_step",
             mode="max",
             save_best_only=True,
             save_weights_only=False,
@@ -588,13 +588,13 @@ def test_model_checkpoint_callback():
         trainer4 = FakeTrainer()
         trainer4.current_epoch = 1
         trainer4.global_step = 10
-        trainer4.callback_metrics = {"val_acc_step": 0.7}
+        trainer4.callback_metrics = {"train_acc_step": 0.7}
         trainer4.expect_weights_only_saving = False
         trainer4.expected_checkpoint_filename = "latest_checkpoint.pth"
         callback4.on_train_batch_end(trainer4, model, None, None, 10)
 
         log_dict_mock.assert_called_once_with(
-            {"val_acc_step": 0.7, "epoch": 1, "global_step": 10},
+            {"train_acc_step": 0.7, "epoch": 1, "global_step": 10},
             "checkpoints/latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
@@ -605,13 +605,13 @@ def test_model_checkpoint_callback():
 
         trainer4.current_epoch = 1
         trainer4.global_step = 20
-        trainer4.callback_metrics = {"val_acc_step": 0.8}
+        trainer4.callback_metrics = {"train_acc_step": 0.8}
         trainer4.expect_weights_only_saving = False
         trainer4.expected_checkpoint_filename = "latest_checkpoint.pth"
         callback4.on_train_batch_end(trainer4, model, None, None, 20)
 
         log_dict_mock.assert_called_once_with(
-            {"val_acc_step": 0.8, "epoch": 1, "global_step": 20},
+            {"train_acc_step": 0.8, "epoch": 1, "global_step": 20},
             "checkpoints/latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
