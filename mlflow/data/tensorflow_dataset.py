@@ -35,13 +35,14 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         digest: Optional[str] = None,
     ):
         """
-        :param features: A TensorFlow dataset or tensor of features.
-        :param source: The source of the TensorFlow dataset.
-        :param targets: A TensorFlow dataset or tensor of targets. Optional.
-        :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
-                     automatically generated.
-        :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
-                       is automatically computed.
+        Args:
+            features: A TensorFlow dataset or tensor of features.
+            source: The source of the TensorFlow dataset.
+            targets: A TensorFlow dataset or tensor of targets. Optional.
+            name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
+                automatically generated.
+            digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
+                is automatically computed.
         """
         import tensorflow as tf
 
@@ -89,12 +90,14 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
-        :param base_dict: A string dictionary of base information about the
-                          dataset, including: name, digest, source, and source
-                          type.
-        :return: A string dictionary containing the following fields: name,
-                 digest, source, source type, schema (optional), profile
-                 (optional).
+        Args:
+            base_dict: A string dictionary of base information about the
+                dataset, including: name, digest, source, and source type.
+
+        Returns:
+            A string dictionary containing the following fields: name,
+            digest, source, source type, schema (optional), profile
+            (optional).
         """
         return {
             **base_dict,
@@ -253,22 +256,23 @@ def from_tensorflow(
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> TensorFlowDataset:
-    """
-    Constructs a TensorFlowDataset object from TensorFlow data, optional targets, and source.
+    """Constructs a TensorFlowDataset object from TensorFlow data, optional targets, and source.
+
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
 
-    :param features: A TensorFlow dataset or tensor of features.
-    :param source: The source from which the data was derived, e.g. a filesystem
-                    path, an S3 URI, an HTTPS URL, a delta table name with version, or
-                    spark table etc. If source is not a path like string,
-                    pass in a DatasetSource object directly. If no source is specified,
-                    a CodeDatasetSource is used, which will source information from the run
-                    context.
-    :param targets: A TensorFlow dataset or tensor of targets. Optional.
-    :param name: The name of the dataset. If unspecified, a name is generated.
-    :param digest: A dataset digest (hash). If unspecified, a digest is computed
-                    automatically.
+    Args:
+        features: A TensorFlow dataset or tensor of features.
+        source: The source from which the data was derived, e.g. a filesystem
+            path, an S3 URI, an HTTPS URL, a delta table name with version, or
+            spark table etc. If source is not a path like string,
+            pass in a DatasetSource object directly. If no source is specified,
+            a CodeDatasetSource is used, which will source information from the run
+            context.
+        targets: A TensorFlow dataset or tensor of targets. Optional.
+        name: The name of the dataset. If unspecified, a name is generated.
+        digest: A dataset digest (hash). If unspecified, a digest is computed
+            automatically.
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source

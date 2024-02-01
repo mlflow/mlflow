@@ -9,7 +9,6 @@ from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_managed_catalog_messages_pb2 import GetTable, GetTableResponse
 from mlflow.utils.proto_json_utils import message_to_json
-from tests.store._unity_catalog.conftest import _REGISTRY_HOST_CREDS
 
 
 @pytest.fixture(scope="module")
@@ -217,7 +216,6 @@ def test_lookup_table_id(
         "mlflow.data.delta_dataset_source.call_endpoint",
         side_effect=mock_call_endpoint,
     ) as mock_endpoint:
-
         delta_datasource = DeltaDatasetSource(
             delta_table_name=test_table_name, delta_table_version=1
         )
@@ -243,7 +241,6 @@ def test_lookup_table_id(
 def test_is_databricks_uc_table(
     is_in_databricks_runtime_response, table_name, expected_result, tmp_path
 ):
-
     with mock.patch(
         "mlflow.data.delta_dataset_source.get_full_name_from_sc",
         return_value=table_name,

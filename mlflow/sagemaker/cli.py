@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 
 import click
 
@@ -350,30 +351,31 @@ def build_and_push_container(build, push, container, env_manager, mlflow_home):
     The image is built locally and it requires Docker to run.
     The image is pushed to ECR under current active AWS account and to current active AWS region.
     """
+    from mlflow.models import docker_utils
+
     env_manager = env_manager or em.VIRTUALENV
     if not (build or push):
         click.echo("skipping both build and push, have nothing to do!")
     if build:
-        sagemaker_image_entrypoint = f"""
-        ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; \
-        C._init(sys.argv[1], '{env_manager}')"]
-        """
+        sagemaker_image_entrypoint = (
+            'ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; '
+            f"C._init(sys.argv[1], '{env_manager}')\"]"
+        )
 
-        def setup_container(_):
-            return "\n".join(
-                [
-                    'ENV {disable_env}="false"',
-                    'RUN python -c "from mlflow.models.container import _install_pyfunc_deps;'
-                    '_install_pyfunc_deps(None, False)"',
-                ]
+        setup_container = (
+            'RUN python -c "from mlflow.models.container import _install_pyfunc_deps;'
+            '_install_pyfunc_deps(None, False)"'
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            docker_utils.generate_dockerfile(
+                output_dir=tmp,
+                entrypoint=sagemaker_image_entrypoint,
+                env_manager=env_manager,
+                mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
+                custom_setup_steps=setup_container,
             )
 
-        mlflow.models.docker_utils._build_image(
-            container,
-            mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
-            entrypoint=sagemaker_image_entrypoint,
-            custom_setup_steps_hook=setup_container,
-            env_manager=env_manager,
-        )
+            docker_utils.build_image_from_context(tmp, image_name=container)
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)

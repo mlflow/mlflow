@@ -7,7 +7,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.environment import (
     _contains_mlflow_requirement,
     _deduplicate_requirements,
-    _find_duplicate_requirements,
     _get_pip_deps,
     _get_pip_requirement_specifier,
     _is_mlflow_requirement,
@@ -341,34 +340,6 @@ def test_process_conda_env(tmp_path):
 
     with pytest.raises(TypeError, match=r"Expected .+, but got `int`"):
         _process_conda_env(0)
-
-
-def test_duplicate_pip_requirements():
-    packages = [
-        "numpy==1.21.0",  # specific version
-        "pandas>=1.3.0",  # minimum version
-        "scikit-learn",  # any version
-        "matplotlib<=3.4.2",  # maximum version
-        "seaborn",  # any version
-        "package!=1.2.3",  # any version but this one
-        "package~=1.2.3",  # compatible version (i.e., >= 1.2.3, == 1.2.*)
-        "package>1.2.3",  # version greater than
-        "package<1.2.3",  # version less than
-        "package[extra]==1.2.3",  # specific version with extras
-        "fastapi ===0.21.0",  # specific version (PEP 440: version with spaces around ===)
-        "fastapi @ https://my.package.repo/fastapi-0.21.0-py3-none-any.whl",  # private repo
-        "-e git+https://github.com/mlflow/mlflow@master",  # editable mode, direct from a git repo
-        "-r requirements.txt",  # from a requirements file
-        "pytest-cov; python_version < '3.8'",  # conditional requirements
-        "fastapi @ file:///local/path/to/numpy-0.22.0-py3-none-any.whl",  # wheel from a local file
-        "-c constraints.txt",  # constraint file
-        "--no-binary :all:",  # no binary packages, source code only
-        "--prefer-binary",  # prefer binary packages over source code
-        "numpy<1.24.0",  # maximum version
-        "numpy",  # any version
-    ]
-    evaluation = _find_duplicate_requirements(packages)
-    assert sorted(evaluation) == ["fastapi", "numpy", "package"]
 
 
 @pytest.mark.parametrize(

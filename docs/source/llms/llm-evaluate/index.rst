@@ -346,7 +346,7 @@ Now let's define the ``professionalism`` metric, you will see how each field is 
 Create heuristic-based LLM Evaluation Metrics (Category 2)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This is very similar to creating a custom traditional metrics, with the exception of returning a `EvaluationResult` instance.
+This is very similar to creating custom traditional metrics, with the exception of returning a :py:func:`mlflow.metrics.MetricValue` instance.
 Basically you need to:
 
 1. Implement a ``eval_fn`` to define your scoring logic, it must take in 3 args ``predictions``, ``targets`` and ``metrics``.
@@ -536,7 +536,7 @@ Viewing Evaluation Results
 View Evaluation Results via Code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instace. 
+``mlflow.evaluate()`` returns the evaluation results as an :py:func:`mlflow.models.EvaluationResult` instance. 
 To see the score on selected metrics, you can check:
 
 * ``metrics``: stores the aggregated results, like average/variance across the evaluation dataset. Let's take a second

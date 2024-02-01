@@ -3,9 +3,16 @@ import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.
 import { RunsMetricsBarPlot } from '../../runs-charts/components/RunsMetricsBarPlot';
 import { useRunsChartsTooltip } from '../../runs-charts/hooks/useRunsChartsTooltip';
 import type { RunsCompareBarCardConfig } from '../runs-compare.types';
-import { RunsCompareChartCardWrapper } from './ChartCard.common';
+import { useIsInViewport } from '../../runs-charts/hooks/useIsInViewport';
+import { shouldEnableDeepLearningUI } from '../../../../common/utils/FeatureUtils';
+import {
+  RunsCompareChartCardWrapper,
+  type RunsCompareChartCardReorderProps,
+  RunsCompareChartsDragGroup,
+  ChartRunsCountIndicator,
+} from './ChartCard.common';
 
-export interface RunsCompareBarChartCardProps {
+export interface RunsCompareBarChartCardProps extends RunsCompareChartCardReorderProps {
   config: RunsCompareBarCardConfig;
   chartRunData: RunsChartsRunData[];
 
@@ -26,6 +33,11 @@ export const RunsCompareBarChartCard = ({
   chartRunData,
   onDelete,
   onEdit,
+  onReorderWith,
+  canMoveDown,
+  canMoveUp,
+  onMoveDown,
+  onMoveUp,
 }: RunsCompareBarChartCardProps) => {
   const slicedRuns = useMemo(
     () => chartRunData.slice(0, config.runsCountToCompare || 10).reverse(),
@@ -33,26 +45,37 @@ export const RunsCompareBarChartCard = ({
   );
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
+  const usingV2ChartImprovements = shouldEnableDeepLearningUI();
+  const { elementRef, isInViewport } = useIsInViewport({ enabled: usingV2ChartImprovements });
+
   return (
     <RunsCompareChartCardWrapper
       onEdit={onEdit}
       onDelete={onDelete}
       title={config.metricKey}
-      // TODO: add i18n after making decision on the final wording
-      subtitle={<>Comparing first {slicedRuns.length} runs</>}
+      subtitle={<ChartRunsCountIndicator runsOrGroups={slicedRuns} />}
+      uuid={config.uuid}
+      dragGroupKey={RunsCompareChartsDragGroup.GENERAL_AREA}
+      onReorderWith={onReorderWith}
+      canMoveDown={canMoveDown}
+      canMoveUp={canMoveUp}
+      onMoveDown={onMoveDown}
+      onMoveUp={onMoveUp}
     >
-      <div css={styles.barChartCardWrapper}>
-        <RunsMetricsBarPlot
-          runsData={slicedRuns}
-          metricKey={config.metricKey}
-          displayRunNames={false}
-          displayMetricKey={false}
-          useDefaultHoverBox={false}
-          margin={barChartCardDefaultMargin}
-          onHover={setTooltip}
-          onUnhover={resetTooltip}
-          selectedRunUuid={selectedRunUuid}
-        />
+      <div css={styles.barChartCardWrapper} ref={elementRef}>
+        {isInViewport ? (
+          <RunsMetricsBarPlot
+            runsData={slicedRuns}
+            metricKey={config.metricKey}
+            displayRunNames={false}
+            displayMetricKey={false}
+            useDefaultHoverBox={false}
+            margin={barChartCardDefaultMargin}
+            onHover={setTooltip}
+            onUnhover={resetTooltip}
+            selectedRunUuid={selectedRunUuid}
+          />
+        ) : null}
       </div>
     </RunsCompareChartCardWrapper>
   );

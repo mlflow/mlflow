@@ -27,16 +27,8 @@ describe('fetchEvaluationTableArtifact', () => {
     const result = await fetchEvaluationTableArtifact('run_1', '/some/artifact');
     expect(result.entries).toHaveLength(3);
     expect(result.entries.map(({ inputs }) => inputs)).toEqual(['Input A', 'Input B', 'Input C']);
-    expect(result.entries.map(({ outputs }) => outputs)).toEqual([
-      'Output A',
-      'Output B',
-      'Output C',
-    ]);
-    expect(result.entries.map(({ targets }) => targets)).toEqual([
-      'Prompt A',
-      'Prompt B',
-      'Prompt C',
-    ]);
+    expect(result.entries.map(({ outputs }) => outputs)).toEqual(['Output A', 'Output B', 'Output C']);
+    expect(result.entries.map(({ targets }) => targets)).toEqual(['Prompt A', 'Prompt B', 'Prompt C']);
   });
 
   it('fails on malformed response without columns field', async () => {

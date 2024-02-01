@@ -188,6 +188,13 @@ jobs:
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
+          # temp workaround before langchain_community release the following PR in a new version
+          # https://github.com/langchain-ai/langchain/pull/15691
+          if [ "${{ matrix.package }}/${{ matrix.category }}" = "langchain/autologging" ]
+          then
+            pip uninstall -y langchain_community
+            pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/community
+          fi
       - name: Install pydantic no-binary for langchain
         if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
         run: |
@@ -199,6 +206,10 @@ jobs:
       - name: Check package versions
         run: |
           python dev/show_package_release_dates.py
+      - name: Prefetch Transformer models
+        if: matrix.package == 'transformers' && matrix.category == 'models'
+        run: |
+          python tests/transformers/helper.py
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
@@ -206,5 +217,6 @@ jobs:
           SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
         run: |
           ${{ matrix.run }}

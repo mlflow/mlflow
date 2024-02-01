@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react-for-react-18';
 import { useEvaluateAllRows } from './useEvaluateAllRows';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
@@ -8,6 +8,7 @@ import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types
 import { evaluatePromptTableValue } from '../../../actions/PromptEngineeringActions';
 import { cloneDeep } from 'lodash';
 import { UseEvaluationArtifactTableDataResult } from './useEvaluationArtifactTableData';
+import { IntlProvider } from 'react-intl';
 
 // Mock the evaluation action, it simulates taking 1000 ms to evaluate a single value
 jest.mock('../../../actions/PromptEngineeringActions', () => ({
@@ -67,9 +68,7 @@ const updateResultTable = (
   newValue: string,
 ) => {
   const updatedTable = cloneDeep(sourceTable);
-  const row = updatedTable.find(
-    ({ groupByCellValues }) => groupByCellValues['col_question'] === questionValue,
-  );
+  const row = updatedTable.find(({ groupByCellValues }) => groupByCellValues['col_question'] === questionValue);
 
   if (row) {
     row.cellValues[runUuid] = newValue;
@@ -80,15 +79,16 @@ const updateResultTable = (
 describe('useEvaluateAllRows', () => {
   const render = () => {
     const mockStore = configureStore([thunk, promiseMiddleware()])({});
-    const { result, rerender } = renderHook(
-      (props) => useEvaluateAllRows(props.evaluationTable, 'col_output'),
-      {
-        initialProps: {
-          evaluationTable: mockEvaluationTable,
-        },
-        wrapper: ({ children }) => <Provider store={mockStore}>{children}</Provider>, // const mockStore = configureStore([thunk, promiseMiddleware()])({ evaluationData: mockState });
+    const { result, rerender } = renderHook((props) => useEvaluateAllRows(props.evaluationTable, 'col_output'), {
+      initialProps: {
+        evaluationTable: mockEvaluationTable,
       },
-    );
+      wrapper: ({ children }) => (
+        <IntlProvider locale="en">
+          <Provider store={mockStore}>{children}</Provider>
+        </IntlProvider>
+      ),
+    });
     return { getResult: () => result.current, rerender };
   };
 
@@ -127,14 +127,11 @@ describe('useEvaluateAllRows', () => {
 
     await act(async () => {
       rerender({
-        evaluationTable: updateResultTable(
-          mockEvaluationTable,
-          'question_alpha',
-          'run_2',
-          'newly_evaluated_data',
-        ),
+        evaluationTable: updateResultTable(mockEvaluationTable, 'question_alpha', 'run_2', 'newly_evaluated_data'),
       });
+    });
 
+    await act(async () => {
       jest.advanceTimersByTime(2000);
     });
 
@@ -160,12 +157,7 @@ describe('useEvaluateAllRows', () => {
       }),
     );
 
-    const updatedTable = updateResultTable(
-      mockEvaluationTable,
-      'question_alpha',
-      'run_3',
-      'newly_evaluated_data',
-    );
+    const updatedTable = updateResultTable(mockEvaluationTable, 'question_alpha', 'run_3', 'newly_evaluated_data');
 
     rerender({
       evaluationTable: updatedTable,
@@ -188,12 +180,7 @@ describe('useEvaluateAllRows', () => {
     );
 
     rerender({
-      evaluationTable: updateResultTable(
-        updatedTable,
-        'question_beta',
-        'run_3',
-        'newly_evaluated_data',
-      ),
+      evaluationTable: updateResultTable(updatedTable, 'question_beta', 'run_3', 'newly_evaluated_data'),
     });
 
     await act(async () => {
@@ -222,12 +209,7 @@ describe('useEvaluateAllRows', () => {
       }),
     );
 
-    const updatedTable = updateResultTable(
-      mockEvaluationTable,
-      'question_alpha',
-      'run_3',
-      'newly_evaluated_data',
-    );
+    const updatedTable = updateResultTable(mockEvaluationTable, 'question_alpha', 'run_3', 'newly_evaluated_data');
 
     rerender({
       evaluationTable: updatedTable,
@@ -235,6 +217,8 @@ describe('useEvaluateAllRows', () => {
 
     await act(async () => {
       getResult().stopEvaluatingRunColumn(mockRun3);
+    });
+    await act(async () => {
       jest.advanceTimersByTime(2000);
     });
 

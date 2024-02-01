@@ -31,9 +31,7 @@ describe('useBrowserKeyShortcutListener', () => {
   });
 
   it('listens to a complex key combination with two modifiers', async () => {
-    renderHook(() =>
-      useBrowserKeyShortcutListener('s', { altOrOptKey: true, ctrlOrCmdKey: true }, callback),
-    );
+    renderHook(() => useBrowserKeyShortcutListener('s', { altOrOptKey: true, ctrlOrCmdKey: true }, callback));
     expect(callback).not.toBeCalled();
     userEvent.keyboard('{Control>}{Alt>}s{/Control}{/Alt}');
     expect(callback).toBeCalled();
@@ -41,11 +39,7 @@ describe('useBrowserKeyShortcutListener', () => {
 
   it('listens to a complex key combination with three modifiers', async () => {
     renderHook(() =>
-      useBrowserKeyShortcutListener(
-        's',
-        { altOrOptKey: true, ctrlOrCmdKey: true, shiftKey: true },
-        callback,
-      ),
+      useBrowserKeyShortcutListener('s', { altOrOptKey: true, ctrlOrCmdKey: true, shiftKey: true }, callback),
     );
     userEvent.keyboard('{Shift>}{Alt>}s{/Alt}{/Shift}');
     expect(callback).not.toBeCalled();
@@ -59,11 +53,7 @@ describe('useBrowserKeyShortcutListener', () => {
 
   it('listens to a complex key combination with three modifiers but sends incomplete combination', async () => {
     renderHook(() =>
-      useBrowserKeyShortcutListener(
-        's',
-        { altOrOptKey: true, ctrlOrCmdKey: true, shiftKey: true },
-        callback,
-      ),
+      useBrowserKeyShortcutListener('s', { altOrOptKey: true, ctrlOrCmdKey: true, shiftKey: true }, callback),
     );
     expect(callback).not.toBeCalled();
     userEvent.keyboard('{Shift>}{Alt>}s{/Alt}{/Shift}');

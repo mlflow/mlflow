@@ -144,9 +144,10 @@ class Property:
         required: bool = True,
     ) -> None:
         """
-        :param name: The name of the property
-        :param dtype: The data type of the property
-        :param required: Whether this property is required
+        Args:
+            name: The name of the property
+            dtype: The data type of the property
+            required: Whether this property is required
         """
         if not isinstance(name, str):
             raise MlflowException.invalid_parameter_value(
@@ -996,9 +997,10 @@ class ParamSpec:
 
         Any other type mismatch will raise error.
 
-        :param name: parameter name
-        :param value: parameter value
-        :param t: expected data type
+        Args:
+            name: parameter name
+            value: parameter value
+            t: expected data type
         """
         if value is None:
             return

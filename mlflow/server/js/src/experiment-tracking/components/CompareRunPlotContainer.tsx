@@ -5,9 +5,7 @@ interface CompareRunPlotContainerProps {
   controls: React.ReactNode;
 }
 
-export const CompareRunPlotContainer = (
-  props: React.PropsWithChildren<CompareRunPlotContainerProps>,
-) => (
+export const CompareRunPlotContainer = (props: React.PropsWithChildren<CompareRunPlotContainerProps>) => (
   <div css={styles.wrapper}>
     <div css={styles.controls}>{props.controls}</div>
     <div css={styles.plotWrapper}>{props.children}</div>
