@@ -301,15 +301,13 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
         mode,
         save_best_only,
         save_weights_only,
-        every_n_epochs,
-        train_time_interval_S,
+        save_freq,
     ):
         self.monitor = monitor
         self.mode = mode
         self.save_best_only = save_best_only
         self.save_weights_only = save_weights_only
-        self.every_n_epochs = every_n_epochs
-        self.train_time_interval_S = train_time_interval_S
+        self.save_freq = save_freq
         self.latest_checkpoint_timestamp = time.time()
         self.last_monitor_value = None
 
@@ -325,20 +323,14 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
 
         assert False, "Illegal __MLflowModelCheckpoint config."
 
-    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+    def _check_and_save_checkpoint_if_needed(self, trainer: "pl.Trainer"):
         current_epoch = trainer.current_epoch
         metric_dict = {k: float(v) for k, v in trainer.callback_metrics.items()}
 
-        should_checkpoint = False
-        if self.every_n_epochs and (current_epoch % self.every_n_epochs == 0):
-            should_checkpoint = True
-        elif (
-                self.train_time_interval_S and
-                time.time() - self.latest_checkpoint_timestamp > self.train_time_interval_S
+        if not (
+            self.save_freq == "epoch" or
+            (trainer.global_step > 0 and trainer.global_step % self.save_freq == 0)
         ):
-            should_checkpoint = True
-
-        if not should_checkpoint:
             return
 
         if self.save_best_only:
@@ -358,18 +350,23 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
 
         if self.save_best_only:
             if self.save_weights_only:
-                checkpoint_model_filename = "latest_checkpoint_model.weights.pth"
+                checkpoint_model_filename = "latest_checkpoint.weights.pth"
             else:
-                checkpoint_model_filename = "latest_checkpoint_model.pth"
+                checkpoint_model_filename = "latest_checkpoint.pth"
             checkpoint_metrics_filename = "latest_checkpoint_metrics.json"
-            checkpoint_artifact_dir = ""
-        else:
-            if self.save_weights_only:
-                checkpoint_model_filename = f"checkpoint_model_epoch_{current_epoch}.weights.pth"
-            else:
-                checkpoint_model_filename = f"checkpoint_model_epoch_{current_epoch}.pth"
-            checkpoint_metrics_filename = f"checkpoint_metrics_epoch_{current_epoch}.json"
             checkpoint_artifact_dir = "checkpoints"
+        else:
+            if self.save_freq == "epoch":
+                sub_dir_name = f"epoch_{current_epoch}"
+            else:
+                sub_dir_name = f"epoch_{current_epoch}_global_step_{trainer.global_step}"
+
+            if self.save_weights_only:
+                checkpoint_model_filename = f"checkpoint.weights.pth"
+            else:
+                checkpoint_model_filename = f"checkpoint.pth"
+            checkpoint_metrics_filename = f"checkpoint_metrics.json"
+            checkpoint_artifact_dir = f"checkpoints{sub_dir_name}"
 
         mlflow.set_tag(
             _LATEST_CHECKPOINT_ARTIFACT_TAG_KEY,
@@ -377,7 +374,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
         )
 
         mlflow.log_dict(
-            {**metric_dict, "epoch": current_epoch},
+            {**metric_dict, "epoch": current_epoch, "global_step": trainer.global_step},
             os.path.join(checkpoint_artifact_dir, checkpoint_metrics_filename)
         )
 
@@ -391,6 +388,9 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
         self.latest_checkpoint_timestamp = time.time()
+
+    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        self._check_and_save_checkpoint_if_needed(trainer)
 
 
 # PyTorch-Lightning refactored the LoggerConnector class in version 1.4.0 and made metrics
@@ -507,35 +507,31 @@ def patched_fit(original, self, *args, **kwargs):
         )
         if model_checkpoint:
             if _pl_version >= Version("1.4.0"):
-                model_checkpoint_monitor = get_autologging_config(
-                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_monitor", "val_loss"
+                checkpoint_monitor = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_monitor", "val_loss"
                 )
-                model_checkpoint_mode = get_autologging_config(
-                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_mode", "min"
+                checkpoint_mode = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_mode", "min"
                 )
-                model_checkpoint_save_best_only = get_autologging_config(
-                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_save_best_only", True
+                checkpoint_save_best_only = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_save_best_only", True
                 )
-                model_checkpoint_save_weights_only = get_autologging_config(
-                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_save_weights_only", True
+                checkpoint_save_weights_only = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_save_weights_only", True
                 )
-                model_checkpoint_every_n_epochs = get_autologging_config(
-                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_every_n_epochs", None
-                )
-                model_checkpoint_train_time_interval_S = get_autologging_config(
-                    mlflow.pytorch.FLAVOR_NAME, "model_checkpoint_train_time_interval_S", None
+                checkpoint_save_freq = get_autologging_config(
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_save_freq", None
                 )
 
-                # __MLflowModelCheckpoint only supports pytorch-lightning >- 1.4.0
+                # __MLflowModelCheckpoint only supports pytorch-lightning >= 1.4.0
                 if not any(isinstance(callbacks, __MLflowModelCheckpointCallback) for callbacks in self.callbacks):
                     self.callbacks += [
                         __MLflowModelCheckpointCallback(
-                            monitor=model_checkpoint_monitor,
-                            mode=model_checkpoint_mode,
-                            save_best_only=model_checkpoint_save_best_only,
-                            save_weights_only=model_checkpoint_save_weights_only,
-                            every_n_epochs=model_checkpoint_every_n_epochs,
-                            train_time_interval_S=model_checkpoint_train_time_interval_S,
+                            monitor=checkpoint_monitor,
+                            mode=checkpoint_mode,
+                            save_best_only=checkpoint_save_best_only,
+                            save_weights_only=checkpoint_save_weights_only,
+                            save_freq=checkpoint_save_freq,
                         )
                     ]
             else:
