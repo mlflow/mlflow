@@ -86,7 +86,7 @@ def generate_dockerfile(
         setup_java_steps = ""
         install_mlflow_steps = _pip_mlflow_install_step(output_dir, mlflow_home)
 
-    elif base_image == "ubuntu:20.04":
+    elif base_image == UBUNTU_BASE_IMAGE:
         setup_python_venv_steps = (
             "RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y "
             "--no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake "
@@ -225,7 +225,7 @@ def build_image_from_context(context_dir: str, image_name: str):
         *platform_option,
         ".",
     ]
-    proc = Popen(commands, cwd=context_dir, stdout=PIPE, stderr=STDOUT, text=True)
+    proc = Popen(commands, cwd=context_dir, stdout=PIPE, stderr=STDOUT, text=True, encoding="utf-8")
     for x in iter(proc.stdout.readline, ""):
         eprint(x, end="")
 

@@ -35,7 +35,9 @@ def get_released_mlflow_version():
     response = requests.get(url)
     response.raise_for_status()
     data = response.json()
-    versions = [Version(v) for v in data["releases"].keys() if not v.endswith(("a", "b", "rc"))]
+    versions = [
+        v for v in map(Version, data["releases"]) if not (v.is_devrelease or v.is_prerelease)
+    ]
     return str(sorted(versions, reverse=True)[0])
 
 

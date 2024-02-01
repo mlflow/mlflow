@@ -216,5 +216,7 @@ NO_CONDA = click.option(
 INSTALL_JAVA = click.option(
     "--install-java",
     is_flag=True,
-    help="Install Java in the image. Default is False.",
+    help="Install Java in the image. Default is False in order to reduce both the "
+    "image size and the build time. Model flavors requiring Java will enable this "
+    "setting automatically, such as the Spark flavor.",
 )

@@ -21,38 +21,38 @@ import requests
 import mlflow
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 
-from tests.catboost.test_catboost_model_export import reg_model
-from tests.diviner.test_diviner_model_export import (
+from tests.catboost.test_catboost_model_export import reg_model  # noqa: F401
+from tests.diviner.test_diviner_model_export import (  # noqa: F401
     diviner_data,
     diviner_groups,
     grouped_prophet,
 )
-from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw
-from tests.h2o.test_h2o_model_export import h2o_iris_model
+from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw  # noqa: F401
+from tests.h2o.test_h2o_model_export import h2o_iris_model  # noqa: F401
 from tests.helper_functions import get_safe_port
-from tests.langchain.test_langchain_model_export import fake_chat_model
-from tests.lightgbm.test_lightgbm_model_export import lgb_model
-from tests.models.test_model import iris_data, sklearn_knn_model
-from tests.paddle.test_paddle_model_export import pd_model
-from tests.pmdarima.test_pmdarima_model_export import (
+from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
+from tests.lightgbm.test_lightgbm_model_export import lgb_model  # noqa: F401
+from tests.models.test_model import iris_data, sklearn_knn_model  # noqa: F401
+from tests.paddle.test_paddle_model_export import pd_model  # noqa: F401
+from tests.pmdarima.test_pmdarima_model_export import (  # noqa: F401
     auto_arima_object_model,
     test_data,
 )
-from tests.prophet.test_prophet_model_export import prophet_model as prophet_raw_model
-from tests.pyfunc.docker.conftest import (
+from tests.prophet.test_prophet_model_export import prophet_model as prophet_raw_model  # noqa: F401
+from tests.pyfunc.docker.conftest import (  # noqa: F401
     MLFLOW_ROOT,
     TEST_IMAGE_NAME,
     docker_client,
     save_model_with_latest_mlflow_version,
 )
-from tests.spacy.test_spacy_model_export import spacy_model_with_data
-from tests.spark.test_spark_model_export import (
+from tests.spacy.test_spacy_model_export import spacy_model_with_data  # noqa: F401
+from tests.spark.test_spark_model_export import (  # noqa: F401
     iris_df,
     spark,
     spark_model_iris,
 )
 from tests.statsmodels.model_fixtures import ols_model
-from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model
+from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model  # noqa: F401
 from tests.transformers.helper import load_small_seq2seq_pipeline
 
 
@@ -103,7 +103,7 @@ def test_build_image_and_serve(flavor, request):
         detach=True,
     )
 
-    # Wait until the container to start
+    # Wait for the container to start
     timeout = 180
     start_time = time.time()
     success = False

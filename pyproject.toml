@@ -89,7 +89,6 @@ extend-exclude = [
 "examples/*" = ["T20"]
 "docs/broken_links.py" = ["T20"]
 "mlflow/*" = ["PT018"]
-"tests/pyfunc/docker/test_docker_flavors.py" = ["F401"] # For pytest fixture imports
 
 [tool.ruff.flake8-pytest-style]
 mark-parentheses = false

@@ -27,8 +27,8 @@ def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_p
     )
     expected_dockerfile = (
         expected_dockerfile_path.read_text()
-        .replace("$MLFLOW_VERSION", get_released_mlflow_version())
-        .replace("$PYTHON_VERSION", PYTHON_VERSION)
+        .replace("${{ MLFLOW_VERSION }}", get_released_mlflow_version())
+        .replace("${{ PYTHON_VERSION }}", PYTHON_VERSION)
     )
     assert (
         actual_dockerfile == expected_dockerfile
@@ -69,16 +69,16 @@ class Param:
     specify_model_uri: bool = True
 
 
-_TEST_PARAMS = [
-    Param(expected_dockerfile="Dockerfile_default"),
-    Param(install_mlflow=True, expected_dockerfile="Dockerfile_install_mlflow"),
-    Param(enable_mlserver=True, expected_dockerfile="Dockerfile_enable_mlserver"),
-    Param(mlflow_home=".", expected_dockerfile="Dockerfile_with_mlflow_home"),
-    Param(specify_model_uri=False, expected_dockerfile="Dockerfile_no_model_uri"),
-]
-
-
-@pytest.mark.parametrize("params", _TEST_PARAMS)
+@pytest.mark.parametrize(
+    "params",
+    [
+        Param(expected_dockerfile="Dockerfile_default"),
+        Param(install_mlflow=True, expected_dockerfile="Dockerfile_install_mlflow"),
+        Param(enable_mlserver=True, expected_dockerfile="Dockerfile_enable_mlserver"),
+        Param(mlflow_home=".", expected_dockerfile="Dockerfile_with_mlflow_home"),
+        Param(specify_model_uri=False, expected_dockerfile="Dockerfile_no_model_uri"),
+    ],
+)
 def test_build_image(tmp_path, params):
     model_uri = save_model(tmp_path) if params.specify_model_uri else None
 
