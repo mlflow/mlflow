@@ -8,7 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.gateway.config import CohereConfig, RouteConfig
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
-from mlflow.gateway.schemas import completions, embeddings, chat
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class CohereAdapter(ProviderAdapter):
@@ -189,7 +189,7 @@ class CohereAdapter(ProviderAdapter):
         if "stop" in payload:
             raise HTTPException(
                 status_code=422,
-                detail=f"Parameter stop is not supported for Cohere chat.",
+                detail="Parameter stop is not supported for Cohere chat.",
             )
         payload = cls._scale_temperature(payload)
         last_message = payload["messages"][-1]
