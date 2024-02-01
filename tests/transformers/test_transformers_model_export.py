@@ -2836,6 +2836,30 @@ def test_extraction_of_torch_dtype_from_pipeline(dtype):
     assert parsed == str(dtype)
 
 
+@pytest.mark.skipcacheclean
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
+)
+@flaky()
+def test_extraction_of_torch_dtype_from_underlying_model():
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        "t5-small", torch_dtype=torch.float16
+    )
+    tokenizer = transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100)
+    pipe = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=model,
+        tokenizer=tokenizer,
+        framework="pt",
+    )
+
+    # Pipeline doesn't inherit underlying model's dtype
+    assert pipe.torch_dtype is None
+
+    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+    assert parsed == str(torch.float16)
+
+
 @pytest.mark.parametrize(
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.float]
 )
