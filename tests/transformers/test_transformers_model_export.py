@@ -37,6 +37,7 @@ from mlflow.transformers import (
     _MODEL_PATH_OR_NAME_KEY,
     _PIPELINE_MODEL_TYPE_KEY,
     _TASK_KEY,
+    _TORCH_DTYPE_KEY,
     _build_pipeline_from_model_input,
     _fetch_model_card,
     _generate_base_flavor_configuration,
@@ -250,6 +251,7 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         _PIPELINE_MODEL_TYPE_KEY: "MobileBertForQuestionAnswering",
         _MODEL_PATH_OR_NAME_KEY: "csarron/mobilebert-uncased-squad-v2",
         _FRAMEWORK_KEY: "pt",
+        _TORCH_DTYPE_KEY: "torch.float32",
     }
     seq_conf_infer_task = _generate_base_flavor_configuration(
         small_seq2seq_pipeline, _get_or_infer_task_type(small_seq2seq_pipeline)[0]
@@ -2841,7 +2843,7 @@ def test_extraction_of_torch_dtype_from_pipeline(dtype):
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
 @flaky()
-def test_extraction_of_torch_dtype_from_underlying_model():
+def test_extraction_of_torch_dtype_from_underlying_model_config():
     model = transformers.T5ForConditionalGeneration.from_pretrained(
         "t5-small", torch_dtype=torch.float16
     )

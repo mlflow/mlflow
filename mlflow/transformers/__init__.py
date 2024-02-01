@@ -1350,15 +1350,20 @@ def _extract_torch_dtype_if_set(pipeline):
         return str(torch_dtype)
 
     # Transformers pipeline doesn't inherit underlying model's dtype, so we have to extract it
-    # from the model. Also some model has torch_dtype in its config but not all models have it,
-    # so we have to extract it from the model parameters.
-    try:
-        sample_param = next(pipeline.model.parameters())
-    except StopIteration:
-        return None
-
-    if torch_dtype := getattr(sample_param, "dtype", None):
+    # from the model.
+    model = pipeline.model
+    if torch_dtype := getattr(model.config, _TORCH_DTYPE_KEY, None):
         return str(torch_dtype)
+
+    # Some model doesn't populate dtype in its config, then we try extract it from parameters.
+    if hasattr(model, "parameters"):
+        try:
+            first_param = next(model.parameters())
+        except StopIteration:
+            return None
+
+        if torch_dtype := getattr(first_param, "dtype", None):
+            return str(torch_dtype)
 
 
 def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str]:
