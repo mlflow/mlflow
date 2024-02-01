@@ -29,6 +29,14 @@ def build_docker(
     specified. If ``model_uri`` is not specified, an MLflow Model directory must be mounted as a
     volume into the /opt/ml/model directory in the container.
 
+    .. important::
+
+        Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
+        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        that uses SparkML, please specify ``install-java=True`` to enforce Java installation.
+
+
     .. warning::
 
         If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
@@ -44,6 +52,38 @@ def build_docker(
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
+
+
+    :param model_uri: URI to the model. A local path, a 'runs:/' URI, or a remote storage URI (e.g.,
+        an 's3://' URI). For more information about supported remote URIs for model artifacts, see
+        https://mlflow.org/docs/latest/tracking.html#artifact-stores"
+
+    :param name: Name of the Docker image to build. Defaults to 'mlflow-pyfunc'.
+
+    :param install_java: If specified, install Java in the image. Default is False in order to
+        reduce both the image size and the build time. Model flavors requiring Java will enable
+        this setting automatically, such as the Spark flavor.
+
+        .. note::
+
+            This option is only available for MLflow > 2.10.1. For earlier versions, Java is
+            always installed to the image.
+
+    :param enable_mlserver: If specified, the image will be built with
+        `MLserver <https://mlserver.readthedocs.io/en/latest/index.html>`_ as a serving backend.
+
+    :param env_manager: If specified, create an environment for MLmodel using the specified
+        environment manager. The following values are supported:
+        - local: use the local environment
+        - virtualenv: use virtualenv (and pyenv for Python version management)
+        - conda: use conda
+        If unspecified, default to virtualenv.
+
+    :param mlflow_home: Path to local clone of MLflow project. Use for development only.
+    :param install_mlflow: "If specified and there is a conda or virtualenv environment to be
+        activated mlflow will be installed into the environment after it has been activated.
+        The version of installed mlflow will be the same as the one used to invoke this command.
+
     """
     get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
         model_uri,
