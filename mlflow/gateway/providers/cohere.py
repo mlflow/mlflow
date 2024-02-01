@@ -235,6 +235,7 @@ class CohereAdapter(ProviderAdapter):
         #   },
         #   "tool_inputs": null
         # }
+        # ```
         return chat.ResponsePayload(
             id=resp["response_id"],
             object="chat.completion",
