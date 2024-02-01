@@ -474,9 +474,10 @@ class PyFuncModel:
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
+        flavor = self._model_meta.flavors[FLAVOR_NAME][MAIN]
         if input_schema is not None:
             try:
-                data = _enforce_schema(data, input_schema)
+                data = _enforce_schema(data, input_schema, flavor)
             except Exception as e:
                 # Include error in message for backwards compatibility
                 raise MlflowException.invalid_parameter_value(

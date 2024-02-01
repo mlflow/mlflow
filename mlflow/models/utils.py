@@ -74,7 +74,7 @@ if HAS_PYSPARK:
 
 _logger = logging.getLogger(__name__)
 
-
+_FEATURE_STORE_FLAVOR = "databricks.feature_store.mlflow_model"
 class _Example:
     """
     Represents an input example for MLflow model.
@@ -836,7 +836,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     return new_pf_input
 
 
-def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
+def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str = None):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -924,13 +924,6 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         elif isinstance(pf_input, (list, np.ndarray, pd.Series)):
             pf_input = pd.DataFrame(pf_input)
         elif HAS_PYSPARK and isinstance(pf_input, SparkDataFrame):
-            for column, dtype in pf_input.dtypes:
-                if "array" in dtype or "map" in dtype:
-                    _logger.warning(
-                        "The input data contains array or map type. Note that"
-                        " array and map type are not supported in schema validation"
-                        " when using pyspark DataFrame as input"
-                    )
             pf_input = pf_input.limit(10).toPandas()
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
@@ -976,16 +969,34 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)
     elif HAS_PYSPARK and isinstance(original_pf_input, SparkDataFrame):
-        if input_schema.has_input_names():
-            _enforce_named_col_schema(pf_input, input_schema)
-        else:
-            _enforce_unnamed_col_schema(pf_input, input_schema)
-        return original_pf_input
+        return _enforce_pyspark_dataframe_schema(original_pf_input, pf_input, input_schema, flavor=flavor)
     elif input_schema.has_input_names():
         return _enforce_named_col_schema(pf_input, input_schema)
     else:
         return _enforce_unnamed_col_schema(pf_input, input_schema)
 
+
+def _enforce_pyspark_dataframe_schema(original_pf_input: SparkDataFrame, pf_input_as_pandas: PyFuncInput, input_schema: Schema, flavor: str = None):
+    new_pf_input = original_pf_input.alias("pf_input_copy")
+    if input_schema.has_input_names():
+        _enforce_named_col_schema(pf_input_as_pandas, input_schema)
+        input_names = input_schema.input_names()
+
+    else:
+        _enforce_unnamed_col_schema(pf_input_as_pandas, input_schema)
+        input_names = pf_input_as_pandas.columns[: len(input_schema.inputs)]
+    columns_to_drop = []
+    for col in new_pf_input.columns:
+        if col not in input_names:
+            #to support backwards compatability with feature store models
+            if "array" in dtype or "map" in dtype
+                if flavor == _FEATURE_STORE_FLAVOR:
+                    _logger.warning(
+                        f"Column '{col}' is not in the model signature but will not be dropped."
+                    )
+                    continue
+            columns_to_drop.append(col)
+    return new_pf_input.drop(*columns_to_drop)
 
 def _enforce_datatype(data: Any, dtype: DataType):
     if not isinstance(dtype, DataType):
