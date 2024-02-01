@@ -366,7 +366,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
             else:
                 checkpoint_model_filename = f"checkpoint.pth"
             checkpoint_metrics_filename = f"checkpoint_metrics.json"
-            checkpoint_artifact_dir = f"checkpoints{sub_dir_name}"
+            checkpoint_artifact_dir = f"checkpoints/{sub_dir_name}"
 
         mlflow.set_tag(
             _LATEST_CHECKPOINT_ARTIFACT_TAG_KEY,
