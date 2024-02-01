@@ -104,21 +104,15 @@ def test_build_image_and_serve(flavor, request):
     )
 
     # Wait for the container to start
-    timeout = 180
-    start_time = time.time()
-    success = False
-    while time.time() < start_time + timeout:
+    for _ in range(30):
         try:
-            # Send health check
             response = requests.get(url=f"http://localhost:{port}/ping")
-            if response.status_code == 200:
-                success = True
+            if response.ok:
                 break
-        except Exception:
+        except requests.exceptions.ConnectionError:
             time.sleep(5)
-
-    if not success:
-        raise TimeoutError(f"Container did not start in {timeout} seconds")
+    else:
+        raise TimeoutError("Failed to start server.")
 
     # Make a scoring request with a saved input example
     with open(os.path.join(model_path, "input_example.json")) as f:

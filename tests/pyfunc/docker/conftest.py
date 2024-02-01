@@ -17,15 +17,15 @@ docker_client = docker.from_env()
 
 @pytest.fixture(autouse=True)
 def clean_up_docker_image():
-    try:
-        # Get all containers using the test image
-        containers = docker_client.containers.list(filters={"ancestor": TEST_IMAGE_NAME})
-        for container in containers:
-            container.remove(force=True)
+    # Get all containers using the test image
+    containers = docker_client.containers.list(filters={"ancestor": TEST_IMAGE_NAME})
+    for container in containers:
+        container.remove(force=True)
 
-        # Clean up the image
+    # Clean up the image
+    try:
         docker_client.images.remove(TEST_IMAGE_NAME, force=True)
-    except Exception:
+    except docker.errors.ImageNotFound:
         pass
 
 
