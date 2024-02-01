@@ -5,6 +5,7 @@ import base64
 import binascii
 import contextlib
 import functools
+import importlib
 import json
 import logging
 import os
@@ -73,6 +74,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
+    FLAVOR_CONFIG_CODE,
     _add_code_from_conf_to_system_path,
     _download_artifact_from_uri,
     _get_flavor_configuration,
@@ -988,13 +990,39 @@ def _try_load_model_with_device(model_instance, model_path, device, conf):
     return model
 
 
+def _try_load_model_instance_from_code_paths(path, flavor_config):
+    """
+    Load model instance from saved code_paths folder
+    Currently it only iterates over files in the code_paths folder and tries to import
+    the module, if the saved file is a python module folder then the model instance
+    should be imported from the module directly.
+    """
+    model_type = flavor_config[_PIPELINE_MODEL_TYPE_KEY]
+    code_path = pathlib.Path(path).joinpath(flavor_config[FLAVOR_CONFIG_CODE])
+    for code_file in code_path.iterdir():
+        module_name = code_file.stem
+        try:
+            module = importlib.import_module(module_name)
+            return getattr(module, model_type)
+        except Exception:
+            pass
+
+
 def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
     import transformers
 
-    model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
+    try:
+        model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
+    except AttributeError as e:
+        model_instance = _try_load_model_instance_from_code_paths(path, flavor_config)
+        if model_instance is None:
+            raise MlflowException(
+                "Failed to load model from transformers module and code_paths. "
+                f"Please ensure that the model was saved correctly. Error: {e}"
+            )
     local_path = pathlib.Path(path)
     # NB: Path resolution for models that were saved prior to 2.4.1 release when the pathing for
     #     the saved pipeline or component artifacts was handled by duplicate entries for components
