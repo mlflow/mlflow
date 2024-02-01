@@ -446,33 +446,39 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return run.data.tags.get(MLFLOW_DATABRICKS_JOB_RUN_ID, None)
 
+    def _truncate_input_sources(self, run):
+        num_input_sources = len(run.inputs.dataset_inputs)
+        if num_input_sources > _MAX_LINEAGE_DATA_SOURCES:
+            _logger.warning(
+                f"Truncating the number of lineage input sources from "
+                f"{str(num_input_sources)} to 10."
+            )
+        return run.inputs.dataset_inputs[0:_MAX_LINEAGE_DATA_SOURCES]
+
     def _get_lineage_input_sources(self, run):
         if run is None:
             return None
         securable_list = []
         if run.inputs is not None:
-            num_input_sources = len(run.inputs.dataset_inputs)
-            if num_input_sources > _MAX_LINEAGE_DATA_SOURCES:
-                _logger.warning(
-                    f"Truncating the number of lineage input sources from "
-                    f"{str(num_input_sources)} to 10."
-                )
-            inputs_to_traverse = run.inputs.dataset_inputs[0:_MAX_LINEAGE_DATA_SOURCES]
-            for dataset in inputs_to_traverse:
+            for dataset in run.inputs.dataset_inputs:
                 dataset_source = mlflow.data.get_source(dataset)
-                if dataset_source._get_source_type() == _DELTA_TABLE:
+                if (
+                    isinstance(dataset_source, DeltaDatasetSource)
+                    and dataset_source._get_source_type() == _DELTA_TABLE
+                ):
                     # check if dataset is a uc table and then append
-                    if (
-                        isinstance(dataset_source, DeltaDatasetSource)
-                        and dataset_source.delta_table_name
-                        and dataset_source.delta_table_id
-                    ):
+                    if dataset_source.delta_table_name and dataset_source.delta_table_id:
                         table_entity = Table(
                             name=dataset_source.delta_table_name,
                             table_id=dataset_source.delta_table_id,
                         )
                         securable_list.append(Securable(table=table_entity))
-            return securable_list
+            if len(securable_list) > _MAX_LINEAGE_DATA_SOURCES:
+                _logger.warning(
+                    f"Truncating the number of lineage input sources from "
+                    f"{str(len(securable_list))} to 10."
+                )
+            return securable_list[0:_MAX_LINEAGE_DATA_SOURCES]
         else:
             return None
 
