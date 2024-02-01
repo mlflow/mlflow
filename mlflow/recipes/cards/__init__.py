@@ -30,8 +30,9 @@ class CardTab:
         """
         Construct a step card tab with supported HTML template.
 
-        :param name: a string representing the name of the tab.
-        :param template: a string representing the HTML template for the card content.
+        Args:
+            name: A string representing the name of the tab.
+            template: A string representing the HTML template for the card content.
         """
         import jinja2
         from jinja2 import meta as jinja2_meta
@@ -47,9 +48,12 @@ class CardTab:
         """
         Adds html to the CardTab.
 
-        :param name: String, name of the variable in the Jinja2 template
-        :param html_content: String, the html to replace the named template variable
-        :return: the updated card instance
+        Args:
+            name: Name of the variable in the Jinja2 template.
+            html_content: The html to replace the named template variable.
+
+        Returns:
+            The updated card instance.
         """
         if name not in self._variables:
             raise MlflowException(
@@ -63,9 +67,12 @@ class CardTab:
         """
         Adds markdown to the card replacing the variable name in the CardTab template.
 
-        :param name: name of the variable in the CardTab Jinja2 template
-        :param markdown: the markdown content
-        :return: the updated card tab instance
+        Args:
+            name: Name of the variable in the CardTab Jinja2 template.
+            markdown: The markdown content.
+
+        Returns:
+            The updated card tab instance.
         """
         from markdown import markdown as md_to_html
 
@@ -101,9 +108,12 @@ class CardTab:
         """
         Add a new tab representing the provided pandas profile to the card.
 
-        :param name: name of the variable in the Jinja2 template
-        :param profile: html string to render profile in the step card
-        :return: the updated card instance
+        Args:
+            name: Name of the variable in the Jinja2 template.
+            profile: HTML string to render profile in the step card.
+
+        Returns:
+            The updated card instance.
         """
         try:
             profile_iframe = (
@@ -118,7 +128,8 @@ class CardTab:
         """
         Returns a rendered HTML representing the content of the tab.
 
-        :return: a HTML string
+        Returns:
+            a HTML string
         """
         from jinja2 import BaseLoader
         from jinja2.sandbox import SandboxedEnvironment
@@ -132,8 +143,9 @@ class BaseCard:
         """
         BaseCard Constructor
 
-        :param recipe_name: a string representing name of the recipe.
-        :param step_name: a string representing the name of the step.
+        Args:
+            recipe_name: A string representing name of the recipe.
+            step_name: A string representing the name of the step.
         """
         self._recipe_name = recipe_name
         self._step_name = step_name
@@ -146,8 +158,9 @@ class BaseCard:
         """
         Add a new tab with arbitrary content.
 
-        :param name: a string representing the name of the tab.
-        :param html_template: a string representing the HTML template for the card content.
+        Args:
+            name: A string representing the name of the tab.
+            html_template: A string representing the HTML template for the card content.
         """
         tab = CardTab(name, html_template)
         self._tabs.append((name, tab))
@@ -157,7 +170,11 @@ class BaseCard:
         """
         Returns an existing tab with the specified name. Returns None if not found.
 
-        :param name: a string representing the name of the tab.
+        Args:
+            name: A string representing the name of the tab.
+
+        Returns:
+            An existing tab with the specified name. If not found, returns None.
         """
         for key, tab in self._tabs:
             if key == name:
@@ -168,17 +185,21 @@ class BaseCard:
         """
         Add text to the textual representation of this card.
 
-        :param text: a string text
-        :return: the updated card instance
+        Args:
+            text: A string text.
+
+        Returns:
+            The updated card instance.
         """
         self._string_builder.write(text)
         return self
 
     def to_html(self) -> str:
         """
-        This funtion renders the Jinja2 template based on the provided context so far.
+        This function renders the Jinja2 template based on the provided context so far.
 
-        :return: a HTML string
+        Returns:
+            A HTML string.
         """
         import jinja2
 
@@ -203,7 +224,8 @@ class BaseCard:
 
     def to_text(self) -> str:
         """
-        :return: the textual representation of the card.
+        Returns:
+            The textual representation of the card.
         """
         return self._string_builder.getvalue()
 
@@ -231,11 +253,12 @@ class BaseCard:
         """
         Renders a table-like object as an HTML table.
 
-        :param table: Table-like object (e.g. pandas DataFrame, 2D numpy array, list of tuples).
-        :param columns: Column names to use. If `table` doesn't have column names, this argument
-            provides names for the columns. Otherwise, only the specified columns will be included
-            in the output HTML table.
-        :param hide_index: Hide index column when rendering.
+        Args:
+            table: Table-like object (e.g. pandas DataFrame, 2D numpy array, list of tuples).
+            columns: Column names to use. If `table` doesn't have column names, this argument
+                provides names for the columns. Otherwise, only the specified columns will be
+                included in the output HTML table.
+            hide_index: Hide index column when rendering.
         """
         import pandas as pd
         from pandas.io.formats.style import Styler

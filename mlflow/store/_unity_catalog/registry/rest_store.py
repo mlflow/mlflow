@@ -332,15 +332,30 @@ class UcModelRegistryStore(BaseRestStore):
                        each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
+        alias_doc_url = "https://mlflow.org/docs/latest/model-registry.html#deploy-and-organize-models-with-aliases-and-tags"
+        if stages is None:
+            message = (
+                "To load the latest version of a model in Unity Catalog, you can "
+                "set an alias on the model version and load it by alias. See "
+                f"{alias_doc_url} for details."
+            )
+        else:
+            message = (
+                f"Detected attempt to load latest model version in stages {stages}. "
+                "You may see this error because:\n"
+                "1) You're attempting to load a model version by stage. Setting stages "
+                "and loading model versions by stage is unsupported in Unity Catalog. Instead, "
+                "use aliases for flexible model deployment. See "
+                f"{alias_doc_url} for details.\n"
+                "2) You're attempting to load a model version by alias. Use "
+                "syntax 'models:/your_model_name@your_alias_name'\n"
+                "3) You're attempting load a model version by version number. Verify "
+                "that the version number is a valid integer"
+            )
+
         _raise_unsupported_method(
             method="get_latest_versions",
-            message="If seeing this error while attempting to "
-            "load a model version by stage, note that setting stages and loading model versions "
-            "by stage is unsupported in Unity Catalog. Instead, we recommend using aliases for "
-            "flexible model deployment. If trying to load a model version by alias, use the "
-            "syntax 'models:/your_model_name@your_alias_name'. "
-            "To set aliases, you can use the "
-            "`MlflowClient().set_registered_model_alias(name, alias, version)` API.",
+            message=message,
         )
 
     def set_registered_model_tag(self, name, tag):

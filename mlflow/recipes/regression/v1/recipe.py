@@ -209,52 +209,53 @@ class RegressionRecipe(BaseRecipe):
         to any of its dependent steps (e.g. changes to the recipe's ``recipe.yaml`` file or
         ``steps/ingest.py`` file) since the previous execution.
 
-        :param step: String name of the step to run within the regression recipe. The step and
-                     its dependencies are executed sequentially. If a step is not specified, the
-                     entire recipe is executed. Supported steps, in their order of execution, are:
+        Args:
+            step: String name of the step to run within the regression recipe. The step and
+                its dependencies are executed sequentially. If a step is not specified, the
+                entire recipe is executed. Supported steps, in their order of execution, are:
 
-                     - ``"ingest"``: resolves the dataset specified by the ``data/training`` section
-                       in the recipe's configuration file (``recipe.yaml``) and converts it to
-                       parquet format.
+                - ``"ingest"``: resolves the dataset specified by the ``data/training`` section
+                  in the recipe's configuration file (``recipe.yaml``) and converts it to
+                  parquet format.
 
-                     - ``"ingest_scoring"``: resolves the dataset specified by the
-                       ``ingest_scoring`` section in the recipe's configuration file
-                       (``recipe.yaml``)and converts it to parquet format.
+                - ``"ingest_scoring"``: resolves the dataset specified by the
+                  ``ingest_scoring`` section in the recipe's configuration file
+                  (``recipe.yaml``)and converts it to parquet format.
 
-                     - ``"split"``: splits the ingested dataset produced by the **ingest** step into
-                       a training dataset for model training, a validation dataset for model
-                       performance evaluation & tuning, and a test dataset for model performance
-                       evaluation.
+                - ``"split"``: splits the ingested dataset produced by the **ingest** step into
+                  a training dataset for model training, a validation dataset for model
+                  performance evaluation & tuning, and a test dataset for model performance
+                  evaluation.
 
-                     - ``"transform"``: uses the training dataset created by the **split** step to
-                       fit a transformer that performs the transformations defined in the
-                       recipe's ``steps/transform.py`` file. Then, applies the transformer to the
-                       training dataset and the validation dataset, creating transformed datasets
-                       that are used by subsequent steps for estimator training and model
-                       performance evaluation.
+                - ``"transform"``: uses the training dataset created by the **split** step to
+                  fit a transformer that performs the transformations defined in the
+                  recipe's ``steps/transform.py`` file. Then, applies the transformer to the
+                  training dataset and the validation dataset, creating transformed datasets
+                  that are used by subsequent steps for estimator training and model
+                  performance evaluation.
 
-                     - ``"train"``: uses the transformed training dataset output from the
-                       **transform** step to fit an estimator with the type and parameters defined
-                       in in the recipe's ``steps/train.py`` file. Then, joins the estimator with
-                       the fitted transformer output from the **transform** step to create a model
-                       recipe. Finally, evaluates the model recipe against the transformed
-                       training and validation datasets to compute performance metrics.
+                - ``"train"``: uses the transformed training dataset output from the
+                  **transform** step to fit an estimator with the type and parameters defined
+                  in in the recipe's ``steps/train.py`` file. Then, joins the estimator with
+                  the fitted transformer output from the **transform** step to create a model
+                  recipe. Finally, evaluates the model recipe against the transformed
+                  training and validation datasets to compute performance metrics.
 
-                     - ``"evaluate"``: evaluates the model recipe created by the **train** step
-                       on the validation and test dataset outputs from the **split** step, computing
-                       performance metrics and model explanations. Then, compares performance
-                       metrics against thresholds configured in the recipe's ``recipe.yaml``
-                       configuration file to compute a ``model_validation_status``, which indicates
-                       whether or not the model is good enough to be registered to the MLflow Model
-                       Registry by the subsequent **register** step.
+                - ``"evaluate"``: evaluates the model recipe created by the **train** step
+                  on the validation and test dataset outputs from the **split** step, computing
+                  performance metrics and model explanations. Then, compares performance
+                  metrics against thresholds configured in the recipe's ``recipe.yaml``
+                  configuration file to compute a ``model_validation_status``, which indicates
+                  whether or not the model is good enough to be registered to the MLflow Model
+                  Registry by the subsequent **register** step.
 
-                     - ``"register"``: checks the ``model_validation_status`` output of the
-                       preceding **evaluate** step and, if model validation was successful (as
-                       indicated by the ``'VALIDATED'`` status), registers the model recipe
-                       created by the **train** step to the MLflow Model Registry.
+                - ``"register"``: checks the ``model_validation_status`` output of the
+                  preceding **evaluate** step and, if model validation was successful (as
+                  indicated by the ``'VALIDATED'`` status), registers the model recipe
+                  created by the **train** step to the MLflow Model Registry.
 
-                     - ``"predict"``: uses the ingested dataset for scoring created by the
-                       **ingest_scoring** step and applies the specified model to the dataset.
+                - ``"predict"``: uses the ingested dataset for scoring created by the
+                  **ingest_scoring** step and applies the specified model to the dataset.
 
         .. code-block:: python
             :caption: Example
@@ -281,66 +282,54 @@ class RegressionRecipe(BaseRecipe):
         examining the recipe graph visualization displayed by
         :py:func:`RegressionRecipe.inspect()`.
 
-        :param artifact_name: The string name of the artifact. Supported artifact values are:
+        Args:
+            artifact_name: The string name of the artifact. Supported artifact values are:
 
-                         - ``"ingested_data"``: returns the ingested dataset created in the
-                           **ingest** step as a pandas DataFrame.
+                - ``"ingested_data"``: returns the ingested dataset created in the
+                  **ingest** step as a pandas DataFrame.
 
-                         - ``"training_data"``: returns the training dataset created in the
-                           **split** step as a pandas DataFrame.
+                - ``"training_data"``: returns the training dataset created in the
+                  **split** step as a pandas DataFrame.
 
-                         - ``"validation_data"``: returns the validation dataset created in the
-                           **split** step as a pandas DataFrame.
+                - ``"validation_data"``: returns the validation dataset created in the
+                  **split** step as a pandas DataFrame.
 
-                         - ``"test_data"``: returns the test dataset created in the **split** step
-                           as a pandas DataFrame.
+                - ``"test_data"``: returns the test dataset created in the **split** step
+                  as a pandas DataFrame.
 
-                         - ``"ingested_scoring_data"``: returns the scoring dataset created in the
-                           **ingest_scoring** step as a pandas DataFrame.
+                - ``"ingested_scoring_data"``: returns the scoring dataset created in the
+                  **ingest_scoring** step as a pandas DataFrame.
 
-                         - ``"transformed_training_data"``: returns the transformed training dataset
-                           created in the **transform** step as a pandas DataFrame.
+                - ``"transformed_training_data"``: returns the transformed training dataset
+                  created in the **transform** step as a pandas DataFrame.
 
-                         - ``"transformed_validation_data"``: returns the transformed validation
-                           dataset created in the **transform** step as a pandas DataFrame.
+                - ``"transformed_validation_data"``: returns the transformed validation
+                  dataset created in the **transform** step as a pandas DataFrame.
 
-                         - ``"model"``: returns the MLflow Model recipe created in the **train**
-                           step as a :py:class:`PyFuncModel <mlflow.pyfunc.PyFuncModel>` instance.
+                - ``"model"``: returns the MLflow Model recipe created in the **train**
+                  step as a :py:class:`PyFuncModel <mlflow.pyfunc.PyFuncModel>` instance.
 
-                         - ``"transformer"``: returns the scikit-learn transformer created in the
-                           **transform** step.
+                - ``"transformer"``: returns the scikit-learn transformer created in the
+                  **transform** step.
 
-                         - ``"run"``: returns the
-                           :py:class:`MLflow Tracking Run <mlflow.entities.Run>` containing the
-                           model recipe created in the **train** step and its associated
-                           parameters, as well as performance metrics and model explanations created
-                           during the **train** and **evaluate** steps.
+                - ``"run"``: returns the
+                  :py:class:`MLflow Tracking Run <mlflow.entities.Run>` containing the
+                  model recipe created in the **train** step and its associated
+                  parameters, as well as performance metrics and model explanations created
+                  during the **train** and **evaluate** steps.
 
-                         - ``"registered_model_version``": returns the MLflow Model Registry
-                           :py:class:`ModelVersion <mlflow.entities.model_registry.ModelVersion>`
-                           created by the **register** step.
+                - ``"registered_model_version``": returns the MLflow Model Registry
+                  :py:class:`ModelVersion <mlflow.entities.model_registry.ModelVersion>`
+                  created by the **register** step.
 
-                         - ``"scored_data"``: returns the scored dataset created in the
-                           **predict** step as a pandas DataFrame.
+                - ``"scored_data"``: returns the scored dataset created in the
+                  **predict** step as a pandas DataFrame.
 
-        :return: An object representation of the artifact corresponding to the specified name,
-                 as described in the ``artifact_name`` parameter docstring. If the artifact is
-                 not present because its corresponding step has not been executed or its output
-                 cache has been cleaned, ``None`` is returned.
-
-        .. code-block:: python
-            :caption: Example
-
-            import os
-            import pandas as pd
-            from mlflow.recipes import Recipe
-            from mlflow.pyfunc import PyFuncModel
-
-            os.chdir("~/recipes-regression-template")
-            regression_recipe = Recipe(profile="local")
-            regression_recipe.run()
-            train_df: pd.DataFrame = regression_recipe.get_artifact("training_data")
-            trained_model: PyFuncModel = regression_recipe.get_artifact("model")
+        Returns:
+            An object representation of the artifact corresponding to the specified name,
+            as described in the ``artifact_name`` parameter docstring. If the artifact is
+            not present because its corresponding step has not been executed or its output
+            cache has been cleaned, ``None`` is returned.
         """
 
         return super().get_artifact(artifact_name=artifact_name)
@@ -351,11 +340,11 @@ class RegressionRecipe(BaseRecipe):
         recipe step if specified. After cached outputs are cleaned for a particular step, the
         step will be re-executed in its entirety the next time it is run.
 
-        :param step: String name of the step to clean within the recipe. If not specified,
-                     cached outputs are removed for all recipe steps.
+        Args:
+            step: String name of the step to clean within the recipe. If not specified,
+                cached outputs are removed for all recipe steps.
 
         .. code-block:: python
-            :caption: Example
 
             import os
             from mlflow.recipes import Recipe
@@ -383,22 +372,21 @@ class RegressionRecipe(BaseRecipe):
         a particular recipe step if specified. If the specified step has not been executed,
         nothing is displayed.
 
-        :param step: String name of the recipe step for which to display a results summary. If
-                     unspecified, a visual overview of the recipe graph is displayed.
+        Args:
+            step: String name of the recipe step for which to display a results summary. If
+                unspecified, a visual overview of the recipe graph is displayed.
 
-        .. code-block:: python
-            :caption: Example
+            .. code-block:: python
+              import os
+              from mlflow.recipes import Recipe
 
-            import os
-            from mlflow.recipes import Recipe
-
-            os.chdir("~/recipes-regression-template")
-            regression_recipe = Recipe(profile="local")
-            # Display a visual overview of the recipe graph.
-            regression_recipe.inspect()
-            # Run the 'train' recipe step
-            regression_recipe.run(step="train")
-            # Display a summary of results from the preceding 'transform' step
-            regression_recipe.inspect(step="transform")
+              os.chdir("~/recipes-regression-template")
+              regression_recipe = Recipe(profile="local")
+              # Display a visual overview of the recipe graph.
+              regression_recipe.inspect()
+              # Run the 'train' recipe step
+              regression_recipe.run(step="train")
+              # Display a summary of results from the preceding 'transform' step
+              regression_recipe.inspect(step="transform")
         """
         super().inspect(step=step)

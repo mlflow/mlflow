@@ -1737,3 +1737,16 @@ def test_upload_artifact_handler(mlflow_client):
     )
     assert response.status_code == 200
     assert response.text == "hello world"
+
+
+def test_graphql_handler(mlflow_client):
+    response = requests.request(
+        "post",
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": 'query testQuery {test(inputString: "abc") { output }}',
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
