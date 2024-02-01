@@ -75,6 +75,8 @@ if HAS_PYSPARK:
 _logger = logging.getLogger(__name__)
 
 _FEATURE_STORE_FLAVOR = "databricks.feature_store.mlflow_model"
+
+
 class _Example:
     """
     Represents an input example for MLflow model.
@@ -969,14 +971,21 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str = N
     if input_schema.is_tensor_spec():
         return _enforce_tensor_schema(pf_input, input_schema)
     elif HAS_PYSPARK and isinstance(original_pf_input, SparkDataFrame):
-        return _enforce_pyspark_dataframe_schema(original_pf_input, pf_input, input_schema, flavor=flavor)
+        return _enforce_pyspark_dataframe_schema(
+            original_pf_input, pf_input, input_schema, flavor=flavor
+        )
     elif input_schema.has_input_names():
         return _enforce_named_col_schema(pf_input, input_schema)
     else:
         return _enforce_unnamed_col_schema(pf_input, input_schema)
 
 
-def _enforce_pyspark_dataframe_schema(original_pf_input: SparkDataFrame, pf_input_as_pandas: PyFuncInput, input_schema: Schema, flavor: str = None):
+def _enforce_pyspark_dataframe_schema(
+    original_pf_input: SparkDataFrame,
+    pf_input_as_pandas: PyFuncInput,
+    input_schema: Schema,
+    flavor: str = None,
+):
     new_pf_input = original_pf_input.alias("pf_input_copy")
     if input_schema.has_input_names():
         _enforce_named_col_schema(pf_input_as_pandas, input_schema)
@@ -988,8 +997,8 @@ def _enforce_pyspark_dataframe_schema(original_pf_input: SparkDataFrame, pf_inpu
     columns_to_drop = []
     for col in new_pf_input.columns:
         if col not in input_names:
-            #to support backwards compatability with feature store models
-            if "array" in dtype or "map" in dtype
+            # to support backwards compatability with feature store models
+            if "array" in dtype or "map" in dtype:
                 if flavor == _FEATURE_STORE_FLAVOR:
                     _logger.warning(
                         f"Column '{col}' is not in the model signature but will not be dropped."
@@ -997,6 +1006,7 @@ def _enforce_pyspark_dataframe_schema(original_pf_input: SparkDataFrame, pf_inpu
                     continue
             columns_to_drop.append(col)
     return new_pf_input.drop(*columns_to_drop)
+
 
 def _enforce_datatype(data: Any, dtype: DataType):
     if not isinstance(dtype, DataType):
