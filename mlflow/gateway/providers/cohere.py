@@ -187,12 +187,14 @@ class CohereAdapter(ProviderAdapter):
                 detail=f"Parameter n must be 1 for Cohere chat, got {payload['n']}.",
             )
         del payload["n"]
+
         if "stop" in payload:
             raise HTTPException(
                 status_code=422,
                 detail="Parameter stop is not supported for Cohere chat.",
             )
         payload = cls._scale_temperature(payload)
+
         last_message = payload["messages"][-1]
         if last_message["role"] != "user":
             raise HTTPException(
@@ -200,6 +202,7 @@ class CohereAdapter(ProviderAdapter):
                 detail=f"Last message must be from user, got {last_message['role']}.",
             )
         payload["message"] = last_message["content"]
+
         if len(payload["messages"]) > 1:
             payload["chat_history"] = [
                 {
