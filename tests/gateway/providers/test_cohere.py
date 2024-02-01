@@ -47,8 +47,8 @@ def chat_response():
     }
 
 
-def chat_payload():
-    return {
+def chat_payload(stream: bool = False):
+    payload = {
         "messages": [
             {"role": "user", "content": "Message 1"},
             {"role": "assistant", "content": "Message 2"},
@@ -56,6 +56,9 @@ def chat_payload():
         ],
         "temperature": 0.5,
     }
+    if stream:
+        payload["stream"] = True
+    return payload
 
 
 @pytest.mark.asyncio
@@ -117,6 +120,90 @@ async def test_chat_throws_if_parameter_not_permitted(params):
     with pytest.raises(HTTPException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
     assert e.value.status_code == 422
+
+
+def chat_stream_response():
+    return [
+        # first chunk
+        b'{"is_finished":false,"event_type":"stream-start","generation_id":"test-id2"}',
+        # subsequent chunks
+        b'{"text":" Hi","is_finished":false,"event_type":"text-generation"}',
+        b'{"text":" there","is_finished":false,"event_type":"text-generation"}',
+        # final chunk
+        b'{"is_finished":true,"event_type":"stream-end","response":{"response_id":"test-id1",'
+        b'"text":"How are you","generation_id":"test-id2","token_count":{"prompt_tokens":83,'
+        b'"response_tokens":63,"total_tokens":146,"billed_tokens":128},"tool_inputs":null},'
+        b'"finish_reason":"COMPLETE"}',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_chat_stream():
+    resp = chat_stream_response()
+    config = chat_config()
+
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+    ) as mock_post:
+        provider = CohereProvider(RouteConfig(**config))
+        payload = chat_payload(stream=True)
+        response = provider.chat_stream(chat.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+        assert chunks == [
+            {
+                "choices": [
+                    {
+                        "delta": {"role": None, "content": " Hi"},
+                        "finish_reason": None,
+                        "index": 0,
+                    }
+                ],
+                "created": 1677858242,
+                "id": None,
+                "model": "command",
+                "object": "chat.completion.chunk",
+            },
+            {
+                "choices": [
+                    {
+                        "delta": {"role": None, "content": " there"},
+                        "finish_reason": None,
+                        "index": 0,
+                    }
+                ],
+                "created": 1677858242,
+                "id": None,
+                "model": "command",
+                "object": "chat.completion.chunk",
+            },
+            {
+                "choices": [
+                    {
+                        "delta": {"role": None, "content": None},
+                        "finish_reason": "COMPLETE",
+                        "index": 0,
+                    }
+                ],
+                "created": 1677858242,
+                "id": "test-id1",
+                "model": "command",
+                "object": "chat.completion.chunk",
+            },
+        ]
+        mock_post.assert_called_once_with(
+            "https://api.cohere.ai/v1/chat",
+            json={
+                "model": "command",
+                "chat_history": [
+                    {"role": "USER", "message": "Message 1"},
+                    {"role": "CHATBOT", "message": "Message 2"},
+                ],
+                "message": "Message 3",
+                "temperature": 1.25,
+                "stream": True,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def completions_config():

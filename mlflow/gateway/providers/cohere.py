@@ -212,6 +212,10 @@ class CohereAdapter(ProviderAdapter):
         return payload
 
     @classmethod
+    def chat_streaming_to_model(cls, payload, config):
+        return cls.chat_to_model(payload, config)
+
+    @classmethod
     def model_to_chat(cls, resp, config):
         # Response example (https://docs.cohere.com/reference/chat)
         # ```
@@ -259,6 +263,57 @@ class CohereAdapter(ProviderAdapter):
             ),
         )
 
+    @classmethod
+    def model_to_chat_streaming(cls, resp, config):
+        # Response example (https://docs.cohere.com/reference/chat)
+        # Streaming chunks:
+        # ```
+        # {
+        #   "is_finished":false,
+        #   "event_type":"stream-start",
+        #   "generation_id":"string"
+        # }
+        # {"is_finished":false,"event_type":"text-generation","text":"How"}
+        # {"is_finished":false,"event_type":"text-generation","text":" are"}
+        # {"is_finished":false,"event_type":"text-generation","text":" you"}
+        # {
+        #   "is_finished":true,
+        #   "event_type":"stream-end",
+        #   "response":{
+        #     "response_id":"string",
+        #     "text":"How are you",
+        #     "generation_id":"string",
+        #     "token_count":{
+        #       "prompt_tokens":83,"response_tokens":63,"total_tokens":146,"billed_tokens":128
+        #     },
+        #     "tool_inputs":null
+        #   },
+        #   "finish_reason":"COMPLETE"
+        # }
+        # ```
+        response = resp.get("response")
+        return chat.StreamResponsePayload(
+            # first chunk has "generation_id" but not "response_id"
+            id=response["response_id"] if response else None,
+            created=int(time.time()),
+            model=config.model.name,
+            choices=[
+                chat.StreamChoice(
+                    index=0,
+                    finish_reason=resp.get("finish_reason"),
+                    delta=chat.StreamDelta(
+                        role=None,
+                        content=resp.get("text"),
+                    ),
+                )
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=response["token_count"]["prompt_tokens"] if response else None,
+                completion_tokens=response["token_count"]["response_tokens"] if response else None,
+                total_tokens=response["token_count"]["total_tokens"] if response else None,
+            ),
+        )
+
 
 class CohereProvider(BaseProvider):
     NAME = "Cohere"
@@ -292,6 +347,27 @@ class CohereProvider(BaseProvider):
             path=path,
             payload=payload,
         )
+
+    async def chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        payload = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload)
+        stream = self._stream_request(
+            "chat",
+            {
+                "model": self.config.model.name,
+                **CohereAdapter.chat_streaming_to_model(payload, self.config),
+            },
+        )
+        async for chunk in stream:
+            if not chunk:
+                continue
+
+            resp = json.loads(chunk)
+            if resp["event_type"] == "stream-start":
+                continue
+            yield CohereAdapter.model_to_chat_streaming(resp, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
