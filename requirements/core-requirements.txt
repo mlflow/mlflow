@@ -18,3 +18,4 @@ markdown<4,>=3.3
 Jinja2<4,>=2.11; platform_system != 'Windows'
 Jinja2<4,>=3.0; platform_system == 'Windows'
 matplotlib<4
+graphene<4
