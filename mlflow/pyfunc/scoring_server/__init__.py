@@ -74,8 +74,11 @@ INPUTS = "inputs"
 
 SUPPORTED_FORMATS = {DF_RECORDS, DF_SPLIT, INSTANCES, INPUTS}
 
-# TODO: Support other input keys like "prmopt", "input", for other endpoint types like Embedding
-SUPPORTED_LLM_FORMAT = "messages"
+# Support unwrapped JSON with these keys for LLM use cases of Chat, Completions, Embeddings tasks
+LLM_CHAT_KEY = "messages"
+LLM_COMPLETIONS_KEY = "prompt"
+LLM_EMBEDDINGS_KEY = "input"
+SUPPORTED_LLM_FORMATS = {LLM_CHAT_KEY, LLM_COMPLETIONS_KEY, LLM_EMBEDDINGS_KEY}
 
 REQUIRED_INPUT_FORMAT = (
     f"The input must be a JSON dictionary with exactly one of the input fields {SUPPORTED_FORMATS}"
@@ -328,7 +331,7 @@ def invocations(data, content_type, model, input_schema):
         params = None
     elif mime_type == CONTENT_TYPE_JSON:
         json_input = _decode_json_input(data)
-        should_parse_as_unified_llm_input = SUPPORTED_LLM_FORMAT in json_input
+        should_parse_as_unified_llm_input = any(x in json_input for x in SUPPORTED_LLM_FORMATS)
         if should_parse_as_unified_llm_input:
             # Unified LLM input format
             if hasattr(model.metadata, "get_params_schema"):
