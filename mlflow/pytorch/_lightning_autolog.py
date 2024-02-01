@@ -327,12 +327,6 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
         current_epoch = trainer.current_epoch
         metric_dict = {k: float(v) for k, v in trainer.callback_metrics.items()}
 
-        if not (
-            self.save_freq == "epoch" or
-            (trainer.global_step > 0 and trainer.global_step % self.save_freq == 0)
-        ):
-            return
-
         if self.save_best_only:
             if self.monitor not in metric_dict:
                 # "save-best-only" requires comparing the monitor metric value,
@@ -389,8 +383,18 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
 
         self.latest_checkpoint_timestamp = time.time()
 
+    def on_train_batch_end(
+        self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", outputs, batch,
+        batch_idx,
+    ) -> None:
+        if isinstance(self.save_freq, int) and (
+            trainer.global_step > 0 and trainer.global_step % self.save_freq == 0
+        ):
+            self._check_and_save_checkpoint_if_needed(trainer)
+
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
-        self._check_and_save_checkpoint_if_needed(trainer)
+        if self.save_freq == "epoch":
+            self._check_and_save_checkpoint_if_needed(trainer)
 
 
 # PyTorch-Lightning refactored the LoggerConnector class in version 1.4.0 and made metrics

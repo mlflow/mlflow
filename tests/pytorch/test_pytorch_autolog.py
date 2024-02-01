@@ -555,7 +555,7 @@ def test_model_checkpoint_callback():
         trainer3.current_epoch = 1
         trainer3.global_step = 5
 
-        callback3.on_train_epoch_end(trainer3, model)
+        callback3.on_train_batch_end(trainer3, model, None, None, 5)
         log_dict_mock.assert_not_called()
         log_artifact_mock.assert_not_called()
 
@@ -563,7 +563,7 @@ def test_model_checkpoint_callback():
         trainer3.callback_metrics = {"loss": 1.2, "val_loss": 1.3}
         trainer3.expect_weights_only_saving = False
         trainer3.expected_checkpoint_filename = "checkpoint.pth"
-        callback3.on_train_epoch_end(trainer3, model)
+        callback3.on_train_batch_end(trainer3, model, None, None, 10)
 
         log_dict_mock.assert_called_once_with(
             {"loss": 1.2, "val_loss": 1.3, "epoch": 1, 'global_step': 10},
@@ -591,7 +591,7 @@ def test_model_checkpoint_callback():
         trainer4.callback_metrics = {"val_acc_step": 0.7}
         trainer4.expect_weights_only_saving = False
         trainer4.expected_checkpoint_filename = "latest_checkpoint.pth"
-        callback4.on_train_epoch_end(trainer4, model)
+        callback4.on_train_batch_end(trainer4, model, None, None, 10)
 
         log_dict_mock.assert_called_once_with(
             {"val_acc_step": 0.7, "epoch": 1, "global_step": 10},
@@ -608,7 +608,7 @@ def test_model_checkpoint_callback():
         trainer4.callback_metrics = {"val_acc_step": 0.8}
         trainer4.expect_weights_only_saving = False
         trainer4.expected_checkpoint_filename = "latest_checkpoint.pth"
-        callback4.on_train_epoch_end(trainer4, model)
+        callback4.on_train_batch_end(trainer4, model, None, None, 20)
 
         log_dict_mock.assert_called_once_with(
             {"val_acc_step": 0.8, "epoch": 1, "global_step": 20},
@@ -617,6 +617,8 @@ def test_model_checkpoint_callback():
         log_artifact_mock.assert_called_once_with(
             mock.ANY, "checkpoints",
         )
+        log_dict_mock.reset_mock()
+        log_artifact_mock.reset_mock()
 
         # Test checkpoint per epoch, save_best_only = True, monitor = 'val_loss', mode = "min"
         callback5 = __MLflowModelCheckpointCallback(
@@ -707,6 +709,8 @@ def test_model_checkpoint_callback():
         log_artifact_mock.assert_called_once_with(
             mock.ANY, "checkpoints",
         )
+        log_dict_mock.reset_mock()
+        log_artifact_mock.reset_mock()
 
 
 def test_automatic_model_checkpoint():
