@@ -1127,16 +1127,21 @@ if autolog.__doc__ is not None:
     )
 
 
-def load_latest_checkpoint(model_class, run_id=None):
+def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
     """
     If you enable model_checkpoint in autologging, during pytorch-lightning model
     training execution, checkpointed models are logged as MLflow artifacts.
-    Using this API, you can load the latest checkpointed model.
+    Using this API, you can load the checkpointed model.
 
     :param model_class: The class of the training model
     :param run_id: The id of the run which model is logged to. If not provided,
       current active run is used.
+    :param epoch: The epoch of the checkpoint to be loaded, if you set
+      "checkpoint_save_freq" to "epoch".
+    :param global_step: The global step of the checkpoint to be loaded, if
+      you set "checkpoint_save_freq" to an integer.
     """
+    import pytorch_lightning as pl
     from mlflow.pytorch._lightning_autolog import _LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 
     client = MlflowClient()
@@ -1152,9 +1157,15 @@ def load_latest_checkpoint(model_class, run_id=None):
     else:
         run = client.get_run(run_id)
 
-    best_checkpoint_artifact = run.data.tags.get(_LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
-    if best_checkpoint_artifact is None:
-        raise MlflowException("There is no logged checkpoint artifact in current run.")
+    if epoch is not None and global_step is not None:
+        checkpoint_artifact = f"checkpoints/epoch_{epoch}_global_step_{global_step}"
+    elif epoch is not None:
+        checkpoint_artifact = f"checkpoints/epoch_{epoch}"
+    else:
+        checkpoint_artifact = run.data.tags.get(_LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
+        if checkpoint_artifact is None:
+            raise MlflowException("There is no logged checkpoint artifact in current run.")
 
-    downloaded_checkpoint_filepath = client.download_artifacts(run_id, best_checkpoint_artifact)
-    return model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
+    downloaded_checkpoint_filepath = client.download_artifacts(run_id, checkpoint_artifact)
+    model = model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
+    return model
