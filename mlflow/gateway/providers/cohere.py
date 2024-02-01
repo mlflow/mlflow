@@ -186,6 +186,7 @@ class CohereAdapter(ProviderAdapter):
                 status_code=422,
                 detail=f"Parameter n must be 1 for Cohere chat, got {payload['n']}.",
             )
+        del payload["n"]
         if "stop" in payload:
             raise HTTPException(
                 status_code=422,

@@ -9,9 +9,114 @@ from pydantic import ValidationError
 from mlflow.gateway.config import RouteConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.cohere import CohereProvider
-from mlflow.gateway.schemas import completions, embeddings
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
+
+
+def chat_config():
+    return {
+        "name": "chat",
+        "route_type": "llm/v1/chat",
+        "model": {
+            "provider": "cohere",
+            "name": "command",
+            "config": {
+                "cohere_api_key": "key",
+            },
+        },
+    }
+
+
+def chat_response():
+    return {
+        "response_id": "abc123",
+        "text": "\n\nThis is a test!",
+        "generation_id": "def456",
+        "token_count": {
+            "prompt_tokens": 13,
+            "response_tokens": 7,
+            "total_tokens": 20,
+            "billed_tokens": 20,
+        },
+        "meta": {
+            "api_version": {"version": "1"},
+            "billed_units": {"input_tokens": 13, "output_tokens": 7},
+        },
+        "tool_inputs": None,
+    }
+
+
+def chat_payload():
+    return {
+        "messages": [
+            {"role": "user", "content": "Message 1"},
+            {"role": "assistant", "content": "Message 2"},
+            {"role": "user", "content": "Message 3"},
+        ],
+        "temperature": 0.5,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat():
+    resp = chat_response()
+    config = chat_config()
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = CohereProvider(RouteConfig(**config))
+        payload = chat_payload()
+        response = await provider.chat(chat.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "id": "abc123",
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": "command",
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "\n\nThis is a test!",
+                    },
+                    "finish_reason": None,
+                    "index": 0,
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 13,
+                "completion_tokens": 7,
+                "total_tokens": 20,
+            },
+        }
+        mock_post.assert_called_once_with(
+            "https://api.cohere.ai/v1/chat",
+            json={
+                "model": "command",
+                "chat_history": [
+                    {"role": "USER", "message": "Message 1"},
+                    {"role": "CHATBOT", "message": "Message 2"},
+                ],
+                "message": "Message 3",
+                "temperature": 1.25,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [{"n": 2}, {"stop": ["test"]}],
+)
+@pytest.mark.asyncio
+async def test_chat_throws_if_parameter_not_permitted(params):
+    config = chat_config()
+    provider = CohereProvider(RouteConfig(**config))
+    payload = chat_payload()
+    payload.update(params)
+    with pytest.raises(HTTPException, match=r".*") as e:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert e.value.status_code == 422
 
 
 def completions_config():
