@@ -30,7 +30,8 @@ class _RetrieverChain(Chain):
 
     See :ref:`log-retriever-chain` for how to log the ``_RetrieverChain``.
 
-    :param retriever: The retriever to wrap.
+    Args:
+        retriever: The retriever to wrap.
     """
 
     input_key: str = "query"
@@ -65,10 +66,12 @@ class _RetrieverChain(Chain):
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
         Example:
+
         .. code-block:: python
-        chain = _RetrieverChain(retriever=...)
-        res = chain({'query': 'This is my query'})
-        docs = res['source_documents']
+
+            chain = _RetrieverChain(retriever=...)
+            res = chain({"query": "This is my query"})
+            docs = res["source_documents"]
         """
         question = inputs[self.input_key]
         docs = self._get_docs(question)
@@ -86,11 +89,14 @@ class _RetrieverChain(Chain):
     ) -> Dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
+
         Example:
+
         .. code-block:: python
-        chain = _RetrieverChain(retriever=...)
-        res = chain({'query': 'This is my query'})
-        docs = res['source_documents']
+
+            chain = _RetrieverChain(retriever=...)
+            res = chain({"query": "This is my query"})
+            docs = res["source_documents"]
         """
         question = inputs[self.input_key]
         docs = await self._aget_docs(question)

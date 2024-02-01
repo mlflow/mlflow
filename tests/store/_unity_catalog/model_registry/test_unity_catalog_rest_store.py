@@ -361,15 +361,18 @@ def test_get_registered_model(mock_http, store):
 
 def test_get_latest_versions_unsupported(store):
     name = "model_1"
-    expected_error = (
-        f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
-        "If seeing this error while attempting to load a model version by stage, "
-        "note that setting stages and loading model versions by stage is unsupported "
-        "in Unity Catalog."
-    )
-    with pytest.raises(MlflowException, match=expected_error):
+    with pytest.raises(
+        MlflowException,
+        match=f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
+        "To load the latest version of a model in Unity Catalog, you can set "
+        "an alias on the model version and load it by alias",
+    ):
         store.get_latest_versions(name=name)
-    with pytest.raises(MlflowException, match=expected_error):
+    with pytest.raises(
+        MlflowException,
+        match=f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
+        "Detected attempt to load latest model version in stages",
+    ):
         store.get_latest_versions(name=name, stages=["Production"])
 
 
