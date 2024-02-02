@@ -1,5 +1,5 @@
-MLflow Data Module Tutorial
-===========================
+MLflow Dataset Tracking Tutorial
+================================
 
 The ``mlflow.data`` module is an integral part of the MLflow ecosystem, designed to enhance your machine learning workflow.
 This module enables you to record and retrieve dataset information during model training and evaluation, leveraging MLflow's tracking capabilities.
@@ -7,7 +7,7 @@ This module enables you to record and retrieve dataset information during model 
 Key Interfaces
 --------------
 
-There are two main abstract components associated with the ``mlflow.data`` module:
+There are two main abstract components associated with the ``mlflow.data`` module, ``Dataset`` and ``DatasetSource``:
 
 Dataset 
 ^^^^^^^
@@ -36,10 +36,8 @@ The following example demonstrates how to construct a :py:class:`mlflow.data.pan
     from mlflow.data.pandas_dataset import PandasDataset
 
 
-    CSV_DELIMITER = ";"
-
     dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"
-    raw_data = pd.read_csv(dataset_source_url, delimiter=CSV_DELIMITER)
+    raw_data = pd.read_csv(dataset_source_url, delimiter=";")
 
     # Create an instance of a PandasDataset
     dataset = mlflow.data.from_pandas(
@@ -53,7 +51,13 @@ The ``DatasetSource`` is a component of a given Dataset object, providing a link
 
 The ``DatasetSource`` component of a ``Dataset`` represents the source of a dataset, such as a directory in S3, a Delta Table, or a URL. 
 It is referenced in the ``Dataset`` for understanding the origin of the data. The ``DatasetSource`` of a logged 
-dataset can be retrieved using the ``mlflow.data.get_source()`` API.
+dataset can be retrieved either by accessing the ``source`` property of the ``Dataset`` object, or through using the ``mlflow.data.get_source()`` API.
+
+.. tip::
+    Many of the supported autologging-enabled flavors within MLflow will automatically log the source of the dataset when logging the dataset itself. 
+    
+.. note::
+    The example shown below is purely for instructive purposes, as logging a dataset outside of a training run is not a common practice.
 
 Example Usage
 -------------
@@ -66,10 +70,9 @@ The following example demonstrates how to use the ``log_inputs`` API to log a tr
     import pandas as pd
     from mlflow.data.pandas_dataset import PandasDataset
 
-    CSV_DELIMITER = ";"
 
     dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"
-    raw_data = pd.read_csv(dataset_source_url, delimiter=CSV_DELIMITER)
+    raw_data = pd.read_csv(dataset_source_url, delimiter=";")
 
     # Create an instance of a PandasDataset
     dataset = mlflow.data.from_pandas(
@@ -134,7 +137,7 @@ access the Dataset's source via the following API:
    print(f"The local file where the data has been downloaded to: {local_dataset}")
 
    # Load the data again
-   loaded_data = pd.read_csv(local_dataset, delimiter=CSV_DELIMITER)
+   loaded_data = pd.read_csv(local_dataset, delimiter=";")
 
 The print statement from above resolves to the local file that was created when calling ``load``.
 
@@ -143,8 +146,8 @@ The print statement from above resolves to the local file that was created when 
     The local file where the data has been downloaded to:
     /var/folders/cd/n8n0rm2x53l_s0xv_j_xklb00000gp/T/tmpuxwtrul1/winequality-white.csv
 
-What is the purpose of ``mlflow.data``?
----------------------------------------
+Using Datasets with other MLflow Features
+-----------------------------------------
 
 The ``mlflow.data`` module serves the crucial role of associating datasets with MLflow runs. Aside from the obvious utility of having a record 
 associated with an MLflow run to the dataset that was used during training, there are some integrations within MLflow that allow for direct 
@@ -169,10 +172,9 @@ To see how this integration functions, let's take a look at a fairly simple and 
     import mlflow
     from mlflow.data.pandas_dataset import PandasDataset
 
-    CSV_DELIMITER = ";"
 
     dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"
-    raw_data = pd.read_csv(dataset_source_url, delimiter=CSV_DELIMITER)
+    raw_data = pd.read_csv(dataset_source_url, delimiter=";")
 
     # Extract the features and target data separately
     y = raw_data["quality"]
@@ -218,6 +220,10 @@ To see how this integration functions, let's take a look at a fairly simple and 
         )
 
         result = mlflow.evaluate(data=pd_dataset, predictions=None, model_type="classifier")
+
+.. note::
+    Using the :py:func:`mlflow.evaluate` API will automatically log the dataset used for the evaluation to the MLflow run. An explicit call to 
+    log the input is not required.
 
 Navigating to the MLflow UI, we can see how the Dataset, model, metrics, and a classification-specific confusion matrix are all logged 
 to the run.
