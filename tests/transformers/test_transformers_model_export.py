@@ -3940,6 +3940,67 @@ def test_text_generation_task_completions_predict_with_hf_params(
     )
 
 
+def test_text_generation_task_completions_predict_with_max_tokens(
+    text_generation_pipeline, model_path
+):
+    data = "How to learn Python in 3 weeks?"
+
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(text_generation_pipeline, data),
+        params={"max_tokens": 50},
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=text_generation_pipeline,
+        path=model_path,
+        task="llm/v1/completions",
+        signature=signature_with_params,
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        {"prompt": "How to learn Python in 3 weeks?"},
+        params={"max_tokens": 10},
+    )
+
+    assert isinstance(inference[0], dict)
+    assert (
+        inference[0]["finish_reason"] == "length"
+        and inference[0]["usage"]["completion_tokens"] == 10
+    ) or (
+        inference[0]["finish_reason"] == "stop" and inference[0]["usage"]["completion_tokens"] < 10
+    )
+
+
+def test_text_generation_task_completions_predict_with_stop(text_generation_pipeline, model_path):
+    data = "How to learn Python in 3 weeks?"
+
+    signature_with_params = infer_signature(
+        data,
+        "This is a sample output sentence",
+        params={"stop": ""},
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=text_generation_pipeline,
+        path=model_path,
+        task="llm/v1/completions",
+        signature=signature_with_params,
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(
+        {"prompt": "How to learn Python in 3 weeks?"},
+        params={"stop": "Python"},
+    )
+
+    assert inference[0]["finish_reason"] == "stop"
+    assert inference[0]["text"].endswith("Python")
+
+
 def test_text_generation_task_completions_serve(text_generation_pipeline):
     data = {"prompt": "How to learn Python in 3 weeks?"}
     output = {"text": "Start with"}

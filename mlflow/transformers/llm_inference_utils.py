@@ -1,4 +1,7 @@
-from typing import List
+from typing import Any, Dict, List, Optional, Union
+
+import torch
+from transformers import AutoTokenizer, StoppingCriteria
 
 _LLM_INFERENCE_TASK_KEY = "inference_task"
 # The LLM inference task is saved as "task" in the metadata for forward compatibility with
@@ -11,6 +14,56 @@ _LLM_INFERENCE_TASK_CHAT = "llm/v1/chat"
 _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK = {
     "text-generation": [_LLM_INFERENCE_TASK_COMPLETIONS, _LLM_INFERENCE_TASK_CHAT],
 }
+
+
+def preprocess_llm_inference_params(
+    params: Optional[Dict[str, Any]] = None, flavor_config: Optional[Dict[str, Any]] = None
+):
+    """Replace OpenAI specific parameters with Hugging Face specific parameters."""
+    if params is None:
+        return
+
+    params["max_new_tokens"] = params.pop("max_tokens", None)
+
+    model_name = None
+    if flavor_config is not None:
+        model_name = flavor_config.get("source_model_name", None)
+    params["stopping_criteria"] = _set_stopping_criteria(params.pop("stop", None), model_name)
+
+
+def _set_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Optional[str] = None):
+    if stop is None or model_name is None:
+        return None
+
+    if isinstance(stop, str):
+        stop = [stop]
+
+    class StopSequenceMatchCriteria(StoppingCriteria):
+        def __init__(self, stop_sequence_ids):
+            self.stop_sequence_ids = stop_sequence_ids
+
+        def __call__(
+            self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs
+        ) -> bool:
+            last_ids = input_ids[:, -len(self.stop_sequence_ids) :].tolist()
+            return self.stop_sequence_ids in last_ids
+
+    # To tokenize the stop sequences for stopping criteria, we need to use the slow tokenizer
+    # for matching the actual tokens, according to https://github.com/huggingface/transformers/issues/27704
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+    get_token_ids = lambda seq: tokenizer.convert_tokens_to_ids(tokenizer._tokenize(seq))
+
+    stopping_criteria = []
+    for stop_sequence in stop:
+        # Add stopping criteria for both with and without space, such as "stopword" and " stopword"
+        token_ids = get_token_ids(stop_sequence)
+        token_ids_with_space = get_token_ids(" " + stop_sequence)
+        stopping_criteria += [
+            StopSequenceMatchCriteria(token_ids),
+            StopSequenceMatchCriteria(token_ids_with_space),
+        ]
+
+    return stopping_criteria
 
 
 def postprocess_output_for_llm_inference_task(

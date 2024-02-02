@@ -53,6 +53,7 @@ from mlflow.transformers.llm_inference_utils import (
     _METADATA_LLM_INFERENCE_TASK_KEY,
     _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
     postprocess_output_for_llm_inference_task,
+    preprocess_llm_inference_params,
 )
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
@@ -1943,6 +1944,7 @@ class _TransformersWrapper:
         Returns:
             Model predictions.
         """
+        preprocess_llm_inference_params(params, self.flavor_config)
         self._override_model_config(params)
 
         if isinstance(data, pd.DataFrame):
