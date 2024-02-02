@@ -372,7 +372,8 @@ spark:
 
       # NB: Running each .py file individually is important (instead of
       # 'pytest tests/spark/autologging') not to share SparkSession across tests
-      find tests/spark/autologging -name 'test*.py' | xargs -L 1 pytest
+      pytest tests/spark/autologging/datasource/test_spark_datasource_autologging_crossframework.py
+      for file in $(find tests/spark/autologging -name 'test*.py' | grep -v crossframework | xargs -L 1 pytest
 
 mleap:
   package_info:
