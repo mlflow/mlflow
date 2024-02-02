@@ -390,7 +390,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
             # `self.strategy.barrier("Trainer.save_checkpoint")`,
             # in DDP training, this callback is only invoked in rank 0 process,
             # the `barrier` invocation causes deadlock,
-            # so I implementent `_save_checkpoint_rank_zero_only` instead of
+            # so I implement `_save_checkpoint_rank_zero_only` instead of
             # `trainer.save_checkpoint`.
             self._save_checkpoint_rank_zero_only(
                 trainer,
@@ -535,8 +535,8 @@ def patched_fit(original, self, *args, **kwargs):
         )
         if model_checkpoint:
             from pytorch_lightning.callbacks import ModelCheckpoint
-            # __MLflowModelCheckpoint only supports pytorch-lightning >= 1.4.0
-            if _pl_version >= Version("1.4.0"):
+            # __MLflowModelCheckpoint only supports pytorch-lightning >= 1.5.0
+            if _pl_version >= Version("1.5.0"):
                 checkpoint_monitor = get_autologging_config(
                     mlflow.pytorch.FLAVOR_NAME, "checkpoint_monitor", "val_loss"
                 )
