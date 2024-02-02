@@ -51,13 +51,15 @@ def _set_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Op
     # To tokenize the stop sequences for stopping criteria, we need to use the slow tokenizer
     # for matching the actual tokens, according to https://github.com/huggingface/transformers/issues/27704
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
-    get_token_ids = lambda seq: tokenizer.convert_tokens_to_ids(tokenizer._tokenize(seq))
+
+    def _get_slow_token_ids(seq: str):
+        return tokenizer.convert_tokens_to_ids(tokenizer._tokenize(seq))
 
     stopping_criteria = []
     for stop_sequence in stop:
         # Add stopping criteria for both with and without space, such as "stopword" and " stopword"
-        token_ids = get_token_ids(stop_sequence)
-        token_ids_with_space = get_token_ids(" " + stop_sequence)
+        token_ids = _get_slow_token_ids(stop_sequence)
+        token_ids_with_space = _get_slow_token_ids(" " + stop_sequence)
         stopping_criteria += [
             StopSequenceMatchCriteria(token_ids),
             StopSequenceMatchCriteria(token_ids_with_space),

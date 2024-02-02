@@ -7,6 +7,7 @@ from mlflow.transformers.llm_inference_utils import (
     _get_finish_reason,
     _get_output_and_usage_from_tensor,
     _get_token_usage,
+    _set_stopping_criteria,
 )
 
 
@@ -17,6 +18,31 @@ class DummyTokenizer:
 
     def decode(self, tensor: List[int], **kwargs):
         return " ".join([str(x) for x in tensor])
+
+    def convert_tokens_to_ids(self, tokens: List[str]):
+        return [int(x) for x in tokens]
+
+    def _tokenize(self, text: str):
+        return [x for x in text.split(" ") if x]
+
+
+@mock.patch("transformers.AutoTokenizer.from_pretrained")
+def test_stopping_criteria(mock_from_pretrained):
+    mock_from_pretrained.return_value = DummyTokenizer()
+
+    stopping_criteria = _set_stopping_criteria(stop=None, model_name=None)
+    assert stopping_criteria is None
+
+    input_ids = torch.tensor([[1, 2, 3, 4, 5]])
+    scores = torch.ones(1, 5)
+
+    stopping_criteria = _set_stopping_criteria(stop="5", model_name="my/model")
+    stopping_criteria_matches = [f(input_ids, scores) for f in stopping_criteria]
+    assert stopping_criteria_matches == [True, True]
+
+    stopping_criteria = _set_stopping_criteria(stop=["100", "5"], model_name="my/model")
+    stopping_criteria_matches = [f(input_ids, scores) for f in stopping_criteria]
+    assert stopping_criteria_matches == [False, False, True, True]
 
 
 def test_output_dict_for_completions():
