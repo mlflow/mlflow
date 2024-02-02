@@ -1353,10 +1353,8 @@ def _extract_torch_dtype_if_set(pipeline) -> str:
         return str(torch_dtype)
 
     # Some model doesn't populate dtype in its config, then we try extract it from parameters.
-    if hasattr(model, "parameters"):
-        first_param = next(model.parameters(), None)
-        if torch_dtype := getattr(first_param, "dtype", None):
-            return str(torch_dtype)
+    if hasattr(model, "dtype"):
+        return str(model.dtype)
 
 
 def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str]:
