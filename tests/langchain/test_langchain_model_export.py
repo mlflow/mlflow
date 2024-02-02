@@ -1558,6 +1558,46 @@ def test_chat_with_history(spark, fake_chat_model):
     }
 
 
+def test_databricks_dependency_extraction_from_retrievalqa():
+    from databricks.vector_search.client import VectorSearchClient
+    from langchain.chains import RetrievalQA
+    from langchain.embeddings import DatabricksEmbeddings
+    from langchain.llms import Databricks
+    from langchain.vectorstores import DatabricksVectorSearch
+
+    def get_retriever(persist_dir: Optional[str] = None):
+        host = "https://llm.databricks.com"
+        os.environ["DATABRICKS_HOST"] = host
+        os.environ["DATABRICKS_TOKEN"] = "fake_token"
+        # Get the vector search index
+        vsc = VectorSearchClient(
+            workspace_url=host, personal_access_token=os.environ["DATABRICKS_TOKEN"]
+        )
+        vs_index = vsc.get_index(
+            endpoint_name="dbdemos_vs_endpoint",
+            index_name="aakrati.rag_chatbot.databricks_documentation_vs_index",
+        )
+
+        # Create the retriever
+        embedding_model = DatabricksEmbeddings(endpoint="databricks-bge-large-en")
+        vectorstore = DatabricksVectorSearch(
+            vs_index, text_column="content", embedding=embedding_model
+        )
+        return vectorstore.as_retriever()
+
+    def transform_input(**request):
+        request["messages"] = [{"role": "user", "content": request["prompt"]}]
+        del request["prompt"]
+        return request
+
+    llm = Databricks(
+        endpoint_name="databricks-mixtral-8x7b-instruct", transform_input_fn=transform_input
+    )
+    retrievalQA = RetrievalQA.from_llm(llm=llm, retriever=get_retriever())
+    with mlflow.start_run():
+        mlflow.langchain.log_model(retrievalQA, "retrievalQA_model", loader_fn=get_retriever)
+
+
 @pytest.mark.skipif(
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
