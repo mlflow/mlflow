@@ -1,4 +1,7 @@
-from pyspark.sql import SparkSession
+from datetime import datetime
+
+import pytest
+from pyspark.sql import Row, SparkSession
 from pyspark.sql.types import (
     ArrayType,
     BinaryType,
@@ -8,20 +11,18 @@ from pyspark.sql.types import (
     FloatType,
     IntegerType,
     LongType,
-    MapType,
     ShortType,
     StringType,
     StructField,
     StructType,
     TimestampType,
 )
-from datetime import datetime
-import pytest
+from pyspark.testing import assertDataFrameEqual
 
-from unittest import mock
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_schema
 from mlflow.types import ColSpec, DataType, Schema
+from mlflow.types.schema import Array, Object, Property
 
 
 @pytest.fixture(scope="module")
@@ -61,7 +62,7 @@ def test_enforce_schema_spark_dataframe(spark):
         )
     ]
 
-    df = spark.createDataFrame(data, spark_df_schema)
+    input_df = spark.createDataFrame(data, spark_df_schema)
     input_schema = Schema(
         [
             ColSpec(DataType.integer, "smallint"),
@@ -76,7 +77,105 @@ def test_enforce_schema_spark_dataframe(spark):
             ColSpec(DataType.binary, "binary"),
         ]
     )
-    _enforce_schema(df, input_schema)
+    result = _enforce_schema(input_df, input_schema)
+    assertDataFrameEqual(input_df, result)
+
+
+@pytest.mark.parametrize(
+    ("spark_df_schema", "data", "input_schema"),
+    [
+        (
+            StructType([StructField("query", ArrayType(StringType()), True)]),
+            [(["sentence_1", "sentence_2"],)],
+            Schema([ColSpec(Array(DataType.string), name="query")]),
+        ),
+        (
+            StructType(
+                [
+                    StructField(
+                        "person",
+                        StructType(
+                            [
+                                StructField("name", StringType(), True),
+                                StructField("age", IntegerType(), True),
+                            ]
+                        ),
+                        True,
+                    )
+                ]
+            ),
+            [
+                Row(person=Row(name="Alice", age=30)),
+                Row(person=Row(name="Bob", age=25)),
+                Row(person=Row(name="Catherine", age=35)),
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Object(
+                            [Property("name", DataType.string), Property("age", DataType.integer)]
+                        ),
+                        "person",
+                    )
+                ]
+            ),
+        ),
+        (
+            StructType(
+                [
+                    StructField(
+                        "array",
+                        ArrayType(
+                            StructType(
+                                [
+                                    StructField("name", StringType(), True),
+                                    StructField("age", IntegerType(), True),
+                                ]
+                            )
+                        ),
+                        True,
+                    )
+                ]
+            ),
+            [
+                (
+                    [
+                        Row(name="Alice", age=30),
+                        Row(name="Bob", age=25),
+                        Row(name="Catherine", age=35),
+                    ],
+                )
+            ],
+            Schema(
+                [
+                    ColSpec(
+                        Array(
+                            Object(
+                                [
+                                    Property("name", DataType.string),
+                                    Property("age", DataType.integer),
+                                ]
+                            )
+                        ),
+                        name="array",
+                    ),
+                ]
+            ),
+        ),
+        (
+            StructType([StructField("nested_list", ArrayType(ArrayType(IntegerType())), True)]),
+            [
+                ([[1, 2, 3], [4, 5, 6], [7, 8, 9]],),
+                ([[10, 11], [12, 13, 14]],),
+            ],
+            Schema([ColSpec(Array(Array(DataType.integer)), name="nested_list")]),
+        ),
+    ],
+)
+def test_enforce_schema_spark_dataframe_complex(spark_df_schema, data, input_schema, spark):
+    input_df = spark.createDataFrame(data, spark_df_schema)
+    result = _enforce_schema(input_df, input_schema)
+    assertDataFrameEqual(input_df, result)
 
 
 def test_enforce_schema_spark_dataframe_missing_col(spark):
@@ -125,3 +224,21 @@ def test_enforce_schema_spark_dataframe_incompatible_type(spark):
     with pytest.raises(MlflowException, match="Incompatible input types"):
         _enforce_schema(df, input_schema)
 
+
+def test_enforce_schema_spark_dataframe_extra_col(spark):
+    spark_df_schema = StructType(
+        [StructField("a", ShortType(), True), StructField("b", DoubleType(), True)]
+    )
+
+    data = [
+        (
+            1,  # a
+            2.3,  # b
+        )
+    ]
+
+    df = spark.createDataFrame(data, spark_df_schema)
+    input_schema = Schema([ColSpec(DataType.integer, "a")])
+    result = _enforce_schema(df, input_schema)
+    expected_result = df.drop("b")
+    assertDataFrameEqual(result, expected_result)

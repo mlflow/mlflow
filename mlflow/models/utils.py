@@ -36,6 +36,7 @@ except ImportError:
 
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
+    from pyspark.sql import Row
 
     HAS_PYSPARK = True
 except ImportError:
@@ -561,7 +562,11 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
     # That is because pandas is aware of numpy.
-    if t.to_pandas() == values.dtype or t.to_numpy() == values.dtype:
+    if (
+        t.to_pandas() == values.dtype
+        or t.to_numpy() == values.dtype
+        or t.to_python() == values.dtype
+    ):
         # The types are already compatible => conversion is not necessary.
         return values
 
@@ -838,7 +843,7 @@ def _enforce_tensor_schema(pf_input: PyFuncInput, input_schema: Schema):
     return new_pf_input
 
 
-def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str = None):
+def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optional[str] = None):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -981,10 +986,10 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str = N
 
 
 def _enforce_pyspark_dataframe_schema(
-    original_pf_input: SparkDataFrame,
-    pf_input_as_pandas: PyFuncInput,
+    original_pf_input: PyFuncInput,
+    pf_input_as_pandas,
     input_schema: Schema,
-    flavor: str = None,
+    flavor: Optional[str] = None,
 ):
     new_pf_input = original_pf_input.alias("pf_input_copy")
     if input_schema.has_input_names():
@@ -995,7 +1000,7 @@ def _enforce_pyspark_dataframe_schema(
         _enforce_unnamed_col_schema(pf_input_as_pandas, input_schema)
         input_names = pf_input_as_pandas.columns[: len(input_schema.inputs)]
     columns_to_drop = []
-    for col in new_pf_input.columns:
+    for col, dtype in new_pf_input.dtypes:
         if col not in input_names:
             # to support backwards compatability with feature store models
             if "array" in dtype or "map" in dtype:
@@ -1065,6 +1070,8 @@ def _enforce_property(data: Any, property: Property):
 def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
     if not required and data is None:
         return None
+    if HAS_PYSPARK and isinstance(data, Row):
+        data = data.asDict()
     if not isinstance(data, dict):
         raise MlflowException(
             f"Failed to enforce schema of '{data}' with type '{obj}'. "
