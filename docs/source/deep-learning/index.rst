@@ -47,9 +47,9 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
 
         <div class="tracking-responsive-tab-panel">
             <div>
-                <h4>Simplify DL run comparison through charts</h4>
-                <p>When comparing the convergence during iterative DL model training, charts can be used to quickly estimate 
-                which sets of configurations are performing better throughout training iterations for DL models.</p>
+                <h4>Easier DL Model Comparison with Charts</h4>
+                <p>Use charts to compare deep learning (DL) model training convergence easily. Quickly identify superior 
+                configuration sets across training iterations.</p>
             </div>
             <img src="../_static/images/deep-learning/dl-run-selection.gif" style="width: 90%; height: auto; object-fit: cover;"/>
         </div>
@@ -58,9 +58,9 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
 
         <div class="tracking-responsive-tab-panel">
             <div>
-                <h4>Customize Charts for DL models</h4>
-                <p>Add, modify, or remove charts when comparing DL training runs to simplify the process of determining effective 
-                parameter settings for DL models. Visualize each iteration's optimization metrics in a single unified chart.</p>
+                <h4>Chart Customization for DL Models</h4>
+                <p>Easily customize charts for DL training run comparisons. Adjust visualizations to pinpoint optimal parameter 
+                settings, displaying optimization metrics across iterations in a unified view.</p>
             </div>
             <img src="../_static/images/deep-learning/dl-run-navigation.gif" style="width: 90%; height: auto; object-fit: cover;"/>
         </div>
@@ -69,9 +69,8 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
 
         <div class="tracking-responsive-tab-panel">
             <div>
-                <h4>Compare any or all parameters to any metric</h4>
-                <p>View the relationships amongst parameters and see how to narrow down a set of tuning parameters that works 
-                best for your modeling project from a unified UI.</p>
+                <h4>Enhanced Parameter and Metric Comparison</h4>
+                <p>Analyze parameter relationships from a unified interface to refine tuning parameters, optimizing your DL models efficiently.</p>
             </div>
             <img src="../_static/images/deep-learning/dl-run-comparison.gif" style="width: 90%; height: auto; object-fit: cover;"/>
         </div>
@@ -80,10 +79,9 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
 
         <div class="tracking-responsive-tab-panel">
             <div>
-                <h4>Statistical comparison of categorical parameters</h4>
-                <p>When evaluating between categorical parameter values, employing boxplot visualizations can help to make 
-                an informed decision of the performance of specific settings during training, shortening the time required 
-                to arrive at an effective configuration for hyperparameter tuning.</p>
+                <h4>Statistical Evaluation of Categorical Parameters</h4>
+                <p>Leverage boxplot visualizations for categorical parameter evaluation. Quickly discern the most effective 
+                settings for hyperparameter tuning.</p>
             </div>
             <img src="../_static/images/deep-learning/dl-box-plot.gif" style="width: 90%; height: auto; object-fit: cover;"/>
         </div>
@@ -92,13 +90,13 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
 
         <div class="tracking-responsive-tab-panel">
             <div>
-                <h4>Realtime tracking while training</h4>
-                <p>When iteratively training over epochs, the MLflow UI will automatically update, keeping track of the 
-                results of long-running DL training tasks. You can track the results and determine if your most recent 
-                hypothesis is on the right track without having to constantly refresh your screen.</p>
+                <h4>Real-Time Training Tracking</h4>
+                <p>Automatically monitor DL training progress over epochs with the MLflow UI. Instantly track results to validate 
+                your hypotheses, eliminating constant manual updates.</p>
             </div>
             <img src="../_static/images/deep-learning/dl-tracking.gif" style="width: 90%; height: auto; object-fit: cover;"/>
         </div>
+
 
 .. container:: tracking-responsive-tabs
 
