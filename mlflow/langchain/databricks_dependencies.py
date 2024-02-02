@@ -73,7 +73,7 @@ def _extract_databricks_dependencies_from_chat_model(chat_model, dependency_dict
     return dependency_dict
 
 
-def _extract_dpendency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[str, str]:
+def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[str, str]:
     if hasattr(lc_model, "retriever"):
         dependency_dict = _extract_databricks_dependencies_from_retriever(
             lc_model.retriever, dependency_dict
@@ -101,11 +101,11 @@ def _extract_dpendency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[str
         )
 
     if hasattr(lc_model, "combine_documents_chain"):  # RetrievalQA, ReduceDocumentsChain
-        dependency_dict = _extract_dpendency_dict_from_lc_model(
+        dependency_dict = _extract_dependency_dict_from_lc_model(
             lc_model.combine_documents_chain, dependency_dict
         )
     if hasattr(lc_model, "combine_docs_chain"):  # BaseConversationalRetrievalChain
-        dependency_dict = _extract_dpendency_dict_from_lc_model(
+        dependency_dict = _extract_dependency_dict_from_lc_model(
             lc_model.combine_docs_chain, dependency_dict
         )
 
@@ -113,7 +113,7 @@ def _extract_dpendency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[str
         hasattr(lc_model, "collapse_documents_chain")
         and lc_model.collapse_documents_chain is not None
     ):  # ReduceDocumentsChain
-        dependency_dict = _extract_dpendency_dict_from_lc_model(
+        dependency_dict = _extract_dependency_dict_from_lc_model(
             lc_model.collapse_documents_chain, dependency_dict
         )
 
@@ -135,7 +135,7 @@ def _traverse_runnable(
 
     # Visit the current object
     visited.add(current_object_id)
-    dependency_dict = _extract_dpendency_dict_from_lc_model(lc_model, dependency_dict)
+    dependency_dict = _extract_dependency_dict_from_lc_model(lc_model, dependency_dict)
 
     if isinstance(lc_model, langchain_core.runnables.RunnableSerializable):
         # Visit the returned graph

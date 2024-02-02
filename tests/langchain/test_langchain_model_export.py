@@ -1578,7 +1578,7 @@ def _extract_endpoint_name_from_lc_model(lc_model, dependency_dict) -> Dict[str,
     Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
 )
 @mock.patch(
-    "mlflow.langchain.databricks_dependencies._extract_dpendency_dict_from_lc_model",
+    "mlflow.langchain.databricks_dependencies._extract_dependency_dict_from_lc_model",
     _extract_endpoint_name_from_lc_model,
 )
 def test_databricks_dependency_extraction_from_lcel_chain():
