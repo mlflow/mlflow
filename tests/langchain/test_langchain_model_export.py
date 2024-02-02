@@ -48,6 +48,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
+from mlflow.langchain.databricks_dependencies import _assign_value_or_append_to_list
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 from mlflow.utils.openai_utils import (
@@ -153,6 +154,7 @@ class FakeLLM(LLM):
     """Fake LLM wrapper for testing purposes."""
 
     queries: Optional[Mapping] = None
+    endpoint_name: str = "fake-llm-endpoint"
 
     @property
     def _llm_type(self) -> str:
@@ -199,14 +201,15 @@ class FakeChain(Chain):
             return {"baz": "bar"}
 
 
-@pytest.fixture
-def fake_chat_model():
+def get_fake_chat_model(endpoint_name="fake-endpoint"):
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
     from langchain.schema.messages import BaseMessage
 
     class FakeChatModel(SimpleChatModel):
         """Fake Chat Model wrapper for testing purposes."""
+
+        endpoint_name: str = "fake-endpoint"
 
         def _call(
             self,
@@ -221,7 +224,12 @@ def fake_chat_model():
         def _llm_type(self) -> str:
             return "fake chat model"
 
-    return FakeChatModel()
+    return FakeChatModel(endpoint_name=endpoint_name)
+
+
+@pytest.fixture
+def fake_chat_model():
+    return get_fake_chat_model()
 
 
 @pytest.fixture
@@ -1558,44 +1566,115 @@ def test_chat_with_history(spark, fake_chat_model):
     }
 
 
-def test_databricks_dependency_extraction_from_retrievalqa():
-    from databricks.vector_search.client import VectorSearchClient
-    from langchain.chains import RetrievalQA
-    from langchain.embeddings import DatabricksEmbeddings
-    from langchain.llms import Databricks
-    from langchain.vectorstores import DatabricksVectorSearch
+def _extract_endpoint_name_from_lc_model(lc_model, dependency_dict) -> Dict[str, str]:
+    if type(lc_model).__name__ == type(get_fake_chat_model()).__name__:
+        _assign_value_or_append_to_list(
+            dependency_dict, "fake_chat_model_endpoint_name", lc_model.endpoint_name
+        )
+    return dependency_dict
 
-    def get_retriever(persist_dir: Optional[str] = None):
-        host = "https://llm.databricks.com"
-        os.environ["DATABRICKS_HOST"] = host
-        os.environ["DATABRICKS_TOKEN"] = "fake_token"
-        # Get the vector search index
-        vsc = VectorSearchClient(
-            workspace_url=host, personal_access_token=os.environ["DATABRICKS_TOKEN"]
-        )
-        vs_index = vsc.get_index(
-            endpoint_name="dbdemos_vs_endpoint",
-            index_name="aakrati.rag_chatbot.databricks_documentation_vs_index",
-        )
 
-        # Create the retriever
-        embedding_model = DatabricksEmbeddings(endpoint="databricks-bge-large-en")
-        vectorstore = DatabricksVectorSearch(
-            vs_index, text_column="content", embedding=embedding_model
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+@mock.patch(
+    "mlflow.langchain.databricks_dependencies._extract_dpendency_dict_from_lc_model",
+    _extract_endpoint_name_from_lc_model,
+)
+def test_databricks_dependency_extraction_from_lcel_chain():
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_core.prompts import ChatPromptTemplate
+
+    prompt_1 = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
+    prompt_2 = ChatPromptTemplate.from_template(
+        "compare which joke is better {joke1} or {joke2}. Output the better joke."
+    )
+    model_1 = get_fake_chat_model(endpoint_name="fake-endpoint-1")
+    model_2 = get_fake_chat_model(endpoint_name="fake-endpoint-2")
+    model_3 = get_fake_chat_model(endpoint_name="fake-endpoint-3")
+    output_parser = StrOutputParser()
+
+    chain = prompt_1 | {"joke1": model_1, "joke2": model_2} | prompt_2 | model_3 | output_parser
+
+    with mlflow.start_run():
+        model_info = mlflow.langchain.log_model(chain, "basic_chain")
+
+    langchain_flavor = model_info.flavors["langchain"]
+    assert langchain_flavor["databricks_dependency"] == {
+        "fake_chat_model_endpoint_name": ["fake-endpoint-1", "fake-endpoint-2", "fake-endpoint-3"]
+    }
+
+
+def _extract_databricks_dependencies_from_retriever(retriever, dependency_dict) -> Dict[str, str]:
+    import langchain_community
+
+    if hasattr(retriever, "vectorstore") and hasattr(retriever.vectorstore, "embeddings"):
+        vectorstore = retriever.vectorstore
+        embeddings = vectorstore.embeddings
+
+        if isinstance(vectorstore, langchain_community.vectorstores.faiss.FAISS):
+            _assign_value_or_append_to_list(dependency_dict, "fake_index", "faiss-index")
+
+        if isinstance(embeddings, FakeEmbeddings):
+            _assign_value_or_append_to_list(
+                dependency_dict, "fake_embeddings_size", embeddings.size
+            )
+
+    return dependency_dict
+
+
+def _extract_databricks_dependencies_from_llm(llm, dependency_dict) -> Dict[str, str]:
+    if isinstance(llm, FakeLLM):
+        _assign_value_or_append_to_list(
+            dependency_dict, "fake_llm_endpoint_name", llm.endpoint_name
         )
+    return dependency_dict
+
+
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.0.311"), reason="feature not existing"
+)
+@mock.patch(
+    "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_llm",
+    _extract_databricks_dependencies_from_llm,
+)
+@mock.patch(
+    "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_retriever",
+    _extract_databricks_dependencies_from_retriever,
+)
+def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
+    # Create the vector db, persist the db to a local fs folder
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    docs = text_splitter.split_documents(documents)
+    embeddings = FakeEmbeddings(size=5)
+    db = FAISS.from_documents(docs, embeddings)
+    persist_dir = str(tmp_path / "faiss_index")
+    db.save_local(persist_dir)
+
+    # Create the RetrievalQA chain
+    retrievalQA = RetrievalQA.from_llm(llm=FakeLLM(), retriever=db.as_retriever())
+
+    # Log the RetrievalQA chain
+    def load_retriever(persist_directory):
+        embeddings = FakeEmbeddings(size=5)
+        vectorstore = FAISS.load_local(persist_directory, embeddings)
         return vectorstore.as_retriever()
 
-    def transform_input(**request):
-        request["messages"] = [{"role": "user", "content": request["prompt"]}]
-        del request["prompt"]
-        return request
-
-    llm = Databricks(
-        endpoint_name="databricks-mixtral-8x7b-instruct", transform_input_fn=transform_input
-    )
-    retrievalQA = RetrievalQA.from_llm(llm=llm, retriever=get_retriever())
     with mlflow.start_run():
-        mlflow.langchain.log_model(retrievalQA, "retrievalQA_model", loader_fn=get_retriever)
+        logged_model = mlflow.langchain.log_model(
+            retrievalQA,
+            "retrieval_qa_chain",
+            loader_fn=load_retriever,
+            persist_dir=persist_dir,
+        )
+    langchain_flavor = logged_model.flavors["langchain"]
+    assert langchain_flavor["databricks_dependency"] == {
+        "fake_llm_endpoint_name": "fake-llm-endpoint",
+        "fake_index": "faiss-index",
+        "fake_embeddings_size": 5,
+    }
 
 
 @pytest.mark.skipif(

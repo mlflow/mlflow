@@ -27,13 +27,15 @@ from mlflow.langchain._langchain_autolog import (
     _update_langchain_model_config,
     patched_inference,
 )
+from mlflow.langchain.databricks_dependencies import (
+    _DATABRICKS_DEPENDENCY_KEY,
+    _detect_databricks_dependencies,
+)
 from mlflow.langchain.runnables import _load_runnables, _save_runnables
 from mlflow.langchain.utils import (
     _BASE_LOAD_KEY,
-    _DATABRICKS_DEPENDENCY_KEY,
     _MODEL_LOAD_KEY,
     _RUNNABLE_LOAD_KEY,
-    _detect_databricks_dependencies,
     _load_base_lcs,
     _save_base_lcs,
     _validate_and_wrap_lc_model,
