@@ -474,22 +474,20 @@ def test_model_checkpoint_callback():
             self.callback_metrics = {}
             self.current_epoch = 0
             self.global_step = 0
-            self.expect_weights_only_saving = False
-            self.expected_checkpoint_filename = ""
 
-        def save_checkpoint(self, filepath: str, weights_only: bool = False):
-            assert weights_only == self.expect_weights_only_saving, \
-                f"expect saving with weights_only={self.expect_weights_only_saving}"
-            assert os.path.basename(filepath) == self.expected_checkpoint_filename, \
-                f"expect saving checkpoint filename to be '{self.expected_checkpoint_filename}'"
-
-    with mlflow.start_run(), \
-            mock.patch("mlflow.log_dict") as log_dict_mock, \
-            mock.patch("mlflow.log_artifact") as log_artifact_mock:
+    with mlflow.start_run() as run, \
+            mock.patch("mlflow.client.MlflowClient.log_dict") as log_dict_mock, \
+            mock.patch("mlflow.client.MlflowClient.log_artifact") as log_artifact_mock, \
+            mock.patch("mlflow.pytorch._lightning_autolog.__MLflowModelCheckpointCallback._save_checkpoint_rank_zero_only") as save_chekpoint_mock:
         model = object()
+
+        client = MlflowClient()
+        run_id = run.info.run_id
 
         # Test checkpoint per epoch, save_best_only = False, save_weights_only = False
         callback1 = __MLflowModelCheckpointCallback(
+            client=client,
+            run_id=run_id,
             monitor=None,
             mode=None,
             save_best_only=False,
@@ -500,25 +498,29 @@ def test_model_checkpoint_callback():
         trainer1 = FakeTrainer()
         trainer1.current_epoch = 1
         trainer1.callback_metrics = {"loss": torch.tensor(1.5), "val_loss": torch.tensor(2.0)}
-        trainer1.expect_weights_only_saving = False
-        trainer1.expected_checkpoint_filename = "checkpoint.pth"
         trainer1.global_step = 100
         callback1.on_train_epoch_end(trainer1, model)
 
         log_dict_mock.assert_called_once_with(
+            run_id,
             {"loss": 1.5, "val_loss": 2.0, "epoch": 1, "global_step": 100},
             "checkpoints/epoch_1/checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
+            run_id,
             mock.ANY,
             "checkpoints/epoch_1",
         )
+        save_chekpoint_mock.assert_called_once()
 
         log_dict_mock.reset_mock()
         log_artifact_mock.reset_mock()
+        save_chekpoint_mock.reset_mock()
 
         # Test save_weights_only = True
         callback2 = __MLflowModelCheckpointCallback(
+            client=client,
+            run_id=run_id,
             monitor=None,
             mode=None,
             save_best_only=False,
@@ -530,20 +532,23 @@ def test_model_checkpoint_callback():
         trainer2.current_epoch = 1
         trainer2.global_step = 100
         trainer2.callback_metrics = {}
-        trainer2.expect_weights_only_saving = True
-        trainer2.expected_checkpoint_filename = "checkpoint.weights.pth"
         callback2.on_train_epoch_end(trainer2, model)
 
         log_artifact_mock.assert_called_once_with(
+            run_id,
             mock.ANY,
             "checkpoints/epoch_1",
         )
+        save_chekpoint_mock.assert_called_once()
 
         log_dict_mock.reset_mock()
         log_artifact_mock.reset_mock()
+        save_chekpoint_mock.reset_mock()
 
         # Test checkpoint per 10 steps, save_best_only = False, save_weights_only = False
         callback3 = __MLflowModelCheckpointCallback(
+            client=client,
+            run_id=run_id,
             monitor=None,
             mode=None,
             save_best_only=False,
@@ -558,6 +563,7 @@ def test_model_checkpoint_callback():
         callback3.on_train_batch_end(trainer3, model, None, None, 5)
         log_dict_mock.assert_not_called()
         log_artifact_mock.assert_not_called()
+        save_chekpoint_mock.reset_mock()
 
         trainer3.global_step = 10
         trainer3.callback_metrics = {"loss": 1.2, "val_loss": 1.3}
@@ -566,19 +572,24 @@ def test_model_checkpoint_callback():
         callback3.on_train_batch_end(trainer3, model, None, None, 10)
 
         log_dict_mock.assert_called_once_with(
+            run_id,
             {"loss": 1.2, "val_loss": 1.3, "epoch": 1, 'global_step': 10},
             "checkpoints/epoch_1_global_step_10/checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
+            run_id,
             mock.ANY,
             "checkpoints/epoch_1_global_step_10",
         )
         log_dict_mock.reset_mock()
         log_artifact_mock.reset_mock()
+        save_chekpoint_mock.reset_mock()
 
         # Test checkpoint every 10 steps, save_best_only = True, monitor = 'val_acc_step',
         # mode = "max"
         callback4 = __MLflowModelCheckpointCallback(
+            client=client,
+            run_id=run_id,
             monitor="train_acc_step",
             mode="max",
             save_best_only=True,
@@ -594,14 +605,17 @@ def test_model_checkpoint_callback():
         callback4.on_train_batch_end(trainer4, model, None, None, 10)
 
         log_dict_mock.assert_called_once_with(
+            run_id,
             {"train_acc_step": 0.7, "epoch": 1, "global_step": 10},
             "checkpoints/latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
+            run_id,
             mock.ANY, "checkpoints",
         )
         log_dict_mock.reset_mock()
         log_artifact_mock.reset_mock()
+        save_chekpoint_mock.reset_mock()
 
         trainer4.current_epoch = 1
         trainer4.global_step = 20
@@ -611,17 +625,22 @@ def test_model_checkpoint_callback():
         callback4.on_train_batch_end(trainer4, model, None, None, 20)
 
         log_dict_mock.assert_called_once_with(
+            run_id,
             {"train_acc_step": 0.8, "epoch": 1, "global_step": 20},
             "checkpoints/latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
+            run_id,
             mock.ANY, "checkpoints",
         )
         log_dict_mock.reset_mock()
         log_artifact_mock.reset_mock()
+        save_chekpoint_mock.reset_mock()
 
         # Test checkpoint per epoch, save_best_only = True, monitor = 'val_loss', mode = "min"
         callback5 = __MLflowModelCheckpointCallback(
+            client=client,
+            run_id=run_id,
             monitor="val_loss",
             mode="min",
             save_best_only=True,
@@ -638,20 +657,24 @@ def test_model_checkpoint_callback():
         callback5.on_train_epoch_end(trainer5, model)
 
         log_dict_mock.assert_called_once_with(
+            run_id,
             {"loss": 1.5, "val_loss": 1.6, "epoch": 1, "global_step": 100},
             "checkpoints/latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
+            run_id,
             mock.ANY, "checkpoints",
         )
         log_dict_mock.reset_mock()
         log_artifact_mock.reset_mock()
+        save_chekpoint_mock.reset_mock()
 
         trainer5.current_epoch = 2
         trainer5.callback_metrics = {"loss": 1.4, "val_loss": 1.65}
         callback5.on_train_epoch_end(trainer5, model)
         log_dict_mock.assert_not_called()
         log_artifact_mock.assert_not_called()
+        save_chekpoint_mock.reset_mock()
 
         trainer5.current_epoch = 3
         trainer5.callback_metrics = {"loss": 1.3, "val_loss": 1.5}
@@ -660,17 +683,22 @@ def test_model_checkpoint_callback():
         callback5.on_train_epoch_end(trainer5, model)
 
         log_dict_mock.assert_called_once_with(
+            run_id,
             {"loss": 1.3, "val_loss": 1.5, "epoch": 3, "global_step": 100},
             "checkpoints/latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
+            run_id,
             mock.ANY, "checkpoints",
         )
         log_dict_mock.reset_mock()
         log_artifact_mock.reset_mock()
+        save_chekpoint_mock.reset_mock()
 
         # Test checkpoint per epoch, save_best_only = True, monitor = 'val_acc', mode = "max"
         callback6 = __MLflowModelCheckpointCallback(
+            client=client,
+            run_id=run_id,
             monitor="val_acc",
             mode="max",
             save_best_only=True,
@@ -687,14 +715,17 @@ def test_model_checkpoint_callback():
         callback6.on_train_epoch_end(trainer6, model)
 
         log_dict_mock.assert_called_once_with(
+            run_id,
             {"acc": 0.9, "val_acc": 0.8, "epoch": 1, "global_step": 100},
             "checkpoints/latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
+            run_id,
             mock.ANY, "checkpoints",
         )
         log_dict_mock.reset_mock()
         log_artifact_mock.reset_mock()
+        save_chekpoint_mock.reset_mock()
 
         trainer6.current_epoch = 2
         trainer6.callback_metrics = {"acc": 0.95, "val_acc": 0.85}
@@ -703,14 +734,17 @@ def test_model_checkpoint_callback():
         callback6.on_train_epoch_end(trainer6, model)
 
         log_dict_mock.assert_called_once_with(
+            run_id,
             {"acc": 0.95, "val_acc": 0.85, "epoch": 2, "global_step": 100},
             "checkpoints/latest_checkpoint_metrics.json",
         )
         log_artifact_mock.assert_called_once_with(
+            run_id,
             mock.ANY, "checkpoints",
         )
         log_dict_mock.reset_mock()
         log_artifact_mock.reset_mock()
+        save_chekpoint_mock.reset_mock()
 
 
 def test_automatic_model_checkpoint():

@@ -9,6 +9,7 @@ from packaging.version import Version
 
 from mlflow.utils.file_utils import create_tmp_dir
 import mlflow.pytorch
+from mlflow.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.pytorch import _pytorch_autolog
@@ -297,12 +298,16 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
 
     def __init__(
         self,
+        client,
+        run_id,
         monitor,
         mode,
         save_best_only,
         save_weights_only,
         save_freq,
     ):
+        self.client = client
+        self.run_id = run_id
         self.monitor = monitor
         self.mode = mode
         self.save_best_only = save_best_only
@@ -322,6 +327,10 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
             return new_monitor_value >= self.last_monitor_value
 
         assert False, "Illegal __MLflowModelCheckpoint config."
+
+    def _save_checkpoint_rank_zero_only(self, trainer: "pl.Trainer", filepath: str):
+        checkpoint = trainer._checkpoint_connector.dump_checkpoint(self.save_weights_only)
+        trainer.strategy.save_checkpoint(checkpoint, filepath)
 
     def _check_and_save_checkpoint_if_needed(self, trainer: "pl.Trainer"):
         current_epoch = trainer.current_epoch
@@ -362,12 +371,14 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
             checkpoint_metrics_filename = f"checkpoint_metrics.json"
             checkpoint_artifact_dir = f"checkpoints/{sub_dir_name}"
 
-        mlflow.set_tag(
+        self.client.set_tag(
+            self.run_id,
             _LATEST_CHECKPOINT_ARTIFACT_TAG_KEY,
-            os.path.join(checkpoint_artifact_dir, checkpoint_model_filename)
+            os.path.join(checkpoint_artifact_dir, checkpoint_model_filename),
         )
 
-        mlflow.log_dict(
+        self.client.log_dict(
+            self.run_id,
             {**metric_dict, "epoch": current_epoch, "global_step": trainer.global_step},
             os.path.join(checkpoint_artifact_dir, checkpoint_metrics_filename)
         )
@@ -375,14 +386,20 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
         tmp_dir = create_tmp_dir()
         try:
             tmp_model_save_path = os.path.join(tmp_dir, checkpoint_model_filename)
-            trainer.save_checkpoint(tmp_model_save_path, weights_only=self.save_weights_only)
-
-            mlflow.log_artifact(tmp_model_save_path, checkpoint_artifact_dir)
+            self._save_checkpoint_rank_zero_only(
+                trainer,
+                tmp_model_save_path,
+            )
+            self.client.log_artifact(
+                self.run_id,
+                tmp_model_save_path, checkpoint_artifact_dir
+            )
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
         self.latest_checkpoint_timestamp = time.time()
 
+    @rank_zero_only
     def on_train_batch_end(
         self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", outputs, batch,
         batch_idx,
@@ -392,6 +409,7 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
         ):
             self._check_and_save_checkpoint_if_needed(trainer)
 
+    @rank_zero_only
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         if self.save_freq == "epoch":
             self._check_and_save_checkpoint_if_needed(trainer)
@@ -507,9 +525,11 @@ def patched_fit(original, self, *args, **kwargs):
             ]
 
         model_checkpoint = get_autologging_config(
-            mlflow.pytorch.FLAVOR_NAME, "model_checkpoint", True
+            mlflow.pytorch.FLAVOR_NAME, "checkpoint", True
         )
         if model_checkpoint:
+            from pytorch_lightning.callbacks import ModelCheckpoint
+            # __MLflowModelCheckpoint only supports pytorch-lightning >= 1.4.0
             if _pl_version >= Version("1.4.0"):
                 checkpoint_monitor = get_autologging_config(
                     mlflow.pytorch.FLAVOR_NAME, "checkpoint_monitor", "val_loss"
@@ -524,13 +544,14 @@ def patched_fit(original, self, *args, **kwargs):
                     mlflow.pytorch.FLAVOR_NAME, "checkpoint_save_weights_only", True
                 )
                 checkpoint_save_freq = get_autologging_config(
-                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_save_freq", None
+                    mlflow.pytorch.FLAVOR_NAME, "checkpoint_save_freq", "epoch"
                 )
 
-                # __MLflowModelCheckpoint only supports pytorch-lightning >= 1.4.0
                 if not any(isinstance(callbacks, __MLflowModelCheckpointCallback) for callbacks in self.callbacks):
                     self.callbacks += [
                         __MLflowModelCheckpointCallback(
+                            client=MlflowClient(tracking_uri),
+                            run_id=run_id,
                             monitor=checkpoint_monitor,
                             mode=checkpoint_mode,
                             save_best_only=checkpoint_save_best_only,
