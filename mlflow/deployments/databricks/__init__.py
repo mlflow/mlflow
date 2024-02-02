@@ -141,6 +141,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
             raise_on_status=False,
             retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
+            extra_headers={"X-Databricks-Endpoints-API-Client": "Databricks Deployment Client"},
             **call_kwargs,
         )
         augmented_raise_for_status(response)

@@ -79,6 +79,17 @@ def diviner_custom_env(tmp_path):
     return conda_env
 
 
+@pytest.fixture
+def diviner_groups(diviner_data):
+    groups = []
+    for i in [0, -1]:
+        key_entries = []
+        for value in diviner_data.df[diviner_data.key_columns].iloc[[i]].to_dict().values():
+            key_entries.append(list(value.values())[0])
+        groups.append(tuple(key_entries))
+    return groups
+
+
 def test_diviner_native_save_and_load(grouped_prophet, model_path):
     mlflow.diviner.save_model(diviner_model=grouped_prophet, path=model_path)
 
@@ -137,37 +148,27 @@ def test_diviner_pyfunc_invalid_config_raises(grouped_prophet, model_path):
         loaded_pyfunc_model.predict(bad_conf)
 
 
-def test_diviner_pyfunc_group_predict_prophet(grouped_prophet, model_path, diviner_data):
-    groups = []
-    for i in [0, -1]:
-        key_entries = []
-        for value in diviner_data.df[diviner_data.key_columns].iloc[[i]].to_dict().values():
-            key_entries.append(list(value.values())[0])
-        groups.append(tuple(key_entries))
-
+def test_diviner_pyfunc_group_predict_prophet(grouped_prophet, model_path, diviner_groups):
     mlflow.diviner.save_model(diviner_model=grouped_prophet, path=model_path)
     loaded_pyfunc_model = pyfunc.load_pyfunc(model_uri=model_path)
 
-    local_group_pred = grouped_prophet.predict_groups(groups=groups, horizon=10, frequency="D")
-    pyfunc_conf = pd.DataFrame({"groups": [groups], "horizon": 10, "frequency": "D"}, index=[0])
+    local_group_pred = grouped_prophet.predict_groups(
+        groups=diviner_groups, horizon=10, frequency="D"
+    )
+    pyfunc_conf = pd.DataFrame(
+        {"groups": [diviner_groups], "horizon": 10, "frequency": "D"}, index=[0]
+    )
     pyfunc_group_predict = loaded_pyfunc_model.predict(pyfunc_conf)
 
     pd.testing.assert_frame_equal(local_group_pred, pyfunc_group_predict)
 
 
-def test_diviner_pyfunc_group_predict_pmdarima(grouped_pmdarima, model_path, diviner_data):
-    groups = []
-    for i in [0, -1]:
-        key_entries = []
-        for value in diviner_data.df[diviner_data.key_columns].iloc[[i]].to_dict().values():
-            key_entries.append(list(value.values())[0])
-        groups.append(tuple(key_entries))
-
+def test_diviner_pyfunc_group_predict_pmdarima(grouped_pmdarima, model_path, diviner_groups):
     mlflow.diviner.save_model(diviner_model=grouped_pmdarima, path=model_path)
     loaded_pyfunc_model = pyfunc.load_pyfunc(model_uri=model_path)
 
     local_group_pred = grouped_pmdarima.predict_groups(
-        groups=groups,
+        groups=diviner_groups,
         n_periods=10,
         predict_col="prediction",
         alpha=0.1,
@@ -176,7 +177,7 @@ def test_diviner_pyfunc_group_predict_pmdarima(grouped_pmdarima, model_path, div
     )
     pyfunc_conf = pd.DataFrame(
         {
-            "groups": [groups],
+            "groups": [diviner_groups],
             "n_periods": 10,
             "predict_col": "prediction",
             "alpha": 0.1,
@@ -419,7 +420,7 @@ def test_pmdarima_pyfunc_serve_and_score(grouped_prophet):
     pd.testing.assert_frame_equal(local_predict, scores)
 
 
-def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_data):
+def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_groups):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.diviner.log_model(
@@ -428,16 +429,11 @@ def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_data):
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    groups = []
-    for i in [0, -1]:
-        key_entries = []
-        for value in diviner_data.df[diviner_data.key_columns].iloc[[i]].to_dict().values():
-            key_entries.append(list(value.values())[0])
-        groups.append(tuple(key_entries))
+    local_predict = grouped_prophet.predict_groups(groups=diviner_groups, horizon=10, frequency="W")
 
-    local_predict = grouped_prophet.predict_groups(groups=groups, horizon=10, frequency="W")
-
-    inference_data = pd.DataFrame({"groups": [groups], "horizon": 10, "frequency": "W"}, index=[0])
+    inference_data = pd.DataFrame(
+        {"groups": [diviner_groups], "horizon": 10, "frequency": "W"}, index=[0]
+    )
 
     from mlflow.deployments import PredictionsResponse
 

@@ -68,7 +68,7 @@ def test_tensor_spec():
     assert a1 != a4
     b1 = TensorSpec(np.dtype("float64"), (-1, 3, 3), "b")
     assert b1 != a1
-    with pytest.raises(TypeError, match="Expected `type` to be instance"):
+    with pytest.raises(TypeError, match="Expected `dtype` to be instance"):
         TensorSpec("Unsupported", (-1, 3, 3), "a")
     with pytest.raises(TypeError, match="Expected `shape` to be instance"):
         TensorSpec(np.dtype("float64"), np.array([-1, 2, 3]), "b")

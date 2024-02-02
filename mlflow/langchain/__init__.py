@@ -331,7 +331,7 @@ def log_model(
     Args:
         lc_model: A LangChain model, which could be a
             `Chain <https://python.langchain.com/docs/modules/chains/>`_,
-            `Agent <https://python.langchain.com/docs/modules/agents/>`, or
+            `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
             `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_.
         artifact_path: Run-relative artifact path.
         conda_env: {{ conda_env }}

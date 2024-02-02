@@ -157,8 +157,9 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             """
             Log loss and other metrics values after each train epoch
 
-            :param trainer: pytorch lightning trainer instance
-            :param pl_module: pytorch lightning base module
+            Args:
+                trainer: pytorch lightning trainer instance
+                pl_module: pytorch lightning base module
             """
             # If validation loop is enabled (meaning `validation_step` is overridden),
             # log metrics in `on_validaion_epoch_end` to avoid logging the same metrics
@@ -171,8 +172,9 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             """
             Log loss and other metrics values after each validation epoch
 
-            :param trainer: pytorch lightning trainer instance
-            :param pl_module: pytorch lightning base module
+            Args:
+                trainer: pytorch lightning trainer instance
+                pl_module: pytorch lightning base module
             """
             self._log_epoch_metrics(trainer, pl_module)
 
@@ -183,8 +185,9 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             """
             Log loss and other metrics values after each epoch
 
-            :param trainer: pytorch lightning trainer instance
-            :param pl_module: pytorch lightning base module
+            Args:
+                trainer: pytorch lightning trainer instance
+                pl_module: pytorch lightning base module
             """
             self._log_epoch_metrics(trainer, pl_module)
 
@@ -195,8 +198,9 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         """
         Log metric values after each step
 
-        :param trainer: pytorch lightning trainer instance
-        :param pl_module: pytorch lightning base module
+        Args:
+            trainer: pytorch lightning trainer instance
+            pl_module: pytorch lightning base module
         """
         if not self.log_every_n_step:
             return
@@ -221,8 +225,9 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         """
         Logs Optimizer related metrics when the train begins
 
-        :param trainer: pytorch lightning trainer instance
-        :param pl_module: pytorch lightning base module
+        Args:
+            trainer: pytorch lightning trainer instance
+            pl_module: pytorch lightning base module
         """
         self.client.set_tags(self.run_id, {"Mode": "training"})
 
@@ -255,8 +260,10 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         """
         Logs the model checkpoint into mlflow - models folder on the training end
 
-        :param trainer: pytorch lightning trainer instance
-        :param pl_module: pytorch lightning base module
+
+        Args:
+            trainer: pytorch lightning trainer instance
+            pl_module: pytorch lightning base module
         """
         # manually flush any remaining metadata from training
         self.metrics_logger.flush()
@@ -267,8 +274,9 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         """
         Logs accuracy and other relevant metrics on the testing end
 
-        :param trainer: pytorch lightning trainer instance
-        :param pl_module: pytorch lightning base module
+        Args:
+            trainer: pytorch lightning trainer instance
+            pl_module: pytorch lightning base module
         """
         self.client.set_tags(self.run_id, {"Mode": "testing"})
         self.client.flush(synchronous=True)
@@ -298,9 +306,10 @@ def _log_early_stop_params(early_stop_callback, client, run_id):
     """
     Logs early stopping configuration parameters to MLflow.
 
-    :param early_stop_callback: The early stopping callback instance used during training.
-    :param client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
-    :param run_id: The ID of the MLflow Run to which to log configuration parameters.
+    Args:
+        early_stop_callback: The early stopping callback instance used during training.
+        client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
+        run_id: The ID of the MLflow Run to which to log configuration parameters.
     """
     client.log_params(
         run_id,
@@ -316,9 +325,10 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
     """
     Logs early stopping behavior results (e.g. stopped epoch) as metrics to MLflow.
 
-    :param early_stop_callback: The early stopping callback instance used during training.
-    :param client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
-    :param run_id: The ID of the MLflow Run to which to log configuration parameters.
+    Args:
+        early_stop_callback: The early stopping callback instance used during training.
+        client: An `MlflowAutologgingQueueingClient` instance used for MLflow logging.
+        run_id: The ID of the MLflow Run to which to log configuration parameters.
     """
     if early_stop_callback.stopped_epoch == 0:
         return

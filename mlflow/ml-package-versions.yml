@@ -74,6 +74,30 @@ pytorch-lightning:
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py
 
+keras:
+  package_info:
+    pip_release: "keras"
+    install_dev: |
+      pip install --upgrade keras-nightly
+
+  models:
+    minimum: "3.0.2"
+    maximum: "3.0.2"
+    requirements:
+      ">= 3.0.0": ["jax[cpu]>0.4"]
+    run: |
+      export KERAS_BACKEND=jax
+      pytest tests/keras/test_callback.py
+
+  autologging:
+    minimum: "3.0.2"
+    maximum: "3.0.2"
+    requirements:
+      ">= 3.0.0": ["jax[cpu]>0.4"]
+    run: |
+      export KERAS_BACKEND=jax
+      pytest tests/keras/test_autolog.py
+
 tensorflow:
   package_info:
     pip_release: "tensorflow"
@@ -372,7 +396,9 @@ spark:
 
       # NB: Running each .py file individually is important (instead of
       # 'pytest tests/spark/autologging') not to share SparkSession across tests
-      find tests/spark/autologging -name 'test*.py' | xargs -L 1 pytest
+      # `test_spark_datasource_autologging_crossframework.py` fails when run with other tests
+      pytest tests/spark/autologging/datasource/test_spark_datasource_autologging_crossframework.py
+      find tests/spark/autologging -name 'test*.py' | grep -v crossframework | xargs -L 1 pytest
 
 mleap:
   package_info:

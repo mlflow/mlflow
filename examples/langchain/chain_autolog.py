@@ -8,6 +8,11 @@ from langchain.schema.runnable import RunnableLambda
 
 import mlflow
 
+# Uncomment the following to use the full abilities of langchain autologgin
+# %pip install `langchain_community>=0.0.16`
+# These two libraries enable autologging to log text analysis related artifacts
+# %pip install textstat spacy
+
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
 # Enable mlflow langchain autologging

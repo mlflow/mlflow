@@ -254,6 +254,89 @@ MLflow `langchain` flavor supports autologging of LangChain models, which provid
 - **Seamless Metrics Recording**: Autologging effortlessly captures metrics for evaluating generated texts, as well as key objects such as llms and agents employed during inference.
 - **Automated Input and Output Logging**: Autologging takes care of logging inputs and outputs of the LangChain model during inference. The recorded results are neatly organized into an inference_inputs_outputs.json file, providing a comprehensive overview of the model's inference history.
 
+.. note::
+    To use MLflow LangChain autologging, please upgrade langchain to **version 0.1.0** or higher.
+    Depending on your existing environment, you may need to manually install langchain_community>=0.0.16 in order to enable the automatic logging of artifacts and metrics. (this behavior will be modified in the future to be an optional import)
+    If autologging doesn't log artifacts as expected, please check the warning messages in `stdout` logs. 
+    For langchain_community==0.0.16, you will need to install the `textstat` and `spacy` libraries manually, as well as restarting any active interactive environment (i.e., a notebook environment). On Databricks, you can achieve this via executing `dbutils.library.restartPython()` to force the Python REPL to restart, allowing the newly installed libraries to be available.
+
+MLflow langchain autologging injects `MlflowCallbackHandler <https://github.com/langchain-ai/langchain/blob/master/libs/community/langchain_community/callbacks/mlflow_callback.py>`_ into the langchain model inference process to log
+metrics and artifacts automatically. We will only log the model if both `log_models` is set to `True` when calling :py:func:`mlflow.langchain.autolog` and the objects being invoked are within the supported model types: `Chain`, `AgentExecutor`, `BaseRetriever`, `RunnableSequence`, `RunnableParallel`, `RunnableBranch`, `SimpleChatModel`, `ChatPromptTemplate`,
+`RunnableLambda`, `RunnablePassthrough`. Additional model types will be supported in the future.
+
+.. note::
+    We patch `invoke` function for all supported langchain models, `__call__` function for Chains, AgentExecutors models, and `get_relevant_documents` function for BaseRetrievers, so only when those functions are called MLflow autologs metrics and artifacts.
+    If the model contains retrievers, we don't support autologging the model because it requires saving `loader_fn` and `persist_dir` in order to load the model. Please log the model manually if you want to log the model with retrievers.
+
+The following metrics and artifacts are logged by default (depending on the models involved):
+
+Artifacts:
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | Artifact name                                 | Explanation                                                               |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | table_action_records.html                     | Each action's details, including chains, tools, llms, agents, retrievers. |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | table_session_analysis.html                   | Details about prompt and output for each prompt step; token usages;       |
+  |                                               | text analysis metrics                                                     |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | chat_html.html                                | LLM input and output details                                              |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | llm_start_x_prompt_y.json                     | Includes prompt and kwargs passed during llm `generate` call              |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | llm_end_x_generation_y.json                   | Includes llm_output of the LLM result                                     |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | ent-<hash string of generation.text>.html     | Visualization of the generation text using spacy "en_core_web_sm" model   |
+  |                                               | with style ent (if spacy is installed and the model is downloaded)        | 
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | dep-<hash string of generation.text>.html     | Visualization of the generation text using spacy "en_core_web_sm" model   |
+  |                                               | with style dep (if spacy is installed and the model is downloaded)        |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | llm_new_tokens_x.json                         | Records new tokens added to the LLM during inference                      |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | chain_start_x.json                            | Records the inputs and chain related information during inference         |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | chain_end_x.json                              | Records the chain outputs                                                 |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | tool_start_x.json                             | Records the tool's name, descriptions information during inference        |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | tool_end_x.json                               | Records observation of the tool                                           |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | retriever_start_x.json                        | Records the retriever's information during inference                      |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | retriever_end_x.json                          | Records the retriever's result documents                                  |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | agent_finish_x.json                           | Records final return value of the ActionAgent, including output and log   |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | agent_action_x.json                           | Records the ActionAgent's action details                                  |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | on_text_x.json                                | Records the text during inference                                         |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | inference_inputs_outputs.json                 | Input and output details for each inference call (logged by default, can  |
+  |                                               | be turned off by setting `log_inputs_outputs=False` when turn on autolog) |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+
+Metrics:
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | Metric types                                  | Details                                                                   |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | Basic Metrics                                 | step, starts, ends, errors, text_ctr, chain_starts, chain_ends, llm_starts|
+  |                                               | llm_ends, llm_streams, tool_starts, tool_ends, agent_ends, retriever_ends |
+  |                                               | retriever_starts (they're the count number of each component invocation)  |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+  | Text Analysis Metrics                         | flesch_reading_ease, flesch_kincaid_grade, smog_index, coleman_liau_index |
+  |                                               | automated_readability_index, dale_chall_readability_score,                |
+  |                                               | difficult_words, linsear_write_formula, gunning_fog, fernandez_huerta,    |
+  |                                               | szigriszt_pazos, gutierrez_polini, crawford, gulpease_index, osman        |
+  |                                               | (they're the text analysis metrics of the generation text if `textstat`   |
+  |                                               | library is installed)                                                     |
+  +-----------------------------------------------+---------------------------------------------------------------------------+
+
+.. note::
+    Each inference call logs those artifacts into a separate directory named `artifacts-<session_id>-<idx>`, where `session_id` is randomly generated uuid, and `idx` is the index of the inference call.
+    `session_id` is also preserved in the `inference_inputs_outputs.json` file, so you can easily find the corresponding artifacts for each inference call.
+
+If you encounter any issues unexpected, please feel free to open an issue in `MLflow Github repo <https://github.com/mlflow/mlflow/issues>`_.
+
 An example of MLflow langchain autologging
 """"""""""""""""""""""""""""""""""""""""""
 
