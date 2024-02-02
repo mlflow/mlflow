@@ -24,6 +24,11 @@ from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
 _logger = logging.getLogger(__name__)
+_BUCKET_REGION = "BucketRegion"
+_RESPONSE_METADATA = "ResponseMetadata"
+_HTTP_HEADERS = "HTTPHeaders"
+_HTTP_HEADER_BUCKET_REGION = "x-amz-bucket-region"
+_BUCKET_LOCATION_NAME = "BucketLocationName"
 
 
 class OptimizedS3ArtifactRepository(CloudArtifactRepository):
@@ -66,13 +71,25 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         )
         try:
             head_bucket_resp = temp_client.head_bucket(Bucket=self.bucket)
-            if "BucketLocationName" in head_bucket_resp:
-                _logger.info("Directory bucket found with BucketLocationName %s", head_bucket_resp["BucketLocationName"])
-            else:
-                _logger.info("Non-directory bucket found with response %s", str(head_bucket_resp))
-            return temp_client.head_bucket(Bucket=self.bucket)["BucketRegion"]
+            if _BUCKET_REGION in head_bucket_resp:
+                return head_bucket_resp[_BUCKET_REGION]
+            if (
+                _RESPONSE_METADATA in head_bucket_resp
+                and _HTTP_HEADERS in head_bucket_resp[_RESPONSE_METADATA]
+                and _HTTP_HEADER_BUCKET_REGION
+                in head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS]
+            ):
+                return head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS][
+                    _HTTP_HEADER_BUCKET_REGION
+                ]
+            if _BUCKET_LOCATION_NAME in head_bucket_resp:
+                _logger.warning(
+                    f"Directory bucket {self.bucket} found with BucketLocationName "
+                    f"{head_bucket_resp[_BUCKET_LOCATION_NAME]}."
+                )
+            raise Exception(f"Unable to get the region name for bucket {self.bucket}.")
         except ClientError as error:
-            return error.response["ResponseMetadata"]["HTTPHeaders"]["x-amz-bucket-region"]
+            return error.response[_RESPONSE_METADATA][_HTTP_HEADERS][_HTTP_HEADER_BUCKET_REGION]
 
     def _get_s3_client(self):
         return _get_s3_client(
