@@ -14,7 +14,6 @@ import re
 import shutil
 import string
 import sys
-from functools import lru_cache
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
@@ -1049,7 +1048,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         if _TORCH_DTYPE_KEY in kwargs:
             dtype_val = kwargs[_TORCH_DTYPE_KEY]
         else:
-            dtype_val = _deserialize_torch_dtype_if_exists(flavor_config)
+            dtype_val = _deserialize_torch_dtype(flavor_config[_TORCH_DTYPE_KEY])
         conf[_TORCH_DTYPE_KEY] = dtype_val
         accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
 
@@ -1089,20 +1088,13 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         return conf
 
 
-@lru_cache
-def _torch_dype_mapping():
+def _deserialize_torch_dtype(dtype_str: str):
     """
-    Memoized torch data type mapping from the torch primary datatypes for use in deserializing the
-    saved pipeline parameter `torch_dtype`
+    Convert the string-encoded `torch_dtype` pipeline argument back to the correct `torch.dtype`
+    instance value for applying to a loaded pipeline instance.
     """
     try:
         import torch
-
-        return {
-            str(dtype): dtype
-            for name, dtype in torch.__dict__.items()
-            if isinstance(dtype, torch.dtype)
-        }
     except ImportError as e:
         raise MlflowException(
             "Unable to determine if the value supplied by the argument "
@@ -1110,14 +1102,17 @@ def _torch_dype_mapping():
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
+    if dtype_str.startswith("torch."):
+        dtype_str = dtype_str[6:]
 
-def _deserialize_torch_dtype_if_exists(flavor_config):
-    """
-    Convert the string-encoded `torch_dtype` pipeline argument back to the correct `torch.dtype`
-    instance value for applying to a loaded pipeline instance.
-    """
+    dtype = getattr(torch, dtype_str, None)
+    if isinstance(dtype, torch.dtype):
+        return dtype
 
-    return _torch_dype_mapping()[flavor_config["torch_dtype"]]
+    raise MlflowException(
+        f"The value '{dtype_str}' is not a valid torch.dtype",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 def _fetch_model_card(model_name):
@@ -1328,6 +1323,8 @@ def _generate_base_flavor_configuration(
 
     # Extract a serialized representation of torch_dtype if provided
     if torch_dtype := _extract_torch_dtype_if_set(pipeline):
+        # Convert the torch dtype and back to standardize the string representation
+        torch_dtype = str(_deserialize_torch_dtype(torch_dtype))
         flavor_configuration[_TORCH_DTYPE_KEY] = torch_dtype
 
     return flavor_configuration
@@ -1342,7 +1339,7 @@ def _get_scalar_argument_from_pipeline(pipeline, arg_key):
     return getattr(pipeline, arg_key, None)
 
 
-def _extract_torch_dtype_if_set(pipeline):
+def _extract_torch_dtype_if_set(pipeline) -> str:
     """
     Extract the torch datatype argument if set and return as a string encoded value.
     """
@@ -1357,11 +1354,7 @@ def _extract_torch_dtype_if_set(pipeline):
 
     # Some model doesn't populate dtype in its config, then we try extract it from parameters.
     if hasattr(model, "parameters"):
-        try:
-            first_param = next(model.parameters())
-        except StopIteration:
-            return None
-
+        first_param = next(model.parameters(), None)
         if torch_dtype := getattr(first_param, "dtype", None):
             return str(torch_dtype)
 

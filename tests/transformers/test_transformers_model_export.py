@@ -73,6 +73,7 @@ from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API, flaky
 
 transformers_version = Version(transformers.__version__)
 _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
+_IS_PIPELINE_DTYPE_SUPPORTED_VERSION = Version(transformers.__version__) >= Version("4.26.1")
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
 # default runner containers specs of 7GB RAM. Due to this inability to run the suite without
@@ -2820,9 +2821,7 @@ def test_signature_inference(pipeline_name, data, result, request):
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
 )
 @pytest.mark.skipcacheclean
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_extraction_of_torch_dtype_from_pipeline(dtype):
     pipe = transformers.pipeline(
@@ -2839,9 +2838,6 @@ def test_extraction_of_torch_dtype_from_pipeline(dtype):
 
 
 @pytest.mark.skipcacheclean
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
 @flaky()
 def test_extraction_of_torch_dtype_from_underlying_model_config():
     model = transformers.T5ForConditionalGeneration.from_pretrained(
@@ -2855,8 +2851,9 @@ def test_extraction_of_torch_dtype_from_underlying_model_config():
         framework="pt",
     )
 
-    # Pipeline doesn't inherit underlying model's dtype
-    assert pipe.torch_dtype is None
+    # Pipeline doesn't inherit model's dtype (or doesn't have dtype attribute prior to 4.26.1)
+    if _IS_PIPELINE_DTYPE_SUPPORTED_VERSION:
+        assert pipe.torch_dtype is None
 
     parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
     assert parsed == str(torch.float16)
@@ -2866,9 +2863,7 @@ def test_extraction_of_torch_dtype_from_underlying_model_config():
     "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.float]
 )
 @pytest.mark.skipcacheclean
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 def test_extraction_of_torch_dtype_from_components(dtype, model_path):
     components = {
         "model": transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
@@ -2885,24 +2880,59 @@ def test_extraction_of_torch_dtype_from_components(dtype, model_path):
 
 
 @pytest.mark.parametrize(
-    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
+    ("dtype", "expected"),
+    [
+        ("torch.float16", torch.float16),
+        ("torch.bfloat16", torch.bfloat16),
+        ("torch.float32", torch.float32),
+        ("torch.float64", torch.float64),
+        ("torch.int32", torch.int32),
+        ("torch.int64", torch.int64),
+        ("float16", torch.float16),
+        ("bfloat16", torch.bfloat16),
+        ("float32", torch.float32),
+        ("float64", torch.float64),
+        ("int32", torch.int32),
+        ("int64", torch.int64),
+        ("float", torch.float32),
+        ("double", torch.float64),
+        ("int", torch.int32),
+    ],
 )
 @pytest.mark.skipcacheclean
-def test_deserialization_of_configuration_torch_dtype_entry(dtype):
-    flavor_config = {"torch_dtype": str(dtype), "framework": "pt"}
-
-    parsed = mlflow.transformers._deserialize_torch_dtype_if_exists(flavor_config)
+def test_deserialize_torch_dtype(dtype, expected):
+    parsed = mlflow.transformers._deserialize_torch_dtype(dtype)
     assert isinstance(parsed, torch.dtype)
-    assert parsed == dtype
+    assert parsed == expected
+
+
+@pytest.mark.skipcacheclean
+@mock.patch.dict("sys.modules", {"torch": None})
+def test_deserialize_torch_dtype_torch_not_installed_raise():
+    with pytest.raises(MlflowException, match="Unable to determine if the value"):
+        mlflow.transformers._deserialize_torch_dtype("torch.float16")
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        "torch.float128",
+        "torch.",
+        "numpy.float32",
+        "string",
+    ],
+)
+@pytest.mark.skipcacheclean
+def test_deserialize_torch_dtype_invalid_value(dtype):
+    with pytest.raises(MlflowException, match="The value '"):
+        mlflow.transformers._deserialize_torch_dtype(dtype)
 
 
 @pytest.mark.parametrize(
     "dtype", [torch.bfloat16, torch.float16, torch.float64, torch.float, torch.cfloat]
 )
 @pytest.mark.skipcacheclean
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_extraction_of_base_flavor_config(dtype):
     task = "translation_en_to_fr"
@@ -2937,9 +2967,7 @@ def test_extraction_of_base_flavor_config(dtype):
 
 
 @pytest.mark.skipcacheclean
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
     task = "translation_en_to_fr"
@@ -2977,9 +3005,7 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64])
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
-)
+@pytest.mark.skipif(not _IS_PIPELINE_DTYPE_SUPPORTED_VERSION, reason="Feature does not exist")
 @flaky()
 def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
     task = "translation_en_to_fr"
