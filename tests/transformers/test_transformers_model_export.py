@@ -37,7 +37,6 @@ from mlflow.transformers import (
     _MODEL_PATH_OR_NAME_KEY,
     _PIPELINE_MODEL_TYPE_KEY,
     _TASK_KEY,
-    _TORCH_DTYPE_KEY,
     _build_pipeline_from_model_input,
     _fetch_model_card,
     _generate_base_flavor_configuration,
@@ -252,7 +251,6 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         _PIPELINE_MODEL_TYPE_KEY: "MobileBertForQuestionAnswering",
         _MODEL_PATH_OR_NAME_KEY: "csarron/mobilebert-uncased-squad-v2",
         _FRAMEWORK_KEY: "pt",
-        _TORCH_DTYPE_KEY: "torch.float32",
     }
     seq_conf_infer_task = _generate_base_flavor_configuration(
         small_seq2seq_pipeline, _get_or_infer_task_type(small_seq2seq_pipeline)[0]
@@ -2834,12 +2832,12 @@ def test_extraction_of_torch_dtype_from_pipeline(dtype):
 
     parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
 
-    assert parsed == str(dtype)
+    assert parsed == dtype
 
 
 @pytest.mark.skipcacheclean
 @flaky()
-def test_extraction_of_torch_dtype_from_underlying_model_config():
+def test_extraction_of_torch_dtype_from_model():
     model = transformers.T5ForConditionalGeneration.from_pretrained(
         "t5-small", torch_dtype=torch.float16
     )
@@ -2855,8 +2853,57 @@ def test_extraction_of_torch_dtype_from_underlying_model_config():
     if _IS_PIPELINE_DTYPE_SUPPORTED_VERSION:
         assert pipe.torch_dtype is None
 
+    # If Pytorch is not installed, return None
+    with mock.patch.dict("sys.modules", {"torch": None}):
+        parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+        assert parsed is None
+
+    # Extract it from model config if available
+    model.config.torch_dtype = torch.bfloat16
     parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
-    assert parsed == str(torch.float16)
+    assert parsed == torch.bfloat16
+
+    # Extract it from param if model config is not available
+    model.config.torch_dtype = None
+    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+    assert parsed == torch.float16
+
+
+@pytest.mark.skipcacheclean
+@flaky()
+def test_extraction_of_torch_dtype_returns_none_if_default():
+    model = transformers.T5ForConditionalGeneration.from_pretrained("t5-small")
+    assert model.dtype == torch.float32
+    assert model.config.torch_dtype is None
+
+    pipe = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=model,
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+    )
+
+    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+    assert parsed is None
+
+
+@pytest.mark.skipcacheclean
+@flaky()
+def test_extraction_of_torch_dtype_return_none_when_pytorch_is_not_installed():
+    model = transformers.T5ForConditionalGeneration.from_pretrained(
+        "t5-small", torch_dtype=torch.float16
+    )
+    tokenizer = transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100)
+    pipe = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=model,
+        tokenizer=tokenizer,
+        framework="pt",
+    )
+
+    with mock.patch.dict("sys.modules", {"torch": None}):
+        parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+        assert parsed is None
 
 
 @pytest.mark.parametrize(
