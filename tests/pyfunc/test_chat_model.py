@@ -5,6 +5,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.chat_model import _ChatModelPyfuncWrapper
 from mlflow.types.llm import (
     CHAT_MODEL_INPUT_SCHEMA,
@@ -13,6 +14,7 @@ from mlflow.types.llm import (
     ChatParams,
     ChatResponse,
 )
+from mlflow.types.schema import ColSpec, DataType, Schema
 
 from tests.helper_functions import expect_status_code, pyfunc_serve_and_score_model
 
@@ -66,6 +68,20 @@ def test_chat_model_save_load(tmp_path):
     output_schema = loaded_model.metadata.get_output_schema()
     assert input_schema == CHAT_MODEL_INPUT_SCHEMA
     assert output_schema == CHAT_MODEL_OUTPUT_SCHEMA
+
+
+def test_chat_model_save_throws_with_signature(tmp_path):
+    model = TestChatModel()
+
+    with pytest.raises(MlflowException, match="Please remove the `signature` parameter"):
+        mlflow.pyfunc.save_model(
+            python_model=model,
+            path=tmp_path,
+            signature=ModelSignature(
+                Schema([ColSpec(name="test", type=DataType.string)]),
+                Schema([ColSpec(name="test", type=DataType.string)]),
+            ),
+        )
 
 
 @pytest.mark.parametrize(

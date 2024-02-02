@@ -2001,6 +2001,13 @@ def save_model(
 
     hints = None
     if signature is not None:
+        if isinstance(python_model, ChatModel):
+            raise MlflowException(
+                "ChatModel subclasses have a standard signature that is set "
+                "automatically. Please remove the `signature` parameter from "
+                "the call to log_model() or save_model().",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         mlflow_model.signature = signature
     elif python_model is not None:
         if callable(python_model):

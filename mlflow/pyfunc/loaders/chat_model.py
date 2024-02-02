@@ -1,9 +1,11 @@
 from typing import Any, Dict, Optional
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
 )
-from mlflow.types.llm import ChatMessage, ChatParams, ChatRequest, ChatResponse
+from mlflow.types.llm import ChatMessage, ChatParams, ChatResponse
 from mlflow.utils.annotations import experimental
 
 
@@ -39,7 +41,9 @@ class _ChatModelPyfuncWrapper:
 
         return messages, params
 
-    def predict(self, model_input: ChatRequest, params: Optional[Dict[str, Any]] = None):
+    def predict(
+        self, model_input: Dict[str, Any], params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Args:
             model_input: Model input data in the form of a chat request.
@@ -59,4 +63,8 @@ class _ChatModelPyfuncWrapper:
         # shouldn't happen since there is validation at save time ensuring that
         # the model returns a ChatResponse. however, just in case, return the
         # response as-is
-        return response
+        raise MlflowException(
+            "Model returned an invalid response. Expected a ChatResponse, but "
+            f"got {type(response)} instead.",
+            error_code=INTERNAL_ERROR,
+        )
