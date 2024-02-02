@@ -72,7 +72,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         try:
             head_bucket_resp = temp_client.head_bucket(Bucket=self.bucket)
             if _BUCKET_REGION in head_bucket_resp:
-                _logger.info("Found the bucket region.")
                 return head_bucket_resp[_BUCKET_REGION]
             if (
                 _RESPONSE_METADATA in head_bucket_resp
@@ -80,7 +79,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 and _HTTP_HEADER_BUCKET_REGION
                 in head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS]
             ):
-                _logger.info("No bucket region found, but the http headers were found.  Using those.")
                 return head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS][
                     _HTTP_HEADER_BUCKET_REGION
                 ]
