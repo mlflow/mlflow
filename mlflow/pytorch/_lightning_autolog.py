@@ -386,6 +386,12 @@ class __MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstra
         tmp_dir = create_tmp_dir()
         try:
             tmp_model_save_path = os.path.join(tmp_dir, checkpoint_model_filename)
+            # Note: `trainer.save_checkpoint` implementation contains invocation of
+            # `self.strategy.barrier("Trainer.save_checkpoint")`,
+            # in DDP training, this callback is only invoked in rank 0 process,
+            # the `barrier` invocation causes deadlock,
+            # so I implementent `_save_checkpoint_rank_zero_only` instead of
+            # `trainer.save_checkpoint`.
             self._save_checkpoint_rank_zero_only(
                 trainer,
                 tmp_model_save_path,
