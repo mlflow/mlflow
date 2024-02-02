@@ -43,6 +43,88 @@ Tracking is the cornerstone of the MLflow ecosystem, and especially vital for th
 - **APIs**: Interact with the tracking system programmatically, integrating deep learning workflows seamlessly.
 
 
+.. |chart-comparison| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Simplify DL run comparison through charts</h4>
+                <p>When comparing the convergence during iterative DL model training, charts can be used to quickly estimate 
+                which sets of configurations are performing better throughout training iterations for DL models.</p>
+            </div>
+            <img src="../_static/images/deep-learning/dl-run-selection.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+        </div>
+
+.. |chart-customization| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Customize Charts for DL models</h4>
+                <p>Add, modify, or remove charts when comparing DL training runs to simplify the process of determining effective 
+                parameter settings for DL models. Visualize each iteration's optimization metrics in a single unified chart.</p>
+            </div>
+            <img src="../_static/images/deep-learning/dl-run-navigation.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+        </div>
+
+.. |run-comparison| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Compare any or all parameters to any metric</h4>
+                <p>View the relationships amongst parameters and see how to narrow down a set of tuning parameters that works 
+                best for your modeling project from a unified UI.</p>
+            </div>
+            <img src="../_static/images/deep-learning/dl-run-comparison.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+        </div>
+
+.. |parameter-evaluation| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Statistical comparison of categorical parameters</h4>
+                <p>When evaluating between categorical parameter values, employing boxplot visualizations can help to make 
+                an informed decision of the performance of specific settings during training, shortening the time required 
+                to arrive at an effective configuration for hyperparameter tuning.</p>
+            </div>
+            <img src="../_static/images/deep-learning/dl-box-plot.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+        </div>
+
+.. |realtime-tracking| raw:: html
+
+        <div class="tracking-responsive-tab-panel">
+            <div>
+                <h4>Realtime tracking while training</h4>
+                <p>When iteratively training over epochs, the MLflow UI will automatically update, keeping track of the 
+                results of long-running DL training tasks. You can track the results and determine if your most recent 
+                hypothesis is on the right track without having to constantly refresh your screen.</p>
+            </div>
+            <img src="../_static/images/deep-learning/dl-tracking.gif" style="width: 90%; height: auto; object-fit: cover;"/>
+        </div>
+
+.. container:: tracking-responsive-tabs
+
+    .. tabs::
+
+        .. tab:: Chart Comparison
+
+            |chart-comparison|
+        
+        .. tab:: Chart Customization
+
+            |chart-customization|
+
+        .. tab:: Run Comparison
+
+            |run-comparison|
+ 
+        .. tab:: Statistical Evaluation
+
+            |parameter-evaluation|
+
+        .. tab:: Realtime Tracking
+            
+            |realtime-tracking|
+        
+
 Model Registry
 ^^^^^^^^^^^^^^
 A centralized repository for your deep learning models:
