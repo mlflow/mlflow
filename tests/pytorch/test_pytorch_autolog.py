@@ -466,6 +466,10 @@ def test_autolog_registering_model():
         assert registered_model.name == registered_model_name
 
 
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
 def test_model_checkpoint_callback():
 
     class FakeTrainer:
@@ -747,6 +751,10 @@ def test_model_checkpoint_callback():
         save_chekpoint_mock.reset_mock()
 
 
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.6.0"),
+    reason="`Automatic model checkpointing doesn't exist in pytorch-lightning < 1.6.0",
+)
 def test_automatic_model_checkpoint():
     mlflow.pytorch.autolog(
         checkpoint=True,
