@@ -97,13 +97,13 @@ def test_dataclass_constructs_nested_types_from_dict():
     assert isinstance(response.choices[0].message, ChatMessage)
 
 
-def to_dict_converts_nested_dataclasses():
+def test_to_dict_converts_nested_dataclasses():
     response = ChatResponse(**MOCK_RESPONSE).to_dict()
-    assert not isinstance(response["choices"][0], ChatChoice)
-    assert not isinstance(response["usage"], TokenUsageStats)
-    assert not isinstance(response["choices"][0]["message"], ChatMessage)
+    assert isinstance(response["choices"][0], dict)
+    assert isinstance(response["usage"], dict)
+    assert isinstance(response["choices"][0]["message"], dict)
 
 
-def to_dict_excludes_nones():
+def test_to_dict_excludes_nones():
     response = ChatResponse(**MOCK_RESPONSE).to_dict()
-    assert response["choices"][0]["message"]["name"] is None
+    assert "name" not in response["choices"][0]["message"]

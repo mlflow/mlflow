@@ -57,14 +57,13 @@ class _ChatModelPyfuncWrapper:
         messages, params = self._convert_input(model_input)
         response = self.chat_model.predict(self.context, messages, params)
 
-        if isinstance(response, ChatResponse):
-            return response.to_dict()
+        if not isinstance(response, ChatResponse):
+            # shouldn't happen since there is validation at save time ensuring that
+            # the output is a ChatResponse, so raise an exception if it isn't
+            raise MlflowException(
+                "Model returned an invalid response. Expected a ChatResponse, but "
+                f"got {type(response)} instead.",
+                error_code=INTERNAL_ERROR,
+            )
 
-        # shouldn't happen since there is validation at save time ensuring that
-        # the model returns a ChatResponse. however, just in case, return the
-        # response as-is
-        raise MlflowException(
-            "Model returned an invalid response. Expected a ChatResponse, but "
-            f"got {type(response)} instead.",
-            error_code=INTERNAL_ERROR,
-        )
+        return response.to_dict()
