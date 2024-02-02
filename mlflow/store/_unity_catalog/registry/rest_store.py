@@ -461,15 +461,6 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return run.data.tags.get(MLFLOW_DATABRICKS_JOB_RUN_ID, None)
 
-    def _truncate_input_sources(self, run):
-        num_input_sources = len(run.inputs.dataset_inputs)
-        if num_input_sources > _MAX_LINEAGE_DATA_SOURCES:
-            _logger.warning(
-                f"Truncating the number of lineage input sources from "
-                f"{str(num_input_sources)} to 10."
-            )
-        return run.inputs.dataset_inputs[0:_MAX_LINEAGE_DATA_SOURCES]
-
     def _get_lineage_input_sources(self, run):
         if run is None:
             return None
@@ -490,8 +481,9 @@ class UcModelRegistryStore(BaseRestStore):
                         securable_list.append(Securable(table=table_entity))
             if len(securable_list) > _MAX_LINEAGE_DATA_SOURCES:
                 _logger.warning(
-                    f"Truncating the number of lineage input sources from "
-                    f"{str(len(securable_list))} to 10."
+                    f"Model version has {str(len(securable_list))} upstream datasets, which "
+                    f"exceeds the max of 10 upstream datasets for lineage tracking. Only "
+                    f"the first 10 datasets will be propagated to Unity Catalog lineage"
                 )
             return securable_list[0:_MAX_LINEAGE_DATA_SOURCES]
         else:
