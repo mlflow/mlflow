@@ -481,7 +481,7 @@ class UcModelRegistryStore(BaseRestStore):
                         securable_list.append(Securable(table=table_entity))
             if len(securable_list) > _MAX_LINEAGE_DATA_SOURCES:
                 _logger.warning(
-                    f"Model version has {str(len(securable_list))} upstream datasets, which "
+                    f"Model version has {len(securable_list)!s} upstream datasets, which "
                     f"exceeds the max of 10 upstream datasets for lineage tracking. Only "
                     f"the first 10 datasets will be propagated to Unity Catalog lineage"
                 )
