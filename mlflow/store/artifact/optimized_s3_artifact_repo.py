@@ -71,8 +71,13 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         )
         try:
             head_bucket_resp = temp_client.head_bucket(Bucket=self.bucket)
+            # A normal response will have the region in the Bucket_Region field of the response
             if _BUCKET_REGION in head_bucket_resp:
                 return head_bucket_resp[_BUCKET_REGION]
+            # If the bucket exists but the caller does not have permissions, the http headers
+            # are passed back as part of the metadata of a normal, non-throwing response.  In
+            # this case we use the x-amz-bucket-region field of the HTTP headers which should
+            # always be populated with the region.
             if (
                 _RESPONSE_METADATA in head_bucket_resp
                 and _HTTP_HEADERS in head_bucket_resp[_RESPONSE_METADATA]
@@ -82,6 +87,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 return head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS][
                     _HTTP_HEADER_BUCKET_REGION
                 ]
+            # Directory buckets do not have a Bucket_Region and instead have a
+            # Bucket_Location_Name.  This name cannot be used as the region name
+            # however, so we warn that this has happened and allow the exception
+            # at the end to be raised.
             if _BUCKET_LOCATION_NAME in head_bucket_resp:
                 _logger.warning(
                     f"Directory bucket {self.bucket} found with BucketLocationName "
@@ -89,7 +98,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 )
             raise Exception(f"Unable to get the region name for bucket {self.bucket}.")
         except ClientError as error:
-            _logger.info("Client error caught and getting region from the headers.")
+            # If a client error occurs, we check to see if the x-amz-bucket-region field is set
+            # in the response and return that.  If it is not present, this will raise due to the
+            # key not being present.
             return error.response[_RESPONSE_METADATA][_HTTP_HEADERS][_HTTP_HEADER_BUCKET_REGION]
 
     def _get_s3_client(self):
