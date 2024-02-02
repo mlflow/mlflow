@@ -372,6 +372,7 @@ spark:
 
       # NB: Running each .py file individually is important (instead of
       # 'pytest tests/spark/autologging') not to share SparkSession across tests
+      # `test_spark_datasource_autologging_crossframework.py` fails when run with other tests
       pytest tests/spark/autologging/datasource/test_spark_datasource_autologging_crossframework.py
       find tests/spark/autologging -name 'test*.py' | grep -v crossframework | xargs -L 1 pytest
 
