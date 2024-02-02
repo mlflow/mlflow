@@ -462,10 +462,8 @@ class PyFuncModel:
                      contains a signature with tensor spec inputs, the corresponding column values
                      in the pandas DataFrame will be reshaped to the required shape with 'C' order
                      (i.e. read / write the elements using C-like index order), and DataFrame
-                     column values will be cast as the required tensor spec type. If data is of `pyspark.sql.DataFrame`
-                     type then schema enforcement is only supported with certain data types. See `Model
-                     Signature Enforcement <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_
-                     for more details."
+                     column values will be cast as the required tensor spec type. For Pyspark DataFrame inputs,
+                     MLflow will only enforce the schema on a subset of the data rows.
 
         :param params: Additional parameters to pass to the model for inference.
 

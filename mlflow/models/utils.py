@@ -853,9 +853,8 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
     For column-based signatures, we make sure the types of the input match the type specified in
     the schema or if it can be safely converted to match the input schema.
 
-    For Pyspark DataFrame inputs, schema enforcement does not support Array and Object types.
-    During schema enforcement, MLflow casts a sample of the PySpark DataFrame into a Pandas
-    DataFrame.
+    For Pyspark DataFrame inputs, MLflow casts a sample of the PySpark DataFrame into a Pandas
+    DataFrame. MLflow will only enforce the schema on a subset of the data rows.
 
     For tensor-based signatures, we make sure the shape and type of the input matches the shape
     and type specified in model's input schema.
