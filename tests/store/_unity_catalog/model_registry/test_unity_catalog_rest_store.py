@@ -1013,7 +1013,7 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
 
 
 @pytest.mark.parametrize(
-    "num_inputs, expected_truncation_size",
+    ("num_inputs", "expected_truncation_size"),
     [
         (1, 1),
         (10, 10),
