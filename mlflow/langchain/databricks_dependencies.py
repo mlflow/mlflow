@@ -79,30 +79,36 @@ def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[st
     The logic here does not cover all legacy chains. If you need to support a custom chain,
     you need to monkey patch this function.
     """
+    if lc_model is None:
+        return dependency_dict
 
+    # leaf node
+    dependency_dict = _extract_databricks_dependencies_from_chat_model(lc_model, dependency_dict)
+    dependency_dict = _extract_databricks_dependencies_from_retriever(lc_model, dependency_dict)
+    dependency_dict = _extract_databricks_dependencies_from_llm(lc_model, dependency_dict)
+
+    # recursively inspect legacy chain
     if hasattr(lc_model, "retriever"):
-        dependency_dict = _extract_databricks_dependencies_from_retriever(
+        dependency_dict = _extract_dependency_dict_from_lc_model(
             lc_model.retriever, dependency_dict
         )
-
     if hasattr(
         lc_model, "llm_chain"
     ):  # StuffDocumentsChain, MapRerankDocumentsChain, MapReduceDocumentsChain
-        dependency_dict = _extract_databricks_dependencies_from_llm(
+        dependency_dict = _extract_dependency_dict_from_lc_model(
             lc_model.llm_chain.llm, dependency_dict
         )
     if hasattr(lc_model, "question_generator"):  # BaseConversationalRetrievalChain
-        dependency_dict = _extract_databricks_dependencies_from_llm(
+        dependency_dict = _extract_dependency_dict_from_lc_model(
             lc_model.question_generator.llm, dependency_dict
         )
-
     if hasattr(lc_model, "initial_llm_chain") and hasattr(
         lc_model, "refine_llm_chain"
     ):  # RefineDocumentsChain
-        dependency_dict = _extract_databricks_dependencies_from_llm(
+        dependency_dict = _extract_dependency_dict_from_lc_model(
             lc_model.initial_llm_chain.llm, dependency_dict
         )
-        dependency_dict = _extract_databricks_dependencies_from_llm(
+        dependency_dict = _extract_dependency_dict_from_lc_model(
             lc_model.refine_llm_chain.llm, dependency_dict
         )
 
@@ -114,7 +120,6 @@ def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[st
         dependency_dict = _extract_dependency_dict_from_lc_model(
             lc_model.combine_docs_chain, dependency_dict
         )
-
     if (
         hasattr(lc_model, "collapse_documents_chain")
         and lc_model.collapse_documents_chain is not None
@@ -123,10 +128,6 @@ def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[st
             lc_model.collapse_documents_chain, dependency_dict
         )
 
-    if hasattr(lc_model, "chat_model"):
-        dependency_dict = _extract_databricks_dependencies_from_chat_model(
-            lc_model.chat_model, dependency_dict
-        )
     return dependency_dict
 
 
