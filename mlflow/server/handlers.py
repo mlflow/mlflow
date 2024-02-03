@@ -88,7 +88,6 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
 )
-from mlflow.server.graphql.graphql_schema_extensions import schema
 from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -1961,6 +1960,8 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
 
 @catch_mlflow_exception
 def _graphql():
+    from mlflow.server.graphql.graphql_schema_extensions import schema
+
     # Extracting the query, variables, and operationName from the request
     request_json = _get_request_json()
     query = request_json.get("query")

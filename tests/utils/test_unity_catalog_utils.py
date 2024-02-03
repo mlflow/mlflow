@@ -21,7 +21,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
-from mlflow.store._unity_catalog.registry.utils import (
+from mlflow.utils._unity_catalog_utils import (
     model_version_from_uc_proto,
     registered_model_from_uc_proto,
 )
