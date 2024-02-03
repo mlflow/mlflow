@@ -72,7 +72,8 @@ following parameters:
 
           predict(
             model_input: [pandas.DataFrame, numpy.ndarray,
-            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]], pyspark.sql.DataFrame
+            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]],
+            pyspark.sql.DataFrame
           ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List | pyspark.sql.DataFrame]
 
 - code [optional]:
@@ -472,8 +473,9 @@ class PyFuncModel:
                      contains a signature with tensor spec inputs, the corresponding column values
                      in the pandas DataFrame will be reshaped to the required shape with 'C' order
                      (i.e. read / write the elements using C-like index order), and DataFrame
-                     column values will be cast as the required tensor spec type. For Pyspark DataFrame inputs,
-                     MLflow will only enforce the schema on a subset of the data rows.
+                     column values will be cast as the required tensor spec type. For Pyspark
+                     DataFrame inputs, MLflow will only enforce the schema on a subset
+                     of the data rows.
 
         :param params: Additional parameters to pass to the model for inference.
 
@@ -506,7 +508,8 @@ class PyFuncModel:
             _log_warning_if_params_not_in_predict_signature(_logger, params)
             if HAS_PYSPARK and isinstance(data, SparkDataFrame):
                 _logger.warning(
-                    "Input data is a Spark DataFrame. Note that behaviour for Spark DataFrames is model dependent."
+                    "Input data is a Spark DataFrame. Note that behaviour for "
+                    "Spark DataFrames is model dependent."
                 )
             return self._predict_fn(data)
 
