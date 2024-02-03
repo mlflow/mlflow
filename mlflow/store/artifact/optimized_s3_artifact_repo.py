@@ -116,6 +116,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             return error.response[_RESPONSE_METADATA][_HTTP_HEADERS][_HTTP_HEADER_BUCKET_REGION]
 
     def _get_s3_client(self):
+        _logger.warning(f"getting the s3 client with region {self._region_name}")
         return _get_s3_client(
             addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,
