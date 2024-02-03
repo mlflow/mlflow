@@ -1,10 +1,24 @@
+import logging
 from typing import Any, Dict, Optional
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_managed_catalog_messages_pb2 import (
+    GetTable,
+    GetTableResponse,
+)
+from mlflow.protos.databricks_managed_catalog_service_pb2 import UnityCatalogService
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils._unity_catalog_utils import get_full_name_from_sc
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import get_databricks_host_creds, is_in_databricks_runtime
+from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import (
+    _REST_API_PATH_PREFIX,
+    call_endpoint,
+    extract_api_info_for_service,
+)
 
 DATABRICKS_HIVE_METASTORE_NAME = "hive_metastore"
 # these two catalog names both points to the workspace local default HMS (hive metastore).
@@ -12,6 +26,8 @@ DATABRICKS_LOCAL_METASTORE_NAMES = [DATABRICKS_HIVE_METASTORE_NAME, "spark_catal
 # samples catalog is managed by databricks for hosting public dataset like NYC taxi dataset.
 # it is neither a UC nor local metastore catalog
 DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
+
+_logger = logging.getLogger(__name__)
 
 
 @experimental
@@ -25,6 +41,7 @@ class DeltaDatasetSource(DatasetSource):
         path: Optional[str] = None,
         delta_table_name: Optional[str] = None,
         delta_table_version: Optional[int] = None,
+        delta_table_id: Optional[str] = None,
     ):
         if (path, delta_table_name).count(None) != 1:
             raise MlflowException(
@@ -32,8 +49,14 @@ class DeltaDatasetSource(DatasetSource):
                 INVALID_PARAMETER_VALUE,
             )
         self._path = path
-        self._delta_table_name = delta_table_name
+        if delta_table_name is not None:
+            self._delta_table_name = get_full_name_from_sc(
+                delta_table_name, _get_active_spark_session()
+            )
+        else:
+            self._delta_table_name = delta_table_name
         self._delta_table_version = delta_table_version
+        self._delta_table_id = delta_table_id
 
     @staticmethod
     def _get_source_type() -> str:
@@ -68,6 +91,10 @@ class DeltaDatasetSource(DatasetSource):
         return self._delta_table_name
 
     @property
+    def delta_table_id(self) -> Optional[str]:
+        return self._delta_table_id
+
+    @property
     def delta_table_version(self) -> Optional[int]:
         return self._delta_table_version
 
@@ -87,6 +114,30 @@ class DeltaDatasetSource(DatasetSource):
                 catalog_name not in DATABRICKS_LOCAL_METASTORE_NAMES
                 and catalog_name != DATABRICKS_SAMPLES_CATALOG_NAME
             )
+        else:
+            return False
+
+    def _lookup_table_id(self, table_name):
+        try:
+            req_body = message_to_json(GetTable(full_name_arg=table_name))
+            _METHOD_TO_INFO = extract_api_info_for_service(
+                UnityCatalogService, _REST_API_PATH_PREFIX
+            )
+            db_creds = get_databricks_host_creds()
+            endpoint, method = _METHOD_TO_INFO[GetTable]
+            # We need to replace the full_name_arg in the endpoint definition with
+            # the actual table name for the REST API to work.
+            final_endpoint = endpoint.replace("{full_name_arg}", table_name)
+            resp = call_endpoint(
+                host_creds=db_creds,
+                endpoint=final_endpoint,
+                method=method,
+                json_body=req_body,
+                response_proto=GetTableResponse,
+            )
+            return resp.table_id
+        except Exception:
+            return None
 
     def _to_dict(self) -> Dict[Any, Any]:
         info = {}
@@ -98,6 +149,10 @@ class DeltaDatasetSource(DatasetSource):
             info["delta_table_version"] = self._delta_table_version
         if self._is_databricks_uc_table():
             info["is_databricks_uc_table"] = True
+            if self._delta_table_id:
+                info["delta_table_id"] = self._delta_table_id
+            else:
+                info["delta_table_id"] = self._lookup_table_id(self._delta_table_name)
         return info
 
     @classmethod
@@ -106,4 +161,5 @@ class DeltaDatasetSource(DatasetSource):
             path=source_dict.get("path"),
             delta_table_name=source_dict.get("delta_table_name"),
             delta_table_version=source_dict.get("delta_table_version"),
+            delta_table_id=source_dict.get("delta_table_id"),
         )

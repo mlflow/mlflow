@@ -6,14 +6,18 @@ from unittest import mock
 import pytest
 from click.testing import CliRunner
 
+import docker
 import mlflow
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.sagemaker.cli import build_and_push_container
 
-from tests.pyfunc.test_docker import assert_dockerfiles_equal
+from tests.pyfunc.docker.test_docker import assert_dockerfiles_equal
 
 _MLFLOW_ROOT = Path(mlflow.__file__).parent.parent
 _RESOURCE_DIR = os.path.join(_MLFLOW_ROOT, "tests", "resources", "dockerfile")
+_TEST_IMAGE_NAME = "test-sagemaker-image"
+
+_docker_client = docker.from_env()
 
 
 @pytest.mark.parametrize("env_manager", ["conda", "virtualenv"])
@@ -36,6 +40,8 @@ def test_build_and_push_container(tmp_path, env_manager):
                 ".",
                 "--env-manager",
                 env_manager,
+                "--container",
+                _TEST_IMAGE_NAME,
             ],
             catch_exceptions=False,
         )
@@ -44,3 +50,6 @@ def test_build_and_push_container(tmp_path, env_manager):
     actual = dst_dir / "Dockerfile"
     expected = Path(_RESOURCE_DIR) / f"Dockerfile_sagemaker_{env_manager}"
     assert_dockerfiles_equal(actual, expected)
+
+    # Clean up generated image
+    _docker_client.images.remove(_TEST_IMAGE_NAME, force=True)

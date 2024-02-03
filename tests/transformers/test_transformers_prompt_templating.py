@@ -167,17 +167,42 @@ def test_prompt_formatting(saved_transformers_model_path):
 
 
 # test that prompt is used in pyfunc predict
-def test_prompt_used_in_predict(saved_transformers_model_path):
-    model = mlflow.pyfunc.load_model(saved_transformers_model_path)
+@pytest.mark.parametrize(
+    ("task", "pipeline_fixture", "output_key"),
+    [
+        ("feature-extraction", "feature_extraction_pipeline", None),
+        ("fill-mask", "fill_mask_pipeline", "token_str"),
+        ("summarization", "summarizer_pipeline", "summary_text"),
+        ("text2text-generation", "text2text_generation_pipeline", "generated_text"),
+        ("text-generation", "text_generation_pipeline", "generated_text"),
+    ],
+)
+def test_prompt_used_in_predict(task, pipeline_fixture, output_key, request, tmp_path):
+    pipeline = request.getfixturevalue(pipeline_fixture)
+
+    model_path = tmp_path / "model"
+    mlflow.transformers.save_model(
+        transformers_model=pipeline,
+        path=model_path,
+        prompt_template=TEST_PROMPT_TEMPLATE,
+    )
+
+    model = mlflow.pyfunc.load_model(model_path)
     prompt = "What is MLflow?"
     formatted_prompt = TEST_PROMPT_TEMPLATE.format(prompt=prompt)
     mock_response = "MLflow be a tool fer machine lernin'"
-    mock_return = [[{"generated_text": formatted_prompt + mock_response}]]
+    mock_return = [[{output_key: formatted_prompt + mock_response}]]
 
     model._model_impl.pipeline = MagicMock(
-        spec=model._model_impl.pipeline, task="text-generation", return_value=mock_return
+        spec=model._model_impl.pipeline, task=task, return_value=mock_return
     )
 
     model.predict(prompt)
+
     # check that the underlying pipeline was called with the formatted prompt template
-    model._model_impl.pipeline.assert_called_once_with([formatted_prompt], return_full_text=False)
+    if task == "text-generation":
+        model._model_impl.pipeline.assert_called_once_with(
+            [formatted_prompt], return_full_text=False
+        )
+    else:
+        model._model_impl.pipeline.assert_called_once_with([formatted_prompt])
