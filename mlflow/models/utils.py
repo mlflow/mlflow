@@ -1002,7 +1002,7 @@ def _enforce_pyspark_dataframe_schema(
     for col, dtype in new_pf_input.dtypes:
         if col not in input_names:
             # to support backwards compatability with feature store models
-            if "array" in dtype or "map" in dtype or 'struct' in dtype:
+            if "array" in dtype or "map" in dtype or "struct" in dtype:
                 if flavor == _FEATURE_STORE_FLAVOR:
                     _logger.warning(
                         f"Column '{col}' is not in the model signature but will not be dropped for"
