@@ -483,7 +483,7 @@ class PyFuncModel:
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
-        flavor = self._model_meta.flavors[FLAVOR_NAME][MAIN]
+        flavor = self.loader_module
         if input_schema is not None:
             try:
                 data = _enforce_schema(data, input_schema, flavor)
@@ -596,6 +596,14 @@ class PyFuncModel:
     def model_config(self):
         """Model's flavor configuration"""
         return self._model_meta.flavors[FLAVOR_NAME].get(MODEL_CONFIG, {})
+
+    @experimental
+    @property
+    def loader_module(self):
+        """Model's flavor configuration"""
+        if self._model_meta.flavors.get(FLAVOR_NAME) is None:
+            return None
+        return self._model_meta.flavors[FLAVOR_NAME].get(MAIN)
 
     def __repr__(self):
         info = {}
