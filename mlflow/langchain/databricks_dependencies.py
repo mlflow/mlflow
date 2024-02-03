@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Set
+from typing import Dict, Set
 
 _DATABRICKS_DEPENDENCY_KEY = "databricks_dependency"
 _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY = "databricks_vector_search_index_name"
@@ -74,6 +74,12 @@ def _extract_databricks_dependencies_from_chat_model(chat_model, dependency_dict
 
 
 def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[str, str]:
+    """
+    This function contains the logic to examine a non-Runnable component of a langchain model.
+    The logic here does not cover all legacy chains. If you need to support a custom chain,
+    you need to monkey patch this function.
+    """
+
     if hasattr(lc_model, "retriever"):
         dependency_dict = _extract_databricks_dependencies_from_retriever(
             lc_model.retriever, dependency_dict
@@ -127,6 +133,13 @@ def _extract_dependency_dict_from_lc_model(lc_model, dependency_dict) -> Dict[st
 def _traverse_runnable(
     lc_model, dependency_dict: Dict[str, str], visited: Set[str]
 ) -> (Dict[str, str], Set[str]):
+    """
+    This function contains the logic to traverse a langchain_core.runnables.RunnableSerializable
+    object. It first inspects the current object using _extract_dependency_dict_from_lc_model
+    and then, if the current object is a Runnable, it recursively inspects its children returned
+    by lc_model.get_graph().nodes.values().
+    This function supports arbitrary LCEL chain.
+    """
     import langchain_core
 
     current_object_id = id(lc_model)
@@ -147,26 +160,25 @@ def _traverse_runnable(
     return dependency_dict, visited
 
 
-def _detect_databricks_dependencies(lc_model, visited: Optional[Set[str]] = None) -> Dict[str, str]:
+def _detect_databricks_dependencies(lc_model) -> Dict[str, str]:
     """
     Detects the databricks dependencies of a langchain model and returns a dictionary of
     detected endpoint names and index names.
 
     lc_model can be an arbirary [chain that is built with LCEL](https://python.langchain.com
     /docs/modules/chains#lcel-chains), which is a langchain_core.runnables.RunnableSerializable.
-    If a [legacy chain constructed by subclassing from a legacy Chain
-    class](https://python.langchain.com/docs/modules/chains#legacy-chains) is also a
-    langchain_core.runnables.RunnableSerializable, it is also supported.
+    [Legacy chains](https://python.langchain.com/docs/modules/chains#legacy-chains) have limited
+    support. Only RetrievalQA, StuffDocumentsChain, ReduceDocumentsChain, RefineDocumentsChain,
+    MapRerankDocumentsChain, MapReduceDocumentsChain, BaseConversationalRetrievalChain are
+    supported. If you need to support a custom chain, you need to monkey patch
+    the function mlflow.langchain.databricks_dependencies._extract_dependency_dict_from_lc_model().
 
     For an LCEL chain, all the langchain_core.runnables.RunnableSerializable nodes will be
     traversed.
 
     If a retriever is found, it will be used to extract the databricks vector search and embeddings
-    dependencies. If an llm is found, it will be used to extract the databricks llm dependencies.
+    dependencies.
+    If an llm is found, it will be used to extract the databricks llm dependencies.
     If a chat_model is found, it will be used to extract the databricks chat dependencies.
     """
-    if visited is None:
-        visited = set()
-    dependency_dict = {}
-    visited = set()
-    return _traverse_runnable(lc_model, dependency_dict, visited)[0]
+    return _traverse_runnable(lc_model, {}, set())[0]
