@@ -73,10 +73,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             head_bucket_resp = temp_client.head_bucket(Bucket=self.bucket)
             # A normal response will have the region in the Bucket_Region field of the response
             if _BUCKET_REGION in head_bucket_resp:
-                _logger.warning(
-                    f"Normal response from boto for {self.bucket} found with BucketRegion "
-                    f"{head_bucket_resp[_BUCKET_REGION]}."
-                )
                 return head_bucket_resp[_BUCKET_REGION]
             # If the bucket exists but the caller does not have permissions, the http headers
             # are passed back as part of the metadata of a normal, non-throwing response.  In
@@ -88,10 +84,6 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 and _HTTP_HEADER_BUCKET_REGION
                 in head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS]
             ):
-                _logger.warning(
-                    f"Abnormal response from boto for {self.bucket} found with specified HTTP header of  "
-                    f"{head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS][_HTTP_HEADER_BUCKET_REGION]}."
-                )
                 return head_bucket_resp[_RESPONSE_METADATA][_HTTP_HEADERS][
                     _HTTP_HEADER_BUCKET_REGION
                 ]
@@ -109,14 +101,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             # If a client error occurs, we check to see if the x-amz-bucket-region field is set
             # in the response and return that.  If it is not present, this will raise due to the
             # key not being present.
-            _logger.warning(
-                f"Exception response from boto for {self.bucket} found with response "
-                f"{str(error.response)}."
-            )
             return error.response[_RESPONSE_METADATA][_HTTP_HEADERS][_HTTP_HEADER_BUCKET_REGION]
 
     def _get_s3_client(self):
-        _logger.warning(f"getting the s3 client with region {self._region_name}")
         return _get_s3_client(
             addressing_style=self._addressing_style,
             access_key_id=self._access_key_id,
