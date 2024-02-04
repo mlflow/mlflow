@@ -75,7 +75,7 @@ gateway-api-docs:
 # Builds only the RST-based documentation (i.e., everything but Java & R docs)
 .PHONY: rsthtml
 rsthtml: gateway-api-docs
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html -T
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 	@echo "Use 'make view' to preview docs."
