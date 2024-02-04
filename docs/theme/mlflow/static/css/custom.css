@@ -494,7 +494,6 @@ table > colgroup:first-child {
 .wy-menu-vertical li.current a,
 .wy-menu-vertical li.current > a {
   color: #000;
-  font-weight: normal !important;
   padding: 6px 30px !important;
   font-size: 1em;
   line-height: 1.25em;
