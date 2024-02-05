@@ -46,6 +46,8 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 FLAVOR_NAME = "sentence_transformers"
 SENTENCE_TRANSFORMERS_DATA_PATH = "model.sentence_transformer"
 _INFERENCE_CONFIG_PATH = "inference_config"
+_LLM_INFERENCE_TASK_EMBEDDING = "llm/v1/embeddings"
+INPUT_KEY = "input"
 
 _logger = logging.getLogger(__name__)
 
@@ -76,11 +78,30 @@ def get_default_conda_env():
 
 
 @experimental
+def verify_and_update_task(task: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    if task not in [_LLM_INFERENCE_TASK_EMBEDDING]:
+        raise MlflowException.invalid_parameter_value(
+            f"Received invalid parameter value for `task` argument {task}. Task type could "
+            f"only be {_LLM_INFERENCE_TASK_EMBEDDING}"
+        )
+    if metadata is None:
+        metadata = {}
+    if "task" in metadata.keys() and metadata["task"] != task:
+        raise MlflowException.invalid_parameter_value(
+            f"Received invalid parameter value for `task` argument {task}. Task type is "
+            f"inconsistent with the task value from metadata {metadata['task']}"
+        )
+    metadata["task"] = task
+    return metadata
+
+
+@experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
     path: str,
+    task: Optional[str] = None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     mlflow_model: Optional[Model] = None,
@@ -97,6 +118,8 @@ def save_model(
     Args:
         model: A trained ``sentence-transformers`` model.
         path: Local path destination for the serialized model to be saved.
+        task: task type for ``sentence-transformers`` model. Candidate task type is
+        `llm/v1/embeddings`.
         inference_config:
             A dict of valid inference parameters that can be applied to a ``sentence-transformer``
             model instance during inference.
@@ -123,7 +146,6 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
 
@@ -155,6 +177,8 @@ def save_model(
         _save_example(mlflow_model, input_example, str(path))
     if metadata is not None:
         mlflow_model.metadata = metadata
+    if task is not None:
+        mlflow_model.metadata = verify_and_update_task(task, mlflow_model.metadata)
 
     model.save(str(model_data_path))
 
@@ -208,6 +232,7 @@ def save_model(
 def log_model(
     model,
     artifact_path: str,
+    task: Optional[str] = None,
     inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     registered_model_name: Optional[str] = None,
@@ -246,10 +271,11 @@ def log_model(
             )
 
 
-
     Args:
         model: A trained ``sentence-transformers`` model.
         artifact_path: Local path destination for the serialized model to be saved.
+        task: task type for ``sentence-transformers`` model. Candidate task type is
+        `llm/v1/embeddings`.
         inference_config:
             A dict of valid overrides that can be applied to a ``sentence-transformer`` model
             instance during inference.
@@ -278,11 +304,12 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
-
     """
+    if task is not None:
+        metadata = verify_and_update_task(task, metadata)
+
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.sentence_transformers,
@@ -382,18 +409,63 @@ class _SentenceTransformerModelWrapper:
         Returns
             Model predictions.
         """
-        # When the input is a single string, it is transformed into a DataFrame with one column
-        # and row, but the encode function does not accept DataFrame input
+        # When the input is a single string or a dictionary, it is transformed into a DataFrame with one column
+        # and row. When the input is, but the encode function does not accept DataFrame input
+        convert_output = False
         if type(sentences) == pd.DataFrame:
-            sentences = sentences[0]
+            # Wrap the output to OpenAI format only when the input is dict `{"input": ... }`
+            if list(sentences.columns)[0] == "input":
+                convert_output = True
+            sentences = sentences.iloc[0, 0]
+            if type(sentences) == str:
+                sentences = [sentences]
 
         # The encode API has additional parameters that we can add as kwargs.
         # See https://www.sbert.net/docs/package_reference/SentenceTransformer.html#sentence_transformers.SentenceTransformer.encode
         if params:
             try:
-                return self.model.encode(sentences, **params)
+                output_data = self.model.encode(sentences, **params)
             except TypeError as e:
                 raise MlflowException.invalid_parameter_value(
                     "Received invalid parameter value for `params` argument"
                 ) from e
-        return self.model.encode(sentences)
+        else:
+            output_data = self.model.encode(sentences)
+
+        if convert_output:
+            output_data = self.postprocess_output_for_embedding_task(sentences, output_data)
+        return output_data
+
+    def postprocess_output_for_embedding_task(self, data: Union[str, List[str]], output_tensers: List[List[int]]):
+        """
+        Wrap output data with usage information.
+        :param data: text input prompts
+        :param output_tensers: List of output tensors that contain the generated embeddings
+        :return: Dictionaries containing the output embedding and usage information for each input prompt.
+        """
+        output_dict = {"object": "list"}
+        output_data = []
+        for idx, output_tensor in enumerate(output_tensers):
+            print(idx)
+            embedding_dict = {
+                "object": "embedding",
+                "index": idx,
+                "embedding": output_tensor,
+            }
+            output_data.append(embedding_dict)
+        output_dict["data"] = output_data
+
+        prompt_tokens = 0
+        for input_data in data:
+            print(data)
+            inputs = self.model.tokenizer(input_data)
+            prompt_tokens += len(inputs["input_ids"])
+        output_dict["usage"] = {
+            "prompt_tokens": prompt_tokens,
+            "total_tokens": prompt_tokens
+        }
+        return output_dict
+
+
+
+

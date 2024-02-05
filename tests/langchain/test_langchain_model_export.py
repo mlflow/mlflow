@@ -1881,11 +1881,7 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
 
     # Verify that messages aren't converted to LangChain format if role / content are missing
     # or extra keys are present in the message
-    assert pyfunc_loaded_model.predict(
-        {
-            "messages": [{"content": "blah"}],
-        }
-    ) == [
+    assert pyfunc_loaded_model.predict({"messages": [{"content": "blah"}],}) == [
         {"content": "blah"},
     ]
     assert pyfunc_loaded_model.predict(
