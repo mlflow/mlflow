@@ -7,6 +7,7 @@ import binascii
 import contextlib
 import copy
 import functools
+import importlib
 import json
 import logging
 import os
@@ -18,11 +19,6 @@ import sys
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
-from mlflow.transformers.signature import (
-    format_input_example_for_special_cases,
-    infer_or_get_default_signature,
-    _generate_signature_output,
-)
 
 import numpy as np
 import pandas as pd
@@ -43,7 +39,6 @@ from mlflow.models import (
     Model,
     ModelInputExample,
     ModelSignature,
-    infer_pip_requirements,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
@@ -59,7 +54,6 @@ from mlflow.transformers.llm_inference_utils import (
     _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
     postprocess_output_for_llm_inference_task,
 )
-from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -82,6 +76,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
     _validate_env_arguments,
+    infer_pip_requirements,
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
@@ -94,9 +89,20 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
+IS_TRANSFORMERS_AVAILABLE = importlib.util.find_spec("transformers") is not None
+
+# The following modules depends on transformers and only imported when it is available
+if IS_TRANSFORMERS_AVAILABLE:
+    from mlflow.transformers.signature import (
+        _generate_signature_output,
+        format_input_example_for_special_cases,
+        infer_or_get_default_signature,
+    )
+
 # The following import is only used for type hinting
 if TYPE_CHECKING:
     import torch
+
 
 FLAVOR_NAME = "transformers"
 
@@ -578,6 +584,8 @@ def save_model(
     # consisting exclusively of a Model and a Tokenizer.
     if _should_add_pyfunc_to_model(built_pipeline):
         if mlflow_model.signature is None:
+            # Signature inference involves model prediction if input_example is given.
+            # Setting a reasonable timeout so that prediction does not hang indefinitely.
             mlflow_model.signature = infer_or_get_default_signature(
                 pipeline=built_pipeline,
                 example=input_example,

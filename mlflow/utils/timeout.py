@@ -1,11 +1,12 @@
-from contextlib import contextmanager
 import signal
+from contextlib import contextmanager
 
 from mlflow.utils.process import _IS_UNIX
 
 
 class MLflowTimeoutError(Exception):
     pass
+
 
 @contextmanager
 def run_with_timeout(seconds):
