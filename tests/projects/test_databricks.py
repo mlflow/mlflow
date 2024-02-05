@@ -6,7 +6,7 @@ from unittest import mock
 
 import databricks_cli
 import pytest
-from databricks_cli.configure.provider import DatabricksConfig
+from mlflow.utils._legacy_databricks_cli_utils import DatabricksConfig
 
 import mlflow
 from mlflow import MlflowClient, cli
@@ -437,9 +437,9 @@ class MockProfileConfigProvider:
 
 
 @mock.patch("requests.Session.request")
-@mock.patch("databricks_cli.configure.provider.get_config")
+@mock.patch("mlflow.utils._legacy_databricks_cli_utils.get_config")
 @mock.patch.object(
-    databricks_cli.configure.provider, "ProfileConfigProvider", MockProfileConfigProvider
+    mlflow.utils._legacy_databricks_cli_utils, "ProfileConfigProvider", MockProfileConfigProvider
 )
 def test_databricks_http_request_integration(get_config, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""

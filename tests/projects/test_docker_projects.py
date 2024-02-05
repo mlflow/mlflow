@@ -2,7 +2,7 @@ import os
 from unittest import mock
 
 import pytest
-from databricks_cli.configure.provider import DatabricksConfig
+from mlflow.utils._legacy_databricks_cli_utils import DatabricksConfig
 
 import docker
 import mlflow
@@ -107,7 +107,7 @@ def test_docker_project_execution_async_docker_args(
         ("databricks://some-profile", "-e MLFLOW_TRACKING_URI=databricks "),
     ],
 )
-@mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
+@mock.patch("mlflow.utils._legacy_databricks_cli_utils.ProfileConfigProvider")
 def test_docker_project_tracking_uri_propagation(
     ProfileConfigProvider,
     tmp_path,
@@ -200,7 +200,7 @@ def test_docker_mount_local_artifact_uri(
     assert (docker_volume_expected in " ".join(docker_command)) == should_mount
 
 
-@mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
+@mock.patch("mlflow.utils._legacy_databricks_cli_utils.ProfileConfigProvider")
 def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = DatabricksConfig.from_password(

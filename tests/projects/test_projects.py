@@ -8,7 +8,7 @@ from unittest import mock
 import git
 import pytest
 import yaml
-from databricks_cli.configure.provider import DatabricksConfig
+from mlflow.utils._legacy_databricks_cli_utils import DatabricksConfig
 
 import mlflow
 from mlflow import MlflowClient
@@ -500,7 +500,7 @@ def test_parse_kubernetes_config_invalid_template_job_file():
 
 
 @pytest.mark.parametrize("synchronous", [True, False])
-@mock.patch("databricks_cli.configure.provider.get_config")
+@mock.patch("mlflow.utils._legacy_databricks_cli_utils.get_config")
 def test_credential_propagation(get_config, synchronous):
     class DummyProcess:
         def wait(self):
