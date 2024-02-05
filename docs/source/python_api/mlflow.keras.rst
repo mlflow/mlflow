@@ -9,6 +9,7 @@ mlflow.keras
 .. automodule:: mlflow.keras.callback
     :members:
     :undoc-members:
+    :show-inheritance:
 
 .. automodule:: mlflow.keras.load
     :members:
