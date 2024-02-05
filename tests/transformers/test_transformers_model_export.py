@@ -3965,3 +3965,25 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
     assert output_dict["text"] is not None
     assert output_dict["finish_reason"] == "stop"
     assert output_dict["usage"]["prompt_tokens"] < 20
+
+
+def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipeline):
+    model_config = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+    }
+    # Params will be used to override the values of model_config but should not mutate it
+    params = {
+        "top_k": 3,
+        "max_length": 50,
+    }
+
+    pyfunc_model = _TransformersWrapper(text2text_generation_pipeline, model_config=model_config)
+    assert pyfunc_model.model_config["top_k"] == 2
+
+    pyfunc_model.predict("How to learn Python in 3 weeks?", params=params)
+
+    assert pyfunc_model.model_config["top_k"] == 2
+    assert pyfunc_model.model_config["num_beams"] == 5
+    assert pyfunc_model.model_config["max_length"] == 30
