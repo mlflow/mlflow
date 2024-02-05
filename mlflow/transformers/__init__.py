@@ -1851,7 +1851,7 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
         flavor_config=flavor_config,
         model_config=model_config,
     )
-    pyfunc_model.predict(data, params=params)
+    return pyfunc_model.predict(data, params=params)
 
 
 class _TransformersWrapper:
