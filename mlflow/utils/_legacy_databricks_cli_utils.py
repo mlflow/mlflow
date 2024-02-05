@@ -7,8 +7,7 @@ from abc import abstractmethod, ABCMeta
 from configparser import ConfigParser
 import os
 from os.path import expanduser, join
-
-from databricks_cli.utils import InvalidConfigurationError
+import sys
 
 
 _home = expanduser('~')
@@ -24,6 +23,20 @@ DEFAULT_SECTION = 'DEFAULT'
 
 # User-provided override for the DatabricksConfigProvider
 _config_provider = None
+
+
+class InvalidConfigurationError(RuntimeError):
+    @staticmethod
+    def for_profile(profile):
+        if profile is None:
+            return InvalidConfigurationError(
+                'You haven\'t configured the CLI yet! '
+                'Please configure by entering `{} configure`'.format(sys.argv[0]))
+        return InvalidConfigurationError(
+            ('You haven\'t configured the CLI yet for the profile {profile}! '
+             'Please configure by entering '
+             '`{argv} configure --profile {profile}`').format(
+                profile=profile, argv=sys.argv[0]))
 
 
 def _get_path():
