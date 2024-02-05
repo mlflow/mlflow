@@ -72,6 +72,8 @@ def _combine_input_and_output(input, output, session_id, func_name):
     """
     if func_name == "get_relevant_documents" and output is not None:
         output = [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in output]
+        # to make sure output is inside a single row when converted into pandas DataFrame
+        output = [output]
     result = {"session_id": [session_id]}
     input = _convert_data_to_dict(input, "input") if input else {}
     output = _convert_data_to_dict(output, "output") if output else {}
