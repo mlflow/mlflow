@@ -3,7 +3,7 @@
 # dev/generate_requirements.py script to regenerate this file.
 
 pydantic<3,>=1.0
-fastapi<1
+fastapi<1,!=0.109.2
 uvicorn[standard]<1
 watchfiles<1
 aiohttp<4

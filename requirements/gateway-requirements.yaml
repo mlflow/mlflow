@@ -11,6 +11,7 @@ pydantic:
 fastapi:
   pip_release: fastapi
   max_major_version: 0
+  unsupported: ["0.109.2"]
 
 uvicorn:
   pip_release: uvicorn
