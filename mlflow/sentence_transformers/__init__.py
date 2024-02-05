@@ -436,7 +436,9 @@ class _SentenceTransformerModelWrapper:
             output_data = self.postprocess_output_for_embedding_task(sentences, output_data)
         return output_data
 
-    def postprocess_output_for_embedding_task(self, data: Union[str, List[str]], output_tensers: List[List[int]]):
+    def postprocess_output_for_embedding_task(
+        self, data: Union[str, List[str]], output_tensers: List[List[int]]
+    ):
         """
         Wrap output data with usage information.
         :param data: text input prompts
@@ -460,12 +462,5 @@ class _SentenceTransformerModelWrapper:
             print(data)
             inputs = self.model.tokenizer(input_data)
             prompt_tokens += len(inputs["input_ids"])
-        output_dict["usage"] = {
-            "prompt_tokens": prompt_tokens,
-            "total_tokens": prompt_tokens
-        }
+        output_dict["usage"] = {"prompt_tokens": prompt_tokens, "total_tokens": prompt_tokens}
         return output_dict
-
-
-
-

@@ -492,7 +492,9 @@ def test_verify_and_update_task():
 
     # Update embedding task with metadata containing different task
     metadata = {"task": "llm/v1/completions"}
-    with pytest.raises(MlflowException, match=r"Task type is inconsistent with the task value from metadata"):
+    with pytest.raises(
+        MlflowException, match=r"Task type is inconsistent with the task value from metadata"
+    ):
         mlflow.sentence_transformers.verify_and_update_task("llm/v1/embeddings", metadata)
 
     # Invalid task type
@@ -514,7 +516,7 @@ def test_model_pyfunc_with_dict_input(basic_model, model_path):
     assert isinstance(emb_single_input, dict)
     assert len(emb_single_input["data"]) == 1
     assert isinstance(emb_single_input["data"][0], dict)
-    assert emb_single_input["data"][0]["embedding"].shape == (embedding_dim, )
+    assert emb_single_input["data"][0]["embedding"].shape == (embedding_dim,)
     assert emb_single_input["usage"]["prompt_tokens"] == 8
 
     multiple_input = {"input": sentences}
@@ -522,5 +524,5 @@ def test_model_pyfunc_with_dict_input(basic_model, model_path):
 
     assert isinstance(emb_multiple_input, dict)
     assert len(emb_multiple_input["data"]) == 3
-    assert emb_multiple_input["data"][0]["embedding"].shape == (embedding_dim, )
+    assert emb_multiple_input["data"][0]["embedding"].shape == (embedding_dim,)
     assert emb_multiple_input["usage"]["prompt_tokens"] == 19
