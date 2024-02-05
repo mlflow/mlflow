@@ -19,44 +19,51 @@ import pytest
 import requests
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_RUN_SLOW_TESTS
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 
-from tests.catboost.test_catboost_model_export import reg_model  # noqa: F401
-from tests.diviner.test_diviner_model_export import (  # noqa: F401
-    diviner_data,
-    diviner_groups,
-    grouped_prophet,
-)
-from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw  # noqa: F401
-from tests.h2o.test_h2o_model_export import h2o_iris_model  # noqa: F401
-from tests.helper_functions import get_safe_port
-from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
-from tests.lightgbm.test_lightgbm_model_export import lgb_model  # noqa: F401
-from tests.models.test_model import iris_data, sklearn_knn_model  # noqa: F401
-from tests.paddle.test_paddle_model_export import pd_model  # noqa: F401
-from tests.pmdarima.test_pmdarima_model_export import (  # noqa: F401
-    auto_arima_object_model,
-    test_data,
-)
-from tests.prophet.test_prophet_model_export import prophet_model as prophet_raw_model  # noqa: F401
-from tests.pyfunc.docker.conftest import (
-    MLFLOW_ROOT,
-    TEST_IMAGE_NAME,
-    docker_client,
-    save_model_with_latest_mlflow_version,
-)
-from tests.spacy.test_spacy_model_export import spacy_model_with_data  # noqa: F401
-from tests.spark.test_spark_model_export import (  # noqa: F401
-    iris_df,
-    spark,
-    spark_model_iris,
-)
-from tests.statsmodels.model_fixtures import ols_model
-from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model  # noqa: F401
-from tests.transformers.helper import load_small_qa_pipeline, load_small_seq2seq_pipeline
+# Only import model fixtures if when MLFLOW_RUN_SLOW_TESTS environment variable is set to true
+if MLFLOW_RUN_SLOW_TESTS.get():
+    from tests.catboost.test_catboost_model_export import reg_model  # noqa: F401
+    from tests.diviner.test_diviner_model_export import (  # noqa: F401
+        diviner_data,
+        diviner_groups,
+        grouped_prophet,
+    )
+    from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw  # noqa: F401
+    from tests.h2o.test_h2o_model_export import h2o_iris_model  # noqa: F401
+    from tests.helper_functions import get_safe_port
+    from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
+    from tests.lightgbm.test_lightgbm_model_export import lgb_model  # noqa: F401
+    from tests.models.test_model import iris_data, sklearn_knn_model  # noqa: F401
+    from tests.paddle.test_paddle_model_export import pd_model  # noqa: F401
+    from tests.pmdarima.test_pmdarima_model_export import (  # noqa: F401
+        auto_arima_object_model,
+        test_data,
+    )
+    from tests.prophet.test_prophet_model_export import (
+        prophet_model as prophet_raw_model,  # noqa: F401
+    )
+    from tests.pyfunc.docker.conftest import (  # noqa: F401
+        MLFLOW_ROOT,
+        TEST_IMAGE_NAME,
+        docker_client,
+        save_model_with_latest_mlflow_version,
+    )
+    from tests.spacy.test_spacy_model_export import spacy_model_with_data  # noqa: F401
+    from tests.spark.test_spark_model_export import (  # noqa: F401
+        iris_df,
+        spark,
+        spark_model_iris,
+    )
+    from tests.statsmodels.model_fixtures import ols_model
+    from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model  # noqa: F401
+    from tests.transformers.helper import load_small_qa_pipeline, load_small_seq2seq_pipeline
 
-
-@pytest.mark.skipif(os.getenv("GITHUB_ACTIONS") == "true", reason="Time consuming tests")
+@pytest.mark.skipif(
+    not MLFLOW_RUN_SLOW_TESTS.get(),
+    reason="Skip slow tests. Set MLFLOW_RUN_SLOW_TESTS environment variable to run them.",
+)
 @pytest.mark.parametrize(
     ("flavor"),
     [
