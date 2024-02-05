@@ -671,8 +671,7 @@ def load_model(
         else:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     except ModuleNotFoundError as e:
-        if (conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and 
-            _DATABRICKS_FS_LOADER_MODULE in e.msg):
+        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and _DATABRICKS_FS_LOADER_MODULE in e.msg:
             raise MlflowException(
                 "mlflow.pyfunc.load_model is not supported for Feature Store models. "
                 "spark_udf() and predict() will not work as expected. Use "
