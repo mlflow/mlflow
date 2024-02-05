@@ -5,8 +5,6 @@ import subprocess
 from typing import Optional, TypeVar
 from sys import stderr
 
-from databricks_cli.configure import provider
-
 import mlflow.utils
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
@@ -18,6 +16,8 @@ from mlflow.utils._legacy_databricks_cli_utils import (
     DatabricksConfigProvider,
     DatabricksConfig,
     DefaultConfigProvider,
+    ProfileConfigProvider,
+    get_config,
 )
 
 
@@ -441,16 +441,10 @@ def get_databricks_host_creds(server_uri=None):
         talk to the Databricks server.
     """
     profile, path = get_db_info_from_uri(server_uri)
-    if not hasattr(provider, "get_config"):
-        _logger.warning(
-            "Support for databricks-cli<0.8.0 is deprecated and will be removed"
-            " in a future version."
-        )
-        config = provider.get_config_for_profile(profile)
-    elif profile:
-        config = provider.ProfileConfigProvider(profile).get_config()
+    if profile:
+        config = ProfileConfigProvider(profile).get_config()
     else:
-        config = provider.get_config()
+        config = get_config()
     # if a path is specified, that implies a Databricks tracking URI of the form:
     # databricks://profile-name/path-specifier
     if (not config or not config.host) and path:
@@ -461,7 +455,7 @@ def get_databricks_host_creds(server_uri=None):
             host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
             token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
             if host and token:
-                config = provider.DatabricksConfig.from_token(
+                config = DatabricksConfig.from_token(
                     host=host, token=token, insecure=False
                 )
     if not config or not config.host:
