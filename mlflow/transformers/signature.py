@@ -89,12 +89,6 @@ def infer_or_get_default_signature(
     has not supplied a signature.
     For signature inference in some Pipelines that support complex input types, an input example
     is needed.
-
-    Args:
-        pipeline:
-        example:
-        model_config:
-        timeout: The maximum time in seconds to wait for the prediction operation to complete.
     """
     if example:
         try:
@@ -148,8 +142,8 @@ def _infer_signature_with_prediction(
     else:
         _logger.warning(
             "Running prediction on the input example to infer model signature. On Windows, "
-            "the prediction is not bound by a timeout and may hang indefinitely. Please "
-            "consider specifying the signature manually."
+            "the prediction is not bound by a timeout and may hang indefinitely. If it "
+            "hangs, please consider specifying the signature manually."
         )
         prediction = _generate_signature_output(pipeline, example, model_config, params)
 

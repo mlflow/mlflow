@@ -19,6 +19,7 @@ from mlflow.utils.requirements_utils import (
     _parse_requirements,
     warn_dependency_requirement_mismatches,
 )
+from mlflow.utils.timeout import MLflowTimeoutError, run_with_timeout
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -386,9 +387,30 @@ def _parse_pip_requirements(pip_requirements):
 
 
 _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
-    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s),"
-    " fall back to return %s. Set logging level to DEBUG to see the full traceback."
+    "Fall back to return %s. Set logging level to DEBUG to see the full traceback."
 )
+
+def infer_pip_requirements_with_timeout(model_uri, flavor, timeout, fallback):
+    try:
+        if _IS_UNIX:
+            with run_with_timeout(timeout):
+                return infer_pip_requirements(model_uri, flavor, fallback)
+        else:
+            _logger.warning(
+                "Running inference operation to infer pip requirements for the saved model or "
+                "pipeline. On Windows, the operation is not bound by a timeout and may hang "
+                "indefinitely. If it hangs, please consider specifying the pip requirements manually."
+            )
+            return infer_pip_requirements(model_uri, flavor, fallback)
+    except MLflowTimeoutError:
+        if fallback is not None:
+            _logger.warning(
+                f"Attempted to infer pip requirements for the saved model or pipeline but the operation "
+                f"timed out in {timeout} seconds. {_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE % fallback}"
+            )
+            _logger.debug("", exc_info=True)
+            return fallback
+        raise
 
 
 def infer_pip_requirements(model_uri, flavor, fallback=None):
@@ -407,9 +429,13 @@ def infer_pip_requirements(model_uri, flavor, fallback=None):
     """
     try:
         return _infer_requirements(model_uri, flavor)
-    except Exception:
+    except Exception as e:
         if fallback is not None:
-            _logger.warning(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor, fallback)
+            _logger.warning(
+                "Encountered an unexpected error while inferring pip requirements "
+                f"(model URI: {model_uri}, flavor: {flavor}), "
+                + (_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE % fallback),
+            )
             _logger.debug("", exc_info=True)
             return fallback
         raise

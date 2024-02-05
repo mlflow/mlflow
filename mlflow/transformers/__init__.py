@@ -76,7 +76,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
     _validate_env_arguments,
-    infer_pip_requirements,
+    infer_pip_requirements_with_timeout,
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
@@ -639,7 +639,10 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements(transformers_model.model)
-            inferred_reqs = infer_pip_requirements(str(path), FLAVOR_NAME, fallback=default_reqs)
+            # Infer the pip requirements with a timeout to avoid hanging indefinitely at prediction
+            inferred_reqs = infer_pip_requirements_with_timeout(
+                str(path), FLAVOR_NAME, fallback=default_reqs, timeout=60
+            )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
