@@ -195,6 +195,10 @@ jobs:
             pip uninstall -y langchain_community
             pip install git+https://github.com/hwchase17/langchain#subdirectory=libs/community
           fi
+      - name: Install tensorflow for keras
+        if: matrix.package == 'keras'
+        run: |
+          pip install -U tensorflow
       - name: Install pydantic no-binary for langchain
         if: matrix.package == 'langchain' && ( matrix.version == 'dev' || matrix.version >= '0.0.267')
         run: |
