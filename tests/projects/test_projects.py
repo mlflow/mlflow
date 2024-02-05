@@ -500,7 +500,7 @@ def test_parse_kubernetes_config_invalid_template_job_file():
 
 
 @pytest.mark.parametrize("synchronous", [True, False])
-@mock.patch("mlflow.utils._legacy_databricks_cli_utils.get_config")
+@mock.patch("mlflow.utils.databricks_utils.get_config")
 def test_credential_propagation(get_config, synchronous):
     class DummyProcess:
         def wait(self):

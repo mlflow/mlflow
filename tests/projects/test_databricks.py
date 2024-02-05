@@ -436,7 +436,7 @@ class MockProfileConfigProvider:
 
 
 @mock.patch("requests.Session.request")
-@mock.patch("mlflow.utils._legacy_databricks_cli_utils.get_config")
+@mock.patch("mlflow.utils.databricks_utils.get_config")
 @mock.patch.object(
     mlflow.utils._legacy_databricks_cli_utils, "ProfileConfigProvider", MockProfileConfigProvider
 )
