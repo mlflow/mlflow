@@ -985,11 +985,26 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
 
 
 def _enforce_pyspark_dataframe_schema(
-    original_pf_input: PyFuncInput,
+    original_pf_input: SparkDataFrame,
     pf_input_as_pandas,
     input_schema: Schema,
     flavor: Optional[str] = None,
 ):
+    """
+    Enforce that the input PySpark DataFrame conforms to the model's input schema.
+
+    This function creates a new DataFrame that only includes the columns from the original
+    DataFrame that are declared in the model's input schema. Any extra columns in the original
+    DataFrame are dropped.Note that this function does not modify the original DataFrame.
+
+    :param original_pf_input: Original input PySpark DataFrame.
+    :param pf_input_as_pandas: Input DataFrame converted to pandas.
+    :param input_schema: Expected schema of the input DataFrame.
+    :param flavor: Optional model flavor. If specified, it is used to handle specific behaviors
+                   for different model flavors. Currently, only the '_FEATURE_STORE_FLAVOR' is
+                   handled specially.
+    :return: New PySpark DataFrame that conforms to the model's input schema.
+    """
     new_pf_input = original_pf_input.alias("pf_input_copy")
     if input_schema.has_input_names():
         _enforce_named_col_schema(pf_input_as_pandas, input_schema)
@@ -999,17 +1014,21 @@ def _enforce_pyspark_dataframe_schema(
         _enforce_unnamed_col_schema(pf_input_as_pandas, input_schema)
         input_names = pf_input_as_pandas.columns[: len(input_schema.inputs)]
     columns_to_drop = []
+    columns_not_dropped_for_feature_store_model = []
     for col, dtype in new_pf_input.dtypes:
         if col not in input_names:
             # to support backwards compatability with feature store models
-            if "array" in dtype or "map" in dtype or "struct" in dtype:
+            if any(x in dtype for x in ["array", "map", "struct"]):
                 if flavor == _FEATURE_STORE_FLAVOR:
-                    _logger.warning(
-                        f"Column '{col}' is not in the model signature but will not be dropped for"
-                        f"feature store models."
-                    )
+                    columns_not_dropped_for_feature_store_model.append(col)
                     continue
             columns_to_drop.append(col)
+    if columns_not_dropped_for_feature_store_model:
+        _logger.warning(
+            "The following columns are not in the model signature but "
+            "are not dropped for feature store model: %s",
+            ", ".join(columns_not_dropped_for_feature_store_model),
+        )
     return new_pf_input.drop(*columns_to_drop)
 
 
@@ -1071,7 +1090,7 @@ def _enforce_object(data: Dict[str, Any], obj: Object, required=True):
     if not required and data is None:
         return None
     if HAS_PYSPARK and isinstance(data, Row):
-        data = data.asDict()
+        data = data.asDict(True)
     if not isinstance(data, dict):
         raise MlflowException(
             f"Failed to enforce schema of '{data}' with type '{obj}'. "
