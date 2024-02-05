@@ -378,6 +378,7 @@ nitpick_ignore = [
     ("py:class", "FieldInfo"),
     ("py:class", "ComputedFieldInfo"),
     ("py:class", "keras.src.callbacks.callback.Callback"),
+    ("py:class", "keras.src.callbacks.Callback"),
     ("py:class", "keras.callbacks.Callback"),
 ]
 
