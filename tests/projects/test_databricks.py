@@ -438,7 +438,7 @@ class MockProfileConfigProvider:
 @mock.patch("requests.Session.request")
 @mock.patch("mlflow.utils.databricks_utils.get_config")
 @mock.patch.object(
-    mlflow.utils._legacy_databricks_cli_utils, "ProfileConfigProvider", MockProfileConfigProvider
+    mlflow.utils.databricks_utils, "ProfileConfigProvider", MockProfileConfigProvider
 )
 def test_databricks_http_request_integration(get_config, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""
