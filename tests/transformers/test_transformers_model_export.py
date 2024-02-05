@@ -3972,18 +3972,24 @@ def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipel
         "top_k": 2,
         "num_beams": 5,
         "max_length": 30,
+        "max_new_tokens": 500,
     }
     # Params will be used to override the values of model_config but should not mutate it
     params = {
-        "top_k": 3,
-        "max_length": 50,
+        "top_k": 30,
+        "max_length": 500,
+        "max_new_tokens": 5,
     }
 
     pyfunc_model = _TransformersWrapper(text2text_generation_pipeline, model_config=model_config)
     assert pyfunc_model.model_config["top_k"] == 2
 
-    pyfunc_model.predict("How to learn Python in 3 weeks?", params=params)
+    prediction_output = pyfunc_model.predict(
+        "rocket moon ship astronaut space gravity", params=params
+    )
 
     assert pyfunc_model.model_config["top_k"] == 2
     assert pyfunc_model.model_config["num_beams"] == 5
     assert pyfunc_model.model_config["max_length"] == 30
+    assert pyfunc_model.model_config["max_new_tokens"] == 500
+    assert len(prediction_output[0].split(" ")) <= 5
