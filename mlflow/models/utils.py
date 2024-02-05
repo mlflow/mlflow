@@ -40,6 +40,7 @@ try:
 
     HAS_PYSPARK = True
 except ImportError:
+    SparkDataFrame = None
     HAS_PYSPARK = False
 
 
@@ -1005,6 +1006,8 @@ def _enforce_pyspark_dataframe_schema(
                    handled specially.
     :return: New PySpark DataFrame that conforms to the model's input schema.
     """
+    if SparkDataFrame is None:
+        raise ValueError("PySpark is not installed. Cannot handle a PySpark DataFrame.")
     new_pf_input = original_pf_input.alias("pf_input_copy")
     if input_schema.has_input_names():
         _enforce_named_col_schema(pf_input_as_pandas, input_schema)
