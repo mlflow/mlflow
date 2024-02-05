@@ -8,16 +8,9 @@ pydantic:
   minimum: "1.0"
   max_major_version: 2
 
-# fastapi 0.109.2 upgraded their `starlette` dependency,
-# which has a breaking interaction with `slowapi` when
-# the ".env" file doesn't exist.
-# https://github.com/laurentS/slowapi/pull/184 has been
-# filed to address this, but until it is approved we need
-# to pin the fastapi dependency
 fastapi:
   pip_release: fastapi
   max_major_version: 0
-  unsupported: ["0.109.2"]
 
 uvicorn:
   pip_release: uvicorn
