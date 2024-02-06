@@ -6,11 +6,13 @@ MLflow 2.10.1 is a patch release, containing fixes for various bugs in the `tran
 
 Bug fixes:
 
-- [UI] Restore dataset tracking flag (#10992, @daniellok-db)
-- Bug fixes for Transformer flavors
+- [UI] Fixed a bug that prevented datasets from showing up in the MLflow UI (#10992, @daniellok-db)
+- Bug fixes for Transformers flavor
     - [Models] Fix missing dtype issue for transformer pipeline (#10979, @B-Step62)
     - [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
     - [Models] Fix prompt templating bug with Text2TextGeneration pipeline (#10960, @B-Step62)
+- Bug fixes for Langchain flavor
+    - Fixed errors that occur when logging inputs and outputs with different lengths (#10952, @serena-ruan)
 
 Documentation updates:
 
@@ -19,7 +21,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#10930, #10952, #11005, @serena-ruan; #10927, @harupy; #10967, @kriscon-db
+#10930, #11005, @serena-ruan; #10927, @harupy; #10967, @kriscon-db
 
 ## 2.10.0 (2024-01-26)
 
