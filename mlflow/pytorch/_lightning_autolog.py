@@ -38,6 +38,7 @@ from pytorch_lightning.utilities import rank_zero_only
 # TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger
 # once the above mentioned issues have been addressed
 
+_logger = logging.getLogger(__name__)
 
 _pl_version = Version(pl.__version__)
 if _pl_version < Version("1.5.0"):
@@ -339,7 +340,7 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
 
         if self.save_best_only:
             if self.monitor not in metric_dict:
-                raise MlflowException(
+                _logger.error(
                     "If MLflowModelCheckpoint 'save_best_only' config is True, it requires to "
                     "compare the monitored metric value, but the provided monitored metric value "
                     "is not available."
