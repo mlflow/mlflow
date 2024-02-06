@@ -27,7 +27,8 @@ class AuthServiceClient:
 
     def __init__(self, tracking_uri: str):
         """
-        :param tracking_uri: Address of local or remote tracking server.
+        Args:
+            tracking_uri: Address of local or remote tracking server.
         """
         self.tracking_uri = tracking_uri
 
@@ -40,11 +41,13 @@ class AuthServiceClient:
         """
         Create a new user.
 
-        :param username: The username.
-        :param password: The user's password. Must not be empty string.
+        Args:
+            username: The username.
+            password: The user's password. Must not be empty string.
 
-        :return: A single :py:class:`mlflow.server.auth.entities.User` object.
-                 Raises ``RestException`` if the username is already taken.
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.User` object.
+            Raises ``RestException`` if the username is already taken.
 
         .. code-block:: python
             :caption: Example
@@ -77,37 +80,12 @@ class AuthServiceClient:
         """
         Get a user with a specific username.
 
-        :param username: The username.
+        Args:
+            username: The username.
 
-        :return: A single :py:class:`mlflow.server.auth.entities.User` object.
-                 Raises ``RestException`` if the user does not exist.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-
-            user = client.get_user("newuser")
-            print(f"user_id: {user.id}")
-            print(f"username: {user.username}")
-            print(f"password_hash: {user.password_hash}")
-            print(f"is_admin: {user.is_admin}")
-
-        .. code-block:: text
-            :caption: Output
-
-            user_id: 3
-            username: newuser
-            password_hash: REDACTED
-            is_admin: False
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.User` object. Raises ``RestException``
+            if the user does not exist.
         """
         resp = self._request(
             GET_USER,
@@ -120,10 +98,12 @@ class AuthServiceClient:
         """
         Update the password of a specific user.
 
-        :param username: The username.
-        :param password: The new password.
+        Args:
+            username: The username.
+            password: The new password.
 
-        :return: None. Raises ``RestException`` if the user does not exist.
+        Returns:
+            None. Raises ``RestException`` if the user does not exist.
 
         .. code-block:: bash
             :caption: Example
@@ -150,10 +130,12 @@ class AuthServiceClient:
         """
         Update the admin status of a specific user.
 
-        :param username: The username.
-        :param is_admin: The new admin status.
+        Args:
+            username: The username.
+            is_admin: The new admin status.
 
-        :return: None. Raises ``RestException`` if the user does not exist.
+        Returns:
+            None. Raises ``RestException`` if the user does not exist.
 
         .. code-block:: bash
             :caption: Example
@@ -180,9 +162,11 @@ class AuthServiceClient:
         """
         Delete a specific user.
 
-        :param username: The username.
+        Args:
+            username: The username.
 
-        :return: None. Raises ``RestException`` if the user does not exist.
+        Returns:
+            None. Raises ``RestException`` if the user does not exist.
 
         .. code-block:: bash
             :caption: Example
@@ -209,40 +193,17 @@ class AuthServiceClient:
         """
         Create a permission on an experiment for a user.
 
-        :param experiment_id: The id of the experiment.
-        :param username: The username.
-        :param permission: Permission to grant.
-            Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
+        Args:
+            experiment_id: The id of the experiment.
+            username: The username.
+            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
 
-        :return: A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
-                 Raises ``RestException`` if the user does not exist,
-                 or a permission already exists for this experiment user pair,
-                 or if the permission is invalid.
-                 Does not require ``experiment_id`` to be an existing experiment.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            ep = client.create_experiment_permission("myexperiment", "newuser", "READ")
-            print(f"experiment_id: {ep.experiment_id}")
-            print(f"user_id: {ep.user_id}")
-            print(f"permission: {ep.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            experiment_id: myexperiment
-            user_id: 3
-            permission: READ
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object. Raises
+            ``RestException`` if the user does not exist, or a permission already exists for this
+            experiment user pair, or if the permission is invalid. Does not require
+            ``experiment_id`` to be an existing experiment.
         """
         resp = self._request(
             CREATE_EXPERIMENT_PERMISSION,
@@ -255,14 +216,16 @@ class AuthServiceClient:
         """
         Get an experiment permission for a user.
 
-        :param experiment_id: The id of the experiment.
-        :param username: The username.
+        Args:
+            experiment_id: The id of the experiment.
+            username: The username.
 
-        :return: A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
-                 Raises ``RestException`` if the user does not exist,
-                 or no permission exists for this experiment user pair.
-                 Note that the default permission will still be effective even if
-                 no permission exists.
+        Returns:
+            A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
+            Raises ``RestException`` if the user does not exist,
+            or no permission exists for this experiment user pair.
+            Note that the default permission will still be effective even if
+            no permission exists.
 
         .. code-block:: bash
             :caption: Example
@@ -300,14 +263,15 @@ class AuthServiceClient:
         """
         Update an existing experiment permission for a user.
 
-        :param experiment_id: The id of the experiment.
-        :param username: The username.
-        :param permission: New permission to grant.
-            Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
+        Args:
+            experiment_id: The id of the experiment.
+            username: The username.
+            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
 
-        :return: None. Raises ``RestException`` if the user does not exist,
-                 or no permission exists for this experiment user pair,
-                 or if the permission is invalid.
+        Returns:
+            None. Raises ``RestException`` if the user does not exist, or no permission exists for
+            this experiment user pair, or if the permission is invalid.
 
         .. code-block:: bash
             :caption: Example
@@ -334,14 +298,16 @@ class AuthServiceClient:
         """
         Delete an existing experiment permission for a user.
 
-        :param experiment_id: The id of the experiment.
-        :param username: The username.
+        Args:
+            experiment_id: The id of the experiment.
+            username: The username.
 
-        :return: None. Raises ``RestException`` if the user does not exist,
-                 or no permission exists for this experiment user pair,
-                 or if the permission is invalid.
-                 Note that the default permission will still be effective even
-                 after the permission has been deleted.
+        Returns:
+            None. Raises ``RestException`` if the user does not exist,
+            or no permission exists for this experiment user pair,
+            or if the permission is invalid.
+            Note that the default permission will still be effective even
+            after the permission has been deleted.
 
         .. code-block:: bash
             :caption: Example
@@ -368,40 +334,16 @@ class AuthServiceClient:
         """
         Create a permission on an registered model for a user.
 
-        :param name: The name of the registered model.
-        :param username: The username.
-        :param permission: Permission to grant.
-            Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
+        Args:
+            name: The name of the registered model.
+            username: The username.
+            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
 
-        :return: A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
-                 Raises ``RestException`` if the user does not exist,
-                 or a permission already exists for this registered model user pair,
-                 or if the permission is invalid.
-                 Does not require ``name`` to be an existing registered model.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            rmp = client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
-            print(f"name: {rmp.name}")
-            print(f"user_id: {rmp.user_id}")
-            print(f"permission: {rmp.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            name: myregisteredmodel
-            user_id: 3
-            permission: READ
+        Returns:
+            A single RegisteredModelPermission object. Raises RestException if the user does not
+            exist, or a permission already exists for this registered model user pair, or if the
+            permission is invalid. Does not require name to be an existing registered model.
         """
         resp = self._request(
             CREATE_REGISTERED_MODEL_PERMISSION,
@@ -414,39 +356,14 @@ class AuthServiceClient:
         """
         Get an registered model permission for a user.
 
-        :param name: The name of the registered model.
-        :param username: The username.
+        Args:
+            name: The name of the registered model.
+            username: The username.
 
-        :return: A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
-                 Raises ``RestException`` if the user does not exist,
-                 or no permission exists for this registered model user pair.
-                 Note that the default permission will still be effective even if
-                 no permission exists.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_registered_model_permission("myregisteredmodel", "newuser", "READ")
-            rmp = client.get_registered_model_permission("myregisteredmodel", "newuser")
-            print(f"name: {rmp.name}")
-            print(f"user_id: {rmp.user_id}")
-            print(f"permission: {rmp.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            name: myregisteredmodel
-            user_id: 3
-            permission: READ
+        Returns:
+            A single RegisteredModelPermission object. Raises RestException if the user does not
+            exist, or no permission exists for this registered model user pair. Note that the
+            default permission will still be effective even if no permission exists.
         """
         resp = self._request(
             GET_REGISTERED_MODEL_PERMISSION,
@@ -459,14 +376,15 @@ class AuthServiceClient:
         """
         Update an existing registered model permission for a user.
 
-        :param name: The name of the registered model.
-        :param username: The username.
-        :param permission: New permission to grant.
-            Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
+        Args:
+            name: The name of the registered model.
+            username: The username.
+            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+                "NO_PERMISSIONS".
 
-        :return: None. Raises ``RestException`` if the user does not exist,
-                 or no permission exists for this registered model user pair,
-                 or if the permission is invalid.
+        Raises:
+            ``RestException`` if the user does not exist, or no permission exists for
+            this registered model user pair, or if the permission is invalid.
 
         .. code-block:: bash
             :caption: Example
@@ -493,14 +411,16 @@ class AuthServiceClient:
         """
         Delete an existing registered model permission for a user.
 
-        :param name: The name of the registered model.
-        :param username: The username.
+        Args:
+            name: The name of the registered model.
+            username: The username.
 
-        :return: None. Raises ``RestException`` if the user does not exist,
-                 or no permission exists for this registered model user pair,
-                 or if the permission is invalid.
-                 Note that the default permission will still be effective even
-                 after the permission has been deleted.
+        Returns:
+            None. Raises ``RestException`` if the user does not exist,
+            or no permission exists for this registered model user pair,
+            or if the permission is invalid.
+            Note that the default permission will still be effective even
+            after the permission has been deleted.
 
         .. code-block:: bash
             :caption: Example

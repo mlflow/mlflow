@@ -97,94 +97,36 @@ def make_genai_metric(
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
     prompt is stored in the metric_details field of the ``EvaluationMetric`` object.
 
-    :param name: Name of the metric.
-    :param definition: Definition of the metric.
-    :param grading_prompt: Grading criteria of the metric.
-    :param examples: (Optional) Examples of the metric.
-    :param version: (Optional) Version of the metric. Currently supported versions are: v1.
-    :param model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
-        format of "openai:/gpt-4", "gateway:/my-route", "endpoints:/databricks-llama-2-70b-chat".
-        Defaults to "openai:/gpt-4". If using
-        Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
-        Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to and
-        governed by the LLM service's terms of use.
-    :param grading_context_columns: (Optional) The name of the grading context column, or a list of
-        grading context column names, required to compute the metric. The
-        ``grading_context_columns`` are used by the LLM as a judge as additional information to
-        compute the metric. The columns are extracted from the input dataset or output predictions
-        based on ``col_mapping`` in the ``evaluator_config`` passed to :py:func:`mlflow.evaluate()`.
-    :param include_input: (Optional) Whether to include the input when computing the metric.
-    :param parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
-        set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
-        setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
-    :param aggregations: (Optional) The list of options to aggregate the scores. Currently supported
-        options are: min, max, mean, median, variance, p90.
-    :param greater_is_better: (Optional) Whether the metric is better when it is greater.
-    :param max_workers: (Optional) The maximum number of workers to use for judge scoring.
-        Defaults to 10 workers.
+    Args:
+        name: Name of the metric.
+        definition: Definition of the metric.
+        grading_prompt: Grading criteria of the metric.
+        examples: (Optional) Examples of the metric.
+        version: (Optional) Version of the metric. Currently supported versions are: v1.
+        model: (Optional) Model uri of an openai, gateway, or deployments judge model in the
+            format of "openai:/gpt-4", "gateway:/my-route",
+            "endpoints:/databricks-llama-2-70b-chat".  Defaults to "openai:/gpt-4". If using
+            Azure OpenAI, the ``OPENAI_DEPLOYMENT_NAME`` environment variable will take precedence.
+            Your use of a third party LLM service (e.g., OpenAI) for evaluation may be subject to
+            and governed by the LLM service's terms of use.
+        grading_context_columns: (Optional) The name of the grading context column, or a list of
+            grading context column names, required to compute the metric. The
+            ``grading_context_columns`` are used by the LLM as a judge as additional information to
+            compute the metric. The columns are extracted from the input dataset or output
+            predictions based on ``col_mapping`` in the ``evaluator_config`` passed to
+            :py:func:`mlflow.evaluate()`.  include_input: (Optional) Whether to include the input
+            when computing the metric.
+        parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
+            set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
+            setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
+        aggregations: (Optional) The list of options to aggregate the scores. Currently supported
+            options are: min, max, mean, median, variance, p90.
+        greater_is_better: (Optional) Whether the metric is better when it is greater.
+        max_workers: (Optional) The maximum number of workers to use for judge scoring.
+            Defaults to 10 workers.
 
-    :return: A metric object.
-
-    .. testcode:: python
-        :caption: Example for creating a genai metric
-
-        from mlflow.metrics.genai import EvaluationExample, make_genai_metric
-
-        example = EvaluationExample(
-            input="What is MLflow?",
-            output=(
-                "MLflow is an open-source platform for managing machine "
-                "learning workflows, including experiment tracking, model packaging, "
-                "versioning, and deployment, simplifying the ML lifecycle."
-            ),
-            score=4,
-            justification=(
-                "The definition effectively explains what MLflow is "
-                "its purpose, and its developer. It could be more concise for a 5-score.",
-            ),
-            grading_context={
-                "targets": (
-                    "MLflow is an open-source platform for managing "
-                    "the end-to-end machine learning (ML) lifecycle. It was developed by "
-                    "Databricks, a company that specializes in big data and machine learning "
-                    "solutions. MLflow is designed to address the challenges that data "
-                    "scientists and machine learning engineers face when developing, training, "
-                    "and deploying machine learning models."
-                )
-            },
-        )
-
-        metric = make_genai_metric(
-            name="answer_correctness",
-            definition=(
-                "Answer correctness is evaluated on the accuracy of the provided output based on "
-                "the provided targets, which is the ground truth. Scores can be assigned based on "
-                "the degree of semantic similarity and factual correctness of the provided output "
-                "to the provided targets, where a higher score indicates higher degree of accuracy."
-            ),
-            grading_prompt=(
-                "Answer correctness: Below are the details for different scores:"
-                "- Score 1: The output is completely incorrect. It is completely different from "
-                "or contradicts the provided targets."
-                "- Score 2: The output demonstrates some degree of semantic similarity and "
-                "includes partially correct information. However, the output still has significant "
-                "discrepancies with the provided targets or inaccuracies."
-                "- Score 3: The output addresses a couple of aspects of the input accurately, "
-                "aligning with the provided targets. However, there are still omissions or minor "
-                "inaccuracies."
-                "- Score 4: The output is mostly correct. It provides mostly accurate information, "
-                "but there may be one or more minor omissions or inaccuracies."
-                "- Score 5: The output is correct. It demonstrates a high degree of accuracy and "
-                "semantic similarity to the targets."
-            ),
-            examples=[example],
-            version="v1",
-            model="openai:/gpt-4",
-            grading_context_columns=["targets"],
-            parameters={"temperature": 0.0},
-            aggregations=["mean", "variance", "p90"],
-            greater_is_better=True,
-        )
+    Returns:
+        A metric object.
     """
     if not isinstance(grading_context_columns, list):
         grading_context_columns = [grading_context_columns]
