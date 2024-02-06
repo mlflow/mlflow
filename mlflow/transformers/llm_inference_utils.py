@@ -48,6 +48,7 @@ def infer_signature_from_llm_inference_task(
 
 
 def check_messages_and_apply_chat_template(data, tokenizer, inference_task):
+    """For the Chat inference task, apply chat template to messages to create prompt."""
     if inference_task != _LLM_INFERENCE_TASK_CHAT:
         return
 
@@ -69,11 +70,16 @@ def preprocess_llm_inference_params(
     inference_task: Optional[str] = None,
     flavor_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Replace OpenAI specific parameters with Hugging Face specific parameters."""
+    """
+    When a MLflow inference task is given,
+    - Extract the parameters from the input data.
+    - Replace OpenAI specific parameters with Hugging Face specific parameters, in particular
+      - `max_tokens` with `max_new_tokens`
+      - `stop` with `stopping_criteria`
+    """
     if inference_task is None:
         return
 
-    # TODO: add test for data - params separation, and params update
     if params is None:
         params = {}
 
@@ -93,9 +99,10 @@ def preprocess_llm_inference_params(
 
 
 def _set_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Optional[str] = None):
+    """Return a list of Hugging Face stopping criteria objects for the given stop sequences."""
     if stop is None or model_name is None:
         return None
-    
+
     from transformers import AutoTokenizer, StoppingCriteria
 
     if isinstance(stop, str):

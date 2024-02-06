@@ -14,6 +14,7 @@ from mlflow.transformers.llm_inference_utils import (
     _set_stopping_criteria,
     check_messages_and_apply_chat_template,
     infer_signature_from_llm_inference_task,
+    preprocess_llm_inference_params,
 )
 from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, COMPLETIONS_MODEL_INPUT_SCHEMA
 
@@ -91,6 +92,23 @@ def test_apply_chat_template():
             }
         ),
     )
+
+
+def test_preprocess_llm_inference_params():
+    data = pd.DataFrame(
+        {
+            "prompt": ["Hello world!"],
+            "temperature": [0.7],
+            "max_tokens": [100],
+        }
+    )
+
+    params = preprocess_llm_inference_params(
+        data, params=None, inference_task="llm/v1/completions", flavor_config=None
+    )
+
+    pd.testing.assert_frame_equal(data, pd.DataFrame({"prompt": ["Hello world!"]}))
+    assert params == {"max_new_tokens": 100, "temperature": 0.7, "stopping_criteria": None}
 
 
 @mock.patch("transformers.AutoTokenizer.from_pretrained")
