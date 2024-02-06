@@ -6,10 +6,11 @@ MLflow 2.10.1 is a patch release, containing fixes for various bugs in the `tran
 
 Bug fixes:
 
-- [Models] Fix missing dtype issue for transformer pipeline (#10979, @B-Step62)
-- [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
 - [UI] Restore dataset tracking flag (#10992, @daniellok-db)
-- [Models] Fix prompt templating bug with Text2TextGeneration pipeline (#10960, @B-Step62)
+- Bug fixes for Transformer flavors
+    - [Models] Fix missing dtype issue for transformer pipeline (#10979, @B-Step62)
+    - [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
+    - [Models] Fix prompt templating bug with Text2TextGeneration pipeline (#10960, @B-Step62)
 
 Documentation updates:
 
