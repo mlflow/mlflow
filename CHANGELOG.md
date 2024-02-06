@@ -9,7 +9,7 @@ Bug fixes:
 - [UI] Fixed a bug that prevented datasets from showing up in the MLflow UI (#10992, @daniellok-db)
 - [Artifact Store] Fixed directory bucket region name retrieval (#10967, @kriscon-db)
 - Bug fixes for Transformers flavor
-    - [Models] Fix missing dtype issue for transformer pipeline (#10979, @B-Step62)
+    - [Models] Fix an issue with transformer pipelines not inheriting the torch dtype specified on the model, causing pipeline inference to consume more resources than expected. (#10979, @B-Step62)
     - [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
     - [Models] Fixed a bug affecting prompt templating with Text2TextGeneration pipelines. Previously, calling `predict()` on a pyfunc-loaded Text2TextGeneration pipeline would fail for `string` and `List[string]` inputs. (#10960, @B-Step62)
 - Bug fixes for Langchain flavor
