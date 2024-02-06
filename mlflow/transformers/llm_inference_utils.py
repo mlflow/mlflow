@@ -1,7 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
 import torch
-from transformers import AutoTokenizer, StoppingCriteria
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
@@ -96,6 +95,8 @@ def preprocess_llm_inference_params(
 def _set_stopping_criteria(stop: Optional[Union[str, List[str]]], model_name: Optional[str] = None):
     if stop is None or model_name is None:
         return None
+    
+    from transformers import AutoTokenizer, StoppingCriteria
 
     if isinstance(stop, str):
         stop = [stop]

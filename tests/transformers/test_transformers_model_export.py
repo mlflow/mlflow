@@ -4055,7 +4055,6 @@ def test_text_generation_task_completions_serve(text_generation_pipeline):
             transformers_model=text_generation_pipeline,
             artifact_path="model",
             task="llm/v1/completions",
-            signature=infer_signature(data, output),
         )
 
     inference_payload = json.dumps({"inputs": data})
