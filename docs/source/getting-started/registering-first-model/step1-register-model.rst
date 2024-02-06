@@ -66,7 +66,7 @@ Great! We've registered a model.
 
 Before moving on, let's highlight some important implementation notes. 
 
-* To register a model, you can leverage the `registered_model_name` parameter in the 
+* To register a model, you can leverage the ``registered_model_name`` parameter in the 
   :py:func:`mlflow.sklearn.log_model()` or call :py:func:`mlflow.register_model()` after logging the
   model. Generally, we suggest the former because it's more concise. 
 * `Model Signatures <https://mlflow.org/docs/latest/model/signatures.html#mlflow-model-signatures-and-input-examples-guide>`_ 
