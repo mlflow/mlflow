@@ -671,9 +671,15 @@ def load_model(
         else:
             model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     except ModuleNotFoundError as e:
-        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE:
+        # This error message is particularly for the case when the error is caused by module
+        # "databricks.feature_store.mlflow_model". But depending on the environment, the offending
+        # module might be "databricks", "databricks.feature_store" or full package. So we will
+        # raise the error with the following note if "databricks" presents in the error. All non-
+        # databricks moduel errors will just be re-raised.
+        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
             raise MlflowException(
-                "mlflow.pyfunc.load_model is not supported for Feature Store models. "
+                f"{e.msg}; "
+                "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
                 "spark_udf() and predict() will not work as expected. Use "
                 "score_batch for offline predictions.",
                 BAD_REQUEST,
