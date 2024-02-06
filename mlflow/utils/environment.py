@@ -390,6 +390,7 @@ _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
     "Fall back to return %s. Set logging level to DEBUG to see the full traceback."
 )
 
+
 def infer_pip_requirements_with_timeout(model_uri, flavor, timeout, fallback):
     try:
         if _IS_UNIX:
@@ -429,7 +430,7 @@ def infer_pip_requirements(model_uri, flavor, fallback=None):
     """
     try:
         return _infer_requirements(model_uri, flavor)
-    except Exception as e:
+    except Exception:
         if fallback is not None:
             _logger.warning(
                 "Encountered an unexpected error while inferring pip requirements "
