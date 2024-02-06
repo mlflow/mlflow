@@ -61,6 +61,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.pytorch._lightning_autolog import MLflowModelCheckpointCallback
 
 FLAVOR_NAME = "pytorch"
 
@@ -906,7 +907,7 @@ def autolog(
     checkpoint_monitor="val_loss",
     checkpoint_mode="min",
     checkpoint_save_best_only=True,
-    checkpoint_save_weights_only=True,
+    checkpoint_save_weights_only=False,
     checkpoint_save_freq="epoch",
 ):  # pylint: disable=unused-argument
     """
@@ -963,12 +964,12 @@ def autolog(
             created if it does not already exist.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
         checkpoint: Enable automatic model checkpointing, this feature only supports
-            pytorch-lightning >= 1.4.0
+            pytorch-lightning >= 1.6.0.
         checkpoint_monitor: In automatic model checkpointing, the metric name to monitor if
             you set `model_checkpoint_save_best_only` to True.
         checkpoint_save_best_only: If True, automatic model checkpointing only saves when
-            the model is considered the "best" and the latest best model according to the quantity
-            monitored will not be overwritten.
+            the model is considered the "best" model according to the quantity
+            monitored and previous checkpoint model is overwritten.
         checkpoint_mode: one of {"min", "max"}. In automatic model checkpointing,
             if save_best_only=True, the decision to overwrite the current save file is made based on
             either the maximization or the minimization of the monitored quantity.
@@ -1129,20 +1130,28 @@ if autolog.__doc__ is not None:
 
 def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
     """
-    If you enable model_checkpoint in autologging, during pytorch-lightning model
+    If you enable "checkpoint" in autologging, during pytorch-lightning model
     training execution, checkpointed models are logged as MLflow artifacts.
     Using this API, you can load the checkpointed model.
 
-    :param model_class: The class of the training model
-    :param run_id: The id of the run which model is logged to. If not provided,
-      current active run is used.
-    :param epoch: The epoch of the checkpoint to be loaded, if you set
-      "checkpoint_save_freq" to "epoch".
-    :param global_step: The global step of the checkpoint to be loaded, if
-      you set "checkpoint_save_freq" to an integer.
+    If you want to load the latest checkpoint, set both `epoch` and `global_step` to None.
+    If "checkpoint_save_freq" is set to "epoch" in autologging,
+    you can set `epoch` param to the epoch of the checkpoint to load specific epoch checkpoint.
+    If "checkpoint_save_freq" is set to an integer in autologging,
+    you can set `global_step` param to the global step of the checkpoint to load specific
+    global step checkpoint.
+    `epoch` param and `global_step` can't be set together.
+
+    Args:
+        model_class: The class of the training model.
+        run_id: The id of the run which model is logged to. If not provided,
+          current active run is used.
+        epoch: The epoch of the checkpoint to be loaded, if you set
+          "checkpoint_save_freq" to "epoch".
+        global_step: The global step of the checkpoint to be loaded, if
+          you set "checkpoint_save_freq" to an integer.
     """
-    import pytorch_lightning as pl
-    from mlflow.pytorch._lightning_autolog import _LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
+    from mlflow.pytorch._lightning_autolog import LATEST_CHECKPOINT_ARTIFACT_TAG_KEY
 
     client = MlflowClient()
 
@@ -1150,22 +1159,40 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
         run = mlflow.active_run()
         if run is None:
             raise MlflowException(
-                "There is no active run, please provide the 'run_id' for "
-                "'load_best_checkpoint' call."
+                "There is no active run, please provide the 'run_id' for " "'load_checkpoint' call."
             )
         run_id = run.info.run_id
     else:
         run = client.get_run(run_id)
 
-    if epoch is not None and global_step is not None:
-        checkpoint_artifact = f"checkpoints/epoch_{epoch}_global_step_{global_step}"
-    elif epoch is not None:
-        checkpoint_artifact = f"checkpoints/epoch_{epoch}"
-    else:
-        checkpoint_artifact = run.data.tags.get(_LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
-        if checkpoint_artifact is None:
-            raise MlflowException("There is no logged checkpoint artifact in current run.")
+    latest_checkpoint_artifact_path = run.data.tags.get(LATEST_CHECKPOINT_ARTIFACT_TAG_KEY)
+    if latest_checkpoint_artifact_path is None:
+        raise MlflowException("There is no logged checkpoint artifact in current run.")
 
-    downloaded_checkpoint_filepath = client.download_artifacts(run_id, checkpoint_artifact)
+    checkpoint_filename = os.path.basename(latest_checkpoint_artifact_path)
+
+    if epoch is not None and global_step is not None:
+        raise MlflowException(
+            "You can only set one of 'epoch' and 'global_step' for 'load_checkpoint'."
+        )
+    elif global_step is not None:
+        checkpoint_artifact_path = f"checkpoints/global_step_{global_step}/{checkpoint_filename}"
+    elif epoch is not None:
+        checkpoint_artifact_path = f"checkpoints/epoch_{epoch}/{checkpoint_filename}"
+    else:
+        checkpoint_artifact_path = latest_checkpoint_artifact_path
+
+    downloaded_checkpoint_filepath = client.download_artifacts(run_id, checkpoint_artifact_path)
     model = model_class.load_from_checkpoint(downloaded_checkpoint_filepath)
     return model
+
+
+__all__ = [
+    "MLflowModelCheckpointCallback",
+    "autolog",
+    "load_model",
+    "save_model",
+    "log_model",
+    "get_default_pip_requirements",
+    "get_default_conda_env",
+]
