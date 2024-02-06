@@ -65,9 +65,15 @@ def check_messages_and_apply_chat_template(data, tokenizer, inference_task):
 
 
 def preprocess_llm_inference_params(
-    data, params: Optional[Dict[str, Any]] = None, flavor_config: Optional[Dict[str, Any]] = None
+    data,
+    params: Optional[Dict[str, Any]] = None,
+    inference_task: Optional[str] = None,
+    flavor_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Replace OpenAI specific parameters with Hugging Face specific parameters."""
+    if inference_task is None:
+        return
+
     # TODO: add test for data - params separation, and params update
     if params is None:
         params = {}
