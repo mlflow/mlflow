@@ -450,7 +450,10 @@ class _SentenceTransformerModelWrapper:
             .. code-block:: python
                 input_prompt = ["hello world and hello mlflow"]
                 output_embedding = [
-
+                    0.47137904,
+                    0.4669448,
+                    ...
+                    0.69726706
                 ]
                 output_dicts = postprocess_output_for_llm_v1_embedding_task(input_prompt, output_embedding)
                 assert output_dicts == [
@@ -459,7 +462,12 @@ class _SentenceTransformerModelWrapper:
                     "data": [{
                         "object": "embedding",
                         "index": 0,
-                        "embedding": [],
+                        "embedding": [
+                            0.47137904,
+                            0.4669448,
+                            ...
+                            0.69726706
+                        ],
                     }],
                     "usage": {"prompt_tokens": 8, "total_tokens": 8},
                 }
