@@ -1,4 +1,5 @@
 """MLflow module for HuggingFace/transformer support."""
+from __future__ import annotations
 
 import ast
 import base64
@@ -14,9 +15,8 @@ import re
 import shutil
 import string
 import sys
-from functools import lru_cache
 from types import MappingProxyType
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -89,6 +89,10 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+
+# The following import is only used for type hinting
+if TYPE_CHECKING:
+    import torch
 
 FLAVOR_NAME = "transformers"
 
@@ -1053,7 +1057,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         if _TORCH_DTYPE_KEY in kwargs:
             dtype_val = kwargs[_TORCH_DTYPE_KEY]
         else:
-            dtype_val = _deserialize_torch_dtype_if_exists(flavor_config)
+            dtype_val = _deserialize_torch_dtype(flavor_config[_TORCH_DTYPE_KEY])
         conf[_TORCH_DTYPE_KEY] = dtype_val
         accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
 
@@ -1093,20 +1097,13 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         return conf
 
 
-@lru_cache
-def _torch_dype_mapping():
+def _deserialize_torch_dtype(dtype_str: str) -> torch.dtype:
     """
-    Memoized torch data type mapping from the torch primary datatypes for use in deserializing the
-    saved pipeline parameter `torch_dtype`
+    Convert the string-encoded `torch_dtype` pipeline argument back to the correct `torch.dtype`
+    instance value for applying to a loaded pipeline instance.
     """
     try:
         import torch
-
-        return {
-            str(dtype): dtype
-            for name, dtype in torch.__dict__.items()
-            if isinstance(dtype, torch.dtype)
-        }
     except ImportError as e:
         raise MlflowException(
             "Unable to determine if the value supplied by the argument "
@@ -1114,14 +1111,17 @@ def _torch_dype_mapping():
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
+    if dtype_str.startswith("torch."):
+        dtype_str = dtype_str[6:]
 
-def _deserialize_torch_dtype_if_exists(flavor_config):
-    """
-    Convert the string-encoded `torch_dtype` pipeline argument back to the correct `torch.dtype`
-    instance value for applying to a loaded pipeline instance.
-    """
+    dtype = getattr(torch, dtype_str, None)
+    if isinstance(dtype, torch.dtype):
+        return dtype
 
-    return _torch_dype_mapping()[flavor_config["torch_dtype"]]
+    raise MlflowException(
+        f"The value '{dtype_str}' is not a valid torch.dtype",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
 
 
 def _fetch_model_card(model_name):
@@ -1332,7 +1332,8 @@ def _generate_base_flavor_configuration(
 
     # Extract a serialized representation of torch_dtype if provided
     if torch_dtype := _extract_torch_dtype_if_set(pipeline):
-        flavor_configuration[_TORCH_DTYPE_KEY] = torch_dtype
+        # Convert the torch dtype and back to standardize the string representation
+        flavor_configuration[_TORCH_DTYPE_KEY] = str(torch_dtype)
 
     return flavor_configuration
 
@@ -1346,12 +1347,32 @@ def _get_scalar_argument_from_pipeline(pipeline, arg_key):
     return getattr(pipeline, arg_key, None)
 
 
-def _extract_torch_dtype_if_set(pipeline):
+def _extract_torch_dtype_if_set(pipeline) -> Optional[torch.dtype]:
     """
     Extract the torch datatype argument if set and return as a string encoded value.
     """
     if torch_dtype := getattr(pipeline, _TORCH_DTYPE_KEY, None):
-        return str(torch_dtype)
+        # Torch dtype value may be a string or a torch.dtype instance
+        if isinstance(torch_dtype, str):
+            torch_dtype = _deserialize_torch_dtype(torch_dtype)
+        return torch_dtype
+
+    try:
+        import torch
+    except ImportError:
+        # If torch is not installed, safe to assume the model doesn't have a custom torch_dtype
+        return None
+
+    # Transformers pipeline doesn't inherit underlying model's dtype, so we have to also check
+    # the model's dtype.
+    model = pipeline.model
+    model_dtype = getattr(model.config, _TORCH_DTYPE_KEY, None) or getattr(model, "dtype", None)
+
+    # However, we should not extract dtype from parameters if it's default one (float32),
+    # to avoid setting torch_dtype for the model that doesn't support it.
+    if isinstance(model_dtype, str):
+        model_dtype = _deserialize_torch_dtype(model_dtype)
+    return model_dtype if model_dtype != torch.float32 else None
 
 
 def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str]:
