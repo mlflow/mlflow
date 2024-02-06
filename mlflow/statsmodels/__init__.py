@@ -65,17 +65,19 @@ _logger = logging.getLogger(__name__)
 
 def get_default_pip_requirements():
     """
-    :return: A list of default pip requirements for MLflow Models produced by this flavor.
-             Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
-             that, at minimum, contains these requirements.
+    Returns:
+        A list of default pip requirements for MLflow Models produced by this flavor.
+        Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
+        that, at minimum, contains these requirements.
     """
     return [_get_pinned_requirement("statsmodels")]
 
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+    Returns:
+        The default Conda environment for MLflow Models produced by calls to
+        :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
@@ -103,26 +105,27 @@ def save_model(
     """
     Save a statsmodels model to a path on the local file system.
 
-    :param statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Results`_)
-                              to be saved.
-    :param path: Local path where the model is to be saved.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param remove_data: bool. If False (default), then the instance is pickled without changes.
-                        If True, then all arrays with length nobs are set to None before
-                        pickling. See the remove_data method.
-                        In some cases not all arrays will be set to None.
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+    Args:
+        statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Results`_) to
+            be saved.
+        path: Local path where the model is to be saved.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system path when the
+            model is loaded.
+        mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
+        remove_data: bool. If False (default), then the instance is pickled without changes. If
+            True, then all arrays with length nobs are set to None before pickling. See the
+            remove_data method. In some cases not all arrays will be set to None.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
+            .. Note:: Experimental: This parameter may change or be removed in a future release
+                without warning.
+
     """
     import statsmodels
 
@@ -233,35 +236,34 @@ def log_model(
     """
     Log a statsmodels model as an MLflow artifact for the current run.
 
-    :param statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Results`_)
-                              to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param conda_env: {{ conda_env }}
-    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files are *prepended* to the system
-                       path when the model is loaded.
-    :param registered_model_name: If given, create a model version under
-                                  ``registered_model_name``, also creating a registered model if one
-                                  with the given name does not exist.
+    Args:
+        statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Results`_) to
+            be saved.
+        artifact_path: Run-relative artifact path.
+        conda_env: {{ conda_env }}
+        code_paths: A list of local filesystem paths to Python file dependencies (or directories
+            containing file dependencies). These files are *prepended* to the system path when the
+            model is loaded.
+        registered_model_name: If given, create a model version under ``registered_model_name``,
+            also creating a registered model if one with the given name does not exist.
+        remove_data: bool. If False (default), then the instance is pickled without changes. If
+            True, then all arrays with length nobs are set to None before pickling. See the
+            remove_data method. In some cases not all arrays will be set to None.
+        signature: {{ signature }}
+        input_example: {{ input_example }}
+        await_registration_for: Number of seconds to wait for the model version to finish being
+            created and is in ``READY`` status. By default, the function waits for five minutes.
+            Specify 0 or None to skip waiting.
+        pip_requirements: {{ pip_requirements }}
+        extra_pip_requirements: {{ extra_pip_requirements }}
+        metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
-    :param remove_data: bool. If False (default), then the instance is pickled without changes.
-                        If True, then all arrays with length nobs are set to None before
-                        pickling. See the remove_data method.
-                        In some cases not all arrays will be set to None.
+            .. Note:: Experimental: This parameter may change or be removed in a future release
+                without warning.
 
-    :param signature: {{ signature }}
-    :param input_example: {{ input_example }}
-    :param await_registration_for: Number of seconds to wait for the model version to finish
-                            being created and is in ``READY`` status. By default, the function
-                            waits for five minutes. Specify 0 or None to skip waiting.
-    :param pip_requirements: {{ pip_requirements }}
-    :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
-
-                     .. Note:: Experimental: This parameter may change or be removed in a future
-                                             release without warning.
-    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-             metadata of the logged model.
+    Returns:
+        A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the metadata
+        of the logged model.
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -291,7 +293,8 @@ def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
-    :param path: Local filesystem path to the MLflow Model with the ``statsmodels`` flavor.
+    Args:
+        path: Local filesystem path to the MLflow Model with the ``statsmodels`` flavor.
     """
     return _StatsmodelsModelWrapper(_load_model(path))
 
@@ -300,21 +303,25 @@ def load_model(model_uri, dst_path=None):
     """
     Load a statsmodels model from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
+    Args:
+        model_uri: The location, in URI format, of the MLflow model. For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+            artifact-locations>`_.
 
-    :return: A statsmodels model (an instance of `statsmodels.base.model.Results`_).
+        dst_path: The local filesystem path to which to download the model artifact.
+            This directory must already exist. If unspecified, a local output
+            path will be created.
+
+    Returns:
+        A statsmodels model (an instance of `statsmodels.base.model.Results`_).
+
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
@@ -333,13 +340,15 @@ class _StatsmodelsModelWrapper:
         self, dataframe, params: Optional[Dict[str, Any]] = None  # pylint: disable=unused-argument
     ):
         """
-        :param dataframe: Model input data.
-        :param params: Additional parameters to pass to the model for inference.
+        Args:
+            dataframe: Model input data.
+            params: Additional parameters to pass to the model for inference.
 
-                       .. Note:: Experimental: This parameter may change or be removed in a future
-                                               release without warning.
+                .. Note:: Experimental: This parameter may change or be removed in a future
+                    release without warning.
 
-        :return: Model predictions.
+        Returns:
+            Model predictions.
         """
         from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 
@@ -432,28 +441,28 @@ def autolog(
     - trained model.
     - an html artifact which shows the model summary.
 
-
-    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                       If ``False``, trained models are not logged.
-                       Input examples and model signatures, which are attributes of MLflow models,
-                       are also omitted when ``log_models`` is ``False``.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                         If ``False``, dataset information is not logged.
-    :param disable: If ``True``, disables the statsmodels autologging integration. If ``False``,
-                    enables the statsmodels autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      statsmodels that have not been tested against this version of the MLflow
-                      client or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during statsmodels
-                   autologging. If ``False``, show all events and warnings during statsmodels
-                   autologging.
-    :param registered_model_name: If given, each time a model is trained, it is registered as a
-                                  new model version of the registered model with this name.
-                                  The registered model is created if it does not already exist.
-    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    Args:
+        log_models: If ``True``, trained models are logged as MLflow model artifacts.
+            If ``False``, trained models are not logged.
+            Input examples and model signatures, which are attributes of MLflow models,
+            are also omitted when ``log_models`` is ``False``.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+            If ``False``, dataset information is not logged.
+        disable: If ``True``, disables the statsmodels autologging integration. If ``False``,
+            enables the statsmodels autologging integration.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            statsmodels that have not been tested against this version of the MLflow
+            client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during statsmodels
+            autologging. If ``False``, show all events and warnings during statsmodels
+            autologging.
+        registered_model_name: If given, each time a model is trained, it is registered as a
+            new model version of the registered model with this name.
+            The registered model is created if it does not already exist.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     import statsmodels
 
@@ -464,9 +473,13 @@ def autolog(
 
     def find_subclasses(klass):
         """
-        Recursively return a (non-nested) list of the class object and all its subclasses
-        :param klass: the class whose class subtree we want to retrieve
-        :return: a list of classes that includes the argument in the first position
+        Recursively return a (non-nested) list of the class object and all its subclasses.
+
+        Args:
+            klass: The class whose class subtree we want to retrieve.
+
+        Returns:
+            A list of classes that includes the argument in the first position.
         """
         subclasses = klass.__subclasses__()
         if subclasses:
@@ -480,9 +493,13 @@ def autolog(
         """
         Returns True when the class passed as first argument overrides the function_name
         Based on https://stackoverflow.com/a/62303206/5726057
-        :param klass: the class we are inspecting
-        :param function_name: a string with the name of the method we want to check overriding
-        :return:
+
+        Args:
+            klass: The class we are inspecting.
+            function_name: A string with the name of the method we want to check overriding.
+
+        Returns:
+            True if the class overrides the function_name, False otherwise.
         """
         try:
             superclass = inspect.getmro(klass)[1]
@@ -495,7 +512,9 @@ def autolog(
         Patches all subclasses that override any auto-loggable method via monkey patching using
         the gorilla package, taking the argument as the tree root in the class hierarchy. Every
         auto-loggable method found in any of the subclasses is replaced by the patched version.
-        :param klass: root in the class hierarchy to be analyzed and patched recursively
+
+        Args:
+            klass: Root in the class hierarchy to be analyzed and patched recursively.
         """
 
         # TODO: add more autologgable methods here (e.g. fit_regularized, from_formula, etc)

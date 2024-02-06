@@ -110,7 +110,7 @@ with your favorite provider!
             </a>
             <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/ai21labs-logo.svg" alt="Azure OpenAI Logo"/>
+                    <img src="../_static/images/logos/azure-ml-logo.png" alt="Azure OpenAI Logo"/>
                 </div>
             </a>
             <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md">

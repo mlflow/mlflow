@@ -132,7 +132,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         Hence the run_id is the 4th element of the normalized path.
 
-        :return: run_id extracted from the artifact_uri
+        Returns:
+            run_id extracted from the artifact_uri.
         """
         artifact_path = extract_and_normalize_path(artifact_uri)
         return artifact_path.split("/")[3]
@@ -155,8 +156,14 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         by `run_id`. The type of access credentials, read or write, is specified by
         `request_message_class`.
 
-        :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
-                 run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        Args:
+            paths: The specified run-relative artifact paths within the MLflow Run.
+            run_id: The specified MLflow Run.
+            request_message_class: Specifies the type of access credentials, read or write.
+
+        Returns:
+            A list of `ArtifactCredentialInfo` objects providing read access to the specified
+            run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
         credential_infos = []
 
@@ -178,8 +185,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _get_write_credential_infos(self, remote_file_paths):
         """
-        :return: A list of `ArtifactCredentialInfo` objects providing write access to the specified
-                 run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        A list of `ArtifactCredentialInfo` objects providing write access to the specified
+        run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
         run_relative_remote_paths = [
             posixpath.join(self.run_relative_artifact_repo_root_path, p or "")
@@ -191,8 +198,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _get_read_credential_infos(self, remote_file_paths):
         """
-        :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
-                 run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        Returns:
+            A list of `ArtifactCredentialInfo` objects providing read access to the specified
+            run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
         if type(remote_file_paths) == str:
             remote_file_paths = [remote_file_paths]
@@ -209,7 +217,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
     def _extract_headers_from_credentials(self, headers):
         """
-        :return: A python dictionary of http headers converted from the protobuf credentials
+        Returns:
+            A python dictionary of http headers converted from the protobuf credentials.
         """
         return {header.name: header.value for header in headers}
 
@@ -381,11 +390,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         Upload a local file to the cloud. Note that in this artifact repository, files are uploaded
         to run-relative artifact file paths in the artifact repository.
 
-        :param cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
-        :param src_file_path: Local source file path for the upload.
-        :param artifact_file_path: Path in the artifact repository, relative to the run root path,
-                                   where the artifact will be logged.
-        :return:
+        Args:
+            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
+            src_file_path: Local source file path for the upload.
+            artifact_file_path: Path in the artifact repository, relative to the run root path,
+                where the artifact will be logged.
+
         """
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
             self._azure_upload_file(cloud_credential_info, src_file_path, artifact_file_path)
@@ -409,10 +419,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         """
         Download a file from the input `remote_file_path` and save it to `local_path`.
 
-        :param remote_file_path: Path relative to the run root path to file in remote artifact
-                                 repository.
-        :param local_path: Local path to download file to.
-        :return:
+        Args:
+            remote_file_path: Path relative to the run root path to file in remote artifact
+                repository.
+            local_path: Local path to download file to.
+
         """
         read_credentials = self._get_read_credential_infos(remote_file_path)
         # Read credentials for only one file were requested. So we expected only one value in

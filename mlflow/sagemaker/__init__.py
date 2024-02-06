@@ -63,8 +63,11 @@ def _get_preferred_deployment_flavor(model_config):
     If the model does not contain any supported flavors for deployment, an exception
     will be thrown.
 
-    :param model_config: An MLflow model object
-    :return: The name of the preferred deployment flavor for the specified model
+    Args:
+        model_config: An MLflow model object
+
+    Returns:
+        The name of the preferred deployment flavor for the specified model
     """
     if mleap.FLAVOR_NAME in model_config.flavors:
         return mleap.FLAVOR_NAME
@@ -90,8 +93,9 @@ def _validate_deployment_flavor(model_config, flavor):
     and is contained in the specified model. If one of these conditions
     is not met, an exception is thrown.
 
-    :param model_config: An MLflow Model object
-    :param flavor: The deployment flavor to validate
+    Args:
+        model_config: An MLflow Model object
+        flavor: The deployment flavor to validate
     """
     if flavor not in SUPPORTED_DEPLOYMENT_FLAVORS:
         raise MlflowException(
@@ -118,7 +122,8 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
     The image is pushed under currently active AWS account and to the currently active AWS region.
 
-    :param image: Docker image name.
+    Args:
+        image: Docker image name.
     """
     import boto3
 
@@ -194,154 +199,155 @@ def _deploy(
     formats accepted by this endpoint, see the
     :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
 
-    :param app_name: Name of the deployed application.
-    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
-                      For example:
+    Args:
+        app_name: Name of the deployed application.
+        model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+            For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
 
-    :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
-                               access the specified Docker image and S3 bucket containing MLflow
-                               model artifacts. If unspecified, the currently-assumed role will be
-                               used. This execution role is passed to the SageMaker service when
-                               creating a SageMaker model from the specified MLflow model. It is
-                               passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
-                               CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
-                               dg/API_CreateModel.html>`_. This role is *not* assumed for any other
-                               call. For more information about SageMaker execution roles for model
-                               creation, see
-                               https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
-    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
-                            to another AWS account. If unspecified, SageMaker will be deployed to
-                            the the currently active AWS account.
-    :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
-                   SageMaker-compatible bucket name.
-    :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
-                      by ``mlflow sagemaker build-and-push-container``. This parameter can also
-                      be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
-    :param region_name: Name of the AWS region to which to deploy the application.
-    :param mode: The mode in which to deploy the application. Must be one of the following:
+        execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
+            access the specified Docker image and S3 bucket containing MLflow
+            model artifacts. If unspecified, the currently-assumed role will be
+            used. This execution role is passed to the SageMaker service when
+            creating a SageMaker model from the specified MLflow model. It is
+            passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
+            CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
+            dg/API_CreateModel.html>`_. This role is *not* assumed for any other
+            call. For more information about SageMaker execution roles for model
+            creation, see
+            https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+        assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+            to another AWS account. If unspecified, SageMaker will be deployed to
+            the the currently active AWS account.
+        bucket: S3 bucket where model artifacts will be stored. Defaults to a
+            SageMaker-compatible bucket name.
+        image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
+            by ``mlflow sagemaker build-and-push-container``. This parameter can also
+            be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
+        region_name: Name of the AWS region to which to deploy the application.
+        mode: The mode in which to deploy the application. Must be one of the following:
 
-                 ``mlflow.sagemaker.DEPLOYMENT_MODE_CREATE``
-                     Create an application with the specified name and model. This fails if an
-                     application of the same name already exists.
+            ``mlflow.sagemaker.DEPLOYMENT_MODE_CREATE``
+                Create an application with the specified name and model. This fails if an
+                application of the same name already exists.
 
-                 ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
-                     If an application of the specified name exists, its model(s) is replaced with
-                     the specified model. If no such application exists, it is created with the
-                     specified name and model.
+            ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
+                If an application of the specified name exists, its model(s) is replaced with
+                the specified model. If no such application exists, it is created with the
+                specified name and model.
 
-                 ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
-                     Add the specified model to a pre-existing application with the specified name,
-                     if one exists. If the application does not exist, a new application is created
-                     with the specified name and model. NOTE: If the application **already exists**,
-                     the specified model is added to the application's corresponding SageMaker
-                     endpoint with an initial weight of zero (0). To route traffic to the model,
-                     update the application's associated endpoint configuration using either the
-                     AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in
-                     https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
+            ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
+                Add the specified model to a pre-existing application with the specified name,
+                if one exists. If the application does not exist, a new application is created
+                with the specified name and model. NOTE: If the application **already exists**,
+                the specified model is added to the application's corresponding SageMaker
+                endpoint with an initial weight of zero (0). To route traffic to the model,
+                update the application's associated endpoint configuration using either the
+                AWS console or the ``UpdateEndpointWeightsAndCapacities`` function defined in
+                https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
 
-    :param archive: If ``True``, any pre-existing SageMaker application resources that become
-                    inactive (i.e. as a result of deploying in
-                    ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
-                    These resources may include unused SageMaker models and endpoint configurations
-                    that were associated with a prior version of the application endpoint. If
-                    ``False``, these resources are deleted. In order to use ``archive=False``,
-                    ``deploy()`` must be executed synchronously with ``synchronous=True``.
-    :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
-                          of supported instance types, see
-                          https://aws.amazon.com/sagemaker/pricing/instance-types/.
-    :param instance_count: The number of SageMaker ML instances on which to deploy the model.
-    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model associated with this application. The acceptable values
-                       for this parameter are identical to those of the ``VpcConfig`` parameter in
-                       the `SageMaker boto3 client's create_model method
-                       <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
-                       #SageMaker.Client.create_model>`_. For more information, see
-                       https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+        archive: If ``True``, any pre-existing SageMaker application resources that become
+            inactive (i.e. as a result of deploying in
+            ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
+            These resources may include unused SageMaker models and endpoint configurations
+            that were associated with a prior version of the application endpoint. If
+            ``False``, these resources are deleted. In order to use ``archive=False``,
+            ``deploy()`` must be executed synchronously with ``synchronous=True``.
+        instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
+            of supported instance types, see
+            https://aws.amazon.com/sagemaker/pricing/instance-types/.
+        instance_count: The number of SageMaker ML instances on which to deploy the model.
+        vpc_config: A dictionary specifying the VPC configuration to use when creating the
+            new SageMaker model associated with this application. The acceptable values
+            for this parameter are identical to those of the ``VpcConfig`` parameter in
+            the `SageMaker boto3 client's create_model method
+            <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
+            #SageMaker.Client.create_model>`_. For more information, see
+            https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
-                       .. code-block:: python
-                           :caption: Example
+            .. code-block:: python
+                :caption: Example
 
-                            import mlflow.sagemaker as mfs
+                    import mlflow.sagemaker as mfs
 
-                            vpc_config = {
-                                "SecurityGroupIds": [
-                                    "sg-123456abc",
-                                ],
-                                "Subnets": [
-                                    "subnet-123456abc",
-                                ],
-                            }
-                            mfs.deploy(..., vpc_config=vpc_config)
+                    vpc_config = {
+                        "SecurityGroupIds": [
+                            "sg-123456abc",
+                        ],
+                        "Subnets": [
+                            "subnet-123456abc",
+                        ],
+                    }
+                    mfs.deploy(..., vpc_config=vpc_config)
 
-    :param flavor: The name of the flavor of the model to use for deployment. Must be either
-                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
-                   a flavor is automatically selected from the model's available flavors. If the
-                   specified flavor is not present or not supported for deployment, an exception
-                   will be thrown.
-    :param synchronous: If ``True``, this function will block until the deployment process succeeds
-                        or encounters an irrecoverable failure. If ``False``, this function will
-                        return immediately after starting the deployment process. It will not wait
-                        for the deployment process to complete; in this case, the caller is
-                        responsible for monitoring the health and status of the pending deployment
-                        via native SageMaker APIs or the AWS console.
-    :param timeout_seconds: If ``synchronous`` is ``True``, the deployment process will return after
-                            the specified number of seconds if no definitive result (success or
-                            failure) is achieved. Once the function returns, the caller is
-                            responsible for monitoring the health and status of the pending
-                            deployment using native SageMaker APIs or the AWS console. If
-                            ``synchronous`` is ``False``, this parameter is ignored.
-    :param data_capture_config: A dictionary specifying the data capture configuration to use when
-                                creating the new SageMaker model associated with this application.
-                                For more information, see
-                                https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
+        flavor: The name of the flavor of the model to use for deployment. Must be either
+            ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
+            a flavor is automatically selected from the model's available flavors. If the
+            specified flavor is not present or not supported for deployment, an exception
+            will be thrown.
+        synchronous: If ``True``, this function will block until the deployment process succeeds
+            or encounters an irrecoverable failure. If ``False``, this function will
+            return immediately after starting the deployment process. It will not wait
+            for the deployment process to complete; in this case, the caller is
+            responsible for monitoring the health and status of the pending deployment
+            via native SageMaker APIs or the AWS console.
+        timeout_seconds: If ``synchronous`` is ``True``, the deployment process will return after
+            the specified number of seconds if no definitive result (success or
+            failure) is achieved. Once the function returns, the caller is
+            responsible for monitoring the health and status of the pending
+            deployment using native SageMaker APIs or the AWS console. If
+            ``synchronous`` is ``False``, this parameter is ignored.
+        data_capture_config: A dictionary specifying the data capture configuration to use when
+            creating the new SageMaker model associated with this application.
+            For more information, see
+            https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
 
-                                .. code-block:: python
-                                    :caption: Example
+            .. code-block:: python
+                :caption: Example
 
-                                    import mlflow.sagemaker as mfs
+                import mlflow.sagemaker as mfs
 
-                                    data_capture_config = {
-                                        "EnableCapture": True,
-                                        "InitalSamplingPercentage": 100,
-                                        "DestinationS3Uri": "s3://my-bucket/path",
-                                        "CaptureOptions": [{"CaptureMode": "Output"}],
-                                    }
-                                    mfs.deploy(..., data_capture_config=data_capture_config)
+                data_capture_config = {
+                    "EnableCapture": True,
+                    "InitalSamplingPercentage": 100,
+                    "DestinationS3Uri": "s3://my-bucket/path",
+                    "CaptureOptions": [{"CaptureMode": "Output"}],
+                }
+                mfs.deploy(..., data_capture_config=data_capture_config)
 
-    :param variant_name: The name to assign to the new production variant.
-    :param async_inference_config: The name to assign to the endpoint_config
-                                    on the sagemaker endpoint.
-                                    .. code-block:: python
-                                        :caption: Example
-                                            "AsyncInferenceConfig": {
-                                                "ClientConfig": {
-                                                    "MaxConcurrentInvocationsPerInstance": 4  # pylint: disable=line-too-long
-                                                },
-                                                "OutputConfig": {
-                                                    "S3OutputPath": "s3://<path-to-output-bucket>",  # pylint: disable=line-too-long
-                                                    "NotificationConfig": {},  # pylint: disable=line-too-long
-                                                },
-                                            }
-    :param serverless_config: An optional dictionary specifying the serverless configuration
-                                    .. code-block:: python
-                                        :caption: Example
-                                            "ServerlessConfig": {
-                                                "MemorySizeInMB": 2048,
-                                                "MaxConcurrency": 20,
-                                            }
-    :param env: An optional dictionary of environment variables to set for the model.
-    :param tags: An optional dictionary of tags to apply to the endpoint.
+        variant_name: The name to assign to the new production variant.
+        async_inference_config: The name to assign to the endpoint_config
+            on the sagemaker endpoint.
+            .. code-block:: python
+                :caption: Example
+                    "AsyncInferenceConfig": {
+                        "ClientConfig": {
+                            "MaxConcurrentInvocationsPerInstance": 4  # pylint: disable=line-too-long
+                        },
+                        "OutputConfig": {
+                            "S3OutputPath": "s3://<path-to-output-bucket>",  # pylint: disable=line-too-long
+                            "NotificationConfig": {},  # pylint: disable=line-too-long
+                        },
+                    }
+        serverless_config: An optional dictionary specifying the serverless configuration
+            .. code-block:: python
+                :caption: Example
+                    "ServerlessConfig": {
+                        "MemorySizeInMB": 2048,
+                        "MaxConcurrency": 20,
+                    }
+        env: An optional dictionary of environment variables to set for the model.
+        tags: An optional dictionary of tags to apply to the endpoint.
     """
     import boto3
 
@@ -489,28 +495,29 @@ def _delete(
     """
     Delete a SageMaker application.
 
-    :param app_name: Name of the deployed application.
-    :param region_name: Name of the AWS region in which the application is deployed.
-    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
-                            to another AWS account. If unspecified, SageMaker will be deployed to
-                            the the currently active AWS account.
-    :param archive: If ``True``, resources associated with the specified application, such
-                    as its associated models and endpoint configuration, are preserved.
-                    If ``False``, these resources are deleted. In order to use
-                    ``archive=False``, ``delete()`` must be executed synchronously with
-                    ``synchronous=True``.
-    :param synchronous: If `True`, this function blocks until the deletion process succeeds
-                        or encounters an irrecoverable failure. If `False`, this function
-                        returns immediately after starting the deletion process. It will not wait
-                        for the deletion process to complete; in this case, the caller is
-                        responsible for monitoring the status of the deletion process via native
-                        SageMaker APIs or the AWS console.
-    :param timeout_seconds: If `synchronous` is `True`, the deletion process returns after the
-                            specified number of seconds if no definitive result (success or failure)
-                            is achieved. Once the function returns, the caller is responsible
-                            for monitoring the status of the deletion process via native SageMaker
-                            APIs or the AWS console. If `synchronous` is False, this parameter
-                            is ignored.
+    Args:
+        app_name: Name of the deployed application.
+        region_name: Name of the AWS region in which the application is deployed.
+        assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+            to another AWS account. If unspecified, SageMaker will be deployed to
+            the the currently active AWS account.
+        archive: If ``True``, resources associated with the specified application, such
+            as its associated models and endpoint configuration, are preserved.
+            If ``False``, these resources are deleted. In order to use
+            ``archive=False``, ``delete()`` must be executed synchronously with
+            ``synchronous=True``.
+        synchronous: If `True`, this function blocks until the deletion process succeeds
+            or encounters an irrecoverable failure. If `False`, this function
+            returns immediately after starting the deletion process. It will not wait
+            for the deletion process to complete; in this case, the caller is
+            responsible for monitoring the status of the deletion process via native
+            SageMaker APIs or the AWS console.
+        timeout_seconds: If `synchronous` is `True`, the deletion process returns after the
+            specified number of seconds if no definitive result (success or failure)
+            is achieved. Once the function returns, the caller is responsible
+            for monitoring the status of the deletion process via native SageMaker
+            APIs or the AWS console. If `synchronous` is False, this parameter
+            is ignored.
     """
     import boto3
 
@@ -609,104 +616,105 @@ def deploy_transform_job(
     Deploy an MLflow model on AWS SageMaker and create the corresponding batch transform job.
     The currently active AWS account must have correct permissions set up.
 
-    :param job_name: Name of the deployed Sagemaker batch transform job.
-    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
-                      For example:
+    Args:
+        job_name: Name of the deployed Sagemaker batch transform job.
+        model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+            For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
 
-    :param s3_input_data_type: Input data type for the transform job.
-    :param s3_input_uri: S3 key name prefix or a manifest of the input data.
-    :param content_type: The multipurpose internet mail extension (MIME) type of the data.
-    :param s3_output_path: The S3 path to store the output results of the Sagemaker transform job.
-    :param compression_type: The compression type of the transform data.
-    :param split_type: The method to split the transform job's data files into smaller batches.
-    :param accept: The multipurpose internet mail extension (MIME) type of the output data.
-    :param assemble_with: The method to assemble the results of the transform job as
+        s3_input_data_type: Input data type for the transform job.
+        s3_input_uri: S3 key name prefix or a manifest of the input data.
+        content_type: The multipurpose internet mail extension (MIME) type of the data.
+        s3_output_path: The S3 path to store the output results of the Sagemaker transform job.
+        compression_type: The compression type of the transform data.
+        split_type: The method to split the transform job's data files into smaller batches.
+        accept: The multipurpose internet mail extension (MIME) type of the output data.
+        assemble_with: The method to assemble the results of the transform job as
             a single S3 object.
-    :param input_filter: A JSONPath expression used to select a portion of the input data for
+        input_filter: A JSONPath expression used to select a portion of the input data for
             the transform job.
-    :param output_filter: A JSONPath expression used to select a portion of the output data from
+        output_filter: A JSONPath expression used to select a portion of the output data from
             the transform job.
-    :param join_resource: The source of the data to join with the transformed data.
+        join_resource: The source of the data to join with the transformed data.
 
-    :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
-                               access the specified Docker image and S3 bucket containing MLflow
-                               model artifacts. If unspecified, the currently-assumed role will be
-                               used. This execution role is passed to the SageMaker service when
-                               creating a SageMaker model from the specified MLflow model. It is
-                               passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
-                               CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
-                               dg/API_CreateModel.html>`_. This role is *not* assumed for any other
-                               call. For more information about SageMaker execution roles for model
-                               creation, see
-                               https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
-    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
-                            to another AWS account. If unspecified, SageMaker will be deployed to
-                            the the currently active AWS account.
-    :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
-                   SageMaker-compatible bucket name.
-    :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
-                      by ``mlflow sagemaker build-and-push-container``. This parameter can also
-                      be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
-    :param region_name: Name of the AWS region to which to deploy the application.
-    :param instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
-                          of supported instance types, see
-                          https://aws.amazon.com/sagemaker/pricing/instance-types/.
-    :param instance_count: The number of SageMaker ML instances on which to deploy the model.
-    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model associated with this batch transform job. The acceptable
-                       values for this parameter are identical to those of the ``VpcConfig``
-                       parameter in the `SageMaker boto3 client's create_model method
-                       <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
-                       #SageMaker.Client.create_model>`_. For more information, see
-                       https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+        execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
+            access the specified Docker image and S3 bucket containing MLflow
+            model artifacts. If unspecified, the currently-assumed role will be
+            used. This execution role is passed to the SageMaker service when
+            creating a SageMaker model from the specified MLflow model. It is
+            passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
+            CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
+            dg/API_CreateModel.html>`_. This role is *not* assumed for any other
+            call. For more information about SageMaker execution roles for model
+            creation, see
+            https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+        assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+            to another AWS account. If unspecified, SageMaker will be deployed to
+            the the currently active AWS account.
+        bucket: S3 bucket where model artifacts will be stored. Defaults to a
+            SageMaker-compatible bucket name.
+        image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
+            by ``mlflow sagemaker build-and-push-container``. This parameter can also
+            be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
+        region_name: Name of the AWS region to which to deploy the application.
+        instance_type: The type of SageMaker ML instance on which to deploy the model. For a list
+            of supported instance types, see
+            https://aws.amazon.com/sagemaker/pricing/instance-types/.
+        instance_count: The number of SageMaker ML instances on which to deploy the model.
+        vpc_config: A dictionary specifying the VPC configuration to use when creating the
+            new SageMaker model associated with this batch transform job. The acceptable
+            values for this parameter are identical to those of the ``VpcConfig``
+            parameter in the `SageMaker boto3 client's create_model method
+            <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
+            #SageMaker.Client.create_model>`_. For more information, see
+            https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
-                       .. code-block:: python
-                           :caption: Example
+            .. code-block:: python
+                :caption: Example
 
-                            import mlflow.sagemaker as mfs
+                import mlflow.sagemaker as mfs
 
-                            vpc_config = {
-                                "SecurityGroupIds": [
-                                    "sg-123456abc",
-                                ],
-                                "Subnets": [
-                                    "subnet-123456abc",
-                                ],
-                            }
-                            mfs.deploy_transform_job(..., vpc_config=vpc_config)
+                vpc_config = {
+                    "SecurityGroupIds": [
+                        "sg-123456abc",
+                    ],
+                    "Subnets": [
+                        "subnet-123456abc",
+                    ],
+                }
+                mfs.deploy_transform_job(..., vpc_config=vpc_config)
 
-    :param flavor: The name of the flavor of the model to use for deployment. Must be either
-                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
-                   a flavor is automatically selected from the model's available flavors. If the
-                   specified flavor is not present or not supported for deployment, an exception
-                   will be thrown.
-    :param archive: If ``True``, resources like Sagemaker models and model artifacts in S3 are
-                    preserved after the finished batch transform job. If ``False``, these resources
-                    are deleted. In order to use ``archive=False``, ``deploy_transform_job()`` must
-                    be executed synchronously with ``synchronous=True``.
-    :param synchronous: If ``True``, this function will block until the deployment process succeeds
-                        or encounters an irrecoverable failure. If ``False``, this function will
-                        return immediately after starting the deployment process. It will not wait
-                        for the deployment process to complete; in this case, the caller is
-                        responsible for monitoring the health and status of the pending deployment
-                        via native SageMaker APIs or the AWS console.
-    :param timeout_seconds: If ``synchronous`` is ``True``, the deployment process will return after
-                            the specified number of seconds if no definitive result (success or
-                            failure) is achieved. Once the function returns, the caller is
-                            responsible for monitoring the health and status of the pending
-                            deployment using native SageMaker APIs or the AWS console. If
-                            ``synchronous`` is ``False``, this parameter is ignored.
+        flavor: The name of the flavor of the model to use for deployment. Must be either
+            ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
+            a flavor is automatically selected from the model's available flavors. If the
+            specified flavor is not present or not supported for deployment, an exception
+            will be thrown.
+        archive: If ``True``, resources like Sagemaker models and model artifacts in S3 are
+            preserved after the finished batch transform job. If ``False``, these resources
+            are deleted. In order to use ``archive=False``, ``deploy_transform_job()`` must
+            be executed synchronously with ``synchronous=True``.
+        synchronous: If ``True``, this function will block until the deployment process succeeds
+            or encounters an irrecoverable failure. If ``False``, this function will
+            return immediately after starting the deployment process. It will not wait
+            for the deployment process to complete; in this case, the caller is
+            responsible for monitoring the health and status of the pending deployment
+            via native SageMaker APIs or the AWS console.
+        timeout_seconds: If ``synchronous`` is ``True``, the deployment process will return after
+            the specified number of seconds if no definitive result (success or
+            failure) is achieved. Once the function returns, the caller is
+            responsible for monitoring the health and status of the pending
+            deployment using native SageMaker APIs or the AWS console. If
+            ``synchronous`` is ``False``, this parameter is ignored.
     """
     import boto3
 
@@ -827,28 +835,29 @@ def terminate_transform_job(
     """
     Terminate a SageMaker batch transform job.
 
-    :param job_name: Name of the deployed Sagemaker batch transform job.
-    :param region_name: Name of the AWS region in which the batch transform job is deployed.
-    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
-                            to another AWS account. If unspecified, SageMaker will be deployed to
-                            the the currently active AWS account.
-    :param archive: If ``True``, resources associated with the specified batch transform job,
-                    such as its associated models and model artifacts, are preserved.
-                    If ``False``, these resources are deleted. In order to use ``archive=False``,
-                    ``terminate_transform_job()`` must be executed synchronously
-                    with ``synchronous=True``.
-    :param synchronous: If `True`, this function blocks until the termination process succeeds
-                        or encounters an irrecoverable failure. If `False`, this function
-                        returns immediately after starting the termination process. It will not
-                        wait for the termination process to complete; in this case, the caller is
-                        responsible for monitoring the status of the termination process via native
-                        SageMaker APIs or the AWS console.
-    :param timeout_seconds: If `synchronous` is `True`, the termination process returns after the
-                            specified number of seconds if no definitive result (success or failure)
-                            is achieved. Once the function returns, the caller is responsible
-                            for monitoring the status of the termination process via native
-                            SageMaker APIs or the AWS console. If `synchronous` is False, this
-                            parameter is ignored.
+    Args:
+        job_name: Name of the deployed Sagemaker batch transform job.
+        region_name: Name of the AWS region in which the batch transform job is deployed.
+        assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+            to another AWS account. If unspecified, SageMaker will be deployed to
+            the the currently active AWS account.
+        archive: If ``True``, resources associated with the specified batch transform job,
+            such as its associated models and model artifacts, are preserved.
+            If ``False``, these resources are deleted. In order to use ``archive=False``,
+            ``terminate_transform_job()`` must be executed synchronously
+            with ``synchronous=True``.
+        synchronous: If `True`, this function blocks until the termination process succeeds
+            or encounters an irrecoverable failure. If `False`, this function
+            returns immediately after starting the termination process. It will not
+            wait for the termination process to complete; in this case, the caller is
+            responsible for monitoring the status of the termination process via native
+            SageMaker APIs or the AWS console.
+        timeout_seconds: If `synchronous` is `True`, the termination process returns after the
+            specified number of seconds if no definitive result (success or failure)
+            is achieved. Once the function returns, the caller is responsible
+            for monitoring the status of the termination process via native
+            SageMaker APIs or the AWS console. If `synchronous` is False, this
+            parameter is ignored.
     """
     import boto3
 
@@ -928,69 +937,70 @@ def push_model_to_sagemaker(
     Create a SageMaker Model from an MLflow model artifact.
     The currently active AWS account must have correct permissions set up.
 
-    :param model_name: Name of the Sagemaker model.
-    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
-                      For example:
+    Args:
+        model_name: Name of the Sagemaker model.
+        model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+            For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+            For more information about supported URI schemes, see
+            `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+            artifact-locations>`_.
 
-    :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
-                               access the specified Docker image and S3 bucket containing MLflow
-                               model artifacts. If unspecified, the currently-assumed role will be
-                               used. This execution role is passed to the SageMaker service when
-                               creating a SageMaker model from the specified MLflow model. It is
-                               passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
-                               CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
-                               dg/API_CreateModel.html>`_. This role is *not* assumed for any other
-                               call. For more information about SageMaker execution roles for model
-                               creation, see
-                               https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
-    :param assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
-                            to another AWS account. If unspecified, SageMaker will be deployed to
-                            the the currently active AWS account.
-    :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
-                   SageMaker-compatible bucket name.
-    :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
-                      by ``mlflow sagemaker build-and-push-container``. This parameter can also
-                      be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
-    :param region_name: Name of the AWS region to which to deploy the application.
-    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model. The acceptable values for this parameter are identical
-                       to those of the ``VpcConfig`` parameter in the `SageMaker boto3 client's
-                       create_model method
-                       <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
-                       #SageMaker.Client.create_model>`_. For more information, see
-                       https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+        execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
+            access the specified Docker image and S3 bucket containing MLflow
+            model artifacts. If unspecified, the currently-assumed role will be
+            used. This execution role is passed to the SageMaker service when
+            creating a SageMaker model from the specified MLflow model. It is
+            passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
+            CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
+            dg/API_CreateModel.html>`_. This role is *not* assumed for any other
+            call. For more information about SageMaker execution roles for model
+            creation, see
+            https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+        assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
+            to another AWS account. If unspecified, SageMaker will be deployed to
+            the the currently active AWS account.
+        bucket: S3 bucket where model artifacts will be stored. Defaults to a
+            SageMaker-compatible bucket name.
+        image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
+            by ``mlflow sagemaker build-and-push-container``. This parameter can also
+            be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
+        region_name: Name of the AWS region to which to deploy the application.
+        vpc_config: A dictionary specifying the VPC configuration to use when creating the
+            new SageMaker model. The acceptable values for this parameter are identical
+            to those of the ``VpcConfig`` parameter in the `SageMaker boto3 client's
+            create_model method
+            <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
+            #SageMaker.Client.create_model>`_. For more information, see
+            https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
-                       .. code-block:: python
-                           :caption: Example
+            .. code-block:: python
+                :caption: Example
 
-                            import mlflow.sagemaker as mfs
+                import mlflow.sagemaker as mfs
 
-                            vpc_config = {
-                                "SecurityGroupIds": [
-                                    "sg-123456abc",
-                                ],
-                                "Subnets": [
-                                    "subnet-123456abc",
-                                ],
-                            }
-                            mfs.push_model_to_sagemaker(..., vpc_config=vpc_config)
+                vpc_config = {
+                    "SecurityGroupIds": [
+                        "sg-123456abc",
+                    ],
+                    "Subnets": [
+                        "subnet-123456abc",
+                    ],
+                }
+                mfs.push_model_to_sagemaker(..., vpc_config=vpc_config)
 
-    :param flavor: The name of the flavor of the model to use for deployment. Must be either
-                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
-                   a flavor is automatically selected from the model's available flavors. If the
-                   specified flavor is not present or not supported for deployment, an exception
-                   will be thrown.
+        flavor: The name of the flavor of the model to use for deployment. Must be either
+            ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
+            a flavor is automatically selected from the model's available flavors. If the
+            specified flavor is not present or not supported for deployment, an exception
+            will be thrown.
     """
     import boto3
 
@@ -1066,31 +1076,32 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
     Note that models deployed locally cannot be managed by other deployment APIs
     (e.g. ``update_deployment``, ``delete_deployment``, etc).
 
-    :param name: Name of the local serving application.
-    :param model_uri: The location, in URI format, of the MLflow model to deploy locally.
-                      For example:
+    Args:
+        name: Name of the local serving application.
+        model_uri: The location, in URI format, of the MLflow model to deploy locally.
+                        For example:
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+                        - ``/Users/me/path/to/local/model``
+                        - ``relative/path/to/local/model``
+                        - ``s3://my_bucket/path/to/model``
+                        - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                        - ``models:/<model_name>/<model_version>``
+                        - ``models:/<model_name>/<stage>``
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
-    :param flavor: The name of the flavor of the model to use for deployment. Must be either
-                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS.
-                   If ``None``, a flavor is automatically selected from the model's available
-                   flavors. If the specified flavor is not present or not supported for
-                   deployment, an exception will be thrown.
-    :param config: Configuration parameters. The supported parameters are:
+                        For more information about supported URI schemes, see
+                        `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                        artifact-locations>`_.
+        flavor: The name of the flavor of the model to use for deployment. Must be either
+                    ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS.
+                    If ``None``, a flavor is automatically selected from the model's available
+                    flavors. If the specified flavor is not present or not supported for
+                    deployment, an exception will be thrown.
+        config: Configuration parameters. The supported parameters are:
 
-                   - ``image``: The name of the Docker image to use for model serving. Defaults
-                                to ``"mlflow-pyfunc"``.
-                   - ``port``: The port at which to expose the model server on the local host.
-                               Defaults to ``5000``.
+                    - ``image``: The name of the Docker image to use for model serving. Defaults
+                                    to ``"mlflow-pyfunc"``.
+                    - ``port``: The port at which to expose the model server on the local host.
+                                Defaults to ``5000``.
 
     .. code-block:: python
         :caption: Python example
@@ -1202,7 +1213,8 @@ def _get_account_id(**assume_role_credentials):
 
 def _get_assumed_role_arn(**assume_role_credentials):
     """
-    :return: ARN of the user's current IAM role.
+    Returns:
+        ARN of the user's current IAM role.
     """
     import boto3
 
@@ -1222,8 +1234,11 @@ def _assume_role_and_get_credentials(assume_role_arn=None):
     When ``assume_role_arn`` is ``None`` or an empty string,
     this function does nothing and returns an empty dictionary.
 
-    :param assume_role_arn: Optional ARN of the role that will be assumed
-    :return: Dict with credentials of the assumed role
+    Args:
+        assume_role_arn: Optional ARN of the role that will be assumed
+
+    Returns:
+        Dict with credentials of the assumed role
     """
     import boto3
 
@@ -1288,12 +1303,16 @@ def _make_tarfile(output_filename, source_dir):
 def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assume_role_credentials):
     """
     Upload dir to S3 as .tar.gz.
-    :param local_model_path: Local path to a dir.
-    :param bucket: S3 bucket where to store the data.
-    :param prefix: Path within the bucket.
-    :param region_name: The AWS region in which to upload data to S3.
-    :param s3_client: A boto3 client for S3.
-    :return: S3 path of the uploaded artifact.
+
+    Args:
+        local_model_path: Local path to a dir.
+        bucket: S3 bucket where to store the data.
+        prefix: Path within the bucket.
+        region_name: The AWS region in which to upload data to S3.
+        s3_client: A boto3 client for S3.
+
+    Returns:
+        S3 path of the uploaded artifact.
     """
     import boto3
 
@@ -1314,7 +1333,8 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client, **assum
 
 def _get_deployment_config(flavor_name, env_override=None):
     """
-    :return: The deployment configuration as a dictionary
+    Returns:
+        The deployment configuration as a dictionary
     """
     deployment_config = {
         MLFLOW_DEPLOYMENT_FLAVOR_NAME.name: flavor_name,
@@ -1393,35 +1413,36 @@ def _create_sagemaker_transform_job(
     join_resource,
 ):
     """
-    :param job_name: Name of the deployed Sagemaker batch transform job.
-    :param model_name: The name to assign the new SageMaker model that will be associated with the
-                       specified batch transform job.
-    :param model_s3_path: S3 path where we stored the model artifacts.
-    :param model_uri: URI of the MLflow model to associate with the specified SageMaker batch
-                        transform job.
-    :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
-    :param flavor: The name of the flavor of the model to use for deployment.
-    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model associated with this SageMaker batch transform job.
-    :param role: SageMaker execution ARN role.
-    :param sage_client: A boto3 client for SageMaker.
-    :param s3_client: A boto3 client for S3.
-    :param instance_type: The type of SageMaker ML instance on which to deploy the model.
-    :param instance_count: The number of SageMaker ML instances on which to deploy the model.
-    :param s3_input_data_type: Input data type for the transform job.
-    :param s3_input_uri: S3 key name prefix or a manifest of the input data.
-    :param content_type: The multipurpose internet mail extension (MIME) type of the data.
-    :param compression_type: The compression type of the transform data.
-    :param split_type: The method to split the transform job's data files into smaller batches.
-    :param s3_output_path: The S3 path to store the output results of the Sagemaker transform job.
-    :param accept: The multipurpose internet mail extension (MIME) type of the output data.
-    :param assemble_with: The method to assemble the results of the transform job as a single
-                        S3 object.
-    :param input_filter: A JSONPath expression used to select a portion of the input data for the
-                        transform job.
-    :param output_filter: A JSONPath expression used to select a portion of the output data from
-                        the transform job.
-    :param join_resource: The source of the data to join with the transformed data.
+    Args:
+        job_name: Name of the deployed Sagemaker batch transform job.
+        model_name: The name to assign the new SageMaker model that will be associated with the
+            specified batch transform job.
+        model_s3_path: S3 path where we stored the model artifacts.
+        model_uri: URI of the MLflow model to associate with the specified SageMaker batch
+            transform job.
+        image_url: URL of the ECR-hosted docker image the model is being deployed into.
+        flavor: The name of the flavor of the model to use for deployment.
+        vpc_config: A dictionary specifying the VPC configuration to use when creating the
+            new SageMaker model associated with this SageMaker batch transform job.
+        role: SageMaker execution ARN role.
+        sage_client: A boto3 client for SageMaker.
+        s3_client: A boto3 client for S3.
+        instance_type: The type of SageMaker ML instance on which to deploy the model.
+        instance_count: The number of SageMaker ML instances on which to deploy the model.
+        s3_input_data_type: Input data type for the transform job.
+        s3_input_uri: S3 key name prefix or a manifest of the input data.
+        content_type: The multipurpose internet mail extension (MIME) type of the data.
+        compression_type: The compression type of the transform data.
+        split_type: The method to split the transform job's data files into smaller batches.
+        s3_output_path: The S3 path to store the output results of the Sagemaker transform job.
+        accept: The multipurpose internet mail extension (MIME) type of the output data.
+        assemble_with: The method to assemble the results of the transform job as a single
+            S3 object.
+        input_filter: A JSONPath expression used to select a portion of the input data for the
+            transform job.
+        output_filter: A JSONPath expression used to select a portion of the output data from
+            the transform job.
+        join_resource: The source of the data to join with the transformed data.
     """
     _logger.info("Creating new batch transform job with name: %s ...", job_name)
 
@@ -1529,24 +1550,25 @@ def _create_sagemaker_endpoint(
     tags=None,
 ):
     """
-    :param endpoint_name: The name of the SageMaker endpoint to create.
-    :param model_name: The name to assign the new SageMaker model that will be associated with the
-                       specified endpoint.
-    :param model_s3_path: S3 path where we stored the model artifacts.
-    :param model_uri: URI of the MLflow model to associate with the specified SageMaker endpoint.
-    :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
-    :param flavor: The name of the flavor of the model to use for deployment.
-    :param instance_type: The type of SageMaker ML instance on which to deploy the model.
-    :param instance_count: The number of SageMaker ML instances on which to deploy the model.
-    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model associated with this SageMaker endpoint.
-    :param data_capture_config: A dictionary specifying the data capture configuration to use when
-                       creating the new SageMaker model associated with this application.
-    :param role: SageMaker execution ARN role.
-    :param sage_client: A boto3 client for SageMaker.
-    :param variant_name: The name to assign to the new production variant.
-    :param env: A dictionary of environment variables to set for the model.
-    :param tags: A dictionary of tags to apply to the endpoint.
+    Args:
+        endpoint_name: The name of the SageMaker endpoint to create.
+        model_name: The name to assign the new SageMaker model that will be associated with the
+            specified endpoint.
+        model_s3_path: S3 path where we stored the model artifacts.
+        model_uri: URI of the MLflow model to associate with the specified SageMaker endpoint.
+        image_url: URL of the ECR-hosted docker image the model is being deployed into.
+        flavor: The name of the flavor of the model to use for deployment.
+        instance_type: The type of SageMaker ML instance on which to deploy the model.
+        instance_count: The number of SageMaker ML instances on which to deploy the model.
+        vpc_config: A dictionary specifying the VPC configuration to use when creating the
+            new SageMaker model associated with this SageMaker endpoint.
+        data_capture_config: A dictionary specifying the data capture configuration to use when
+            creating the new SageMaker model associated with this application.
+        role: SageMaker execution ARN role.
+        sage_client: A boto3 client for SageMaker.
+        variant_name: The name to assign to the new production variant.
+        env: A dictionary of environment variables to set for the model.
+        tags: A dictionary of tags to apply to the endpoint.
     """
     _logger.info("Creating new endpoint with name: %s ...", endpoint_name)
 
@@ -1655,31 +1677,32 @@ def _update_sagemaker_endpoint(
     tags=None,
 ):
     """
-    :param endpoint_name: The name of the SageMaker endpoint to update.
-    :param model_name: The name to assign the new SageMaker model that will be associated with the
-                       specified endpoint.
-    :param model_uri: URI of the MLflow model to associate with the specified SageMaker endpoint.
-    :param image_url: URL of the ECR-hosted Docker image the model is being deployed into
-    :param model_s3_path: S3 path where we stored the model artifacts
-    :param flavor: The name of the flavor of the model to use for deployment.
-    :param instance_type: The type of SageMaker ML instance on which to deploy the model.
-    :param instance_count: The number of SageMaker ML instances on which to deploy the model.
-    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model associated with this SageMaker endpoint.
-    :param mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or
-                 mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE.
-    :param role: SageMaker execution ARN role.
-    :param sage_client: A boto3 client for SageMaker.
-    :param s3_client: A boto3 client for S3.
-    :param variant_name: The name to assign to the new production variant if it doesn't already exist. # pylint: disable=line-too-long
-    :param async_inference_config: A dictionary specifying the async inference configuration to use.
-                         For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AsyncInferenceConfig.html.
-                         Defaults to ``None``.
-    :param: data_capture_config: A dictionary specifying the data capture configuration to use.
-                                 For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
-                                 Defaults to ``None``.
-    :param env: A dictionary of environment variables to set for the model.
-    :param tags: A dictionary of tags to apply to the endpoint configuration.
+    Args:
+        endpoint_name: The name of the SageMaker endpoint to update.
+        model_name: The name to assign the new SageMaker model that will be associated with the
+            specified endpoint.
+        model_uri: URI of the MLflow model to associate with the specified SageMaker endpoint.
+        image_url: URL of the ECR-hosted Docker image the model is being deployed into
+        model_s3_path: S3 path where we stored the model artifacts
+        flavor: The name of the flavor of the model to use for deployment.
+        instance_type: The type of SageMaker ML instance on which to deploy the model.
+        instance_count: The number of SageMaker ML instances on which to deploy the model.
+        vpc_config: A dictionary specifying the VPC configuration to use when creating the
+            new SageMaker model associated with this SageMaker endpoint.
+        mode: either mlflow.sagemaker.DEPLOYMENT_MODE_ADD or
+            mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE.
+        role: SageMaker execution ARN role.
+        sage_client: A boto3 client for SageMaker.
+        s3_client: A boto3 client for S3.
+        variant_name: The name to assign to the new production variant if it doesn't already exist. # pylint: disable=line-too-long
+        async_inference_config: A dictionary specifying the async inference configuration to use.
+            For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AsyncInferenceConfig.html.
+            Defaults to ``None``.
+        data_capture_config: A dictionary specifying the data capture configuration to use.
+            For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
+            Defaults to ``None``.
+        env: A dictionary of environment variables to set for the model.
+        tags: A dictionary of tags to apply to the endpoint configuration.
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = f"Invalid mode `{mode}` for deployment to a pre-existing application"
@@ -1816,19 +1839,22 @@ def _create_sagemaker_model(
     tags,
 ):
     """
-    :param model_name: The name to assign the new SageMaker model that is created.
-    :param model_s3_path: S3 path where the model artifacts are stored.
-    :param model_uri: URI of the MLflow model associated with the new SageMaker model.
-    :param flavor: The name of the flavor of the model.
-    :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model associated with this SageMaker endpoint.
-    :param image_url: URL of the ECR-hosted Docker image that will serve as the
-                      model's container,
-    :param execution_role: The ARN of the role that SageMaker will assume when creating the model.
-    :param sage_client: A boto3 client for SageMaker.
-    :param env: A dictionary of environment variables to set for the model.
-    :param tags: A dictionary of tags to apply to the SageMaker model.
-    :return: AWS response containing metadata associated with the new model.
+    Args:
+        model_name: The name to assign the new SageMaker model that is created.
+        model_s3_path: S3 path where the model artifacts are stored.
+        model_uri: URI of the MLflow model associated with the new SageMaker model.
+        flavor: The name of the flavor of the model.
+        vpc_config: A dictionary specifying the VPC configuration to use when creating the
+            new SageMaker model associated with this SageMaker endpoint.
+        image_url: URL of the ECR-hosted Docker image that will serve as the
+            model's container,
+        execution_role: The ARN of the role that SageMaker will assume when creating the model.
+        sage_client: A boto3 client for SageMaker.
+        env: A dictionary of environment variables to set for the model.
+        tags: A dictionary of tags to apply to the SageMaker model.
+
+    Returns:
+        AWS response containing metadata associated with the new model.
     """
     tags["model_uri"] = str(model_uri)
     create_model_args = {
@@ -1849,9 +1875,12 @@ def _create_sagemaker_model(
 
 def _delete_sagemaker_model(model_name, sage_client, s3_client):
     """
-    :param sage_client: A boto3 client for SageMaker.
-    :param s3_client: A boto3 client for S3.
-    :return: ARN of the deleted model.
+    Args:
+        sage_client: A boto3 client for SageMaker.
+        s3_client: A boto3 client for S3.
+
+    Returns:
+        ARN of the deleted model.
     """
     model_info = sage_client.describe_model(ModelName=model_name)
     model_arn = model_info["ModelArn"]
@@ -1872,8 +1901,11 @@ def _delete_sagemaker_model(model_name, sage_client, s3_client):
 
 def _delete_sagemaker_endpoint_configuration(endpoint_config_name, sage_client):
     """
-    :param sage_client: A boto3 client for SageMaker.
-    :return: ARN of the deleted endpoint configuration.
+    Args:
+        sage_client: A boto3 client for SageMaker.
+
+    Returns:
+        ARN of the deleted endpoint configuration.
     """
     endpoint_config_info = sage_client.describe_endpoint_config(
         EndpointConfigName=endpoint_config_name
@@ -1887,9 +1919,12 @@ def _find_endpoint(endpoint_name, sage_client):
     Finds a SageMaker endpoint with the specified name in the caller's AWS account, returning a
     NoneType if the endpoint is not found.
 
-    :param sage_client: A boto3 client for SageMaker.
-    :return: If the endpoint exists, a dictionary of endpoint attributes. If the endpoint does not
-             exist, ``None``.
+    Args:
+        sage_client: A boto3 client for SageMaker.
+
+    Returns:
+        If the endpoint exists, a dictionary of endpoint attributes. If the endpoint does not
+        exist, ``None``.
     """
     endpoints_page = sage_client.list_endpoints(MaxResults=100, NameContains=endpoint_name)
 
@@ -1911,9 +1946,12 @@ def _find_transform_job(job_name, sage_client):
     Finds a SageMaker batch transform job with the specified name in the caller's AWS account,
     returning a NoneType if the transform job is not found.
 
-    :param sage_client: A boto3 client for SageMaker.
-    :return: If the transform job exists, a dictionary of transform job attributes. If the
-             transform job does not exist, ``None``.
+    Args:
+        sage_client: A boto3 client for SageMaker.
+
+    Returns:
+        If the transform job exists, a dictionary of transform job attributes. If the
+        transform job does not exist, ``None``.
     """
     transform_jobs_page = sage_client.list_transform_jobs(MaxResults=100, NameContains=job_name)
 
@@ -1937,9 +1975,12 @@ def _does_model_exist(model_name, sage_client):
     Determines whether a SageMaker model exists with the specified name in the caller's AWS account,
     returning True if the model exists, returning False if the model does not exist.
 
-    :param sage_client: A boto3 client for SageMaker.
-    :return: If the model exists, ``True``. If the model does not
-             exist, ``False``.
+    Args:
+        sage_client: A boto3 client for SageMaker.
+
+    Returns:
+        If the model exists, ``True``. If the model does not
+        exist, ``False``.
     """
     try:
         response = sage_client.describe_model(ModelName=model_name)
@@ -1961,20 +2002,19 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
     `mlflow deployments CLI <https://www.mlflow.org/docs/latest/cli.html#mlflow-deployments>`_ and
     get a client through the :py:mod:`mlflow.deployments.get_deploy_client` function.
 
-    :param target_uri: A URI that follows one of the following formats:
+    Args:
+        target_uri: A URI that follows one of the following formats:
 
-                       - ``sagemaker``: This will set the default region to `us-west-2` and
-                         the default assumed role ARN to `None`.
+            - ``sagemaker``: This will set the default region to `us-west-2` and
+              the default assumed role ARN to `None`.
+            - ``sagemaker:/region_name``: This will set the default region to
+              `region_name` and the default assumed role ARN to `None`.
+            - ``sagemaker:/region_name/assumed_role_arn``: This will set the default
+              region to `region_name` and the default assumed role ARN to
+              `assumed_role_arn`.
 
-                       - ``sagemaker:/region_name``: This will set the default region to
-                         `region_name` and the default assumed role ARN to `None`.
-
-                       - ``sagemaker:/region_name/assumed_role_arn``: This will set the default
-                         region to `region_name` and the default assumed role ARN to
-                         `assumed_role_arn`.
-
-                       When an `assumed_role_arn` is provided without a `region_name`,
-                       an MlflowException will be raised.
+            When an `assumed_role_arn` is provided without a `region_name`,
+            an MlflowException will be raised.
     """
 
     def __init__(self, target_uri):
@@ -2080,119 +2120,122 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         formats accepted by this endpoint, see the
         :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
 
-        :param name: Name of the deployed application.
-        :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
-                          For example:
+        Args:
+            name: Name of the deployed application.
+            model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+                For example:
 
-                          - ``/Users/me/path/to/local/model``
-                          - ``relative/path/to/local/model``
-                          - ``s3://my_bucket/path/to/model``
-                          - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                          - ``models:/<model_name>/<model_version>``
-                          - ``models:/<model_name>/<stage>``
+                - ``/Users/me/path/to/local/model``
+                - ``relative/path/to/local/model``
+                - ``s3://my_bucket/path/to/model``
+                - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                - ``models:/<model_name>/<model_version>``
+                - ``models:/<model_name>/<stage>``
 
-                          For more information about supported URI schemes, see
-                          `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                          artifact-locations>`_.
-        :param flavor: The name of the flavor of the model to use for deployment. Must be either
-                       ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS.
-                       If ``None``, a flavor is automatically selected from the model's available
-                       flavors. If the specified flavor is not present or not supported for
-                       deployment, an exception will be thrown.
-        :param config: Configuration parameters. The supported parameters are:
+                For more information about supported URI schemes, see
+                `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                artifact-locations>`_.
+            flavor: The name of the flavor of the model to use for deployment. Must be either
+                ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS.
+                If ``None``, a flavor is automatically selected from the model's available
+                flavors. If the specified flavor is not present or not supported for
+                deployment, an exception will be thrown.
+            config: Configuration parameters. The supported parameters are:
 
-                       - ``assume_role_arn``: The name of an IAM cross-account role to be assumed
-                         to deploy SageMaker to another AWS account. If this parameter is not
-                         specified, the role given in the ``target_uri`` will be used. If the
-                         role is not given in the ``target_uri``, defaults to ``us-west-2``.
+                - ``assume_role_arn``: The name of an IAM cross-account role to be assumed
+                  to deploy SageMaker to another AWS account. If this parameter is not
+                  specified, the role given in the ``target_uri`` will be used. If the
+                  role is not given in the ``target_uri``, defaults to ``us-west-2``.
 
-                       - ``execution_role_arn``: The name of an IAM role granting the SageMaker
-                         service permissions to access the specified Docker image and S3 bucket
-                         containing MLflow model artifacts. If unspecified, the currently-assumed
-                         role will be used. This execution role is passed to the SageMaker service
-                         when creating a SageMaker model from the specified MLflow model. It is
-                         passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
-                         CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
-                         dg/API_CreateModel.html>`_. This role is *not* assumed for any other
-                         call. For more information about SageMaker execution roles for model
-                         creation, see
-                         https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+                - ``execution_role_arn``: The name of an IAM role granting the SageMaker
+                  service permissions to access the specified Docker image and S3 bucket
+                  containing MLflow model artifacts. If unspecified, the currently-assumed
+                  role will be used. This execution role is passed to the SageMaker service
+                  when creating a SageMaker model from the specified MLflow model. It is
+                  passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
+                  CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
+                  dg/API_CreateModel.html>`_. This role is *not* assumed for any other
+                  call. For more information about SageMaker execution roles for model
+                  creation, see
+                  https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
 
-                       - ``bucket``: S3 bucket where model artifacts will be stored. Defaults to a
-                         SageMaker-compatible bucket name.
+                - ``bucket``: S3 bucket where model artifacts will be stored. Defaults to a
+                  SageMaker-compatible bucket name.
 
-                       - ``image_url``: URL of the ECR-hosted Docker image the model should be
-                         deployed into, produced by ``mlflow sagemaker build-and-push-container``.
-                         This parameter can also be specified by the environment variable
-                         ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
+                - ``image_url``: URL of the ECR-hosted Docker image the model should be
+                  deployed into, produced by ``mlflow sagemaker build-and-push-container``.
+                  This parameter can also be specified by the environment variable
+                  ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
 
-                       - ``region_name``: Name of the AWS region to which to deploy the application.
-                         If unspecified, use the region name given in the ``target_uri``.
-                         If it is also not specified in the ``target_uri``,
-                         defaults to ``us-west-2``.
+                - ``region_name``: Name of the AWS region to which to deploy the application.
+                  If unspecified, use the region name given in the ``target_uri``.
+                  If it is also not specified in the ``target_uri``,
+                  defaults to ``us-west-2``.
 
-                       - ``archive``: If ``True``, any pre-existing SageMaker application resources
-                         that become inactive (i.e. as a result of deploying in
-                         ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
-                         These resources may include unused SageMaker models and endpoint
-                         configurations that were associated with a prior version of the
-                         application endpoint. If ``False``, these resources are deleted.
-                         In order to use ``archive=False``, ``create_deployment()`` must be executed
-                         synchronously with ``synchronous=True``. Defaults to ``False``.
+                - ``archive``: If ``True``, any pre-existing SageMaker application resources
+                  that become inactive (i.e. as a result of deploying in
+                  ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
+                  These resources may include unused SageMaker models and endpoint
+                  configurations that were associated with a prior version of the
+                  application endpoint. If ``False``, these resources are deleted.
+                  In order to use ``archive=False``, ``create_deployment()`` must be executed
+                  synchronously with ``synchronous=True``. Defaults to ``False``.
 
-                       - ``instance_type``: The type of SageMaker ML instance on which to deploy the
-                         model. For a list of supported instance types, see
-                         https://aws.amazon.com/sagemaker/pricing/instance-types/.
-                         Defaults to ``ml.m4.xlarge``.
+                - ``instance_type``: The type of SageMaker ML instance on which to deploy the
+                  model. For a list of supported instance types, see
+                  https://aws.amazon.com/sagemaker/pricing/instance-types/.
+                  Defaults to ``ml.m4.xlarge``.
 
-                       - ``instance_count``: The number of SageMaker ML instances on which to deploy
-                         the model. Defaults to ``1``.
+                - ``instance_count``: The number of SageMaker ML instances on which to deploy
+                  the model. Defaults to ``1``.
 
-                       - ``synchronous``: If ``True``, this function will block until the deployment
-                         process succeeds or encounters an irrecoverable failure. If ``False``,
-                         this function will return immediately after starting the deployment
-                         process. It will not wait for the deployment process to complete;
-                         in this case, the caller is responsible for monitoring the health and
-                         status of the pending deployment via native SageMaker APIs or the AWS
-                         console. Defaults to ``True``.
+                - ``synchronous``: If ``True``, this function will block until the deployment
+                  process succeeds or encounters an irrecoverable failure. If ``False``,
+                  this function will return immediately after starting the deployment
+                  process. It will not wait for the deployment process to complete;
+                  in this case, the caller is responsible for monitoring the health and
+                  status of the pending deployment via native SageMaker APIs or the AWS
+                  console. Defaults to ``True``.
 
-                       - ``timeout_seconds``: If ``synchronous`` is ``True``, the deployment process
-                         will return after the specified number of seconds if no definitive result
-                         (success or failure) is achieved. Once the function returns, the caller is
-                         responsible for monitoring the health and status of the pending
-                         deployment using native SageMaker APIs or the AWS console. If
-                         ``synchronous`` is ``False``, this parameter is ignored.
-                         Defaults to ``300``.
+                - ``timeout_seconds``: If ``synchronous`` is ``True``, the deployment process
+                  will return after the specified number of seconds if no definitive result
+                  (success or failure) is achieved. Once the function returns, the caller is
+                  responsible for monitoring the health and status of the pending
+                  deployment using native SageMaker APIs or the AWS console. If
+                  ``synchronous`` is ``False``, this parameter is ignored.
+                  Defaults to ``300``.
 
-                       - ``vpc_config``: A dictionary specifying the VPC configuration to use when
-                         creating the new SageMaker model associated with this application.
-                         The acceptable values for this parameter are identical to those of the
-                         ``VpcConfig`` parameter in the `SageMaker boto3 client's create_model
-                         method <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
-                         #SageMaker.Client.create_model>`_. For more information, see
-                         https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
-                         Defaults to ``None``.
+                - ``vpc_config``: A dictionary specifying the VPC configuration to use when
+                  creating the new SageMaker model associated with this application.
+                  The acceptable values for this parameter are identical to those of the
+                  ``VpcConfig`` parameter in the `SageMaker boto3 client's create_model
+                  method <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
+                  #SageMaker.Client.create_model>`_. For more information, see
+                  https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+                  Defaults to ``None``.
 
-                       - ``data_capture_config``: A dictionary specifying the data capture
-                         configuration to use when creating the new SageMaker model associated with
-                         this application.
-                         For more information, see
-                         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
-                         Defaults to ``None``.
+                - ``data_capture_config``: A dictionary specifying the data capture
+                  configuration to use when creating the new SageMaker model associated with
+                  this application.
+                  For more information, see
+                  https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
+                  Defaults to ``None``.
 
-                       - ``variant_name``: A string specifying the desired name when creating a
-                                           production variant.  Defaults to ``None``.
-                       - ``async_inference_config``: A dictionary specifying the async_inference_configuration # pylint: disable=line-too-long
+                - ``variant_name``: A string specifying the desired name when creating a production
+                  variant.  Defaults to ``None``.
 
-                       - ``serverless_config``: A dictionary specifying the serverless_configuration
+                - ``async_inference_config``: A dictionary specifying the
+                  async_inference_configuration
 
-                       - ``env``: A dictionary specifying environment variables as key-value
-                         pairs to be set for the deployed model. Defaults to ``None``.
+                - ``serverless_config``: A dictionary specifying the serverless_configuration
 
-                       - ``tags``: A dictionary of key-value pairs representing additional
-                         tags to be set for the deployed model. Defaults to ``None``.
+                - ``env``: A dictionary specifying environment variables as key-value
+                  pairs to be set for the deployed model. Defaults to ``None``.
 
-        :param endpoint: (optional) Endpoint to create the deployment under. Currently unsupported
+                - ``tags``: A dictionary of key-value pairs representing additional
+                  tags to be set for the deployed model. Defaults to ``None``.
+
+            endpoint: (optional) Endpoint to create the deployment under. Currently unsupported
 
         .. code-block:: python
             :caption: Python example
@@ -2293,143 +2336,142 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         an existing SageMaker endpoint. By default, this function replaces the existing model
         with the new one. The currently active AWS account must have correct permissions set up.
 
-        :param name: Name of the deployed application.
-        :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
-                          For example:
+        Args:
+            name: Name of the deployed application.
+            model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+                For example:
 
-                          - ``/Users/me/path/to/local/model``
-                          - ``relative/path/to/local/model``
-                          - ``s3://my_bucket/path/to/model``
-                          - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                          - ``models:/<model_name>/<model_version>``
-                          - ``models:/<model_name>/<stage>``
+                - ``/Users/me/path/to/local/model``
+                - ``relative/path/to/local/model``
+                - ``s3://my_bucket/path/to/model``
+                - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                - ``models:/<model_name>/<model_version>``
+                - ``models:/<model_name>/<stage>``
 
-                          For more information about supported URI schemes, see
-                          `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                          artifact-locations>`_.
+                For more information about supported URI schemes, see
+                `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                artifact-locations>`_.
 
-        :param flavor: The name of the flavor of the model to use for deployment. Must be either
-                       ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS.
-                       If ``None``, a flavor is automatically selected from the model's available
-                       flavors. If the specified flavor is not present or not supported for
-                       deployment, an exception will be thrown.
+            flavor: The name of the flavor of the model to use for deployment. Must be either
+                ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS.
+                If ``None``, a flavor is automatically selected from the model's available
+                flavors. If the specified flavor is not present or not supported for
+                deployment, an exception will be thrown.
 
-        :param config: Configuration parameters. The supported parameters are:
+            config: Configuration parameters. The supported parameters are:
 
-                       - ``assume_role_arn``: The name of an IAM cross-account role to be assumed
-                         to deploy SageMaker to another AWS account. If this parameter is not
-                         specified, the role given in the ``target_uri`` will be used. If the
-                         role is not given in the ``target_uri``, defaults to ``us-west-2``.
+                - ``assume_role_arn``: The name of an IAM cross-account role to be assumed
+                  to deploy SageMaker to another AWS account. If this parameter is not
+                  specified, the role given in the ``target_uri`` will be used. If the
+                  role is not given in the ``target_uri``, defaults to ``us-west-2``.
 
-                       - ``execution_role_arn``: The name of an IAM role granting the SageMaker
-                         service permissions to access the specified Docker image and S3 bucket
-                         containing MLflow model artifacts. If unspecified, the currently-assumed
-                         role will be used. This execution role is passed to the SageMaker service
-                         when creating a SageMaker model from the specified MLflow model. It is
-                         passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
-                         CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
-                         dg/API_CreateModel.html>`_. This role is *not* assumed for any other
-                         call. For more information about SageMaker execution roles for model
-                         creation, see
-                         https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
+                - ``execution_role_arn``: The name of an IAM role granting the SageMaker
+                  service permissions to access the specified Docker image and S3 bucket
+                  containing MLflow model artifacts. If unspecified, the currently-assumed
+                  role will be used. This execution role is passed to the SageMaker service
+                  when creating a SageMaker model from the specified MLflow model. It is
+                  passed as the ``ExecutionRoleArn`` parameter of the `SageMaker
+                  CreateModel API call <https://docs.aws.amazon.com/sagemaker/latest/
+                  dg/API_CreateModel.html>`_. This role is *not* assumed for any other
+                  call. For more information about SageMaker execution roles for model
+                  creation, see
+                  https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
 
-                       - ``bucket``: S3 bucket where model artifacts will be stored. Defaults to a
-                         SageMaker-compatible bucket name.
+                - ``bucket``: S3 bucket where model artifacts will be stored. Defaults to a
+                  SageMaker-compatible bucket name.
 
-                       - ``image_url``: URL of the ECR-hosted Docker image the model should be
-                         deployed into, produced by ``mlflow sagemaker build-and-push-container``.
-                         This parameter can also be specified by the environment variable
-                         ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
+                - ``image_url``: URL of the ECR-hosted Docker image the model should be
+                  deployed into, produced by ``mlflow sagemaker build-and-push-container``.
+                  This parameter can also be specified by the environment variable
+                  ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
 
-                       - ``region_name``: Name of the AWS region to which to deploy the application.
-                         If unspecified, use the region name given in the ``target_uri``.
-                         If it is also not specified in the ``target_uri``,
-                         defaults to ``us-west-2``.
+                - ``region_name``: Name of the AWS region to which to deploy the application.
+                  If unspecified, use the region name given in the ``target_uri``.
+                  If it is also not specified in the ``target_uri``,
+                  defaults to ``us-west-2``.
 
-                       - ``mode``: The mode in which to deploy the application.
-                         Must be one of the following:
+                - ``mode``: The mode in which to deploy the application.
+                  Must be one of the following:
 
-                         ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
-                             If an application of the specified name exists, its model(s) is
-                             replaced with the specified model. If no such application exists,
-                             it is created with the specified name and model.
-                             This is the default mode.
+                  ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE``
+                      If an application of the specified name exists, its model(s) is
+                      replaced with the specified model. If no such application exists,
+                      it is created with the specified name and model.
+                      This is the default mode.
 
-                         ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
-                             Add the specified model to a pre-existing application with the
-                             specified name, if one exists. If the application does not exist,
-                             a new application is created with the specified name and model.
-                             NOTE: If the application **already exists**, the specified model is
-                             added to the application's corresponding SageMaker endpoint with an
-                             initial weight of zero (0). To route traffic to the model,
-                             update the application's associated endpoint configuration using
-                             either the AWS console or the ``UpdateEndpointWeightsAndCapacities``
-                             function defined in https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
+                  ``mlflow.sagemaker.DEPLOYMENT_MODE_ADD``
+                      Add the specified model to a pre-existing application with the
+                      specified name, if one exists. If the application does not exist,
+                      a new application is created with the specified name and model.
+                      NOTE: If the application **already exists**, the specified model is
+                      added to the application's corresponding SageMaker endpoint with an
+                      initial weight of zero (0). To route traffic to the model,
+                      update the application's associated endpoint configuration using
+                      either the AWS console or the ``UpdateEndpointWeightsAndCapacities``
+                      function defined in https://docs.aws.amazon.com/sagemaker/latest/dg/API_UpdateEndpointWeightsAndCapacities.html.
 
-                       - ``archive``: If ``True``, any pre-existing SageMaker application resources
-                         that become inactive (i.e. as a result of deploying in
-                         ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
-                         These resources may include unused SageMaker models and endpoint
-                         configurations that were associated with a prior version of the
-                         application endpoint. If ``False``, these resources are deleted.
-                         In order to use ``archive=False``, ``update_deployment()`` must be executed
-                         synchronously with ``synchronous=True``. Defaults to ``False``.
+                - ``archive``: If ``True``, any pre-existing SageMaker application resources
+                  that become inactive (i.e. as a result of deploying in
+                  ``mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE`` mode) are preserved.
+                  These resources may include unused SageMaker models and endpoint
+                  configurations that were associated with a prior version of the
+                  application endpoint. If ``False``, these resources are deleted.
+                  In order to use ``archive=False``, ``update_deployment()`` must be executed
+                  synchronously with ``synchronous=True``. Defaults to ``False``.
 
-                       - ``instance_type``: The type of SageMaker ML instance on which to deploy the
-                         model. For a list of supported instance types, see
-                         https://aws.amazon.com/sagemaker/pricing/instance-types/.
-                         Defaults to ``ml.m4.xlarge``.
+                - ``instance_type``: The type of SageMaker ML instance on which to deploy the
+                  model. For a list of supported instance types, see
+                  https://aws.amazon.com/sagemaker/pricing/instance-types/.
+                  Defaults to ``ml.m4.xlarge``.
 
-                       - ``instance_count``: The number of SageMaker ML instances on which to deploy
-                         the model. Defaults to ``1``.
+                - ``instance_count``: The number of SageMaker ML instances on which to deploy
+                  the model. Defaults to ``1``.
 
-                       - ``synchronous``: If ``True``, this function will block until the deployment
-                         process succeeds or encounters an irrecoverable failure. If ``False``,
-                         this function will return immediately after starting the deployment
-                         process. It will not wait for the deployment process to complete;
-                         in this case, the caller is responsible for monitoring the health and
-                         status of the pending deployment via native SageMaker APIs or the AWS
-                         console. Defaults to ``True``.
+                - ``synchronous``: If ``True``, this function will block until the deployment
+                  process succeeds or encounters an irrecoverable failure. If ``False``,
+                  this function will return immediately after starting the deployment
+                  process. It will not wait for the deployment process to complete;
+                  in this case, the caller is responsible for monitoring the health and
+                  status of the pending deployment via native SageMaker APIs or the AWS
+                  console. Defaults to ``True``.
 
-                       - ``timeout_seconds``: If ``synchronous`` is ``True``, the deployment process
-                         will return after the specified number of seconds if no definitive result
-                         (success or failure) is achieved. Once the function returns, the caller is
-                         responsible for monitoring the health and status of the pending
-                         deployment using native SageMaker APIs or the AWS console. If
-                         ``synchronous`` is ``False``, this parameter is ignored.
-                         Defaults to ``300``.
+                - ``timeout_seconds``: If ``synchronous`` is ``True``, the deployment process
+                  will return after the specified number of seconds if no definitive result
+                  (success or failure) is achieved. Once the function returns, the caller is
+                  responsible for monitoring the health and status of the pending
+                  deployment using native SageMaker APIs or the AWS console. If
+                  ``synchronous`` is ``False``, this parameter is ignored.
+                  Defaults to ``300``.
 
-                       - ``variant_name``: A string specifying the desired name when creating a
-                                           production variant.  Defaults to ``None``.
+                - ``variant_name``: A string specifying the desired name when creating a
+                  production variant.  Defaults to ``None``.
 
-                       - ``vpc_config``: A dictionary specifying the VPC configuration to use when
-                         creating the new SageMaker model associated with this application.
-                         The acceptable values for this parameter are identical to those of the
-                         ``VpcConfig`` parameter in the `SageMaker boto3 client's create_model
-                         method <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
-                         #SageMaker.Client.create_model>`_. For more information, see
-                         https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
-                         Defaults to ``None``.
+                - ``vpc_config``: A dictionary specifying the VPC configuration to use when
+                  creating the new SageMaker model associated with this application.
+                  The acceptable values for this parameter are identical to those of the
+                  ``VpcConfig`` parameter in the `SageMaker boto3 client's create_model
+                  method <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
+                  #SageMaker.Client.create_model>`_. For more information, see
+                  https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+                  Defaults to ``None``.
 
-                       - ``data_capture_config``: A dictionary specifying the data capture
-                         configuration to use when creating the new SageMaker model associated with
-                         this application.
-                         For more information, see
-                         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
-                         Defaults to ``None``.
+                - ``data_capture_config``: A dictionary specifying the data capture
+                  configuration to use when creating the new SageMaker model associated with
+                  this application.
+                  For more information, see
+                  https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
+                  Defaults to ``None``.
 
-                       - ``variant_name``: A string specifying the desired name when creating a
-                                           production variant.  Defaults to ``None``.
-                       - ``async_inference_config``: A dictionary specifying the async config
-                                                     configuration. Defaults to ``None``.
-                       - ``env``: A dictionary specifying environment variables as key-value pairs
-                         to be set for the deployed model. Defaults to ``None``.
+                - ``async_inference_config``: A dictionary specifying the async config
+                  configuration. Defaults to ``None``.
 
-                       - ``tags``: A dictionary of key-value pairs representing additional tags
-                         to be set for the deployed model. Defaults to ``None``.
+                - ``env``: A dictionary specifying environment variables as key-value pairs
+                  to be set for the deployed model. Defaults to ``None``.
 
-        :param endpoint: (optional) Endpoint containing the deployment to update. Currently
-                         unsupported
+                - ``tags``: A dictionary of key-value pairs representing additional tags
+                  to be set for the deployed model. Defaults to ``None``.
+
+            endpoint: (optional) Endpoint containing the deployment to update. Currently unsupported
 
         .. code-block:: python
             :caption: Python example
@@ -2550,37 +2592,38 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         """
         Delete a SageMaker application.
 
-        :param name: Name of the deployed application.
-        :param config: Configuration parameters. The supported parameters are:
+        Args:
+            name: Name of the deployed application.
+            config: Configuration parameters. The supported parameters are:
 
-                       - ``assume_role_arn``: The name of an IAM role to be assumed to delete
-                         the SageMaker deployment.
+                - ``assume_role_arn``: The name of an IAM role to be assumed to delete
+                  the SageMaker deployment.
 
-                       - ``region_name``: Name of the AWS region in which the application
-                         is deployed. Defaults to ``us-west-2`` or the region provided in
-                         the `target_uri`.
+                - ``region_name``: Name of the AWS region in which the application
+                  is deployed. Defaults to ``us-west-2`` or the region provided in
+                  the `target_uri`.
 
-                       - ``archive``: If `True`, resources associated with the specified
-                         application, such as its associated models and endpoint configuration,
-                         are preserved. If `False`, these resources are deleted. In order to use
-                         ``archive=False``, ``delete()`` must be executed synchronously with
-                         ``synchronous=True``. Defaults to ``False``.
+                - ``archive``: If `True`, resources associated with the specified
+                  application, such as its associated models and endpoint configuration,
+                  are preserved. If `False`, these resources are deleted. In order to use
+                  ``archive=False``, ``delete()`` must be executed synchronously with
+                  ``synchronous=True``. Defaults to ``False``.
 
-                       - ``synchronous``: If `True`, this function blocks until the deletion process
-                         succeeds or encounters an irrecoverable failure. If `False`, this function
-                         returns immediately after starting the deletion process. It will not wait
-                         for the deletion process to complete; in this case, the caller is
-                         responsible for monitoring the status of the deletion process via native
-                         SageMaker APIs or the AWS console. Defaults to ``True``.
+                - ``synchronous``: If `True`, this function blocks until the deletion process
+                  succeeds or encounters an irrecoverable failure. If `False`, this function
+                  returns immediately after starting the deletion process. It will not wait
+                  for the deletion process to complete; in this case, the caller is
+                  responsible for monitoring the status of the deletion process via native
+                  SageMaker APIs or the AWS console. Defaults to ``True``.
 
-                       - ``timeout_seconds``: If `synchronous` is `True`, the deletion process
-                         returns after the specified number of seconds if no definitive result
-                         (success or failure) is achieved. Once the function returns, the caller
-                         is responsible for monitoring the status of the deletion process via native
-                         SageMaker APIs or the AWS console. If `synchronous` is False, this
-                         parameter is ignored. Defaults to ``300``.
-        :param endpoint: (optional) Endpoint containing the deployment to delete. Currently
-                         unsupported
+                - ``timeout_seconds``: If `synchronous` is `True`, the deletion process
+                  returns after the specified number of seconds if no definitive result
+                  (success or failure) is achieved. Once the function returns, the caller
+                  is responsible for monitoring the status of the deletion process via native
+                  SageMaker APIs or the AWS console. If `synchronous` is False, this
+                  parameter is ignored. Defaults to ``300``.
+
+            endpoint: (optional) Endpoint containing the deployment to delete. Currently unsupported
 
         .. code-block:: python
             :caption: Python example
@@ -2638,10 +2681,11 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         with the AWS region and the role ARN in the ``target_uri`` such as
         ``sagemaker:/us-east-1/arn:aws:1234:role/assumed_role``.
 
-        :param endpoint: (optional) List deployments in the specified endpoint. Currently
-                         unsupported
+        Args:
+            endpoint: (optional) List deployments in the specified endpoint. Currently unsupported
 
-        :return: A list of dictionaries corresponding to deployments.
+        Returns:
+            A list of dictionaries corresponding to deployments.
 
         .. code-block:: python
             :caption: Python example
@@ -2681,10 +2725,12 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         A :py:class:`mlflow.exceptions.MlflowException` will also be thrown when an error occurs
         while retrieving the deployment.
 
-        :param name: Name of deployment to retrieve
-        :param endpoint: (optional) Endpoint containing the deployment to get. Currently
-                         unsupported
-        :return: A dictionary that describes the specified deployment
+        Args:
+            name: Name of deployment to retrieve
+            endpoint: (optional) Endpoint containing the deployment to get. Currently unsupported
+
+        Returns:
+            A dictionary that describes the specified deployment
 
         .. code-block:: python
             :caption: Python example
@@ -2736,13 +2782,16 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         with the AWS region and the role ARN in the ``target_uri`` such as
         ``sagemaker:/us-east-1/arn:aws:1234:role/assumed_role``.
 
-        :param deployment_name: Name of the deployment to predict against.
-        :param inputs: Input data (or arguments) to pass to the deployment or model endpoint for
-                       inference. For a complete list of supported input types, see
-                       :ref:`pyfunc-inference-api`.
-        :param endpoint: Endpoint to predict against. Currently unsupported
-        :return: A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.
-                 For a complete list of supported output types, see :ref:`pyfunc-inference-api`.
+        Args:
+            deployment_name: Name of the deployment to predict against.
+            inputs: Input data (or arguments) to pass to the deployment or model endpoint for
+                inference. For a complete list of supported input types, see
+                :ref:`pyfunc-inference-api`.
+            endpoint: Endpoint to predict against. Currently unsupported
+
+        Returns:
+            A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.
+            For a complete list of supported output types, see :ref:`pyfunc-inference-api`.
 
         .. code-block:: python
             :caption: Python example
@@ -2803,11 +2852,13 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
         for additional detail on support for asynchronous creation and other configuration.
 
-        :param name: Unique name to use for endpoint. If another endpoint exists with the same
-                     name, raises a :py:class:`mlflow.exceptions.MlflowException`.
-        :param config: (optional) Dict containing target-specific configuration for the
-                       endpoint.
-        :return: Dict corresponding to created endpoint, which must contain the 'name' key.
+        Args:
+            name: Unique name to use for endpoint. If another endpoint exists with the same
+                        name, raises a :py:class:`mlflow.exceptions.MlflowException`.
+            config: (optional) Dict containing target-specific configuration for the endpoint.
+
+        Returns:
+            Dict corresponding to created endpoint, which must contain the 'name' key.
         """
         raise NotImplementedError("This function is not implemented yet.")
 
@@ -2819,10 +2870,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         target-specific plugin documentation for additional detail on support for asynchronous
         update and other configuration.
 
-        :param endpoint: Unique name of endpoint to update
-        :param config: (optional) dict containing target-specific configuration for the
-                       endpoint
-        :return: None
+        Args:
+            endpoint: Unique name of endpoint to update
+            config: (optional) dict containing target-specific configuration for the endpoint
         """
         raise NotImplementedError("This function is not implemented yet.")
 
@@ -2831,8 +2881,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         Delete the endpoint from the specified target. Deletion should be idempotent (i.e. deletion
         should not fail if retried on a non-existent deployment).
 
-        :param endpoint: Name of endpoint to delete
-        :return: None
+        Args:
+            endpoint: Name of endpoint to delete
         """
         raise NotImplementedError("This function is not implemented yet.")
 
@@ -2845,9 +2895,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         and to accept a `pagination_args` argument to this method for passing
         pagination-related args).
 
-        :return: A list of dicts corresponding to endpoints. Each dict is guaranteed to
-                 contain a 'name' key containing the endpoint name. The other fields of
-                 the returned dictionary and their types may vary across targets.
+        Returns:
+            A list of dicts corresponding to endpoints. Each dict is guaranteed to
+            contain a 'name' key containing the endpoint name. The other fields of
+            the returned dictionary and their types may vary across targets.
         """
         raise NotImplementedError("This function is not implemented yet.")
 
@@ -2859,7 +2910,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         The dict is guaranteed to contain an 'name' key containing the endpoint name.
         The other fields of the returned dictionary and their types may vary across targets.
 
-        :param endpoint: Name of endpoint to fetch
+        Args:
+            endpoint: Name of endpoint to fetch
         """
         raise NotImplementedError("This function is not implemented yet.")
 

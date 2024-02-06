@@ -31,8 +31,11 @@ def _parse_abfss_uri(uri):
     See more details about ABFSS URIs at
     https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-abfs-driver#uri-scheme-to-reference-data
 
-    :param uri: ABFSS URI to parse
-    :return: A tuple containing the name of the filesystem, account name, and path
+    Args:
+        uri: ABFSS URI to parse
+
+    Returns:
+        A tuple containing the name of the filesystem, account name, and path
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
@@ -220,8 +223,11 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         Gets the presigned URL required to upload a file to or download a file from a given Azure
         storage location.
 
-        :param artifact_file_path: Path of the file relative to the artifact repository root.
-        :return: a string presigned URL.
+        Args:
+            artifact_file_path: Path of the file relative to the artifact repository root.
+
+        Returns:
+            a string presigned URL.
         """
         sas_token = self.credential.signature
         return (
