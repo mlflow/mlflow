@@ -227,6 +227,7 @@ import pandas
 import yaml
 
 import mlflow
+import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
 from mlflow.environment_variables import (
     _MLFLOW_TESTING,
@@ -254,6 +255,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.pyfunc.model import (
+    ChatModel,
     PythonModel,
     PythonModelContext,  # noqa: F401
     _log_warning_if_params_not_in_predict_signature,
@@ -263,6 +265,14 @@ from mlflow.pyfunc.model import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.llm import (
+    CHAT_MODEL_INPUT_EXAMPLE,
+    CHAT_MODEL_INPUT_SCHEMA,
+    CHAT_MODEL_OUTPUT_SCHEMA,
+    ChatMessage,
+    ChatParams,
+    ChatResponse,
+)
 from mlflow.utils import (
     PYTHON_VERSION,
     _is_in_ipython_notebook,
@@ -1991,6 +2001,13 @@ def save_model(
 
     hints = None
     if signature is not None:
+        if isinstance(python_model, ChatModel):
+            raise MlflowException(
+                "ChatModel subclasses have a standard signature that is set "
+                "automatically. Please remove the `signature` parameter from "
+                "the call to log_model() or save_model().",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         mlflow_model.signature = signature
     elif python_model is not None:
         if callable(python_model):
@@ -1999,6 +2016,25 @@ def save_model(
                 python_model, input_arg_index, input_example=input_example
             ):
                 mlflow_model.signature = signature
+        elif isinstance(python_model, ChatModel):
+            mlflow_model.signature = ModelSignature(
+                CHAT_MODEL_INPUT_SCHEMA,
+                CHAT_MODEL_OUTPUT_SCHEMA,
+            )
+            input_example = CHAT_MODEL_INPUT_EXAMPLE
+
+            # perform output validation and throw if
+            # output is not coercable to ChatResponse
+            messages = [ChatMessage(**m) for m in input_example["messages"]]
+            params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
+            output = python_model.predict(None, messages, params)
+            if not isinstance(output, ChatResponse):
+                raise MlflowException(
+                    "Failed to save ChatModel. Please ensure that the model's predict() method "
+                    "returns a ChatResponse object. If your predict() method currently returns "
+                    "a dict, you can instantiate a ChatResponse by unpacking the output, e.g. "
+                    "`ChatResponse(**output)`",
+                )
         elif isinstance(python_model, PythonModel):
             input_arg_index = 1  # second argument
             if signature := _infer_signature_from_type_hints(

@@ -17,10 +17,10 @@ class RequestAuthProvider(ABC):
 
     @abstractmethod
     def get_name(self):
-        """
-        Get the name of the request auth provider.
+        """Get the name of the request auth provider.
 
-        :return: str of request auth provider name
+        Returns:
+            str of request auth provider name.
         """
         pass
 
@@ -30,6 +30,7 @@ class RequestAuthProvider(ABC):
         Generate request auth object (e.g., `requests.auth import HTTPBasicAuth`). See
         https://requests.readthedocs.io/en/latest/user/authentication/ for more details.
 
-        :return: request auth object.
+        Returns:
+            request auth object.
         """
         pass

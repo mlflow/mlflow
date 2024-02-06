@@ -97,11 +97,14 @@ def set_experiment(
         as the active experiment. On certain platforms, such as Databricks, the experiment name
         must be an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
 
-    :param experiment_name: Case sensitive name of the experiment to be activated.
-    :param experiment_id: ID of the experiment to be activated. If an experiment with this ID
-                          does not exist, an exception is thrown.
-    :return: An instance of :py:class:`mlflow.entities.Experiment` representing the new active
-             experiment.
+    Args:
+        experiment_name: Case sensitive name of the experiment to be activated.
+        experiment_id: ID of the experiment to be activated. If an experiment with this ID
+            does not exist, an exception is thrown.
+
+    Returns:
+        An instance of :py:class:`mlflow.entities.Experiment` representing the new active
+        experiment.
 
     .. testcode:: python
         :caption: Example
@@ -110,7 +113,6 @@ def set_experiment(
 
         # Set an experiment name, which must be unique and case-sensitive.
         experiment = mlflow.set_experiment("Social NLP Experiments")
-
         # Get Experiment Details
         print(f"Experiment_id: {experiment.experiment_id}")
         print(f"Artifact Location: {experiment.artifact_location}")
@@ -217,31 +219,33 @@ def start_run(
     MLflow sets a variety of default tags on the run, as defined in
     :ref:`MLflow system tags <system_tags>`.
 
-    :param run_id: If specified, get the run with the specified UUID and log parameters
-        and metrics under that run. The run's end time is unset and its status
-        is set to running, but the run's other attributes (``source_version``,
-        ``source_type``, etc.) are not changed.
-    :param experiment_id: ID of the experiment under which to create the current run (applicable
-        only when ``run_id`` is not specified). If ``experiment_id`` argument
-        is unspecified, will look for valid experiment in the following order:
-        activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
-        environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
-        or the default experiment as defined by the tracking server.
-    :param run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
-        created and ``run_name`` is not specified, a unique name will be generated for the run.
-    :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
-    :param tags: An optional dictionary of string keys and values to set as tags on the run.
-        If a run is being resumed, these tags are set on the resumed run. If a new run is
-        being created, these tags are set on the new run.
-    :param description: An optional string that populates the description box of the run.
-        If a run is being resumed, the description is set on the resumed run.
-        If a new run is being created, the description is set on the new run.
-    :param log_system_metrics: bool, defaults to None. If True, system metrics will be logged
-        to MLflow, e.g., cpu/gpu utilization. If None, we will check environment variable
-        `MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING` to determine whether to log system metrics.
-        System metrics logging is an experimental feature in MLflow 2.8 and subject to change.
+    Args:
+        run_id: If specified, get the run with the specified UUID and log parameters
+            and metrics under that run. The run's end time is unset and its status
+            is set to running, but the run's other attributes (``source_version``,
+            ``source_type``, etc.) are not changed.
+        experiment_id: ID of the experiment under which to create the current run (applicable
+            only when ``run_id`` is not specified). If ``experiment_id`` argument
+            is unspecified, will look for valid experiment in the following order:
+            activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
+            environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
+            or the default experiment as defined by the tracking server.
+        run_name: Name of new run. Used only when ``run_id`` is unspecified. If a new run is
+            created and ``run_name`` is not specified, a unique name will be generated for the run.
+        nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
+        tags: An optional dictionary of string keys and values to set as tags on the run.
+            If a run is being resumed, these tags are set on the resumed run. If a new run is
+            being created, these tags are set on the new run.
+        description: An optional string that populates the description box of the run.
+            If a run is being resumed, the description is set on the resumed run.
+            If a new run is being created, the description is set on the new run.
+        log_system_metrics: bool, defaults to None. If True, system metrics will be logged
+            to MLflow, e.g., cpu/gpu utilization. If None, we will check environment variable
+            `MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING` to determine whether to log system metrics.
+            System metrics logging is an experimental feature in MLflow 2.8 and subject to change.
 
-    :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
+    Returns:
+        :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
         run's state.
 
     .. testcode:: python
@@ -265,15 +269,12 @@ def start_run(
                 nested=True,
             ) as child_run:
                 mlflow.log_param("child", "yes")
-
         print("parent run:")
-
         print(f"run_id: {parent_run.info.run_id}")
         print("description: {}".format(parent_run.data.tags.get("mlflow.note.content")))
         print("version tag value: {}".format(parent_run.data.tags.get("version")))
         print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
         print("--")
-
         # Search all child runs with a parent id
         query = f"tags.mlflow.parentRunId = '{parent_run.info.run_id}'"
         results = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=query)
@@ -411,7 +412,8 @@ def start_run(
 
 
 def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
-    """End an active MLflow run (if there is one).
+    """
+    End an active MLflow run (if there is one).
 
     .. testcode:: python
         :caption: Example
@@ -461,7 +463,8 @@ atexit.register(_safe_end_run)
 
 
 def active_run() -> Optional[ActiveRun]:
-    """Get the currently active ``Run``, or None if no such run exists.
+    """
+    Get the currently active ``Run``, or None if no such run exists.
 
     **Note**: You cannot access currently-active run attributes
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
@@ -486,8 +489,7 @@ def active_run() -> Optional[ActiveRun]:
 
 
 def last_active_run() -> Optional[Run]:
-    """
-    Gets the most recent active run.
+    """Gets the most recent active run.
 
     Examples:
 
@@ -531,9 +533,10 @@ def last_active_run() -> Optional[Run]:
         run = mlflow.last_active_run()
         mlflow.end_run()
 
-    :return: The active run (this is equivalent to ``mlflow.active_run()``) if one exists.
-             Otherwise, the last run started from the current Python process that reached
-             a terminal status (i.e. FINISHED, FAILED, or KILLED).
+    Returns:
+        The active run (this is equivalent to ``mlflow.active_run()``) if one exists.
+        Otherwise, the last run started from the current Python process that reached
+        a terminal status (i.e. FINISHED, FAILED, or KILLED).
     """
     _active_run = active_run()
     if _active_run is not None:
@@ -545,19 +548,17 @@ def last_active_run() -> Optional[Run]:
 
 def get_run(run_id: str) -> Run:
     """
-    Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
-    contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
-    as well as a collection of run parameters, tags, and metrics --
-    :py:class:`RunData <mlflow.entities.RunData>`. It also contains a collection of run
-    inputs (experimental), including information about datasets used by the run --
-    :py:class:`RunInputs <mlflow.entities.RunInputs>`. In the case where multiple metrics with the
-    same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains the
-    most recently logged value at the largest step for each metric.
+    Fetch the run from backend store. The resulting Run contains a collection of run metadata --
+    RunInfo as well as a collection of run parameters, tags, and metrics -- RunData. It also
+    contains a collection of run inputs (experimental), including information about datasets used by
+    the run -- RunInputs. In the case where multiple metrics with the same key are logged for the
+    run, the RunData contains the most recently logged value at the largest step for each metric.
 
-    :param run_id: Unique identifier for the run.
+    Args:
+        run_id: Unique identifier for the run.
 
-    :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
-                raises an exception.
+    Returns:
+        A single Run object, if the run exists. Otherwise, raises an exception.
 
     .. testcode:: python
         :caption: Example
@@ -566,7 +567,6 @@ def get_run(run_id: str) -> Run:
 
         with mlflow.start_run() as run:
             mlflow.log_param("p", 0)
-
         run_id = run.info.run_id
         print(
             f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}"
@@ -581,13 +581,14 @@ def get_run(run_id: str) -> Run:
 
 
 def get_parent_run(run_id: str) -> Optional[Run]:
-    """
-    Gets the parent run for the given run id if one exists.
+    """Gets the parent run for the given run id if one exists.
 
-    :param run_id: Unique identifier for the child run.
+    Args:
+        run_id: Unique identifier for the child run.
 
-    :return: A single :py:class:`mlflow.entities.Run` object, if the parent run exists. Otherwise,
-                returns None.
+    Returns:
+        A single :py:class:`mlflow.entities.Run` object, if the parent run exists. Otherwise,
+        returns None.
 
     .. testcode:: python
         :caption: Example
@@ -618,20 +619,20 @@ def log_param(key: str, value: Any, synchronous: bool = True) -> Any:
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
     this method will create a new active run.
 
-    :param key: Parameter name (string). This string may only contain alphanumerics,
-                underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores support keys up to length 250, but some may
-                support larger keys.
-    :param value: Parameter value (string, but will be string-ified if not).
-                  All built-in backend stores support values up to length 6000, but some
-                  may support larger values.
-    :param synchronous: *Experimental* If True, blocks until the parameter is logged
-                        successfully. If False, logs the parameter asynchronously and
-                        returns a future representing the logging operation.
+    Args:
+        key: Parameter name. This string may only contain alphanumerics, underscores (_), dashes
+            (-), periods (.), spaces ( ), and slashes (/). All backend stores support keys up to
+            length 250, but some may support larger keys.
+        value: Parameter value, but will be string-ified if not. All built-in backend stores support
+            values up to length 6000, but some may support larger values.
+        synchronous: *Experimental* If True, blocks until the parameter is logged successfully. If
+            False, logs the parameter asynchronously and returns a future representing the logging
+            operation.
 
-    :return: When `synchronous=True`, returns parameter value. When `synchronous=False`, returns an
-             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
-             represents future for logging operation.
+    Returns:
+        When `synchronous=True`, returns parameter value. When `synchronous=False`, returns an
+        :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that represents
+        future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -656,13 +657,12 @@ def set_experiment_tag(key: str, value: Any) -> None:
     """
     Set a tag on the current experiment. Value is converted to a string.
 
-    :param key: Tag name (string). This string may only contain alphanumerics, underscores
-                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores will support keys up to length 250, but some may
-                support larger keys.
-    :param value: Tag value (string, but will be string-ified if not).
-                  All backend stores will support values up to length 5000, but some
-                  may support larger values.
+    Args:
+        key: Tag name. This string may only contain alphanumerics, underscores (_), dashes (-),
+            periods (.), spaces ( ), and slashes (/). All backend stores will support keys up to
+            length 250, but some may support larger keys.
+        value: Tag value, but will be string-ified if not. All backend stores will support values
+            up to length 5000, but some may support larger values.
 
     .. testcode:: python
         :caption: Example
@@ -678,23 +678,22 @@ def set_experiment_tag(key: str, value: Any) -> None:
 
 def set_tag(key: str, value: Any, synchronous: bool = True) -> Optional[RunOperations]:
     """
-    Set a tag under the current run. If no run is active, this method will create a
-    new active run.
+    Set a tag under the current run. If no run is active, this method will create a new active
+    run.
 
-    :param key: Tag name (string). This string may only contain alphanumerics, underscores
-                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores will support keys up to length 250, but some may
-                support larger keys.
-    :param value: Tag value (string, but will be string-ified if not).
-                  All backend stores will support values up to length 5000, but some
-                  may support larger values.
-    :param synchronous: *Experimental* If True, blocks until the tag is logged
-                        successfully. If False, logs the tag asynchronously and
-                        returns a future representing the logging operation.
+    Args:
+        key: Tag name. This string may only contain alphanumerics, underscores (_), dashes (-),
+            periods (.), spaces ( ), and slashes (/). All backend stores will support keys up to
+            length 250, but some may support larger keys.
+        value: Tag value, but will be string-ified if not. All backend stores will support values
+            up to length 5000, but some may support larger values.
+        synchronous: *Experimental* If True, blocks until the tag is logged successfully. If False,
+            logs the tag asynchronously and returns a future representing the logging operation.
 
-    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
-             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
-             represents future for logging operation.
+    Returns:
+        When `synchronous=True`, returns None. When `synchronous=False`, returns an
+        :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+        represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -718,7 +717,8 @@ def delete_tag(key: str) -> None:
     Delete a tag from a run. This is irreversible. If no run is active, this method
     will create a new active run.
 
-    :param key: Name of the tag
+    Args:
+        key: Name of the tag
 
     .. testcode:: python
         :caption: Example
@@ -749,24 +749,26 @@ def log_metric(
     Log a metric under the current run. If no run is active, this method will create
     a new active run.
 
-    :param key: Metric name (string). This string may only contain alphanumerics, underscores (_),
-                dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores will support keys up to length 250, but some may
-                support larger keys.
-    :param value: Metric value (float). Note that some special values such as +/- Infinity may be
-                  replaced by other values depending on the store. For example, the
-                  SQLAlchemy store replaces +/- Infinity with max / min float values.
-                  All backend stores will support values up to length 5000, but some
-                  may support larger values.
-    :param step: Metric step (int). Defaults to zero if unspecified.
-    :param timestamp: Time when this metric was calculated. Defaults to the current system time.
-    :param synchronous: *Experimental* If True, blocks until the metric is logged
-                        successfully. If False, logs the metric asynchronously and
-                        returns a future representing the logging operation.
+    Args:
+        key: Metric name. This string may only contain alphanumerics, underscores (_),
+            dashes (-), periods (.), spaces ( ), and slashes (/).
+            All backend stores will support keys up to length 250, but some may
+            support larger keys.
+        value: Metric value. Note that some special values such as +/- Infinity may be
+            replaced by other values depending on the store. For example, the
+            SQLAlchemy store replaces +/- Infinity with max / min float values.
+            All backend stores will support values up to length 5000, but some
+            may support larger values.
+        step: Metric step. Defaults to zero if unspecified.
+        timestamp: Time when this metric was calculated. Defaults to the current system time.
+        synchronous: *Experimental* If True, blocks until the metric is logged
+            successfully. If False, logs the metric asynchronously and
+            returns a future representing the logging operation.
 
-    :return: When `synchronous=True`, returns None.
-             When `synchronous=False`, returns `RunOperations` that represents future for
-             logging operation.
+    Returns:
+        When `synchronous=True`, returns None.
+        When `synchronous=False`, returns `RunOperations` that represents future for
+        logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -802,20 +804,21 @@ def log_metrics(
     Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
 
-    :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special
-                    values such as +/- Infinity may be replaced by other values depending on
-                    the store. For example, sql based store may replace +/- Infinity with
-                    max / min float values.
-    :param step: A single integer step at which to log the specified
-                 Metrics. If unspecified, each metric is logged at step zero.
+    Args:
+        metrics: Dictionary of metric_name: String -> value: Float. Note that some special
+            values such as +/- Infinity may be replaced by other values depending on
+            the store. For example, sql based store may replace +/- Infinity with
+            max / min float values.
+        step: A single integer step at which to log the specified
+            Metrics. If unspecified, each metric is logged at step zero.
+        synchronous: *Experimental* If True, blocks until the metrics are logged
+            successfully. If False, logs the metrics asynchronously and
+            returns a future representing the logging operation.
 
-    :param synchronous: *Experimental* If True, blocks until the metrics are logged
-                        successfully. If False, logs the metrics asynchronously and
-                        returns a future representing the logging operation.
-
-    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
-             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
-             represents future for logging operation.
+    Returns:
+        When `synchronous=True`, returns None. When `synchronous=False`, returns an
+        :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+        represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -845,15 +848,17 @@ def log_params(params: Dict[str, Any], synchronous: bool = True) -> Optional[Run
     Log a batch of params for the current run. If no run is active, this method will create a
     new active run.
 
-    :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
-                   not)
-    :param synchronous: *Experimental* If True, blocks until the parameters are logged
-                        successfully. If False, logs the parameters asynchronously and
-                        returns a future representing the logging operation.
+    Args:
+        params: Dictionary of param_name: String -> value: (String, but will be string-ified if
+            not)
+        synchronous: *Experimental* If True, blocks until the parameters are logged
+            successfully. If False, logs the parameters asynchronously and
+            returns a future representing the logging operation.
 
-    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
-             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
-             represents future for logging operation.
+    Returns:
+        When `synchronous=True`, returns None. When `synchronous=False`, returns an
+        :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+        represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -884,11 +889,11 @@ def log_input(
     """
     Log a dataset used in the current run.
 
-    :param dataset: :py:class:`mlflow.data.dataset.Dataset` object to be logged.
-    :param context: Context in which the dataset is used. For example: "training", "testing".
-                    This will be set as an input tag with key `mlflow.data.context`.
-    :param tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
-    :returns: None
+    Args:
+        dataset: :py:class:`mlflow.data.dataset.Dataset` object to be logged.
+        context: Context in which the dataset is used. For example: "training", "testing".
+            This will be set as an input tag with key `mlflow.data.context`.
+        tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
 
     .. testcode:: python
         :caption: Example
@@ -919,7 +924,8 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
     """
     Set tags for the current active experiment.
 
-    :param tags: Dictionary containing tag names and corresponding values.
+    Args:
+        tags: Dictionary containing tag names and corresponding values.
 
     .. testcode:: python
         :caption: Example
@@ -945,15 +951,16 @@ def set_tags(tags: Dict[str, Any], synchronous: bool = True) -> Optional[RunOper
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
 
-    :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
-                 not)
-    :param synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
-                        logs tags asynchronously and returns a future representing the logging
-                        operation.
+    Args:
+        tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
+            not)
+        synchronous: *Experimental* If True, blocks until tags are logged successfully. If False,
+            logs tags asynchronously and returns a future representing the logging operation.
 
-    :return: When `synchronous=True`, returns None. When `synchronous=False`, returns an
-             :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
-             represents future for logging operation.
+    Returns:
+        When `synchronous=True`, returns None. When `synchronous=False`, returns an
+        :py:class:`mlflow.utils.async_logging.run_operations.RunOperations` instance that
+        represents future for logging operation.
 
     .. testcode:: python
         :caption: Example
@@ -988,8 +995,9 @@ def log_artifact(
     Log a local file or directory as an artifact of the currently active run. If no run is
     active, this method will create a new active run.
 
-    :param local_path: Path to the file to write.
-    :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+    Args:
+        local_path: Path to the file to write.
+        artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
     .. testcode:: python
         :caption: Example
@@ -1000,7 +1008,6 @@ def log_artifact(
         features = "rooms, zipcode, median_price, school_rating, transport"
         with open("features.txt", "w") as f:
             f.write(features)
-
         # With artifact_path=None write features.txt under
         # root artifact_uri/artifacts directory
         with mlflow.start_run():
@@ -1017,8 +1024,9 @@ def log_artifacts(
     Log all the contents of a local directory as artifacts of the run. If no run is active,
     this method will create a new active run.
 
-    :param local_dir: Path to the directory of files to write.
-    :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+    Args:
+        local_dir: Path to the directory of files to write.
+        artifact_path: If provided, the directory in ``artifact_uri`` to write to.
 
     .. testcode:: python
         :caption: Example
@@ -1030,14 +1038,12 @@ def log_artifacts(
         # Create some files to preserve as artifacts
         features = "rooms, zipcode, median_price, school_rating, transport"
         data = {"state": "TX", "Available": 25, "Type": "Detached"}
-
         # Create couple of artifact files under the directory "data"
         os.makedirs("data", exist_ok=True)
         with open("data/data.json", "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         with open("data/features.txt", "w") as f:
             f.write(features)
-
         # Write all files in "data" to root artifact_uri/states
         with mlflow.start_run():
             mlflow.log_artifacts("data", artifact_path="states")
@@ -1050,9 +1056,10 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
     """
     Log text as an artifact.
 
-    :param text: String containing text to log.
-    :param artifact_file: The run-relative artifact file path in posixpath format to which
-                          the text is saved (e.g. "dir/file.txt").
+    Args:
+        text: String containing text to log.
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the text is saved (e.g. "dir/file.txt").
 
     .. testcode:: python
         :caption: Example
@@ -1068,6 +1075,7 @@ def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> Non
 
             # Log HTML text
             mlflow.log_text("<h1>header</h1>", "index.html")
+
     """
     run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_text(run_id, text, artifact_file)
@@ -1080,9 +1088,10 @@ def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[st
     If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
     JSON format is used.
 
-    :param dictionary: Dictionary to log.
-    :param artifact_file: The run-relative artifact file path in posixpath format to which
-                          the dictionary is saved (e.g. "dir/data.json").
+    Args:
+        dictionary: Dictionary to log.
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the dictionary is saved (e.g. "dir/data.json").
 
     .. testcode:: python
         :caption: Example
@@ -1102,6 +1111,7 @@ def log_dict(dictionary: Dict[str, Any], artifact_file: str, run_id: Optional[st
             # JSON format is used.
             mlflow.log_dict(dictionary, "data")
             mlflow.log_dict(dictionary, "data.txt")
+
     """
     run_id = run_id or _get_or_start_run().info.run_id
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
@@ -1125,10 +1135,11 @@ def log_figure(
     .. _plotly.graph_objects.Figure:
         https://plotly.com/python-api-reference/generated/plotly.graph_objects.Figure.html
 
-    :param figure: Figure to log.
-    :param artifact_file: The run-relative artifact file path in posixpath format to which
-                          the figure is saved (e.g. "dir/file.png").
-    :param save_kwargs: Additional keyword arguments passed to the method that saves the figure.
+    Args:
+        figure: Figure to log.
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the figure is saved (e.g. "dir/file.png").
+        save_kwargs: Additional keyword arguments passed to the method that saves the figure.
 
     .. testcode:: python
         :caption: Matplotlib Example
@@ -1190,9 +1201,10 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
             - H x W x 3 (an RGB channel order is assumed)
             - H x W x 4 (an RGBA channel order is assumed)
 
-    :param image: Image to log.
-    :param artifact_file: The run-relative artifact file path in posixpath format to which
-                          the image is saved (e.g. "dir/image.png").
+    Args:
+        image: Image to log.
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the image is saved (e.g. "dir/image.png").
 
     .. testcode:: python
         :caption: Numpy Example
@@ -1230,10 +1242,10 @@ def log_table(
     Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
     in the run, the data would be appended to the existing artifact_file.
 
-    :param data: Dictionary or pandas.DataFrame to log.
-    :param artifact_file: The run-relative artifact file path in posixpath format to which
-                              the table is saved (e.g. "dir/file.json").
-    :return: None
+    Args:
+        data: Dictionary or pandas.DataFrame to log.
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            the table is saved (e.g. "dir/file.json").
 
     .. testcode:: python
         :caption: Dictionary Example
@@ -1245,7 +1257,6 @@ def log_table(
             "outputs": ["MLflow is ...", "Databricks is ..."],
             "toxicity": [0.0, 0.0],
         }
-
         with mlflow.start_run():
             # Log the dictionary as a table
             mlflow.log_table(data=table_dict, artifact_file="qabot_eval_results.json")
@@ -1262,7 +1273,6 @@ def log_table(
             "toxicity": [0.0, 0.0],
         }
         df = pd.DataFrame.from_dict(table_dict)
-
         with mlflow.start_run():
             # Log the df as a table
             mlflow.log_table(data=df, artifact_file="qabot_eval_results.json")
@@ -1282,16 +1292,18 @@ def load_table(
     specified artifact_file in the specified run_ids. The extra_columns are columns that
     are not in the table but are augmented with run information and added to the DataFrame.
 
-    :param artifact_file: The run-relative artifact file path in posixpath format to which
-                          table to load (e.g. "dir/file.json").
-    :param run_ids: Optional list of run_ids to load the table from. If no run_ids are specified,
-                    the table is loaded from all runs in the current experiment.
-    :param extra_columns: Optional list of extra columns to add to the returned DataFrame
-                          For example, if extra_columns=["run_id"], then the returned DataFrame
-                          will have a column named run_id.
+    Args:
+        artifact_file: The run-relative artifact file path in posixpath format to which
+            table to load (e.g. "dir/file.json").
+        run_ids: Optional list of run_ids to load the table from. If no run_ids are specified,
+            the table is loaded from all runs in the current experiment.
+        extra_columns: Optional list of extra columns to add to the returned DataFrame
+            For example, if extra_columns=["run_id"], then the returned DataFrame
+            will have a column named run_id.
 
-    :return: pandas.DataFrame containing the loaded table if the artifact exists
-             or else throw a MlflowException.
+    Returns:
+        pandas.DataFrame containing the loaded table if the artifact exists
+        or else throw a MlflowException.
 
     .. testcode:: python
         :caption: Example with passing run_ids
@@ -1349,11 +1361,13 @@ def _record_logged_model(mlflow_model, run_id=None):
 
 
 def get_experiment(experiment_id: str) -> Experiment:
-    """
-    Retrieve an experiment by experiment_id from the backend store
+    """Retrieve an experiment by experiment_id from the backend store
 
-    :param experiment_id: The string-ified experiment ID returned from ``create_experiment``.
-    :return: :py:class:`mlflow.entities.Experiment`
+    Args:
+        experiment_id: The string-ified experiment ID returned from ``create_experiment``.
+
+    Returns:
+        :py:class:`mlflow.entities.Experiment`
 
     .. testcode:: python
         :caption: Example
@@ -1383,9 +1397,12 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     """
     Retrieve an experiment by experiment name from the backend store
 
-    :param name: The case sensitive experiment name.
-    :return: An instance of :py:class:`mlflow.entities.Experiment`
-             if an experiment with the specified name exists, otherwise None.
+    Args:
+        name: The case sensitive experiment name.
+
+    Returns:
+        An instance of :py:class:`mlflow.entities.Experiment`
+        if an experiment with the specified name exists, otherwise None.
 
     .. testcode:: python
         :caption: Example
@@ -1421,50 +1438,52 @@ def search_experiments(
     """
     Search for experiments that match the specified search query.
 
-    :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
-                      defined in :py:class:`mlflow.entities.ViewType`.
-    :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                        passed, all experiments will be returned.
-    :param filter_string:
-        Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
-        experiments. The following identifiers, comparators, and logical operators are supported.
+    Args:
+        view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
+            defined in :py:class:`mlflow.entities.ViewType`.
+        max_results: If passed, specifies the maximum number of experiments desired. If not
+            passed, all experiments will be returned.
+        filter_string: Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to
+            searching for all experiments. The following identifiers, comparators, and logical
+            operators are supported.
 
-        Identifiers
-          - ``name``: Experiment name
-          - ``creation_time``: Experiment creation time
-          - ``last_update_time``: Experiment last update time
-          - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
-            spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
+            Identifiers
+              - ``name``: Experiment name
+              - ``creation_time``: Experiment creation time
+              - ``last_update_time``: Experiment last update time
+              - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
+                spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
-        Comparators for string attributes and tags
-            - ``=``: Equal to
-            - ``!=``: Not equal to
-            - ``LIKE``: Case-sensitive pattern match
-            - ``ILIKE``: Case-insensitive pattern match
+            Comparators for string attributes and tags
+                - ``=``: Equal to
+                - ``!=``: Not equal to
+                - ``LIKE``: Case-sensitive pattern match
+                - ``ILIKE``: Case-insensitive pattern match
 
-        Comparators for numeric attributes
-            - ``=``: Equal to
-            - ``!=``: Not equal to
-            - ``<``: Less than
-            - ``<=``: Less than or equal to
-            - ``>``: Greater than
-            - ``>=``: Greater than or equal to
+            Comparators for numeric attributes
+                - ``=``: Equal to
+                - ``!=``: Not equal to
+                - ``<``: Less than
+                - ``<=``: Less than or equal to
+                - ``>``: Greater than
+                - ``>=``: Greater than or equal to
 
-        Logical operators
-          - ``AND``: Combines two sub-queries and returns True if both of them are True.
+            Logical operators
+              - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
-    :param order_by:
-        List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
-        ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``, so ``"name"`` is
-        equivalent to ``"name ASC"``. If unspecified, defaults to ``["last_update_time DESC"]``,
-        which lists experiments updated most recently first. The following fields are supported:
+        order_by: List of columns to order by. The ``order_by`` column can contain an optional
+            ``DESC`` or ``ASC`` value (e.g., ``"name DESC"``). The default ordering is ``ASC``,
+            so ``"name"`` is equivalent to ``"name ASC"``. If unspecified, defaults to
+            ``["last_update_time DESC"]``, which lists experiments updated most recently first.
+            The following fields are supported:
 
-            - ``experiment_id``: Experiment ID
-            - ``name``: Experiment name
-            - ``creation_time``: Experiment creation time
-            - ``last_update_time``: Experiment last update time
+                - ``experiment_id``: Experiment ID
+                - ``name``: Experiment name
+                - ``creation_time``: Experiment creation time
+                - ``last_update_time``: Experiment last update time
 
-    :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
+    Returns:
+        A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
 
     .. testcode:: python
         :caption: Example
@@ -1478,7 +1497,6 @@ def search_experiments(
 
 
         mlflow.set_tracking_uri("sqlite:///:memory:")
-
         # Create experiments
         for name, tags in [
             ("a", None),
@@ -1491,23 +1509,18 @@ def search_experiments(
         # Search for experiments with name "a"
         experiments = mlflow.search_experiments(filter_string="name = 'a'")
         assert_experiment_names_equal(experiments, ["a"])
-
         # Search for experiments with name starting with "a"
         experiments = mlflow.search_experiments(filter_string="name LIKE 'a%'")
         assert_experiment_names_equal(experiments, ["ab", "a"])
-
         # Search for experiments with tag key "k" and value ending with "v" or "V"
         experiments = mlflow.search_experiments(filter_string="tags.k ILIKE '%v'")
         assert_experiment_names_equal(experiments, ["bb", "ab"])
-
         # Search for experiments with name ending with "b" and tag {"k": "v"}
         experiments = mlflow.search_experiments(filter_string="name LIKE '%b' AND tags.k = 'v'")
         assert_experiment_names_equal(experiments, ["ab"])
-
         # Sort experiments by name in ascending order
         experiments = mlflow.search_experiments(order_by=["name"])
         assert_experiment_names_equal(experiments, ["a", "ab", "b", "bb"])
-
         # Sort experiments by ID in descending order
         experiments = mlflow.search_experiments(order_by=["experiment_id DESC"])
         assert_experiment_names_equal(experiments, ["bb", "ab", "b", "a"])
@@ -1537,14 +1550,16 @@ def create_experiment(
     """
     Create an experiment.
 
-    :param name: The experiment name, which must be unique and is case sensitive
-    :param artifact_location: The location to store run artifacts.
-                              If not provided, the server picks an appropriate default.
-    :param tags: An optional dictionary of string keys and values to set as
-                            tags on the experiment.
-    :return: String ID of the created experiment.
+    Args:
+        name: The experiment name, which must be unique and is case sensitive.
+        artifact_location: The location to store run artifacts. If not provided, the server picks
+            an appropriate default.
+        tags: An optional dictionary of string keys and values to set as tags on the experiment.
 
-    .. testcode:: python
+    Returns:
+        String ID of the created experiment.
+
+     .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -1581,7 +1596,8 @@ def delete_experiment(experiment_id: str) -> None:
     """
     Delete an experiment from the backend store.
 
-    :param experiment_id: The The string-ified experiment ID returned from ``create_experiment``.
+    Args:
+        experiment_id: The string-ified experiment ID returned from ``create_experiment``.
 
     .. testcode:: python
         :caption: Example
@@ -1597,6 +1613,7 @@ def delete_experiment(experiment_id: str) -> None:
         print(f"Artifact Location: {experiment.artifact_location}")
         print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
         print(f"Last Updated timestamp: {experiment.last_update_time}")
+
     .. code-block:: text
         :caption: Output
 
@@ -1604,6 +1621,7 @@ def delete_experiment(experiment_id: str) -> None:
         Artifact Location: file:///.../mlruns/2
         Lifecycle_stage: deleted
         Last Updated timestamp: 1662004217511
+
     """
     MlflowClient().delete_experiment(experiment_id)
 
@@ -1612,7 +1630,8 @@ def delete_run(run_id: str) -> None:
     """
     Deletes a run with the given ID.
 
-    :param run_id: Unique identifier for the run to delete.
+    Args:
+        run_id: Unique identifier for the run to delete.
 
     .. testcode:: python
         :caption: Example
@@ -1625,14 +1644,14 @@ def delete_run(run_id: str) -> None:
         run_id = run.info.run_id
         mlflow.delete_run(run_id)
 
-        print(
-            f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}"
-        )
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
 
     .. code-block:: text
         :caption: Output
 
         run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
+
     """
     MlflowClient().delete_run(run_id)
 
@@ -1640,21 +1659,25 @@ def delete_run(run_id: str) -> None:
 def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
     """
     Get the absolute URI of the specified artifact in the currently active run.
+
     If `path` is not specified, the artifact root URI of the currently active
     run will be returned; calls to ``log_artifact`` and ``log_artifacts`` write
     artifact(s) to subdirectories of the artifact root URI.
 
     If no run is active, this method will create a new active run.
 
-    :param artifact_path: The run-relative artifact path for which to obtain an absolute URI.
-                          For example, "path/to/artifact". If unspecified, the artifact root URI
-                          for the currently active run will be returned.
-    :return: An *absolute* URI referring to the specified artifact or the currently active run's
-             artifact root. For example, if an artifact path is provided and the currently active
-             run uses an S3-backed store, this may be a uri of the form
-             ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
-             is not provided and the currently active run uses an S3-backed store, this may be a
-             URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
+    Args:
+        artifact_path: The run-relative artifact path for which to obtain an absolute URI.
+            For example, "path/to/artifact". If unspecified, the artifact root URI
+            for the currently active run will be returned.
+
+    Returns:
+        An *absolute* URI referring to the specified artifact or the currently active run's
+        artifact root. For example, if an artifact path is provided and the currently active
+        run uses an S3-backed store, this may be a uri of the form
+        ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
+        is not provided and the currently active run uses an S3-backed store, this may be a
+        URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
 
     .. testcode:: python
         :caption: Example
@@ -1701,37 +1724,40 @@ def search_runs(
     """
     Search for Runs that fit the specified criteria.
 
-    :param experiment_ids: List of experiment IDs. Search can work with experiment IDs or
-                           experiment names, but not both in the same call. Values other than
-                           ``None`` or ``[]`` will result in error if ``experiment_names`` is
-                           also not ``None`` or ``[]``. ``None`` will default to the active
-                           experiment if ``experiment_names`` is ``None`` or ``[]``.
-    :param filter_string: Filter query string, defaults to searching all runs.
-    :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
-                            defined in :py:class:`mlflow.entities.ViewType`.
-    :param max_results: The maximum number of runs to put in the dataframe. Default is 100,000
-                        to avoid causing out-of-memory issues on the user's machine.
-    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
-                     can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
-                     The default ordering is to sort by ``start_time DESC``, then ``run_id``.
-    :param output_format: The output format to be returned. If ``pandas``, a ``pandas.DataFrame``
-                          is returned and, if ``list``, a list of :py:class:`mlflow.entities.Run`
-                          is returned.
-    :param search_all_experiments: Boolean specifying whether all experiments should be searched.
-        Only honored if ``experiment_ids`` is ``[]`` or ``None``.
-    :param experiment_names: List of experiment names. Search can work with experiment IDs or
-                             experiment names, but not both in the same call. Values other
-                             than ``None`` or ``[]`` will result in error if ``experiment_ids``
-                             is also not ``None`` or ``[]``. ``None`` will default to the active
-                             experiment if ``experiment_ids`` is ``None`` or ``[]``.
-    :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
-             output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
-             parameter, and tag is expanded into its own column named metrics.*, params.*, or
-             tags.* respectively. For runs that don't have a particular metric, parameter, or tag,
-             the value for the corresponding column is (NumPy) ``Nan``, ``None``, or ``None``
-             respectively.
+    Args:
+        experiment_ids: List of experiment IDs. Search can work with experiment IDs or
+            experiment names, but not both in the same call. Values other than
+            ``None`` or ``[]`` will result in error if ``experiment_names`` is
+            also not ``None`` or ``[]``. ``None`` will default to the active
+            experiment if ``experiment_names`` is ``None`` or ``[]``.
+        filter_string: Filter query string, defaults to searching all runs.
+        run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
+            defined in :py:class:`mlflow.entities.ViewType`.
+        max_results: The maximum number of runs to put in the dataframe. Default is 100,000
+            to avoid causing out-of-memory issues on the user's machine.
+        order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
+            can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
+            The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+        output_format: The output format to be returned. If ``pandas``, a ``pandas.DataFrame``
+            is returned and, if ``list``, a list of :py:class:`mlflow.entities.Run`
+            is returned.
+        search_all_experiments: Boolean specifying whether all experiments should be searched.
+            Only honored if ``experiment_ids`` is ``[]`` or ``None``.
+        experiment_names: List of experiment names. Search can work with experiment IDs or
+            experiment names, but not both in the same call. Values other
+            than ``None`` or ``[]`` will result in error if ``experiment_ids``
+            is also not ``None`` or ``[]``. ``None`` will default to the active
+            experiment if ``experiment_ids`` is ``None`` or ``[]``.
 
-    .. testcode:: python
+    Returns:
+        If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
+        output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
+        parameter, and tag is expanded into its own column named metrics.*, params.*, or
+        tags.* respectively. For runs that don't have a particular metric, parameter, or tag,
+        the value for the corresponding column is (NumPy) ``Nan``, ``None``, or ``None``
+        respectively.
+
+     .. testcode:: python
         :caption: Example
 
         import mlflow
@@ -1745,23 +1771,19 @@ def search_runs(
         with mlflow.start_run(experiment_id=experiment_id):
             mlflow.log_metric("m", 2.50)
             mlflow.set_tag("s.release", "1.2.0-GA")
-
         # Search for all the runs in the experiment with the given experiment ID
         df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
         print("--")
-
         # Search the experiment_id using a filter_string with tag
         # that has a case insensitive pattern
         filter_string = "tags.s.release ILIKE '%rc%'"
         df = mlflow.search_runs([experiment_id], filter_string=filter_string)
         print(df[["metrics.m", "tags.s.release", "run_id"]])
         print("--")
-
         # Search for all the runs in the experiment with the given experiment name
         df = mlflow.search_runs(experiment_names=[experiment_name], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
-
 
     .. code-block:: text
         :caption: Output
@@ -1993,35 +2015,36 @@ def autolog(
     configurations set by `mlflow.autolog` (in this instance, `log_models=False`, `exclusive=True`),
     until they are explicitly called by the user.
 
-    :param log_input_examples: If ``True``, input examples from training datasets are collected and
-                               logged along with model artifacts during training. If ``False``,
-                               input examples are not logged.
-                               Note: Input examples are MLflow model attributes
-                               and are only collected if ``log_models`` is also ``True``.
-    :param log_model_signatures: If ``True``,
-                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
-                                 describing model inputs and outputs are collected and logged along
-                                 with model artifacts during training. If ``False``, signatures are
-                                 not logged. Note: Model signatures are MLflow model attributes
-                                 and are only collected if ``log_models`` is also ``True``.
-    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                       If ``False``, trained models are not logged.
-                       Input examples and model signatures, which are attributes of MLflow models,
-                       are also omitted when ``log_models`` is ``False``.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                         If ``False``, dataset information is not logged.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      all integration libraries that have not been tested against this version
-                      of the MLflow client or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during autologging
-                   setup and training execution. If ``False``, show all events and warnings during
-                   autologging setup and training execution.
-    :param extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+    Args:
+        log_input_examples: If ``True``, input examples from training datasets are collected and
+            logged along with model artifacts during training. If ``False``,
+            input examples are not logged.
+            Note: Input examples are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_model_signatures: If ``True``,
+            :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+            describing model inputs and outputs are collected and logged along
+            with model artifacts during training. If ``False``, signatures are
+            not logged. Note: Model signatures are MLflow model attributes
+            and are only collected if ``log_models`` is also ``True``.
+        log_models: If ``True``, trained models are logged as MLflow model artifacts.
+            If ``False``, trained models are not logged.
+            Input examples and model signatures, which are attributes of MLflow models,
+            are also omitted when ``log_models`` is ``False``.
+        log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+            If ``False``, dataset information is not logged.
+        disable: If ``True``, disables all supported autologging integrations. If ``False``,
+            enables all supported autologging integrations.
+        exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+            If ``False``, autologged content is logged to the active fluent run,
+            which may be user-created.
+        disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+            all integration libraries that have not been tested against this version
+            of the MLflow client or are incompatible.
+        silent: If ``True``, suppress all event logs and warnings from MLflow during autologging
+            setup and training execution. If ``False``, show all events and warnings during
+            autologging setup and training execution.
+        extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
 
     .. testcode:: python
         :caption: Example

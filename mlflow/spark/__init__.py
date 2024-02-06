@@ -1101,7 +1101,7 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     from pyspark import __version__ as pyspark_version
     from pyspark.sql import SparkSession
 
-    from mlflow._spark_autologging import (
+    from mlflow.spark._autolog import (
         _listen_for_spark_activity,
         _stop_listen_for_spark_activity,
     )

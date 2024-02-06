@@ -19,6 +19,7 @@ def build_docker(
     name="mlflow-pyfunc",
     env_manager=_EnvManager.VIRTUALENV,
     mlflow_home=None,
+    install_java=False,
     install_mlflow=False,
     enable_mlserver=False,
 ):
@@ -48,6 +49,7 @@ def build_docker(
         model_uri,
         name,
         mlflow_home=mlflow_home,
+        install_java=install_java,
         install_mlflow=install_mlflow,
         enable_mlserver=enable_mlserver,
     )
@@ -202,10 +204,10 @@ def _serialize_input_data(input_data, content_type):
 
 def _serialize_to_json(input_data):
     # imported inside function to avoid circular import
-    from mlflow.pyfunc.scoring_server import SUPPORTED_FORMATS, SUPPORTED_LLM_FORMAT
+    from mlflow.pyfunc.scoring_server import SUPPORTED_FORMATS, SUPPORTED_LLM_FORMATS
 
     if isinstance(input_data, dict) and any(
-        key in input_data for key in SUPPORTED_FORMATS | {SUPPORTED_LLM_FORMAT}
+        key in input_data for key in SUPPORTED_FORMATS | SUPPORTED_LLM_FORMATS
     ):
         return json.dumps(input_data)
     else:
