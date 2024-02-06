@@ -221,12 +221,16 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new registered model in backend store.
 
-        :param name: Name of the new model. This is expected to be unique in the backend store.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
-                     instances associated with this registered model.
-        :param description: Description of the model.
-        :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
-                 created in the backend.
+        Args:
+            name: Name of the new model. This is expected to be unique in the backend store.
+            tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
+                instances associated with this registered model.
+            description: Description of the model.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
+            created in the backend.
+
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
@@ -243,9 +247,12 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Update description of the registered model.
 
-        :param name: Registered model name.
-        :param description: New description.
-        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        Args:
+            name: Registered model name.
+            description: New description.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
@@ -258,9 +265,12 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Rename the registered model.
 
-        :param name: Registered model name.
-        :param new_name: New proposed name.
-        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        Args:
+            name: Registered model name.
+            new_name: New proposed name.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         _raise_unsupported_method(
             method="rename_registered_model",
@@ -272,8 +282,11 @@ class UcModelRegistryStore(BaseRestStore):
         Delete the registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param name: Registered model name.
-        :return: None
+        Args:
+            name: Registered model name.
+
+        Returns:
+            None
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(DeleteRegisteredModelRequest(name=full_name))
@@ -285,15 +298,19 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string, defaults to searching all registered models.
-        :param max_results: Maximum number of registered models desired.
-        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
-                         matching search results.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``search_registered_models`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
-                that satisfy the search expressions. The pagination token for the next page can be
-                obtained via the ``token`` attribute of the object.
+        Args:
+            filter_string: Filter query string, defaults to searching all registered models.
+            max_results: Maximum number of registered models desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_registered_models`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
+
         """
         _require_arg_unspecified("filter_string", filter_string)
         _require_arg_unspecified("order_by", order_by)
@@ -314,8 +331,11 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get registered model instance by name.
 
-        :param name: Registered model name.
-        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        Args:
+            name: Registered model name.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(GetRegisteredModelRequest(name=full_name))
@@ -327,10 +347,13 @@ class UcModelRegistryStore(BaseRestStore):
         Latest version models for each requested stage. If no ``stages`` argument is provided,
         returns the latest version for each stage.
 
-        :param name: Registered model name.
-        :param stages: List of desired stages. If input list is None, return latest versions for
-                       each stage.
-        :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
+        Args:
+            name: Registered model name.
+            stages: List of desired stages. If input list is None, return latest versions for
+                each stage.
+
+        Returns:
+            List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         alias_doc_url = "https://mlflow.org/docs/latest/model-registry.html#deploy-and-organize-models-with-aliases-and-tags"
         if stages is None:
@@ -362,9 +385,12 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Set a tag for the registered model.
 
-        :param name: Registered model name.
-        :param tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
-        :return: None
+        Args:
+            name: Registered model name.
+            tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
+
+        Returns:
+            None
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
@@ -376,9 +402,12 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a tag associated with the registered model.
 
-        :param name: Registered model name.
-        :param key: Registered model tag key.
-        :return: None
+        Args:
+            name: Registered model name.
+            key: Registered model tag key.
+
+        Returns:
+            None
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(DeleteRegisteredModelTagRequest(name=full_name, key=key))
@@ -389,9 +418,13 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Finalize a UC model version after its files have been written to managed storage,
         updating its status from PENDING_REGISTRATION to READY
-        :param name: Registered model name
-        :param version: Model version number
-        :return Protobuf ModelVersion describing the finalized model version
+
+        Args:
+            name: Registered model name
+            version: Model version number
+
+        Returns:
+            Protobuf ModelVersion describing the finalized model version
         """
         req_body = message_to_json(FinalizeModelVersionRequest(name=name, version=version))
         return self._call_endpoint(FinalizeModelVersionRequest, req_body).model_version
@@ -399,10 +432,14 @@ class UcModelRegistryStore(BaseRestStore):
     def _get_temporary_model_version_write_credentials(self, name, version) -> TemporaryCredentials:
         """
         Get temporary credentials for uploading model version files
-        :param name: Registered model name
-        :param version: Model version number
-        :return: mlflow.protos.databricks_uc_registry_messages_pb2.TemporaryCredentials
-                 containing temporary model version credentials
+
+        Args:
+            name: Registered model name.
+            version: Model version number.
+
+        Returns:
+            mlflow.protos.databricks_uc_registry_messages_pb2.TemporaryCredentials containing
+            temporary model version credentials.
         """
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
@@ -559,15 +596,18 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new model version from given source and run ID.
 
-        :param name: Registered model name.
-        :param source: URI indicating the location of the model artifacts.
-        :param run_id: Run ID from MLflow tracking server that generated the model.
-        :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
-                     instances associated with this model version.
-        :param run_link: Link to the run from an MLflow tracking server that generated this model.
-        :param description: Description of the version.
-        :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 created in the backend.
+        Args:
+            name: Registered model name.
+            source: URI indicating the location of the model artifacts.
+            run_id: Run ID from MLflow tracking server that generated the model.
+            tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+                instances associated with this model version.
+            run_link: Link to the run from an MLflow tracking server that generated this model.
+            description: Description of the version.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
+            created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         headers, run = self._get_run_and_headers(run_id)
@@ -627,13 +667,14 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Update model version stage.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param stage: New desired stage for this model version.
-        :param archive_existing_versions: If this flag is set to ``True``, all existing model
-            versions in the stage will be automatically moved to the "archived" stage. Only valid
-            when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
-
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            stage: New desired stage for this model version.
+            archive_existing_versions: If this flag is set to ``True``, all existing model
+                versions in the stage will be automatically moved to the "archived" stage. Only
+                valid when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be
+                raised.
         """
         _raise_unsupported_method(
             method="transition_model_version_stage",
@@ -648,10 +689,14 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Update metadata associated with a model version in backend.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param description: New model description.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            description: New model description.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
@@ -664,9 +709,12 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete model version in backend.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: None
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+
+        Returns:
+            None
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(DeleteModelVersionRequest(name=full_name, version=str(version)))
@@ -676,9 +724,12 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get the model version instance by name and version.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(GetModelVersionRequest(name=full_name, version=str(version)))
@@ -691,9 +742,12 @@ class UcModelRegistryStore(BaseRestStore):
         NOTE: For first version of Model Registry, since the models are not copied over to another
               location, download URI points to input source path.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: A single URI location that allows reads for downloading.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+
+        Returns:
+            A single URI location that allows reads for downloading.
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
@@ -708,17 +762,21 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
-        :param filter_string: A filter string expression. Currently supports a single filter
-                              condition either name of model like ``name = 'model_name'`` or
-                              ``run_id = '...'``.
-        :param max_results: Maximum number of model versions desired.
-        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
-                         matching search results.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``search_model_versions`` call.
-        :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects that satisfy the search expressions. The pagination token for the next
-                 page can be obtained via the ``token`` attribute of the object.
+        Args:
+            filter_string: A filter string expression. Currently supports a single filter
+                condition either name of model like ``name = 'model_name'`` or
+                ``run_id = '...'``.
+            max_results: Maximum number of model versions desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_model_versions`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+            objects that satisfy the search expressions. The pagination token for the next
+            page can be obtained via the ``token`` attribute of the object.
+
         """
         _require_arg_unspecified(arg_name="order_by", arg_value=order_by)
         req_body = message_to_json(
@@ -734,9 +792,10 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Set a tag for the model version.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
@@ -748,9 +807,10 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a tag associated with the model version.
 
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :param key: Tag key.
+        Args:
+            name: Registered model name.
+            version: Registered model version.
+            key: Tag key.
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
@@ -762,10 +822,13 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Set a registered model alias pointing to a model version.
 
-        :param name: Registered model name.
-        :param alias: Name of the alias.
-        :param version: Registered model version number.
-        :return: None
+        Args:
+            name: Registered model name.
+            alias: Name of the alias.
+            version: Registered model version number.
+
+        Returns:
+            None
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
@@ -777,9 +840,12 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete an alias associated with a registered model.
 
-        :param name: Registered model name.
-        :param alias: Name of the alias.
-        :return: None
+        Args:
+            name: Registered model name.
+            alias: Name of the alias.
+
+        Returns:
+            None
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(DeleteRegisteredModelAliasRequest(name=full_name, alias=alias))
@@ -789,9 +855,12 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get the model version instance by name and alias.
 
-        :param name: Registered model name.
-        :param alias: Name of the alias.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        Args:
+            name: Registered model name.
+            alias: Name of the alias.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(GetModelVersionByAliasRequest(name=full_name, alias=alias))
