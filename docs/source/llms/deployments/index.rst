@@ -229,8 +229,8 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 +--------------------------+--------------------------+--------------------------+--------------------------+
 |                          | llm/v1/completions       | llm/v1/chat              | llm/v1/embeddings        |
 +==========================+==========================+==========================+==========================+
-| OpenAI                   | - gpt-3.5-turbo          | - gpt-3.5-turbo          | - text-embedding-ada-002 |
-|                          | - gpt-4                  | - gpt-4                  |                          |
+| OpenAI §                 | - gpt-3.5-turbo-instruct | - gpt-3.5-turbo          | - text-embedding-ada-002 |
+|                          | - davinci-002            | - gpt-4                  |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
 | MosaicML                 | - mpt-7b-instruct        | - llama2-70b-chat†       | - instructor-large       |
 |                          | - mpt-30b-instruct       |                          | - instructor-xl          |
@@ -260,6 +260,7 @@ below can be used as a helpful guide when configuring a given endpoint for any n
 |                          | - Third-party providers  |                          |                          |
 +--------------------------+--------------------------+--------------------------+--------------------------+
 
+§ For full compatibility references for ``OpenAI``, see the `OpenAI Model Compatibility Matrix <https://platform.openai.com/docs/models/model-endpoint-compatibility>`_.
 
 † Llama 2 is licensed under the `LLAMA 2 Community License <https://ai.meta.com/llama/license/>`_, Copyright © Meta Platforms, Inc. All Rights Reserved.
 
