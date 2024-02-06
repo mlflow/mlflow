@@ -41,16 +41,16 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.
 
-    :param uri:
+    Args:
+        uri:
 
-                - An empty string, or a local file path, prefixed with ``file:/``. Data is stored
-                  locally at the provided file (or ``./mlruns`` if empty).
-                - An HTTP URI like ``https://my-tracking-server:5000``.
-                - A Databricks workspace, provided as the string "databricks" or, to use a
-                  Databricks CLI
-                  `profile <https://github.com/databricks/databricks-cli#installation>`_,
-                  "databricks://<profileName>".
-                - A :py:class:`pathlib.Path` instance
+            - An empty string, or a local file path, prefixed with ``file:/``. Data is stored
+              locally at the provided file (or ``./mlruns`` if empty).
+            - An HTTP URI like ``https://my-tracking-server:5000``.
+            - A Databricks workspace, provided as the string "databricks" or, to use a Databricks
+              CLI `profile <https://github.com/databricks/databricks-cli#installation>`_,
+              "databricks://<profileName>".
+            - A :py:class:`pathlib.Path` instance
 
     .. testcode:: python
         :caption: Example
@@ -78,10 +78,11 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
 
 @contextmanager
 def _use_tracking_uri(uri: str) -> None:
-    """
-    Temporarily use the specified tracking URI.
+    """Temporarily use the specified tracking URI.
 
-    :param uri: The tracking URI to use.
+    Args:
+        uri: The tracking URI to use.
+
     """
     global _tracking_uri
     old_tracking_uri = _tracking_uri
@@ -97,14 +98,13 @@ def _resolve_tracking_uri(tracking_uri=None):
 
 
 def get_tracking_uri() -> str:
-    """
-    Get the current tracking URI. This may not correspond to the tracking URI of
+    """Get the current tracking URI. This may not correspond to the tracking URI of
     the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
 
-    :return: The tracking URI.
+    Returns:
+        The tracking URI.
 
     .. code-block:: python
-        :caption: Example
 
         import mlflow
 
@@ -113,7 +113,6 @@ def get_tracking_uri() -> str:
         print(f"Current tracking uri: {tracking_uri}")
 
     .. code-block:: text
-        :caption: Output
 
         Current tracking uri: file:///.../mlruns
     """
@@ -209,6 +208,10 @@ def _register_tracking_stores():
     _tracking_store_registry.register_entrypoints()
 
 
+def _register(scheme, builder):
+    _tracking_store_registry.register(scheme, builder)
+
+
 _register_tracking_stores()
 
 
@@ -218,12 +221,15 @@ def _get_store(store_uri=None, artifact_uri=None):
 
 # TODO(sueann): move to a projects utils module
 def _get_git_url_if_present(uri):
-    """
-    Return the path git_uri#sub_directory if the URI passed is a local path that's part of
+    """Return the path git_uri#sub_directory if the URI passed is a local path that's part of
     a Git repo, or returns the original URI otherwise.
-    :param uri: The expanded uri
-    :return: The git_uri#sub_directory if the uri is part of a Git repo,
-             otherwise return the original uri
+
+    Args:
+        uri: The expanded uri.
+
+    Returns:
+        The git_uri#sub_directory if the uri is part of a Git repo, otherwise return the original
+        uri.
     """
     if "#" in uri:
         # Already a URI in git repo format

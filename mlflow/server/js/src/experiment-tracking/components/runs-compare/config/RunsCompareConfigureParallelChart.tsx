@@ -15,9 +15,7 @@ export const RunsCompareConfigureParallelChart = ({
   metricKeyList: string[];
   paramKeyList: string[];
   state: Partial<RunsCompareParallelCardConfig>;
-  onStateChange: (
-    setter: (current: RunsCompareCardConfig) => RunsCompareParallelCardConfig,
-  ) => void;
+  onStateChange: (setter: (current: RunsCompareCardConfig) => RunsCompareParallelCardConfig) => void;
 }) => {
   /**
    * Callback for updating selected metrics and params
@@ -48,7 +46,7 @@ export const RunsCompareConfigureParallelChart = ({
 
   return (
     <>
-      <RunsCompareConfigureField title='Params'>
+      <RunsCompareConfigureField title="Params">
         <Select
           mode={emptyParamsList ? undefined : 'multiple'}
           onChange={updateSelectedParams}
@@ -59,11 +57,13 @@ export const RunsCompareConfigureParallelChart = ({
           disabled={emptyParamsList}
         >
           {paramKeyList.map((param) => (
-            <Select.Option value={param}>{param}</Select.Option>
+            <Select.Option value={param} key={param}>
+              {param}
+            </Select.Option>
           ))}
         </Select>
       </RunsCompareConfigureField>
-      <RunsCompareConfigureField title='Metrics'>
+      <RunsCompareConfigureField title="Metrics">
         <Select
           mode={emptyMetricsList ? undefined : 'multiple'}
           onChange={updateSelectedMetrics}
@@ -74,7 +74,9 @@ export const RunsCompareConfigureParallelChart = ({
           disabled={emptyMetricsList}
         >
           {metricKeyList.map((metric) => (
-            <Select.Option value={metric}>{metric}</Select.Option>
+            <Select.Option value={metric} key={metric}>
+              {metric}
+            </Select.Option>
           ))}
         </Select>
       </RunsCompareConfigureField>

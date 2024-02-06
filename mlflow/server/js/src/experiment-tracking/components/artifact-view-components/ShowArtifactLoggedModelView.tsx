@@ -70,14 +70,14 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
     return this.props.registeredModelLink ? (
       <>
         <FormattedMessage
-          defaultMessage='This model is also registered to the <link>model registry</link>.'
-          description='Sub text to tell the users where the registered models are located '
+          defaultMessage="This model is also registered to the <link>model registry</link>."
+          description="Sub text to tell the users where the registered models are located "
           values={{
             link: (
               chunks: any, // Reported during ESLint upgrade
             ) => (
               // eslint-disable-next-line react/jsx-no-target-blank
-              <a href={ShowArtifactLoggedModelView.getLearnModelRegistryLinkUrl()} target='_blank'>
+              <a href={ShowArtifactLoggedModelView.getLearnModelRegistryLinkUrl()} target="_blank">
                 {chunks}
               </a>
             ),
@@ -88,14 +88,14 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       <>
         <FormattedMessage
           // eslint-disable-next-line max-len
-          defaultMessage='You can also <link>register it to the model registry</link> to version control'
-          description='Sub text to tell the users where one can go to register the model artifact'
+          defaultMessage="You can also <link>register it to the model registry</link> to version control"
+          description="Sub text to tell the users where one can go to register the model artifact"
           values={{
             link: (
               chunks: any, // Reported during ESLint upgrade
             ) => (
               // eslint-disable-next-line react/jsx-no-target-blank
-              <a href={ShowArtifactLoggedModelView.getLearnModelRegistryLinkUrl()} target='_blank'>
+              <a href={ShowArtifactLoggedModelView.getLearnModelRegistryLinkUrl()} target="_blank">
                 {chunks}
               </a>
             ),
@@ -163,12 +163,12 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       <>
         <Title level={3}>
           <FormattedMessage
-            defaultMessage='Load the model'
+            defaultMessage="Load the model"
             // eslint-disable-next-line max-len
-            description='Heading text for stating how to load the model from the experiment run'
+            description="Heading text for stating how to load the model from the experiment run"
           />
         </Title>
-        <div className='artifact-logged-model-view-code-content'>
+        <div className="artifact-logged-model-view-code-content">
           {/* @ts-expect-error TS(2322): Type '{ position: string; pre: { margin: number; }... Remove this comment to see the full error message */}
           <div css={styles.item}>
             <Paragraph
@@ -177,17 +177,17 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
               }}
             >
               <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
-                <div className='code'>
-                  <span className='code-keyword'>import</span> mlflow{`\n`}
-                  logged_model = <span className='code-string'>{`'${modelPath}'`}</span>
+                <div className="code">
+                  <span className="code-keyword">import</span> mlflow{`\n`}
+                  logged_model = <span className="code-string">{`'${modelPath}'`}</span>
                 </div>
                 <br />
-                <div className='code'>
-                  <span className='code-comment'>
+                <div className="code">
+                  <span className="code-comment">
                     {'# '}
                     <FormattedMessage
-                      defaultMessage='Load model'
-                      description='Code comment which states how to load the model'
+                      defaultMessage="Load model"
+                      description="Code comment which states how to load the model"
                     />
                   </span>
                   {`\n`}
@@ -198,9 +198,9 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
             </Paragraph>
             <FormattedMessage
               // eslint-disable-next-line max-len
-              defaultMessage='See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.'
+              defaultMessage="See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor."
               // eslint-disable-next-line max-len
-              description='Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module'
+              description="Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
             />
             <ul>
               <li>
@@ -222,8 +222,8 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       <div css={styles.item}>
         <Text>
           <FormattedMessage
-            defaultMessage='Predict on a Pandas DataFrame:' // eslint-disable-next-line max-len
-            description='Section heading to display the code block on how we can use registered model to predict using pandas DataFrame'
+            defaultMessage="Predict on a Pandas DataFrame:" // eslint-disable-next-line max-len
+            description="Section heading to display the code block on how we can use registered model to predict using pandas DataFrame"
           />
         </Text>
         <Paragraph
@@ -232,35 +232,34 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
           }}
         >
           <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
-            <div className='code'>
-              <span className='code-keyword'>import</span> mlflow{`\n`}
-              logged_model = <span className='code-string'>{`'${modelPath}'`}</span>
+            <div className="code">
+              <span className="code-keyword">import</span> mlflow{`\n`}
+              logged_model = <span className="code-string">{`'${modelPath}'`}</span>
             </div>
             <br />
-            <div className='code'>
-              <span className='code-comment'>
+            <div className="code">
+              <span className="code-comment">
                 {'# '}
                 <FormattedMessage
-                  defaultMessage='Load model as a PyFuncModel.'
-                  description='Code comment which states how to load model using PyFuncModel'
+                  defaultMessage="Load model as a PyFuncModel."
+                  description="Code comment which states how to load model using PyFuncModel"
                 />
               </span>
               {`\n`}
               loaded_model = mlflow.pyfunc.load_model(logged_model)
             </div>
             <br />
-            <div className='code'>
-              <span className='code-comment'>
+            <div className="code">
+              <span className="code-comment">
                 {'# '}
                 <FormattedMessage
-                  defaultMessage='Predict on a Pandas DataFrame.'
+                  defaultMessage="Predict on a Pandas DataFrame."
                   // eslint-disable-next-line max-len
-                  description='Code comment which states on how we can predict using pandas DataFrame'
+                  description="Code comment which states on how we can predict using pandas DataFrame"
                 />
               </span>
               {`\n`}
-              <span className='code-keyword'>import</span> pandas{' '}
-              <span className='code-keyword'>as</span> pd{`\n`}
+              <span className="code-keyword">import</span> pandas <span className="code-keyword">as</span> pd{`\n`}
               loaded_model.predict(pd.DataFrame(data))
             </div>
           </pre>
@@ -279,19 +278,19 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       <>
         <Title level={3}>
           <FormattedMessage
-            defaultMessage='Make Predictions'
+            defaultMessage="Make Predictions"
             // eslint-disable-next-line max-len
-            description='Heading text for the prediction section on the registered model from the experiment run'
+            description="Heading text for the prediction section on the registered model from the experiment run"
           />
         </Title>
-        <div className='artifact-logged-model-view-code-content'>
+        <div className="artifact-logged-model-view-code-content">
           {/* @ts-expect-error TS(2322): Type '{ position: string; pre: { margin: number; }... Remove this comment to see the full error message */}
           <div css={styles.item}>
             <Text>
               <FormattedMessage
-                defaultMessage='Predict on a Spark DataFrame:'
+                defaultMessage="Predict on a Spark DataFrame:"
                 // eslint-disable-next-line max-len
-                description='Section heading to display the code block on how we can use registered model to predict using spark DataFrame'
+                description="Section heading to display the code block on how we can use registered model to predict using spark DataFrame"
               />
             </Text>
             <Paragraph
@@ -300,34 +299,33 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
               }}
             >
               <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap', marginTop: 10 }}>
-                <div className='code'>
-                  <span className='code-keyword'>import</span> mlflow{`\n`}
-                  <span className='code-keyword'>from</span> pyspark.sql.functions{' '}
-                  <span className='code-keyword'>import</span> struct, col{`\n`}
-                  logged_model = <span className='code-string'>{`'${modelPath}'`}</span>
+                <div className="code">
+                  <span className="code-keyword">import</span> mlflow{`\n`}
+                  <span className="code-keyword">from</span> pyspark.sql.functions{' '}
+                  <span className="code-keyword">import</span> struct, col{`\n`}
+                  logged_model = <span className="code-string">{`'${modelPath}'`}</span>
                 </div>
                 <br />
-                <div className='code'>
-                  <span className='code-comment'>
+                <div className="code">
+                  <span className="code-comment">
                     {'# '}
                     <FormattedMessage
                       // eslint-disable-next-line max-len
-                      defaultMessage='Load model as a Spark UDF. Override result_type if the model does not return double values.'
-                      description='Code comment which states how to load model using spark UDF'
+                      defaultMessage="Load model as a Spark UDF. Override result_type if the model does not return double values."
+                      description="Code comment which states how to load model using spark UDF"
                     />
                   </span>
                   {`\n`}
-                  loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model,
-                  result_type='double')
+                  loaded_model = mlflow.pyfunc.spark_udf(spark, model_uri=logged_model, result_type='double')
                 </div>
                 <br />
-                <div className='code'>
-                  <span className='code-comment'>
+                <div className="code">
+                  <span className="code-comment">
                     {'# '}
                     <FormattedMessage
-                      defaultMessage='Predict on a Spark DataFrame.'
+                      defaultMessage="Predict on a Spark DataFrame."
                       // eslint-disable-next-line max-len
-                      description='Code comment which states on how we can predict using spark DataFrame'
+                      description="Code comment which states on how we can predict using spark DataFrame"
                     />
                   </span>
                   {`\n`}
@@ -349,12 +347,12 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
       <>
         <Title level={3}>
           <FormattedMessage
-            defaultMessage='Make Predictions'
+            defaultMessage="Make Predictions"
             // eslint-disable-next-line max-len
-            description='Heading text for the prediction section on the registered model from the experiment run'
+            description="Heading text for the prediction section on the registered model from the experiment run"
           />
         </Title>
-        <div className='artifact-logged-model-view-code-content'>
+        <div className="artifact-logged-model-view-code-content">
           {/* @ts-expect-error TS(2322): Type '{ position: string; pre: { margin: number; }... Remove this comment to see the full error message */}
           <div css={styles.item}>
             <Paragraph
@@ -363,31 +361,31 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
               }}
             >
               <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap', marginTop: 10 }}>
-                <div className='code'>
-                  <span className='code-keyword'>import</span> mlflow{`\n`}
-                  logged_model = <span className='code-string'>{`'${modelPath}'`}</span>
+                <div className="code">
+                  <span className="code-keyword">import</span> mlflow{`\n`}
+                  logged_model = <span className="code-string">{`'${modelPath}'`}</span>
                 </div>
                 <br />
-                <div className='code'>
-                  <span className='code-comment'>
+                <div className="code">
+                  <span className="code-comment">
                     {'# '}
                     <FormattedMessage
                       // eslint-disable-next-line max-len
-                      defaultMessage='Load model'
-                      description='Code comment which states how to load a SparkML model'
+                      defaultMessage="Load model"
+                      description="Code comment which states how to load a SparkML model"
                     />
                   </span>
                   {`\n`}
                   loaded_model = mlflow.spark.load_model(logged_model)
                 </div>
                 <br />
-                <div className='code'>
-                  <span className='code-comment'>
+                <div className="code">
+                  <span className="code-comment">
                     {'# '}
                     <FormattedMessage
-                      defaultMessage='Perform inference via model.transform()'
+                      defaultMessage="Perform inference via model.transform()"
                       // eslint-disable-next-line max-len
-                      description='Code comment which states how we can perform SparkML inference'
+                      description="Code comment which states how we can perform SparkML inference"
                     />
                   </span>
                   {`\n`}
@@ -405,77 +403,71 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
   render() {
     if (this.state.loading) {
       return (
-        <div className='artifact-logged-model-view-loading'>
-          <FormattedMessage
-            defaultMessage='Loading...'
-            description='Loading state text for the artifact model view'
-          />
+        <div className="artifact-logged-model-view-loading">
+          <FormattedMessage defaultMessage="Loading..." description="Loading state text for the artifact model view" />
         </div>
       );
     } else if (this.state.error) {
       return (
-        <div className='artifact-logged-model-view-error'>
+        <div className="artifact-logged-model-view-error">
           <FormattedMessage
             defaultMessage="Couldn't load model information due to an error."
-            description='Error state text when the model artifact was unable to load'
+            description="Error state text when the model artifact was unable to load"
           />
         </div>
       );
     } else {
       return (
-        <div className='ShowArtifactPage'>
-          <div className='show-artifact-logged-model-view'>
+        <div className="ShowArtifactPage">
+          <div className="show-artifact-logged-model-view">
             <div
-              className='artifact-logged-model-view-header'
+              className="artifact-logged-model-view-header"
               style={{ marginTop: 16, marginBottom: 16, marginLeft: 16 }}
             >
               <Title level={2}>
-                <FormattedMessage
-                  defaultMessage='MLflow Model'
-                  description='Heading text for mlflow model artifact'
-                />
+                <FormattedMessage defaultMessage="MLflow Model" description="Heading text for mlflow model artifact" />
               </Title>
               {this.state.flavor === 'pyfunc' ? (
                 <FormattedMessage
                   // eslint-disable-next-line max-len
-                  defaultMessage='The code snippets below demonstrate how to make predictions using the logged model.'
+                  defaultMessage="The code snippets below demonstrate how to make predictions using the logged model."
                   // eslint-disable-next-line max-len
-                  description='Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model'
+                  description="Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model"
                 />
               ) : (
                 <FormattedMessage
                   // eslint-disable-next-line max-len
-                  defaultMessage='The code snippets below demonstrate how to load the logged model.'
+                  defaultMessage="The code snippets below demonstrate how to load the logged model."
                   // eslint-disable-next-line max-len
-                  description='Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model'
+                  description="Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
                 />
               )}{' '}
               {this.renderModelRegistryText()}
             </div>
             <hr />
             <div
-              className='artifact-logged-model-view-schema-table'
+              className="artifact-logged-model-view-schema-table"
               style={{ width: '45%', marginLeft: 16, float: 'left' }}
             >
               <Title level={3}>
                 <FormattedMessage
-                  defaultMessage='Model schema'
+                  defaultMessage="Model schema"
                   // eslint-disable-next-line max-len
-                  description='Heading text for the model schema of the registered model from the experiment run'
+                  description="Heading text for the model schema of the registered model from the experiment run"
                 />
               </Title>
-              <div className='content'>
+              <div className="content">
                 <Text>
                   <FormattedMessage
-                    defaultMessage='Input and output schema for your model. <link>Learn more</link>'
+                    defaultMessage="Input and output schema for your model. <link>Learn more</link>"
                     // eslint-disable-next-line max-len
-                    description='Input and output params of the model that is registered from the experiment run'
+                    description="Input and output params of the model that is registered from the experiment run"
                     values={{
                       link: (
                         chunks: any, // Reported during ESLint upgrade
                       ) => (
                         // eslint-disable-next-line react/jsx-no-target-blank
-                        <a href={ModelSignatureUrl} target='_blank'>
+                        <a href={ModelSignatureUrl} target="_blank">
                           {chunks}
                         </a>
                       ),
@@ -484,19 +476,14 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
                 </Text>
               </div>
               <div style={{ marginTop: 12 }}>
-                <SchemaTable
-                  schema={{ inputs: this.state.inputs, outputs: this.state.outputs }}
-                  defaultExpandAllRows
-                />
+                <SchemaTable schema={{ inputs: this.state.inputs, outputs: this.state.outputs }} defaultExpandAllRows />
               </div>
             </div>
             <div
-              className='artifact-logged-model-view-code-group'
+              className="artifact-logged-model-view-code-group"
               style={{ width: '50%', marginRight: 16, float: 'right' }}
             >
-              {this.state.flavor === 'pyfunc'
-                ? this.renderPyfuncCodeSnippet()
-                : this.renderNonPyfuncCodeSnippet()}
+              {this.state.flavor === 'pyfunc' ? this.renderPyfuncCodeSnippet() : this.renderNonPyfuncCodeSnippet()}
             </div>
           </div>
         </div>
@@ -506,10 +493,7 @@ class ShowArtifactLoggedModelView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchLoggedModelMetadata() {
-    const modelFileLocation = getArtifactLocationUrl(
-      `${this.props.path}/${MLMODEL_FILE_NAME}`,
-      this.props.runUuid,
-    );
+    const modelFileLocation = getArtifactLocationUrl(`${this.props.path}/${MLMODEL_FILE_NAME}`, this.props.runUuid);
     this.props
       .getArtifact(modelFileLocation)
       .then((response: any) => {

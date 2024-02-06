@@ -11,7 +11,7 @@ from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
 
 
 def completions_config():
@@ -97,6 +97,88 @@ async def test_completions_temperature_is_scaled_correctly():
         }
         await provider.completions(completions.RequestPayload(**payload))
         assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 2.5
+
+
+def completions_stream_response():
+    return [
+        b'{"text":" Hi","is_finished":false,"event_type":"text-generation"}',
+        b'{"text":" there","is_finished":false,"event_type":"text-generation"}',
+        # final chunk
+        b'{"is_finished":true,"event_type":"stream-end","finish_reason":"COMPLETE",'
+        b'"response":{"id":"test-id1","generations":'
+        b'[{"id":"test-id2","text":" Hi there","finish_reason":"COMPLETE"}],'
+        b'"prompt":"This is a test"}}',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_completions_stream():
+    resp = completions_stream_response()
+    config = completions_config()
+
+    with mock.patch("time.time", return_value=1677858242), mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+    ) as mock_post:
+        provider = CohereProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+            "n": 1,
+            "stream": True,
+        }
+        response = provider.completions_stream(completions.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+        assert chunks == [
+            {
+                "choices": [
+                    {
+                        "delta": {"role": None, "content": " Hi"},
+                        "finish_reason": None,
+                        "index": 0,
+                    }
+                ],
+                "created": 1677858242,
+                "id": None,
+                "model": "command",
+                "object": "text_completion_chunk",
+            },
+            {
+                "choices": [
+                    {
+                        "delta": {"role": None, "content": " there"},
+                        "finish_reason": None,
+                        "index": 0,
+                    }
+                ],
+                "created": 1677858242,
+                "id": None,
+                "model": "command",
+                "object": "text_completion_chunk",
+            },
+            {
+                "choices": [
+                    {
+                        "delta": {"role": None, "content": None},
+                        "finish_reason": "COMPLETE",
+                        "index": 0,
+                    }
+                ],
+                "created": 1677858242,
+                "id": "test-id1",
+                "model": "command",
+                "object": "text_completion_chunk",
+            },
+        ]
+        mock_post.assert_called_once_with(
+            "https://api.cohere.ai/v1/generate",
+            json={
+                "prompt": "This is a test",
+                "model": "command",
+                "num_generations": 1,
+                "temperature": 0.0,
+                "stream": True,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
 
 
 def embeddings_config():

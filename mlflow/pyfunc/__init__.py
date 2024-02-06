@@ -219,6 +219,7 @@ import sys
 import tempfile
 import threading
 from copy import deepcopy
+from functools import lru_cache
 from typing import Any, Dict, Iterator, Optional, Tuple, Union
 
 import numpy as np
@@ -226,6 +227,7 @@ import pandas
 import yaml
 
 import mlflow
+import mlflow.pyfunc.loaders
 import mlflow.pyfunc.model
 from mlflow.environment_variables import (
     _MLFLOW_TESTING,
@@ -253,6 +255,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.pyfunc.model import (
+    ChatModel,
     PythonModel,
     PythonModelContext,  # noqa: F401
     _log_warning_if_params_not_in_predict_signature,
@@ -262,6 +265,14 @@ from mlflow.pyfunc.model import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.llm import (
+    CHAT_MODEL_INPUT_EXAMPLE,
+    CHAT_MODEL_INPUT_SCHEMA,
+    CHAT_MODEL_OUTPUT_SCHEMA,
+    ChatMessage,
+    ChatParams,
+    ChatResponse,
+)
 from mlflow.utils import (
     PYTHON_VERSION,
     _is_in_ipython_notebook,
@@ -303,8 +314,8 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 from mlflow.utils.requirements_utils import (
-    _check_requirement_satisfied,
     _parse_requirements,
+    warn_dependency_requirement_mismatches,
 )
 
 FLAVOR_NAME = "python_function"
@@ -588,40 +599,12 @@ class PyFuncModel:
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def _warn_dependency_requirement_mismatches(model_path):
-    """
-    Inspects the model's dependencies and prints a warning if the current Python environment
-    doesn't satisfy them.
-    """
+def _get_pip_requirements_from_model_path(model_path: str):
     req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
     if not os.path.exists(req_file_path):
-        return
+        return []
 
-    try:
-        mismatch_infos = []
-        for req in _parse_requirements(req_file_path, is_constraint=False):
-            req_line = req.req_str
-            mismatch_info = _check_requirement_satisfied(req_line)
-            if mismatch_info is not None:
-                mismatch_infos.append(str(mismatch_info))
-
-        if len(mismatch_infos) > 0:
-            mismatch_str = " - " + "\n - ".join(mismatch_infos)
-            warning_msg = (
-                "Detected one or more mismatches between the model's dependencies and the current "
-                f"Python environment:\n{mismatch_str}\n"
-                "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
-                "to fetch the model's environment and install dependencies using the resulting "
-                "environment file."
-            )
-            _logger.warning(warning_msg)
-
-    except Exception as e:
-        _logger.warning(
-            f"Encountered an unexpected error ({e!r}) while detecting model dependency "
-            "mismatches. Set logging level to DEBUG to see the full traceback."
-        )
-        _logger.debug("", exc_info=True)
+    return [req.req_str for req in _parse_requirements(req_file_path, is_constraint=False)]
 
 
 def load_model(
@@ -661,7 +644,8 @@ def load_model(
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
     if not suppress_warnings:
-        _warn_dependency_requirement_mismatches(local_path)
+        model_requirements = _get_pip_requirements_from_model_path(local_path)
+        warn_dependency_requirement_mismatches(model_requirements)
 
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
@@ -950,6 +934,32 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
+def _convert_spec_type_to_spark_type(spec_type):
+    from pyspark.sql.types import ArrayType, StructField, StructType
+
+    from mlflow.types.schema import Array, DataType, Object
+
+    if isinstance(spec_type, DataType):
+        return spec_type.to_spark()
+
+    if isinstance(spec_type, Array):
+        return ArrayType(_convert_spec_type_to_spark_type(spec_type.dtype))
+
+    if isinstance(spec_type, Object):
+        return StructType(
+            [
+                StructField(
+                    property.name,
+                    _convert_spec_type_to_spark_type(property.dtype),
+                    # we set nullable to True for all properties
+                    # to avoid some errors like java.lang.NullPointerException
+                    # when the signature is not inferred based on correct data.
+                )
+                for property in spec_type.properties
+            ]
+        )
+
+
 def _cast_output_spec_to_spark_type(spec):
     from pyspark.sql.types import ArrayType
 
@@ -957,7 +967,7 @@ def _cast_output_spec_to_spark_type(spec):
 
     # TODO: handle optional output columns.
     if isinstance(spec, ColSpec):
-        return spec.type.to_spark()
+        return _convert_spec_type_to_spark_type(spec.type)
     elif isinstance(spec, TensorSpec):
         data_type = DataType.from_numpy_type(spec.type)
         if data_type is None:
@@ -1024,26 +1034,36 @@ def _is_none_or_nan(value):
     return value is None or isinstance(value, float) and np.isnan(value)
 
 
-def _convert_array_values(values, elem_type, array_dim, spark_primitive_type_to_np_type):
+def _convert_array_values(values, result_type):
     """
     Convert list or numpy array values to spark dataframe column values.
     """
-    np_type = spark_primitive_type_to_np_type.get(type(elem_type))
-    if np_type is None:
-        raise MlflowException(
-            "Unsupported array type field with element type "
-            f"{elem_type.simpleString()} in struct type.",
-            error_code=INVALID_PARAMETER_VALUE,
+    from pyspark.sql.types import ArrayType, StructType
+
+    if not isinstance(result_type, ArrayType):
+        raise MlflowException.invalid_parameter_value(
+            f"result_type must be ArrayType, got {result_type.simpleString()}",
         )
 
-    # For array type result values, if provided value is None or NaN, regard it as a null array.
-    # see https://github.com/mlflow/mlflow/issues/8986
-    if array_dim == 1:
-        return [None if _is_none_or_nan(v) else np.array(v, dtype=np_type) for v in values]
-    else:
-        return [None if _is_none_or_nan(v) else list(np.array(v, dtype=np_type)) for v in values]
+    spark_primitive_type_to_np_type = _get_spark_primitive_type_to_np_type()
+
+    if type(result_type.elementType) in spark_primitive_type_to_np_type:
+        np_type = spark_primitive_type_to_np_type[type(result_type.elementType)]
+        # For array type result values, if provided value is None or NaN, regard it as a null array.
+        # see https://github.com/mlflow/mlflow/issues/8986
+        return None if _is_none_or_nan(values) else np.array(values, dtype=np_type)
+    if isinstance(result_type.elementType, ArrayType):
+        return [_convert_array_values(v, result_type.elementType) for v in values]
+    if isinstance(result_type.elementType, StructType):
+        return [_convert_struct_values(v, result_type.elementType) for v in values]
+
+    raise MlflowException.invalid_parameter_value(
+        "Unsupported array type field with element type "
+        f"{result_type.elementType.simpleString()} in Array type.",
+    )
 
 
+@lru_cache
 def _get_spark_primitive_types():
     from pyspark.sql import types
 
@@ -1057,8 +1077,22 @@ def _get_spark_primitive_types():
     )
 
 
+@lru_cache
+def _get_spark_primitive_type_to_np_type():
+    from pyspark.sql import types
+
+    return {
+        types.IntegerType: np.int32,
+        types.LongType: np.int64,
+        types.FloatType: np.float32,
+        types.DoubleType: np.float64,
+        types.BooleanType: np.bool_,
+        types.StringType: np.str_,
+    }
+
+
 def _check_udf_return_struct_type(struct_type):
-    from pyspark.sql.types import ArrayType
+    from pyspark.sql.types import ArrayType, StructType
 
     primitive_types = _get_spark_primitive_types()
 
@@ -1068,8 +1102,11 @@ def _check_udf_return_struct_type(struct_type):
             continue
 
         if isinstance(field_type, ArrayType) and _check_udf_return_array_type(
-            field_type, allow_struct=False
+            field_type, allow_struct=True
         ):
+            continue
+
+        if isinstance(field_type, StructType) and _check_udf_return_struct_type(field_type):
             continue
 
         return False
@@ -1083,14 +1120,11 @@ def _check_udf_return_array_type(array_type, allow_struct):
     elem_type = array_type.elementType
     primitive_types = _get_spark_primitive_types()
 
-    if (
-        # 1D array of primitives
-        isinstance(elem_type, primitive_types)
-        or
-        # 2D array of primitives
-        (isinstance(elem_type, ArrayType) and isinstance(elem_type.elementType, primitive_types))
-    ):
+    if isinstance(elem_type, primitive_types):
         return True
+
+    if isinstance(elem_type, ArrayType):
+        return _check_udf_return_array_type(elem_type, allow_struct)
 
     if isinstance(elem_type, StructType):
         if allow_struct:
@@ -1116,6 +1150,71 @@ def _check_udf_return_type(data_type):
         return _check_udf_return_struct_type(data_type)
 
     return False
+
+
+def _convert_struct_values(
+    result: Union[pandas.DataFrame, Dict[str, Any]],
+    result_type,
+):
+    """
+    Convert spark StructType values to spark dataframe column values.
+    """
+
+    from pyspark.sql.types import ArrayType, StructType
+
+    if not isinstance(result_type, StructType):
+        raise MlflowException.invalid_parameter_value(
+            f"result_type must be StructType, got {result_type.simpleString()}",
+        )
+
+    if not isinstance(result, (dict, pandas.DataFrame)):
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported result type {type(result)}, expected dict or pandas DataFrame",
+        )
+
+    spark_primitive_type_to_np_type = _get_spark_primitive_type_to_np_type()
+    is_pandas_df = isinstance(result, pandas.DataFrame)
+    result_dict = {}
+    for field_name in result_type.fieldNames():
+        field_type = result_type[field_name].dataType
+        field_values = result[field_name]
+
+        if type(field_type) in spark_primitive_type_to_np_type:
+            np_type = spark_primitive_type_to_np_type[type(field_type)]
+            if is_pandas_df:
+                field_values = field_values.astype(np_type)
+            else:
+                field_values = (
+                    None
+                    if _is_none_or_nan(field_values)
+                    else np.array(field_values, dtype=np_type).item()
+                )
+        elif isinstance(field_type, ArrayType):
+            if is_pandas_df:
+                field_values = pandas.Series(
+                    _convert_array_values(field_value, field_type) for field_value in field_values
+                )
+            else:
+                field_values = _convert_array_values(field_values, field_type)
+        elif isinstance(field_type, StructType):
+            if is_pandas_df:
+                field_values = pandas.Series(
+                    [
+                        _convert_struct_values(field_value, field_type)
+                        for field_value in field_values
+                    ]
+                )
+            else:
+                field_values = _convert_struct_values(field_values, field_type)
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported field type {field_type.simpleString()} in struct type.",
+            )
+        result_dict[field_name] = field_values
+
+    if is_pandas_df:
+        return pandas.DataFrame(result_dict)
+    return result_dict
 
 
 def _is_spark_connect():
@@ -1305,7 +1404,8 @@ def spark_udf(
 
     if env_manager == _EnvManager.LOCAL:
         # Assume spark executor python environment is the same with spark driver side.
-        _warn_dependency_requirement_mismatches(local_model_path)
+        model_requirements = _get_pip_requirements_from_model_path(local_model_path)
+        warn_dependency_requirement_mismatches(model_requirements)
         _logger.warning(
             'Calling `spark_udf()` with `env_manager="local"` does not recreate the same '
             "environment that was used during training, which may lead to errors or inaccurate "
@@ -1379,10 +1479,9 @@ Primitive types:
  - string
  - boolean
 Compound types:
- - array<primitive>: An array of primitives, e.g., array<int>.
- - array<array<primitive>>: A 2D array of primitives, e.g., array<array<int>>.
+ - ND array of primitives / structs.
  - struct<field: primitive | array<primitive> | array<array<primitive>>, ...>:
-   A struct with primitive, array<primitive>, or array<array<primitive>>,
+   A struct with primitive, ND array<primitive/structs>,
    e.g., struct<a:int, b:array<int>>.
 """
         )
@@ -1424,53 +1523,15 @@ Compound types:
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
 
-        spark_primitive_type_to_np_type = {
-            IntegerType: np.int32,
-            LongType: np.int64,
-            FloatType: np.float32,
-            DoubleType: np.float64,
-            BooleanType: np.bool_,
-            StringType: np.str_,
-        }
-
         if isinstance(result_type, ArrayType) and isinstance(result_type.elementType, ArrayType):
-            result_values = _convert_array_values(
-                result, result_type.elementType.elementType, 2, spark_primitive_type_to_np_type
-            )
+            result_values = _convert_array_values(result, result_type)
             return pandas.Series(result_values)
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame([result]) if np.isscalar(result) else pandas.DataFrame(result)
 
         if isinstance(result_type, SparkStructType):
-            result_dict = {}
-            for field_name in result_type.fieldNames():
-                field_type = result_type[field_name].dataType
-                field_values = result[field_name]
-
-                if type(field_type) in spark_primitive_type_to_np_type:
-                    np_type = spark_primitive_type_to_np_type[type(field_type)]
-                    field_values = field_values.astype(np_type)
-
-                elif isinstance(field_type, ArrayType):
-                    if isinstance(field_type.elementType, ArrayType):
-                        array_dim = 2
-                        elem_type = field_type.elementType.elementType
-                    else:
-                        array_dim = 1
-                        elem_type = field_type.elementType
-
-                    field_values = _convert_array_values(
-                        field_values, elem_type, array_dim, spark_primitive_type_to_np_type
-                    )
-                else:
-                    raise MlflowException(
-                        f"Unsupported field type {field_type.simpleString()} in struct type.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                result_dict[field_name] = field_values
-
-            return pandas.DataFrame(result_dict)
+            return _convert_struct_values(result, result_type)
 
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
 
@@ -1940,6 +2001,13 @@ def save_model(
 
     hints = None
     if signature is not None:
+        if isinstance(python_model, ChatModel):
+            raise MlflowException(
+                "ChatModel subclasses have a standard signature that is set "
+                "automatically. Please remove the `signature` parameter from "
+                "the call to log_model() or save_model().",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         mlflow_model.signature = signature
     elif python_model is not None:
         if callable(python_model):
@@ -1948,6 +2016,25 @@ def save_model(
                 python_model, input_arg_index, input_example=input_example
             ):
                 mlflow_model.signature = signature
+        elif isinstance(python_model, ChatModel):
+            mlflow_model.signature = ModelSignature(
+                CHAT_MODEL_INPUT_SCHEMA,
+                CHAT_MODEL_OUTPUT_SCHEMA,
+            )
+            input_example = CHAT_MODEL_INPUT_EXAMPLE
+
+            # perform output validation and throw if
+            # output is not coercable to ChatResponse
+            messages = [ChatMessage(**m) for m in input_example["messages"]]
+            params = ChatParams(**{k: v for k, v in input_example.items() if k != "messages"})
+            output = python_model.predict(None, messages, params)
+            if not isinstance(output, ChatResponse):
+                raise MlflowException(
+                    "Failed to save ChatModel. Please ensure that the model's predict() method "
+                    "returns a ChatResponse object. If your predict() method currently returns "
+                    "a dict, you can instantiate a ChatResponse by unpacking the output, e.g. "
+                    "`ChatResponse(**output)`",
+                )
         elif isinstance(python_model, PythonModel):
             input_arg_index = 1  # second argument
             if signature := _infer_signature_from_type_hints(

@@ -376,7 +376,9 @@ nitpick_ignore = [
     ("py:class", "pydantic.main.BaseModel"),
     ("py:class", "ConfigDict"),
     ("py:class", "FieldInfo"),
-    ("py:class", "keras_core.src.callbacks.callback.Callback"),
+    ("py:class", "ComputedFieldInfo"),
+    ("py:class", "keras.src.callbacks.callback.Callback"),
+    ("py:class", "keras.callbacks.Callback"),
 ]
 
 

@@ -20,8 +20,8 @@ const mockExperiments = [
 ] as any;
 
 const Wrapper = ({ children }: React.PropsWithChildren<any>) => (
-  <IntlProvider locale='en'>
-    <StaticRouter location='/'>{children}</StaticRouter>
+  <IntlProvider locale="en">
+    <StaticRouter location="/">{children}</StaticRouter>
   </IntlProvider>
 );
 

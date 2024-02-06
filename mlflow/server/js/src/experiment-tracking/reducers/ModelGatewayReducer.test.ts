@@ -1,94 +1,79 @@
 import { fulfilled, pending } from '../../common/utils/ActionUtils';
 import { AsyncAction, AsyncFulfilledAction } from '../../redux-types';
-import {
-  GET_MODEL_GATEWAY_ROUTE_API,
-  GetModelGatewayRouteAction,
-  SEARCH_MODEL_GATEWAY_ROUTES_API,
-  SearchModelGatewayRoutesAction,
-} from '../actions/ModelGatewayActions';
-import { ModelGatewayRoute, ModelGatewayRouteType } from '../sdk/ModelGatewayService';
+import { MlflowDeploymentsEndpoint } from '../sdk/ModelGatewayService';
+import { SearchMlflowDeploymentsModelRoutesAction } from '../actions/ModelGatewayActions';
+import { ModelGatewayRouteTask } from '../sdk/MlflowEnums';
 import { modelGatewayReducer } from './ModelGatewayReducer';
 
-describe('modelGatewayReducer', () => {
+describe('modelGatewayReducer - MLflow deployments endpoints', () => {
   const emptyState: ReturnType<typeof modelGatewayReducer> = {
     modelGatewayRoutes: {},
-    modelGatewayRoutesLoading: false,
+    modelGatewayRoutesLoading: {
+      deploymentRoutesLoading: false,
+      endpointRoutesLoading: false,
+      gatewayRoutesLoading: false,
+      loading: false,
+    },
   };
 
-  const MOCK_DOLLY_MODEL_ROUTE = {
-    model: { name: 'dolly-2', provider: 'mlflow' },
-    name: 'test-dolly-gateway',
-    endpoint_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
-    endpoint_url: '/gateway/completions/invocations',
-  };
+  const MOCK_MLFLOW_DEPLOYMENTS_RESPONSE: Partial<MlflowDeploymentsEndpoint>[] = [
+    {
+      endpoint_type: ModelGatewayRouteTask.LLM_V1_CHAT,
+      name: 'test-mlflow-deployment-endpoint-chat',
+      endpoint_url: 'http://deployment.server/endpoint-url',
+      model: {
+        name: 'mpt-3.5',
+        provider: 'mosaic',
+      },
+    },
+    {
+      endpoint_type: ModelGatewayRouteTask.LLM_V1_EMBEDDINGS,
+      name: 'test-mlflow-deployment-endpoint-embeddingss',
+      endpoint_url: 'http://deployment.server/endpoint-url',
+      model: {
+        name: 'mpt-3.5',
+        provider: 'mosaic',
+      },
+    },
+  ];
 
-  const MOCK_LLAMA_MODEL_ROUTE = {
-    model: { name: 'llama-6', provider: 'meta' },
-    name: 'test-llama-gateway',
-    endpoint_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
-    endpoint_url: '/gateway/completions/invocations',
-  };
-
-  const MOCK_GPT_MODEL_ROUTE = {
-    model: { name: 'gpt-1', provider: 'gpt' },
-    name: 'test-gpt-gateway',
-    endpoint_type: ModelGatewayRouteType.LLM_V1_COMPLETIONS,
-    endpoint_url: '/gateway/completions/invocations',
-  };
-
-  const mockFulfilledSearchAction = (
-    modelRoutes: ModelGatewayRoute[],
-  ): AsyncFulfilledAction<SearchModelGatewayRoutesAction> => ({
-    type: fulfilled(SEARCH_MODEL_GATEWAY_ROUTES_API),
-    payload: { endpoints: modelRoutes },
+  const mockFulfilledSearchDeploymentsAction = (
+    endpoints: any,
+  ): AsyncFulfilledAction<SearchMlflowDeploymentsModelRoutesAction> => ({
+    type: fulfilled('SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES'),
+    payload: { endpoints },
   });
 
-  const mockPendingSearchAction = (): AsyncAction => ({
-    type: pending(SEARCH_MODEL_GATEWAY_ROUTES_API),
+  const mockPendingSearchDeploymentsAction = (): AsyncAction => ({
+    type: pending('SEARCH_MLFLOW_DEPLOYMENTS_MODEL_ROUTES'),
     payload: Promise.resolve(),
   });
 
-  const mockFulfilledGetAction = (
-    modelRoute: ModelGatewayRoute,
-  ): AsyncFulfilledAction<GetModelGatewayRouteAction> => ({
-    type: fulfilled(GET_MODEL_GATEWAY_ROUTE_API),
-    payload: modelRoute,
-  });
-
-  it('model gateway entries are correctly populated by search action', () => {
+  it('gateway routes are correctly populated by search action', () => {
     let state = emptyState;
     // Start searching for routes
-    state = modelGatewayReducer(state, mockPendingSearchAction());
-    expect(state.modelGatewayRoutesLoading).toEqual(true);
+    state = modelGatewayReducer(state, mockPendingSearchDeploymentsAction());
+    expect(state.modelGatewayRoutesLoading.deploymentRoutesLoading).toEqual(true);
+    expect(state.modelGatewayRoutesLoading.loading).toEqual(true);
 
     // Search and retrieve 2 model routes
-    state = modelGatewayReducer(
-      state,
-      mockFulfilledSearchAction([MOCK_DOLLY_MODEL_ROUTE, MOCK_GPT_MODEL_ROUTE]),
+    state = modelGatewayReducer(state, mockFulfilledSearchDeploymentsAction(MOCK_MLFLOW_DEPLOYMENTS_RESPONSE));
+
+    expect(state.modelGatewayRoutesLoading.deploymentRoutesLoading).toEqual(false);
+    expect(state.modelGatewayRoutesLoading.loading).toEqual(false);
+    expect(state.modelGatewayRoutes['mlflow_deployment_endpoint:test-mlflow-deployment-endpoint-chat'].type).toEqual(
+      'mlflow_deployment_endpoint',
     );
-
-    expect(state.modelGatewayRoutesLoading).toEqual(false);
-    expect(state.modelGatewayRoutes['test-dolly-gateway'].model.name).toEqual('dolly-2');
-    expect(state.modelGatewayRoutes['test-gpt-gateway'].model.name).toEqual('gpt-1');
-    expect(Object.keys(state.modelGatewayRoutes)).toHaveLength(2);
-  });
-
-  it('"get" action properly append model routes to the store', () => {
-    let state = emptyState;
-
-    // Search and retrieve 2 model routes
-    state = modelGatewayReducer(
-      state,
-      mockFulfilledSearchAction([MOCK_LLAMA_MODEL_ROUTE, MOCK_GPT_MODEL_ROUTE]),
+    expect(state.modelGatewayRoutes['mlflow_deployment_endpoint:test-mlflow-deployment-endpoint-chat'].name).toEqual(
+      'test-mlflow-deployment-endpoint-chat',
     );
-    expect(Object.keys(state.modelGatewayRoutes)).toHaveLength(2);
+    expect(
+      state.modelGatewayRoutes['mlflow_deployment_endpoint:test-mlflow-deployment-endpoint-chat'].mlflowDeployment,
+    ).toEqual(MOCK_MLFLOW_DEPLOYMENTS_RESPONSE[0]);
 
-    // Fetch single model route already existing in the store
-    state = modelGatewayReducer(state, mockFulfilledGetAction(MOCK_LLAMA_MODEL_ROUTE));
-    expect(Object.keys(state.modelGatewayRoutes)).toHaveLength(2);
-
-    // Fetch completely new model route
-    state = modelGatewayReducer(state, mockFulfilledGetAction(MOCK_DOLLY_MODEL_ROUTE));
-    expect(Object.keys(state.modelGatewayRoutes)).toHaveLength(3);
+    // We ignore embeddings endpoints for now
+    expect(
+      state.modelGatewayRoutes['mlflow_deployment_endpoint:test-mlflow-deployment-endpoint-embeddings'],
+    ).toBeUndefined();
   });
 });

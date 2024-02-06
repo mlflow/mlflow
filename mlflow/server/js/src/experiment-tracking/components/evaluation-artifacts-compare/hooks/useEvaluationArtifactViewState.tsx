@@ -8,9 +8,7 @@ export const useEvaluationArtifactViewState = (
 ) => {
   const { artifactViewState = {} } = viewState;
 
-  const [selectedTables, setSelectedTables] = useState<string[]>(
-    artifactViewState.selectedTables || [],
-  );
+  const [selectedTables, setSelectedTables] = useState<string[]>(artifactViewState.selectedTables || []);
   const [groupByCols, setGroupByCols] = useState<string[]>(artifactViewState.groupByCols || []);
   const [outputColumn, setOutputColumn] = useState(artifactViewState.outputColumn || '');
 

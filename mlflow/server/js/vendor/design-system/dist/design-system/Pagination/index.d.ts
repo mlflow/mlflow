@@ -22,6 +22,7 @@ export interface PaginationProps extends HTMLDataAttributes, DangerouslySetAntdP
      */
     onChange: (pageIndex: number, pageSize?: number) => void;
     style?: React.CSSProperties;
+    hideOnSinglePage?: boolean;
 }
 export declare function getPaginationEmotionStyles(clsPrefix: string, theme: Theme): SerializedStyles;
 export declare const Pagination: React.FC<PaginationProps>;

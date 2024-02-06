@@ -1,6 +1,5 @@
-import type { Interpolation } from '@emotion/react';
+import type { Interpolation, CSSObject } from '@emotion/react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import type { CSSObject } from '@storybook/theming';
 import React from 'react';
 import type { Theme } from '../../theme';
 export declare const Root: React.FC<DropdownMenu.DropdownMenuProps>;

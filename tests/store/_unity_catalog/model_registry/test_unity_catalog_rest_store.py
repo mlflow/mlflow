@@ -6,15 +6,20 @@ from itertools import combinations
 from unittest import mock
 from unittest.mock import ANY
 
+import pandas as pd
 import pytest
 import yaml
 from google.cloud.storage import Client
 from requests import Response
 
+from mlflow.data.dataset import Dataset
+from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.data.pandas_dataset import PandasDataset
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
+from mlflow.entities.run_inputs import RunInputs
 from mlflow.entities.run_tag import RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -60,16 +65,16 @@ from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_ORG_ID_HEADER,
     UcModelRegistryStore,
 )
-from mlflow.store._unity_catalog.registry.utils import (
+from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
+from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
+from mlflow.types.schema import ColSpec, DataType
+from mlflow.utils._unity_catalog_utils import (
     _ACTIVE_CATALOG_QUERY,
     _ACTIVE_SCHEMA_QUERY,
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
-from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
-from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
-from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
-from mlflow.types.schema import ColSpec, DataType
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
     MLFLOW_DATABRICKS_JOB_RUN_ID,
@@ -78,6 +83,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.proto_json_utils import message_to_json
 
 from tests.helper_functions import mock_http_200
+from tests.resources.data.dataset_source import TestDatasetSource
 from tests.store._unity_catalog.conftest import (
     _REGISTRY_HOST_CREDS,
     _TRACKING_HOST_CREDS,
@@ -361,15 +367,18 @@ def test_get_registered_model(mock_http, store):
 
 def test_get_latest_versions_unsupported(store):
     name = "model_1"
-    expected_error = (
-        f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
-        "If seeing this error while attempting to load a model version by stage, "
-        "note that setting stages and loading model versions by stage is unsupported "
-        "in Unity Catalog."
-    )
-    with pytest.raises(MlflowException, match=expected_error):
+    with pytest.raises(
+        MlflowException,
+        match=f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
+        "To load the latest version of a model in Unity Catalog, you can set "
+        "an alias on the model version and load it by alias",
+    ):
         store.get_latest_versions(name=name)
-    with pytest.raises(MlflowException, match=expected_error):
+    with pytest.raises(
+        MlflowException,
+        match=f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
+        "Detected attempt to load latest model version in stages",
+    ):
         store.get_latest_versions(name=name, stages=["Production"])
 
 
@@ -1001,6 +1010,59 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs
         )
+
+
+@pytest.mark.parametrize(
+    ("num_inputs", "expected_truncation_size"),
+    [
+        (1, 1),
+        (10, 10),
+        (11, 10),
+    ],
+)
+def test_input_source_truncation(num_inputs, expected_truncation_size, store):
+    test_notebook_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="321")
+    test_job_tag = RunTag(key=MLFLOW_DATABRICKS_JOB_ID, value="456")
+    test_job_run_tag = RunTag(key=MLFLOW_DATABRICKS_JOB_RUN_ID, value="789")
+    test_run_data = RunData(tags=[test_notebook_tag, test_job_tag, test_job_run_tag])
+    test_run_info = RunInfo(
+        "run_uuid",
+        "experiment_id",
+        "user_id",
+        "status",
+        "start_time",
+        "end_time",
+        "lifecycle_stage",
+    )
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    df = pd.DataFrame([1, 2, 3], columns=["Numbers"])
+    input_list = []
+    for count in range(num_inputs):
+        input_list.append(
+            Dataset(
+                source=DeltaDatasetSource(
+                    delta_table_name=f"temp_delta_versioned_with_id_{count}",
+                    delta_table_version=1,
+                    delta_table_id=f"uc_id_{count}",
+                )
+            )
+        )
+        # Let's double up the sources and verify non-Delta Datasets are filtered out
+        input_list.append(
+            Dataset(
+                source=PandasDataset(
+                    df=df,
+                    source=source,
+                    name=f"testname_{count}",
+                )
+            )
+        )
+    assert len(input_list) == num_inputs * 2
+    test_run_inputs = RunInputs(dataset_inputs=input_list)
+    test_run = Run(run_data=test_run_data, run_info=test_run_info, run_inputs=test_run_inputs)
+    filtered_inputs = store._get_lineage_input_sources(test_run)
+    assert len(filtered_inputs) == expected_truncation_size
 
 
 def test_create_model_version_unsupported_fields(store):

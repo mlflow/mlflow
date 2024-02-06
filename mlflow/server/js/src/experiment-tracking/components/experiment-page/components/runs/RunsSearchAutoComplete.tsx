@@ -1,14 +1,6 @@
 import { isEqual } from 'lodash';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  AutoComplete,
-  Input,
-  SearchIcon,
-  Tooltip,
-  InfoIcon,
-  Button,
-  CloseIcon,
-} from '@databricks/design-system';
+import { AutoComplete, Input, SearchIcon, Tooltip, InfoIcon, Button, CloseIcon } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
@@ -91,16 +83,10 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
     }
     const currentEntitiesNames = newEntities.map((e) => e.name);
     const previousEntitiesNames = previousEntities.map((e) => e.name);
-    if (
-      !isEqual(currentEntitiesNames, previousEntitiesNames) &&
-      newEntities.length >= previousEntities.length
-    ) {
+    if (!isEqual(currentEntitiesNames, previousEntitiesNames) && newEntities.length >= previousEntities.length) {
       let i = 0;
       while (i < newEntities.length) {
-        if (
-          i >= previousEntities.length ||
-          newEntities[i].name.trim() !== previousEntities[i].name.trim()
-        ) {
+        if (i >= previousEntities.length || newEntities[i].name.trim() !== previousEntities[i].name.trim()) {
           setAutocompleteEnabled(true);
           setEntityBeingEdited(newEntities[i]);
           return;
@@ -208,7 +194,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
         options={filteredOptions}
         onSelect={onSelect}
         value={text}
-        data-test-id='runs-search-autocomplete'
+        data-test-id="runs-search-autocomplete"
         dropdownRender={(menu) => <div css={styles.dropdownOverride}>{menu}</div>}
       >
         <Input
@@ -219,17 +205,17 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
           onBlur={onBlur}
           onChange={(e) => setText(e.target.value)}
           placeholder={SEARCH_BOX_PLACEHOLDER}
-          data-test-id='search-box'
+          data-test-id="search-box"
           suffix={
             <div css={styles.searchInputSuffix}>
               {text && (
-                <Button onClick={onClear} type='link' data-test-id='clear-button'>
+                <Button onClick={onClear} type="link" data-test-id="clear-button">
                   <CloseIcon />
                 </Button>
               )}
               <Tooltip
                 title={<RunsSearchTooltipContent />}
-                placement='right'
+                placement="right"
                 dangerouslySetAntdProps={{
                   overlayInnerStyle: { width: '150%' },
                   trigger: 'click',

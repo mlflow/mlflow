@@ -278,6 +278,25 @@ def is_testing():
     return _MLFLOW_AUTOLOGGING_TESTING.get()
 
 
+def _resolve_extra_tags(autologging_integration, extra_tags):
+    tags = {MLFLOW_AUTOLOGGING: autologging_integration}
+    if extra_tags:
+        if isinstance(extra_tags, dict):
+            if MLFLOW_AUTOLOGGING in extra_tags:
+                extra_tags.pop(MLFLOW_AUTOLOGGING)
+                _logger.warning(
+                    f"Tag `{MLFLOW_AUTOLOGGING}` is ignored as it is a reserved tag by MLflow "
+                    f"autologging."
+                )
+            tags.update(extra_tags)
+        else:
+            raise mlflow.exceptions.MlflowException.invalid_parameter_value(
+                f"Invalid `extra_tags` type: expecting dictionary, "
+                f"received `{type(extra_tags).__name__}`"
+            )
+    return tags
+
+
 def safe_patch(
     autologging_integration,
     destination,
@@ -314,21 +333,7 @@ def safe_patch(
     from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
 
     if manage_run:
-        tags = {MLFLOW_AUTOLOGGING: autologging_integration}
-        if extra_tags:
-            if isinstance(extra_tags, dict):
-                if MLFLOW_AUTOLOGGING in extra_tags:
-                    extra_tags.pop(MLFLOW_AUTOLOGGING)
-                    _logger.warning(
-                        f"Tag `{MLFLOW_AUTOLOGGING}` is ignored as it is a reserved tag by MLflow "
-                        f"autologging."
-                    )
-                tags.update(extra_tags)
-            else:
-                raise mlflow.exceptions.MlflowException.invalid_parameter_value(
-                    f"Invalid `extra_tags` type: expecting dictionary, "
-                    f"received `{type(extra_tags).__name__}`"
-                )
+        tags = _resolve_extra_tags(autologging_integration, extra_tags)
         patch_function = with_managed_run(
             autologging_integration,
             patch_function,
@@ -934,6 +939,8 @@ def _validate_args(
         if type(inp) == list:
             for item in inp:
                 _validate_new_input(item)
+        elif isinstance(inp, dict) and "callbacks" in inp:
+            _validate_new_input(inp["callbacks"])
         elif callable(inp):
             assert getattr(inp, _ATTRIBUTE_EXCEPTION_SAFE, False), (
                 f"New function argument '{inp}' passed to original function is not exception-safe."

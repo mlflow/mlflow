@@ -6,6 +6,7 @@ import shutil
 from contextlib import contextmanager
 
 import mlflow
+from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.entities import Run
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -38,18 +39,21 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GetRegisteredModelRequest,
     GetRegisteredModelResponse,
     Job,
+    Lineage,
     LineageHeaderInfo,
     Notebook,
     SearchModelVersionsRequest,
     SearchModelVersionsResponse,
     SearchRegisteredModelsRequest,
     SearchRegisteredModelsResponse,
+    Securable,
     SetModelVersionTagRequest,
     SetModelVersionTagResponse,
     SetRegisteredModelAliasRequest,
     SetRegisteredModelAliasResponse,
     SetRegisteredModelTagRequest,
     SetRegisteredModelTagResponse,
+    Table,
     TemporaryCredentials,
     UpdateModelVersionRequest,
     UpdateModelVersionResponse,
@@ -58,7 +62,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.service_pb2 import GetRun, MlflowService
-from mlflow.store._unity_catalog.registry.utils import (
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.model_registry.rest_store import BaseRestStore
+from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
     model_version_from_uc_proto,
@@ -66,9 +73,6 @@ from mlflow.store._unity_catalog.registry.utils import (
     uc_model_version_tag_from_mlflow_tags,
     uc_registered_model_tag_from_mlflow_tags,
 )
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.model_registry.rest_store import BaseRestStore
-from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
 from mlflow.utils.mlflow_tags import (
@@ -94,6 +98,8 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
 )
 
 _logger = logging.getLogger(__name__)
+_DELTA_TABLE = "delta_table"
+_MAX_LINEAGE_DATA_SOURCES = 10
 
 
 def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
@@ -326,15 +332,30 @@ class UcModelRegistryStore(BaseRestStore):
                        each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
+        alias_doc_url = "https://mlflow.org/docs/latest/model-registry.html#deploy-and-organize-models-with-aliases-and-tags"
+        if stages is None:
+            message = (
+                "To load the latest version of a model in Unity Catalog, you can "
+                "set an alias on the model version and load it by alias. See "
+                f"{alias_doc_url} for details."
+            )
+        else:
+            message = (
+                f"Detected attempt to load latest model version in stages {stages}. "
+                "You may see this error because:\n"
+                "1) You're attempting to load a model version by stage. Setting stages "
+                "and loading model versions by stage is unsupported in Unity Catalog. Instead, "
+                "use aliases for flexible model deployment. See "
+                f"{alias_doc_url} for details.\n"
+                "2) You're attempting to load a model version by alias. Use "
+                "syntax 'models:/your_model_name@your_alias_name'\n"
+                "3) You're attempting load a model version by version number. Verify "
+                "that the version number is a valid integer"
+            )
+
         _raise_unsupported_method(
             method="get_latest_versions",
-            message="If seeing this error while attempting to "
-            "load a model version by stage, note that setting stages and loading model versions "
-            "by stage is unsupported in Unity Catalog. Instead, we recommend using aliases for "
-            "flexible model deployment. If trying to load a model version by alias, use the "
-            "syntax 'models:/your_model_name@your_alias_name'. "
-            "To set aliases, you can use the "
-            "`MlflowClient().set_registered_model_alias(name, alias, version)` API.",
+            message=message,
         )
 
     def set_registered_model_tag(self, name, tag):
@@ -440,6 +461,34 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return run.data.tags.get(MLFLOW_DATABRICKS_JOB_RUN_ID, None)
 
+    def _get_lineage_input_sources(self, run):
+        if run is None:
+            return None
+        securable_list = []
+        if run.inputs is not None:
+            for dataset in run.inputs.dataset_inputs:
+                dataset_source = mlflow.data.get_source(dataset)
+                if (
+                    isinstance(dataset_source, DeltaDatasetSource)
+                    and dataset_source._get_source_type() == _DELTA_TABLE
+                ):
+                    # check if dataset is a uc table and then append
+                    if dataset_source.delta_table_name and dataset_source.delta_table_id:
+                        table_entity = Table(
+                            name=dataset_source.delta_table_name,
+                            table_id=dataset_source.delta_table_id,
+                        )
+                        securable_list.append(Securable(table=table_entity))
+            if len(securable_list) > _MAX_LINEAGE_DATA_SOURCES:
+                _logger.warning(
+                    f"Model version has {len(securable_list)!s} upstream datasets, which "
+                    f"exceeds the max of 10 upstream datasets for lineage tracking. Only "
+                    f"the first 10 datasets will be propagated to Unity Catalog lineage"
+                )
+            return securable_list[0:_MAX_LINEAGE_DATA_SOURCES]
+        else:
+            return None
+
     def _validate_model_signature(self, local_model_path):
         # Import Model here instead of in the top level, to avoid circular import; the
         # mlflow.models.model module imports from MLflow tracking, which triggers an import of
@@ -524,18 +573,22 @@ class UcModelRegistryStore(BaseRestStore):
         headers, run = self._get_run_and_headers(run_id)
         source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
+        lineage_securable_list = self._get_lineage_input_sources(run)
         job_id = self._get_job_id(run)
         job_run_id = self._get_job_run_id(run)
         extra_headers = None
         if notebook_id is not None or job_id is not None:
             entity_list = []
+            lineage_list = None
             if notebook_id is not None:
                 notebook_entity = Notebook(id=str(notebook_id))
                 entity_list.append(Entity(notebook=notebook_entity))
             if job_id is not None:
                 job_entity = Job(id=job_id, job_run_id=job_run_id)
                 entity_list.append(Entity(job=job_entity))
-            lineage_header_info = LineageHeaderInfo(entities=entity_list)
+            if lineage_securable_list is not None:
+                lineage_list = [Lineage(source_securables=lineage_securable_list)]
+            lineage_header_info = LineageHeaderInfo(entities=entity_list, lineages=lineage_list)
             # Base64-encode the header value to ensure it's valid ASCII,
             # similar to JWT (see https://stackoverflow.com/a/40347926)
             header_json = message_to_json(lineage_header_info)

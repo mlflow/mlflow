@@ -129,7 +129,7 @@ parameters, results, and model itself of each trial as a child run.
             # Log model
             mlflow.tensorflow.log_model(model, "model", signature=signature)
 
-            return {"eval_rmse": eval_rmse, "status": STATUS_OK, "model": model}
+            return {"loss": eval_rmse, "status": STATUS_OK, "model": model}
 
 
 The ``objective`` function takes in the hyperparameters and returns the results of the ``train_model`` 
@@ -184,7 +184,7 @@ store the best parameters, model, and evaluation metrics in MLflow.
         )
 
         # Fetch the details of the best run
-        best_run = sorted(trials.results, key=lambda x: x["eval_rmse"])[0]
+        best_run = sorted(trials.results, key=lambda x: x["loss"])[0]
 
         # Log the best parameters, loss, and model
         mlflow.log_params(best)
@@ -193,7 +193,7 @@ store the best parameters, model, and evaluation metrics in MLflow.
 
         # Print out the best parameters and corresponding loss
         print(f"Best parameters: {best}")
-        print(f"Best eval rmse: {best_run['eval_rmse']}")
+        print(f"Best eval rmse: {best_run['loss']}")
 
 
 Compare the results

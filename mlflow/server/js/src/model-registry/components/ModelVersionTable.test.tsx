@@ -1,7 +1,7 @@
 import React from 'react';
 import { mockModelVersionDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
-import { renderWithIntl, screen } from '../../common/utils/TestUtils';
+import { renderWithIntl, screen } from 'common/utils/TestUtils.react17';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -12,7 +12,7 @@ import { ModelVersionTable } from './ModelVersionTable';
 jest.mock('../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual('../../common/utils/FeatureUtils'),
   // Force-enable toggling new models UI for test purposes
-  shouldUseToggleModelsNextUI: () => true,
+  shouldShowModelsNextUI: () => true,
 }));
 
 describe('ModelVersionTable', () => {
