@@ -665,6 +665,28 @@ def get_model_info(model_uri: str) -> ModelInfo:
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
+
+    .. code-block:: python
+        :caption: Example usage of get_model_info
+
+        import mlflow.models
+        import mlflow.sklearn
+        from sklearn.ensemble import RandomForestRegressor
+
+        with mlflow.start_run() as run:
+            params = {"n_estimators": 3, "random_state": 42}
+            X, y = [[0, 1]], [1]
+            signature = mlflow.models.infer_signature(X, y)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            mlflow.log_params(params)
+            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
+
+        model_uri = f"runs:/{run.info.run_id}/sklearn-model"
+        # Get model info with model_uri
+        model_info = mlflow.models.get_model_info(model_uri)
+        # Get model signature directly
+        model_signature = model_info.signature
+        assert model_signature == signature
     """
     from mlflow.pyfunc import _download_artifact_from_uri
 

@@ -127,6 +127,66 @@ def make_genai_metric(
 
     Returns:
         A metric object.
+
+    .. testcode:: python
+        :caption: Example for creating a genai metric
+
+        from mlflow.metrics.genai import EvaluationExample, make_genai_metric
+
+        example = EvaluationExample(
+            input="What is MLflow?",
+            output=(
+                "MLflow is an open-source platform for managing machine "
+                "learning workflows, including experiment tracking, model packaging, "
+                "versioning, and deployment, simplifying the ML lifecycle."
+            ),
+            score=4,
+            justification=(
+                "The definition effectively explains what MLflow is "
+                "its purpose, and its developer. It could be more concise for a 5-score.",
+            ),
+            grading_context={
+                "targets": (
+                    "MLflow is an open-source platform for managing "
+                    "the end-to-end machine learning (ML) lifecycle. It was developed by "
+                    "Databricks, a company that specializes in big data and machine learning "
+                    "solutions. MLflow is designed to address the challenges that data "
+                    "scientists and machine learning engineers face when developing, training, "
+                    "and deploying machine learning models."
+                )
+            },
+        )
+        metric = make_genai_metric(
+            name="answer_correctness",
+            definition=(
+                "Answer correctness is evaluated on the accuracy of the provided output based on "
+                "the provided targets, which is the ground truth. Scores can be assigned based on "
+                "the degree of semantic similarity and factual correctness of the provided output "
+                "to the provided targets, where a higher score indicates higher degree of accuracy."
+            ),
+            grading_prompt=(
+                "Answer correctness: Below are the details for different scores:"
+                "- Score 1: The output is completely incorrect. It is completely different from "
+                "or contradicts the provided targets."
+                "- Score 2: The output demonstrates some degree of semantic similarity and "
+                "includes partially correct information. However, the output still has significant "
+                "discrepancies with the provided targets or inaccuracies."
+                "- Score 3: The output addresses a couple of aspects of the input accurately, "
+                "aligning with the provided targets. However, there are still omissions or minor "
+                "inaccuracies."
+                "- Score 4: The output is mostly correct. It provides mostly accurate information, "
+                "but there may be one or more minor omissions or inaccuracies."
+                "- Score 5: The output is correct. It demonstrates a high degree of accuracy and "
+                "semantic similarity to the targets."
+            ),
+            examples=[example],
+            version="v1",
+            model="openai:/gpt-4",
+            grading_context_columns=["targets"],
+            parameters={"temperature": 0.0},
+            aggregations=["mean", "variance", "p90"],
+            greater_is_better=True,
+        )
     """
     if not isinstance(grading_context_columns, list):
         grading_context_columns = [grading_context_columns]

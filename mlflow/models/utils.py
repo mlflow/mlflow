@@ -1056,6 +1056,7 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
 
     Args:
         data: Input data to be validated. Supported types are:
+
             - pandas.DataFrame
             - pandas.Series
             - numpy.ndarray
@@ -1064,6 +1065,7 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
             - List[Any]
             - Dict[str, Any]
             - str
+
         expected_schema: Expected Schema of the input data.
 
     Raises:
@@ -1100,14 +1102,14 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
 
     Args:
         model_uri: A registered model uri in the Model Registry of the form
-                   models:/<model_name>/<model_version/stage/latest>
+            models:/<model_name>/<model_version/stage/latest>
         run_id: The ID of the run to which the model with libraries is logged. If None, the model
-                with libraries is logged to the source run corresponding to model version
-                specified by ``model_uri``; if the model version does not have a source run, a
-                new run created.
+            with libraries is logged to the source run corresponding to model version
+            specified by ``model_uri``; if the model version does not have a source run, a
+            new run created.
         registered_model_name: The new model version (model with its libraries) is
-                               registered under the inputted registered_model_name. If None, a
-                               new version is logged to the existing model in the Model Registry.
+            registered under the inputted registered_model_name. If None, a
+            new version is logged to the existing model in the Model Registry.
 
     .. note::
         This utility only operates on a model that has been registered to the Model Registry.
@@ -1115,6 +1117,48 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
     .. note::
         The libraries are only compatible with the platform on which they are added. Cross platform
         libraries are not supported.
+
+    .. code-block:: python
+        :caption: Example
+
+        # Create and log a model to the Model Registry
+        import pandas as pd
+        from sklearn import datasets
+        from sklearn.ensemble import RandomForestClassifier
+        import mlflow
+        import mlflow.sklearn
+        from mlflow.models import infer_signature
+
+        with mlflow.start_run():
+            iris = datasets.load_iris()
+            iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
+            clf = RandomForestClassifier(max_depth=7, random_state=0)
+            clf.fit(iris_train, iris.target)
+            signature = infer_signature(iris_train, clf.predict(iris_train))
+            mlflow.sklearn.log_model(
+                clf, "iris_rf", signature=signature, registered_model_name="model-with-libs"
+            )
+
+        # model uri for the above model
+        model_uri = "models:/model-with-libs/1"
+
+        # Import utility
+        from mlflow.models.utils import add_libraries_to_model
+
+        # Log libraries to the original run of the model
+        add_libraries_to_model(model_uri)
+
+        # Log libraries to some run_id
+        existing_run_id = "21df94e6bdef4631a9d9cb56f211767f"
+        add_libraries_to_model(model_uri, run_id=existing_run_id)
+
+        # Log libraries to a new run
+        with mlflow.start_run():
+            add_libraries_to_model(model_uri)
+
+        # Log libraries to a new registered model named 'new-model'
+        with mlflow.start_run():
+            add_libraries_to_model(model_uri, registered_model_name="new-model")
     """
 
     import mlflow

@@ -134,6 +134,21 @@ def format_docstring(param_docs):
 
     Returns:
         A decorator to apply the formatting.
+
+    Examples:
+        >>> param_docs = {"p1": "doc1", "p2": "doc2
+        doc2 second line"}
+        >>> @format_docstring(param_docs)
+        ... def func(p1, p2):
+        ...     '''
+        ...     :param p1: {{ p1 }}
+        ...     :param p2: {{ p2 }}
+        ...     '''
+        >>> import textwrap
+        >>> print(textwrap.dedent(func.__doc__).strip())
+        :param p1: doc1
+        :param p2: doc2
+                   doc2 second line
     """
     param_docs = ParamDocs(param_docs)
 

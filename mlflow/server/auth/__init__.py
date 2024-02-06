@@ -657,11 +657,11 @@ def alert(href: str):
 {% with messages = get_flashed_messages() %}
   {% if messages %}
     {% for message in messages %}
-      alert("{{ message }}")
+      alert("{{ message }}");
     {% endfor %}
   {% endif %}
 {% endwith %}
-      window.location.href = "{{ href }}"
+      window.location.href = "{{ href }}";
 </script>
 """,
         href=href,

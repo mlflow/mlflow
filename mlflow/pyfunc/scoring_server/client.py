@@ -85,7 +85,7 @@ class ScoringServerClient(BaseScoringServerClient):
                     release without warning.
 
         Returns:
-            PredictionsResponse <mlflow.deployments.PredictionsResponse> result.
+            :py:class:`PredictionsResponse <mlflow.deployments.PredictionsResponse>` result.
         """
         response = requests.post(
             url=self.url_prefix + "/invocations",
