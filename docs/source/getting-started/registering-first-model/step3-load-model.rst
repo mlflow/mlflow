@@ -75,7 +75,7 @@ added a model version alias to our model, but here's a programmatic example.
     RandomForestRegressor(max_depth=2, random_state=42)
 
 Model version alias is highly dynamic and can correspond to anything that is meaningful for your
-team. The most common example is a a development state e.g. ``dev``, ``staging``, ``prod``.
+team. The most common example is a development state e.g. ``dev``, ``staging``, ``prod``.
 
 That's it! You should now be comfortable...
 
