@@ -296,6 +296,10 @@ LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "_latest_checkpoint_artifact"
 
 
 class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
+    """Callback for auto-logging pytorch-lightning model checkpoints to MLflow.
+    This callback implementation only supports pytorch-lightning >= 1.6.0.
+    """
+
     def __init__(
         self,
         client,
@@ -306,6 +310,28 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
         save_weights_only=False,
         save_freq="epoch",
     ):
+        """
+        Args:
+            client: An instance of `MlflowClient`.
+            run_id: The id of the MLflow run which you want to log checkpoints to.
+            monitor: In automatic model checkpointing, the metric name to monitor if
+                you set `model_checkpoint_save_best_only` to True.
+            save_best_only: If True, automatic model checkpointing only saves when
+                the model is considered the "best" model according to the quantity
+                monitored and previous checkpoint model is overwritten.
+            mode: one of {"min", "max"}. In automatic model checkpointing,
+                if save_best_only=True, the decision to overwrite the current save file is made
+                based on either the maximization or the minimization of the monitored quantity.
+            save_weights_only: In automatic model checkpointing, if True, then
+                only the model’s weights will be saved. Otherwise, the optimizer states,
+                lr-scheduler states, etc are added in the checkpoint too.
+            save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
+                saves the model after each epoch. When using integer, the callback
+                saves the model at end of this many batches. Note that if the saving isn't
+                aligned to epochs, the monitored metric may potentially be less reliable (it
+                could reflect as little as 1 batch, since the metrics get reset
+                every epoch). Defaults to `"epoch"`.
+        """
         self.client = client
         self.run_id = run_id
         self.monitor = monitor
