@@ -270,7 +270,6 @@ def log_model(
                 input_example=data,
             )
 
-
     Args:
         model: A trained ``sentence-transformers`` model.
         artifact_path: Local path destination for the serialized model to be saved.
