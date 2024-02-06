@@ -345,6 +345,7 @@ class MLflowModelCheckpointCallback(pl.Callback, metaclass=ExceptionSafeAbstract
                     "compare the monitored metric value, but the provided monitored metric value "
                     "is not available."
                 )
+                return
 
             new_monitor_value = metric_dict[self.monitor]
             if not self._is_new_checkpoint_better(new_monitor_value):
