@@ -2,12 +2,11 @@
 
 ## 2.10.1 (2024-02-06)
 
-MLflow 2.10.1 includes several major features and improvements
+MLflow 2.10.1 is a patch release, containing fixes for various bugs in the `transformers` flavor, the MLflow UI, and the S3 artifact store. More details can be found in the patch notes below.
 
 Bug fixes:
 
 - [Models] Fix missing dtype issue for transformer pipeline (#10979, @B-Step62)
-- [Docs] Fix incorrect logo on LLMs landing page (#11017, @BenWilson2)
 - [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
 - [UI] Restore dataset tracking flag (#10992, @daniellok-db)
 - [Models] Fix prompt templating bug with Text2TextGeneration pipeline (#10960, @B-Step62)
@@ -15,6 +14,7 @@ Bug fixes:
 Documentation updates:
 
 - [Docs] Add indications of DL UI capabilities to the DL landing page (#10991, @BenWilson2)
+- [Docs] Fix incorrect logo on LLMs landing page (#11017, @BenWilson2)
 
 Small bug fixes and documentation updates:
 
