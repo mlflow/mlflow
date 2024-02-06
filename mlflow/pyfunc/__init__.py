@@ -676,7 +676,7 @@ def load_model(
         # module might be "databricks", "databricks.feature_store" or full package. So we will
         # raise the error with the following note if "databricks" presents in the error. All non-
         # databricks moduel errors will just be re-raised.
-        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and "databricks" in e.name:
+        if conf[MAIN] == _DATABRICKS_FS_LOADER_MODULE and e.name.startswith("databricks"):
             raise MlflowException(
                 f"{e.msg}; "
                 "Note: mlflow.pyfunc.load_model is not supported for Feature Store models. "
