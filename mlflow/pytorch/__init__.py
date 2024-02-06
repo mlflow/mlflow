@@ -61,7 +61,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.pytorch._lightning_autolog import MLflowModelCheckpointCallback
 
 FLAVOR_NAME = "pytorch"
 
@@ -1188,7 +1187,6 @@ def load_checkpoint(model_class, run_id=None, epoch=None, global_step=None):
 
 
 __all__ = [
-    "MLflowModelCheckpointCallback",
     "autolog",
     "load_model",
     "save_model",
@@ -1196,3 +1194,10 @@ __all__ = [
     "get_default_pip_requirements",
     "get_default_conda_env",
 ]
+
+try:
+    from mlflow.pytorch._lightning_autolog import MLflowModelCheckpointCallback
+    __all__.append("MLflowModelCheckpointCallback")
+except ImportError:
+    # Swallow exception if pytorch-lightning is not installed.
+    pass
