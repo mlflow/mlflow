@@ -108,7 +108,7 @@ def test_preprocess_llm_inference_params():
     )
 
     pd.testing.assert_frame_equal(data, pd.DataFrame({"prompt": ["Hello world!"]}))
-    assert params == {"max_new_tokens": 100, "temperature": 0.7, "stopping_criteria": None}
+    assert params == {"max_new_tokens": 100, "temperature": 0.7}
 
 
 @mock.patch("transformers.AutoTokenizer.from_pretrained")

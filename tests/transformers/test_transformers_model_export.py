@@ -4048,7 +4048,6 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
 
 def test_text_generation_task_completions_serve(text_generation_pipeline):
     data = {"prompt": "How to learn Python in 3 weeks?"}
-    output = {"text": "Start with"}
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(

@@ -1946,6 +1946,8 @@ class _TransformersWrapper:
 
         if return_tensors:
             model_config["return_tensors"] = True
+            # `return_full_text` is mutually exclusive with `return_tensors`
+            model_config["return_full_text"] = None
 
         try:
             if isinstance(data, dict):

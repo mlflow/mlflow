@@ -93,7 +93,9 @@ def preprocess_llm_inference_params(
     model_name = None
     if flavor_config is not None:
         model_name = flavor_config.get("source_model_name", None)
-    params["stopping_criteria"] = _set_stopping_criteria(params.pop("stop", None), model_name)
+        stopping_criteria = _set_stopping_criteria(params.pop("stop", None), model_name)
+        if stopping_criteria:
+            params["stopping_criteria"] = stopping_criteria
 
     return params
 
