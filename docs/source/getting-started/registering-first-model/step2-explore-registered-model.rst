@@ -13,8 +13,9 @@ the directory structure created when running the python script in the prior step
 
 Before diving in, it's import to note that Mlflow is designed to abstract complexity from the user
 and this directory structure is just for illustration purposes. Furthermore, on remote deployments,
-which is recommended for production use cases, the `tracking server` and `model registry` will be 
-on object store (S3, ADLS, GCS, etc.) and a relational database (PostgreSQL), respectively.
+which is recommended for production use cases, the tracking server will be 
+on object store (S3, ADLS, GCS, etc.) and the model registry will be on a relational database 
+(PostgreSQL, MySQL, etc.).
 
 .. code-block:: text
 
@@ -60,15 +61,15 @@ information out-of-the-box. Also note that even if we don't have autologging for
 interest, we can easily store this information with explicit logging calls.
 
 One more interesting callout is that by default you get three way to manage your model's 
-environment: `python_env.yaml` (python virtualenv), `requirements.txt` (PyPi requirements), and 
-`conda.yaml` (conda env). 
+environment: ``python_env.yaml`` (python virtualenv), ``requirements.txt`` (PyPi requirements), and 
+``conda.yaml`` (conda env). 
 
 Ok, now that we have a very high-level understanding of what is logged, let's use the MLflow UI to
 view this information.
 
 Step 2: Start the Tracking Server 
 ---------------------------------
-In the same directory as your `mlruns` foder, run the below command.
+In the same directory as your ``mlruns`` foder, run the below command.
 
 .. code-block:: bash
 
@@ -87,22 +88,22 @@ In the same directory as your `mlruns` foder, run the below command.
 
 Step 3: View the Tracking Server
 --------------------------------
-Assuming there are no errors, you can go to your web browser and visit `http://localhost:8080` to
+Assuming there are no errors, you can go to your web browser and visit ``http://localhost:8080`` to
 view the MLflow UI.
 
 First, let's leave the experiment tracking tab and visit the model registry.
 
-.. figure:: ../../_static/images/tutorials/introductory/model-registry-quickstart/model-registry-ui.png
+.. figure:: ../../_static/images/quickstart/model-registry-quickstart/model-registry-ui.png
    :width: 1024px
    :align: center
    :alt: Model information from the mlflow ui.
 
 Next, let's modify our model to 
 `facilitate model deployment <https://mlflow.org/docs/latest/model-registry.html#new-model-deployment-tools>`_.
-More specifically, let's add a model version tag with a key of `problem_type` and value of 
-`regression`.  Let's also add a model version alias of `the_best_model_ever`.
+More specifically, let's add a model version tag with a key of ``problem_type`` and value of 
+``regression``.  Let's also add a model version alias of ``the_best_model_ever``.
 
-.. figure:: ../../_static/images/tutorials/introductory/model-registry-quickstart/model-alias-and-tags.png
+.. figure:: ../../_static/images/quickstart/model-registry-quickstart/model-alias-and-tags.png
    :width: 1024px
    :align: center
    :alt: Model information from the mlflow ui.

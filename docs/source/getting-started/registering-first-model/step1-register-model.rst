@@ -16,7 +16,7 @@ Step 1: Register a Model
 --------------------------------
 
 MLflow has lots of model flavors. In the below example, we'll leverage scikit-learn's 
-RandomForestRegressor to demonstrate the most effective way to register a model, but note that you
+RandomForestRegressor to demonstrate the simplest way to register a model, but note that you
 can leverage any `supported model flavor <https://mlflow.org/docs/latest/models.html#built-in-model-flavors>`_.
 
 .. code-section::
@@ -72,4 +72,4 @@ Before moving on, let's highlight some important implementation notes.
 * `Model Signatures <https://mlflow.org/docs/latest/model/signatures.html#mlflow-model-signatures-and-input-examples-guide>`_ 
   provide validation for our model inputs and outputs. The `input` example in `log_model()`
   automatically infers and logs a signature. Again, we suggest using this implementation because 
-  it's more concise.
+  it's concise.

@@ -1,5 +1,5 @@
 Load a Registered Model
-===================
+=======================
 
 To perform inference on a registered model version, we need to load it into memory. There are many 
 ways to find our model version, but the best method differs depending on the information you have
@@ -30,10 +30,10 @@ Example 1: Load via Static Information
 There are many other ways to construct a model URI. Here are some common examples that leverage 
 information created at registration time. 
 
-1. Absolute local path: `mlflow.sklearn.load_model("/Users/me/path/to/local/model")`
-2. Relative local path: `mlflow.sklearn.load_model("relative/path/to/local/model")`
-3. Run id: `mlflow.sklearn.load_model(f"runs:/{mlflow_run_id}/{run_relative_path_to_model}")`
-4. Model name + version: `mlflow.sklearn.load_model(f"models:/{model_name}/{model_version}")`
+1. **Absolute local path**: ``mlflow.sklearn.load_model("/Users/me/path/to/local/model")``
+2. **Relative local path**: ``mlflow.sklearn.load_model("relative/path/to/local/model")``
+3. **Run id**: ``mlflow.sklearn.load_model(f"runs:/{mlflow_run_id}/{run_relative_path_to_model}")``
+4. **Model name + version**: ``mlflow.sklearn.load_model(f"models:/{model_name}/{model_version}")``
 
 After registration, you can also leverage additional metadata to facilitate finding the model.
 
@@ -42,7 +42,6 @@ Example 2: Load via Model Version Alias
 Model version aliases are user-defined identifiers for a model version. Given they're mutable after
 model registration, they're more versatile than monotonically increasing ID's. In the prior page, we
 added a model version alias to our model, but here's a programmatic example.
-
 
 .. code-block:: python
 
@@ -58,11 +57,28 @@ added a model version alias to our model, but here's a programmatic example.
         model_name, model_version_alias, 1
     )  # Duplicate of step in UI
 
+    # Get informawtion about the model
+    model_info = client.get_model_version_by_alias(model_name, model_version_alias)
+    model_tags = model_info.tags
+    print(model_tags)
+
     # Get the model version using a model URI
     model_uri = f"models:/{model_name}@{model_version_alias}"
     model = mlflow.sklearn.load_model(model_uri)
 
-Model version alias is highly dynamic and can correspond to anything that is meaningful for your
-team. The most common example is a a development state e.g. `dev`, `staging`, `prod`.
+    print(model)
 
-That's it!
+.. code-block:: text
+    :caption: Output
+
+    {'problem_type': 'regression'}
+    RandomForestRegressor(max_depth=2, random_state=42)
+
+Model version alias is highly dynamic and can correspond to anything that is meaningful for your
+team. The most common example is a a development state e.g. ``dev``, ``staging``, ``prod``.
+
+That's it! You should now be comfortable...
+
+1. Registering a model
+2. Finding a model and modifying the tags and model version alias via the MLflow UI
+3. Loading the registered model for inference
