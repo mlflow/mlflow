@@ -27,6 +27,7 @@ UNSUPPORT_LOG_MODEL_MESSAGE = (
     "logging the model requires `loader_fn` and `persist_dir`. Please log the model manually "
     "using `mlflow.langchain.log_model(model, artifact_path, loader_fn=..., persist_dir=...)`"
 )
+INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
 
 
 def _get_input_data_from_function(func_name, model, args, kwargs):
@@ -75,10 +76,10 @@ def _combine_input_and_output(input, output, session_id, func_name):
         # to make sure output is inside a single row when converted into pandas DataFrame
         output = [output]
     result = {"session_id": [session_id]}
-    input = _convert_data_to_dict(input, "input") if input else {}
-    output = _convert_data_to_dict(output, "output") if output else {}
-    result.update(input)
-    result.update(output)
+    if input:
+        result.update(_convert_data_to_dict(input, "input"))
+    if output:
+        result.update(_convert_data_to_dict(output, "output"))
     return result
 
 
@@ -306,12 +307,10 @@ def patched_inference(func_name, original, self, *args, **kwargs):
             data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
         except Exception as e:
             _logger.warning(
-                "Failed to log inputs and outputs into `inference_inputs_outputs.json` "
+                f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
                 f"file due to error {e}."
             )
-        mlflow.log_table(
-            data_dict, "inference_inputs_outputs.json", run_id=mlflow_callback.mlflg.run_id
-        )
+        mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
 
     # Terminate the run if it is not managed by the user
     if active_run is None or active_run.info.run_id != mlflow_callback.mlflg.run_id:
