@@ -3,10 +3,10 @@
 # dev/generate_requirements.py script to regenerate this file.
 
 pydantic<3,>=1.0
-fastapi<1,!=0.109.2
+fastapi<1
 uvicorn[standard]<1
 watchfiles<1
 aiohttp<4
 boto3<2,>=1.28.56
 tiktoken<1
-slowapi<1
+slowapi<1,>=0.1.9
