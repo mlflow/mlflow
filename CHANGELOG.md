@@ -2,7 +2,7 @@
 
 ## 2.10.1 (2024-02-06)
 
-MLflow 2.10.1 is a patch release, containing fixes for various bugs in the `transformers` flavor, the MLflow UI, and the S3 artifact store. More details can be found in the patch notes below.
+MLflow 2.10.1 is a patch release, containing fixes for various bugs in the `transformers` and `langchain` flavors, the MLflow UI, and the S3 artifact store. More details can be found in the patch notes below.
 
 Bug fixes:
 
