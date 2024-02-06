@@ -81,7 +81,7 @@ _DEFAULT_SIGNATURE_FOR_PIPELINES = {
 
 
 def infer_or_get_default_signature(
-    pipeline, example=None, model_config=None, timeout=60
+    pipeline, example=None, model_config=None, flavor_config=None, timeout=60
 ) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
@@ -92,7 +92,9 @@ def infer_or_get_default_signature(
     """
     if example:
         try:
-            return _infer_signature_with_prediction(pipeline, example, model_config, timeout)
+            return _infer_signature_with_prediction(
+                pipeline, example, model_config, flavor_config, timeout
+            )
         except MLflowTimeoutError:
             _logger.warning(
                 "Attempted to generate a signature for the saved model or pipeline "
@@ -120,7 +122,7 @@ def infer_or_get_default_signature(
 
 
 def _infer_signature_with_prediction(
-    pipeline, example, model_config=None, timeout=300
+    pipeline, example, model_config=None, flavor_config=None, timeout=300
 ) -> ModelSignature:
     import transformers
 
@@ -138,15 +140,18 @@ def _infer_signature_with_prediction(
 
     if _IS_UNIX:
         with run_with_timeout(timeout):
-            prediction = _generate_signature_output(pipeline, example, model_config, params)
+            prediction = _generate_signature_output(
+                pipeline, example, model_config, flavor_config, params
+            )
     else:
         _logger.warning(
             "Running prediction on the input example to infer model signature. On Windows, "
             "the prediction is not bound by a timeout and may hang indefinitely. If it "
             "hangs, please consider specifying the signature manually."
         )
-        prediction = _generate_signature_output(pipeline, example, model_config, params)
-
+        prediction = _generate_signature_output(
+            pipeline, example, model_config, flavor_config, params
+        )
     return infer_signature(example, prediction, params)
 
 
@@ -169,7 +174,7 @@ def format_input_example_for_special_cases(input_example, pipeline):
     return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
-def _generate_signature_output(pipeline, data, model_config=None, params=None):
+def _generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
     import transformers
 
     # Lazy import to avoid circular dependencies. Ideally we should move _TransformersWrapper
@@ -183,6 +188,6 @@ def _generate_signature_output(pipeline, data, model_config=None, params=None):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _TransformersWrapper(pipeline=pipeline, model_config=model_config).predict(
-        data, params=params
-    )
+    return _TransformersWrapper(
+        pipeline=pipeline, model_config=model_config, flavor_config=flavor_config
+    ).predict(data, params=params)
