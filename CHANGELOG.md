@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 2.10.1 (2024-02-06)
+
+MLflow 2.10.1 includes several major features and improvements
+
+Bug fixes:
+
+- [Models] Fix missing dtype issue for transformer pipeline (#10979, @B-Step62)
+- [Docs] Fix incorrect logo on LLMs landing page (#11017, @BenWilson2)
+- [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
+- [UI] Restore dataset tracking flag (#10992, @daniellok-db)
+- [Models] Fix prompt templating bug with Text2TextGeneration pipeline (#10960, @B-Step62)
+
+Documentation updates:
+
+- [Docs] Add indications of DL UI capabilities to the DL landing page (#10991, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#10930, #10952, #11005, @serena-ruan; #10927, @harupy; #10967, @kriscon-db
+
 ## 2.10.0 (2024-01-26)
 
 MLflow 2.10.0 includes several major features and improvements
