@@ -1,4 +1,5 @@
 """MLflow module for HuggingFace/transformer support."""
+from __future__ import annotations
 
 import ast
 import base64
@@ -14,6 +15,7 @@ import re
 import shutil
 import string
 import sys
+import typing
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
@@ -87,6 +89,10 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+
+# The following import is only used for type hinting
+if typing.TYPE_CHECKING:
+    import torch
 
 FLAVOR_NAME = "transformers"
 
@@ -1088,7 +1094,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         return conf
 
 
-def _deserialize_torch_dtype(dtype_str: str):
+def _deserialize_torch_dtype(dtype_str: str) -> torch.dtype:
     """
     Convert the string-encoded `torch_dtype` pipeline argument back to the correct `torch.dtype`
     instance value for applying to a loaded pipeline instance.
@@ -1338,7 +1344,7 @@ def _get_scalar_argument_from_pipeline(pipeline, arg_key):
     return getattr(pipeline, arg_key, None)
 
 
-def _extract_torch_dtype_if_set(pipeline) -> Optional["torch.dtype"]:  # noqa: F821
+def _extract_torch_dtype_if_set(pipeline) -> Optional[torch.dtype]:
     """
     Extract the torch datatype argument if set and return as a string encoded value.
     """
