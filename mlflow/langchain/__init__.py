@@ -745,8 +745,8 @@ def autolog(
 
         classes = lc_runnables_types() + (AgentExecutor, Chain)
         for cls in classes:
-            # IF runnable also contains loader_fn and persist_dir, warn
-            # BaseRetrievalQA, BaseREtriever, ...
+            # If runnable also contains loader_fn and persist_dir, warn
+            # BaseRetrievalQA, BaseRetriever, ...
             safe_patch(FLAVOR_NAME, cls, "invoke", functools.partial(patched_inference, "invoke"))
 
         for cls in [AgentExecutor, Chain]:
