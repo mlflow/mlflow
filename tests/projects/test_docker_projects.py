@@ -2,7 +2,6 @@ import os
 from unittest import mock
 
 import pytest
-from mlflow.utils._legacy_databricks_cli_utils import DatabricksConfig
 
 import docker
 import mlflow
@@ -14,6 +13,7 @@ from mlflow.projects import ExecutionException, _project_spec
 from mlflow.projects.backend.local import _get_docker_command
 from mlflow.projects.docker import _get_docker_image_uri
 from mlflow.store.tracking import file_store
+from mlflow.utils._legacy_databricks_cli_utils import DatabricksConfig
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DOCKER_IMAGE_ID,
     MLFLOW_DOCKER_IMAGE_URI,

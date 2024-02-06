@@ -8,7 +8,6 @@ from unittest import mock
 import git
 import pytest
 import yaml
-from mlflow.utils._legacy_databricks_cli_utils import DatabricksConfig
 
 import mlflow
 from mlflow import MlflowClient
@@ -18,6 +17,7 @@ from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _parse_kubernetes_config, _resolve_experiment_id
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils._legacy_databricks_cli_utils import DatabricksConfig
 from mlflow.utils.conda import CONDA_EXE, get_or_create_conda_env
 from mlflow.utils.mlflow_tags import (
     LEGACY_MLFLOW_GIT_BRANCH_NAME,

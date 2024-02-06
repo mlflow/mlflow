@@ -2,24 +2,23 @@ import functools
 import logging
 import os
 import subprocess
-from typing import Optional, TypeVar
 from sys import stderr
+from typing import Optional, TypeVar
 
 import mlflow.utils
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
-from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.rest_utils import MlflowHostCreds
-from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 from mlflow.utils._legacy_databricks_cli_utils import (
-    set_config_provider,
-    DatabricksConfigProvider,
     DatabricksConfig,
+    DatabricksConfigProvider,
     DefaultConfigProvider,
     ProfileConfigProvider,
     get_config,
+    set_config_provider,
 )
-
+from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -441,10 +440,7 @@ def get_databricks_host_creds(server_uri=None):
         talk to the Databricks server.
     """
     profile, path = get_db_info_from_uri(server_uri)
-    if profile:
-        config = ProfileConfigProvider(profile).get_config()
-    else:
-        config = get_config()
+    config = ProfileConfigProvider(profile).get_config() if profile else get_config()
     # if a path is specified, that implies a Databricks tracking URI of the form:
     # databricks://profile-name/path-specifier
     if (not config or not config.host) and path:
@@ -455,9 +451,7 @@ def get_databricks_host_creds(server_uri=None):
             host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
             token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
             if host and token:
-                config = DatabricksConfig.from_token(
-                    host=host, token=token, insecure=False
-                )
+                config = DatabricksConfig.from_token(host=host, token=token, insecure=False)
     if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
 
@@ -753,11 +747,12 @@ def _init_databricks_cli_config_provider(entry_point):
                 ctx = get_context()
                 if ctx and ctx.apiUrl and ctx.apiToken:
                     return DatabricksConfig.from_token(
-                        host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll)
+                        host=ctx.apiUrl, token=ctx.apiToken, insecure=ctx.sslTrustAll
+                    )
             except Exception as e:
-                print(
+                print(  # noqa
                     "Unexpected internal error while constructing `DatabricksConfig` "
-                    "from REPL context: {e}".format(e=e),
+                    f"from REPL context: {e}",
                     file=stderr,
                 )
             # Invoking getContext() will attempt to find the credentials related to the
@@ -770,7 +765,7 @@ def _init_databricks_cli_config_provider(entry_point):
             api_token = None
             try:
                 api_token = entry_point.getNonUcApiToken()
-            except:
+            except Exception:
                 # Using apiToken from command context would return back the token which is not refreshed.
                 fallback_api_token_option = notebook_utils.getContext().apiToken()
                 logger.logUsage(
@@ -788,7 +783,8 @@ def _init_databricks_cli_config_provider(entry_point):
                 return DefaultConfigProvider().get_config()
 
             return DatabricksConfig.from_token(
-                host=api_url, token=api_token, insecure=ssl_trust_all)
+                host=api_url, token=api_token, insecure=ssl_trust_all
+            )
 
     set_config_provider(DynamicConfigProvider())
 

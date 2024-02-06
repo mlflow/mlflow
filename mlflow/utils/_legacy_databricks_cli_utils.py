@@ -3,23 +3,22 @@
 # because the latest Databricks Runtime does not contain legacy databricks CLI
 # but MLflow still depends on it.
 
-from abc import abstractmethod, ABCMeta
-from configparser import ConfigParser
 import os
-from os.path import expanduser, join
 import sys
+from abc import ABCMeta, abstractmethod
+from configparser import ConfigParser
+from os.path import expanduser, join
 
-
-_home = expanduser('~')
+_home = expanduser("~")
 CONFIG_FILE_ENV_VAR = "DATABRICKS_CONFIG_FILE"
-HOST = 'host'
-USERNAME = 'username'
-PASSWORD = 'password' # NOQA
-TOKEN = 'token'
-REFRESH_TOKEN = 'refresh_token'
-INSECURE = 'insecure'
-JOBS_API_VERSION = 'jobs-api-version'
-DEFAULT_SECTION = 'DEFAULT'
+HOST = "host"
+USERNAME = "username"
+PASSWORD = "password"  # NOQA
+TOKEN = "token"
+REFRESH_TOKEN = "refresh_token"
+INSECURE = "insecure"
+JOBS_API_VERSION = "jobs-api-version"
+DEFAULT_SECTION = "DEFAULT"
 
 # User-provided override for the DatabricksConfigProvider
 _config_provider = None
@@ -30,17 +29,18 @@ class InvalidConfigurationError(RuntimeError):
     def for_profile(profile):
         if profile is None:
             return InvalidConfigurationError(
-                'You haven\'t configured the CLI yet! '
-                'Please configure by entering `{} configure`'.format(sys.argv[0]))
+                "You haven't configured the CLI yet! "
+                f"Please configure by entering `{sys.argv[0]} configure`"
+            )
         return InvalidConfigurationError(
-            ('You haven\'t configured the CLI yet for the profile {profile}! '
-             'Please configure by entering '
-             '`{argv} configure --profile {profile}`').format(
-                profile=profile, argv=sys.argv[0]))
+            f"You haven't configured the CLI yet for the profile {profile}! "
+            "Please configure by entering "
+            f"`{sys.argv[0]} configure --profile {profile}`"
+        )
 
 
 def _get_path():
-    return os.environ.get(CONFIG_FILE_ENV_VAR, join(_home, '.databrickscfg'))
+    return os.environ.get(CONFIG_FILE_ENV_VAR, join(_home, ".databrickscfg"))
 
 
 def _fetch_from_fs():
@@ -83,7 +83,7 @@ def _overwrite_config(raw_config):
     if not os.stat(config_path).st_mode == 0o100600:
         os.chmod(config_path, 0o600)
 
-    with open(config_path, 'w') as cfg:
+    with open(config_path, "w") as cfg:
         raw_config.write(cfg)
 
 
@@ -121,7 +121,8 @@ def get_config():
         if config:
             return config
         raise InvalidConfigurationError(
-            'Custom provider returned no DatabricksConfig: %s' % _config_provider)
+            "Custom provider returned no DatabricksConfig: %s" % _config_provider
+        )
 
     config = DefaultConfigProvider().get_config()
     if config:
@@ -163,7 +164,7 @@ def set_config_provider(provider):
     """
     global _config_provider
     if provider and not isinstance(provider, DatabricksConfigProvider):
-        raise Exception('Must be instance of DatabricksConfigProvider: %s' % _config_provider)
+        raise Exception("Must be instance of DatabricksConfigProvider: %s" % _config_provider)
     _config_provider = provider
 
 
@@ -176,7 +177,7 @@ def get_config_provider():
     return _config_provider
 
 
-class DatabricksConfigProvider(object):
+class DatabricksConfigProvider:
     """
     Responsible for providing hostname and authentication information to make
     API requests against the Databricks REST API.
@@ -193,11 +194,12 @@ class DatabricksConfigProvider(object):
 
 class DefaultConfigProvider(DatabricksConfigProvider):
     """Look for credentials in a chain of default locations."""
+
     def __init__(self):
         self._providers = (
             SparkTaskContextConfigProvider(),
             EnvironmentVariableConfigProvider(),
-            ProfileConfigProvider()
+            ProfileConfigProvider(),
         )
 
     def get_config(self):
@@ -215,6 +217,7 @@ class SparkTaskContextConfigProvider(DatabricksConfigProvider):
     def _get_spark_task_context_or_none():
         try:
             from pyspark import TaskContext  # pylint: disable=import-error
+
             return TaskContext.get()
         except ImportError:
             return None
@@ -222,6 +225,7 @@ class SparkTaskContextConfigProvider(DatabricksConfigProvider):
     @staticmethod
     def set_insecure(x):
         from pyspark import SparkContext  # pylint: disable=import-error
+
         new_val = "True" if x else None
         SparkContext._active_spark_context.setLocalProperty("spark.databricks.ignoreTls", new_val)
 
@@ -231,11 +235,9 @@ class SparkTaskContextConfigProvider(DatabricksConfigProvider):
             host = context.getLocalProperty("spark.databricks.api.url")
             token = context.getLocalProperty("spark.databricks.token")
             insecure = context.getLocalProperty("spark.databricks.ignoreTls")
-            config = DatabricksConfig.from_token(host=host,
-                                                 token=token,
-                                                 refresh_token=None,
-                                                 insecure=insecure,
-                                                 jobs_api_version=None)
+            config = DatabricksConfig.from_token(
+                host=host, token=token, refresh_token=None, insecure=insecure, jobs_api_version=None
+            )
             if config.is_valid:
                 return config
         return None
@@ -243,16 +245,18 @@ class SparkTaskContextConfigProvider(DatabricksConfigProvider):
 
 class EnvironmentVariableConfigProvider(DatabricksConfigProvider):
     """Loads from system environment variables."""
+
     def get_config(self):
-        host = os.environ.get('DATABRICKS_HOST')
-        username = os.environ.get('DATABRICKS_USERNAME')
-        password = os.environ.get('DATABRICKS_PASSWORD')
-        token = os.environ.get('DATABRICKS_TOKEN')
-        refresh_token = os.environ.get('DATABRICKS_REFRESH_TOKEN')
-        insecure = os.environ.get('DATABRICKS_INSECURE')
-        jobs_api_version = os.environ.get('DATABRICKS_JOBS_API_VERSION')
-        config = DatabricksConfig(host, username, password, token,
-                                  refresh_token, insecure, jobs_api_version)
+        host = os.environ.get("DATABRICKS_HOST")
+        username = os.environ.get("DATABRICKS_USERNAME")
+        password = os.environ.get("DATABRICKS_PASSWORD")
+        token = os.environ.get("DATABRICKS_TOKEN")
+        refresh_token = os.environ.get("DATABRICKS_REFRESH_TOKEN")
+        insecure = os.environ.get("DATABRICKS_INSECURE")
+        jobs_api_version = os.environ.get("DATABRICKS_JOBS_API_VERSION")
+        config = DatabricksConfig(
+            host, username, password, token, refresh_token, insecure, jobs_api_version
+        )
         if config.is_valid:
             return config
         return None
@@ -260,6 +264,7 @@ class EnvironmentVariableConfigProvider(DatabricksConfigProvider):
 
 class ProfileConfigProvider(DatabricksConfigProvider):
     """Loads from the databrickscfg file."""
+
     def __init__(self, profile=DEFAULT_SECTION):
         self.profile = profile
 
@@ -272,16 +277,25 @@ class ProfileConfigProvider(DatabricksConfigProvider):
         refresh_token = _get_option_if_exists(raw_config, self.profile, REFRESH_TOKEN)
         insecure = _get_option_if_exists(raw_config, self.profile, INSECURE)
         jobs_api_version = _get_option_if_exists(raw_config, self.profile, JOBS_API_VERSION)
-        config = DatabricksConfig(host, username, password, token,
-                                  refresh_token, insecure, jobs_api_version)
+        config = DatabricksConfig(
+            host, username, password, token, refresh_token, insecure, jobs_api_version
+        )
         if config.is_valid:
             return config
         return None
 
 
-class DatabricksConfig(object):
-    def __init__(self, host, username, password, token,
-                 refresh_token=None, insecure=None, jobs_api_version=None):  # noqa
+class DatabricksConfig:
+    def __init__(
+        self,
+        host,
+        username,
+        password,
+        token,
+        refresh_token=None,
+        insecure=None,
+        jobs_api_version=None,
+    ):  # noqa
         self.host = host
         self.username = username
         self.password = password
@@ -292,33 +306,39 @@ class DatabricksConfig(object):
 
     @classmethod
     def from_token(cls, host, token, refresh_token=None, insecure=None, jobs_api_version=None):
-        return DatabricksConfig(host=host,
-                                username=None,
-                                password=None,
-                                token=token,
-                                refresh_token=refresh_token,
-                                insecure=insecure,
-                                jobs_api_version=jobs_api_version)
+        return DatabricksConfig(
+            host=host,
+            username=None,
+            password=None,
+            token=token,
+            refresh_token=refresh_token,
+            insecure=insecure,
+            jobs_api_version=jobs_api_version,
+        )
 
     @classmethod
     def from_password(cls, host, username, password, insecure=None, jobs_api_version=None):
-        return DatabricksConfig(host=host,
-                                username=username,
-                                password=password,
-                                token=None,
-                                refresh_token=None,
-                                insecure=insecure,
-                                jobs_api_version=jobs_api_version)
+        return DatabricksConfig(
+            host=host,
+            username=username,
+            password=password,
+            token=None,
+            refresh_token=None,
+            insecure=insecure,
+            jobs_api_version=jobs_api_version,
+        )
 
     @classmethod
     def empty(cls):
-        return DatabricksConfig(host=None,
-                                username=None,
-                                password=None,
-                                token=None,
-                                refresh_token=None,
-                                insecure=None,
-                                jobs_api_version=None)
+        return DatabricksConfig(
+            host=None,
+            username=None,
+            password=None,
+            token=None,
+            refresh_token=None,
+            insecure=None,
+            jobs_api_version=None,
+        )
 
     @property
     def is_valid_with_token(self):
