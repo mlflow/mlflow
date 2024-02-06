@@ -1,3 +1,1 @@
-from mlflow.store._unity_catalog.registry.rest_store import (
-    get_feature_dependencies,  # noqa: F401
-)
+from mlflow.store._unity_catalog.registry import rest_store  # noqa: F401
