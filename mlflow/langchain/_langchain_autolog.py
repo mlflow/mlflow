@@ -27,6 +27,7 @@ UNSUPPORT_LOG_MODEL_MESSAGE = (
     "logging the model requires `loader_fn` and `persist_dir`. Please log the model manually "
     "using `mlflow.langchain.log_model(model, artifact_path, loader_fn=..., persist_dir=...)`"
 )
+INFERENCE_FILE_NAME = "inference_inputs_outputs.json"
 
 
 def _get_input_data_from_function(func_name, model, args, kwargs):
@@ -56,29 +57,30 @@ def _get_input_data_from_function(func_name, model, args, kwargs):
     )
 
 
+def _convert_data_to_dict(data, key):
+    if isinstance(data, dict):
+        return {f"{key}-{k}": v for k, v in data.items()}
+    if isinstance(data, list):
+        return {key: data}
+    if isinstance(data, str):
+        return {key: [data]}
+    raise MlflowException("Unsupported data type.")
+
+
 def _combine_input_and_output(input, output, session_id, func_name):
     """
     Combine input and output into a single dictionary
     """
     if func_name == "get_relevant_documents" and output is not None:
         output = [{"page_content": doc.page_content, "metadata": doc.metadata} for doc in output]
-    if input is None:
-        return {
-            "output": output if isinstance(output, (list, dict)) else [output],
-            "session_id": session_id,
-        }
-    if isinstance(input, (str, dict)):
-        return {"input": [input], "output": [output], "session_id": session_id}
-    if isinstance(input, list) and (
-        all(isinstance(x, str) for x in input) or all(isinstance(x, dict) for x in input)
-    ):
-        if not isinstance(output, list) or len(output) != len(input):
-            raise MlflowException(
-                "Failed to combine input and output data with different lengths "
-                "into a single pandas DataFrame. "
-            )
-        return {"input": input, "output": output, "session_id": session_id}
-    raise MlflowException("Unsupported input type.")
+        # to make sure output is inside a single row when converted into pandas DataFrame
+        output = [output]
+    result = {"session_id": [session_id]}
+    if input:
+        result.update(_convert_data_to_dict(input, "input"))
+    if output:
+        result.update(_convert_data_to_dict(output, "output"))
+    return result
 
 
 def _update_langchain_model_config(model):
@@ -190,8 +192,6 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     """
 
     import langchain
-
-    # import from langchain_community for test purpose
     from langchain_community.callbacks import MlflowCallbackHandler
 
     class _MLflowLangchainCallback(MlflowCallbackHandler, metaclass=ExceptionSafeAbstractClass):
@@ -301,10 +301,14 @@ def patched_inference(func_name, original, self, *args, **kwargs):
                 _logger.info("Input data gathering failed, only log inference results.")
         else:
             input_data = input_example
-        data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
-        mlflow.log_table(
-            data_dict, "inference_inputs_outputs.json", run_id=mlflow_callback.mlflg.run_id
-        )
+        try:
+            data_dict = _combine_input_and_output(input_data, result, self.session_id, func_name)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to log inputs and outputs into `{INFERENCE_FILE_NAME}` "
+                f"file due to error {e}."
+            )
+        mlflow.log_table(data_dict, INFERENCE_FILE_NAME, run_id=mlflow_callback.mlflg.run_id)
 
     # Terminate the run if it is not managed by the user
     if active_run is None or active_run.info.run_id != mlflow_callback.mlflg.run_id:
