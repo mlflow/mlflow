@@ -192,8 +192,6 @@ def patched_inference(func_name, original, self, *args, **kwargs):
     """
 
     import langchain
-
-    # import from langchain_community for test purpose
     from langchain_community.callbacks import MlflowCallbackHandler
 
     class _MLflowLangchainCallback(MlflowCallbackHandler, metaclass=ExceptionSafeAbstractClass):
