@@ -269,3 +269,21 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds():
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
         )
+
+
+def test_get_feature_dependencies_doesnt_throw():
+    import mlflow
+
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(artifact_path="model", python_model=MyModel())
+
+    assert (
+        mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies(
+            model_info.model_uri
+        )
+        == ""
+    )
