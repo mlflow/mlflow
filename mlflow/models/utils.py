@@ -37,6 +37,16 @@ except ImportError:
 try:
     from pyspark.sql import DataFrame as SparkDataFrame
     from pyspark.sql import Row
+    from pyspark.sql.types import (
+        ArrayType,
+        BinaryType,
+        DateType,
+        FloatType,
+        IntegerType,
+        ShortType,
+        StructType,
+        TimestampType,
+    )
 
     HAS_PYSPARK = True
 except ImportError:
@@ -552,6 +562,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
 
     Any other type mismatch will raise error.
     """
+
     if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
@@ -563,11 +574,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
     # That is because pandas is aware of numpy.
-    if (
-        t.to_pandas() == values.dtype
-        or t.to_numpy() == values.dtype
-        or t.to_python() == values.dtype
-    ):
+    if t.to_pandas() == values.dtype or t.to_numpy() == values.dtype:
         # The types are already compatible => conversion is not necessary.
         return values
 
@@ -583,7 +590,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # ignore precision when matching datetime columns.
         return values.astype(np.dtype("datetime64[ns]"))
 
-    if t == DataType.datetime and values.dtype == object:
+    if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
@@ -932,6 +939,11 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
             pf_input = pd.DataFrame(pf_input)
         elif HAS_PYSPARK and isinstance(pf_input, SparkDataFrame):
             pf_input = pf_input.limit(10).toPandas()
+            for field in original_pf_input.schema.fields:
+                if isinstance(field.dataType, (StructType, ArrayType)):
+                    pf_input[field.name] = pf_input[field.name].apply(
+                        lambda row: convert_complex_types_pyspark_to_pandas(row, field.dataType)
+                    )
         if not isinstance(pf_input, pd.DataFrame):
             raise MlflowException(
                 f"Expected input to be DataFrame. Found: {type(pf_input).__name__}"
@@ -1319,3 +1331,30 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
         )
 
     return params
+
+
+def convert_complex_types_pyspark_to_pandas(value, dataType):
+    if value is None:
+        return None
+    if isinstance(dataType, StructType):
+        return {
+            field.name: convert_complex_types_pyspark_to_pandas(value[field.name], field.dataType)
+            for field in dataType.fields
+        }
+    elif isinstance(dataType, ArrayType):
+        return [
+            convert_complex_types_pyspark_to_pandas(elem, dataType.elementType) for elem in value
+        ]
+    elif isinstance(dataType, IntegerType):
+        return np.int32(value)
+    elif isinstance(dataType, ShortType):
+        return np.int16(value)
+    elif isinstance(dataType, FloatType):
+        return np.float32(value)
+    elif isinstance(dataType, DateType):
+        return value.strftime("%Y-%m-%d")
+    elif isinstance(dataType, TimestampType):
+        return value.strftime("%Y-%m-%d %H:%M:%S.%f")
+    elif isinstance(dataType, BinaryType):
+        return np.bytes_(value)
+    return value

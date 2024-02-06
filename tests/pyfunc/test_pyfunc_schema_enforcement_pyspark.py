@@ -93,11 +93,19 @@ def test_enforce_schema_spark_dataframe(spark):
             StructType(
                 [
                     StructField(
-                        "person",
+                        "teststruct",
                         StructType(
                             [
-                                StructField("name", StringType(), True),
-                                StructField("age", IntegerType(), True),
+                                StructField("smallint", ShortType(), True),
+                                StructField("int", IntegerType(), True),
+                                StructField("bigint", LongType(), True),
+                                StructField("float", FloatType(), True),
+                                StructField("double", DoubleType(), True),
+                                StructField("boolean", BooleanType(), True),
+                                StructField("date", DateType(), True),
+                                StructField("timestamp", TimestampType(), True),
+                                StructField("string", StringType(), True),
+                                StructField("binary", BinaryType(), True),
                             ]
                         ),
                         True,
@@ -105,17 +113,67 @@ def test_enforce_schema_spark_dataframe(spark):
                 ]
             ),
             [
-                Row(person=Row(name="Alice", age=30)),
-                Row(person=Row(name="Bob", age=25)),
-                Row(person=Row(name="Catherine", age=35)),
+                Row(
+                    teststruct=Row(
+                        smallint=100,
+                        int=1000,
+                        bigint=10000000000,
+                        float=10.5,
+                        double=20.5,
+                        boolean=True,
+                        date=datetime(2020, 1, 1),
+                        timestamp=datetime.now(),
+                        string="example",
+                        binary=b"binary_data",
+                    )
+                ),
+                Row(
+                    teststruct=Row(
+                        smallint=200,
+                        int=2000,
+                        bigint=20000000000,
+                        float=20.5,
+                        double=30.5,
+                        boolean=False,
+                        date=datetime(2020, 1, 1),
+                        timestamp=datetime.now(),
+                        string="sample",
+                        binary=b"sample_data",
+                    )
+                ),
+                Row(
+                    teststruct=Row(
+                        smallint=300,
+                        int=3000,
+                        bigint=30000000000,
+                        float=30.5,
+                        double=40.5,
+                        boolean=True,
+                        date=datetime(2020, 1, 1),
+                        timestamp=datetime.now(),
+                        string="data",
+                        binary=b"data_binary",
+                    )
+                ),
             ],
             Schema(
                 [
                     ColSpec(
                         Object(
-                            [Property("name", DataType.string), Property("age", DataType.integer)]
+                            [
+                                Property("smallint", DataType.integer),
+                                Property("int", DataType.integer),
+                                Property("bigint", DataType.long),
+                                Property("float", DataType.float),
+                                Property("double", DataType.double),
+                                Property("boolean", DataType.boolean),
+                                Property("date", DataType.datetime),
+                                Property("timestamp", DataType.datetime),
+                                Property("string", DataType.string),
+                                Property("binary", DataType.binary),
+                            ]
                         ),
-                        "person",
+                        "teststruct",
                     )
                 ]
             ),
@@ -129,7 +187,7 @@ def test_enforce_schema_spark_dataframe(spark):
                             StructType(
                                 [
                                     StructField("name", StringType(), True),
-                                    StructField("age", IntegerType(), True),
+                                    StructField("age", DoubleType(), True),
                                 ]
                             )
                         ),
@@ -140,9 +198,9 @@ def test_enforce_schema_spark_dataframe(spark):
             [
                 (
                     [
-                        Row(name="Alice", age=30),
-                        Row(name="Bob", age=25),
-                        Row(name="Catherine", age=35),
+                        Row(name="Alice", age=30.0),
+                        Row(name="Bob", age=25.0),
+                        Row(name="Catherine", age=35.0),
                     ],
                 )
             ],
@@ -153,7 +211,7 @@ def test_enforce_schema_spark_dataframe(spark):
                             Object(
                                 [
                                     Property("name", DataType.string),
-                                    Property("age", DataType.integer),
+                                    Property("age", DataType.double),
                                 ]
                             )
                         ),
@@ -242,3 +300,27 @@ def test_enforce_schema_spark_dataframe_extra_col(spark):
     result = _enforce_schema(df, input_schema)
     expected_result = df.drop("b")
     assertDataFrameEqual(result, expected_result)
+
+
+def test_enforce_schema_spark_dataframe_no_schema(spark):
+    # Create a DataFrame without a schema
+    data = [
+        (
+            1,  # a
+            2.3,  # b
+        )
+    ]
+
+    df = spark.createDataFrame(data)
+
+    # Define a schema
+    input_schema = Schema(
+        [
+            ColSpec(DataType.integer, "a"),
+            ColSpec(DataType.double, "b"),
+        ]
+    )
+
+    # Check if an error is raised when trying to enforce a schema on a DataFrame without a schema
+    with pytest.raises(MlflowException, match="Model is missing inputs"):
+        _enforce_schema(df, input_schema)
