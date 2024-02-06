@@ -11,7 +11,7 @@ Bug fixes:
 - Bug fixes for Transformers flavor
     - [Models] Fix missing dtype issue for transformer pipeline (#10979, @B-Step62)
     - [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
-    - [Models] Fix prompt templating bug with Text2TextGeneration pipeline (#10960, @B-Step62)
+    - [Models] Fixed a bug affecting prompt templating with Text2TextGeneration pipelines. Previously, calling `predict()` on a pyfunc-loaded Text2TextGeneration pipeline would fail for `string` and `List[string]` inputs. (#10960, @B-Step62)
 - Bug fixes for Langchain flavor
     - Fixed errors that occur when logging inputs and outputs with different lengths (#10952, @serena-ruan)
 
