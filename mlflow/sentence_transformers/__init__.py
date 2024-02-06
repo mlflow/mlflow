@@ -47,7 +47,7 @@ FLAVOR_NAME = "sentence_transformers"
 SENTENCE_TRANSFORMERS_DATA_PATH = "model.sentence_transformer"
 _INFERENCE_CONFIG_PATH = "inference_config"
 _LLM_INFERENCE_TASK_EMBEDDING = "llm/v1/embeddings"
-INPUT_KEY = "input"
+_LLM_V1_EMBEDDING_INPUT_KEY = "input"
 
 _logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ def get_default_conda_env():
 
 
 @experimental
-def verify_and_update_task(task: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def _veryfy_task_and_update_metadata(task: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     if task not in [_LLM_INFERENCE_TASK_EMBEDDING]:
         raise MlflowException.invalid_parameter_value(
             f"Received invalid parameter value for `task` argument {task}. Task type could "
@@ -86,7 +86,7 @@ def verify_and_update_task(task: str, metadata: Optional[Dict[str, Any]] = None)
         )
     if metadata is None:
         metadata = {}
-    if "task" in metadata.keys() and metadata["task"] != task:
+    if "task" in metadata and metadata["task"] != task:
         raise MlflowException.invalid_parameter_value(
             f"Received invalid parameter value for `task` argument {task}. Task type is "
             f"inconsistent with the task value from metadata {metadata['task']}"
@@ -118,8 +118,8 @@ def save_model(
     Args:
         model: A trained ``sentence-transformers`` model.
         path: Local path destination for the serialized model to be saved.
-        task: task type for ``sentence-transformers`` model. Candidate task type is
-        `llm/v1/embeddings`.
+        task: MLflow inference task type for ``sentence-transformers`` model. Candidate task type
+            is `llm/v1/embeddings`.
         inference_config:
             A dict of valid inference parameters that can be applied to a ``sentence-transformer``
             model instance during inference.
@@ -177,8 +177,10 @@ def save_model(
         _save_example(mlflow_model, input_example, str(path))
     if metadata is not None:
         mlflow_model.metadata = metadata
+    model_config = None
     if task is not None:
-        mlflow_model.metadata = verify_and_update_task(task, mlflow_model.metadata)
+        mlflow_model.metadata = _veryfy_task_and_update_metadata(task, mlflow_model.metadata)
+        model_config = {"task": _LLM_INFERENCE_TASK_EMBEDDING}
 
     model.save(str(model_data_path))
 
@@ -188,6 +190,7 @@ def save_model(
         data=SENTENCE_TRANSFORMERS_DATA_PATH,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        model_config=model_config,
         code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
@@ -273,8 +276,8 @@ def log_model(
     Args:
         model: A trained ``sentence-transformers`` model.
         artifact_path: Local path destination for the serialized model to be saved.
-        task: task type for ``sentence-transformers`` model. Candidate task type is
-        `llm/v1/embeddings`.
+        task: MLflow inference task type for ``sentence-transformers`` model. Candidate task type
+            is `llm/v1/embeddings`.
         inference_config:
             A dict of valid overrides that can be applied to a ``sentence-transformer`` model
             instance during inference.
@@ -307,7 +310,7 @@ def log_model(
                                     release without warning.
     """
     if task is not None:
-        metadata = verify_and_update_task(task, metadata)
+        metadata = _veryfy_task_and_update_metadata(task, metadata)
 
     return Model.log(
         artifact_path=artifact_path,
@@ -326,7 +329,7 @@ def log_model(
     )
 
 
-def _load_pyfunc(path):
+def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
 
@@ -336,7 +339,8 @@ def _load_pyfunc(path):
     import sentence_transformers
 
     model = sentence_transformers.SentenceTransformer.load(path)
-    return _SentenceTransformerModelWrapper(model)
+    task = model_config["task"] if model_config else None
+    return _SentenceTransformerModelWrapper(model, task)
 
 
 @experimental
@@ -392,8 +396,9 @@ def _get_default_signature():
 
 
 class _SentenceTransformerModelWrapper:
-    def __init__(self, model):
+    def __init__(self, model, task=None):
         self.model = model
+        self.task = task
 
     def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
         """
@@ -405,16 +410,16 @@ class _SentenceTransformerModelWrapper:
                                         release without warning.
 
 
-        Returns
+        Returns:
             Model predictions.
         """
         # When the input is a single string or a dictionary, it is transformed into a DataFrame with one column
-        # and row. When the input is, but the encode function does not accept DataFrame input
-        convert_output = False
+        # and row, but the encode function does not accept DataFrame input
+        convert_output_to_llm_v1_format = False
         if type(sentences) == pd.DataFrame:
             # Wrap the output to OpenAI format only when the input is dict `{"input": ... }`
-            if list(sentences.columns)[0] == "input":
-                convert_output = True
+            if self.task and list(sentences.columns)[0] == _LLM_V1_EMBEDDING_INPUT_KEY:
+                convert_output_to_llm_v1_format = True
             sentences = sentences.iloc[0, 0]
             if type(sentences) == str:
                 sentences = [sentences]
@@ -431,35 +436,52 @@ class _SentenceTransformerModelWrapper:
         else:
             output_data = self.model.encode(sentences)
 
-        if convert_output:
-            output_data = self.postprocess_output_for_embedding_task(sentences, output_data)
+        if convert_output_to_llm_v1_format:
+            output_data = self.postprocess_output_for_llm_v1_embedding_task(sentences, output_data)
         return output_data
 
-    def postprocess_output_for_embedding_task(
-        self, data: Union[str, List[str]], output_tensers: List[List[int]]
+    def postprocess_output_for_llm_v1_embedding_task(
+        self, input_prompts: Union[str, List[str]], output_tensers: List[List[int]]
     ):
         """
         Wrap output data with usage information.
-        :param data: text input prompts
-        :param output_tensers: List of output tensors that contain the generated embeddings
-        :return: Dictionaries containing the output embedding and usage information for each input prompt.
-        """
-        output_dict = {"object": "list"}
-        output_data = []
-        for idx, output_tensor in enumerate(output_tensers):
-            print(idx)
-            embedding_dict = {
-                "object": "embedding",
-                "index": idx,
-                "embedding": output_tensor,
-            }
-            output_data.append(embedding_dict)
-        output_dict["data"] = output_data
 
-        prompt_tokens = 0
-        for input_data in data:
-            print(data)
-            inputs = self.model.tokenizer(input_data)
-            prompt_tokens += len(inputs["input_ids"])
-        output_dict["usage"] = {"prompt_tokens": prompt_tokens, "total_tokens": prompt_tokens}
+        Examples:
+            .. code-block:: python
+                input_prompt = ["hello world and hello mlflow"]
+                output_embedding = [
+
+                ]
+                output_dicts = postprocess_output_for_llm_v1_embedding_task(input_prompt, output_embedding)
+                assert output_dicts == [
+                {
+                    "object": "list",
+                    "data": [{
+                        "object": "embedding",
+                        "index": 0,
+                        "embedding": [],
+                    }],
+                    "usage": {"prompt_tokens": 8, "total_tokens": 8},
+                }
+            ]
+
+        Args:
+            input_prompts: text input prompts
+            output_tensers: List of output tensors that contain the generated embeddings
+
+        Returns:
+             Dictionaries containing the output embedding and usage information for each input prompt.
+        """
+        prompt_tokens = sum([len(self.model.tokenizer(prompt)["input_ids"]) for prompt in input_prompts])
+        output_dict = {
+            "object": "list",
+            "data": [{
+                "object": "embedding",
+                "index": i,
+                "embedding": tensor,
+            } for i, tensor in enumerate(output_tensers)
+            ],
+            "usage": {"prompt_tokens": prompt_tokens, "total_tokens": prompt_tokens}
+        }
+
         return output_dict
