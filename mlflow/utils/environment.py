@@ -398,16 +398,18 @@ def infer_pip_requirements_with_timeout(model_uri, flavor, timeout, fallback):
                 return infer_pip_requirements(model_uri, flavor, fallback)
         else:
             _logger.warning(
-                "Running inference operation to infer pip requirements for the saved model or "
-                "pipeline. On Windows, the operation is not bound by a timeout and may hang "
-                "indefinitely. If it hangs, please consider specifying the pip requirements manually."
+                "Running model loading or/and prediction to infer pip requirements for the saved "
+                "model or pipeline. On Windows, the operation is not bound by a timeout and may "
+                "hang indefinitely. If it hangs, please consider specifying the pip requirements "
+                "manually."
             )
             return infer_pip_requirements(model_uri, flavor, fallback)
     except MLflowTimeoutError:
         if fallback is not None:
             _logger.warning(
-                f"Attempted to infer pip requirements for the saved model or pipeline but the operation "
-                f"timed out in {timeout} seconds. {_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE % fallback}"
+                "Attempted to infer pip requirements for the saved model or pipeline but the "
+                "operation timed out in {timeout} seconds."
+                + _INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE % fallback
             )
             _logger.debug("", exc_info=True)
             return fallback
