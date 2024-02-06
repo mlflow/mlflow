@@ -11,8 +11,6 @@ The MLflow Model Registry has several core components:
 The MLflow Model Registry provides some additional functionality that is relevant to model 
 development and deployment:
 
-* **Lineage** encompasses the origin and development history of a model, including information like 
-  source code, data, and parameter configuration.
 * **Model Versioning** refers to logging different iterations of a model to facilitate comparison 
   and serving. By default, models are versioned with a monotonically increasing ID, but you can also
   alias model versions.

@@ -15,9 +15,21 @@ Step 0: Install Dependencies
 Step 1: Register a Model
 --------------------------------
 
+To use the MLflow model registry, you need to add your MLflow models to it. This is done through 
+registering a given model via one of the below commands:
+
+* ``mlflow.<model_flavor>.log_model(registered_model_name=<model_name>)``: register the model 
+  **while** logging it to the tracking server.
+* ``mlflow.register_model(<model_uri>, <model_name>)``: register the model **after** logging it to
+  the tracking server. Note that you'll have to log the model before running this command to get a
+  model URI.
+
 MLflow has lots of model flavors. In the below example, we'll leverage scikit-learn's 
 RandomForestRegressor to demonstrate the simplest way to register a model, but note that you
 can leverage any `supported model flavor <https://mlflow.org/docs/latest/models.html#built-in-model-flavors>`_.
+In the code snippet below, we start an mlflow run and train a random forest model. We then log some 
+relevant hyper-parameters, the model mean-squared-error (MSE), and finally log and register the 
+model itself.
 
 .. code-section::
     .. code-block:: python 

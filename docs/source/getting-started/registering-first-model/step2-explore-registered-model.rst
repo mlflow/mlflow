@@ -98,13 +98,15 @@ First, let's leave the experiment tracking tab and visit the model registry.
    :align: center
    :alt: Model information from the mlflow ui.
 
-Next, let's modify our model to
+Next, let's add tags and a model version alias to
 `facilitate model deployment <https://mlflow.org/docs/latest/model-registry.html#new-model-deployment-tools>`_.
-More specifically, let's add a model version tag with a key of ``problem_type`` and value of
-``regression``.  Let's also add a model version alias of ``the_best_model_ever``.
+You can add or edit tags and aliases by clicking on the corresponding ``Add`` link or pencil icon in
+the model version table. Let's...
+
+1. Add a model version tag with a key of ``problem_type`` and value of ``regression``.  
+2. Add a model version alias of ``the_best_model_ever``.
 
 .. figure:: ../../_static/images/quickstart/model-registry-quickstart/model-alias-and-tags.png
    :width: 1024px
    :align: center
    :alt: Model information from the mlflow ui.
-
