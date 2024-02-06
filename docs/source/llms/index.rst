@@ -110,7 +110,7 @@ with your favorite provider!
             </a>
             <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/azure_openai/README.md">
                 <div class="logo-card">
-                    <img src="../_static/images/logos/ai21labs-logo.svg" alt="Azure OpenAI Logo"/>
+                    <img src="../_static/images/logos/azure-ml-logo.png" alt="Azure OpenAI Logo"/>
                 </div>
             </a>
             <a href="https://github.com/mlflow/mlflow/blob/master/examples/deployments/deployments_server/huggingface/README.md">
@@ -318,7 +318,7 @@ Interested in learning how to leverage MLflow for your LLM projects?
 
 Look in the tutorials and guides below to learn more about interesting use cases that could help to make your journey into leveraging LLMs a bit easier!
 
-Note that there are additional tutorials within the `Native Integration Guides and Tutorials section above <#native-integration-guides-and-tutorials>`_, so be sure to check those out as well!
+Note that there are additional tutorials within the `"Explore the Native LLM Flavors" section above <#explore-the-native-llm-flavors>`_, so be sure to check those out as well!
 
 .. toctree::
     :maxdepth: 1

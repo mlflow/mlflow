@@ -101,10 +101,14 @@ In the prior page, we added a model version alias to our model, but here's a pro
     RandomForestRegressor(max_depth=2, random_state=42)
 
 Model version alias is highly dynamic and can correspond to anything that is meaningful for your
+<<<<<<< HEAD
 team. The most common example is a deployment state. For instance, let's say we have a ``champion``
 model in production but are developing ``challenger`` model that will hopefully out-perform our
 production model. You can use ``champion`` and ``challenger`` model version aliases to uniquely
 identify these model versions for easy access.
+=======
+team. The most common example is a development state e.g. ``dev``, ``staging``, ``prod``.
+>>>>>>> af013adc1c2c4c4060dc12faa79bd63715e09e21
 
 That's it! You should now be comfortable...
 

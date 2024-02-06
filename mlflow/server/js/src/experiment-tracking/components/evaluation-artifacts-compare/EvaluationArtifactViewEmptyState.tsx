@@ -25,31 +25,31 @@ export const EvaluationArtifactViewEmptyState = ({
     if (!areRunsSelected) {
       return [
         <FormattedMessage
-          defaultMessage='No runs selected'
-          description='Experiment page > artifact compare view > empty state for no runs selected > title'
+          defaultMessage="No runs selected"
+          description="Experiment page > artifact compare view > empty state for no runs selected > title"
         />,
         <FormattedMessage
-          defaultMessage='Make sure that at least one experiment run is visible and available to compare'
-          description='Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint'
+          defaultMessage="Make sure that at least one experiment run is visible and available to compare"
+          description="Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint"
         />,
       ];
     }
     if (noEvalTablesLogged) {
       return [
         <FormattedMessage
-          defaultMessage='No evaluation tables logged'
-          description='Experiment page > artifact compare view > empty state for no evaluation tables logged > title'
+          defaultMessage="No evaluation tables logged"
+          description="Experiment page > artifact compare view > empty state for no evaluation tables logged > title"
         />,
         <FormattedMessage
-          defaultMessage='Please log at least one table artifact containing evaluation data. <link>Learn more</link>.'
-          description='Experiment page > artifact compare view > empty state for no evaluation tables logged > subtitle'
+          defaultMessage="Please log at least one table artifact containing evaluation data. <link>Learn more</link>."
+          description="Experiment page > artifact compare view > empty state for no evaluation tables logged > subtitle"
           values={{
             link: (chunks) => (
               <Typography.Link
                 openInNewTab
-                href='https://mlflow.org/docs/latest/python_api/mlflow.html?highlight=log_table#mlflow.log_table'
-                target='_blank'
-                rel='noopener noreferrer'
+                href="https://mlflow.org/docs/latest/python_api/mlflow.html?highlight=log_table#mlflow.log_table"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 {chunks}
               </Typography.Link>
@@ -61,23 +61,23 @@ export const EvaluationArtifactViewEmptyState = ({
     if (userDeselectedAllColumns) {
       return [
         <FormattedMessage
-          defaultMessage='No group by columns selected'
-          description='Experiment page > artifact compare view > empty state for no group by columns selected > title'
+          defaultMessage="No group by columns selected"
+          description="Experiment page > artifact compare view > empty state for no group by columns selected > title"
         />,
         <FormattedMessage
           defaultMessage='Using controls above, select at least one "group by" column.'
-          description='Experiment page > artifact compare view > empty state for no group by columns selected > title'
+          description="Experiment page > artifact compare view > empty state for no group by columns selected > title"
         />,
       ];
     }
     return [
       <FormattedMessage
-        defaultMessage='No tables selected'
-        description='Experiment page > artifact compare view > empty state for no tables selected > title'
+        defaultMessage="No tables selected"
+        description="Experiment page > artifact compare view > empty state for no tables selected > title"
       />,
       <FormattedMessage
-        defaultMessage='Using controls above, select at least one artifact containing table.'
-        description='Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint'
+        defaultMessage="Using controls above, select at least one artifact containing table."
+        description="Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint"
       />,
     ];
   };

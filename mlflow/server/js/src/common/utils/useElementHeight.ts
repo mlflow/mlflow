@@ -9,9 +9,7 @@ import { useEffect, useState } from 'react';
  * ```
  */
 export const useElementHeight = () => {
-  const [hideableElementsContainer, setHideableElementsContainer] = useState<HTMLElement | null>(
-    null,
-  );
+  const [hideableElementsContainer, setHideableElementsContainer] = useState<HTMLElement | null>(null);
 
   const [elementHeight, setElementHeight] = useState<number | undefined>(undefined);
 

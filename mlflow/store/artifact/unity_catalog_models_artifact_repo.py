@@ -6,15 +6,15 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsResponse,
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
-from mlflow.store._unity_catalog.registry.utils import (
-    get_artifact_repo_from_storage_info,
-    get_full_name_from_sc,
-)
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils._unity_catalog_utils import (
+    get_artifact_repo_from_storage_info,
+    get_full_name_from_sc,
+)
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (

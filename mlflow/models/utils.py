@@ -570,7 +570,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
             raise MlflowException(
-                "Failed to convert column {name} from type {values.dtype} to {t}."
+                f"Failed to convert column {name} from type {values.dtype} to {t}."
             ) from e
 
     if t == DataType.boolean and values.dtype == object:

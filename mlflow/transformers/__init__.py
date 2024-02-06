@@ -4,15 +4,19 @@ import ast
 import base64
 import binascii
 import contextlib
+import copy
 import functools
 import json
 import logging
 import os
 import pathlib
 import re
+import shutil
+import string
 import sys
 from functools import lru_cache
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from types import MappingProxyType
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import numpy as np
@@ -39,8 +43,18 @@ from mlflow.models import (
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _contains_params, _save_example
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.transformers.llm_inference_utils import (
+    _LLM_INFERENCE_TASK_KEY,
+    _METADATA_LLM_INFERENCE_TASK_KEY,
+    _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK,
+    postprocess_output_for_llm_inference_task,
+)
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
@@ -88,6 +102,8 @@ _IMAGE_PROCESSOR_KEY = "image_processor"
 _IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
 _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
+_LICENSE_FILE_NAME = "LICENSE.txt"
+_LICENSE_FILE_PATTERN = re.compile(r"license(\.[a-z]+|$)", re.IGNORECASE)
 _MODEL_KEY = "model"
 _MODEL_BINARY_KEY = "model_binary"
 _MODEL_BINARY_FILE_NAME = "model"
@@ -95,6 +111,7 @@ _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _PROCESSOR_KEY = "processor"
 _PROCESSOR_TYPE_KEY = "processor_type"
+_PROMPT_TEMPLATE_KEY = "prompt_template"
 _SUPPORTED_RETURN_TYPES = {"pipeline", "components"}
 # The default device id for CPU is -1 and GPU IDs are ordinal starting at 0, as documented here:
 # https://huggingface.co/transformers/v4.7.0/main_classes/pipelines.html
@@ -112,6 +129,20 @@ _SUPPORTED_SAVE_KEYS = {
     _IMAGE_PROCESSOR_KEY,
     _TORCH_DTYPE_KEY,
 }
+
+_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES = {
+    "feature-extraction",
+    "fill-mask",
+    "summarization",
+    "text2text-generation",
+    "text-generation",
+}
+
+_PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO = (
+    "text-generation pipelines saved with prompt templates have the `return_full_text` "
+    "pipeline kwarg set to False by default. To override this behavior, provide a "
+    "`model_config` dict with `return_full_text` set to `True` when saving the model."
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -241,6 +272,7 @@ def save_model(
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     example_no_conversion: bool = False,
+    prompt_template: Optional[str] = None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
@@ -297,12 +329,14 @@ def save_model(
             .. Note:: If a processor is supplied when saving a model, the
                         model will be unavailable for loading as a ``Pipeline`` or for
                         usage with pyfunc inference.
-        task: The transformers-specific task type of the model. These strings are utilized so
+        task: The transformers-specific task type of the model, or MLflow inference task type.
+            If provided a transformers-specific task type, these strings are utilized so
             that a pipeline can be created with the appropriate internal call architecture
-            to meet the needs of a given model. If this argument is not specified, the
+            to meet the needs of a given model.
+            If this argument is provided as a inference task type or not specified, the
             pipeline utilities within the transformers library will be used to infer the
-            correct task type. If the value specified is not a supported type within the
-            version of transformers that is currently installed, an Exception will be thrown.
+            correct task type. If the value specified is not a supported type,
+            an Exception will be thrown.
         model_card: An Optional `ModelCard` instance from `huggingface-hub`. If provided, the
             contents of the model card will be saved along with the provided
             `transformers_model`. If not provided, an attempt will be made to fetch
@@ -416,6 +450,7 @@ def save_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        prompt_template: {{ prompt_template }}
         kwargs: Optional additional configurations for transformers serialization.
 
     """
@@ -434,10 +469,10 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
-    resolved_task = _get_or_infer_task_type(transformers_model, task)
+    transformers_task, llm_inference_task = _get_or_infer_task_type(transformers_model, task)
 
     if not isinstance(transformers_model, transformers.Pipeline):
-        built_pipeline = _build_pipeline_from_model_input(transformers_model, resolved_task)
+        built_pipeline = _build_pipeline_from_model_input(transformers_model, transformers_task)
     else:
         built_pipeline = transformers_model
 
@@ -464,8 +499,21 @@ def save_model(
         _save_example(mlflow_model, input_example, str(path), example_no_conversion)
     if metadata is not None:
         mlflow_model.metadata = metadata
+    if prompt_template is not None:
+        # prevent saving prompt templates for unsupported pipeline types
+        if built_pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
+            raise MlflowException(
+                f"Prompt templating is not supported for the `{built_pipeline.task}` task type. "
+                f"Supported task types are: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}."
+            )
 
-    flavor_conf = _generate_base_flavor_configuration(built_pipeline, resolved_task)
+        _validate_prompt_template(prompt_template)
+        if mlflow_model.metadata:
+            mlflow_model.metadata[_PROMPT_TEMPLATE_KEY] = prompt_template
+        else:
+            mlflow_model.metadata = {_PROMPT_TEMPLATE_KEY: prompt_template}
+
+    flavor_conf = _generate_base_flavor_configuration(built_pipeline, transformers_task)
 
     components = _record_pipeline_components(built_pipeline)
 
@@ -474,6 +522,13 @@ def save_model(
 
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
+
+    if llm_inference_task:
+        flavor_conf.update({_LLM_INFERENCE_TASK_KEY: task})
+        if mlflow_model.metadata:
+            mlflow_model.metadata[_METADATA_LLM_INFERENCE_TASK_KEY] = task
+        else:
+            mlflow_model.metadata = {_METADATA_LLM_INFERENCE_TASK_KEY: task}
 
     # Save the model object
     built_pipeline.model.save_pretrained(
@@ -497,11 +552,16 @@ def save_model(
             inference_config=inference_config,
         )
 
+    model_name = transformers_model.model.name_or_path
+
     # Get the model card from either the argument or the HuggingFace marketplace
-    card_data = model_card if model_card is not None else _fetch_model_card(transformers_model)
+    card_data = model_card or _fetch_model_card(model_name)
 
     # If the card data can be acquired, save the text and the data separately
     _write_card_data(card_data, path)
+
+    # Write the license information (or guidance) along with the model
+    _write_license_information(model_name, card_data, path)
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
 
@@ -513,8 +573,21 @@ def save_model(
         # from the input_example if provided, otherwise, apply a generic signature.
         if mlflow_model.signature is None:
             mlflow_model.signature = _get_default_pipeline_signature(
-                built_pipeline, input_example, model_config or inference_config
+                pipeline=built_pipeline,
+                example=input_example,
+                model_config=model_config or inference_config,
+                flavor_config=flavor_conf,
             )
+
+        # if pipeline is text-generation and a prompt template is specified,
+        # provide the return_full_text=False config by default to avoid confusing
+        # extra text for end-users
+        if prompt_template is not None and built_pipeline.task == "text-generation":
+            return_full_text_key = "return_full_text"
+            model_config = model_config or {}
+            if return_full_text_key not in model_config:
+                model_config[return_full_text_key] = False
+                _logger.info(_PROMPT_TEMPLATE_RETURN_FULL_TEXT_INFO)
 
         pyfunc.add_to_model(
             mlflow_model,
@@ -593,6 +666,7 @@ def log_model(
     metadata: Optional[Dict[str, Any]] = None,
     model_config: Optional[Dict[str, Any]] = None,
     example_no_conversion: bool = False,
+    prompt_template: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -776,6 +850,7 @@ def log_model(
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
         example_no_conversion: {{ example_no_conversion }}
+        prompt_template: {{ prompt_template }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
@@ -797,6 +872,7 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         model_config=model_config,
         example_no_conversion=example_no_conversion,
+        prompt_template=prompt_template,
         **kwargs,
     )
 
@@ -1048,7 +1124,7 @@ def _deserialize_torch_dtype_if_exists(flavor_config):
     return _torch_dype_mapping()[flavor_config["torch_dtype"]]
 
 
-def _fetch_model_card(model_or_pipeline):
+def _fetch_model_card(model_name):
     """
     Attempts to retrieve the model card for the specified model architecture iff the
     `huggingface_hub` library is installed. If a card cannot be found in the registry or
@@ -1064,18 +1140,16 @@ def _fetch_model_card(model_or_pipeline):
         )
         return
 
-    model = model_or_pipeline.model
-
     if hasattr(hub, "ModelCard"):
         try:
-            return hub.ModelCard.load(model.name_or_path)
+            return hub.ModelCard.load(model_name)
         except Exception as e:
             _logger.warning(f"The model card could not be retrieved from the hub due to {e}")
     else:
         _logger.warning(
-            f"The version of huggingface_hub that is installed does not provide "
+            "The version of huggingface_hub that is installed does not provide "
             f"ModelCard functionality. You have version {hub.__version__} installed. "
-            f"Update huggingface_hub to >= '0.10.0' to retrieve the ModelCard data."
+            "Update huggingface_hub to >= '0.10.0' to retrieve the ModelCard data."
         )
 
 
@@ -1093,6 +1167,62 @@ def _write_card_data(card_data, path):
             yaml.safe_dump(
                 card_data.data.to_dict(), stream=file, default_flow_style=False, encoding="utf-8"
             )
+
+
+def _extract_license_file_from_repository(model_name):
+    """Returns the top-level file inventory of `RepoFile` objects from the huggingface hub"""
+    try:
+        import huggingface_hub as hub
+    except ImportError:
+        _logger.debug(
+            f"Unable to list repository contents for the model repo {model_name}. In order "
+            "to enable repository listing functionality, please install the huggingface_hub "
+            "package by running `pip install huggingface_hub>0.10.0"
+        )
+        return
+    try:
+        files = hub.list_repo_files(model_name)
+        return next(file for file in files if _LICENSE_FILE_PATTERN.search(file))
+    except Exception as e:
+        _logger.debug(
+            f"Failed to retrieve repository file listing data for {model_name} due to {e}"
+        )
+
+
+def _write_license_information(model_name, card_data, path):
+    """Writes the license file or instructions to retrieve license information."""
+
+    fallback = (
+        f"A license file could not be found for the '{model_name}' repository. \n"
+        "To ensure that you are in compliance with the license requirements for this "
+        f"model, please visit the model repository here: https://huggingface.co/{model_name}"
+    )
+
+    if license_file := _extract_license_file_from_repository(model_name):
+        try:
+            import huggingface_hub as hub
+
+            license_location = hub.hf_hub_download(repo_id=model_name, filename=license_file)
+        except Exception as e:
+            _logger.warning(f"Failed to download the license file due to: {e}")
+        else:
+            local_license_path = pathlib.Path(license_location)
+            target_path = path.joinpath(local_license_path.name)
+            try:
+                shutil.copy(local_license_path, target_path)
+                return
+            except Exception as e:
+                _logger.warning(f"The license file could not be copied due to: {e}")
+
+    # Fallback or card data license info
+    if card_data and card_data.data.license != "other":
+        fallback = f"{fallback}\nThe declared license type is: '{card_data.data.license}'"
+    else:
+        _logger.warning(
+            "Unable to find license information for this model. Please verify "
+            "permissible usage for the model you are storing prior to use."
+        )
+    path.joinpath(_LICENSE_FILE_NAME).write_text(fallback, encoding="utf-8")
 
 
 def _build_pipeline_from_model_input(model, task: str):
@@ -1224,16 +1354,27 @@ def _extract_torch_dtype_if_set(pipeline):
         return str(torch_dtype)
 
 
-def _get_or_infer_task_type(model, task: Optional[str] = None) -> str:
+def _get_or_infer_task_type(model, task: Optional[str] = None) -> Tuple[str, str]:
     """
-    Validates that a supplied task type is supported by the ``transformers`` library if supplied,
-    else, if not supplied, infers the appropriate task type based on the model type.
+    From the ``task`` parameter, determine the appropriate ``transformers`` task type and
+    MLflow LLM inference task type if possible.
+    1. If ``task`` is not provided, infer the ``transformers`` task type from the model.
+    2. If ``task`` is provided and a valid ``transformers`` task type, use it.
+    3. If ``task`` is provided and not a valid ``transformers`` task type, assume it's an MLflow
+    LLM inference task type, and infer the ``transformers`` task type.
     """
-    if task:
-        _validate_transformers_task_type(task)
+    transformers_task, llm_inference_task = None, None
+
+    if not task:
+        transformers_task = _infer_transformers_task_type(model)
+    elif _is_transformers_task_type(task):
+        transformers_task = task
     else:
-        task = _infer_transformers_task_type(model)
-    return task
+        transformers_task = _infer_transformers_task_type(model)
+        llm_inference_task = task
+        _validate_llm_inference_task_type(llm_inference_task, transformers_task)
+
+    return transformers_task, llm_inference_task
 
 
 def _infer_transformers_task_type(model) -> str:
@@ -1273,19 +1414,46 @@ def _infer_transformers_task_type(model) -> str:
         )
 
 
-def _validate_transformers_task_type(task: str) -> None:
+def _is_transformers_task_type(task: str) -> bool:
+    from transformers.pipelines import get_supported_tasks
+
+    valid_tasks = get_supported_tasks()
+
+    return task in valid_tasks or task.startswith("translation")
+
+
+def _validate_transformers_task_type(transformers_task: str) -> None:
     """
-    Validates that a given ``task`` type is supported by the ``transformers`` library and has been
-    registered in the hub.
+    Validates that a ``transformers_task`` type is supported by the ``transformers`` library
+    and has been registered in the hub.
     """
     from transformers.pipelines import get_supported_tasks
 
     valid_tasks = get_supported_tasks()
 
-    if task not in valid_tasks and not task.startswith("translation"):
+    if not _is_transformers_task_type(transformers_task):
         raise MlflowException(
-            f"The task provided is invalid. '{task}' is not a supported task. "
-            f"Must be one of the registered tasks: {valid_tasks}",
+            f"The task provided is invalid. '{transformers_task}' is not a supported task. "
+            f"Must be one of the registered transformers tasks: {valid_tasks}, or one of the "
+            f"supported MLflow inference tasks",
+            error_code=BAD_REQUEST,
+        )
+
+
+def _validate_llm_inference_task_type(llm_inference_task: str, transformers_task: str) -> None:
+    """
+    Validates that an ``inference_task`` type is supported by ``transformers`` pipeline type.
+    """
+    supported_llm_inference_tasks = _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK.get(
+        transformers_task, []
+    )
+
+    if llm_inference_task not in supported_llm_inference_tasks:
+        raise MlflowException(
+            f"The task provided is invalid. '{llm_inference_task}' is not a supported task. "
+            f"Must be one of the registered MLflow inference tasks supported for "
+            f"the {transformers_task} pipeline: {supported_llm_inference_tasks}, or one of the "
+            f"registered transformers tasks",
             error_code=BAD_REQUEST,
         )
 
@@ -1390,7 +1558,9 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
-def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -> ModelSignature:
+def _get_default_pipeline_signature(
+    pipeline, example=None, model_config=None, flavor_config=None
+) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
     default signatures should only be generated and assigned when saving a model iff the user
@@ -1407,7 +1577,13 @@ def _get_default_pipeline_signature(pipeline, example=None, model_config=None) -
             if _contains_params(example):
                 example, params = example
             example = _format_input_example_for_special_cases(example, pipeline)
-            prediction = generate_signature_output(pipeline, example, model_config, params)
+            prediction = generate_signature_output(
+                pipeline=pipeline,
+                data=example,
+                model_config=model_config,
+                params=params,
+                flavor_config=flavor_config,
+            )
             return infer_signature(example, prediction, params)
         except Exception as e:
             _logger.warning(
@@ -1632,15 +1808,18 @@ def _load_pyfunc(path, model_config: Optional[Dict[str, Any]] = None):
     local_path = pathlib.Path(path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
     model_config = _get_model_config(local_path.joinpath(_COMPONENTS_BINARY_KEY), model_config)
+    prompt_template = _get_prompt_template(local_path)
+
     return _TransformersWrapper(
         _load_model(str(local_path), flavor_configuration, "pipeline"),
         flavor_configuration,
         model_config,
+        prompt_template,
     )
 
 
 @experimental
-def generate_signature_output(pipeline, data, model_config=None, params=None):
+def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
@@ -1653,6 +1832,7 @@ def generate_signature_output(pipeline, data, model_config=None, params=None):
         model_config: Any additional model configuration, provided as kwargs, to inform
             the format of the output type from a pipeline inference call.
         params: A dictionary of additional parameters to pass to the pipeline for inference.
+        flavor_config: The flavor configuration for the model.
 
     Returns:
         The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
@@ -1666,22 +1846,34 @@ def generate_signature_output(pipeline, data, model_config=None, params=None):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _TransformersWrapper(pipeline=pipeline, model_config=model_config).predict(
-        data, params=params
+    pyfunc_model = _TransformersWrapper(
+        pipeline=pipeline,
+        flavor_config=flavor_config,
+        model_config=model_config,
     )
+    return pyfunc_model.predict(data, params=params)
 
 
 class _TransformersWrapper:
-    def __init__(self, pipeline, flavor_config=None, model_config=None):
+    def __init__(self, pipeline, flavor_config=None, model_config=None, prompt_template=None):
         self.pipeline = pipeline
         self.flavor_config = flavor_config
-        self.model_config = model_config or {}
+        # The predict method updates the model_config several times. This should be done over a
+        # deep copy of the original model_config that was specified by the user, otherwise the
+        # prediction won't be idempotent. Hence we creates an immutable dictionary of the original
+        # model config here and enforce creating a deep copy at every predict call.
+        self.model_config = MappingProxyType(model_config or {})
+
+        self.prompt_template = prompt_template
         self._conversation = None
         # NB: Current special-case custom pipeline types that have not been added to
         # the native-supported transformers package but require custom parsing:
         # InstructionTextGenerationPipeline [Dolly] https://huggingface.co/databricks/dolly-v2-12b
         #   (and all variants)
         self._supported_custom_generator_types = {"InstructionTextGenerationPipeline"}
+        self.llm_inference_task = (
+            self.flavor_config.get(_LLM_INFERENCE_TASK_KEY) if self.flavor_config else None
+        )
 
     def _convert_pandas_to_dict(self, data):
         import transformers
@@ -1712,24 +1904,28 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def _override_model_config(self, params):
+    def _merge_model_config_with_params(self, model_config, params):
         if params:
             _logger.warning(
                 "params provided to the `predict` method will override the inference "
                 "configuration saved with the model. If the params provided are not "
                 "valid for the pipeline, MlflowException will be raised."
             )
-
             # Override the inference configuration with any additional kwargs provided by the user.
-            self.model_config.update(params)
+            return {**model_config, **params}
+        else:
+            return model_config
 
-    def _validate_model_config_and_return_output(self, data):
+    def _validate_model_config_and_return_output(self, data, model_config, return_tensors=False):
         import transformers
+
+        if return_tensors:
+            model_config["return_tensors"] = True
 
         try:
             if isinstance(data, dict):
-                return self.pipeline(**data, **self.model_config)
-            return self.pipeline(data, **self.model_config)
+                return self.pipeline(**data, **model_config)
+            return self.pipeline(data, **model_config)
         except ValueError as e:
             if "The following `model_kwargs` are not used by the model" in str(e):
                 raise MlflowException.invalid_parameter_value(
@@ -1768,7 +1964,12 @@ class _TransformersWrapper:
         Returns:
             Model predictions.
         """
-        self._override_model_config(params)
+        # NB: This `predict` method updates the model_config several times. To make the predict
+        # call idempotent, we keep the original self.model_config immutable and creates a deep
+        # copy of it at every predict call.
+        model_config = copy.deepcopy(dict(self.model_config))
+
+        model_config = self._merge_model_config_with_params(model_config, params)
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
@@ -1800,10 +2001,9 @@ class _TransformersWrapper:
                 _validate_input_dictionary_contains_only_strings_and_lists_of_strings(x)
                 for x in input_data
             )
+        return self._predict(input_data, model_config)
 
-        return self._predict(input_data)
-
-    def _predict(self, data):
+    def _predict(self, data, model_config):
         import transformers
 
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
@@ -1814,18 +2014,22 @@ class _TransformersWrapper:
             output_key = "translation_text"
         elif isinstance(self.pipeline, transformers.SummarizationPipeline):
             self._validate_str_or_list_str(data)
+            data = self._format_prompt_template(data)
             output_key = "summary_text"
         elif isinstance(self.pipeline, transformers.Text2TextGenerationPipeline):
             data = self._parse_text2text_input(data)
+            data = self._format_prompt_template(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.TextGenerationPipeline):
             self._validate_str_or_list_str(data)
+            data = self._format_prompt_template(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.QuestionAnsweringPipeline):
             data = self._parse_question_answer_input(data)
             output_key = "answer"
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             self._validate_str_or_list_str(data)
+            data = self._format_prompt_template(data)
             output_key = "token_str"
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
             output_key = "label"
@@ -1843,6 +2047,7 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
             output_key = None
             data = self._parse_feature_extraction_input(data)
+            data = self._format_prompt_template(data)
         elif isinstance(self.pipeline, transformers.ConversationalPipeline):
             output_key = None
             if not self._conversation:
@@ -1852,7 +2057,7 @@ class _TransformersWrapper:
             self._validate_str_or_list_str(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.AutomaticSpeechRecognitionPipeline):
-            if self.model_config.get("return_timestamps", None) in ["word", "char"]:
+            if model_config.get("return_timestamps", None) in ["word", "char"]:
                 output_key = None
             else:
                 output_key = "text"
@@ -1871,9 +2076,9 @@ class _TransformersWrapper:
         # formatting output), but if `include_prompt` is set to False in the `model_config`
         # option during model saving, excess newline characters and the fed-in prompt will be
         # trimmed out from the start of the response.
-        include_prompt = self.model_config.pop("include_prompt", True)
+        include_prompt = model_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
-        collapse_whitespace = self.model_config.pop("collapse_whitespace", False)
+        collapse_whitespace = model_config.pop("collapse_whitespace", False)
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
@@ -1882,7 +2087,15 @@ class _TransformersWrapper:
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         else:
-            raw_output = self._validate_model_config_and_return_output(data)
+            # If inference task is defined, return tensors internally to get usage information
+            return_tensors = False
+            if self.llm_inference_task:
+                return_tensors = True
+                output_key = "generated_token_ids"
+
+            raw_output = self._validate_model_config_and_return_output(
+                data, model_config=model_config, return_tensors=return_tensors
+            )
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
@@ -1896,6 +2109,12 @@ class _TransformersWrapper:
                 include_prompt,
                 collapse_whitespace,
             )
+
+            if self.llm_inference_task:
+                output = postprocess_output_for_llm_inference_task(
+                    data, output, self.pipeline, model_config, self.llm_inference_task
+                )
+
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
             return self._parse_feature_extraction_output(raw_output)
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
@@ -1906,7 +2125,7 @@ class _TransformersWrapper:
             output = self._parse_tokenizer_output(raw_output, output_key)
         elif isinstance(
             self.pipeline, transformers.AutomaticSpeechRecognitionPipeline
-        ) and self.model_config.get("return_timestamps", None) in ["word", "char"]:
+        ) and model_config.get("return_timestamps", None) in ["word", "char"]:
             output = json.dumps(raw_output)
         elif isinstance(
             self.pipeline,
@@ -1937,7 +2156,7 @@ class _TransformersWrapper:
         data = self._coerce_exploded_dict_to_single_dict(data)
         data = self._parse_input_for_table_question_answering(data)
         data = self._parse_conversation_input(data)
-        if (
+        if (  # noqa: SIM114
             isinstance(
                 self.pipeline,
                 (
@@ -1950,6 +2169,36 @@ class _TransformersWrapper:
             )
             and isinstance(data, list)
             and all(isinstance(entry, dict) for entry in data)
+        ):
+            return [list(entry.values())[0] for entry in data]
+        # NB: For Text2TextGenerationPipeline, we need more complex handling for dictionary,
+        # as we allow both single string input and dictionary input (or list of them). Both
+        # are once wrapped to Pandas DataFrame during schema enforcement and convert back to
+        # dictionary. The difference between two is columns of the DataFrame, where the first
+        # case (string) will have auto-generated columns like 0, 1, ... while the latter (dict)
+        # will have the original keys to be the columns. When converting back to dictionary,
+        # those columns will becomes the key of dictionary.
+        #
+        # E.g.
+        #  1. If user's input is string like model.predict("foo")
+        #    -> Raw input: "foo"
+        #    -> Pandas dataframe has column 0, with single row "foo"
+        #    -> Derived dictionary will be {0: "foo"}
+        #  2. If user's input is dictionary like model.predict({"text": "foo"})
+        #    -> Raw input: {"text": "foo"}
+        #    -> Pandas dataframe has column "text", with single row "foo"
+        #    -> Derived dictionary will be {"text": "foo"}
+        #
+        # Then for the first case, we want to extract values only, similar to other pipelines.
+        # However, for the second case, we want to keep the key-value pair as it is.
+        # In long-term, we should definitely change the upstream handling to avoid this
+        # complexity, but here we just try to make it work by checking if the key is auto-generated.
+        elif (
+            isinstance(self.pipeline, transformers.Text2TextGenerationPipeline)
+            and isinstance(data, list)
+            and all(isinstance(entry, dict) for entry in data)
+            # Pandas Dataframe derived dictionary will have integer key (row index)
+            and 0 in data[0].keys()
         ):
             return [list(entry.values())[0] for entry in data]
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
@@ -2227,8 +2476,9 @@ class _TransformersWrapper:
                 data_out = data_out[len(data_in) :].lstrip()
                 if data_out.startswith("A:"):
                     data_out = data_out[2:].lstrip()
-                # If the user has indicated to remove newlines and extra spaces from the generated
-                # text, replace them with a single space.
+
+            # If the user has indicated to remove newlines and extra spaces from the generated
+            # text, replace them with a single space.
             if collapse_whitespace:
                 data_out = re.sub(r"\s+", " ", data_out).strip()
             return data_out
@@ -2780,6 +3030,35 @@ class _TransformersWrapper:
                 error_code=BAD_REQUEST,
             )
 
+    def _format_prompt_template(self, input_data):
+        """
+        Wraps the input data in the specified prompt template. If no template is
+        specified, or if the pipeline is an unsupported type, or if the input type
+        is not a string or list of strings, then the input data is returned unchanged.
+        """
+        if not self.prompt_template:
+            return input_data
+
+        if self.pipeline.task not in _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES:
+            raise MlflowException(
+                f"_format_prompt_template called on an unexpected pipeline type. "
+                f"Expected one of: {_SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES}. "
+                f"Received: {self.pipeline.task}"
+            )
+
+        if isinstance(input_data, str):
+            return self.prompt_template.format(prompt=input_data)
+        elif isinstance(input_data, list):
+            # if every item is a string, then apply formatting to every item
+            if all(isinstance(data, str) for data in input_data):
+                return [self.prompt_template.format(prompt=data) for data in input_data]
+
+        # throw for unsupported types
+        raise MlflowException.invalid_parameter_value(
+            "Prompt templating is only supported for data of type str or List[str]. "
+            f"Got {type(input_data)} instead."
+        )
+
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
@@ -2831,3 +3110,40 @@ def autolog(
         for clazz in classes:
             for method in methods:
                 safe_patch(FLAVOR_NAME, clazz, method, functools.partial(train), manage_run=False)
+
+
+def _get_prompt_template(model_path):
+    if not os.path.exists(model_path):
+        raise MlflowException(
+            f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{model_path}"',
+            RESOURCE_DOES_NOT_EXIST,
+        )
+
+    model_conf = Model.load(model_path)
+    if model_conf.metadata:
+        return model_conf.metadata.get(_PROMPT_TEMPLATE_KEY)
+
+    return None
+
+
+def _validate_prompt_template(prompt_template):
+    if prompt_template is None:
+        return
+
+    if not isinstance(prompt_template, str):
+        raise MlflowException(
+            f"Argument `prompt_template` must be a string, received {type(prompt_template)}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    format_args = [
+        tup[1] for tup in string.Formatter().parse(prompt_template) if tup[1] is not None
+    ]
+
+    # expect there to only be one format arg, and for that arg to be "prompt"
+    if format_args != ["prompt"]:
+        raise MlflowException.invalid_parameter_value(
+            "Argument `prompt_template` must be a string with a single format arg, 'prompt'. "
+            "For example: 'Answer the following question in a friendly tone. Q: {prompt}. A:'\n"
+            f"Received {prompt_template}. "
+        )

@@ -12,10 +12,7 @@ import { Link } from '../../../../common/utils/RoutingUtils';
 import ExperimentRoutes from '../../../routes';
 import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { EvaluationRunHeaderModelIndicator } from './EvaluationRunHeaderModelIndicator';
-import {
-  shouldEnableExperimentDatasetTracking,
-  shouldEnablePromptLab,
-} from '../../../../common/utils/FeatureUtils';
+import { shouldEnableExperimentDatasetTracking, shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
 import { EvaluationRunHeaderDatasetIndicator } from './EvaluationRunHeaderDatasetIndicator';
 import type { RunDatasetWithTags } from '../../../types';
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
@@ -44,12 +41,8 @@ export const EvaluationRunHeaderCellRenderer = ({
   groupHeaderContent = null,
 }: EvaluationRunHeaderCellRendererProps) => {
   const { theme } = useDesignSystemTheme();
-  const {
-    getEvaluableRowCount,
-    evaluateAllClick,
-    runColumnsBeingEvaluated,
-    canEvaluateInRunColumn,
-  } = usePromptEngineeringContext();
+  const { getEvaluableRowCount, evaluateAllClick, runColumnsBeingEvaluated, canEvaluateInRunColumn } =
+    usePromptEngineeringContext();
   const intl = useIntl();
   const evaluableRowCount = getEvaluableRowCount(run);
   const evaluateAllButtonEnabled = evaluableRowCount > 0;
@@ -68,8 +61,7 @@ export const EvaluationRunHeaderCellRenderer = ({
       return intl.formatMessage(
         {
           defaultMessage: 'Process {evaluableRowCount} rows without evaluation output',
-          description:
-            'Experiment page > artifact compare view > run column header > "Evaluate all" button tooltip',
+          description: 'Experiment page > artifact compare view > run column header > "Evaluate all" button tooltip',
         },
         {
           evaluableRowCount,
@@ -101,8 +93,8 @@ export const EvaluationRunHeaderCellRenderer = ({
       >
         <Link
           css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}
-          to={ExperimentRoutes.getRunPageRoute(run.experimentId, run.runUuid)}
-          target='_blank'
+          to={ExperimentRoutes.getRunPageRoute(run.experimentId || '', run.runUuid)}
+          target="_blank"
         >
           <div
             css={{
@@ -117,7 +109,7 @@ export const EvaluationRunHeaderCellRenderer = ({
         </Link>
         <div css={{ flexBasis: theme.spacing.sm }} />
 
-        <Button onClick={() => onHideRun(run.runUuid)} size='small' icon={<VisibleIcon />} />
+        <Button onClick={() => onHideRun(run.runUuid)} size="small" icon={<VisibleIcon />} />
         <div css={{ flex: 1 }} />
         {shouldEnablePromptLab() && canEvaluateInRunColumn(run) && (
           <>
@@ -125,18 +117,18 @@ export const EvaluationRunHeaderCellRenderer = ({
             <Tooltip title={evaluateAllTooltipContent}>
               <Button
                 disabled={!evaluateAllButtonEnabled}
-                size='small'
+                size="small"
                 onClick={() => evaluateAllClick(run)}
                 icon={evaluatingAllInProgress ? <StopIcon /> : <PlayIcon />}
               >
                 {evaluatingAllInProgress ? (
                   <FormattedMessage
-                    defaultMessage='Stop evaluating'
+                    defaultMessage="Stop evaluating"
                     description='Experiment page > artifact compare view > run column header > "Evaluate all" button label when the column is being evaluated'
                   />
                 ) : (
                   <FormattedMessage
-                    defaultMessage='Evaluate all'
+                    defaultMessage="Evaluate all"
                     description='Experiment page > artifact compare view > run column header > "Evaluate all" button label'
                   />
                 )}
@@ -148,12 +140,12 @@ export const EvaluationRunHeaderCellRenderer = ({
         {shouldEnablePromptLab() && canEvaluateOnRun(run) && (
           <DropdownMenu.Root modal={false}>
             <DropdownMenu.Trigger asChild>
-              <Button size='small' icon={<OverflowIcon />} />
+              <Button size="small" icon={<OverflowIcon />} />
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
               <DropdownMenu.Item onClick={() => onDuplicateRun(run)}>
                 <FormattedMessage
-                  defaultMessage='Duplicate run'
+                  defaultMessage="Duplicate run"
                   description='Experiment page > artifact compare view > run column header > "duplicate run" button label'
                 />
               </DropdownMenu.Item>
