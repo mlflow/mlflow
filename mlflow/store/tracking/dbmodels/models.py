@@ -101,7 +101,7 @@ class SqlExperiment(Base):
         Convert DB model to corresponding MLflow entity.
 
         Returns:
-            Description of the return value.
+            :py:class:`mlflow.entities.Experiment`.
         """
         return Experiment(
             experiment_id=str(self.experiment_id),
