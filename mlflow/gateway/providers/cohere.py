@@ -15,8 +15,8 @@ class CohereAdapter(ProviderAdapter):
     @staticmethod
     def _scale_temperature(payload):
         # The range of Cohere's temperature is 0-5, but ours is 0-2, so we scale it.
-        if "temperature" in payload:
-            payload["temperature"] = 2.5 * payload["temperature"]
+        if temperature := payload.get("temperature"):
+            payload["temperature"] = 2.5 * temperature
         return payload
 
     @classmethod
@@ -195,7 +195,8 @@ class CohereAdapter(ProviderAdapter):
             )
         payload = cls._scale_temperature(payload)
 
-        last_message = payload["messages"][-1]
+        messages = payload.pop("messages")
+        last_message = messages.pop()  # pydantic enforces min_items=1
         if last_message["role"] != "user":
             raise HTTPException(
                 status_code=422,
@@ -203,15 +204,15 @@ class CohereAdapter(ProviderAdapter):
             )
         payload["message"] = last_message["content"]
 
-        if len(payload["messages"]) > 1:
+        # remaining messages are chat history
+        if messages:
             payload["chat_history"] = [
                 {
                     "role": "USER" if m["role"] == "user" else "CHATBOT",
                     "message": m["content"],
                 }
-                for m in payload["messages"][:-1]
+                for m in messages
             ]
-        del payload["messages"]
         return payload
 
     @classmethod
