@@ -271,7 +271,7 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds():
         )
 
 
-def test_get_feature_dependencies():
+def test_get_feature_dependencies_doesnt_throw():
     import mlflow
 
     class MyModel(mlflow.pyfunc.PythonModel):
