@@ -13,7 +13,7 @@ import traceback
 import warnings
 from collections import namedtuple
 from functools import partial
-from typing import Callable, List, NamedTuple, Tuple, Union
+from typing import Callable, List, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -539,7 +539,7 @@ class _Metric(NamedTuple):
     function: Callable
     name: str
     index: int
-    version: str
+    version: Optional[str] = None
 
 
 class _CustomArtifact(NamedTuple):
@@ -1508,6 +1508,31 @@ class DefaultEvaluator(ModelEvaluator):
 
         return "\n".join(error_message_parts)
 
+    def _construct_error_message_for_malformed_metrics(
+        self, malformed_results, input_columns, output_columns
+    ):
+        error_messages = [
+            self._get_error_message_missing_columns(metric_name, param_names)
+            for metric_name, param_names in malformed_results
+        ]
+        joined_error_message = "\n".join(error_messages)
+
+        full_message = f"""Error: Metric calculation failed for the following metrics:
+        {joined_error_message}
+
+        Below are the existing column names for the input/output data:
+        Input Columns: {input_columns}
+        Output Columns: {output_columns}
+
+        To resolve this issue, you may need to:
+         - specify any required parameters
+         - if you are missing columns, check that there are no circular dependencies among your
+         metrics, and you may want to map them to an existing column using the following
+         configuration:
+        evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
+
+        return "\n".join(l.lstrip() for l in full_message.splitlines())
+
     def _raise_exception_for_malformed_metrics(self, malformed_results, eval_df):
         output_columns = (
             [] if self.other_output_columns is None else list(self.other_output_columns.columns)
@@ -1526,27 +1551,16 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 input_columns.append("targets")
 
-        error_messages = [
-            self._get_error_message_missing_columns(metric_name, param_names)
-            for metric_name, param_names in malformed_results
-        ]
-        joined_error_message = "\n".join(error_messages)
-        full_message = f"""Error: Metric calculation failed for the following metrics:
-        {joined_error_message}
+        error_message = self._construct_error_message_for_malformed_metrics(
+            malformed_results, input_columns, output_columns
+        )
 
-        Below are the existing column names for the input/output data:
-        Input Columns: {input_columns}
-        Output Columns: {output_columns}
+        raise MlflowException(error_message, error_code=INVALID_PARAMETER_VALUE)
 
-        To resolve this issue, you may need to:
-         - specify any required parameters
-         - if you are missing columns, check that there are no circular dependencies among your
-         metrics, and you may want to map them to an existing column using the following
-         configuration:
-        evaluator_config={{'col_mapping': {{<missing column name>: <existing column name>}}}}"""
-        stripped_message = "\n".join(l.lstrip() for l in full_message.splitlines())
-        raise MlflowException(stripped_message, error_code=INVALID_PARAMETER_VALUE)
-
+    # to order the metrics, we append metrics to self.ordered_metrics if they can be calculated
+    # given the metrics that will be calculated before it
+    # we stop when all metrics are in self.ordered_metrics or we cannot "calculate" any more metrics
+    # and raise an exception in the latter case
     def _order_extra_metrics(self, eval_df):
         remaining_metrics = self.extra_metrics
 
