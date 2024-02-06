@@ -1,14 +1,35 @@
-from typing import List
+from typing import Dict, List
 from unittest import mock
 
+import pandas as pd
+import pytest
 import torch
 
+from mlflow.exceptions import MlflowException
+from mlflow.models import infer_signature
 from mlflow.transformers.llm_inference_utils import (
     _get_finish_reason,
     _get_output_and_usage_from_tensor,
     _get_token_usage,
     _set_stopping_criteria,
+    check_messages_and_apply_chat_template,
+    infer_signature_from_llm_inference_task,
 )
+from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, COMPLETIONS_MODEL_INPUT_SCHEMA
+
+
+def test_infer_signature_from_llm_inference_task():
+    signature = infer_signature_from_llm_inference_task("llm/v1/completions")
+    assert signature.inputs == COMPLETIONS_MODEL_INPUT_SCHEMA
+
+    signature = infer_signature_from_llm_inference_task("llm/v1/chat")
+    assert signature.inputs == CHAT_MODEL_INPUT_SCHEMA
+
+    assert infer_signature_from_llm_inference_task(None, None) is None
+
+    signature = infer_signature("hello", "world")
+    with pytest.raises(MlflowException, match=r".*llm/v1/completions.*signature"):
+        infer_signature_from_llm_inference_task("llm/v1/completions", signature)
 
 
 class DummyTokenizer:
@@ -26,6 +47,50 @@ class DummyTokenizer:
 
     def _tokenize(self, text: str):
         return [x for x in text.split(" ") if x]
+
+    def apply_chat_template(self, messages: List[Dict[str, str]], **kwargs):
+        return " ".join(message["content"] for message in messages)
+
+
+def test_apply_chat_template():
+    tokenizer = DummyTokenizer()
+
+    data1 = pd.DataFrame(
+        {
+            "messages": pd.Series(
+                [[{"role": "A", "content": "one"}, {"role": "B", "content": "two"}]]
+            ),
+            "random": ["value"],
+        }
+    )
+
+    # Test that the function modifies the data in place for Chat task
+    check_messages_and_apply_chat_template(data1, tokenizer, "llm/v1/chat")
+
+    expected_data = pd.DataFrame({"random": ["value"], "prompt": ["one two"]})
+    pd.testing.assert_frame_equal(data1, expected_data)
+
+    # Test that the function does not modify the data for Completion task
+    data2 = pd.DataFrame(
+        {
+            "messages": pd.Series(
+                [[{"role": "A", "content": "one"}, {"role": "B", "content": "two"}]]
+            ),
+            "random": ["value"],
+        }
+    )
+    check_messages_and_apply_chat_template(data2, tokenizer, "llm/v1/completions")
+    pd.testing.assert_frame_equal(
+        data2,
+        pd.DataFrame(
+            {
+                "messages": pd.Series(
+                    [[{"role": "A", "content": "one"}, {"role": "B", "content": "two"}]]
+                ),
+                "random": ["value"],
+            }
+        ),
+    )
 
 
 @mock.patch("transformers.AutoTokenizer.from_pretrained")

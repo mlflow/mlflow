@@ -292,3 +292,14 @@ CHAT_MODEL_INPUT_EXAMPLE = {
     "n": 1,
     "stream": False,
 }
+
+COMPLETIONS_MODEL_INPUT_SCHEMA = Schema(
+    [
+        ColSpec(name="prompt", type=DataType.string),
+        ColSpec(name="temperature", type=DataType.double, required=False),
+        ColSpec(name="max_tokens", type=DataType.long, required=False),
+        ColSpec(name="stop", type=Array(DataType.string), required=False),
+        ColSpec(name="n", type=DataType.long, required=False),
+        ColSpec(name="stream", type=DataType.boolean, required=False),
+    ]
+)

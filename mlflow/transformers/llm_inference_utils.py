@@ -5,8 +5,7 @@ from transformers import AutoTokenizer, StoppingCriteria
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
-from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA
-from mlflow.types.schema import Array, ColSpec, DataType, Schema
+from mlflow.types.llm import CHAT_MODEL_INPUT_SCHEMA, COMPLETIONS_MODEL_INPUT_SCHEMA
 
 _LLM_INFERENCE_TASK_KEY = "inference_task"
 # The LLM inference task is saved as "task" in the metadata for forward compatibility with
@@ -21,31 +20,22 @@ _SUPPORTED_LLM_INFERENCE_TASK_TYPES_BY_PIPELINE_TASK = {
 }
 
 
-COMPLETIONS_MODEL_INPUT_SCHEMA = Schema(
-    [
-        ColSpec(name="prompt", type=DataType.string),
-        ColSpec(name="temperature", type=DataType.double, required=False),
-        ColSpec(name="max_tokens", type=DataType.long, required=False),
-        ColSpec(name="stop", type=Array(DataType.string), required=False),
-        ColSpec(name="n", type=DataType.long, required=False),
-        ColSpec(name="stream", type=DataType.boolean, required=False),
-    ]
-)
-
-
 def infer_signature_from_llm_inference_task(
     inference_task: str, signature: Optional[ModelSignature] = None
 ) -> ModelSignature:
+    """
+    Sets the model signature if provided.
+    When a MLflow inference task is given, raise exception if signature is given,
+    otherwise infer the signature from the task.
+    """
     if signature is not None:
         if inference_task:
             raise MlflowException(
-                "When `task` is specified as `llm/v1/completions "
-                "or llm/v1/chat, the signature would be set by MLflow. "
-                "Please do not set the signature."
+                f"When `task` is specified as `{inference_task}`, the signature would "
+                "be set by MLflow. Please do not set the signature."
             )
         return signature
 
-    # TODO: add tests
     if inference_task == _LLM_INFERENCE_TASK_CHAT:
         signature = ModelSignature(
             inputs=CHAT_MODEL_INPUT_SCHEMA,
@@ -62,7 +52,6 @@ def check_messages_and_apply_chat_template(data, tokenizer, inference_task):
     if inference_task != _LLM_INFERENCE_TASK_CHAT:
         return
 
-    # TODO: add test for this function for the messages, prompt type check
     try:
         messages = data.pop("messages").tolist()[0]
         messages_str = tokenizer.apply_chat_template(
@@ -213,8 +202,6 @@ def _get_completions_text(prompt: str, output_tensor: List[int], pipeline):
         skip_special_tokens=True,
         clean_up_tokenization_spaces=True,
     )
-
-    # TODO: add unit tests
 
     # In order to correctly remove the prompt tokens from the decoded tokens,
     # we need to acquire the length of the prompt without special tokens
