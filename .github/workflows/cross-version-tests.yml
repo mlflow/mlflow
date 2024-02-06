@@ -185,10 +185,6 @@ jobs:
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
-      - name: Install tensorflow for keras
-        if: matrix.package == 'keras'
-        run: |
-          pip install -U tensorflow
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         run: |
           ${{ matrix.install }}
