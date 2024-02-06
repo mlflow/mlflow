@@ -7,6 +7,7 @@ MLflow 2.10.1 is a patch release, containing fixes for various bugs in the `tran
 Bug fixes:
 
 - [UI] Fixed a bug that prevented datasets from showing up in the MLflow UI (#10992, @daniellok-db)
+- [Artifact Store] Fixed directory bucket region name retrieval (#10967, @kriscon-db)
 - Bug fixes for Transformers flavor
     - [Models] Fix missing dtype issue for transformer pipeline (#10979, @B-Step62)
     - [Models] Fix non-idempotent prediction due to in-place update to model-config (#11014, @B-Step62)
@@ -21,7 +22,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#10930, #11005, @serena-ruan; #10927, @harupy; #10967, @kriscon-db
+#10930, #11005, @serena-ruan; #10927, @harupy
 
 ## 2.10.0 (2024-01-26)
 
