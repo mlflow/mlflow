@@ -11,7 +11,7 @@ Step 1: Explore the `mlruns` Directory
 Given that we're using our local filesystem as our tracking server and model registry, let's observe
 the directory structure created when running the python script in the prior step.
 
-Before diving in, it's import to note that Mlflow is designed to abstract complexity from the user
+Before diving in, it's import to note that MLflow is designed to abstract complexity from the user
 and this directory structure is just for illustration purposes. Furthermore, on remote deployments,
 which is recommended for production use cases, the tracking server will be 
 on object store (S3, ADLS, GCS, etc.) and the model registry will be on a relational database 
