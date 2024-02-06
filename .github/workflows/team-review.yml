@@ -7,7 +7,7 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
-    if: ${{ github.event.requested_team.name == 'mlflow-team'}}
+    if: ${{ github.event.requested_team.name == 'mlflow-automation'}}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/github-script@v7
@@ -44,5 +44,5 @@ jobs:
               repo,
               pull_number,
               reviewers: [],
-              team_reviewers: ["mlflow-team"]
+              team_reviewers: ["mlflow-automation"]
             });
