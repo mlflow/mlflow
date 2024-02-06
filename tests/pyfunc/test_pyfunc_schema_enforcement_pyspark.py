@@ -303,7 +303,6 @@ def test_enforce_schema_spark_dataframe_extra_col(spark):
 
 
 def test_enforce_schema_spark_dataframe_no_schema(spark):
-    # Create a DataFrame without a schema
     data = [
         (
             1,  # a
@@ -313,7 +312,6 @@ def test_enforce_schema_spark_dataframe_no_schema(spark):
 
     df = spark.createDataFrame(data)
 
-    # Define a schema
     input_schema = Schema(
         [
             ColSpec(DataType.integer, "a"),
@@ -321,6 +319,5 @@ def test_enforce_schema_spark_dataframe_no_schema(spark):
         ]
     )
 
-    # Check if an error is raised when trying to enforce a schema on a DataFrame without a schema
     with pytest.raises(MlflowException, match="Model is missing inputs"):
         _enforce_schema(df, input_schema)

@@ -1334,6 +1334,8 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
 
 
 def convert_complex_types_pyspark_to_pandas(value, dataType):
+    # This function is needed because the default `asDict` function in PySpark
+    # converts the data to Python types, which is not compatible with the schema enforcement.
     if value is None:
         return None
     if isinstance(dataType, StructType):
