@@ -3862,3 +3862,38 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
 
     mlmodel = yaml.safe_load(tmp_path.joinpath("MLmodel").read_bytes())
     assert mlmodel["model_size_bytes"] == expected_size
+
+
+def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipeline):
+    # max_length and max_new_tokens cannot be used together in Transformers earlier than 4.27
+    validate_max_new_tokens = Version(transformers.__version__) > Version("4.26.1")
+
+    model_config = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+    }
+    if validate_max_new_tokens:
+        model_config["max_new_tokens"] = 500
+
+    # Params will be used to override the values of model_config but should not mutate it
+    params = {
+        "top_k": 30,
+        "max_length": 500,
+    }
+    if validate_max_new_tokens:
+        params["max_new_tokens"] = 5
+
+    pyfunc_model = _TransformersWrapper(text2text_generation_pipeline, model_config=model_config)
+    assert pyfunc_model.model_config["top_k"] == 2
+
+    prediction_output = pyfunc_model.predict(
+        "rocket moon ship astronaut space gravity", params=params
+    )
+
+    assert pyfunc_model.model_config["top_k"] == 2
+    assert pyfunc_model.model_config["num_beams"] == 5
+    assert pyfunc_model.model_config["max_length"] == 30
+    if validate_max_new_tokens:
+        assert pyfunc_model.model_config["max_new_tokens"] == 500
+        assert len(prediction_output[0].split(" ")) <= 5
