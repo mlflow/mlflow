@@ -378,9 +378,6 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
             the request body were correctly specified, and thus we skip validating types. If proto
             parsing failed, then we validate types in addition to the rest of the schema. For
             details, see https://github.com/mlflow/mlflow/pull/5458#issuecomment-1080880870.
-
-    Returns:
-        None on validation success. Otherwise, raises an MLFlowException if an assertion fails.
     """
 
     for f in schema:
@@ -2119,9 +2116,6 @@ def get_handler(request_class):
     """
     Args:
         request_class: The type of protobuf message
-
-    Returns:
-        None
     """
     return HANDLERS.get(request_class, _not_implemented)
 
