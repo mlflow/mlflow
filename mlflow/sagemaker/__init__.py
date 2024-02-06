@@ -1070,7 +1070,6 @@ def push_model_to_sagemaker(
 
 
 def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
-    # pylint: disable=line-too-long
     """
     Serve the model locally in a SageMaker compatible Docker container.
 
@@ -1134,7 +1133,6 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
                 -C port=5000 \\
                 -C image="mlflow-pyfunc"
     """
-    # pylint: enable=line-too-long
     model_path = _download_artifact_from_uri(model_uri)
     model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
     model_config = Model.load(model_config_path)
