@@ -57,10 +57,10 @@ if save_as_type == "tf1-estimator":
 elif save_as_type == "keras":
     if task_type == "save_model":
         save_path = args.save_path
-        mlflow.keras.save_model(model, save_path)
+        mlflow.tensorflow.save_model(model, save_path)
     elif task_type == "log_model":
         with mlflow.start_run() as run:
-            mlflow.keras.log_model(model, "model")
+            mlflow.tensorflow.log_model(model, "model")
             run_id = run.info.run_id
     else:
         raise ValueError("Illegal arguments.")
